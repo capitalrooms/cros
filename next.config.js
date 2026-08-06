@@ -12,6 +12,10 @@ const nextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 5,
   },
+  // Don't require env vars during build
+  experimental: {
+    optimizePackageImports: ["@supabase/supabase-js"],
+  },
 }
 
 module.exports = nextConfig
