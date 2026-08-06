@@ -8,9 +8,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  staticPageGenerationTimeout: 0,
-  experimental: {
-    isrMemoryCacheSize: 0,
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 5,
   },
 }
 
