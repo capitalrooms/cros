@@ -8,6 +8,10 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  staticPageGenerationTimeout: 0,
+  experimental: {
+    isrMemoryCacheSize: 0,
+  },
 }
 
 module.exports = nextConfig
