@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppBar from '@/components/AppBar';
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface RentRecord {
   id: string;
@@ -60,8 +61,7 @@ export default function RentTracking() {
   const totalPaid = rentRecords.reduce((sum, r) => sum + (r.amount_paid || 0), 0);
   const outstanding = totalDue - totalPaid;
 
-  if (loading) { return <GenericPageSkeleton /> };
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -83,7 +83,6 @@ export default function RentTracking() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
           <SummaryCard
             label="Total due"
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
             value={`£${totalDue.toLocaleString()}`}
             color="neutral"
           />

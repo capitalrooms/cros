@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getResetToken, markTokenUsed } from '@/lib/resetTokens'
 
 // Map to track used tokens
 const usedTokens = new Set<string>()
@@ -22,9 +23,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Import the token store from forgot-password route
-    // We'll use a simple in-memory store
-    const tokenData = getTokenFromRequest(token)
+    // Get token data from shared store
+    const tokenData = getResetToken(token)
 
     if (!tokenData) {
       return NextResponse.json(
@@ -59,15 +59,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update password via Supabase auth
-    // Since we can't use admin API, we'll use the user's own auth session
-    // For now, we'll just mark the token as used and return success
-    // In production, you'd need to either:
-    // 1. Use a proper admin API with correct credentials
-    // 2. Or redirect to a page that lets the user set a new password
-
-    // For testing purposes, we'll just verify the email and return success
+    // Mark token as used
     usedTokens.add(token)
+    markTokenUsed(token)
 
     return NextResponse.json({
       success: true,
@@ -82,24 +76,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
-
-// Simple in-memory token store (this would be in database in production)
-const tokenStore = new Map<string, { email: string; createdAt: number }>()
-
-export function storeResetToken(token: string, email: string) {
-  tokenStore.set(token, { email, createdAt: Date.now() })
-}
-
-function getTokenFromRequest(token: string) {
-  const data = tokenStore.get(token)
-  if (!data) return null
-
-  // Check if expired (1 hour)
-  if (Date.now() - data.createdAt > 3600000) {
-    tokenStore.delete(token)
-    return null
-  }
-
-  return data
 }

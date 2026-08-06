@@ -76,8 +76,7 @@ export default function AgentDashboard() {
     router.push('/login')
   }
 
-  if (loading) { return <GenericPageSkeleton /> }
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   const available = rooms.filter((r) => r.status === 'available')
   const onNotice = rooms.filter((r) => r.status === 'on_notice')

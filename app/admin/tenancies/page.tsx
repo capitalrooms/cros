@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar';
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface Property {
   id: string;
@@ -225,8 +226,7 @@ export default function TenanciesManagementPage() {
     }
   };
 
-  if (loading) { return <GenericPageSkeleton /> };
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   const selectedRoomData = rooms.find((r) => r.id === selectedRoom);
   const selectedPropertyData = selectedProperty ? properties.find((p) => p.id === selectedProperty) : null;
@@ -244,7 +244,6 @@ export default function TenanciesManagementPage() {
           <button
             onClick={() => setShowAddTenancy(true)}
             className="rounded-xl bg-neutral-900 px-lg py-md font-bold text-white hover:bg-neutral-800"
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
           >
             + Tenancy
           </button>

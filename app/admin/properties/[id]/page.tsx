@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppBar from '@/components/AppBar';
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface Ticket {
   id: string;
@@ -95,8 +96,7 @@ export default function PropertyDetailPage({ params }: { params: { id: string } 
     init();
   }, [params.id, router]);
 
-  if (loading) { return <GenericPageSkeleton /> };
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   if (!property) {
     return (
@@ -213,7 +213,7 @@ export default function PropertyDetailPage({ params }: { params: { id: string } 
                             <span
                               className={`text-xs font-semibold px-sm py-xs rounded-full ${
                                 ticket.priority === 'high'
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
+
                                   ? 'bg-red-100 text-red-700'
                                   : ticket.priority === 'medium'
                                   ? 'bg-amber-100 text-amber-700'

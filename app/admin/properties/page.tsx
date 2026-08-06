@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar';
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface Tenant {
   id: string;
@@ -254,8 +255,7 @@ export default function PropertiesManagementPage() {
     }
   };
 
-  if (loading) { return <GenericPageSkeleton /> };
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
@@ -272,7 +272,6 @@ export default function PropertiesManagementPage() {
           <button
             onClick={() => setShowAddProperty(true)}
             className="rounded-xl bg-neutral-900 px-lg py-md font-bold text-white hover:bg-neutral-800"
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
           >
             + Property
           </button>

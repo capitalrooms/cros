@@ -179,7 +179,6 @@ export default function NewJobPage() {
                 onChange={(e) => setPropertyId(e.target.value)}
                 required
                 className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
               >
                 <option value="">Select a property…</option>
                 {properties.map((p) => (

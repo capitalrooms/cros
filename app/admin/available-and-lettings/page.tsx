@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar';
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface AvailableRoom {
   id: string;
@@ -28,7 +29,6 @@ interface Application {
   visitor_email: string | null;
   visitor_phone: string | null;
   status: string; // 'referencing', 'provisional', 'agreed_rent', 'ready_to_move'
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
   proposed_rent?: number;
   proposed_move_in?: string;
   deposit_paid?: boolean;
@@ -83,15 +83,14 @@ export default function AvailableAndLettingsPage() {
     init();
   }, [router]);
 
-  if (loading) { return <GenericPageSkeleton /> };
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
-      year: '4-digit',
+      year: 'numeric',
     });
   };
 
