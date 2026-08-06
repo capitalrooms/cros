@@ -116,8 +116,7 @@ export default function PropertyNotesPage() {
     }
   }
 
-  if (loading) { return <GenericPageSkeleton /> }
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   const currentProperty = properties.find((p) => p.id === selectedProperty)
 

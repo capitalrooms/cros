@@ -82,8 +82,7 @@ export default function OverviewPage() {
     init()
   }, [router])
 
-  if (loading) { return <GenericPageSkeleton /> }
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   const occupancyRate = stats.totalRooms > 0
     ? Math.round((stats.occupiedRooms / stats.totalRooms) * 100)

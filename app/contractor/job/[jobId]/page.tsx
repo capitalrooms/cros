@@ -90,8 +90,7 @@ export default function JobDetailPage() {
     }
   }
 
-  if (loading) { return <GenericPageSkeleton /> }
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   if (!job) {
     return (

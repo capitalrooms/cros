@@ -26,7 +26,7 @@ export default function CalendarPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [monthOffset, setMonthOffset] = useState(0);
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [_selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
   useEffect(() => {
     async function checkAuth() {
@@ -213,7 +213,7 @@ export default function CalendarPage() {
                             {dayTickets.length} appt{dayTickets.length !== 1 ? 's' : ''}
                           </p>
                           <div className="mt-xs flex flex-wrap gap-0.5">
-                            {dayTickets.slice(0, 3).map((t, i) => (
+                            {dayTickets.slice(0, 3).map((_t, i) => (
                               <div
                                 key={i}
                                 className={`h-1.5 w-1.5 rounded-full ${

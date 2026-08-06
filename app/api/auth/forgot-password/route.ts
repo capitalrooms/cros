@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import crypto from 'crypto'
-
-// Store reset tokens in memory (for dev purposes - in production use database)
-const resetTokens = new Map<string, { email: string; createdAt: number }>()
+import { createResetToken } from '@/lib/resetTokens'
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,19 +33,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Generate a secure random token (no email needed)
-    const token = crypto.randomBytes(32).toString('hex')
-    const now = Date.now()
-
-    // Store token with expiry (1 hour)
-    resetTokens.set(token, { email, createdAt: now })
-
-    // Clean up old tokens
-    for (const [key, value] of resetTokens.entries()) {
-      if (now - value.createdAt > 3600000) {
-        resetTokens.delete(key)
-      }
-    }
+    // Generate and store reset token
+    const token = createResetToken(email)
 
     // Build reset link
     const resetLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password?token=${token}`
@@ -65,13 +51,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
-
-// Export for use in reset-password-confirm
-export function getResetToken(token: string) {
-  return resetTokens.get(token)
-}
-
-export function markTokenUsed(token: string) {
-  resetTokens.delete(token)
 }

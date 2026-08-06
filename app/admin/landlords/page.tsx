@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppBar from '@/components/AppBar';
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface Landlord {
   id: string;
@@ -101,7 +102,7 @@ export default function LandlordsPage() {
     }
 
     setSuccessMessage(`✓ Landlord added! Email: ${formData.email}`);
-    setFormData({ email: '', name: '', password: '', selectedProperties: [] });
+    setFormData({ email: '', name: '', selectedProperties: [] });
     setShowInviteForm(false);
 
     // Refresh landlords list
@@ -125,8 +126,7 @@ export default function LandlordsPage() {
     }));
   };
 
-  if (loading) { return <GenericPageSkeleton /> };
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -149,7 +149,6 @@ export default function LandlordsPage() {
           <button
             onClick={() => setShowInviteForm(!showInviteForm)}
             className="rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-800"
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
           >
             + Add Landlord
           </button>

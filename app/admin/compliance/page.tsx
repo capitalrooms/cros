@@ -63,7 +63,7 @@ export default function ComplianceDashboard() {
     return { status: 'compliant' }
   }
 
-  const statusBadge = (status: ComplianceStatus) => {
+  const _statusBadge = (status: ComplianceStatus) => {
     if (status.status === 'compliant')
       return <span className="px-md py-xs rounded-lg bg-green-100 text-green-700 text-xs font-bold">✅ Compliant</span>
     if (status.status === 'expiring_soon')
@@ -77,8 +77,7 @@ export default function ComplianceDashboard() {
       checkStatus(p.electrical_cert_expiry).status === 'compliant'
   )
 
-  if (loading) { return <GenericPageSkeleton /> }
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">

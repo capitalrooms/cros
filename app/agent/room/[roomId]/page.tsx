@@ -120,8 +120,7 @@ export default function RoomDetailPage() {
     }
   }
 
-  if (loading) { return <GenericPageSkeleton /> }
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   if (!room) {
     return (

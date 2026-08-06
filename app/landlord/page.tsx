@@ -28,8 +28,7 @@ export default function LandlordDashboard() {
     checkAuth()
   }, [router])
 
-  if (loading) { return <GenericPageSkeleton /> }
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   async function handleSignOut() {
     await signOut()

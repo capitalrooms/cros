@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppBar from '@/components/AppBar';
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface Viewing {
   id: string;
@@ -46,8 +47,7 @@ export default function ViewingsDiary() {
     init();
   }, [router]);
 
-  if (loading) { return <GenericPageSkeleton /> };
-  }
+  if (loading) return <GenericPageSkeleton />;
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -75,7 +75,6 @@ export default function ViewingsDiary() {
               <div
                 key={viewing.id}
                 className="rounded-2xl border-2 border-neutral-200 bg-white p-lg hover:border-neutral-900"
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
               >
                 <div className="flex items-start justify-between gap-md">
                   <div>
