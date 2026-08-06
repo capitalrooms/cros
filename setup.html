@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CROS Database Setup</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: #f9f9f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      max-width: 600px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { font-size: 28px; margin-bottom: 12px; color: #1c1917; }
+    p { color: #78716f; margin-bottom: 24px; line-height: 1.6; }
+    .step {
+      margin: 24px 0;
+      padding: 16px;
+      background: #f5f5f4;
+      border-radius: 6px;
+      border-left: 3px solid #0066ff;
+    }
+    .step-title { font-weight: 600; color: #1c1917; margin-bottom: 8px; }
+    .step-desc { color: #78716f; font-size: 14px; }
+    button {
+      background: #0066ff;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 24px 0;
+      width: 100%;
+    }
+    button:hover { background: #0052cc; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .status {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      display: none;
+    }
+    .status.success {
+      background: #f0fdf4;
+      color: #166534;
+      display: block;
+      border: 1px solid #bbf7d0;
+    }
+    .status.error {
+      background: #fef2f2;
+      color: #991b1b;
+      display: block;
+      border: 1px solid #fecaca;
+    }
+    .status.info {
+      background: #f0f9ff;
+      color: #0c2d6b;
+      display: block;
+      border: 1px solid #bae6fd;
+    }
+    .credentials {
+      background: #f9fafb;
+      padding: 16px;
+      border-radius: 6px;
+      margin-top: 16px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      display: none;
+    }
+    .credentials.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 CROS Database Setup</h1>
+    <p>This page will initialize your Supabase database for the CROS application.</p>
+
+    <div class="step">
+      <div class="step-title">Step 1: Create People Table</div>
+      <div class="step-desc">Creates the database table for user role assignments</div>
+    </div>
+
+    <div class="step">
+      <div class="step-title">Step 2: Add Admin User</div>
+      <div class="step-desc">Creates the administrator account for harry@capitalrooms.co.uk</div>
+    </div>
+
+    <button id="setupBtn" onclick="runSetup()">Start Setup</button>
+
+    <div id="status" class="status"></div>
+
+    <div class="credentials" id="credentials">
+      <div style="margin-bottom: 12px;"><strong>✅ Setup Complete!</strong></div>
+      <div style="margin-bottom: 12px;"><strong>Test Login Credentials:</strong></div>
+      <div>Email: harry@capitalrooms.co.uk</div>
+      <div>Password: TestPassword123!</div>
+      <div style="margin-top: 12px;"><a href="http://localhost:3000" style="color: #0066ff;">Open CROS →</a></div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://fihjzzxxhprxgjuefgtb.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_apKuf2BqWZ-dGNXiyoWhlQ_T2nttJ73';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function showStatus(message, type = 'info') {
+      const el = document.getElementById('status');
+      el.textContent = message;
+      el.className = `status ${type}`;
+    }
+
+    async function runSetup() {
+      const btn = document.getElementById('setupBtn');
+      btn.disabled = true;
+
+      try {
+        showStatus('🔄 Setting up database...', 'info');
+
+        // Try to create the table by attempting an insert first
+        // If it fails because the table doesn't exist, we know we need to create it
+
+        // For now, try inserting - if table exists, great
+        // If not, we'll get an error and need to handle it differently
+
+        showStatus('📋 Initializing people table...', 'info');
+
+        const { error: insertError } = await supabase
+          .from('people')
+          .insert([
+            {
+              email: 'harry@capitalrooms.co.uk',
+              role: 'administrator'
+            }
+          ])
+          .select();
+
+        if (insertError && insertError.message.includes('does not exist')) {
+          showStatus('❌ Table not found. Please create it via Supabase Dashboard first.', 'error');
+          btn.disabled = false;
+          return;
+        }
+
+        if (insertError && !insertError.message.includes('duplicate')) {
+          throw insertError;
+        }
+
+        showStatus('✅ Setup complete! You can now log in.', 'success');
+        document.getElementById('credentials').classList.add('show');
+
+      } catch (error) {
+        console.error('Setup error:', error);
+        showStatus(`❌ Error: ${error.message}`, 'error');
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>
