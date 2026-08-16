@@ -1,336 +1,288 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
-import { createClient } from '@/lib/supabase';
-import AppBar from '@/components/AppBar';
-import Link from 'next/link';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { getCurrentUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase'
+import AppBar from '@/components/AppBar'
+import Link from 'next/link'
 
-interface SelfCheck {
-  id: string;
-  check_type: 'fire_door' | 'smoke_alarm';
-  request_sent_at: string;
-  response_received_at: string | null;
-  tenant_response: string | null;
-  issue_type: string | null;
-  issue_description: string | null;
-  tenancy_id: string;
+interface SafetyCheck {
+  id: string
+  check_type: 'fire_door' | 'smoke_alarm'
+  request_sent_at: string
+  response_received_at: string | null
+  tenant_response: string | null
+  issue_type: string | null
+  issue_description: string | null
 }
 
-interface IssueType {
-  id: string;
-  issue_key: string;
-  display_name: string;
-  category: string;
+const ISSUE_TYPES = {
+  fire_door: [
+    { value: 'door_not_closing', label: 'Door not closing properly' },
+    { value: 'strike_plate_loose', label: 'Strike plate loose' },
+    { value: 'frame_damaged', label: 'Frame damaged' },
+    { value: 'hinges_broken', label: 'Hinges broken' },
+    { value: 'latch_broken', label: 'Latch broken' },
+    { value: 'other', label: 'Other issue' },
+  ],
+  smoke_alarm: [
+    { value: 'battery_low', label: 'Battery low/beeping' },
+    { value: 'not_working', label: 'Alarm not working' },
+    { value: 'glass_dirty', label: 'Glass/sensor dirty' },
+    { value: 'physically_damaged', label: 'Physically damaged' },
+    { value: 'missing', label: 'Alarm missing' },
+    { value: 'other', label: 'Other issue' },
+  ],
 }
 
 export default function SafetyChecksPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [tenancyId, setTenancyId] = useState<string>('');
-  const [checks, setChecks] = useState<SelfCheck[]>([]);
-  const [issueTypes, setIssueTypes] = useState<IssueType[]>([]);
-  const [reportingCheckId, setReportingCheckId] = useState<string | null>(null);
-  const [selectedIssueType, setSelectedIssueType] = useState('');
-  const [issueDescription, setIssueDescription] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [checks, setChecks] = useState<SafetyCheck[]>([])
+  const [loading, setLoading] = useState(true)
+  const [respondingTo, setRespondingTo] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    response: 'confirmed_ok',
+    issue_type: '',
+    issue_description: '',
+  })
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     async function init() {
-      const data = await getCurrentUser();
+      const data = await getCurrentUser()
       if (!data || data.assignment?.role !== 'tenant') {
-        router.push('/login');
-        return;
+        router.push('/login')
+        return
       }
+      setUser(data.user)
 
-      const supabase = createClient();
+      const supabase = createClient()
+      const tenantId = data.id
 
-      // Get active tenancy
-      const { data: tenancy } = await supabase
-        .from('tenancies')
-        .select('id')
-        .eq('tenant_id', data.assignment?.id)
-        .not('end_date', 'is', null)
-        .or('end_date.gte.' + new Date().toISOString().split('T')[0])
-        .single();
+      // Fetch active safety checks for this tenant
+      const { data: checksData } = await supabase
+        .from('tenant_self_checks')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('request_sent_at', { ascending: false })
 
-      if (tenancy) {
-        setTenancyId(tenancy.id);
+      setChecks(checksData || [])
+      setLoading(false)
+    }
+    init()
+  }, [router])
 
-        // Load pending checks
-        const { data: checksData } = await supabase
-          .from('tenant_self_checks')
-          .select('*')
-          .eq('tenancy_id', tenancy.id)
-          .order('request_sent_at', { ascending: false });
-
-        setChecks(checksData || []);
-      }
-
-      // Load issue types
-      const { data: issues } = await supabase.from('tenant_self_check_issues').select('*');
-      setIssueTypes(issues || []);
-
-      setLoading(false);
+  async function handleSubmitResponse(checkId: string) {
+    if (formData.response === 'issue_reported' && !formData.issue_type) {
+      alert('Please select an issue type')
+      return
     }
 
-    init();
-  }, [router]);
-
-  async function handleCheckConfirmed(checkId: string) {
-    if (!tenancyId) return;
-
+    setSubmitting(true)
     try {
-      const supabase = createClient();
+      const supabase = createClient()
       const { error } = await supabase
         .from('tenant_self_checks')
         .update({
           response_received_at: new Date().toISOString(),
-          tenant_response: 'confirmed_ok',
+          tenant_response: formData.response,
+          issue_type: formData.response === 'issue_reported' ? formData.issue_type : null,
+          issue_description: formData.response === 'issue_reported' ? formData.issue_description : null,
         })
-        .eq('id', checkId);
+        .eq('id', checkId)
 
-      if (error) throw error;
+      if (error) throw error
 
-      setChecks((prev) =>
-        prev.map((c) =>
-          c.id === checkId
-            ? {
-                ...c,
-                response_received_at: new Date().toISOString(),
-                tenant_response: 'confirmed_ok',
-              }
-            : c
-        )
-      );
+      alert('✅ Response recorded. Thank you!')
+      setRespondingTo(null)
+      setFormData({ response: 'confirmed_ok', issue_type: '', issue_description: '' })
 
-      alert('✅ Check confirmed');
-    } catch (error) {
-      alert('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  }
-
-  async function handleReportIssue() {
-    if (!reportingCheckId || !selectedIssueType || !issueDescription.trim()) {
-      alert('Please select an issue type and describe it');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const supabase = createClient();
-      const selectedIssue = issueTypes.find((i) => i.issue_key === selectedIssueType);
-
-      const { error } = await supabase
+      // Refresh checks
+      const { data: checksData } = await supabase
         .from('tenant_self_checks')
-        .update({
-          response_received_at: new Date().toISOString(),
-          tenant_response: 'issue_reported',
-          issue_type: selectedIssueType,
-          issue_description: issueDescription,
-        })
-        .eq('id', reportingCheckId);
+        .select('*')
+        .eq('tenant_id', user.id)
+        .order('request_sent_at', { ascending: false })
 
-      if (error) throw error;
-
-      setChecks((prev) =>
-        prev.map((c) =>
-          c.id === reportingCheckId
-            ? {
-                ...c,
-                response_received_at: new Date().toISOString(),
-                tenant_response: 'issue_reported',
-                issue_type: selectedIssueType,
-                issue_description: issueDescription,
-              }
-            : c
-        )
-      );
-
-      setReportingCheckId(null);
-      setSelectedIssueType('');
-      setIssueDescription('');
-      alert('✅ Issue reported. Our team will review it shortly');
-    } catch (error) {
-      alert('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      setChecks(checksData || [])
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
-      setSubmitting(false);
+      setSubmitting(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-100">
-        <AppBar />
-        <p className="p-xl text-sm text-neutral-400">Loading…</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
 
-  const pendingChecks = checks.filter((c) => !c.response_received_at);
-  const completedChecks = checks.filter((c) => c.response_received_at);
-
-  const fireDoLChecks = checks.filter((c) => c.check_type === 'fire_door');
-  const smokeAlarmChecks = checks.filter((c) => c.check_type === 'smoke_alarm');
+  const pendingChecks = checks.filter((c) => !c.response_received_at)
+  const completedChecks = checks.filter((c) => c.response_received_at)
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar
-        right={
-          <Link href="/tenant" className="text-sm font-bold text-neutral-600 hover:text-neutral-900">
-            ← Back
-          </Link>
-        }
-      />
+      <AppBar right={<Link href="/tenant" className="text-sm font-bold text-white">← Dashboard</Link>} />
 
-      <main className="mx-auto max-w-2xl px-lg py-lg">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-sm">Safety Checks</h1>
-        <p className="text-sm text-neutral-600 mb-lg">
-          Monthly checks on fire doors and smoke alarms help keep your home safe.
-        </p>
+      <main className="mx-auto max-w-2xl px-lg py-2xl">
+        <h1 className="text-3xl font-bold text-neutral-900 mb-lg">🏠 Safety Checks</h1>
 
         {/* Pending Checks */}
         {pendingChecks.length > 0 && (
           <section className="mb-3xl">
-            <h2 className="text-lg font-bold text-neutral-900 mb-md">Action Needed</h2>
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">⏰ Checks Awaiting Your Response</h2>
             <div className="space-y-md">
-              {pendingChecks.map((check) => {
-                const isFireDoor = check.check_type === 'fire_door';
-                return (
-                  <div
-                    key={check.id}
-                    className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-lg"
-                  >
-                    <h3 className="text-lg font-bold text-neutral-900 mb-sm">
-                      {isFireDoor ? '🚪 Fire Door Check' : '🚨 Smoke Alarm Check'}
-                    </h3>
-                    <p className="text-sm text-neutral-600 mb-md">
-                      {isFireDoor
-                        ? "Please check that your room's fire door closes properly and latches securely."
-                        : "Please test your smoke alarm and ensure it's working properly."}
+              {pendingChecks.map((check) => (
+                <div
+                  key={check.id}
+                  className="rounded-2xl border-2 border-blue-300 bg-blue-50 p-lg"
+                >
+                  <div className="flex items-start justify-between gap-md mb-md">
+                    <div>
+                      <h3 className="font-bold text-neutral-900 text-lg">
+                        {check.check_type === 'fire_door' ? '🚪' : '🔔'}{' '}
+                        {check.check_type === 'fire_door' ? 'Fire Door Check' : 'Smoke Alarm Check'}
+                      </h3>
+                      <p className="text-sm text-neutral-600 mt-xs">
+                        Requested {new Date(check.request_sent_at).toLocaleDateString('en-GB')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {check.check_type === 'fire_door' ? (
+                    <p className="text-sm text-neutral-700 mb-lg">
+                      Please check that your room's fire door closes properly and latches securely.
                     </p>
+                  ) : (
+                    <p className="text-sm text-neutral-700 mb-lg">
+                      Please test your smoke alarm by pressing the test button. You should hear it beeping.
+                    </p>
+                  )}
 
-                    {reportingCheckId === check.id ? (
-                      <div className="space-y-md mt-md pt-md border-t border-blue-200">
-                        <div>
-                          <label className="text-xs font-semibold text-neutral-600 mb-xs block">
-                            Issue Type
+                  {respondingTo === check.id ? (
+                    <div className="space-y-md">
+                      <div>
+                        <label className="block text-sm font-semibold text-neutral-900 mb-sm">
+                          Is everything OK?
+                        </label>
+                        <div className="space-y-sm">
+                          <label className="flex items-center gap-sm cursor-pointer">
+                            <input
+                              type="radio"
+                              name="response"
+                              value="confirmed_ok"
+                              checked={formData.response === 'confirmed_ok'}
+                              onChange={(e) => setFormData({ ...formData, response: e.target.value })}
+                              className="cursor-pointer"
+                            />
+                            <span className="text-sm text-neutral-900">✅ Yes, everything is fine</span>
                           </label>
-                          <select
-                            value={selectedIssueType}
-                            onChange={(e) => setSelectedIssueType(e.target.value)}
-                            className="w-full rounded-lg border border-neutral-300 px-md py-md text-base"
-                          >
-                            <option value="">Select an issue...</option>
-                            {issueTypes
-                              .filter((i) => i.category === check.check_type)
-                              .map((issue) => (
-                                <option key={issue.issue_key} value={issue.issue_key}>
-                                  {issue.display_name}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-semibold text-neutral-600 mb-xs block">
-                            Describe the Issue
+                          <label className="flex items-center gap-sm cursor-pointer">
+                            <input
+                              type="radio"
+                              name="response"
+                              value="issue_reported"
+                              checked={formData.response === 'issue_reported'}
+                              onChange={(e) => setFormData({ ...formData, response: e.target.value })}
+                              className="cursor-pointer"
+                            />
+                            <span className="text-sm text-neutral-900">⚠️ There's an issue</span>
                           </label>
-                          <textarea
-                            value={issueDescription}
-                            onChange={(e) => setIssueDescription(e.target.value)}
-                            placeholder="e.g., The door doesn't close smoothly"
-                            className="w-full rounded-lg border border-neutral-300 px-md py-md text-base"
-                            rows={3}
-                          />
-                        </div>
-
-                        <div className="flex gap-sm">
-                          <button
-                            onClick={handleReportIssue}
-                            disabled={submitting}
-                            className="flex-1 rounded-lg bg-blue-600 py-md font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {submitting ? 'Submitting...' : 'Submit Issue'}
-                          </button>
-                          <button
-                            onClick={() => setReportingCheckId(null)}
-                            className="flex-1 rounded-lg border border-neutral-300 py-md font-semibold hover:bg-neutral-50"
-                          >
-                            Cancel
-                          </button>
                         </div>
                       </div>
-                    ) : (
-                      <div className="flex gap-sm mt-md">
+
+                      {formData.response === 'issue_reported' && (
+                        <div className="space-y-md">
+                          <div>
+                            <label className="block text-sm font-semibold text-neutral-900 mb-sm">
+                              What's the issue?
+                            </label>
+                            <select
+                              value={formData.issue_type}
+                              onChange={(e) => setFormData({ ...formData, issue_type: e.target.value })}
+                              className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                            >
+                              <option value="">Select an issue...</option>
+                              {ISSUE_TYPES[check.check_type as keyof typeof ISSUE_TYPES].map((issue) => (
+                                <option key={issue.value} value={issue.value}>
+                                  {issue.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-semibold text-neutral-900 mb-sm">
+                              Tell us more (optional)
+                            </label>
+                            <textarea
+                              value={formData.issue_description}
+                              onChange={(e) => setFormData({ ...formData, issue_description: e.target.value })}
+                              className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                              rows={3}
+                              placeholder="Any additional details..."
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-md pt-md">
                         <button
-                          onClick={() => handleCheckConfirmed(check.id)}
-                          className="flex-1 rounded-lg bg-green-600 py-md font-semibold text-white hover:bg-green-700"
+                          onClick={() => handleSubmitResponse(check.id)}
+                          disabled={submitting}
+                          className="flex-1 rounded-xl bg-blue-600 px-md py-sm text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
                         >
-                          ✓ All Good
+                          {submitting ? 'Saving...' : '✓ Submit'}
                         </button>
                         <button
                           onClick={() => {
-                            setReportingCheckId(check.id);
-                            setSelectedIssueType('');
-                            setIssueDescription('');
+                            setRespondingTo(null)
+                            setFormData({ response: 'confirmed_ok', issue_type: '', issue_description: '' })
                           }}
-                          className="flex-1 rounded-lg border border-orange-300 bg-orange-50 py-md font-semibold text-orange-900 hover:bg-orange-100"
+                          className="flex-1 rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold hover:bg-neutral-50"
                         >
-                          ⚠️ There's an Issue
+                          Cancel
                         </button>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setRespondingTo(check.id)}
+                      className="w-full rounded-xl bg-blue-600 px-md py-sm text-sm font-semibold text-white hover:bg-blue-700"
+                    >
+                      Respond Now
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </section>
-        )}
-
-        {pendingChecks.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center mb-3xl">
-            <p className="text-sm text-neutral-600">No pending checks right now</p>
-          </div>
         )}
 
         {/* Completed Checks */}
         {completedChecks.length > 0 && (
           <section>
-            <h2 className="text-lg font-bold text-neutral-900 mb-md">Check History</h2>
-            <div className="space-y-md">
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">✅ Completed Checks</h2>
+            <div className="space-y-sm">
               {completedChecks.map((check) => (
-                <div key={check.id} className="rounded-lg border border-neutral-200 bg-white p-md">
+                <div
+                  key={check.id}
+                  className="rounded-lg border border-neutral-200 bg-white p-md"
+                >
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-neutral-900">
-                        {check.check_type === 'fire_door' ? '🚪 Fire Door' : '🚨 Smoke Alarm'}
-                      </h3>
-                      <p className="text-sm text-neutral-600 mt-xs">
-                        {new Date(check.request_sent_at).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                    <div>
+                      <p className="font-semibold text-neutral-900">
+                        {check.check_type === 'fire_door' ? '🚪' : '🔔'}{' '}
+                        {check.check_type === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}
                       </p>
-                      {check.tenant_response === 'issue_reported' && (
-                        <div className="mt-sm pt-sm border-t border-neutral-200">
-                          <p className="text-xs font-semibold text-orange-900">
-                            Issue: {issueTypes.find((i) => i.issue_key === check.issue_type)?.display_name}
-                          </p>
-                          <p className="text-xs text-neutral-600 mt-xs">{check.issue_description}</p>
-                        </div>
+                      <p className="text-sm text-neutral-600 mt-xs">
+                        {new Date(check.response_received_at!).toLocaleDateString('en-GB')}
+                      </p>
+                      {check.issue_type && (
+                        <p className="text-xs text-red-600 mt-sm font-medium">Issue reported: {check.issue_type}</p>
                       )}
                     </div>
-                    <span
-                      className={`text-xs font-semibold px-md py-xs rounded ${
-                        check.tenant_response === 'confirmed_ok'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-orange-100 text-orange-800'
-                      }`}
-                    >
-                      {check.tenant_response === 'confirmed_ok' ? '✓ Confirmed' : '⚠️ Issue'}
+                    <span className="text-lg">
+                      {check.tenant_response === 'confirmed_ok' ? '✅' : '⚠️'}
                     </span>
                   </div>
                 </div>
@@ -338,7 +290,13 @@ export default function SafetyChecksPage() {
             </div>
           </section>
         )}
+
+        {pendingChecks.length === 0 && completedChecks.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
+            <p className="text-sm text-neutral-600">No safety checks at the moment</p>
+          </div>
+        )}
       </main>
     </div>
-  );
+  )
 }
