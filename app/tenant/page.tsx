@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { getActiveTenancy } from '@/lib/tenancy'
 import { formatBooking, slotLabel } from '@/lib/booking'
 import AppBar from '@/components/AppBar'
+import EnableNotifications from '@/app/components/EnableNotifications'
 import { TenantDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
 
@@ -23,6 +24,7 @@ interface PropertyNote {
   title: string
   content: string
   note_type: 'cleaner' | 'agent' | 'admin'
+  room_id: string | null
   created_at: string
   people: { full_name: string; email: string } | null
 }
@@ -38,6 +40,17 @@ function dayLabel(iso: string) {
     day: 'numeric',
     month: 'long',
   })
+}
+
+/** A live "the contractor is on it" line for a visit the tenant can see, or null. */
+function liveStatus(item: any): string | null {
+  if (item?.status === 'in_progress') return '🔨 Work underway'
+  if (item?.arrived_at)
+    return `✓ Arrived ${new Date(item.arrived_at).toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`
+  return null
 }
 
 function nextRentDate(dueDay: number | null) {
@@ -67,6 +80,7 @@ export default function TenantDashboard() {
   const [roomId, setRoomId] = useState<string | null>(null)
   const [upcoming, setUpcoming] = useState<any[]>([])
   const [notes, setNotes] = useState<PropertyNote[]>([])
+  const [compliance, setCompliance] = useState<any>(null)
 
   useEffect(() => {
     async function checkAuth() {
@@ -107,12 +121,64 @@ export default function TenantDashboard() {
       if (a?.property_id) {
         const { data: up } = await supabase
           .from('maintenance_tickets')
-          .select('id, category, location, room_id, booked_date, booked_slot, status, rooms(name)')
+          .select('id, category, location, room_id, booked_date, booked_slot, status, arrived_at, rooms(name)')
           .eq('property_id', a.property_id)
           .gte('booked_date', todayISO())
           .neq('status', 'completed')
           .order('booked_date')
-        setUpcoming(up || [])
+
+        // Communal cleans booked by the cleaner are property-wide visits too, so
+        // they belong alongside repairs under "at your property". They carry no
+        // room, so the room/property split places them correctly on their own.
+        const { data: cleansData } = await supabase
+          .from('cleans')
+          .select('id, clean_date, clean_time, status')
+          .eq('property_id', a.property_id)
+          .eq('notify_tenants', true)
+          .gte('clean_date', todayISO())
+          .neq('status', 'completed')
+
+        const cleanItems = (cleansData || []).map((c: any) => ({
+          id: `clean-${c.id}`,
+          category: 'Communal clean',
+          location: c.clean_time ? String(c.clean_time).slice(0, 5) : 'Whole house',
+          room_id: null,
+          booked_date: c.clean_date,
+          booked_slot: null,
+          status: c.status,
+          rooms: null,
+        }))
+
+        // Viewings raised by lettings/admin. The whole house should know a viewing
+        // is happening; only the tenant whose own room it is sees it as theirs.
+        // We don't name the room to other tenants — a viewing outs the leaver.
+        const { data: viewingsData } = await supabase
+          .from('viewings')
+          .select('id, viewing_date, viewing_slot, room_id, viewing_status, rooms(name, property_id)')
+          .eq('viewing_status', 'scheduled')
+          .gte('viewing_date', todayISO())
+
+        const viewingItems = (viewingsData || [])
+          .filter((v: any) => v.rooms?.property_id === a.property_id)
+          .map((v: any) => {
+            // viewing_slot may be a 3-hour code ("12-15") or a 15-min time ("10:30").
+            const time = v.viewing_slot ? slotLabel(v.viewing_slot) || v.viewing_slot : ''
+            return {
+              id: `viewing-${v.id}`,
+              category: 'Viewing',
+              location: time ? `A prospective tenant · ${time}` : 'A prospective tenant',
+              room_id: v.room_id,
+              booked_date: v.viewing_date,
+              booked_slot: null,
+              status: v.viewing_status,
+              rooms: null,
+            }
+          })
+
+        const merged = [...(up || []), ...cleanItems, ...viewingItems].sort((x, y) =>
+          String(x.booked_date ?? '').localeCompare(String(y.booked_date ?? ''))
+        )
+        setUpcoming(merged)
 
         // Fetch property notes
         const res = await fetch(`/api/property-notes?propertyId=${a.property_id}`)
@@ -121,6 +187,14 @@ export default function TenantDashboard() {
           setNotes(propertyNotes || [])
         }
       }
+
+      // Property safety certificates — shown to the tenant as reassurance.
+      const { data: prop } = await supabase
+        .from('properties')
+        .select('gas_safe_cert_expiry, electrical_cert_expiry')
+        .eq('id', active.property_id)
+        .maybeSingle()
+      setCompliance(prop || null)
 
       setPersonId(a?.id ?? null)
       setRoomId(active.room_id ?? null)
@@ -178,8 +252,8 @@ export default function TenantDashboard() {
         }
       />
 
-      <main className="mx-auto max-w-6xl px-lg py-2xl">
-        {/* Dark band, matching the contractor view */}
+      <main className="mx-auto max-w-6xl px-lg pb-2xl">
+        {/* Dark band butts against the app bar (no light gap between them) */}
         <section
           className="-mb-3xl bg-neutral-950 pb-3xl text-white"
           style={{ marginInline: '-16px', paddingInline: '16px' }}
@@ -284,6 +358,11 @@ export default function TenantDashboard() {
                 {String(nextVisit.category ?? '').replace(/-/g, ' ')} —{' '}
                 {nextVisit.rooms?.name ?? nextVisit.location}
               </p>
+              {liveStatus(nextVisit) && (
+                <p className="mt-md inline-block rounded-full bg-green-100 px-md py-xs text-sm font-bold text-green-800">
+                  {liveStatus(nextVisit)}
+                </p>
+              )}
             </div>
           )}
 
@@ -294,13 +373,19 @@ export default function TenantDashboard() {
           )}
         </section>
 
+        {/* Sits below the dark hero, which pulls the next element up by -mb-3xl;
+            the extra pt clears that overlap so the button isn't cramped against it. */}
+        <div className="mt-3xl pt-lg">
+          <EnableNotifications />
+        </div>
+
         <section className="mt-3xl pt-md">
           <h2 className="text-xl font-bold text-neutral-900">What&apos;s coming up</h2>
           <div className="mt-md grid gap-md md:grid-cols-2">
             <UpcomingPanel
-              title="In your room"
+              title="Visits to your room"
               items={inMyRoom}
-              emptyText="No appointments in your room"
+              emptyText="No visits scheduled for your room"
             />
             <UpcomingPanel
               title="At your property"
@@ -312,24 +397,80 @@ export default function TenantDashboard() {
 
         <section className="mt-3xl">
           <h2 className="text-xl font-bold text-neutral-900">Property notes</h2>
-          {notes.length === 0 ? (
-            <p className="mt-md text-sm text-neutral-400">
-              No notes yet. Cleaners, agents, and admins can post updates here.
-            </p>
-          ) : (
-            <div className="mt-md space-y-md">
-              {notes.map((note) => (
-                <PropertyNoteCard key={note.id} note={note} />
-              ))}
-            </div>
-          )}
+          {(() => {
+            // House-wide notes reach everyone; a room-specific note only its own room.
+            const visibleNotes = notes.filter((n) => !n.room_id || n.room_id === roomId)
+            return visibleNotes.length === 0 ? (
+              <p className="mt-md text-sm text-neutral-400">
+                No notes yet. Cleaners, agents, and admins can post updates here.
+              </p>
+            ) : (
+              <div className="mt-md space-y-md">
+                {visibleNotes.map((note) => (
+                  <PropertyNoteCard key={note.id} note={note} isForMyRoom={!!note.room_id} />
+                ))}
+              </div>
+            )
+          })()}
+        </section>
+
+        <section className="mt-3xl">
+          <h2 className="text-xl font-bold text-neutral-900">Guides &amp; Property Safety</h2>
+          <p className="mt-xs text-sm text-neutral-500">
+            Your home&apos;s safety certificates and a few handy guides.
+          </p>
+          <div className="mt-md grid gap-md sm:grid-cols-2 lg:grid-cols-3">
+            <SafetyCard
+              title="Gas safety certificate"
+              expiry={compliance?.gas_safe_cert_expiry}
+            />
+            <SafetyCard
+              title="Electrical safety (EICR)"
+              expiry={compliance?.electrical_cert_expiry}
+            />
+            <GuideCard title="Preventing damp &amp; mould" emoji="🪟" />
+            <GuideCard title="Fire safety in your home" emoji="🔥" />
+            <GuideCard title="Using the fire blanket" emoji="🧯" />
+          </div>
+        </section>
+
+        <section className="mt-3xl">
+          <h2 className="text-xl font-bold text-neutral-900">Safety Checks</h2>
+          <p className="mt-xs text-sm text-neutral-500">
+            Monthly checks on fire doors and smoke alarms help keep your home safe.
+          </p>
+          <div className="mt-md">
+            <ActionCard
+              href="/tenant/safety-checks"
+              title="Safety Checks"
+              description="Fire door & smoke alarm checks"
+              primary
+            />
+          </div>
+        </section>
+
+        <section className="mt-3xl">
+          <h2 className="text-xl font-bold text-neutral-900">Important Notices</h2>
+          <p className="mt-xs text-sm text-neutral-500">
+            Messages from your landlord that may need your acknowledgment
+          </p>
+          <div className="mt-md">
+            <ActionCard
+              href="/tenant/acknowledgment-notes"
+              title="Important Notices"
+              description="Messages requiring your acknowledgment"
+            />
+          </div>
         </section>
 
         <section className="mt-3xl">
           <h2 className="text-xl font-bold text-neutral-900">Anything wrong?</h2>
-          <div className="mt-md grid gap-md sm:grid-cols-2 lg:grid-cols-4">
+          <p className="mt-xs text-sm text-neutral-500">
+            Report something that needs fixing, or check on what you&apos;ve already reported.
+          </p>
+          <div className="mt-md grid gap-md sm:grid-cols-2">
             <ActionCard
-              href="/tenant/maintenance"
+              href="/tenant/maintenance-choose"
               title="Report an issue"
               description="Something broken or not working"
               primary
@@ -339,8 +480,6 @@ export default function TenantDashboard() {
               title="My requests"
               description="Track what you've reported"
             />
-            <ActionCard title="House notices" description="Updates for your house" />
-            <ActionCard title="Give notice" description="Planning to move out" />
           </div>
           <p className="mt-lg text-xs text-neutral-400">{user?.email}</p>
         </section>
@@ -384,6 +523,9 @@ function UpcomingPanel({
                 {String(item.category ?? '').replace(/-/g, ' ')} —{' '}
                 {item.rooms?.name ?? item.location}
               </p>
+              {liveStatus(item) && (
+                <p className="mt-xs text-xs font-bold text-green-700">{liveStatus(item)}</p>
+              )}
             </li>
           ))}
         </ul>
@@ -425,7 +567,47 @@ function ActionCard({
   return href ? <Link href={href}>{body}</Link> : body
 }
 
-function PropertyNoteCard({ note }: { note: PropertyNote }) {
+function SafetyCard({ title, expiry }: { title: string; expiry?: string | null }) {
+  // Reassurance, not alarm: while a renewal is pending we still show the cert as
+  // on file rather than flashing "out of date" at the tenant.
+  const inDate = !!expiry && new Date(expiry) >= new Date()
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
+      <p className="text-sm font-bold text-neutral-900">{title}</p>
+      {inDate ? (
+        <p className="mt-sm text-sm font-semibold text-green-700">
+          ✓ In date · valid to{' '}
+          {new Date(expiry!).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+        </p>
+      ) : (
+        <p className="mt-sm text-sm text-neutral-500">
+          On file with your agent{expiry ? ' · renewal in progress' : ''}
+        </p>
+      )}
+    </div>
+  )
+}
+
+const GUIDE_TIPS: Record<string, string> = {
+  'Preventing damp & mould':
+    'Wipe condensation off windows, keep trickle vents open, and ventilate when drying washing indoors.',
+  'Fire safety in your home':
+    'Keep escape routes clear, never wedge fire doors open, and test your smoke alarms monthly.',
+  'Using the fire blanket':
+    'Kept by the kitchen. Pull the tabs, hold it in front of you, and smother the flames — never move a burning pan.',
+}
+
+function GuideCard({ title, emoji }: { title: string; emoji: string }) {
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
+      <p className="text-2xl">{emoji}</p>
+      <p className="mt-sm text-sm font-bold text-neutral-900">{title}</p>
+      <p className="mt-xs text-xs text-neutral-600">{GUIDE_TIPS[title]}</p>
+    </div>
+  )
+}
+
+function PropertyNoteCard({ note, isForMyRoom }: { note: PropertyNote; isForMyRoom?: boolean }) {
   const typeColors = {
     cleaner: 'bg-green-50 border-green-200',
     agent: 'bg-blue-50 border-blue-200',
@@ -452,6 +634,7 @@ function PropertyNoteCard({ note }: { note: PropertyNote }) {
         <div className="flex-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
             {typeLabels[note.note_type]}
+            {isForMyRoom && <span className="ml-sm text-neutral-500">· Your room</span>}
           </p>
           <p className="mt-xs text-sm font-bold text-neutral-900">{note.title}</p>
           <p className="mt-md text-sm text-neutral-700 whitespace-pre-wrap">{note.content}</p>

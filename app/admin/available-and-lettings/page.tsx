@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import Link from 'next/link';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface AvailableRoom {
@@ -45,7 +46,7 @@ export default function AvailableAndLettingsPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator') {
+      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
         router.push('/login');
         return;
       }
@@ -96,7 +97,7 @@ export default function AvailableAndLettingsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar />
+      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
 
       <main className="mx-auto max-w-7xl px-lg py-lg">
         <h1 className="text-3xl font-bold text-neutral-900 mb-lg">Available & Lettings</h1>

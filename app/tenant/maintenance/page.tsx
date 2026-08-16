@@ -9,7 +9,7 @@ export default function MaintenanceHub() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar
         right={
-          <Link href="/tenant" className="shrink-0 text-sm text-white/60 hover:text-white">
+          <Link href="/tenant" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
             Back
           </Link>
         }

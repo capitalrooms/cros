@@ -16,26 +16,45 @@ export default function AppBar({
   right?: React.ReactNode
 }) {
   return (
-    <nav className="bg-neutral-950 text-white border-b border-neutral-800 sticky top-0 z-50">
-      <div className="mx-auto max-w-6xl px-lg py-md flex items-center justify-between gap-lg">
-        {/* Logo - consistent sizing and positioning */}
-        <div className="shrink-0 h-12 flex items-center">
-          <Logo variant="mark" className="h-12 w-auto" invert priority />
+    <nav
+      className="bg-neutral-950 text-white border-b border-neutral-800 sticky top-0 z-50"
+      style={{
+        // On an installed iPhone PWA the bar renders up under the status bar
+        // (clock/battery/signal). Pad the top by the safe-area inset so the
+        // black bar fills that strip and the content sits below it.
+        paddingTop: 'env(safe-area-inset-top)',
+      }}
+    >
+      <div
+        className="mx-auto max-w-6xl px-lg py-md grid items-center gap-md"
+        style={{
+          gridTemplateColumns: '1fr auto 1fr',
+          minHeight: 52,
+          // Keep the far-right control clear of the rounded corner / notch area
+          // in landscape too.
+          paddingLeft: 'max(16px, env(safe-area-inset-left))',
+          paddingRight: 'max(16px, env(safe-area-inset-right))',
+        }}
+      >
+        {/* Left cell — optional page title */}
+        <div className="justify-self-start min-w-0">
+          {title && <p className="truncate text-sm font-medium text-white/70">{title}</p>}
         </div>
 
-        {/* Page title - optional */}
-        {title && (
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-white/80">{title}</p>
-          </div>
-        )}
+        {/* Centre cell — just the emblem, centred. One brand element, uncluttered. */}
+        <div className="justify-self-center">
+          <Logo variant="emblem" height={30} invert priority />
+        </div>
 
-        {/* Right content - sign out, buttons, etc. */}
-        {right && (
-          <div className="flex items-center gap-md text-sm font-semibold text-white/90 ml-auto">
-            {right}
-          </div>
-        )}
+        {/* Right cell — sign out, buttons, etc. Fills its track and pins content
+            to the far right; min-w-0 lets long links truncate rather than push the
+            page wide or shove the brand off-centre. */}
+        <div
+          className="min-w-0 flex items-center gap-md text-sm font-semibold text-white overflow-hidden"
+          style={{ justifyContent: 'flex-end' }}
+        >
+          {right}
+        </div>
       </div>
     </nav>
   )

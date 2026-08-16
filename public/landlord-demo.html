@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landlord Statements - Capital Rooms</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            color-scheme: light;
+            background-color: rgb(250, 250, 249);
+            color: rgb(28, 25, 23);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        }
+
+        /* Header */
+        .header-bar {
+            background-color: #000;
+            padding: 12px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 20px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .sign-out {
+            color: #999;
+            font-size: 14px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .sign-out:hover {
+            color: #fff;
+        }
+
+        /* Main content */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: rgb(28, 25, 23);
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: rgb(153, 153, 153);
+            margin-bottom: 40px;
+        }
+
+        /* Property selector */
+        .property-selector {
+            background: rgb(38, 38, 38);
+            border: 1px solid rgb(51, 51, 51);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 40px;
+        }
+
+        .property-selector label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgb(153, 153, 153);
+            margin-bottom: 12px;
+        }
+
+        .property-selector select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgb(51, 51, 51);
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: inherit;
+            cursor: pointer;
+            background-color: rgb(30, 30, 30);
+            color: rgb(255, 255, 255);
+        }
+
+        .property-selector select:hover {
+            border-color: rgb(80, 80, 80);
+        }
+
+        .property-selector select:focus {
+            outline: none;
+            border-color: rgb(120, 120, 120);
+        }
+
+        /* Main grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 32px;
+            margin-bottom: 40px;
+        }
+
+        /* Statements list */
+        .statements-list {
+            background: rgb(38, 38, 38);
+            border: 1px solid rgb(51, 51, 51);
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .statements-list h2 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: rgb(255, 255, 255);
+        }
+
+        .statement-item {
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgb(51, 51, 51);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: rgb(30, 30, 30);
+        }
+
+        .statement-item:hover {
+            border-color: rgb(80, 80, 80);
+            background-color: rgb(38, 38, 38);
+        }
+
+        .statement-item.active {
+            background-color: rgb(25, 55, 100);
+            border-color: rgb(59, 130, 246);
+        }
+
+        .statement-item-ref {
+            font-weight: 700;
+            font-size: 16px;
+            color: rgb(255, 255, 255);
+        }
+
+        .statement-item-date {
+            font-size: 12px;
+            color: rgb(153, 153, 153);
+            margin-top: 4px;
+        }
+
+        .statement-item-amount {
+            font-weight: 700;
+            color: rgb(34, 197, 94);
+            font-size: 16px;
+            margin-top: 8px;
+        }
+
+        /* Summary section */
+        .summary-section {
+            background: rgb(38, 38, 38);
+            border: 1px solid rgb(51, 51, 51);
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .summary-section h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 32px;
+            color: rgb(255, 255, 255);
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgb(51, 51, 51);
+        }
+
+        .summary-row.total {
+            background-color: rgb(20, 50, 80);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 0;
+            border: 1px solid rgb(40, 80, 140);
+        }
+
+        .summary-label {
+            color: rgb(179, 179, 179);
+            font-size: 16px;
+        }
+
+        .summary-value {
+            font-weight: 700;
+            font-size: 18px;
+            color: rgb(255, 255, 255);
+        }
+
+        .summary-value.negative {
+            color: rgb(239, 68, 68);
+        }
+
+        .summary-value.positive {
+            color: rgb(34, 197, 94);
+        }
+
+        .summary-row.total .summary-label {
+            font-weight: 700;
+            color: rgb(255, 255, 255);
+        }
+
+        .summary-row.total .summary-value {
+            color: rgb(34, 197, 94);
+            font-size: 24px;
+        }
+
+        /* Payment status */
+        .payment-status {
+            background: rgb(20, 50, 80);
+            border: 1px solid rgb(40, 80, 140);
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 32px;
+        }
+
+        .payment-status-title {
+            font-weight: 700;
+            color: rgb(34, 197, 94);
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .payment-status-text {
+            font-size: 14px;
+            color: rgb(179, 179, 179);
+            margin-bottom: 4px;
+        }
+
+        .payment-status-amount {
+            font-weight: 700;
+            color: rgb(34, 197, 94);
+            font-size: 20px;
+            margin-top: 8px;
+        }
+
+        /* Button */
+        .cta-button {
+            display: block;
+            width: 100%;
+            margin-top: 24px;
+            padding: 16px;
+            background-color: rgb(59, 130, 246);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .cta-button:hover {
+            background-color: rgb(37, 99, 235);
+        }
+
+        /* Detail page */
+        .detail-page {
+            display: none;
+        }
+
+        .detail-page.active {
+            display: block;
+        }
+
+        .back-link {
+            font-size: 14px;
+            color: rgb(153, 153, 153);
+            text-decoration: none;
+            margin-bottom: 16px;
+            display: inline-block;
+        }
+
+        .back-link:hover {
+            color: rgb(255, 255, 255);
+        }
+
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgb(51, 51, 51);
+        }
+
+        .detail-header-left h1 {
+            font-size: 28px;
+            margin-bottom: 4px;
+        }
+
+        .detail-header-left p {
+            color: rgb(153, 153, 153);
+            font-size: 14px;
+        }
+
+        .detail-header-right {
+            text-align: right;
+        }
+
+        .detail-header-label {
+            font-size: 12px;
+            color: rgb(120, 120, 120);
+            font-weight: 600;
+        }
+
+        .detail-header-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 4px;
+            color: rgb(255, 255, 255);
+        }
+
+        /* Summary cards */
+        .detail-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .detail-card {
+            background: rgb(38, 38, 38);
+            border: 1px solid rgb(51, 51, 51);
+            border-radius: 8px;
+            padding: 24px;
+        }
+
+        .detail-card.highlight {
+            background-color: rgb(20, 50, 80);
+            border-color: rgb(40, 80, 140);
+        }
+
+        .detail-card-label {
+            font-size: 12px;
+            color: rgb(120, 120, 120);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .detail-card-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: rgb(255, 255, 255);
+        }
+
+        .detail-card.highlight .detail-card-value {
+            color: rgb(34, 197, 94);
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgb(38, 38, 38);
+            border: 1px solid rgb(51, 51, 51);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 32px;
+        }
+
+        thead {
+            background-color: rgb(30, 30, 30);
+        }
+
+        th {
+            padding: 16px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 14px;
+            color: rgb(153, 153, 153);
+            border-bottom: 1px solid rgb(51, 51, 51);
+        }
+
+        td {
+            padding: 16px;
+            border-bottom: 1px solid rgb(51, 51, 51);
+            font-size: 15px;
+            color: rgb(255, 255, 255);
+        }
+
+        tbody tr:hover {
+            background-color: rgb(30, 30, 30);
+        }
+
+        .table-name {
+            font-weight: 600;
+        }
+
+        .table-money {
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .table-positive {
+            color: rgb(34, 197, 94);
+        }
+
+        .table-negative {
+            color: rgb(239, 68, 68);
+        }
+
+        /* Charges section */
+        .charges-section {
+            background: rgb(38, 38, 38);
+            border: 1px solid rgb(51, 51, 51);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+
+        .charges-section h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: rgb(255, 255, 255);
+        }
+
+        .charge-category {
+            margin-bottom: 28px;
+        }
+
+        .charge-category-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: rgb(153, 153, 153);
+            margin-bottom: 12px;
+        }
+
+        .charge-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            background-color: rgb(30, 30, 30);
+            border-radius: 4px;
+        }
+
+        .charge-item-desc {
+            color: rgb(179, 179, 179);
+        }
+
+        .charge-item-amount {
+            font-weight: 600;
+            color: rgb(255, 255, 255);
+        }
+
+        .charge-subtotal {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            margin-top: 8px;
+            font-weight: 600;
+            border-bottom: 1px solid rgb(51, 51, 51);
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            color: rgb(255, 255, 255);
+        }
+
+        .charge-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px;
+            background-color: rgb(60, 30, 30);
+            border: 1px solid rgb(100, 50, 50);
+            border-radius: 6px;
+            font-weight: 700;
+            color: rgb(239, 68, 68);
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: rgb(51, 51, 51);
+            color: rgb(255, 255, 255);
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+
+        .back-button:hover {
+            background-color: rgb(70, 70, 70);
+        }
+
+        @media (max-width: 1024px) {
+            .detail-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-header {
+                flex-direction: column;
+            }
+
+            .detail-header-right {
+                text-align: left;
+                margin-top: 16px;
+            }
+
+            .header-bar {
+                padding: 12px 16px;
+            }
+
+            .container {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header-bar">
+        <div class="logo">🏢</div>
+        <div class="header-right">
+            <a href="#" class="sign-out">Sign out</a>
+        </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboard" class="dashboard-page active">
+        <div class="container">
+            <h1>Your Statements</h1>
+            <p class="subtitle">Welcome, Richard Page</p>
+
+            <div class="property-selector">
+                <label for="property-select">Select Property</label>
+                <select id="property-select" onchange="changeProperty()">
+                    <option value="71-alloa">71 Alloa Road • London, E14 0DX</option>
+                    <option value="12-saltwell">12 Saltwell Street • London, E14 1AA</option>
+                    <option value="23-gilpin">23 Gilpin Avenue • London, SW14 8QX</option>
+                </select>
+            </div>
+
+            <div class="main-grid">
+                <div class="statements-list">
+                    <h2>📋 Statements</h2>
+                    <div class="statement-item active" onclick="viewStatement(1)">
+                        <div class="statement-item-ref">LS1001</div>
+                        <div class="statement-item-date">Jul 2026</div>
+                        <div class="statement-item-amount">£6,616.63</div>
+                    </div>
+                    <div class="statement-item" onclick="viewStatement(2)">
+                        <div class="statement-item-ref">LS0912</div>
+                        <div class="statement-item-date">Jun 2026</div>
+                        <div class="statement-item-amount">£6,511.42</div>
+                    </div>
+                    <div class="statement-item" onclick="viewStatement(3)">
+                        <div class="statement-item-ref">LS0811</div>
+                        <div class="statement-item-date">May 2026</div>
+                        <div class="statement-item-amount">£6,568.09</div>
+                    </div>
+                </div>
+
+                <div class="summary-section">
+                    <h2>💰 Financial Summary</h2>
+
+                    <div class="summary-row">
+                        <span class="summary-label">Gross Rent Collected</span>
+                        <span class="summary-value">£7,720.00</span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span class="summary-label">Management Fees (12%)</span>
+                        <span class="summary-value negative">-£1,103.37</span>
+                    </div>
+
+                    <div class="summary-row">
+                        <span class="summary-label">Property Charges</span>
+                        <span class="summary-value negative">-£176.97</span>
+                    </div>
+
+                    <div class="summary-row total">
+                        <span class="summary-label">Net to You</span>
+                        <span class="summary-value">£6,616.63</span>
+                    </div>
+
+                    <div class="payment-status">
+                        <div class="payment-status-title">✓ Payment Status</div>
+                        <div class="payment-status-text">Payment Completed</div>
+                        <div class="payment-status-text">Paid on 03 July 2026</div>
+                        <div class="payment-status-amount">£6,616.63</div>
+                    </div>
+
+                    <button class="cta-button" onclick="viewDetail()">View Detailed Breakdown →</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Page -->
+    <div id="detail" class="detail-page">
+        <div class="container">
+            <a href="#" class="back-link" onclick="viewDashboard(); return false;">← Back to Statements</a>
+
+            <div class="detail-header">
+                <div class="detail-header-left">
+                    <h1>71 Alloa Road</h1>
+                    <p>London, E14 0DX</p>
+                </div>
+                <div class="detail-header-right">
+                    <div class="detail-header-label">STATEMENT</div>
+                    <div class="detail-header-value">LS1001</div>
+                    <p style="font-size: 14px; color: rgb(153, 153, 153); margin-top: 8px;">03 July 2026</p>
+                </div>
+            </div>
+
+            <p style="color: rgb(153, 153, 153); margin-bottom: 32px;">
+                Period: <strong style="color: rgb(255, 255, 255);">01 July 2026</strong> to <strong style="color: rgb(255, 255, 255);">31 July 2026</strong>
+            </p>
+
+            <div class="detail-cards">
+                <div class="detail-card">
+                    <div class="detail-card-label">GROSS RENT</div>
+                    <div class="detail-card-value">£7,720.00</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-card-label">MANAGEMENT FEES</div>
+                    <div class="detail-card-value" style="color: rgb(239, 68, 68);">-£1,103.37</div>
+                </div>
+                <div class="detail-card">
+                    <div class="detail-card-label">PROPERTY CHARGES</div>
+                    <div class="detail-card-value" style="color: rgb(239, 68, 68);">-£176.97</div>
+                </div>
+                <div class="detail-card highlight">
+                    <div class="detail-card-label">NET TO YOU</div>
+                    <div class="detail-card-value">£6,616.63</div>
+                </div>
+            </div>
+
+            <div class="charges-section">
+                <h3>🏠 Room Breakdown</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tenant</th>
+                            <th style="text-align: right;">Rent</th>
+                            <th style="text-align: right;">Management Fee</th>
+                            <th style="text-align: right;">Net</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="table-name">Miss Karina Bermudez</td>
+                            <td class="table-money">£950.00</td>
+                            <td class="table-money table-negative">-£114.00</td>
+                            <td class="table-money table-positive">£836.00</td>
+                        </tr>
+                        <tr>
+                            <td class="table-name">Miss Elizabeth Vogel</td>
+                            <td class="table-money">£850.00</td>
+                            <td class="table-money table-negative">-£102.00</td>
+                            <td class="table-money table-positive">£748.00</td>
+                        </tr>
+                        <tr>
+                            <td class="table-name">Mr Don Pubudu</td>
+                            <td class="table-money">£1,075.00</td>
+                            <td class="table-money table-negative">-£129.00</td>
+                            <td class="table-money table-positive">£946.00</td>
+                        </tr>
+                        <tr>
+                            <td class="table-name">Mr Sebastian Elliott</td>
+                            <td class="table-money">£850.00</td>
+                            <td class="table-money table-negative">-£102.00</td>
+                            <td class="table-money table-positive">£748.00</td>
+                        </tr>
+                        <tr>
+                            <td class="table-name">Mr Aslan Almukhambetov</td>
+                            <td class="table-money">£995.00</td>
+                            <td class="table-money table-negative">-£119.40</td>
+                            <td class="table-money table-positive">£875.60</td>
+                        </tr>
+                        <tr>
+                            <td class="table-name">Miss Alyssa Miles O'Bray</td>
+                            <td class="table-money">£1,200.00</td>
+                            <td class="table-money table-negative">-£144.00</td>
+                            <td class="table-money table-positive">£1,056.00</td>
+                        </tr>
+                        <tr>
+                            <td class="table-name">Miss Ava Eldridge</td>
+                            <td class="table-money">£950.00</td>
+                            <td class="table-money table-negative">-£114.00</td>
+                            <td class="table-money table-positive">£836.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="charges-section">
+                <h3>📌 Property Charges</h3>
+
+                <div class="charge-category">
+                    <div class="charge-category-title">📺 Subscriptions</div>
+                    <div class="charge-item">
+                        <span class="charge-item-desc">Netflix</span>
+                        <span class="charge-item-amount">£18.99</span>
+                    </div>
+                    <div class="charge-subtotal">
+                        <span>Subtotal</span>
+                        <span>£18.99</span>
+                    </div>
+                </div>
+
+                <div class="charge-category">
+                    <div class="charge-category-title">💡 Utilities</div>
+                    <div class="charge-item">
+                        <span class="charge-item-desc">Community Fibre Broadband 1Gbps</span>
+                        <span class="charge-item-amount">£32.00</span>
+                    </div>
+                    <div class="charge-subtotal">
+                        <span>Subtotal</span>
+                        <span>£32.00</span>
+                    </div>
+                </div>
+
+                <div class="charge-category">
+                    <div class="charge-category-title">🧹 Cleaning</div>
+                    <div class="charge-item">
+                        <span class="charge-item-desc">6 hours cleaning</span>
+                        <span class="charge-item-amount">£90.00</span>
+                    </div>
+                    <div class="charge-subtotal">
+                        <span>Subtotal</span>
+                        <span>£90.00</span>
+                    </div>
+                </div>
+
+                <div class="charge-category">
+                    <div class="charge-category-title">🛠️ Maintenance & Repairs</div>
+                    <div class="charge-item">
+                        <span class="charge-item-desc">AO washing machine appliance cover</span>
+                        <span class="charge-item-amount">£5.99</span>
+                    </div>
+                    <div class="charge-item">
+                        <span class="charge-item-desc">Weedkiller for property</span>
+                        <span class="charge-item-amount">£29.99</span>
+                    </div>
+                    <div class="charge-subtotal">
+                        <span>Subtotal</span>
+                        <span>£35.98</span>
+                    </div>
+                </div>
+
+                <div class="charge-total">
+                    <span>Total Property Charges</span>
+                    <span>£176.97</span>
+                </div>
+            </div>
+
+            <div class="charges-section">
+                <h3>✓ Payment Summary</h3>
+                <div class="payment-status">
+                    <div class="payment-status-title">Payment Completed</div>
+                    <div class="payment-status-text">Paid on 03 July 2026</div>
+                    <div class="payment-status-amount">£6,616.63</div>
+                </div>
+            </div>
+
+            <button class="back-button" onclick="viewDashboard(); return false;">← Back to All Statements</button>
+        </div>
+    </div>
+
+    <script>
+        function viewStatement(num) {
+            document.querySelectorAll('.statement-item').forEach((el, i) => {
+                el.classList.toggle('active', i === num - 1);
+            });
+        }
+
+        function viewDetail() {
+            document.getElementById('dashboard').classList.remove('active');
+            document.getElementById('detail').classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function viewDashboard() {
+            document.getElementById('detail').classList.remove('active');
+            document.getElementById('dashboard').classList.add('active');
+            window.scrollTo(0, 0);
+            return false;
+        }
+
+        function changeProperty() {
+            console.log('Property changed');
+        }
+    </script>
+</body>
+</html>

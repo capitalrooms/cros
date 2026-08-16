@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser } from '@/lib/auth'
+import { logAudit, getClientIp } from '@/lib/auditLog'
+import { validateUUID, validateNotes } from '@/lib/validation'
 
 export async function GET(request: NextRequest) {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized property-notes GET access', ipAddress: getClientIp(request.headers) })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { user } = currentUser
+
   const { searchParams } = new URL(request.url)
   const propertyId = searchParams.get('propertyId')
 
-  if (!propertyId) {
-    return NextResponse.json({ error: 'propertyId required' }, { status: 400 })
+  if (!propertyId || !validateUUID(propertyId)) {
+    await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid propertyId: ${propertyId}`, ipAddress: getClientIp(request.headers) })
+    return NextResponse.json({ error: 'Invalid propertyId' }, { status: 400 })
   }
 
   const supabase = createClient(
@@ -29,19 +41,45 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json()
-  const { propertyId, title, content, noteType } = body
+  const currentUser = await getCurrentUser()
+  if (!currentUser) {
+    await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized property-notes POST access', ipAddress: getClientIp(request.headers) })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-  if (!propertyId || !title || !content || !noteType) {
+  const { user, assignment: person } = currentUser
+
+  const body = await request.json()
+  const { propertyId, title, content, noteType, roomId } = body
+
+  if (!propertyId || !validateUUID(propertyId) || !title || !content || !noteType) {
+    await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid input - propertyId: ${propertyId}, title: ${title}`, ipAddress: getClientIp(request.headers) })
     return NextResponse.json(
-      { error: 'propertyId, title, content, and noteType required' },
+      { error: 'Invalid propertyId, title, content, or noteType' },
+      { status: 400 }
+    )
+  }
+
+  if (!validateNotes(content)) {
+    await logAudit({ userId: user.id, action: 'security_invalid_input', details: 'Invalid content (XSS detected)', ipAddress: getClientIp(request.headers) })
+    return NextResponse.json(
+      { error: 'Content contains invalid characters' },
       { status: 400 }
     )
   }
 
   if (!['cleaner', 'agent', 'admin'].includes(noteType)) {
+    await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid noteType: ${noteType}`, ipAddress: getClientIp(request.headers) })
     return NextResponse.json(
       { error: 'noteType must be one of: cleaner, agent, admin' },
+      { status: 400 }
+    )
+  }
+
+  if (roomId && !validateUUID(roomId)) {
+    await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid roomId: ${roomId}`, ipAddress: getClientIp(request.headers) })
+    return NextResponse.json(
+      { error: 'Invalid roomId format' },
       { status: 400 }
     )
   }
@@ -51,21 +89,10 @@ export async function POST(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // Get current user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Verify permission for cleaner, agent, and admin roles
+  if (!person || !['cleaner', 'agent', 'administrator'].includes(person.role)) {
+    await logAudit({ userId: user.id, action: 'security_forbidden_access', details: `Role '${person?.role}' attempted to create property note`, ipAddress: getClientIp(request.headers) })
   }
-
-  // Get person record to verify they have permission to create notes
-  const { data: person } = await supabase
-    .from('people')
-    .select('role')
-    .eq('auth_id', user.id)
-    .single()
 
   if (!person || !['cleaner', 'agent', 'administrator'].includes(person.role)) {
     return NextResponse.json(
@@ -78,7 +105,8 @@ export async function POST(request: NextRequest) {
     .from('property_notes')
     .insert({
       property_id: propertyId,
-      created_by: user.id,
+      room_id: roomId || null,
+      created_by: person.id,
       title,
       content,
       note_type: noteType,

@@ -125,7 +125,7 @@ export default function RoomDetailPage() {
   if (!room) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<Link href="/agent" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">Back</Link>} />
         <p className="p-xl text-sm text-neutral-400">Room not found</p>
       </div>
     )
@@ -137,12 +137,12 @@ export default function RoomDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar />
+      <AppBar right={<Link href="/agent" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">Back</Link>} />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">
         <Link href="/agent">
           <button className="text-sm font-bold text-neutral-600 hover:text-neutral-900 mb-lg">
-            ← Back to listings
+            ← Back
           </button>
         </Link>
 

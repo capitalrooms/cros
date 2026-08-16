@@ -7,8 +7,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
+// Create a singleton instance to avoid multiple GoTrueClient instances
+let supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null
+
 export function createClient() {
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey)
+  if (!supabaseInstance) {
+    supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey)
+  }
+  return supabaseInstance
 }
 
 export type UserRole = 'administrator' | 'tenant' | 'contractor' | 'cleaner' | 'landlord' | 'lettings'

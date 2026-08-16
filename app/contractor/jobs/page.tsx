@@ -278,6 +278,9 @@ export default function ContractorJobs() {
   const mine = jobs.filter((j) => j.status !== 'reported' && j.status !== 'completed');
   const booked = mine.filter((j) => j.booked_date).sort((a, b) => a.booked_date!.localeCompare(b.booked_date!));
   const unscheduled = mine.filter((j) => !j.booked_date);
+  const done = jobs
+    .filter((j) => j.status === 'completed')
+    .sort((a, b) => (b.completed_at || '').localeCompare(a.completed_at || ''));
   const nextJob = booked.find((j) => j.booked_date! >= todayISO()) ?? booked[0];
   const todayCount = booked.filter((j) => j.booked_date === todayISO()).length;
 
@@ -312,7 +315,7 @@ export default function ContractorJobs() {
       {/* Top bar */}
       <AppBar
         right={
-          <Link href="/contractor" className="shrink-0 text-sm text-white/60 hover:text-white">
+          <Link href="/contractor" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
             Dashboard
           </Link>
         }
@@ -605,6 +608,36 @@ export default function ContractorJobs() {
           )}
         </section>
 
+        {/* Completed — reviewable after the fact */}
+        {done.length > 0 && (
+          <section className="mt-3xl">
+            <h2 className="text-xl font-bold text-neutral-900">Completed</h2>
+            <div className="mt-md space-y-sm">
+              {done.map((job) => (
+                <button
+                  key={job.id}
+                  onClick={() => {
+                    setSelectedJob(job);
+                    setShowDetails(true);
+                  }}
+                  className="flex w-full items-center gap-md rounded-2xl border border-neutral-200 bg-white p-md text-left hover:border-neutral-400"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-neutral-900">{job.title}</p>
+                    <p className="truncate text-sm text-neutral-500">
+                      {job.properties?.name} · {job.rooms?.name || job.location}
+                      {job.completed_at ? ` · ${new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-green-100 px-sm py-xs text-xs font-bold text-green-800">
+                    Done
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Where the work is */}
         <section className="mt-3xl">
           <h2 className="text-xl font-bold text-neutral-900">Where your jobs are</h2>
@@ -784,6 +817,29 @@ export default function ContractorJobs() {
               >
                 Complete job
               </button>
+            )}
+
+            {/* Completed jobs stay reviewable after the fact. */}
+            {selectedJob.status === 'completed' && (
+              <div className="mt-lg rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
+                <p className="font-bold text-green-800">
+                  ✅ Completed{selectedJob.completed_at ? ` · ${new Date(selectedJob.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                </p>
+                <div className="mt-md space-y-xs text-sm text-green-900">
+                  {selectedJob.completion_price != null && (
+                    <div className="flex justify-between"><span>Price</span><span className="font-bold">£{Number(selectedJob.completion_price).toFixed(2)}</span></div>
+                  )}
+                  {selectedJob.fix_quality && (
+                    <div className="flex justify-between"><span>Fix quality</span><span className="font-semibold capitalize">{String(selectedJob.fix_quality).replace('-', ' ')}</span></div>
+                  )}
+                  {selectedJob.return_needed && (
+                    <div className="flex justify-between"><span>Return visit</span><span className="font-semibold">{selectedJob.return_visit_date ? new Date(selectedJob.return_visit_date).toLocaleDateString('en-GB') : 'yes'}</span></div>
+                  )}
+                </div>
+                {selectedJob.contractor_notes && (
+                  <p className="mt-md whitespace-pre-wrap text-sm text-green-900"><span className="font-semibold">Notes:</span> {selectedJob.contractor_notes}</p>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { tenantCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser } from '@/lib/auth'
+import { logAudit, getClientIp } from '@/lib/auditLog'
+import { validateUUID } from '@/lib/validation'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 const FROM = 'Capital Rooms <onboarding@resend.dev>'
@@ -7,14 +11,25 @@ const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/publ
 const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3000'
 
 export async function POST(request: NextRequest) {
+  // Master switch: tenant/applicant messaging is paused until go-live.
+  if (!tenantCommsLive()) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
+  }
+  const user = await getCurrentUser()
+  if (!user) {
+    await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized notify-job-completed access', ipAddress: getClientIp(request.headers) })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
   }
 
   const { ticketId } = await request.json()
-  if (!ticketId) {
-    return NextResponse.json({ error: 'ticketId required' }, { status: 400 })
+  if (!ticketId || !validateUUID(ticketId)) {
+    await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid ticketId: ${ticketId}`, ipAddress: getClientIp(request.headers) })
+    return NextResponse.json({ error: 'Invalid ticketId format' }, { status: 400 })
   }
 
   const supabase = createClient(
@@ -175,5 +190,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ sent, message: 'Job completion notifications sent' })
+  return NextResponse.json({
+    sent,
+    message: 'Job completion notifications sent',
+    notificationSummary: {
+      adminNotified: sent.includes(admin) ? admin : null,
+      tenantInRoomNotified: sent.filter(e => e !== admin).length > 0 ? sent.filter(e => e !== admin)[0] : null,
+      otherTenantsNotified: Math.max(0, sent.length - (sent.includes(admin) ? 1 : 0) - (sent.filter(e => e !== admin).length > 0 ? 1 : 0)),
+      total: sent.length
+    }
+  })
 }

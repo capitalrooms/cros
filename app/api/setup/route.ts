@@ -1,8 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { logAudit, getClientIp } from '@/lib/auditLog';
 
 export async function POST(request: NextRequest) {
   try {
+    // Security: only allow in development or with valid token
+    if (process.env.NODE_ENV === 'production') {
+      await logAudit({ userId: 'unknown', action: 'security_forbidden_access', details: 'Setup endpoint accessed in production', ipAddress: getClientIp(request.headers) })
+      return NextResponse.json(
+        { error: 'Setup endpoint not available in production' },
+        { status: 403 }
+      );
+    }
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
