@@ -1,91 +1,67 @@
--- Create Tenant Acknowledgment Notes Table
--- For notes that require active tenant confirmation or photo evidence
--- Auto-files after 7 days if not acknowledged
--- Includes internal admin tracking (never shown to tenant)
+-- Create tenant acknowledgment notes that require active confirmation
 
--- 1. Create tenant_acknowledgment_notes table
-CREATE TABLE IF NOT EXISTS public.tenant_acknowledgment_notes (
+CREATE TABLE IF NOT EXISTS tenant_acknowledgment_notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  property_id UUID REFERENCES public.properties(id) ON DELETE CASCADE,
-  room_id UUID NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
-  tenancy_id UUID NOT NULL REFERENCES public.tenancies(id) ON DELETE CASCADE,
+  property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+  room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  tenancy_id UUID NOT NULL REFERENCES tenancies(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   content TEXT NOT NULL,
-  created_by UUID NOT NULL REFERENCES public.people(id) ON DELETE SET NULL,
+  created_by UUID NOT NULL REFERENCES people(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   expires_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() + INTERVAL '7 days'),
-
+  
   -- Acknowledgment tracking
-  acknowledged_by UUID REFERENCES public.people(id) ON DELETE SET NULL,
+  acknowledged_by UUID REFERENCES people(id),
   acknowledged_at TIMESTAMP WITH TIME ZONE,
   photo_required BOOLEAN DEFAULT false,
-  photo_attachment_id UUID REFERENCES public.attachments(id) ON DELETE SET NULL,
-
-  -- Internal admin tracking (never shown to tenant)
+  photo_attachment_id UUID REFERENCES attachments(id),
+  
+  -- Internal "karma" tracking (never shown to tenant)
   internal_note TEXT,
-  internal_note_indexed TSVECTOR, -- For full-text search
-
-  -- Status tracking
+  
+  -- Status
   status VARCHAR(50) DEFAULT 'active', -- 'active', 'acknowledged', 'filed'
-  filed_at TIMESTAMP WITH TIME ZONE
+  
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. Create indexes for common queries
-CREATE INDEX IF NOT EXISTS idx_tenant_ack_notes_tenancy_id
-  ON public.tenant_acknowledgment_notes(tenancy_id);
-CREATE INDEX IF NOT EXISTS idx_tenant_ack_notes_room_id
-  ON public.tenant_acknowledgment_notes(room_id);
-CREATE INDEX IF NOT EXISTS idx_tenant_ack_notes_property_id
-  ON public.tenant_acknowledgment_notes(property_id);
-CREATE INDEX IF NOT EXISTS idx_tenant_ack_notes_status
-  ON public.tenant_acknowledgment_notes(status);
-CREATE INDEX IF NOT EXISTS idx_tenant_ack_notes_created_at
-  ON public.tenant_acknowledgment_notes(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_tenant_ack_notes_expires_at
-  ON public.tenant_acknowledgment_notes(expires_at) WHERE status = 'active';
-CREATE INDEX IF NOT EXISTS idx_tenant_ack_notes_active
-  ON public.tenant_acknowledgment_notes(tenancy_id, status) WHERE status = 'active';
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_acknowledgment_notes_tenancy_id
+  ON tenant_acknowledgment_notes(tenancy_id);
 
--- 3. Create full-text search index on internal notes (for searchability)
-CREATE INDEX IF NOT EXISTS idx_tenant_ack_notes_internal_search
-  ON public.tenant_acknowledgment_notes USING GIN(internal_note_indexed);
+CREATE INDEX IF NOT EXISTS idx_acknowledgment_notes_room_id
+  ON tenant_acknowledgment_notes(room_id);
 
--- 4. Enable RLS
-ALTER TABLE public.tenant_acknowledgment_notes ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_acknowledgment_notes_status
+  ON tenant_acknowledgment_notes(status, expires_at);
 
--- 5. Create RLS policies for development/testing
-CREATE POLICY "anyone_can_read_ack_notes" ON public.tenant_acknowledgment_notes
-  FOR SELECT USING (true);
+-- RLS: Tenants see only active notes for their room (without internal_note); admins see all
+ALTER TABLE tenant_acknowledgment_notes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "authenticated_can_insert_ack_notes" ON public.tenant_acknowledgment_notes
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "acknowledgment_notes_tenant_read_active" ON tenant_acknowledgment_notes
+  FOR SELECT
+  USING (
+    (status = 'active' OR acknowledged_by = (SELECT id FROM people WHERE user_id = auth.uid()))
+    AND room_id IN (
+      SELECT room_id FROM tenancies WHERE tenant_id = (
+        SELECT id FROM people WHERE user_id = auth.uid()
+      )
+    )
+  );
 
-CREATE POLICY "authenticated_can_update_ack_notes" ON public.tenant_acknowledgment_notes
-  FOR UPDATE USING (auth.role() = 'authenticated');
+CREATE POLICY "acknowledgment_notes_tenant_update_own" ON tenant_acknowledgment_notes
+  FOR UPDATE
+  USING (
+    room_id IN (
+      SELECT room_id FROM tenancies WHERE tenant_id = (
+        SELECT id FROM people WHERE user_id = auth.uid()
+      )
+    )
+  );
 
--- 6. Add constraints
-ALTER TABLE public.tenant_acknowledgment_notes
-DROP CONSTRAINT IF EXISTS tenant_ack_notes_status_check;
-
-ALTER TABLE public.tenant_acknowledgment_notes
-ADD CONSTRAINT tenant_ack_notes_status_check
-CHECK (status IN ('active', 'acknowledged', 'filed'));
-
--- 7. Create function to update internal_note_indexed column on insert/update
-CREATE OR REPLACE FUNCTION update_internal_note_search()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.internal_note IS NOT NULL THEN
-    NEW.internal_note_indexed := to_tsvector('english', NEW.internal_note);
-  ELSE
-    NEW.internal_note_indexed := NULL;
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- 8. Create trigger to update search index
-DROP TRIGGER IF EXISTS trigger_update_internal_note_search ON public.tenant_acknowledgment_notes;
-CREATE TRIGGER trigger_update_internal_note_search
-BEFORE INSERT OR UPDATE ON public.tenant_acknowledgment_notes
-FOR EACH ROW EXECUTE FUNCTION update_internal_note_search();
+CREATE POLICY "acknowledgment_notes_admin_all" ON tenant_acknowledgment_notes
+  FOR ALL
+  USING (
+    (SELECT assignment->>'role' FROM people WHERE user_id = auth.uid()) IN ('administrator', 'admin')
+  );
