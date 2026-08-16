@@ -68,7 +68,7 @@ const EMERGENCY_GUIDANCE: Record<string, { title: string; actions: string[] }> =
       'Do NOT touch wet switches/sockets',
       'Do NOT use water on electrical fires',
       'Call a qualified electrician immediately',
-      'If there's a fire: Call 999 (Fire Service)',
+      "If there's a fire: Call 999 (Fire Service)",
       'Avoid the affected area until resolved',
     ],
   },
