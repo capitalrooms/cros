@@ -112,7 +112,7 @@ export default function HistoryPage() {
       <div className="min-h-screen bg-neutral-100">
         <AppBar
           right={
-            <Link href={homeHref} className="shrink-0 text-sm text-white/60 hover:text-white">
+            <Link href={homeHref} className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
               Dashboard
             </Link>
           }
@@ -129,7 +129,7 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
         right={
-          <Link href={homeHref} className="shrink-0 text-sm text-white/60 hover:text-white">
+          <Link href={homeHref} className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
             Dashboard
           </Link>
         }

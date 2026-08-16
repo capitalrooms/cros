@@ -31,7 +31,7 @@ export default function CalendarPage() {
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator') {
+      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
         router.push('/login');
         return;
       }
@@ -145,8 +145,8 @@ export default function CalendarPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar
         right={
-          <Link href="/admin/maintenance" className="shrink-0 text-sm text-white/60 hover:text-white">
-            Maintenance · Dashboard
+          <Link href="/admin/maintenance" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
+            Dashboard
           </Link>
         }
       />

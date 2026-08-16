@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import Link from 'next/link'
 
 interface Property {
   id: string
@@ -35,7 +36,7 @@ export default function ComplianceDashboard() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'administrator') {
+      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
         router.push('/login')
         return
       }
@@ -81,7 +82,7 @@ export default function ComplianceDashboard() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar />
+      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
         <div className="mb-3xl">

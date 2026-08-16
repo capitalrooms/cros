@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import EnableNotifications from '@/app/components/EnableNotifications'
 import { ContractorDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
 
@@ -14,7 +15,15 @@ interface Job {
   description?: string
   category?: string
   priority: string
-  status: 'pending' | 'scheduled' | 'in_progress' | 'contractor_attended' | 'awaiting_return' | 'completed'
+  status:
+    | 'reported'
+    | 'assigned'
+    | 'pending'
+    | 'scheduled'
+    | 'in_progress'
+    | 'contractor_attended'
+    | 'awaiting_return'
+    | 'completed'
   booked_date?: string
   booked_slot?: string
   property_id: string
@@ -43,13 +52,14 @@ export default function ContractorDashboard() {
 
       const supabase = createClient()
 
-      // Fetch contractor's jobs (assigned to them) + available jobs (released to contractors but not yet assigned)
+      // Only jobs the admin has approved AND sent to THIS contractor. Contractors
+      // don't browse a shared pool — the admin picks who does each job.
       const contractorId = (data.assignment as any).id
 
       const { data: jobsData } = await supabase
         .from('maintenance_tickets')
         .select('*, properties(name, address), rooms(name)')
-        .or(`contractor_id.eq.${contractorId},and(approved_at.not.is.null,contractor_id.is.null)`)
+        .eq('contractor_id', contractorId)
         .order('booked_date', { ascending: true })
 
       setJobs(jobsData || [])
@@ -68,22 +78,16 @@ export default function ContractorDashboard() {
     return <ContractorDashboardSkeleton />
   }
 
-  const pending = jobs.filter((j) => j.status === 'pending')
-  const scheduled = jobs.filter((j) => j.status === 'scheduled')
-  const inProgress = jobs.filter((j) => j.status === 'in_progress' || j.status === 'contractor_attended')
+  // Jobs the admin sent you. "To schedule" still needs a date you pick; "Booked"
+  // already has one. Then in-progress and completed.
+  const toSchedule = jobs.filter((j) => j.status === 'assigned' && !j.booked_date)
+  const booked = jobs.filter((j) => j.status === 'assigned' && j.booked_date)
+  const inProgress = jobs.filter((j) =>
+    ['in_progress', 'contractor_attended', 'awaiting_return'].includes(j.status)
+  )
   const completed = jobs.filter((j) => j.status === 'completed')
-  const awaiting = jobs.filter((j) => j.status === 'awaiting_return')
 
-  const filtered =
-    filter === 'all'
-      ? jobs
-      : filter === 'pending'
-      ? [...pending, ...scheduled]
-      : filter === 'scheduled'
-      ? [...scheduled, ...inProgress]
-      : completed
-
-  const nextJob = scheduled.find((j) => j.booked_date)
+  const nextJob = booked[0]
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
@@ -105,6 +109,10 @@ export default function ContractorDashboard() {
           <p className="mt-sm text-sm text-neutral-600">
             Assigned jobs, upcoming visits, and completed work
           </p>
+        </div>
+
+        <div className="mb-3xl">
+          <EnableNotifications />
         </div>
 
         {/* Next Job Hero */}
@@ -152,20 +160,20 @@ export default function ContractorDashboard() {
         {/* Stats */}
         <div className="mb-3xl grid gap-lg md:grid-cols-4">
           <StatCard
-            label="Pending"
-            value={pending.length}
-            subtext="awaiting approval"
+            label="To schedule"
+            value={toSchedule.length}
+            subtext="pick a date"
             color="bg-yellow-50 border-yellow-200"
           />
           <StatCard
-            label="Scheduled"
-            value={scheduled.length}
-            subtext="upcoming work"
+            label="Booked"
+            value={booked.length}
+            subtext="date set"
             color="bg-blue-50 border-blue-200"
           />
           <StatCard
             label="In Progress"
-            value={inProgress.length + awaiting.length}
+            value={inProgress.length}
             subtext="active or return"
             color="bg-orange-50 border-orange-200"
           />
@@ -179,24 +187,24 @@ export default function ContractorDashboard() {
 
         {/* Jobs by Status */}
         <div className="space-y-lg">
-          {/* Pending */}
-          {pending.length > 0 && (
-            <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
-              <h3 className="font-bold text-neutral-900 mb-md">⏳ Pending Approval</h3>
+          {/* To schedule — assigned to you, needs a date */}
+          {toSchedule.length > 0 && (
+            <div className="rounded-2xl border-2 border-yellow-300 bg-white p-lg">
+              <h3 className="font-bold text-neutral-900 mb-md">🗓️ To schedule — pick a date</h3>
               <div className="space-y-sm">
-                {pending.map((job) => (
+                {toSchedule.map((job) => (
                   <JobCard key={job.id} job={job} />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Scheduled */}
-          {scheduled.length > 0 && (
+          {/* Booked — date set */}
+          {booked.length > 0 && (
             <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
-              <h3 className="font-bold text-neutral-900 mb-md">📅 Scheduled</h3>
+              <h3 className="font-bold text-neutral-900 mb-md">📅 Booked</h3>
               <div className="space-y-sm">
-                {scheduled.map((job) => (
+                {booked.map((job) => (
                   <JobCard key={job.id} job={job} />
                 ))}
               </div>
@@ -204,11 +212,11 @@ export default function ContractorDashboard() {
           )}
 
           {/* In Progress */}
-          {(inProgress.length > 0 || awaiting.length > 0) && (
+          {inProgress.length > 0 && (
             <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
               <h3 className="font-bold text-neutral-900 mb-md">🔨 In Progress & Awaiting Return</h3>
               <div className="space-y-sm">
-                {[...inProgress, ...awaiting].map((job) => (
+                {inProgress.map((job) => (
                   <JobCard key={job.id} job={job} />
                 ))}
               </div>
@@ -239,8 +247,10 @@ export default function ContractorDashboard() {
 }
 
 function JobCard({ job }: { job: Job }) {
-  const statusColors = {
+  const statusColors: Record<string, string> = {
+    reported: 'bg-yellow-50 border-yellow-200 text-yellow-700',
     pending: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+    assigned: 'bg-blue-50 border-blue-200 text-blue-700',
     scheduled: 'bg-blue-50 border-blue-200 text-blue-700',
     in_progress: 'bg-orange-50 border-orange-200 text-orange-700',
     contractor_attended: 'bg-orange-50 border-orange-200 text-orange-700',
@@ -248,8 +258,10 @@ function JobCard({ job }: { job: Job }) {
     completed: 'bg-green-50 border-green-200 text-green-700',
   }
 
-  const statusLabel = {
+  const statusLabel: Record<string, string> = {
+    reported: 'Available',
     pending: 'Pending',
+    assigned: 'Booked',
     scheduled: 'Scheduled',
     in_progress: 'In Progress',
     contractor_attended: 'Attended',
@@ -267,7 +279,7 @@ function JobCard({ job }: { job: Job }) {
                 {String(job.category || 'General').replace(/-/g, ' ')}
               </h4>
               <span className={`text-xs font-bold px-md py-xs rounded border ${statusColors[job.status]}`}>
-                {statusLabel[job.status]}
+                {job.status === 'assigned' && !job.booked_date ? 'To schedule' : statusLabel[job.status]}
               </span>
             </div>
             <p className="text-sm text-neutral-600">{job.title}</p>

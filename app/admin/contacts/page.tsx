@@ -37,7 +37,7 @@ export default function ContactsPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator') {
+      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
         router.push('/login');
         return;
       }

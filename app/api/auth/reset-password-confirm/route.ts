@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getResetToken, markTokenUsed } from '@/lib/resetTokens'
+import { logAudit, getClientIp } from '@/lib/auditLog'
 
 // Map to track used tokens
 const usedTokens = new Set<string>()
@@ -10,6 +11,7 @@ export async function POST(request: NextRequest) {
     const { token, password } = await request.json()
 
     if (!token || !password) {
+      await logAudit({ userId: 'unknown', action: 'security_invalid_input', details: 'Missing token or password', ipAddress: getClientIp(request.headers) })
       return NextResponse.json(
         { error: 'Token and password required' },
         { status: 400 }
@@ -17,6 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (password.length < 8) {
+      await logAudit({ userId: 'unknown', action: 'security_invalid_input', details: 'Password too short', ipAddress: getClientIp(request.headers) })
       return NextResponse.json(
         { error: 'Password must be at least 8 characters' },
         { status: 400 }

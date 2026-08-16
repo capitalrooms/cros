@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { logAudit, getClientIp } from '@/lib/auditLog'
 
 /**
  * API endpoint to initialize lettings schema
@@ -12,7 +13,13 @@ export async function POST(request: NextRequest) {
 
   // Security: only allow with a development key
   if (key !== 'development' && process.env.NODE_ENV === 'production') {
+    await logAudit({ userId: 'unknown', action: 'security_forbidden_access', details: `Invalid setup key in ${process.env.NODE_ENV}`, ipAddress: getClientIp(request.headers) })
     return NextResponse.json({ error: 'Not allowed' }, { status: 403 })
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    await logAudit({ userId: 'unknown', action: 'security_forbidden_access', details: 'Setup-lettings accessed in production', ipAddress: getClientIp(request.headers) })
+    return NextResponse.json({ error: 'Setup endpoint not available in production' }, { status: 403 })
   }
 
   try {

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { tenantCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser } from '@/lib/auth'
+import { logAudit, getClientIp } from '@/lib/auditLog'
+import { validateUUID } from '@/lib/validation'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 const FROM = 'Capital Rooms <onboarding@resend.dev>'
@@ -7,14 +11,49 @@ const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/publ
 const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3000'
 
 export async function POST(request: NextRequest) {
+  // Master switch: tenant/applicant messaging is paused until go-live.
+  if (!tenantCommsLive()) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
+  }
+  // Step 1: Verify authentication
+  const user = await getCurrentUser()
+  if (!user) {
+    await logAudit({
+      userId: 'unknown',
+      action: 'security_unauthorized_access',
+      details: 'Unauthorized attempt to access notify-viewing-scheduled endpoint',
+      ipAddress: getClientIp(request.headers),
+    })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Step 2: Verify authorization (lettings/admin only)
+  if (!['lettings', 'administrator'].includes(user.assignment?.role)) {
+    await logAudit({
+      userId: user.id,
+      action: 'security_forbidden_access',
+      details: `Role '${user.assignment?.role}' attempted to trigger viewing notifications`,
+      ipAddress: getClientIp(request.headers),
+    })
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
   }
 
   const { viewingId } = await request.json()
-  if (!viewingId) {
-    return NextResponse.json({ error: 'viewingId required' }, { status: 400 })
+
+  // Step 3: Validate input
+  if (!viewingId || !validateUUID(viewingId)) {
+    await logAudit({
+      userId: user.id,
+      action: 'security_invalid_input',
+      details: `Invalid viewingId provided: ${viewingId}`,
+      ipAddress: getClientIp(request.headers),
+    })
+    return NextResponse.json({ error: 'Invalid viewingId format' }, { status: 400 })
   }
 
   const supabase = createClient(
@@ -183,6 +222,16 @@ export async function POST(request: NextRequest) {
       }
     }
   }
+
+  // Step 4: Log the action
+  await logAudit({
+    userId: user.id,
+    action: 'create',
+    table: 'notifications',
+    recordId: viewingId,
+    details: `Sent viewing notifications to ${sent.length} recipients for viewing ${viewingId}`,
+    ipAddress: getClientIp(request.headers),
+  })
 
   return NextResponse.json({ sent, message: 'Viewing scheduled and tenant notifications sent' })
 }

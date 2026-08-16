@@ -46,11 +46,15 @@ export default function NewJobPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
+  const [contractors, setContractors] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+  const [contractorId, setContractorId] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator') {
+      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
         router.push('/login');
         return;
       }
@@ -58,10 +62,39 @@ export default function NewJobPage() {
       const supabase = createClient();
       const { data: props } = await supabase.from('properties').select('*').order('name');
       setProperties(props || []);
+      const { data: cons } = await supabase
+        .from('people')
+        .select('id, full_name, email')
+        .eq('role', 'contractor')
+        .order('full_name');
+      setContractors(cons || []);
       setLoading(false);
     }
     init();
   }, [router]);
+
+  async function handlePhotos(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const supabase = createClient();
+      const urls: string[] = [];
+      for (const file of Array.from(files)) {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = `new/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('job-photos')
+          .upload(path, file, { upsert: true, contentType: file.type });
+        if (upErr) throw upErr;
+        urls.push(supabase.storage.from('job-photos').getPublicUrl(path).data.publicUrl);
+      }
+      setPhotos((p) => [...p, ...urls]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload photo');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   // Fetch rooms when property changes
   useEffect(() => {
@@ -108,23 +141,41 @@ export default function NewJobPage() {
       }
 
       const supabase = createClient();
-      const { error: err } = await supabase.from('maintenance_tickets').insert([
-        {
-          property_id: propertyId,
-          room_id: roomId || null,
-          reporter_id: user.user.id,
-          title: title.trim(),
-          description: description.trim(),
-          category,
-          priority,
-          location: location.trim() || null,
-          status: 'reported',
-          // Admin-created jobs are pre-approved, ready for contractor assignment
-          approved_at: new Date().toISOString(),
-        },
-      ]);
+      // If a contractor is chosen up front, send it straight to them to schedule.
+      const assignNow = !!contractorId;
+      const { data: created, error: err } = await supabase
+        .from('maintenance_tickets')
+        .insert([
+          {
+            property_id: propertyId,
+            room_id: roomId || null,
+            reporter_id: user.user.id,
+            title: title.trim(),
+            description: description.trim(),
+            category,
+            priority,
+            location: location.trim() || null,
+            photos: photos.length ? photos : null,
+            // Admin-created jobs are pre-approved, ready for contractor assignment
+            approved_at: new Date().toISOString(),
+            ...(assignNow
+              ? { status: 'assigned', contractor_id: contractorId }
+              : { status: 'reported' }),
+          },
+        ])
+        .select('id')
+        .single();
 
       if (err) throw err;
+
+      // Let the contractor know they've got a job to schedule.
+      if (assignNow && created?.id) {
+        fetch('/api/notify-job-raised', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId: created.id }),
+        }).catch((e) => console.error('Assign notification failed:', e));
+      }
 
       // Redirect back to maintenance board
       router.push('/admin/maintenance');
@@ -140,7 +191,7 @@ export default function NewJobPage() {
       <div className="min-h-screen bg-neutral-100">
         <AppBar
           right={
-            <Link href="/admin/maintenance" className="shrink-0 text-sm text-white/60 hover:text-white">
+            <Link href="/admin/maintenance" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
               Back
             </Link>
           }
@@ -156,8 +207,8 @@ export default function NewJobPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar
         right={
-          <Link href="/admin/maintenance" className="shrink-0 text-sm text-white/60 hover:text-white">
-            Maintenance · Back
+          <Link href="/admin/maintenance" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
+            Back
           </Link>
         }
       />
@@ -281,6 +332,56 @@ export default function NewJobPage() {
                   </label>
                 ))}
               </div>
+            </div>
+
+            {/* Contractor (optional — assign now, or leave to assign on the board) */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700">Send to a contractor (optional)</label>
+              <select
+                value={contractorId}
+                onChange={(e) => setContractorId(e.target.value)}
+                className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+              >
+                <option value="">Leave unassigned (assign on the board)</option>
+                {contractors.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.full_name || c.email}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-xs text-xs text-neutral-500">
+                If chosen, they&apos;re notified and pick a date themselves.
+              </p>
+            </div>
+
+            {/* Photos (from camera roll) */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700">Photos (optional)</label>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => handlePhotos(e.target.files)}
+                className="mt-sm w-full text-sm text-neutral-600 file:mr-md file:rounded-lg file:border-0 file:bg-neutral-900 file:px-md file:py-sm file:text-sm file:font-semibold file:text-white"
+              />
+              {uploading && <p className="mt-xs text-xs text-neutral-500">Uploading…</p>}
+              {photos.length > 0 && (
+                <div className="mt-md flex flex-wrap gap-sm">
+                  {photos.map((url) => (
+                    <div key={url} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="Job photo" className="h-16 w-16 rounded-lg object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setPhotos((p) => p.filter((u) => u !== url))}
+                        className="absolute -right-1 -top-1 rounded-full bg-neutral-900 px-sm text-xs text-white"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Submit */}

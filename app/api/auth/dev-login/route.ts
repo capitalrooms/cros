@@ -39,65 +39,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get or create auth user
-    const { data: authUsers, error: listError } = await supabase.auth.admin?.listUsers?.()
-      || { data: null, error: { message: 'Admin API not available' } }
-
-    if (!authUsers) {
-      // Fallback: return person data with mock session for dev
-      return NextResponse.json({
-        success: true,
-        message: 'Dev login successful',
-        user: {
-          id: person.id,
-          email: person.email,
-          user_metadata: {
-            full_name: person.full_name,
-            role: person.role,
-          },
-        },
-        dev_session: true,
-      })
-    }
-
-    // Check if auth user exists
-    const authUser = authUsers.find((u: any) => u.email === email)
-    if (!authUser) {
-      // For dev: return success anyway
-      return NextResponse.json({
-        success: true,
-        message: 'Dev login successful (auth user not in Supabase yet)',
-        user: {
-          id: person.id,
-          email: person.email,
-          user_metadata: {
-            full_name: person.full_name,
-            role: person.role,
-          },
-        },
-        dev_session: true,
-      })
-    }
-
-    // Try to sign in
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: 'TestPassword123!',
-    })
-
-    if (signInData?.session) {
-      return NextResponse.json({
-        success: true,
-        message: 'Logged in',
-        session: signInData.session,
-        user: person,
-      })
-    }
-
+    // For dev: just return the person data as a successful login
+    // (The admin listUsers API might not be available in all Supabase configs)
     return NextResponse.json({
       success: true,
       message: 'Dev login successful',
-      user: person,
+      user: {
+        id: person.id,
+        email: person.email,
+        user_metadata: {
+          full_name: person.full_name,
+          role: person.role,
+        },
+      },
       dev_session: true,
     })
   } catch (error) {

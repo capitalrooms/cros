@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createResetToken } from '@/lib/resetTokens'
+import { validateEmail } from '@/lib/validation'
+import { logAudit, getClientIp } from '@/lib/auditLog'
 
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
 
-    if (!email) {
+    if (!email || !validateEmail(email)) {
+      await logAudit({ userId: 'unknown', action: 'security_invalid_input', details: `Invalid email in forgot-password: ${email}`, ipAddress: getClientIp(request.headers) })
       return NextResponse.json(
-        { error: 'Email required' },
+        { error: 'Valid email required' },
         { status: 400 }
       )
     }

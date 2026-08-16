@@ -53,17 +53,24 @@ const PIPELINE = [
   },
   {
     key: 'raised',
-    title: 'With contractors',
+    title: 'Approved · assign a contractor',
     headerClass: 'bg-neutral-950 text-white',
     cardClass: 'border-neutral-900 border-2',
     match: (t: Ticket) => t.status === 'reported' && !!t.approved_at && !t.on_hold,
+  },
+  {
+    key: 'assigned',
+    title: 'With contractor · awaiting date',
+    headerClass: 'bg-neutral-800 text-white',
+    cardClass: 'border-neutral-300',
+    match: (t: Ticket) => t.status === 'assigned' && !t.booked_date,
   },
   {
     key: 'booked',
     title: 'Booked in',
     headerClass: 'bg-neutral-800 text-white',
     cardClass: 'border-neutral-300',
-    match: (t: Ticket) => t.status === 'assigned',
+    match: (t: Ticket) => t.status === 'assigned' && !!t.booked_date,
   },
   {
     key: 'progress',
@@ -98,6 +105,8 @@ export default function MaintenanceDashboard() {
   const [showDetails, setShowDetails] = useState(false);
   const [contractors, setContractors] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
   const [bookContractor, setBookContractor] = useState('');
+  const [adminNote, setAdminNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
   const [bookDate, setBookDate] = useState('');
   const [bookSlot, setBookSlot] = useState('');
   const [weekOffset, setWeekOffset] = useState(0);
@@ -108,7 +117,7 @@ export default function MaintenanceDashboard() {
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator') {
+      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
         router.push('/login');
       }
     }
@@ -133,7 +142,27 @@ export default function MaintenanceDashboard() {
     setBookContractor(selectedTicket?.contractor_id ?? '');
     setBookDate(selectedTicket?.booked_date ?? '');
     setBookSlot(selectedTicket?.booked_slot ?? '');
+    setAdminNote((selectedTicket as any)?.admin_note ?? '');
   }, [selectedTicket]);
+
+  /** Attach a "before you go" instruction the contractor sees on the job. */
+  async function saveAdminNote(ticketId: string) {
+    setSavingNote(true);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase
+        .from('maintenance_tickets')
+        .update({ admin_note: adminNote || null })
+        .eq('id', ticketId);
+      if (err) throw err;
+      setSelectedTicket((t) => (t ? ({ ...t, admin_note: adminNote } as any) : t));
+      fetchTickets();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save note');
+    } finally {
+      setSavingNote(false);
+    }
+  }
 
   async function fetchTickets() {
     try {
@@ -282,6 +311,42 @@ export default function MaintenanceDashboard() {
     }
   }
 
+  /**
+   * Send an approved job to a chosen contractor WITHOUT a date. The contractor
+   * then picks the date from their portal. This is the normal route; bookOnBehalf
+   * is the phone fallback that also sets the date in one go.
+   */
+  async function assignContractor(ticketId: string) {
+    if (!bookContractor) return;
+    try {
+      const supabase = createClient();
+      const me = await getCurrentUser();
+      const { error: err } = await supabase
+        .from('maintenance_tickets')
+        .update({
+          contractor_id: bookContractor,
+          status: 'assigned',
+          on_hold: false,
+          approved_at: new Date().toISOString(),
+          approved_by: (me?.assignment as any)?.id ?? null,
+        })
+        .eq('id', ticketId);
+      if (err) throw err;
+
+      // Let the contractor know they've got a job to schedule.
+      fetch('/api/notify-job-raised', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId }),
+      }).catch((e) => console.error('Assign notification failed:', e));
+
+      fetchTickets();
+      setShowDetails(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to assign');
+    }
+  }
+
   async function updateTicketStatus(ticketId: string, newStatus: string) {
     try {
       const supabase = createClient();
@@ -358,23 +423,25 @@ export default function MaintenanceDashboard() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
         right={
-          <div className="flex items-center gap-md">
-            <Link href="/admin/maintenance/new" className="shrink-0 hover:opacity-80">
-              + Create job
-            </Link>
-            <span>−</span>
-            <Link href="/admin" className="shrink-0 hover:opacity-80">
-              Dashboard
-            </Link>
-          </div>
+          <Link href="/admin" className="min-w-0 truncate hover:opacity-80">
+            Dashboard
+          </Link>
         }
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
         {/* Page heading */}
-        <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">Maintenance Jobs</h1>
-          <p className="mt-sm text-sm text-neutral-600">Approve, assign, and batch repairs across all properties</p>
+        <div className="mb-3xl flex items-start justify-between gap-md">
+          <div>
+            <h1 className="text-3xl font-bold text-neutral-900">Maintenance Jobs</h1>
+            <p className="mt-sm text-sm text-neutral-600">Approve, assign, and batch repairs across all properties</p>
+          </div>
+          <Link
+            href="/admin/maintenance/new"
+            className="shrink-0 rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-800"
+          >
+            + Create job
+          </Link>
         </div>
 
         {error && (
@@ -432,9 +499,9 @@ export default function MaintenanceDashboard() {
             {PIPELINE.map((col) => {
               const items = filteredTickets.filter((t) => col.match(t));
               return (
-                <div key={col.key} className="flex flex-col">
+                <div key={col.key} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
                   <div
-                    className={`mb-md flex items-center justify-between rounded-xl px-md py-sm ${col.headerClass}`}
+                    className={`flex items-center justify-between px-md py-sm ${col.headerClass}`}
                   >
                     <span className="text-sm font-semibold">{col.title}</span>
                     <span className="rounded-full bg-white/20 px-sm text-xs font-semibold">
@@ -442,6 +509,7 @@ export default function MaintenanceDashboard() {
                     </span>
                   </div>
 
+                  <div className="flex-1 space-y-md p-sm">
                   {/* Held work is grouped by property so a batch can go out together. */}
                   {col.key === 'hold' &&
                     Array.from(new Set(items.map((t) => t.properties?.name).filter(Boolean))).map(
@@ -449,7 +517,7 @@ export default function MaintenanceDashboard() {
                         <button
                           key={prop}
                           onClick={() => releaseBatch(prop as string)}
-                          className="mb-sm w-full rounded-lg bg-neutral-900 py-sm text-xs font-bold text-white"
+                          className="w-full rounded-lg bg-neutral-900 py-sm text-xs font-bold text-white"
                         >
                           Send {items.filter((t) => t.properties?.name === prop).length} jobs at {prop}
                         </button>
@@ -518,7 +586,7 @@ export default function MaintenanceDashboard() {
                                 onClick={(e) => { e.stopPropagation(); approveTicket(ticket.id); }}
                                 className="flex-1 rounded-lg bg-neutral-900 py-xs text-xs font-bold text-white"
                               >
-                                Release
+                                Approve
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); holdTicket(ticket.id); }}
@@ -538,7 +606,12 @@ export default function MaintenanceDashboard() {
                           )}
                           {col.key === 'raised' && (
                             <p className="mt-sm text-xs font-semibold text-neutral-900">
-                              Awaiting a contractor
+                              Tap to assign a contractor
+                            </p>
+                          )}
+                          {col.key === 'assigned' && (
+                            <p className="mt-sm text-xs font-semibold text-neutral-500">
+                              Sent — contractor to pick a date
                             </p>
                           )}
                           {col.key === 'booked' && (
@@ -571,6 +644,7 @@ export default function MaintenanceDashboard() {
                         </div>
                       ))
                     )}
+                  </div>
                   </div>
                 </div>
               );
@@ -694,10 +768,12 @@ export default function MaintenanceDashboard() {
                 */}
                 <div className="rounded-xl border-2 border-neutral-900 p-md">
                   <h3 className="font-bold text-neutral-900">
-                    {selectedTicket.booked_date ? 'Change this booking' : 'Book on their behalf'}
+                    {selectedTicket.contractor_id ? 'Reassign or rebook' : 'Send to a contractor'}
                   </h3>
                   <p className="mt-xs text-xs text-neutral-500">
-                    Use this when a contractor confirms by phone.
+                    Choose who does this job — pick a contractor to suit the work. They&apos;re
+                    notified and book a date themselves, or set the date now if they&apos;ve
+                    confirmed by phone.
                   </p>
                   <p className="mt-xs text-xs text-neutral-500">
                     {bookingLeadTimeNote(
@@ -722,39 +798,76 @@ export default function MaintenanceDashboard() {
                     ))}
                   </select>
 
-                  <div className="mt-md grid grid-cols-2 gap-md">
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-700">Date</label>
-                      <input
-                        type="date"
-                        value={bookDate}
-                        onChange={(e) => setBookDate(e.target.value)}
-                        className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-neutral-700">Slot</label>
-                      <select
-                        value={bookSlot}
-                        onChange={(e) => setBookSlot(e.target.value)}
-                        className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
-                      >
-                        <option value="">Select slot…</option>
-                        {TIME_SLOTS.map((s) => (
-                          <option key={s.value} value={s.value}>
-                            {s.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
+                  {/* Primary route: assign, the contractor books the date */}
                   <button
-                    onClick={() => bookOnBehalf(selectedTicket.id)}
-                    disabled={!bookContractor || !bookDate || !bookSlot}
+                    onClick={() => assignContractor(selectedTicket.id)}
+                    disabled={!bookContractor}
                     className="mt-md w-full rounded-lg bg-neutral-900 py-md text-sm font-bold text-white disabled:bg-neutral-300"
                   >
-                    Confirm booking
+                    Send to contractor →
+                  </button>
+
+                  {/* Fallback: book the date now (phone confirmation) */}
+                  <div className="mt-md border-t border-neutral-200 pt-md">
+                    <p className="mb-md text-xs font-medium text-neutral-600">
+                      Or book the date now (phone confirmation)
+                    </p>
+                    <div className="grid grid-cols-2 gap-md">
+                      <div>
+                        <label className="block text-xs font-medium text-neutral-700">Date</label>
+                        <input
+                          type="date"
+                          value={bookDate}
+                          onChange={(e) => setBookDate(e.target.value)}
+                          className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-neutral-700">Slot</label>
+                        <select
+                          value={bookSlot}
+                          onChange={(e) => setBookSlot(e.target.value)}
+                          className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                        >
+                          <option value="">Select slot…</option>
+                          {TIME_SLOTS.map((s) => (
+                            <option key={s.value} value={s.value}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => bookOnBehalf(selectedTicket.id)}
+                      disabled={!bookContractor || !bookDate || !bookSlot}
+                      className="mt-md w-full rounded-lg border border-neutral-400 py-md text-sm font-bold text-neutral-900 disabled:opacity-40"
+                    >
+                      Confirm booking
+                    </button>
+                  </div>
+                </div>
+
+                {/* "Before you go" note the contractor sees on the job */}
+                <div className="rounded-xl border border-neutral-300 p-md">
+                  <h3 className="font-bold text-neutral-900">Note for the contractor</h3>
+                  <p className="mt-xs text-xs text-neutral-500">
+                    Anything extra to check while they&apos;re there — shown on their job screen and
+                    again before they mark it complete.
+                  </p>
+                  <textarea
+                    value={adminNote}
+                    onChange={(e) => setAdminNote(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. While you're there, please check the boiler pressure."
+                    className="mt-md w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                  <button
+                    onClick={() => saveAdminNote(selectedTicket.id)}
+                    disabled={savingNote}
+                    className="mt-md w-full rounded-lg border border-neutral-400 py-sm text-sm font-bold text-neutral-900 disabled:opacity-40"
+                  >
+                    {savingNote ? 'Saving…' : 'Save note'}
                   </button>
                 </div>
 

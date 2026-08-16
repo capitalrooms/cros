@@ -71,7 +71,7 @@ export default function RoomsManagement() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar
         right={
-          <Link href="/lettings" className="shrink-0 text-sm text-white/60 hover:text-white">
+          <Link href="/lettings" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
             Dashboard
           </Link>
         }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { signIn } from '@/lib/auth'
 import { authenticateWithPasskey, isPasskeySupported } from '@/lib/webauthn'
+import Logo from '@/components/Logo'
 
 export default function EnhancedLoginPage() {
   const router = useRouter()
@@ -47,15 +48,25 @@ export default function EnhancedLoginPage() {
         return
       }
 
-      const validRoles = ['admin', 'tenant', 'contractor', 'cleaner', 'agent', 'landlord']
-      const role = validRoles.includes(assignment.role) ? assignment.role : 'tenant'
+      // Map each stored role to its dashboard route path
+      const roleRoutes: Record<string, string> = {
+        administrator: '/admin',
+        admin: '/admin',
+        tenant: '/tenant',
+        contractor: '/contractor',
+        cleaner: '/cleaner',
+        landlord: '/landlord',
+        lettings: '/lettings',
+        agent: '/agent',
+      }
+      const path = roleRoutes[assignment.role] || '/tenant'
 
       await new Promise(resolve => setTimeout(resolve, 100))
-      router.push(`/${role}`)
+      router.push(path)
 
       setTimeout(() => {
         if (typeof window !== 'undefined') {
-          window.location.href = `/${role}`
+          window.location.href = path
         }
       }, 1000)
     } catch (err) {
@@ -76,8 +87,12 @@ export default function EnhancedLoginPage() {
       const result = await authenticateWithPasskey()
 
       if (result.success && result.user) {
-        const role = result.user.role || 'tenant'
-        router.push(`/${role}`)
+        const roleRoutes: Record<string, string> = {
+          administrator: '/admin', admin: '/admin', tenant: '/tenant',
+          contractor: '/contractor', cleaner: '/cleaner', landlord: '/landlord',
+          lettings: '/lettings', agent: '/agent',
+        }
+        router.push(roleRoutes[result.user.role] || '/tenant')
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Passkey authentication failed'
@@ -125,69 +140,58 @@ export default function EnhancedLoginPage() {
     }
   }
 
+  const inputClass =
+    'cr-input w-full bg-transparent border-0 border-b border-white/15 pb-3 pt-1 text-white text-base placeholder:text-white/25 focus:outline-none focus:border-white/70 transition-colors'
+  const labelClass = 'block text-[11px] uppercase tracking-[0.18em] text-white/40 mb-2'
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 px-lg">
-      <div className="w-full max-w-md">
-        {/* Logo/Brand */}
-        <div className="text-center mb-3xl">
-          <div className="inline-block mb-lg">
-            <div className="w-12 h-12 bg-gradient-to-br from-white to-neutral-200 rounded-2xl flex items-center justify-center">
-              <span className="text-2xl font-black text-neutral-900">CR</span>
-            </div>
+    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-black px-lg">
+
+      <div className="relative w-full max-w-sm">
+        {/* Brand — the emblem rises up from the bottom on load */}
+        <div className="text-center" style={{ marginBottom: '4.5rem' }}>
+          <div className="cr-rise inline-flex items-center justify-center">
+            <Logo variant="emblem" height={52} invert priority />
           </div>
-          <h1 className="text-3xl font-bold text-white">Capital Rooms</h1>
-          <p className="mt-md text-neutral-400">Property management platform</p>
+          <div
+            className="cr-fade-up mt-xl flex justify-center"
+            style={{ animationDelay: '1000ms' }}
+          >
+            <Logo variant="wordmark" height={40} invert />
+          </div>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-white rounded-3xl p-lg md:p-2xl shadow-2xl">
+        {/* Form fades in after the emblem settles */}
+        <div className="cr-fade-up" style={{ animationDelay: '1150ms' }}>
           {!showForgotPassword ? (
             <>
-              <h2 className="text-2xl font-bold text-neutral-900 mb-md">Welcome back</h2>
-              <p className="text-sm text-neutral-600 mb-2xl">
-                Sign in to manage properties, viewings, and maintenance
-              </p>
-
               {error && (
-                <div className="mb-lg rounded-xl bg-red-50 border border-red-200 p-md text-sm text-red-700">
-                  {error}
-                </div>
+                <p className="mb-lg text-center text-sm text-red-400/90">{error}</p>
               )}
 
-              {/* Passkey Button */}
-              {passkeySupported && (
-                <button
-                  onClick={handlePasskeyLogin}
-                  disabled={passkeyLoading}
-                  className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-md hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 transition-all mb-lg flex items-center justify-center gap-md"
-                >
-                  <span>👤</span>
-                  {passkeyLoading ? 'Authenticating...' : 'Sign in with Face ID'}
-                </button>
-              )}
-
-              {/* Email/Password Form */}
-              <form onSubmit={handleEmailLogin} className="space-y-lg">
+              <form onSubmit={handleEmailLogin} className="space-y-2xl">
                 <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Email</label>
+                  <label className={labelClass}>Email</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-xl border border-neutral-300 px-lg py-md text-base focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    autoComplete="email"
+                    className={inputClass}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Password</label>
+                  <label className={labelClass}>Password</label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-xl border border-neutral-300 px-lg py-md text-base focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    autoComplete="current-password"
+                    className={inputClass}
                     required
                   />
                 </div>
@@ -195,71 +199,68 @@ export default function EnhancedLoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-xl bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-50 transition-colors"
+                  className="w-full rounded-full border border-white/25 py-3.5 text-sm font-medium tracking-wide text-white hover:bg-white hover:text-neutral-950 disabled:opacity-40 transition-colors"
                 >
                   {loading ? 'Signing in…' : 'Sign in'}
                 </button>
               </form>
 
-              {/* Forgot Password Link */}
-              <div className="mt-lg pt-lg border-t border-neutral-200">
+              <div className="mt-xl flex items-center justify-between text-xs">
+                {passkeySupported ? (
+                  <button
+                    onClick={handlePasskeyLogin}
+                    disabled={passkeyLoading}
+                    className="tracking-wide text-white/40 hover:text-white/90 transition-colors disabled:opacity-40"
+                  >
+                    {passkeyLoading ? 'Authenticating…' : 'Use Face ID'}
+                  </button>
+                ) : (
+                  <span />
+                )}
                 <button
                   onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium w-full text-center"
+                  className="tracking-wide text-white/40 hover:text-white/90 transition-colors"
                 >
-                  Forgot your password?
+                  Forgot password?
                 </button>
-              </div>
-
-              <div className="mt-lg pt-lg border-t border-neutral-200">
-                <p className="text-xs text-neutral-500 text-center">
-                  Demo credentials available from your property manager
-                </p>
               </div>
             </>
           ) : (
             <>
-              <h2 className="text-2xl font-bold text-neutral-900 mb-md">Reset password</h2>
-              <p className="text-sm text-neutral-600 mb-2xl">
-                Enter your email and we'll send you a password reset link
+              <p className="mb-2xl text-center text-sm text-white/50">
+                Enter your email and we&apos;ll send a reset link
               </p>
 
               {forgotMessage && (
-                <div className={`mb-lg rounded-xl p-md text-sm ${
-                  forgotMessage.startsWith('http')
-                    ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                    : forgotMessage.includes('sent') || forgotMessage.includes('Check') || forgotMessage.includes('No email needed')
-                    ? 'bg-green-50 border border-green-200 text-green-700'
-                    : 'bg-red-50 border border-red-200 text-red-700'
-                }`}>
+                <div className="mb-xl text-sm">
                   {forgotMessage.startsWith('http') ? (
-                    <div>
-                      <p className="mb-md font-bold">✅ Password reset link ready!</p>
-                      <p className="mb-md">Click this link to reset your password:</p>
+                    <div className="text-white/80">
+                      <p className="mb-md">Your reset link is ready:</p>
                       <a
                         href={forgotMessage}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block text-blue-600 hover:text-blue-800 underline break-all font-mono text-xs bg-white bg-opacity-50 p-md rounded border border-current"
+                        className="block break-all font-mono text-xs text-white/70 underline hover:text-white"
                       >
                         {forgotMessage}
                       </a>
                     </div>
                   ) : (
-                    forgotMessage
+                    <p className="text-center text-white/60">{forgotMessage}</p>
                   )}
                 </div>
               )}
 
-              <form onSubmit={handleForgotPassword} className="space-y-lg">
+              <form onSubmit={handleForgotPassword} className="space-y-2xl">
                 <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Email</label>
+                  <label className={labelClass}>Email</label>
                   <input
                     type="email"
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="w-full rounded-xl border border-neutral-300 px-lg py-md text-base focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    className={inputClass}
                     required
                   />
                 </div>
@@ -267,28 +268,31 @@ export default function EnhancedLoginPage() {
                 <button
                   type="submit"
                   disabled={forgotLoading}
-                  className="w-full rounded-xl bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-50 transition-colors"
+                  className="w-full rounded-full border border-white/25 py-3.5 text-sm font-medium tracking-wide text-white hover:bg-white hover:text-neutral-950 disabled:opacity-40 transition-colors"
                 >
                   {forgotLoading ? 'Sending…' : 'Send reset link'}
                 </button>
               </form>
 
-              <div className="mt-lg">
+              <div className="mt-xl text-center">
                 <button
                   onClick={() => setShowForgotPassword(false)}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium w-full text-center"
+                  className="text-xs tracking-wide text-white/40 hover:text-white/90 transition-colors"
                 >
-                  Back to login
+                  Back to sign in
                 </button>
               </div>
             </>
           )}
-
-          {/* Footer */}
-          <div className="mt-2xl text-center text-neutral-500 text-xs">
-            <p>Capital Rooms — Professional property management</p>
-          </div>
         </div>
+      </div>
+
+      {/* Minimal footer — wordmark from source */}
+      <div
+        className="cr-fade-up absolute bottom-xl opacity-30"
+        style={{ animationDelay: '1300ms' }}
+      >
+        <Logo variant="wordmark" height={13} invert />
       </div>
     </div>
   )

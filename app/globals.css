@@ -14,17 +14,24 @@ html {
 }
 
 body {
+  /* The app is designed light-only (every screen sets its own light background;
+     the dark areas use explicit text-white classes). Declaring a light colour
+     scheme stops the OS auto-darkening form controls, and we deliberately do NOT
+     flip body text white in dark mode — that flipped inherited colour made white
+     text on white inputs, so typed text was invisible on dark-mode phones. */
+  color-scheme: light;
   background-color: rgb(250, 250, 249);
   color: rgb(28, 25, 23);
   font-family: var(--font-dm-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'Roboto', 'Helvetica Neue', sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: rgb(28, 25, 23);
-    color: rgb(250, 250, 249);
-  }
+/* Belt-and-braces: form controls always use dark text on their light background,
+   regardless of device setting. The login's dark inputs opt out via .cr-input. */
+input:not(.cr-input),
+textarea:not(.cr-input),
+select:not(.cr-input) {
+  color: rgb(28, 25, 23);
 }
 
 input:focus,
@@ -37,4 +44,58 @@ textarea:focus {
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ---- Login intro animation ---------------------------------------------- */
+/* The emblem rises up from the bottom, settles, then the form fades in. */
+@keyframes cr-rise {
+  0% {
+    transform: translateY(78vh);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes cr-fade-up {
+  0% {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.cr-rise {
+  animation: cr-rise 1050ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.cr-fade-up {
+  animation: cr-fade-up 750ms ease-out both;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-rise,
+  .cr-fade-up {
+    animation: none;
+  }
+}
+
+/* Keep dark login inputs dark through browser autofill. */
+.cr-input:-webkit-autofill,
+.cr-input:-webkit-autofill:hover,
+.cr-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 9999s ease-in-out 0s;
+  caret-color: #fff;
 }

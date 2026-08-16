@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import Link from 'next/link';
+import AppBar from '@/components/AppBar';
 
 interface Person {
   id: string;
   email: string;
+  full_name?: string;
   role: string;
   property_id?: string;
   room_id?: string;
@@ -28,16 +30,32 @@ interface OrganizedPeople {
   administrators: Person[];
 }
 
+/** Small live indicator for whether a person has push notifications enabled. */
+function NotifyBadge({ on }: { on: boolean }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full px-sm py-xs text-[11px] font-semibold ${
+        on ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-400'
+      }`}
+      title={on ? 'Notifications on' : 'Notifications off'}
+    >
+      {on ? '🔔 On' : '🔕 Off'}
+    </span>
+  );
+}
+
 function RoleSection({
   title,
   people,
   onDelete,
   getRoleColor,
+  notifyOn,
 }: {
   title: string;
   people: Person[];
   onDelete: (id: string) => void;
   getRoleColor: (role: string) => string;
+  notifyOn: Set<string>;
 }) {
   return (
     <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
@@ -47,19 +65,20 @@ function RoleSection({
 
       <div className="divide-y divide-neutral-200">
         {people.map((person) => (
-          <div key={person.id} className="flex items-center justify-between px-lg py-md hover:bg-neutral-50">
-            <div>
-              <p className="text-sm font-medium text-neutral-900">{person.email}</p>
-              <p className="text-xs text-neutral-500">
-                Added {new Date(person.created_at).toLocaleDateString()}
-              </p>
+          <div key={person.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-neutral-900">{person.full_name || person.email}</p>
+              <p className="text-xs text-neutral-500">{person.full_name ? person.email : `Added ${new Date(person.created_at).toLocaleDateString()}`}</p>
             </div>
-            <button
-              onClick={() => onDelete(person.id)}
-              className="text-xs text-red-600 hover:text-red-700"
-            >
-              Delete
-            </button>
+            <div className="flex shrink-0 items-center gap-md">
+              <NotifyBadge on={notifyOn.has(person.id)} />
+              <button
+                onClick={() => onDelete(person.id)}
+                className="text-xs text-red-600 hover:text-red-700"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -81,7 +100,9 @@ export default function PeopleManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [viewMode, setViewMode] = useState<'table' | 'organized'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'organized'>('organized');
+  // Set of person ids that have at least one push subscription registered.
+  const [notifyOn, setNotifyOn] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchPeople();
@@ -96,8 +117,25 @@ export default function PeopleManagement() {
         .order('created_at', { ascending: false });
 
       if (err) throw err;
+
+      // Real property/room names for the grouped view (not truncated UUIDs).
+      const { data: props } = await supabase.from('properties').select('id, name, address');
+      const { data: rms } = await supabase.from('rooms').select('id, name, property_id');
+      const propMap = Object.fromEntries((props || []).map((p) => [p.id, p]));
+      const roomMap = Object.fromEntries((rms || []).map((r) => [r.id, r]));
+
+      // Who has push notifications turned on (any device registered).
+      const { data: subs } = await supabase.from('push_subscriptions').select('person_id, email');
+      const on = new Set<string>();
+      const byEmail = new Map<string, string>((data || []).map((p: any) => [p.email, p.id]));
+      (subs || []).forEach((s: any) => {
+        if (s.person_id) on.add(s.person_id);
+        else if (s.email && byEmail.has(s.email)) on.add(byEmail.get(s.email)!);
+      });
+      setNotifyOn(on);
+
       setPeople(data || []);
-      organizeByRole(data || []);
+      organizeByRole(data || [], propMap, roomMap);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load people');
     } finally {
@@ -105,7 +143,11 @@ export default function PeopleManagement() {
     }
   }
 
-  function organizeByRole(peopleList: Person[]) {
+  function organizeByRole(
+    peopleList: Person[],
+    propMapLookup: Record<string, any> = {},
+    roomMapLookup: Record<string, any> = {}
+  ) {
     const org: OrganizedPeople = {
       contractors: [],
       cleaners: [],
@@ -146,23 +188,27 @@ export default function PeopleManagement() {
     org.landlords = landlords;
     org.administrators = administrators;
 
-    // Organize tenants by property and room
+    // Organize tenants by property, then by room (real names, room-number order)
     const propMap: Record<string, Property> = {};
     tenants.forEach((person) => {
       const propId = person.property_id || 'unassigned';
-      const propName = propId === 'unassigned' ? 'Unassigned Tenants' : `Property ${propId.substring(0, 8)}`;
+      const propName =
+        propId === 'unassigned'
+          ? 'Unassigned Tenants'
+          : propMapLookup[propId]?.name || 'Property';
 
       if (!propMap[propId]) {
         propMap[propId] = {
           id: propId,
           name: propName,
-          address: propId === 'unassigned' ? 'No property assigned' : 'Loading...',
+          address: propId === 'unassigned' ? 'No property assigned' : propMapLookup[propId]?.address || '',
           rooms: [],
         };
       }
 
       const roomId = person.room_id || 'common';
-      const roomName = roomId === 'common' ? 'Common Area' : `Room ${roomId.substring(0, 8)}`;
+      const roomName =
+        roomId === 'common' ? 'Common area' : roomMapLookup[roomId]?.name || 'Room';
 
       const roomIndex = propMap[propId].rooms.findIndex((r) => r.id === roomId);
       if (roomIndex === -1) {
@@ -171,6 +217,15 @@ export default function PeopleManagement() {
         propMap[propId].rooms[roomIndex].tenants.push(person);
       }
     });
+
+    // Sort rooms within each property by their number (Room 1, Room 2, …).
+    const roomNum = (name: string) => {
+      const m = name.match(/\d+/);
+      return m ? parseInt(m[0], 10) : 9999;
+    };
+    Object.values(propMap).forEach((p) =>
+      p.rooms.sort((a, b) => roomNum(a.name) - roomNum(b.name) || a.name.localeCompare(b.name))
+    );
 
     org.properties = Object.values(propMap).sort((a, b) => a.name.localeCompare(b.name));
     setOrganized(org);
@@ -239,16 +294,10 @@ export default function PeopleManagement() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <nav className="border-b border-neutral-200 bg-white">
-        <div className="px-lg py-md flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-neutral-900">People Management</h1>
-          <Link href="/admin" className="text-sm text-neutral-600 hover:text-neutral-900">
-            Back to Dashboard
-          </Link>
-        </div>
-      </nav>
+      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
 
       <main className="p-lg">
+        <h1 className="mb-lg text-2xl font-bold text-neutral-900">People Management</h1>
         {error && (
           <div className="mb-md rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-900">
             {error}
@@ -403,6 +452,7 @@ export default function PeopleManagement() {
                 people={organized.contractors}
                 onDelete={handleDeletePerson}
                 getRoleColor={getRoleColor}
+                notifyOn={notifyOn}
               />
             )}
 
@@ -413,6 +463,7 @@ export default function PeopleManagement() {
                 people={organized.cleaners}
                 onDelete={handleDeletePerson}
                 getRoleColor={getRoleColor}
+                notifyOn={notifyOn}
               />
             )}
 
@@ -438,15 +489,18 @@ export default function PeopleManagement() {
                                 room.tenants.map((person) => (
                                   <div
                                     key={person.id}
-                                    className="flex items-center justify-between rounded-xl bg-neutral-50 px-md py-sm"
+                                    className="flex items-center justify-between gap-md rounded-xl bg-neutral-50 px-md py-sm"
                                   >
-                                    <p className="text-sm text-neutral-900">{person.email}</p>
-                                    <button
-                                      onClick={() => handleDeletePerson(person.id)}
-                                      className="text-xs text-red-600 hover:text-red-700"
-                                    >
-                                      Delete
-                                    </button>
+                                    <p className="min-w-0 truncate text-sm text-neutral-900">{person.full_name || person.email}</p>
+                                    <div className="flex shrink-0 items-center gap-md">
+                                      <NotifyBadge on={notifyOn.has(person.id)} />
+                                      <button
+                                        onClick={() => handleDeletePerson(person.id)}
+                                        className="text-xs text-red-600 hover:text-red-700"
+                                      >
+                                        Delete
+                                      </button>
+                                    </div>
                                   </div>
                                 ))
                               )}
@@ -467,6 +521,7 @@ export default function PeopleManagement() {
                 people={organized.landlords}
                 onDelete={handleDeletePerson}
                 getRoleColor={getRoleColor}
+                notifyOn={notifyOn}
               />
             )}
 
@@ -477,6 +532,7 @@ export default function PeopleManagement() {
                 people={organized.administrators}
                 onDelete={handleDeletePerson}
                 getRoleColor={getRoleColor}
+                notifyOn={notifyOn}
               />
             )}
 

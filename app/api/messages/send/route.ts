@@ -1,13 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser } from '@/lib/auth'
+import { logAudit, getClientIp } from '@/lib/auditLog'
+import { validateEmail, validateNotes } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser()
+  if (!user) {
+    await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized messages/send access', ipAddress: getClientIp(request.headers) })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const { recipientEmail, senderEmail, title, message, type, actionLink } = await request.json()
 
-    if (!recipientEmail || !title || !message) {
+    if (!recipientEmail || !validateEmail(recipientEmail) || !title || !message) {
+      await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid email: ${recipientEmail}, title: ${title}`, ipAddress: getClientIp(request.headers) })
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing or invalid required fields' },
+        { status: 400 }
+      )
+    }
+
+    if (!validateNotes(message)) {
+      await logAudit({ userId: user.id, action: 'security_invalid_input', details: 'Invalid message content (XSS detected)', ipAddress: getClientIp(request.headers) })
+      return NextResponse.json(
+        { error: 'Message contains invalid content' },
         { status: 400 }
       )
     }

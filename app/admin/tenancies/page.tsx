@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import Link from 'next/link';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface Property {
@@ -58,6 +59,9 @@ export default function TenanciesManagementPage() {
   const [showAddTenancy, setShowAddTenancy] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<string>('');
   const [selectedRoom, setSelectedRoom] = useState<string>('');
+  const [noticeTenancy, setNoticeTenancy] = useState<Tenancy | null>(null);
+  const [noticeDate, setNoticeDate] = useState('');
+  const [savingNotice, setSavingNotice] = useState(false);
 
   const [newTenant, setNewTenant] = useState<TenantPerson>({
     full_name: '',
@@ -79,7 +83,7 @@ export default function TenanciesManagementPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator') {
+      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
         router.push('/login');
         return;
       }
@@ -107,7 +111,9 @@ export default function TenanciesManagementPage() {
     // Fetch tenancies
     const { data: tenanciesData } = await supabase
       .from('tenancies')
-      .select('*, people(id, full_name, email, phone), rooms(id, name, property_id, status)')
+      .select(
+        '*, people(id, full_name, email, phone), rooms(id, name, property_id, status), properties(id, name, address)'
+      )
       .order('start_date', { ascending: false });
 
     setProperties(propsData || []);
@@ -208,6 +214,52 @@ export default function TenanciesManagementPage() {
     }
   };
 
+  /** Open the notice dialog, defaulting the move-out date to one month out. */
+  const openNotice = (tenancy: Tenancy) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    setNoticeDate(tenancy.end_date || d.toISOString().split('T')[0]);
+    setNoticeTenancy(tenancy);
+  };
+
+  /** Put a tenant on notice = set the tenancy end_date. Lettings then markets the
+   *  room as "available from" that date, and it shows "on notice" on the property. */
+  const handleSetNotice = async () => {
+    if (!noticeTenancy || !noticeDate) return;
+    setSavingNotice(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('tenancies')
+        .update({ end_date: noticeDate })
+        .eq('id', noticeTenancy.id);
+      if (error) throw error;
+      setNoticeTenancy(null);
+      setNoticeDate('');
+      await loadData();
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
+      setSavingNotice(false);
+    }
+  };
+
+  /** Cancel notice = clear the end_date, so the room stops being marketed. */
+  const handleCancelNotice = async (tenancyId: string) => {
+    if (!confirm('Clear the move-out date? The room will stop being marketed as available.')) return;
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('tenancies')
+        .update({ end_date: null })
+        .eq('id', tenancyId);
+      if (error) throw error;
+      await loadData();
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  };
+
   const handleDeleteTenancy = async (tenancyId: string) => {
     if (!confirm('Delete this tenancy?')) return;
 
@@ -233,7 +285,7 @@ export default function TenanciesManagementPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar />
+      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
 
       <main className="mx-auto max-w-6xl px-lg">
         <div className="pt-lg mb-3xl flex items-center justify-between">
@@ -473,25 +525,40 @@ export default function TenanciesManagementPage() {
                 <div className="flex items-start justify-between gap-md">
                   <div className="flex-1">
                     <p className="font-semibold text-neutral-900">
-                      {tenancy.person?.full_name || 'Unknown'} • {tenancy.room?.name}
+                      {tenancy.people?.full_name || 'Unknown tenant'}
+                      {tenancy.rooms?.name ? ` • ${tenancy.rooms.name}` : ''}
                     </p>
                     <p className="text-sm text-neutral-600 mt-xs">
-                      {selectedPropertyData?.address || 'Property'}
+                      {tenancy.properties?.name ?? 'Property'}
+                      {tenancy.properties?.address ? ` — ${tenancy.properties.address}` : ''}
                     </p>
-                    <div className="flex gap-md mt-md text-xs text-neutral-600">
-                      <span className="px-sm py-xs bg-neutral-100 rounded">
-                        {tenancy.status === 'active' ? '🏠 Active' : tenancy.status === 'on_notice' ? '📋 On Notice' : '📦 Available'}
+                    <div className="flex flex-wrap gap-sm mt-md text-xs text-neutral-600">
+                      <span
+                        className={`px-sm py-xs rounded font-semibold ${
+                          tenancy.end_date ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
+                        }`}
+                      >
+                        {tenancy.end_date ? '📋 On notice' : '🏠 Active'}
                       </span>
                       <span className="px-sm py-xs bg-neutral-100 rounded">
-                        Since {new Date(tenancy.start_date).toLocaleDateString('en-GB')}
+                        📅 Moved in {new Date(tenancy.start_date).toLocaleDateString('en-GB')}
                       </span>
-                      <span className="px-sm py-xs bg-neutral-100 rounded">
-                        £{tenancy.rent_amount}/month
-                      </span>
-                      <span className="px-sm py-xs bg-neutral-100 rounded">
-                        {tenancy.communication_preference === 'email' ? '📧' : '💬'}{' '}
-                        {tenancy.communication_preference}
-                      </span>
+                      {tenancy.end_date && (
+                        <span className="px-sm py-xs bg-amber-100 text-amber-800 rounded font-semibold">
+                          🚚 Available from {new Date(tenancy.end_date).toLocaleDateString('en-GB')}
+                        </span>
+                      )}
+                      {tenancy.rent_amount != null && (
+                        <span className="px-sm py-xs bg-neutral-100 rounded">
+                          £{tenancy.rent_amount}/month
+                        </span>
+                      )}
+                      {tenancy.communication_preference && (
+                        <span className="px-sm py-xs bg-neutral-100 rounded">
+                          {tenancy.communication_preference === 'email' ? '📧' : '💬'}{' '}
+                          {tenancy.communication_preference}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-md text-xs text-neutral-600">
                       <p className="font-medium mb-xs">Notification preferences:</p>
@@ -507,17 +574,75 @@ export default function TenanciesManagementPage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteTenancy(tenancy.id)}
-                    className="shrink-0 px-md py-sm bg-red-600 text-white rounded font-semibold text-sm hover:bg-red-700"
-                  >
-                    Delete
-                  </button>
+                  <div className="flex shrink-0 flex-col items-stretch gap-sm">
+                    {tenancy.end_date ? (
+                      <button
+                        onClick={() => handleCancelNotice(tenancy.id)}
+                        className="rounded border border-neutral-400 px-md py-sm text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
+                      >
+                        Clear move-out date
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => openNotice(tenancy)}
+                        className="rounded bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
+                      >
+                        Set move-out date
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteTenancy(tenancy.id)}
+                      className="text-xs text-neutral-400 hover:text-red-600"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
           )}
         </div>
+
+        {/* Put on notice dialog */}
+        {noticeTenancy && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
+            <div className="w-full max-w-md rounded-3xl bg-white p-lg">
+              <h2 className="text-xl font-bold text-neutral-900">Set move-out date</h2>
+              <p className="mt-xs text-sm text-neutral-600">
+                {(noticeTenancy as any).people?.full_name}
+                {(noticeTenancy as any).rooms?.name ? ` · ${(noticeTenancy as any).rooms.name}` : ''}
+                {(noticeTenancy as any).properties?.name ? ` · ${(noticeTenancy as any).properties.name}` : ''}
+              </p>
+              <p className="mt-md text-sm text-neutral-600">
+                Once set, this room is marked as leaving and lettings markets it as
+                available from this date.
+              </p>
+              <label className="mt-lg block text-sm font-medium text-neutral-700">Move-out date</label>
+              <input
+                type="date"
+                value={noticeDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setNoticeDate(e.target.value)}
+                className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-md text-base"
+              />
+              <div className="mt-lg flex gap-sm">
+                <button
+                  onClick={handleSetNotice}
+                  disabled={savingNotice || !noticeDate}
+                  className="flex-1 rounded-xl bg-neutral-900 py-md font-bold text-white hover:bg-neutral-800 disabled:opacity-50"
+                >
+                  {savingNotice ? 'Saving…' : 'Set move-out date'}
+                </button>
+                <button
+                  onClick={() => setNoticeTenancy(null)}
+                  className="flex-1 rounded-xl border border-neutral-300 py-md font-semibold hover:bg-neutral-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
