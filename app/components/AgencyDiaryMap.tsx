@@ -16,20 +16,66 @@ interface AgencyDiaryMapProps {
 }
 
 export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
+  const mapContainer = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!mapContainer.current) return
+
+    // Create a container for the map
+    mapContainer.current.innerHTML = `
+      <div id="map" style="width: 100%; height: 500px;"></div>
+    `
+
+    // Load Leaflet dynamically
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+    document.head.appendChild(link)
+
+    const script = document.createElement('script')
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    script.onload = () => {
+      // @ts-ignore
+      const L = window.L
+      const map = L.map('map').setView([51.5247, -0.0866], 15)
+
+      // Use CartoDB Positron (clean, minimal style, no business labels)
+      L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
+        {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 20,
+        }
+      ).addTo(map)
+
+      // Add Capital Rooms marker
+      L.circleMarker([51.5247, -0.0866], {
+        radius: 12,
+        fillColor: '#1e293b',
+        color: '#ffffff',
+        weight: 3,
+        opacity: 1,
+        fillOpacity: 1,
+      })
+        .addTo(map)
+        .bindPopup('Capital Rooms HQ')
+    }
+
+    return () => {
+      document.head.removeChild(link)
+    }
+  }, [])
+
   return (
     <div className="space-y-lg">
-      {/* Google Maps Embed */}
-      <div className="w-full rounded-lg border border-neutral-200 overflow-hidden shadow-sm">
-        <iframe
-          width="100%"
-          height="500"
-          style={{ border: 'none' }}
-          loading="lazy"
-          allowFullScreen
-          referrerPolicy="no-referrer-when-downgrade"
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2481.3752348117744!2d-0.08659922346810675!3d51.52466907179877!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x48761ca34b6e2cd9%3A0x4f8c3c7e5e5e5e5e!2s66%20Paul%20Street%2C%20London%20EC2A%204NA!5e0!3m2!1sen!2suk!4v1692374400000"
-        />
-      </div>
+      {/* Leaflet Map */}
+      <div
+        ref={mapContainer}
+        className="w-full rounded-lg border border-neutral-200 overflow-hidden shadow-sm"
+        style={{ minHeight: '500px' }}
+      />
 
       {/* Events List */}
       {events.length > 0 && (
