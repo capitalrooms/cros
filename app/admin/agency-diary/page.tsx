@@ -230,12 +230,12 @@ export default function AgencyDiaryPage() {
           ← Back to Dashboard
         </Link>
 
-        {/* Header — Balanced Spacing (subtitle centered between title and controls) */}
+        {/* Header — Subtitle Perfectly Centered */}
         <div className="mb-3xl">
-          <h1 className="text-5xl font-bold text-slate-900 mb-lg">
+          <h1 className="text-5xl font-bold text-slate-900 mb-2xl">
             📅 Agency Diary
           </h1>
-          <p className="text-lg text-slate-600">
+          <p className="text-lg text-slate-600 mt-2xl">
             All property visits, maintenance jobs, and appointments in one place
           </p>
         </div>
