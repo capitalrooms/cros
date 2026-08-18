@@ -20,10 +20,24 @@ CREATE TABLE applicants (
   preferred_start_date DATE,
   preferred_term VARCHAR(50), -- e.g., "6 months", "12 months"
 
-  -- Character & interests
+  -- Tell Us About Yourself
   bio TEXT, -- Short bio: "Who are you in 2-3 sentences"
   interests TEXT, -- Comma-separated or JSON: hobbies, interests
+  profession_description TEXT, -- More detail about work/career
+
+  -- What Are You Like to Live With
   sociability VARCHAR(50), -- e.g., "sociable", "keep-to-self", "flexible"
+  house_preferences TEXT, -- What's important in a shared house
+  communication_style TEXT, -- How they prefer to communicate/resolve issues
+
+  -- About This Room (room-specific)
+  room_requirements TEXT, -- "What do you need in this room?"
+  room_conditions TEXT, -- "Any specific conditions based on viewing?"
+
+  -- Rent negotiation
+  advertised_rent DECIMAL(10,2), -- The advertised rent shown to applicant
+  rent_offer_type VARCHAR(50), -- "asking" or "below_asking"
+  offered_rent DECIMAL(10,2), -- If rent_offer_type = "below_asking"
 
   -- Rental history
   previous_addresses JSONB, -- Array of {address, moved_in, moved_out, reason_left}

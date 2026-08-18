@@ -36,10 +36,24 @@ export default function ApplicantForm() {
   const [preferredStartDate, setPreferredStartDate] = useState('')
   const [preferredTerm, setPreferredTerm] = useState('12 months')
 
-  // Character & interests
+  // Tell Us About Yourself
   const [bio, setBio] = useState('')
   const [interests, setInterests] = useState('')
+  const [professionDescription, setProfessionDescription] = useState('')
+
+  // What Are You Like to Live With
   const [sociability, setSociability] = useState('flexible')
+  const [housePreferences, setHousePreferences] = useState('')
+  const [communicationStyle, setCommunicationStyle] = useState('')
+
+  // About This Room
+  const [roomRequirements, setRoomRequirements] = useState('')
+  const [roomConditions, setRoomConditions] = useState('')
+
+  // Rent
+  const [advertiserRent, setAdvertisedRent] = useState<number | null>(null)
+  const [rentOfferType, setRentOfferType] = useState('asking') // 'asking' or 'below_asking'
+  const [offeredRent, setOfferedRent] = useState<number | null>(null)
 
   // Rental history
   const [previousAddresses, setPreviousAddresses] = useState<PreviousAddress[]>([
@@ -108,11 +122,18 @@ export default function ApplicantForm() {
           profession,
           salary,
           linkedinUrl,
+          professionDescription,
           preferredStartDate,
           preferredTerm,
           bio,
           interests,
           sociability,
+          housePreferences,
+          communicationStyle,
+          roomRequirements,
+          roomConditions,
+          rentOfferType,
+          offeredRent: rentOfferType === 'below_asking' ? offeredRent : null,
           previousAddresses: previousAddresses.filter((a) => a.address.trim()),
           roomId,
           propertyId,
@@ -317,24 +338,37 @@ export default function ApplicantForm() {
             </div>
           </div>
 
-          {/* About You */}
+          {/* Tell Us About Yourself */}
           <div className="bg-white rounded-lg p-lg border border-neutral-200">
             <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
-              About You
+              Tell Us About Yourself
             </h2>
 
             <div className="space-y-md">
               <div>
                 <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Tell us about yourself <span className="text-red-500">*</span>
+                  Bio <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Who are you? What are you like to live with? (2-3 sentences)"
+                  placeholder="Who are you? What do you do? (2-3 sentences)"
                   rows={4}
                   className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                  Tell us more about your career
+                </label>
+                <textarea
+                  value={professionDescription}
+                  onChange={(e) => setProfessionDescription(e.target.value)}
+                  placeholder="What do you do day-to-day? What are you passionate about in your work?"
+                  rows={3}
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
               </div>
 
@@ -346,11 +380,20 @@ export default function ApplicantForm() {
                   type="text"
                   value={interests}
                   onChange={(e) => setInterests(e.target.value)}
-                  placeholder="e.g., cooking, gaming, outdoor activities"
+                  placeholder="e.g., cooking, gaming, outdoor activities, reading"
                   className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
               </div>
+            </div>
+          </div>
 
+          {/* What Are You Like to Live With */}
+          <div className="bg-white rounded-lg p-lg border border-neutral-200">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
+              What Are You Like to Live With?
+            </h2>
+
+            <div className="space-y-md">
               <div>
                 <label className="block text-sm font-medium text-neutral-900 mb-xs">
                   How would you describe yourself?
@@ -382,6 +425,144 @@ export default function ApplicantForm() {
                   ))}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                  What's important to you in a shared house?
+                </label>
+                <textarea
+                  value={housePreferences}
+                  onChange={(e) => setHousePreferences(e.target.value)}
+                  placeholder="e.g., quiet hours, cleanliness, cooking together, regular house meetings"
+                  rows={3}
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                  How do you prefer to communicate and resolve issues?
+                </label>
+                <textarea
+                  value={communicationStyle}
+                  onChange={(e) => setCommunicationStyle(e.target.value)}
+                  placeholder="e.g., direct conversations, house meetings, group chat"
+                  rows={3}
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* About This Room */}
+          <div className="bg-white rounded-lg p-lg border border-neutral-200">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
+              About This Room
+            </h2>
+
+            <div className="space-y-md">
+              <div>
+                <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                  What do you need in this room?
+                </label>
+                <textarea
+                  value={roomRequirements}
+                  onChange={(e) => setRoomRequirements(e.target.value)}
+                  placeholder="e.g., natural light, quiet, space for WFH, double bed fit, storage"
+                  rows={3}
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                  Any specific conditions based on what you've seen?
+                </label>
+                <textarea
+                  value={roomConditions}
+                  onChange={(e) => setRoomConditions(e.target.value)}
+                  placeholder="e.g., needs accommodation for two people, needs to fit my equipment, concerned about noise from street"
+                  rows={3}
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Rent */}
+          <div className="bg-white rounded-lg p-lg border border-neutral-200">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
+              About the Rent
+            </h2>
+
+            <div className="space-y-md">
+              <div className="bg-neutral-50 p-md rounded-lg border border-neutral-200">
+                <p className="text-sm text-neutral-600">
+                  <span className="font-semibold text-neutral-900">
+                    The advertised rent for this room is £{advertiserRent ? advertiserRent.toFixed(0) : '---'}/month
+                  </span>
+                  <br />
+                  <span className="text-xs">(all bills included)</span>
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-900 mb-md">
+                  Your offer:
+                </label>
+                <div className="space-y-sm">
+                  <label className={`flex items-center p-md border-2 rounded-lg cursor-pointer transition-all ${
+                    rentOfferType === 'asking'
+                      ? 'border-neutral-900 bg-neutral-50'
+                      : 'border-neutral-200 hover:border-neutral-300'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="rentOfferType"
+                      value="asking"
+                      checked={rentOfferType === 'asking'}
+                      onChange={(e) => setRentOfferType(e.target.value)}
+                      className="w-4 h-4"
+                    />
+                    <span className="ml-sm text-sm font-medium text-neutral-900">
+                      Yes, I'm offering the advertised rent (£{advertiserRent ? advertiserRent.toFixed(0) : '---'})
+                    </span>
+                  </label>
+
+                  <label className={`flex items-center p-md border-2 rounded-lg cursor-pointer transition-all ${
+                    rentOfferType === 'below_asking'
+                      ? 'border-neutral-900 bg-neutral-50'
+                      : 'border-neutral-200 hover:border-neutral-300'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="rentOfferType"
+                      value="below_asking"
+                      checked={rentOfferType === 'below_asking'}
+                      onChange={(e) => setRentOfferType(e.target.value)}
+                      className="w-4 h-4"
+                    />
+                    <span className="ml-sm text-sm font-medium text-neutral-900">
+                      I'd like to make an offer below asking price
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {rentOfferType === 'below_asking' && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                    Your offer amount (£/month)
+                  </label>
+                  <input
+                    type="number"
+                    value={offeredRent || ''}
+                    onChange={(e) => setOfferedRent(e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="e.g., 800"
+                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
