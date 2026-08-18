@@ -114,11 +114,12 @@ export default function BookCleanPage() {
       <main className="mx-auto max-w-5xl px-lg py-2xl">
         <Link
           href="/admin/agency-diary"
-          className="inline-flex items-center gap-sm text-green-600 hover:text-green-700 font-semibold mb-2xl"
+          className="inline-flex items-center gap-sm text-green-600 hover:text-green-700 font-semibold mb-3xl"
         >
           ← Back to Diary
         </Link>
 
+        {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-green-900 bg-clip-text text-transparent mb-sm">
             🧹 Book Cleaner

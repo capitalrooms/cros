@@ -225,12 +225,12 @@ export default function AgencyDiaryPage() {
         {/* Back Button */}
         <Link
           href="/admin"
-          className="inline-flex items-center gap-sm text-slate-600 hover:text-slate-900 font-medium mb-2xl transition-colors"
+          className="inline-flex items-center gap-sm text-slate-600 hover:text-slate-900 font-medium mb-3xl transition-colors"
         >
           ← Back to Dashboard
         </Link>
 
-        {/* Header */}
+        {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
           <h1 className="text-5xl font-bold text-slate-900 mb-md">
             📅 Agency Diary
