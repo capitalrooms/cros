@@ -15,8 +15,8 @@ interface AgencyDiaryMapProps {
   events: MapEvent[]
 }
 
-// Default center: Southeast London area (postal code area)
-const DEFAULT_CENTER = { lat: 51.4545, lng: -0.0122 }
+// Default center: Capital Rooms, 66 Paul Street, EC2A 4NA (Shoreditch, London)
+const DEFAULT_CENTER = { lat: 51.5247, lng: -0.0866 }
 
 export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
