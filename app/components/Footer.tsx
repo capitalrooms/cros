@@ -2,7 +2,7 @@ import Image from 'next/image'
 
 export default function Footer() {
   return (
-    <footer className="bg-neutral-900 border-t border-neutral-800 py-3xl px-lg">
+    <footer className="bg-black border-t border-neutral-800 py-3xl px-lg">
       <div className="mx-auto max-w-6xl flex flex-col items-center justify-center gap-3xl">
         {/* Logo Wordmark - White Horizontal */}
         <div className="shrink-0">
