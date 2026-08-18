@@ -27,7 +27,7 @@ export default function Footer() {
             fontStyle: 'italic',
           }}
         >
-          Innovating London living since_2018.
+          Innovating London living <u>since</u><u>_</u><u>2018.</u>
         </div>
       </div>
     </footer>
