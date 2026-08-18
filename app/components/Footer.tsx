@@ -3,7 +3,7 @@ import Image from 'next/image'
 export default function Footer() {
   return (
     <footer className="bg-neutral-900 border-t border-neutral-800 py-2xl px-lg">
-      <div className="mx-auto max-w-6xl flex items-center justify-between gap-md">
+      <div className="mx-auto max-w-6xl flex items-center justify-center gap-md">
         {/* Logo */}
         <div className="shrink-0">
           <Image
@@ -16,7 +16,7 @@ export default function Footer() {
         </div>
 
         {/* Tagline */}
-        <div className="text-sm text-neutral-400">
+        <div className="text-sm text-neutral-400 text-center md:text-left">
           Innovating London living since 2018.
         </div>
       </div>
