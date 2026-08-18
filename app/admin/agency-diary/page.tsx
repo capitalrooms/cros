@@ -230,9 +230,9 @@ export default function AgencyDiaryPage() {
           ← Back to Dashboard
         </Link>
 
-        {/* Header — Balanced Spacing */}
+        {/* Header — Balanced Spacing (subtitle centered between title and controls) */}
         <div className="mb-3xl">
-          <h1 className="text-5xl font-bold text-slate-900 mb-md">
+          <h1 className="text-5xl font-bold text-slate-900 mb-lg">
             📅 Agency Diary
           </h1>
           <p className="text-lg text-slate-600">
