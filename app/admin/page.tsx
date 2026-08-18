@@ -10,16 +10,16 @@ import AppBar from '@/components/AppBar'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import { AdminDashboardSkeleton } from '@/app/components/SkeletonLoading'
 
-// Compliance dates that must never lapse. Test dates renew annually, so their
-// deadline is the test date + 1 year.
-const CERT_CHECKS: { field: string; label: string; addYear?: boolean }[] = [
-  { field: 'gas_safe_cert_expiry', label: 'Gas safety' },
-  { field: 'electrical_cert_expiry', label: 'Electrical (EICR)' },
-  { field: 'license_expiry', label: 'HMO licence' },
-  { field: 'insurance_expiry', label: 'Insurance' },
-  { field: 'fire_detection_test_date', label: 'Fire detection', addYear: true },
-  { field: 'emergency_lighting_test_date', label: 'Emergency lighting', addYear: true },
-  { field: 'pat_test_date', label: 'PAT test', addYear: true },
+// Compliance expiry dates that must never lapse.
+const CERT_CHECKS: { field: string; label: string }[] = [
+  { field: 'gas_safe_cert_expiry',        label: 'Gas safety' },
+  { field: 'electrical_cert_expiry',      label: 'Electrical (EICR)' },
+  { field: 'license_expiry',              label: 'HMO licence' },
+  { field: 'insurance_expiry',            label: 'Insurance' },
+  { field: 'fire_detection_expiry',       label: 'Fire detection' },
+  { field: 'emergency_lighting_expiry',   label: 'Emergency lighting' },
+  { field: 'pat_test_expiry',             label: 'PAT test' },
+  { field: 'fire_risk_assessment_expiry', label: 'Fire risk assessment' },
 ]
 
 interface CertAlert {
@@ -62,7 +62,7 @@ export default function AdminDashboard() {
           const { data: props } = await supabase
             .from('properties')
             .select(
-              'id, name, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry, fire_detection_test_date, emergency_lighting_test_date, pat_test_date'
+              'id, name, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry, fire_detection_expiry, emergency_lighting_expiry, pat_test_expiry, fire_risk_assessment_expiry'
             )
           const today = new Date()
           today.setHours(0, 0, 0, 0)
@@ -72,7 +72,6 @@ export default function AdminDashboard() {
               const raw = (p as any)[c.field]
               if (!raw) continue
               const d = new Date(raw)
-              if (c.addYear) d.setFullYear(d.getFullYear() + 1)
               const days = Math.floor((d.getTime() - today.getTime()) / 86400000)
               if (days <= 14) list.push({ property: p.name, label: c.label, days })
             }
@@ -187,28 +186,22 @@ export default function AdminDashboard() {
               description="Real-time KPIs, occupancy rate, platform health, quick actions"
             />
             <SectionLink
-              icon="🔑"
-              title="Availability"
-              href="/admin/available-and-lettings"
-              description="Available rooms by date, applications and move-ins"
-            />
-            <SectionLink
               icon="🏢"
               title="Properties & Rooms"
               href="/admin/properties"
               description="Manage properties, rooms, licensing and compliance"
             />
             <SectionLink
-              icon="👥"
-              title="Tenancies"
-              href="/admin/tenancies"
-              description="Assign tenants to rooms and set notification preferences"
+              icon="🚪"
+              title="Lettings"
+              href="/admin/available-and-lettings"
+              description="Occupied rooms and available properties — two tabs"
             />
             <SectionLink
-              icon="📝"
-              title="Property Notes"
-              href="/admin/property-notes"
-              description="Post updates to tenant dashboards — cleaning, announcements"
+              icon="📅"
+              title="Appointments"
+              href="/admin/appointments"
+              description="Book landlord visits, contractors, cleaners, inspections — notify tenants"
             />
             <SectionLink
               icon="🔧"
@@ -220,58 +213,20 @@ export default function AdminDashboard() {
               icon="🛡️"
               title="Compliance"
               href="/admin/compliance"
-              description="Track certifications, expiry dates and compliance status"
+              description="Certificates · Safety Checks · Dashboard — all compliance in one place"
             />
             <SectionLink
-              icon="🚪"
-              title="Tenant Safety Checks"
-              href="/admin/tenant-safety-checks"
-              description="Monitor fire door and smoke alarm check responses"
-            />
-            <SectionLink
-              icon="📊"
-              title="Property Compliance Dashboard"
-              href="/admin/property-compliance-dashboard"
-              description="View all tenant checks by room and month, request photos from all tenants"
-            />
-            <SectionLink
-              icon="✨"
-              title="AI Document Upload"
-              href="/admin/ai-upload"
-              description="Upload a certificate, tenancy or reference — AI files it for you"
-            />
-            <SectionLink
-              icon="📥"
-              title="Document Inbox"
-              href="/admin/inbox"
-              description="Docs forwarded by email — review the AI's ruling and file them"
-            />
-            <SectionLink
-              icon="📄"
-              title="Documents Pending Review"
+              icon="📁"
+              title="Documents"
               href="/admin/documents"
-              description="Extracted document data awaiting property approval + filing"
+              description="Upload, manage, and file — three tabs: Upload · Inbox · Pending Review"
             />
             <SectionLink
-              icon="👷"
-              title="Contacts"
+              icon="👥"
+              title="People"
               href="/admin/people"
-              description="Add, edit and manage contractors and cleaners"
+              description="Manage tenants, staff, landlords, and administrators — all in one place"
             />
-            <SectionLink
-              icon="🤝"
-              title="Landlords"
-              href="/admin/landlords"
-              description="Invite landlords and assign properties to them"
-            />
-            <SectionLink
-              icon="📑"
-              title="Landlord Statements"
-              href="/admin/statements"
-              description="Upload or enter statements — auto-matched to each property"
-            />
-            <Section icon="📅" title="Property Visits" />
-            <Section icon="📢" title="House Notices" />
           </div>
         </div>
       </main>
@@ -308,17 +263,12 @@ function SectionLink({
 }) {
   return (
     <Link href={href} className="group block">
-      <div className="flex items-center gap-lg rounded-2xl border border-neutral-200 bg-white p-lg shadow-sm transition-all hover:-translate-y-0.5 hover:border-neutral-900/20 hover:shadow-lg">
-        <div className="shrink-0 grid h-12 w-12 place-items-center rounded-xl bg-neutral-100 text-xl transition-colors group-hover:bg-neutral-900">
-          <span className="transition-transform group-hover:scale-110">{icon}</span>
-        </div>
+      <div className="flex items-start gap-md rounded-lg bg-white border border-neutral-200 p-md transition-all hover:border-neutral-300 hover:shadow-sm">
+        <div className="shrink-0 text-2xl pt-sm">{icon}</div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-bold text-neutral-900">{title}</h3>
-          <p className="mt-xs text-sm leading-snug text-neutral-500">{description}</p>
+          <h3 className="text-sm font-semibold text-neutral-900">{title}</h3>
+          <p className="mt-xs text-xs leading-relaxed text-neutral-600">{description}</p>
         </div>
-        <span className="shrink-0 text-lg text-neutral-300 transition-all group-hover:translate-x-1 group-hover:text-neutral-900">
-          →
-        </span>
       </div>
     </Link>
   )
