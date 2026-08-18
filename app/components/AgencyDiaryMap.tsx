@@ -15,9 +15,7 @@ interface AgencyDiaryMapProps {
   events: MapEvent[]
 }
 
-// Capital Rooms: 66 Paul Street, EC2A 4NA (Shoreditch, London)
 const CAPITAL_ROOMS = { lat: 51.5247, lng: -0.0866 }
-// Map bounds for London (Shoreditch area)
 const MAP_BOUNDS = { north: 51.535, south: 51.515, east: -0.070, west: -0.100 }
 
 export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
@@ -33,50 +31,18 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // === Draw Realistic London Map Background ===
-    // Base colors for different areas
-    const roadColor = '#e5e7eb'
-    const parkColor = '#c7e9c4'
-    const waterColor = '#bfe5f0'
-    const buildingColor = '#d4d4d8'
-
-    // Fill background
-    ctx.fillStyle = roadColor
+    // === Clean Map Background ===
+    ctx.fillStyle = '#f8f9fa'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-    // === Draw Parks/Green Spaces ===
-    ctx.fillStyle = parkColor
-    // Shoreditch Park area
-    ctx.beginPath()
-    ctx.arc(canvas.width * 0.3, canvas.height * 0.25, 45, 0, Math.PI * 2)
-    ctx.fill()
+    // === Draw Major Streets (Clear & Bold) ===
+    ctx.strokeStyle = '#d0d0d0'
+    ctx.lineWidth = 3
 
-    // Hackney area park
-    ctx.beginPath()
-    ctx.arc(canvas.width * 0.15, canvas.height * 0.7, 50, 0, Math.PI * 2)
-    ctx.fill()
-
-    // === Draw Water (River) ===
-    ctx.fillStyle = waterColor
-    ctx.fillRect(0, canvas.height * 0.6, canvas.width, canvas.height * 0.4)
-
-    // === Draw Streets as Grid ===
-    ctx.strokeStyle = '#9ca3af'
-    ctx.lineWidth = 1
-
-    // Major streets (thicker)
-    ctx.strokeStyle = '#6b7280'
-    ctx.lineWidth = 2
     // Old Street (horizontal)
     ctx.beginPath()
     ctx.moveTo(0, canvas.height * 0.35)
     ctx.lineTo(canvas.width, canvas.height * 0.35)
-    ctx.stroke()
-
-    // Shoreditch High Street (diagonal)
-    ctx.beginPath()
-    ctx.moveTo(canvas.width * 0.2, 0)
-    ctx.lineTo(canvas.width * 0.6, canvas.height)
     ctx.stroke()
 
     // City Road (vertical-ish)
@@ -85,37 +51,23 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
     ctx.lineTo(canvas.width * 0.4, canvas.height)
     ctx.stroke()
 
-    // === Draw Minor Streets ===
-    ctx.strokeStyle = '#d1d5db'
-    ctx.lineWidth = 1
+    // Shoreditch High Street (diagonal)
+    ctx.beginPath()
+    ctx.moveTo(canvas.width * 0.15, 0)
+    ctx.lineTo(canvas.width * 0.55, canvas.height)
+    ctx.stroke()
 
-    const streetSpacing = 60
-    for (let x = 0; x < canvas.width; x += streetSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, canvas.height)
-      ctx.stroke()
-    }
-    for (let y = 0; y < canvas.height; y += streetSpacing) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(canvas.width, y)
-      ctx.stroke()
-    }
+    // === Draw Parks (Large, Clear) ===
+    ctx.fillStyle = '#d4f1d4'
+    ctx.beginPath()
+    ctx.arc(canvas.width * 0.3, canvas.height * 0.25, 60, 0, Math.PI * 2)
+    ctx.fill()
 
-    // === Draw Buildings/Districts ===
-    ctx.fillStyle = '#f3f4f6'
-    // Tech district buildings
-    for (let i = 0; i < 5; i++) {
-      ctx.fillRect(
-        canvas.width * 0.4 + i * 80,
-        canvas.height * 0.2 + (i % 2) * 40,
-        60,
-        30
-      )
-    }
+    // === Draw Water/River ===
+    ctx.fillStyle = '#c7e9f5'
+    ctx.fillRect(0, canvas.height * 0.65, canvas.width, canvas.height * 0.35)
 
-    // === Convert Lat/Lng to Canvas Coordinates ===
+    // === Convert Lat/Lng to Canvas ===
     const latToY = (lat: number) => {
       const range = MAP_BOUNDS.north - MAP_BOUNDS.south
       const offset = MAP_BOUNDS.north - lat
@@ -128,27 +80,27 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
       return (offset / range) * canvas.width
     }
 
-    // === Draw Capital Rooms HQ (Primary Location) ===
+    // === Draw Capital Rooms HQ ===
     const hqX = lngToX(CAPITAL_ROOMS.lng)
     const hqY = latToY(CAPITAL_ROOMS.lat)
 
-    // Glow effect
-    ctx.shadowColor = 'rgba(59, 130, 246, 0.4)'
-    ctx.shadowBlur = 20
-    ctx.fillStyle = '#3b82f6'
+    // Glow
+    ctx.shadowColor = 'rgba(30, 41, 59, 0.3)'
+    ctx.shadowBlur = 15
+    ctx.fillStyle = '#1e293b'
     ctx.beginPath()
-    ctx.arc(hqX, hqY, 14, 0, Math.PI * 2)
+    ctx.arc(hqX, hqY, 16, 0, Math.PI * 2)
     ctx.fill()
 
-    // Main marker
+    // Inner circle
     ctx.shadowColor = 'transparent'
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
-    ctx.arc(hqX, hqY, 9, 0, Math.PI * 2)
+    ctx.arc(hqX, hqY, 10, 0, Math.PI * 2)
     ctx.fill()
 
     // Icon
-    ctx.fillStyle = '#3b82f6'
+    ctx.fillStyle = '#1e293b'
     ctx.font = 'bold 12px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -156,28 +108,23 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
 
     // === Draw Appointment Markers ===
     events.forEach((event, index) => {
-      // Distribute around HQ
       const angle = (index / Math.max(events.length, 1)) * Math.PI * 2
-      const radius = 40 + (index % 3) * 30
+      const radius = 50 + (index % 3) * 35
       const x = hqX + Math.cos(angle) * radius
       const y = hqY + Math.sin(angle) * radius
 
       const color =
-        event.type === 'maintenance'
-          ? '#3b82f6'
-          : event.type === 'clean'
-          ? '#10b981'
-          : '#f59e0b'
+        event.type === 'maintenance' ? '#3b82f6' : event.type === 'clean' ? '#10b981' : '#f59e0b'
 
       // Glow
       ctx.shadowColor = `${color}40`
       ctx.shadowBlur = 12
       ctx.fillStyle = color
       ctx.beginPath()
-      ctx.arc(x, y, 11, 0, Math.PI * 2)
+      ctx.arc(x, y, 12, 0, Math.PI * 2)
       ctx.fill()
 
-      // Inner circle
+      // Inner
       ctx.shadowColor = 'transparent'
       ctx.fillStyle = '#ffffff'
       ctx.beginPath()
@@ -192,17 +139,15 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
       ctx.fillText(String(index + 1), x, y)
     })
 
-    // === Draw Map Chrome/Controls ===
-    // Top-left: Zoom
+    // === Map Controls ===
+    // Top-left zoom
     ctx.fillStyle = '#ffffff'
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.1)'
     ctx.shadowBlur = 8
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 2
     ctx.fillRect(16, 16, 36, 60)
     ctx.shadowColor = 'transparent'
 
-    ctx.fillStyle = '#1f2937'
+    ctx.fillStyle = '#1e293b'
     ctx.font = 'bold 14px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -210,39 +155,35 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
     ctx.font = '12px sans-serif'
     ctx.fillText('−', 34, 50)
 
-    // Top-right: Location badge
+    // Top-right location
     ctx.fillStyle = '#ffffff'
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.1)'
     ctx.shadowBlur = 8
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 2
     ctx.fillRect(canvas.width - 200, 16, 184, 60)
     ctx.shadowColor = 'transparent'
 
-    ctx.fillStyle = '#1f2937'
+    ctx.fillStyle = '#1e293b'
     ctx.font = 'bold 12px sans-serif'
     ctx.textAlign = 'left'
     ctx.fillText('📍 Shoreditch', canvas.width - 188, 32)
     ctx.font = '10px sans-serif'
-    ctx.fillStyle = '#6b7280'
+    ctx.fillStyle = '#64748b'
     ctx.fillText('66 Paul Street, EC2A 4NA', canvas.width - 188, 48)
 
-    // Bottom-left: Legend
+    // Bottom legend
     ctx.fillStyle = '#ffffff'
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.1)'
     ctx.shadowBlur = 8
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 2
-    ctx.fillRect(16, canvas.height - 120, 168, 104)
+    ctx.fillRect(16, canvas.height - 110, 160, 98)
     ctx.shadowColor = 'transparent'
 
-    ctx.fillStyle = '#1f2937'
+    ctx.fillStyle = '#1e293b'
     ctx.font = 'bold 11px sans-serif'
     ctx.textAlign = 'left'
-    ctx.fillText('Appointments', 26, canvas.height - 103)
+    ctx.fillText('Appointments', 26, canvas.height - 93)
 
     const legend = [
-      { color: '#3b82f6', label: 'Headquarters' },
+      { color: '#1e293b', label: 'Headquarters' },
       { color: '#3b82f6', label: 'Maintenance' },
       { color: '#10b981', label: 'Cleaning' },
       { color: '#f59e0b', label: 'Viewings' },
@@ -259,21 +200,18 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
       ctx.fillText(item.label, 39, canvas.height - 75 + i * 18)
     })
 
-    // Add canvas to container
     mapContainer.current.innerHTML = ''
     mapContainer.current.appendChild(canvas)
   }, [events])
 
   return (
     <div className="space-y-lg">
-      {/* Map Canvas */}
       <div
         ref={mapContainer}
         className="w-full bg-gray-100 rounded-lg border border-neutral-200 overflow-hidden shadow-sm"
         style={{ minHeight: '500px' }}
       />
 
-      {/* Appointments List (if any booked) */}
       {events.length > 0 && (
         <div className="space-y-sm">
           <h3 className="font-bold text-neutral-900 text-sm">
@@ -317,7 +255,6 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
         </div>
       )}
 
-      {/* Empty State */}
       {events.length === 0 && (
         <div className="text-center py-lg">
           <div className="text-neutral-600 text-sm">
