@@ -1,36 +1,51 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
-import Link from 'next/link';
-import AppBar from '@/components/AppBar';
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import AppBar from '@/components/AppBar'
+
+type Tab = 'tenants' | 'staff' | 'landlords' | 'administrators'
 
 interface Person {
-  id: string;
-  email: string;
-  full_name?: string;
-  role: string;
-  property_id?: string;
-  room_id?: string;
-  created_at: string;
+  id: string
+  email: string
+  full_name?: string
+  name?: string
+  role: string
+  property_id?: string
+  room_id?: string
+  created_at: string
 }
 
 interface Property {
-  id: string;
-  name: string;
-  address: string;
-  rooms: { id: string; name: string; tenants: Person[] }[];
+  id: string
+  name: string
+  address: string
+  rooms: { id: string; name: string; tenants: Person[] }[]
 }
 
-interface OrganizedPeople {
-  contractors: Person[];
-  cleaners: Person[];
-  properties: Property[];
-  landlords: Person[];
-  administrators: Person[];
+interface Landlord {
+  id: string
+  email: string
+  full_name?: string
+  name?: string
+  created_at: string
+  properties?: Array<{ id: string; name: string; address: string }>
 }
 
-/** Small live indicator for whether a person has push notifications enabled. */
+interface Statement {
+  id: string
+  statement_reference: string
+  statement_date: string
+  net_to_landlord: number
+  property_id: string
+  landlord_id: string
+  properties?: { name: string; address: string }
+}
+
 function NotifyBadge({ on }: { on: boolean }) {
   return (
     <span
@@ -41,509 +56,733 @@ function NotifyBadge({ on }: { on: boolean }) {
     >
       {on ? '🔔 On' : '🔕 Off'}
     </span>
-  );
-}
-
-function RoleSection({
-  title,
-  people,
-  onDelete,
-  getRoleColor,
-  notifyOn,
-}: {
-  title: string;
-  people: Person[];
-  onDelete: (id: string) => void;
-  getRoleColor: (role: string) => string;
-  notifyOn: Set<string>;
-}) {
-  return (
-    <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
-      <div className="border-b border-neutral-200 bg-neutral-50 px-lg py-md">
-        <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
-      </div>
-
-      <div className="divide-y divide-neutral-200">
-        {people.map((person) => (
-          <div key={person.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-neutral-900">{person.full_name || person.email}</p>
-              <p className="text-xs text-neutral-500">{person.full_name ? person.email : `Added ${new Date(person.created_at).toLocaleDateString()}`}</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-md">
-              <NotifyBadge on={notifyOn.has(person.id)} />
-              <button
-                onClick={() => onDelete(person.id)}
-                className="text-xs text-red-600 hover:text-red-700"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  )
 }
 
 export default function PeopleManagement() {
-  const [people, setPeople] = useState<Person[]>([]);
-  const [organized, setOrganized] = useState<OrganizedPeople>({
-    contractors: [],
-    cleaners: [],
-    properties: [],
-    landlords: [],
-    administrators: [],
-  });
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ email: '', role: 'tenant', property_id: '' });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [viewMode, setViewMode] = useState<'table' | 'organized'>('organized');
-  // Set of person ids that have at least one push subscription registered.
-  const [notifyOn, setNotifyOn] = useState<Set<string>>(new Set());
+  const router = useRouter()
+  const supabase = createClient()
 
+  // Shared state
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<Tab>('tenants')
+  const [people, setPeople] = useState<Person[]>([])
+  const [properties, setProperties] = useState<Property[]>([])
+  const [notifyOn, setNotifyOn] = useState<Set<string>>(new Set())
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  // Add Person form
+  const [showAddPerson, setShowAddPerson] = useState(false)
+  const [formData, setFormData] = useState({ email: '', role: 'tenant', property_id: '', name: '', full_name: '' })
+
+  // Landlords tab state
+  const [landlords, setLandlords] = useState<Landlord[]>([])
+  const [showAddLandlord, setShowAddLandlord] = useState(false)
+  const [landlordForm, setLandlordForm] = useState({ email: '', name: '', selectedProperties: [] as string[] })
+  const [landlordSuccessMessage, setLandlordSuccessMessage] = useState('')
+  const [statements, setStatements] = useState<Statement[]>([])
+
+  // Initialize data
   useEffect(() => {
-    fetchPeople();
-  }, []);
+    async function init() {
+      const data = await getCurrentUser()
+      if (!data || (data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin')) {
+        router.push('/login')
+        return
+      }
 
-  async function fetchPeople() {
-    try {
-      const supabase = createClient();
-      const { data, error: err } = await supabase
+      const { data: peopleData } = await supabase.from('people').select('*').order('created_at', { ascending: false })
+      const { data: propsData } = await supabase.from('properties').select('id, name, address')
+      const { data: roomsData } = await supabase.from('rooms').select('id, name, property_id')
+      const { data: subsData } = await supabase.from('push_subscriptions').select('person_id, email')
+
+      setPeople(peopleData || [])
+
+      // Who has push notifications
+      const on = new Set<string>()
+      const byEmail = new Map((peopleData || []).map((p: any) => [p.email, p.id]))
+      ;(subsData || []).forEach((s: any) => {
+        if (s.person_id) on.add(s.person_id)
+        else if (s.email && byEmail.has(s.email)) on.add(byEmail.get(s.email)!)
+      })
+      setNotifyOn(on)
+
+      // Organize properties by rooms (for tenant view)
+      const propMap: Record<string, Property> = {}
+      const roomMap = Object.fromEntries((roomsData || []).map((r: any) => [r.id, r]))
+      const propsMap = Object.fromEntries((propsData || []).map((p: any) => [p.id, p]))
+
+      ;(peopleData || []).forEach((person: any) => {
+        if (person.role !== 'tenant') return
+        const propId = person.property_id || 'unassigned'
+        const propName = propId === 'unassigned' ? 'Unassigned Tenants' : propsMap[propId]?.name || 'Property'
+
+        if (!propMap[propId]) {
+          propMap[propId] = {
+            id: propId,
+            name: propName,
+            address: propId === 'unassigned' ? 'No property assigned' : propsMap[propId]?.address || '',
+            rooms: [],
+          }
+        }
+
+        const roomId = person.room_id || 'common'
+        const roomName = roomId === 'common' ? 'Common area' : roomMap[roomId]?.name || 'Room'
+
+        const roomIndex = propMap[propId].rooms.findIndex((r) => r.id === roomId)
+        if (roomIndex === -1) {
+          propMap[propId].rooms.push({ id: roomId, name: roomName, tenants: [person] })
+        } else {
+          propMap[propId].rooms[roomIndex].tenants.push(person)
+        }
+      })
+
+      const roomNum = (name: string) => {
+        const m = name.match(/\d+/)
+        return m ? parseInt(m[0], 10) : 9999
+      }
+      Object.values(propMap).forEach((p) =>
+        p.rooms.sort((a, b) => roomNum(a.name) - roomNum(b.name) || a.name.localeCompare(b.name))
+      )
+
+      setProperties(Object.values(propMap).sort((a, b) => a.name.localeCompare(b.name)))
+
+      // Load landlords
+      const { data: landlordData } = await supabase
         .from('people')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('id, email, name, full_name, created_at')
+        .eq('role', 'landlord')
+        .order('created_at', { ascending: false })
 
-      if (err) throw err;
+      setLandlords(landlordData || [])
 
-      // Real property/room names for the grouped view (not truncated UUIDs).
-      const { data: props } = await supabase.from('properties').select('id, name, address');
-      const { data: rms } = await supabase.from('rooms').select('id, name, property_id');
-      const propMap = Object.fromEntries((props || []).map((p) => [p.id, p]));
-      const roomMap = Object.fromEntries((rms || []).map((r) => [r.id, r]));
+      // Load statements
+      const { data: statementsData } = await supabase
+        .from('landlord_statements')
+        .select('id, statement_reference, statement_date, net_to_landlord, property_id, landlord_id, properties(name, address)')
+        .order('statement_date', { ascending: false })
 
-      // Who has push notifications turned on (any device registered).
-      const { data: subs } = await supabase.from('push_subscriptions').select('person_id, email');
-      const on = new Set<string>();
-      const byEmail = new Map<string, string>((data || []).map((p: any) => [p.email, p.id]));
-      (subs || []).forEach((s: any) => {
-        if (s.person_id) on.add(s.person_id);
-        else if (s.email && byEmail.has(s.email)) on.add(byEmail.get(s.email)!);
-      });
-      setNotifyOn(on);
+      setStatements((statementsData as any) || [])
 
-      setPeople(data || []);
-      organizeByRole(data || [], propMap, roomMap);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load people');
-    } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }
 
-  function organizeByRole(
-    peopleList: Person[],
-    propMapLookup: Record<string, any> = {},
-    roomMapLookup: Record<string, any> = {}
-  ) {
-    const org: OrganizedPeople = {
-      contractors: [],
-      cleaners: [],
-      properties: [],
-      landlords: [],
-      administrators: [],
-    };
+    init()
+  }, [router])
 
-    // Separate by role
-    const contractors: Person[] = [];
-    const cleaners: Person[] = [];
-    const tenants: Person[] = [];
-    const landlords: Person[] = [];
-    const administrators: Person[] = [];
-
-    peopleList.forEach((person) => {
-      switch (person.role) {
-        case 'contractor':
-          contractors.push(person);
-          break;
-        case 'cleaner':
-          cleaners.push(person);
-          break;
-        case 'tenant':
-          tenants.push(person);
-          break;
-        case 'landlord':
-          landlords.push(person);
-          break;
-        case 'administrator':
-          administrators.push(person);
-          break;
-      }
-    });
-
-    org.contractors = contractors;
-    org.cleaners = cleaners;
-    org.landlords = landlords;
-    org.administrators = administrators;
-
-    // Organize tenants by property, then by room (real names, room-number order)
-    const propMap: Record<string, Property> = {};
-    tenants.forEach((person) => {
-      const propId = person.property_id || 'unassigned';
-      const propName =
-        propId === 'unassigned'
-          ? 'Unassigned Tenants'
-          : propMapLookup[propId]?.name || 'Property';
-
-      if (!propMap[propId]) {
-        propMap[propId] = {
-          id: propId,
-          name: propName,
-          address: propId === 'unassigned' ? 'No property assigned' : propMapLookup[propId]?.address || '',
-          rooms: [],
-        };
-      }
-
-      const roomId = person.room_id || 'common';
-      const roomName =
-        roomId === 'common' ? 'Common area' : roomMapLookup[roomId]?.name || 'Room';
-
-      const roomIndex = propMap[propId].rooms.findIndex((r) => r.id === roomId);
-      if (roomIndex === -1) {
-        propMap[propId].rooms.push({ id: roomId, name: roomName, tenants: [person] });
-      } else {
-        propMap[propId].rooms[roomIndex].tenants.push(person);
-      }
-    });
-
-    // Sort rooms within each property by their number (Room 1, Room 2, …).
-    const roomNum = (name: string) => {
-      const m = name.match(/\d+/);
-      return m ? parseInt(m[0], 10) : 9999;
-    };
-    Object.values(propMap).forEach((p) =>
-      p.rooms.sort((a, b) => roomNum(a.name) - roomNum(b.name) || a.name.localeCompare(b.name))
-    );
-
-    org.properties = Object.values(propMap).sort((a, b) => a.name.localeCompare(b.name));
-    setOrganized(org);
-  }
+  // ==========================================================================
+  // Add Person Handler
+  // ==========================================================================
 
   async function handleAddPerson(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+    e.preventDefault()
+    setError('')
+    setSuccess('')
 
     if (!formData.email || !formData.role) {
-      setError('Email and role are required');
-      return;
+      setError('Email and role are required')
+      return
     }
 
     try {
-      const supabase = createClient();
       const { error: err } = await supabase.from('people').insert([
         {
           email: formData.email,
+          full_name: formData.full_name || formData.name || null,
+          name: formData.name || null,
           role: formData.role,
           property_id: formData.property_id || null,
         },
-      ]);
+      ])
 
-      if (err) throw err;
+      if (err) throw err
 
-      setSuccess(`User ${formData.email} added successfully`);
-      setFormData({ email: '', role: 'tenant', property_id: '' });
-      setShowForm(false);
-      fetchPeople();
+      setSuccess(`User ${formData.email} added successfully`)
+      setFormData({ email: '', role: 'tenant', property_id: '', name: '', full_name: '' })
+      setShowAddPerson(false)
+
+      // Refresh
+      const { data } = await supabase.from('people').select('*').order('created_at', { ascending: false })
+      setPeople(data || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add user');
+      setError(err instanceof Error ? err.message : 'Failed to add user')
     }
   }
 
   async function handleDeletePerson(id: string) {
-    if (!confirm('Are you sure you want to delete this person?')) return;
+    if (!confirm('Are you sure you want to delete this person?')) return
 
     try {
-      const supabase = createClient();
-      const { error: err } = await supabase
-        .from('people')
-        .delete()
-        .eq('id', id);
+      const { error: err } = await supabase.from('people').delete().eq('id', id)
+      if (err) throw err
 
-      if (err) throw err;
-
-      setSuccess('User deleted successfully');
-      fetchPeople();
+      setSuccess('User deleted successfully')
+      const { data } = await supabase.from('people').select('*').order('created_at', { ascending: false })
+      setPeople(data || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete user');
+      setError(err instanceof Error ? err.message : 'Failed to delete user')
     }
   }
 
-  const getRoleColor = (role: string) => {
-    const colors: Record<string, string> = {
-      administrator: 'bg-blue-50 text-blue-900 border-blue-200',
-      tenant: 'bg-green-50 text-green-900 border-green-200',
-      contractor: 'bg-purple-50 text-purple-900 border-purple-200',
-      cleaner: 'bg-yellow-50 text-yellow-900 border-yellow-200',
-      landlord: 'bg-red-50 text-red-900 border-red-200',
-    };
-    return colors[role] || 'bg-gray-50 text-gray-900 border-gray-200';
-  };
+  // ==========================================================================
+  // Landlord Handlers
+  // ==========================================================================
+
+  async function handleAddLandlord() {
+    if (!landlordForm.email || !landlordForm.name) {
+      setError('Please fill in email and name')
+      return
+    }
+
+    if (landlordForm.selectedProperties.length === 0) {
+      setError('Please select at least one property')
+      return
+    }
+
+    try {
+      const { data: landlord, error } = await supabase
+        .from('people')
+        .insert({
+          email: landlordForm.email,
+          full_name: landlordForm.name,
+          name: landlordForm.name,
+          role: 'landlord',
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Assign properties
+      for (const propertyId of landlordForm.selectedProperties) {
+        await supabase.from('landlord_properties').insert({
+          landlord_id: landlord.id,
+          property_id: propertyId,
+        })
+      }
+
+      setLandlordSuccessMessage(`✓ Landlord added! Email: ${landlordForm.email}`)
+      setLandlordForm({ email: '', name: '', selectedProperties: [] })
+      setShowAddLandlord(false)
+
+      // Refresh landlords
+      const { data: landlordData } = await supabase
+        .from('people')
+        .select('id, email, name, full_name, created_at')
+        .eq('role', 'landlord')
+        .order('created_at', { ascending: false })
+
+      setLandlords(landlordData || [])
+      setTimeout(() => setLandlordSuccessMessage(''), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add landlord')
+    }
+  }
+
+  const toggleLandlordProperty = (propertyId: string) => {
+    setLandlordForm((prev) => ({
+      ...prev,
+      selectedProperties: prev.selectedProperties.includes(propertyId)
+        ? prev.selectedProperties.filter((id) => id !== propertyId)
+        : [...prev.selectedProperties, propertyId],
+    }))
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-neutral-100">
+        <AppBar />
+        <p className="p-xl text-sm text-neutral-400">Loading…</p>
+      </div>
+    )
+  }
+
+  const staffPeople = people.filter((p) => p.role === 'contractor' || p.role === 'cleaner')
+  const adminPeople = people.filter((p) => p.role === 'administrator')
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
 
-      <main className="p-lg">
-        <h1 className="mb-lg text-2xl font-bold text-neutral-900">People Management</h1>
-        {error && (
-          <div className="mb-md rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-900">
-            {error}
-          </div>
-        )}
+      <main className="mx-auto max-w-6xl px-lg py-2xl">
+        <div className="mb-2xl">
+          <h1 className="text-3xl font-bold text-neutral-900 mb-sm">👥 People</h1>
+          <p className="text-sm text-neutral-600 mb-lg">
+            Manage tenants, contractors, cleaners, landlords, and administrators across all properties
+          </p>
 
-        {success && (
-          <div className="mb-md rounded-xl border border-green-200 bg-green-50 p-md text-sm text-green-900">
-            {success}
-          </div>
-        )}
-
-        <div className="mb-lg flex flex-wrap gap-md">
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="rounded-xl bg-blue-600 px-md py-sm text-sm font-medium text-white hover:bg-blue-700"
-            >
-              + Add Person
-            </button>
+          {error && (
+            <div className="mb-md rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-900">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="mb-md rounded-xl border border-green-200 bg-green-50 p-md text-sm text-green-900">
+              {success}
+            </div>
           )}
 
-          <div className="flex gap-sm">
-            <button
-              onClick={() => setViewMode('table')}
-              className={`rounded-xl px-md py-sm text-sm font-medium transition-colors ${
-                viewMode === 'table'
-                  ? 'bg-neutral-200 text-neutral-900'
-                  : 'bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50'
-              }`}
-            >
-              Table View
-            </button>
-            <button
-              onClick={() => setViewMode('organized')}
-              className={`rounded-xl px-md py-sm text-sm font-medium transition-colors ${
-                viewMode === 'organized'
-                  ? 'bg-neutral-200 text-neutral-900'
-                  : 'bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50'
-              }`}
-            >
-              Organized View
-            </button>
+          {/* Tab buttons */}
+          <div className="flex gap-sm border-b border-neutral-300">
+            {(['tenants', 'staff', 'landlords', 'administrators'] as const).map((tab) => {
+              const labels = { tenants: '🏠 Tenants', staff: '👷 Staff', landlords: '🤝 Landlords', administrators: '⚙️ Admins' }
+              const counts = {
+                tenants: people.filter((p) => p.role === 'tenant').length,
+                staff: staffPeople.length,
+                landlords: landlords.length,
+                administrators: adminPeople.length,
+              }
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-lg py-md font-semibold transition ${
+                    activeTab === tab
+                      ? 'border-b-2 border-neutral-900 text-neutral-900'
+                      : 'text-neutral-500 hover:text-neutral-700'
+                  }`}
+                >
+                  {labels[tab]}
+                  {counts[tab] > 0 && (
+                    <span className="ml-sm inline-block rounded-full bg-neutral-900 text-white px-sm py-0 text-xs font-bold">
+                      {counts[tab]}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
-        {showForm && (
-          <div className="mb-xl rounded-2xl border border-neutral-200 bg-white p-lg">
-            <h2 className="mb-md text-lg font-semibold text-neutral-900">Add New Person</h2>
-            <form onSubmit={handleAddPerson} className="space-y-md">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700">Email</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-sm text-sm placeholder-neutral-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  placeholder="user@example.com"
-                />
-              </div>
+        {/* TENANTS TAB */}
+        {activeTab === 'tenants' && (
+          <div className="space-y-lg">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-neutral-900">Tenants by property</h2>
+              <button
+                onClick={() => {
+                  setFormData({ email: '', role: 'tenant', property_id: '', name: '', full_name: '' })
+                  setShowAddPerson(true)
+                }}
+                className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
+              >
+                + Add Tenant
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-neutral-700">Role</label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                  className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="tenant">Tenant</option>
-                  <option value="contractor">Contractor</option>
-                  <option value="cleaner">Cleaner</option>
-                  <option value="landlord">Landlord</option>
-                  <option value="administrator">Administrator</option>
-                </select>
+            {showAddPerson && (
+              <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
+                <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Tenant</h3>
+                <form onSubmit={handleAddPerson} className="space-y-md">
+                  <div className="grid grid-cols-2 gap-md">
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
+                        placeholder="tenant@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Full Name</label>
+                      <input
+                        type="text"
+                        value={formData.full_name}
+                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
+                        placeholder="Jane Doe"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-md">
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-green-600 px-lg py-sm text-sm font-semibold text-white hover:bg-green-700"
+                    >
+                      Add Tenant
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPerson(false)}
+                      className="rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold hover:bg-neutral-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               </div>
+            )}
 
-              <div className="flex gap-md">
-                <button
-                  type="submit"
-                  className="rounded-xl bg-blue-600 px-md py-sm text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Add Person
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                >
-                  Cancel
-                </button>
+            {properties.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
+                <p className="text-sm text-neutral-500">No tenants assigned yet</p>
               </div>
-            </form>
+            ) : (
+              <div className="space-y-lg">
+                {properties.map((prop) => (
+                  <div key={prop.id} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+                    <div className="border-b border-neutral-200 bg-neutral-50 px-lg py-md">
+                      <h3 className="font-bold text-neutral-900">{prop.name}</h3>
+                      <p className="text-xs text-neutral-600 mt-xs">{prop.address}</p>
+                    </div>
+                    <div className="divide-y divide-neutral-200">
+                      {prop.rooms.length === 0 ? (
+                        <div className="px-lg py-md text-xs text-neutral-500">No rooms</div>
+                      ) : (
+                        prop.rooms.map((room) => (
+                          <div key={room.id}>
+                            <div className="px-lg py-md bg-neutral-50 text-xs font-semibold text-neutral-700">{room.name}</div>
+                            {room.tenants.map((tenant) => (
+                              <div key={tenant.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-neutral-900">{tenant.full_name || tenant.email}</p>
+                                  <p className="text-xs text-neutral-500">{tenant.full_name ? tenant.email : ''}</p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-md">
+                                  <NotifyBadge on={notifyOn.has(tenant.id)} />
+                                  <button
+                                    onClick={() => handleDeletePerson(tenant.id)}
+                                    className="text-xs text-red-600 hover:text-red-700"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {loading ? (
-          <div className="text-center text-neutral-600">Loading people...</div>
-        ) : viewMode === 'table' ? (
-          // Table View
-          people.length === 0 ? (
-            <div className="rounded-2xl border border-neutral-200 bg-white p-xl text-center text-neutral-600">
-              No people found
+        {/* STAFF TAB */}
+        {activeTab === 'staff' && (
+          <div className="space-y-lg">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-neutral-900">Contractors & Cleaners</h2>
+              <button
+                onClick={() => {
+                  setFormData({ email: '', role: 'contractor', property_id: '', name: '', full_name: '' })
+                  setShowAddPerson(true)
+                }}
+                className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
+              >
+                + Add Staff
+              </button>
             </div>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
-              <table className="w-full text-sm">
-                <thead className="border-b border-neutral-200 bg-neutral-50">
-                  <tr>
-                    <th className="px-md py-md text-left font-semibold text-neutral-900">Email</th>
-                    <th className="px-md py-md text-left font-semibold text-neutral-900">Role</th>
-                    <th className="px-md py-md text-left font-semibold text-neutral-900">Created</th>
-                    <th className="px-md py-md text-left font-semibold text-neutral-900">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {people.map((person) => (
-                    <tr key={person.id} className="border-t border-neutral-200 hover:bg-neutral-50">
-                      <td className="px-md py-md text-neutral-900">{person.email}</td>
-                      <td className="px-md py-md">
-                        <span
-                          className={`inline-block rounded-full border px-sm py-xs text-xs font-medium capitalize ${getRoleColor(
-                            person.role
-                          )}`}
-                        >
-                          {person.role}
-                        </span>
-                      </td>
-                      <td className="px-md py-md text-neutral-600">
-                        {new Date(person.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-md py-md">
-                        <button
-                          onClick={() => handleDeletePerson(person.id)}
-                          className="text-xs text-red-600 hover:text-red-700"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        ) : (
-          // Organized View by Role
-          <div className="space-y-xl">
-            {/* Contractors */}
-            {organized.contractors.length > 0 && (
-              <RoleSection
-                title="Contractors"
-                people={organized.contractors}
-                onDelete={handleDeletePerson}
-                getRoleColor={getRoleColor}
-                notifyOn={notifyOn}
-              />
+
+            {showAddPerson && (
+              <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
+                <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Staff Member</h3>
+                <form onSubmit={handleAddPerson} className="space-y-md">
+                  <div className="grid grid-cols-2 gap-md">
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Role</label>
+                      <select
+                        value={formData.role}
+                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
+                      >
+                        <option value="contractor">Contractor</option>
+                        <option value="cleaner">Cleaner</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex gap-md">
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-green-600 px-lg py-sm text-sm font-semibold text-white hover:bg-green-700"
+                    >
+                      Add Staff
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPerson(false)}
+                      className="rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold hover:bg-neutral-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
             )}
 
-            {/* Cleaners */}
-            {organized.cleaners.length > 0 && (
-              <RoleSection
-                title="Cleaners"
-                people={organized.cleaners}
-                onDelete={handleDeletePerson}
-                getRoleColor={getRoleColor}
-                notifyOn={notifyOn}
-              />
+            {staffPeople.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
+                <p className="text-sm text-neutral-500">No staff members added yet</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-200">
+                {staffPeople.map((person) => (
+                  <div key={person.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-neutral-900">{person.full_name || person.email}</p>
+                      <p className="text-xs text-neutral-500 mt-xs">{person.role === 'contractor' ? '👷 Contractor' : '🧹 Cleaner'}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-md">
+                      <NotifyBadge on={notifyOn.has(person.id)} />
+                      <button
+                        onClick={() => handleDeletePerson(person.id)}
+                        className="text-xs text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* LANDLORDS TAB */}
+        {activeTab === 'landlords' && (
+          <div className="space-y-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-neutral-900">Landlords</h2>
+                <p className="text-sm text-neutral-600 mt-xs">Manage landlords and their assigned properties. Statements below.</p>
+              </div>
+              <button
+                onClick={() => setShowAddLandlord(!showAddLandlord)}
+                className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
+              >
+                + Add Landlord
+              </button>
+            </div>
+
+            {landlordSuccessMessage && (
+              <div className="rounded-xl bg-green-100 p-md text-sm text-green-700 font-semibold">{landlordSuccessMessage}</div>
             )}
 
-            {/* Tenants Organized by Property */}
-            {organized.properties.length > 0 && (
-              <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
-                <div className="border-b border-neutral-200 bg-neutral-50 px-lg py-md">
-                  <h2 className="text-lg font-semibold text-neutral-900">TENANTS</h2>
+            {showAddLandlord && (
+              <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg">
+                <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Landlord</h3>
+                <div className="grid gap-md md:grid-cols-2 mb-md">
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-xs">Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. John Smith"
+                      value={landlordForm.name}
+                      onChange={(e) => setLandlordForm({ ...landlordForm, name: e.target.value })}
+                      className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-xs">Email</label>
+                    <input
+                      type="email"
+                      placeholder="john@example.com"
+                      value={landlordForm.email}
+                      onChange={(e) => setLandlordForm({ ...landlordForm, email: e.target.value })}
+                      className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                    />
+                  </div>
                 </div>
 
-                <div className="divide-y divide-neutral-200">
-                  {organized.properties.map((property) => (
-                    <div key={property.id} className="px-lg py-md">
-                      <h3 className="mb-md font-medium text-neutral-900">{property.name}</h3>
-                      <div className="ml-md space-y-md">
-                        {property.rooms.map((room) => (
-                          <div key={room.id}>
-                            <h4 className="mb-sm text-sm font-medium text-neutral-700">{room.name}</h4>
-                            <div className="ml-md space-y-sm">
-                              {room.tenants.length === 0 ? (
-                                <p className="text-xs text-neutral-500 italic">No tenants</p>
-                              ) : (
-                                room.tenants.map((person) => (
-                                  <div
-                                    key={person.id}
-                                    className="flex items-center justify-between gap-md rounded-xl bg-neutral-50 px-md py-sm"
-                                  >
-                                    <p className="min-w-0 truncate text-sm text-neutral-900">{person.full_name || person.email}</p>
-                                    <div className="flex shrink-0 items-center gap-md">
-                                      <NotifyBadge on={notifyOn.has(person.id)} />
-                                      <button
-                                        onClick={() => handleDeletePerson(person.id)}
-                                        className="text-xs text-red-600 hover:text-red-700"
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                <div className="mb-md">
+                  <label className="block text-xs font-semibold text-neutral-700 mb-md">Select Properties</label>
+                  <div className="grid gap-sm md:grid-cols-2 max-h-[300px] overflow-y-auto">
+                    {properties.map((prop) => (
+                      <label
+                        key={prop.id}
+                        className="flex items-start gap-sm p-md border border-neutral-200 rounded-lg cursor-pointer hover:bg-neutral-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={landlordForm.selectedProperties.includes(prop.id)}
+                          onChange={() => toggleLandlordProperty(prop.id)}
+                          className="mt-xs"
+                        />
+                        <div>
+                          <p className="font-semibold text-sm text-neutral-900">{prop.name}</p>
+                          <p className="text-xs text-neutral-600">{prop.address}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-neutral-500 mt-md">
+                    {landlordForm.selectedProperties.length} properties selected
+                  </p>
+                </div>
+
+                <div className="flex gap-md">
+                  <button
+                    onClick={handleAddLandlord}
+                    className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-800"
+                  >
+                    Add Landlord
+                  </button>
+                  <button
+                    onClick={() => setShowAddLandlord(false)}
+                    className="rounded-xl border border-neutral-300 px-lg py-sm text-sm font-semibold hover:bg-neutral-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {landlords.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
+                <p className="text-sm text-neutral-500">No landlords added yet</p>
+              </div>
+            ) : (
+              <div className="space-y-md">
+                {landlords.map((landlord) => (
+                  <div key={landlord.id} className="rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-300 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-neutral-900">{landlord.full_name || landlord.name || landlord.email}</h3>
+                        <p className="text-sm text-neutral-600">{landlord.email}</p>
+                        <p className="text-xs text-neutral-500 mt-sm">
+                          Added {new Date(landlord.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-neutral-700 bg-neutral-100 px-md py-xs rounded-full">
+                        Landlord
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-2xl pt-lg border-t border-neutral-200">
+              <h3 className="text-lg font-bold text-neutral-900 mb-md">Landlord Statements</h3>
+              <p className="text-sm text-neutral-600 mb-lg">
+                View all landlord statements. For detailed statement management and creation, use the full Statements page:
+              </p>
+              <Link
+                href="/admin/statements"
+                className="inline-block rounded-lg bg-neutral-900 px-lg py-md text-sm font-semibold text-white hover:bg-neutral-800"
+              >
+                → Manage Statements
+              </Link>
+
+              {statements.length === 0 ? (
+                <div className="mt-lg rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
+                  <p className="text-sm text-neutral-500">No statements uploaded yet</p>
+                </div>
+              ) : (
+                <div className="mt-lg rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-200 max-h-[400px] overflow-y-auto">
+                  {statements.map((stmt) => (
+                    <div key={stmt.id} className="px-lg py-md hover:bg-neutral-50">
+                      <div className="flex items-start justify-between gap-md">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-neutral-900">{stmt.properties?.name || 'Unknown Property'}</p>
+                          <p className="text-xs text-neutral-600 mt-xs">Ref: {stmt.statement_reference}</p>
+                          <p className="text-xs text-neutral-500 mt-xs">
+                            {new Date(stmt.statement_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-neutral-900">£{stmt.net_to_landlord.toFixed(2)}</p>
+                          <p className="text-xs text-neutral-600">Net to landlord</p>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ADMINISTRATORS TAB */}
+        {activeTab === 'administrators' && (
+          <div className="space-y-lg">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-neutral-900">Administrators</h2>
+              <button
+                onClick={() => {
+                  setFormData({ email: '', role: 'administrator', property_id: '', name: '', full_name: '' })
+                  setShowAddPerson(true)
+                }}
+                className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
+              >
+                + Add Admin
+              </button>
+            </div>
+
+            {showAddPerson && (
+              <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
+                <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Administrator</h3>
+                <form onSubmit={handleAddPerson} className="space-y-md">
+                  <div>
+                    <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-md">
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-green-600 px-lg py-sm text-sm font-semibold text-white hover:bg-green-700"
+                    >
+                      Add Admin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPerson(false)}
+                      className="rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold hover:bg-neutral-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
 
-            {/* Landlords */}
-            {organized.landlords.length > 0 && (
-              <RoleSection
-                title="Landlords"
-                people={organized.landlords}
-                onDelete={handleDeletePerson}
-                getRoleColor={getRoleColor}
-                notifyOn={notifyOn}
-              />
-            )}
-
-            {/* Administrators */}
-            {organized.administrators.length > 0 && (
-              <RoleSection
-                title="Administrators"
-                people={organized.administrators}
-                onDelete={handleDeletePerson}
-                getRoleColor={getRoleColor}
-                notifyOn={notifyOn}
-              />
-            )}
-
-            {people.length === 0 && (
-              <div className="rounded-2xl border border-neutral-200 bg-white p-xl text-center text-neutral-600">
-                No users found
+            {adminPeople.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
+                <p className="text-sm text-neutral-500">No administrators added yet</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-200">
+                {adminPeople.map((person) => (
+                  <div key={person.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-neutral-900">{person.full_name || person.email}</p>
+                      <p className="text-xs text-neutral-500">Administrator</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-md">
+                      <NotifyBadge on={notifyOn.has(person.id)} />
+                      <button
+                        onClick={() => handleDeletePerson(person.id)}
+                        className="text-xs text-red-600 hover:text-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
         )}
       </main>
     </div>
-  );
+  )
 }

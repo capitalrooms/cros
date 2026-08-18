@@ -9,6 +9,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import { AdminDashboardSkeleton } from '@/app/components/SkeletonLoading'
+import TodayAppointmentsMap from '@/app/components/TodayAppointmentsMap'
 
 // Compliance expiry dates that must never lapse.
 const CERT_CHECKS: { field: string; label: string }[] = [
@@ -148,6 +149,12 @@ export default function AdminDashboard() {
             )
           )}
 
+          {/* Today's Appointments Map */}
+          <div>
+            <h2 className="text-lg font-bold text-neutral-900 mb-md">📍 Today's Activity</h2>
+            <TodayAppointmentsMap />
+          </div>
+
           {/* Compliance deadlines — stays here until the dates are updated. */}
           {alerts.length > 0 && (
             <div className="rounded-2xl border-2 border-red-300 bg-red-50 p-lg">
@@ -199,9 +206,9 @@ export default function AdminDashboard() {
             />
             <SectionLink
               icon="📅"
-              title="Appointments"
-              href="/admin/appointments"
-              description="Book landlord visits, contractors, cleaners, inspections — notify tenants"
+              title="Agency Diary"
+              href="/admin/agency-diary"
+              description="All property visits, maintenance jobs, and appointments in one place"
             />
             <SectionLink
               icon="🔧"

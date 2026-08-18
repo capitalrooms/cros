@@ -28,16 +28,18 @@ export async function POST(req: NextRequest) {
     // In production, integrate with Twilio or similar SMS service
     console.log(`[SMS] To: ${phone}\n${message}`)
 
-    // Log to database for audit trail
+    // Optional: Log to database for audit trail (non-blocking, SMS send succeeds even if logging fails)
+    // Note: SMS audit logs don't fit the user-notification schema, so this is optional/best-effort
     const { createClient } = await import('@/lib/supabase')
     const supabase = createClient()
 
-    await supabase.from('notifications').insert({
+    // Non-blocking audit log attempt — don't fail the SMS send if this errors
+    supabase.from('audit_logs').insert({
       type: 'sms_sent',
       related_table: 'viewings',
-      status: 'sent',
-      content: message,
-    })
+      message: message.slice(0, 255),
+      sent_at: new Date().toISOString(),
+    }).catch((err) => console.error('SMS audit log failed (non-blocking):', err))
 
     return NextResponse.json({
       success: true,

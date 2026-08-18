@@ -1,0 +1,18 @@
+#!/bin/sh
+# Pre-commit hook: run `npm run doctor` to catch configuration issues before commit
+#
+# This prevents committing when the environment is broken (dead API keys, missing
+# tables, wrong column names). Exits with non-zero status if doctor finds errors.
+
+set -e
+
+echo "🏥 Running pre-commit health check..."
+npm run doctor 2>&1
+
+if [ $? -eq 0 ]; then
+  echo "✓ Health check passed, commit allowed"
+  exit 0
+else
+  echo "✗ Health check failed. Fix the issues above, then try again."
+  exit 1
+fi

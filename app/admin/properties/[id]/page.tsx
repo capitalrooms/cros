@@ -101,7 +101,13 @@ export default function PropertyDetailPage({ params }: { params: { id: string } 
   if (!property) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar
+          right={
+            <Link href="/admin/properties" className="shrink-0 hover:opacity-80">
+              ← Properties
+            </Link>
+          }
+        />
         <p className="p-xl text-sm text-neutral-600">Property not found</p>
       </div>
     );

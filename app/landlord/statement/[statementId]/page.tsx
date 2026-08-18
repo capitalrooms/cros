@@ -111,7 +111,13 @@ export default function StatementDetail() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar
+          right={
+            <Link href="/landlord" className="text-sm font-semibold text-white hover:text-white/80">
+              ← Statements
+            </Link>
+          }
+        />
         <main className="mx-auto max-w-6xl px-lg py-2xl">
           <div className="animate-pulse space-y-lg">
             <div className="h-10 w-64 bg-neutral-300 rounded-lg"></div>

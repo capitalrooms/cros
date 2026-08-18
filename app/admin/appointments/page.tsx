@@ -257,7 +257,7 @@ export default function AppointmentsPage() {
       <AppBar right={<Link href="/admin" className="font-semibold text-white hover:opacity-80">← Dashboard</Link>} />
 
       <main className="mx-auto max-w-full px-lg py-2xl">
-        <div className="mb-2xl">
+        <div className="mb-3xl">
           <h1 className="text-3xl font-bold text-neutral-900">📅 Property Calendar</h1>
           <p className="mt-sm text-sm text-neutral-600">
             Drag appointments to reschedule. Click a time slot to book a new visit.
@@ -265,7 +265,7 @@ export default function AppointmentsPage() {
         </div>
 
         {/* Week navigation */}
-        <div className="mb-lg flex items-center justify-between">
+        <div className="mb-3xl flex items-center justify-between">
           <button
             onClick={() => {
               const d = new Date(weekStart)
@@ -295,12 +295,12 @@ export default function AppointmentsPage() {
         {!showCreateForm ? (
           <button
             onClick={() => setShowCreateForm(true)}
-            className="mb-lg px-lg py-md bg-neutral-900 text-white font-bold rounded-lg hover:bg-neutral-800"
+            className="mb-3xl px-lg py-md bg-neutral-900 text-white font-bold rounded-lg hover:bg-neutral-800"
           >
             + Book Appointment
           </button>
         ) : (
-          <div className="mb-lg p-lg bg-white rounded-2xl border-2 border-neutral-200">
+          <div className="mb-3xl p-lg bg-white rounded-2xl border-2 border-neutral-200">
             <h2 className="text-xl font-bold mb-lg">Book Appointment</h2>
             {error && <div className="mb-md p-md bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">{error}</div>}
 
@@ -413,7 +413,7 @@ export default function AppointmentsPage() {
         )}
 
         {/* Calendar grid */}
-        <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
+        <div className="mt-3xl overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
           <div className="inline-block min-w-full">
             {/* Header: Day names */}
             <div className="flex">

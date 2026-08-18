@@ -55,7 +55,7 @@ export default function SmartTroubleshootingPage() {
       const { data: tenancy } = await supabase
         .from('tenancies')
         .select('id, property_id, room_id')
-        .eq('tenant_id', data.assignment?.id)
+        .eq('person_id', data.assignment?.id)
         .not('end_date', 'is', null)
         .or('end_date.gte.' + new Date().toISOString().split('T')[0])
         .single();

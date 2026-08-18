@@ -35,7 +35,9 @@ export default function AcknowledgmentNotesPage() {
         router.push('/login')
         return
       }
-      setUser(data.user)
+      // Store the people row (not the auth user): tenancies.person_id and the
+      // acknowledged_by FK both reference people(id), which is NOT the auth id.
+      setUser(data.assignment)
 
       const supabase = createClient()
 
@@ -43,7 +45,7 @@ export default function AcknowledgmentNotesPage() {
       const { data: tenancies } = await supabase
         .from('tenancies')
         .select('room_id')
-        .eq('tenant_id', data.id)
+        .eq('person_id', data.assignment.id)
         .single()
 
       if (tenancies) {
@@ -109,7 +111,7 @@ export default function AcknowledgmentNotesPage() {
       const { data: tenancies } = await supabase
         .from('tenancies')
         .select('room_id')
-        .eq('tenant_id', user.id)
+        .eq('person_id', user.id)
         .single()
 
       if (tenancies) {

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -15,13 +15,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient()
+  // Trusted cron route: service client bypasses RLS (no user session here).
+  const supabase = createServiceClient()
 
   try {
     // Get all active tenancies
     const { data: tenancies, error: tenanciesError } = await supabase
       .from('tenancies')
-      .select('id, tenant_id, room_id, property_id, start_date')
+      .select('id, person_id, room_id, property_id, start_date')
       .or('end_date.is.null,end_date.gte.now()')
 
     if (tenanciesError) throw tenanciesError

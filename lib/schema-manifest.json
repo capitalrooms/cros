@@ -1,0 +1,17 @@
+{
+  "_comment": "Single source of truth for the DB contract the code depends on. Read by scripts/doctor.mjs (local) and app/api/health/route.ts (production). Add a table/column here whenever code starts depending on it; the checks enforce it against the live DB.",
+  "tables": {
+    "people": ["id", "email", "role", "property_id", "room_id", "full_name"],
+    "properties": ["id", "name"],
+    "rooms": ["id", "name", "property_id"],
+    "tenancies": ["id", "person_id", "property_id", "room_id", "start_date", "end_date"],
+    "cleans": ["id", "property_id", "cleaner_id", "clean_date", "clean_time", "admin_note", "status"],
+    "pending_cleaner_notes": ["id", "property_id", "title", "content", "attached_to_clean_id"],
+    "compliance_logs": ["id", "property_id", "check_type", "checked_by", "checked_date"],
+    "tenant_self_checks": ["id", "tenancy_id", "property_id", "room_id", "check_type", "frequency", "request_sent_at"],
+    "tenant_acknowledgment_notes": ["id", "property_id", "room_id", "title", "content", "created_by", "status", "acknowledged_by", "expires_at"],
+    "notifications": ["id", "user_id", "title", "body", "type", "link", "read", "created_at"],
+    "property_documents": ["id", "property_id", "document_type", "file_name", "storage_url"]
+  },
+  "knownGaps": {}
+}
