@@ -187,10 +187,10 @@ export default function AdminDashboard() {
           {/* Dashboard sections */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
             <SectionLink
-              icon="📊"
-              title="System Overview"
-              href="/admin/overview"
-              description="Real-time KPIs, occupancy rate, platform health, quick actions"
+              icon="📅"
+              title="Agency Diary"
+              href="/admin/agency-diary"
+              description="All property visits, maintenance jobs, and appointments in one place"
             />
             <SectionLink
               icon="🏢"
@@ -203,12 +203,6 @@ export default function AdminDashboard() {
               title="Lettings"
               href="/admin/available-and-lettings"
               description="Occupied rooms and available properties — two tabs"
-            />
-            <SectionLink
-              icon="📅"
-              title="Agency Diary"
-              href="/admin/agency-diary"
-              description="All property visits, maintenance jobs, and appointments in one place"
             />
             <SectionLink
               icon="🔧"
@@ -233,6 +227,12 @@ export default function AdminDashboard() {
               title="People"
               href="/admin/people"
               description="Manage tenants, staff, landlords, and administrators — all in one place"
+            />
+            <SectionLink
+              icon="📊"
+              title="System Overview"
+              href="/admin/overview"
+              description="Real-time KPIs, occupancy rate, platform health, quick actions"
             />
           </div>
         </div>
