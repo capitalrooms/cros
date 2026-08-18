@@ -9,11 +9,11 @@ export default function Footer() {
           <Image
             src="/footer-logo.png"
             alt="Capital Rooms"
-            width={420}
-            height={120}
+            width={483}
+            height={138}
             priority
             className="opacity-100 hover:opacity-90 transition-opacity"
-            style={{ width: 'auto', height: '80px' }}
+            style={{ width: 'auto', height: '92px' }}
           />
         </div>
 
@@ -27,7 +27,7 @@ export default function Footer() {
             fontStyle: 'italic',
           }}
         >
-          Innovating London living since 2018.
+          Innovating London living since_2018.
         </div>
       </div>
     </footer>
