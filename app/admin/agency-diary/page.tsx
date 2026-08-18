@@ -225,7 +225,7 @@ export default function AgencyDiaryPage() {
         {/* Back Button */}
         <Link
           href="/admin"
-          className="inline-flex items-center gap-sm text-slate-600 hover:text-slate-900 font-medium mb-3xl transition-colors"
+          className="inline-flex items-center gap-sm text-neutral-600 hover:text-neutral-900 font-medium mb-3xl transition-colors"
         >
           ← Back to Dashboard
         </Link>
