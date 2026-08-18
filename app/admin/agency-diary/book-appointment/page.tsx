@@ -13,6 +13,12 @@ interface Property {
   address: string
 }
 
+interface Room {
+  id: string
+  name: string
+  property_id: string
+}
+
 type AppointmentType = 'landlord' | 'viewing' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 const APPOINTMENT_TYPES: Record<AppointmentType, { label: string; icon: string }> = {
@@ -32,11 +38,13 @@ export default function BookAppointmentPage() {
 
   const [loading, setLoading] = useState(true)
   const [properties, setProperties] = useState<Property[]>([])
+  const [rooms, setRooms] = useState<Room[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   // Form state
   const [selectedProperty, setSelectedProperty] = useState('')
+  const [selectedRoom, setSelectedRoom] = useState('')
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('landlord')
   const [appointmentDate, setAppointmentDate] = useState('')
   const [appointmentTime, setAppointmentTime] = useState('10:00')
@@ -79,7 +87,7 @@ export default function BookAppointmentPage() {
     setError('')
 
     try {
-      await supabase.from('property_appointments').insert({
+      const appointmentData: any = {
         property_id: selectedProperty,
         appointment_type: appointmentType,
         appointment_date: appointmentDate,
@@ -90,7 +98,29 @@ export default function BookAppointmentPage() {
         visitor_phone: visitorPhone || null,
         notes: notes || null,
         notify_tenants: notifyTenants,
-      })
+      }
+
+      // Add room_id for viewing appointments
+      if (appointmentType === 'viewing' && selectedRoom) {
+        appointmentData.room_id = selectedRoom
+      }
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('property_appointments')
+        .insert(appointmentData)
+        .select()
+
+      if (insertError) throw insertError
+
+      const appointmentId = (inserted as any)?.[0]?.id
+      if (appointmentId && notifyTenants && appointmentType === 'viewing') {
+        // Send notifications to tenants
+        await fetch('/api/notify-appointment-scheduled', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointmentId }),
+        })
+      }
 
       setSaving(false)
       router.push('/admin/agency-diary')
@@ -102,27 +132,27 @@ export default function BookAppointmentPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-100 animate-pulse" />
+    return <div className="min-h-screen bg-neutral-100 animate-pulse" />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-slate-50">
+    <div className="min-h-screen bg-neutral-100">
       <AppBar />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">
         <Link
           href="/admin/agency-diary"
-          className="inline-flex items-center gap-sm text-purple-600 hover:text-purple-700 font-semibold mb-3xl"
+          className="inline-flex items-center gap-sm text-neutral-600 hover:text-neutral-900 font-medium mb-3xl transition-colors"
         >
           ← Back to Diary
         </Link>
 
         {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-purple-900 bg-clip-text text-transparent mb-sm">
+          <h1 className="text-3xl font-bold text-neutral-900 mb-md">
             📋 Book Appointment
           </h1>
-          <p className="text-base text-slate-600">Create a new appointment for viewings, meetings, and inspections.</p>
+          <p className="text-base text-neutral-600">Create a new appointment for viewings, meetings, and inspections.</p>
         </div>
 
         {error && (
@@ -139,8 +169,25 @@ export default function BookAppointmentPage() {
             </label>
             <select
               value={selectedProperty}
-              onChange={(e) => setSelectedProperty(e.target.value)}
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              onChange={async (e) => {
+                setSelectedProperty(e.target.value)
+                setSelectedRoom('')
+                if (e.target.value) {
+                  try {
+                    const { data: roomsData } = await supabase
+                      .from('rooms')
+                      .select('id, name, property_id')
+                      .eq('property_id', e.target.value)
+                      .order('name')
+                    setRooms((roomsData as any) || [])
+                  } catch (err) {
+                    console.error('Error loading rooms:', err)
+                  }
+                } else {
+                  setRooms([])
+                }
+              }}
+              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
             >
               <option value="">Select a property...</option>
               {properties.map((p) => (
@@ -150,6 +197,30 @@ export default function BookAppointmentPage() {
               ))}
             </select>
           </div>
+
+          {/* Room (only for viewings) */}
+          {appointmentType === 'viewing' && selectedProperty && (
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-sm">
+                Room <span className="text-amber-600">(optional)</span>
+              </label>
+              <select
+                value={selectedRoom}
+                onChange={(e) => setSelectedRoom(e.target.value)}
+                className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              >
+                <option value="">Any room / Whole property viewing</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500 mt-xs">
+                If you select a specific room, that tenant will be notified the viewing is for their room. Other tenants will be notified of a property-wide viewing.
+              </p>
+            </div>
+          )}
 
           {/* Appointment Type */}
           <div>
@@ -162,8 +233,8 @@ export default function BookAppointmentPage() {
                     onClick={() => setAppointmentType(type)}
                     className={`px-md py-md rounded-lg border-2 transition-all ${
                       appointmentType === type
-                        ? 'border-purple-500 bg-purple-50 text-purple-900 font-semibold'
-                        : 'border-slate-200 hover:border-purple-300'
+                        ? 'border-neutral-900 bg-neutral-50 text-neutral-900 font-semibold'
+                        : 'border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
                     <div className="text-lg">{icon}</div>
@@ -184,7 +255,7 @@ export default function BookAppointmentPage() {
                 type="date"
                 value={appointmentDate}
                 onChange={(e) => setAppointmentDate(e.target.value)}
-                className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
               />
             </div>
 
@@ -196,7 +267,7 @@ export default function BookAppointmentPage() {
                 type="time"
                 value={appointmentTime}
                 onChange={(e) => setAppointmentTime(e.target.value)}
-                className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
               />
             </div>
           </div>
@@ -207,7 +278,7 @@ export default function BookAppointmentPage() {
             <select
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(parseInt(e.target.value))}
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
             >
               <option value={15}>15 minutes</option>
               <option value={30}>30 minutes</option>
@@ -227,7 +298,7 @@ export default function BookAppointmentPage() {
               value={visitorName}
               onChange={(e) => setVisitorName(e.target.value)}
               placeholder="e.g., John Smith"
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
             />
           </div>
 
@@ -238,7 +309,7 @@ export default function BookAppointmentPage() {
               value={visitorCompany}
               onChange={(e) => setVisitorCompany(e.target.value)}
               placeholder="e.g., ABC Inspections"
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
             />
           </div>
 
@@ -249,7 +320,7 @@ export default function BookAppointmentPage() {
               value={visitorPhone}
               onChange={(e) => setVisitorPhone(e.target.value)}
               placeholder="e.g., 07700 900000"
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
             />
           </div>
 
@@ -261,7 +332,7 @@ export default function BookAppointmentPage() {
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Any special instructions or notes..."
               rows={3}
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
             />
           </div>
 
@@ -281,14 +352,14 @@ export default function BookAppointmentPage() {
             <button
               onClick={handleBook}
               disabled={!selectedProperty || !appointmentDate || !appointmentTime || !visitorName || saving}
-              className="flex-1 py-md px-lg rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 text-white font-bold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="flex-1 py-md px-lg rounded-lg bg-neutral-900 text-white font-semibold hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? 'Booking...' : 'Create Appointment'}
             </button>
 
             <Link
               href="/admin/agency-diary"
-              className="flex-1 py-md px-lg rounded-lg bg-slate-200 text-slate-900 font-bold text-center hover:bg-slate-300 transition-colors"
+              className="flex-1 py-md px-lg rounded-lg bg-neutral-200 text-neutral-900 font-semibold text-center hover:bg-neutral-300 transition-colors"
             >
               Cancel
             </Link>

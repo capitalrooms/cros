@@ -108,23 +108,23 @@ export default function BookCleanPage() {
   const selectedJobs = jobs.filter((j) => selectedJobIds.has(j.id))
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-slate-50">
+    <div className="min-h-screen bg-neutral-100">
       <AppBar />
 
       <main className="mx-auto max-w-5xl px-lg py-2xl">
         <Link
           href="/admin/agency-diary"
-          className="inline-flex items-center gap-sm text-green-600 hover:text-green-700 font-semibold mb-3xl"
+          className="inline-flex items-center gap-sm text-neutral-600 hover:text-neutral-900 font-medium mb-3xl transition-colors"
         >
           ← Back to Diary
         </Link>
 
         {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-green-900 bg-clip-text text-transparent mb-sm">
+          <h1 className="text-3xl font-bold text-neutral-900 mb-md">
             🧹 Book Cleaner
           </h1>
-          <p className="text-base text-slate-600">Select cleaning jobs to schedule.</p>
+          <p className="text-base text-neutral-600">Select cleaning jobs to schedule.</p>
         </div>
 
         {error && (
@@ -135,21 +135,21 @@ export default function BookCleanPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
           <div className="lg:col-span-2">
-            <div className="rounded-2xl bg-white shadow-lg border border-slate-200 overflow-hidden">
-              <div className="bg-gradient-to-r from-green-600 to-green-700 px-lg py-md text-white font-bold">
+            <div className="rounded-lg bg-white shadow-sm border border-neutral-200 overflow-hidden">
+              <div className="bg-neutral-900 px-lg py-md text-white font-semibold text-sm">
                 Available Cleaning Jobs ({jobs.length})
               </div>
 
               {jobs.length === 0 ? (
-                <div className="p-3xl text-center text-slate-500">
+                <div className="p-3xl text-center text-neutral-600">
                   <div className="text-lg">✓ No pending cleaning jobs!</div>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-200">
+                <div className="divide-y divide-neutral-200">
                   {jobs.map((job) => (
                     <label
                       key={job.id}
-                      className="flex items-start gap-md p-lg hover:bg-green-50 cursor-pointer transition-colors"
+                      className="flex items-start gap-md p-lg hover:bg-neutral-50 cursor-pointer transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -159,7 +159,7 @@ export default function BookCleanPage() {
                       />
 
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-slate-900">Cleaning Service</div>
+                        <div className="font-semibold text-neutral-900">Cleaning Service</div>
                         <div className="text-sm text-slate-600 mt-xs">📍 {job.property.name}</div>
                         {job.cleaner && <div className="text-sm text-slate-600">👤 Assigned to: {job.cleaner.full_name}</div>}
                       </div>
@@ -171,14 +171,14 @@ export default function BookCleanPage() {
           </div>
 
           <div>
-            <div className="rounded-2xl bg-white shadow-lg border border-slate-200 sticky top-lg">
-              <div className="bg-gradient-to-r from-green-600 to-green-700 px-lg py-md text-white font-bold rounded-t-2xl">
+            <div className="rounded-lg bg-white shadow-sm border border-neutral-200 sticky top-lg">
+              <div className="bg-neutral-900 px-lg py-md text-white font-semibold text-sm rounded-t-lg">
                 Schedule Details
               </div>
 
               <div className="p-lg space-y-lg">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-sm">Date</label>
+                  <label className="block text-sm font-semibold text-neutral-900 mb-sm">Date</label>
                   <input
                     type="date"
                     value={bookDate}
@@ -188,7 +188,7 @@ export default function BookCleanPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-sm">Time</label>
+                  <label className="block text-sm font-semibold text-neutral-900 mb-sm">Time</label>
                   <input
                     type="time"
                     value={bookTime}
@@ -198,7 +198,7 @@ export default function BookCleanPage() {
                 </div>
 
                 {selectedJobs.length > 0 && (
-                  <div className="bg-green-50 rounded-lg border border-green-200 p-md text-xs text-green-900">
+                  <div className="bg-neutral-50 rounded-lg border border-neutral-200 p-md text-xs text-neutral-900">
                     <strong>{selectedJobs.length}</strong> job{selectedJobs.length !== 1 ? 's' : ''} selected
                   </div>
                 )}
@@ -206,14 +206,14 @@ export default function BookCleanPage() {
                 <button
                   onClick={handleBook}
                   disabled={selectedJobIds.size === 0 || !bookDate || !bookTime || saving}
-                  className="w-full py-md px-lg rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white font-bold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="w-full py-md px-lg rounded-lg bg-gradient-to-r neutral-900 text-white font-bold hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   {saving ? 'Booking...' : `Book Clean`}
                 </button>
 
                 <Link
                   href="/admin/agency-diary"
-                  className="block w-full py-md px-lg rounded-lg bg-slate-200 text-slate-900 font-bold text-center hover:bg-slate-300 transition-colors"
+                  className="block w-full py-md px-lg rounded-lg bg-neutral-200 text-neutral-900 font-bold text-center hover:bg-neutral-300 transition-colors"
                 >
                   Cancel
                 </Link>
