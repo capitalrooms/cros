@@ -273,7 +273,7 @@ export default function JobDetailPage() {
   if (!job) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<Link href="/contractor" className="min-w-0 truncate font-semibold text-white hover:text-white/80">← Jobs</Link>} />
         <p className="p-xl text-sm text-neutral-400">Job not found</p>
       </div>
     )

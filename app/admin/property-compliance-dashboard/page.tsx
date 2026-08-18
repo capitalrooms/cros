@@ -88,8 +88,8 @@ export default function PropertyComplianceDashboard() {
         .select(
           `
           room_id,
-          tenant_id,
-          tenant:tenant_id(name),
+          person_id,
+          tenant:person_id(name:full_name),
           room:room_id(name, property_id)
         `
         )
@@ -194,15 +194,14 @@ export default function PropertyComplianceDashboard() {
       // Get all tenants at property
       const { data: tenancies } = await supabase
         .from('tenancies')
-        .select('tenant_id')
+        .select('person_id')
         .eq('property_id', selectedProperty)
-        .not('end_date', 'is', null)
-        .or('end_date.gte.' + new Date().toISOString().split('T')[0]);
+        .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`);
 
       if (tenancies && tenancies.length > 0) {
-        // Send notifications to tenants
+        // Send notifications to tenants (via canonical notifications table schema)
         const messages = tenancies.map((t: any) => ({
-          user_id: t.tenant_id,
+          user_id: t.person_id,
           title: `📸 Photo Request: ${bulkRequestType === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}`,
           body: `Please send a photo of your ${bulkRequestType === 'fire_door' ? 'fire door' : 'smoke alarm'} by ${new Date(
             bulkRequestDeadline
@@ -210,10 +209,10 @@ export default function PropertyComplianceDashboard() {
           type: 'photo_request',
           link: '/tenant/safety-checks',
           read: false,
-          created_at: new Date().toISOString(),
         }));
 
-        await supabase.from('notifications').insert(messages);
+        const { error } = await supabase.from('notifications').insert(messages);
+        if (error) console.error('Photo request notification failed:', error);
       }
 
       alert(`✅ Photo request sent to ${tenancies?.length || 0} tenants`);

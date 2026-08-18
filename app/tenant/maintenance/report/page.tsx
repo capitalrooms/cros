@@ -171,8 +171,9 @@ function ReportFormContent() {
     try {
       const userData = await getCurrentUser();
       if (!userData) {
-        setError('Not authenticated');
+        setError('Your session has expired. Please sign in again.');
         setLoading(false);
+        setTimeout(() => router.push('/login'), 2000);
         return;
       }
 

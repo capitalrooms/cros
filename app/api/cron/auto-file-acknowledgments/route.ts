@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient()
+  // Trusted cron route: service client bypasses RLS (no user session here).
+  const supabase = createServiceClient()
 
   try {
     // Get all active acknowledgment notes that have expired

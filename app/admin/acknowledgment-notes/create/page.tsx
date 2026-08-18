@@ -30,7 +30,9 @@ export default function CreateAcknowledgmentNotePage() {
         router.push('/login')
         return
       }
-      setUser(data.user)
+      // Store the people row (not the auth user): created_by has an FK to
+      // people(id), and people.id is NOT the same as the auth user id.
+      setUser(data.assignment)
 
       const supabase = createClient()
 

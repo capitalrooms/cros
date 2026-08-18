@@ -67,17 +67,17 @@ export async function POST(request: NextRequest) {
       body = `${ticket.title} is complete, but we need a follow-up visit. We'll be in touch to book it.`;
     }
 
-    // Send notifications to all tenants
+    // Send notifications to all tenants (via canonical notifications table schema).
+    // Note: people.id (not auth.uid) is what notifications.user_id references.
     const notifications = tenancies
-      .filter((t) => t.tenant?.auth_id)
+      .filter((t) => t.people?.id) // filter out any without a valid person record
       .map((t) => ({
-        user_id: t.tenant!.auth_id,
+        user_id: t.people!.id, // FK to people(id), not auth.uid
         title,
         body,
         type: 'job_complete',
         link: `/tenant`,
         read: false,
-        created_at: new Date().toISOString(),
       }));
 
     if (notifications.length > 0) {

@@ -34,7 +34,7 @@ CREATE POLICY "admin_all_appointments" ON property_appointments
     EXISTS (
       SELECT 1 FROM people p
       WHERE p.id = auth.uid()
-        AND p.assignment->>'role' IN ('administrator', 'admin')
+        AND p.role IN ('administrator', 'admin')
     )
   );
 
@@ -48,7 +48,7 @@ CREATE POLICY "tenant_view_appointments" ON property_appointments
       SELECT 1 FROM tenancies t
       JOIN rooms r ON r.id = t.room_id
       WHERE r.property_id = property_appointments.property_id
-        AND t.tenant_id = auth.uid()
+        AND t.person_id = auth.uid()
         AND (t.end_date IS NULL OR t.end_date >= CURRENT_DATE)
     )
   );
