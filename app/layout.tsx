@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { DM_Sans } from 'next/font/google'
 import './globals.css'
 import ServiceWorkerRegister from './components/ServiceWorkerRegister'
+import Footer from './components/Footer'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,8 +43,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={dmSans.variable}>
-      <body>
-        {children}
+      <body className="flex flex-col min-h-screen">
+        <div className="flex-1">
+          {children}
+        </div>
+        <Footer />
         <ServiceWorkerRegister />
       </body>
     </html>
