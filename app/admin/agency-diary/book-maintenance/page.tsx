@@ -158,12 +158,12 @@ export default function BookMaintenancePage() {
         {/* Back Link */}
         <Link
           href="/admin/agency-diary"
-          className="inline-flex items-center gap-sm text-blue-600 hover:text-blue-700 font-semibold mb-2xl"
+          className="inline-flex items-center gap-sm text-blue-600 hover:text-blue-700 font-semibold mb-3xl"
         >
           ← Back to Diary
         </Link>
 
-        {/* Header */}
+        {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-blue-900 bg-clip-text text-transparent mb-sm">
             🔧 Book Maintenance Job

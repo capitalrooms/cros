@@ -257,6 +257,7 @@ export default function AppointmentsPage() {
       <AppBar right={<Link href="/admin" className="font-semibold text-white hover:opacity-80">← Dashboard</Link>} />
 
       <main className="mx-auto max-w-full px-lg py-2xl">
+        {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
           <h1 className="text-3xl font-bold text-neutral-900">📅 Property Calendar</h1>
           <p className="mt-sm text-sm text-neutral-600">
