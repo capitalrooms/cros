@@ -2,8 +2,8 @@ import Image from 'next/image'
 
 export default function Footer() {
   return (
-    <footer className="bg-black border-t border-neutral-800 py-3xl px-lg">
-      <div className="mx-auto max-w-6xl flex flex-col items-center justify-center gap-3xl">
+    <footer className="bg-black border-t border-neutral-800 py-lg px-lg">
+      <div className="mx-auto max-w-6xl flex flex-col items-center justify-center gap-lg">
         {/* Logo Wordmark - White Horizontal */}
         <div className="shrink-0">
           <Image
@@ -19,15 +19,28 @@ export default function Footer() {
 
         {/* Tagline */}
         <div
-          className="text-sm text-neutral-300"
+          className="text-sm text-neutral-300 text-center"
           style={{
-            fontFamily: 'Georgia, serif',
+            fontFamily: 'HelveticaNeue, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
             letterSpacing: '0.08em',
-            fontWeight: 300,
+            fontWeight: 400,
             fontStyle: 'italic',
           }}
         >
-          Innovating London living <u>since</u><u>_</u><u>2018.</u>
+          Innovating London living, since 2018
+        </div>
+
+        {/* Copyright */}
+        <div
+          className="text-sm text-neutral-300 text-center"
+          style={{
+            fontFamily: 'HelveticaNeue, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif',
+            letterSpacing: '0.08em',
+            fontWeight: 700,
+            fontStyle: 'italic',
+          }}
+        >
+          © 2026
         </div>
       </div>
     </footer>
