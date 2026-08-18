@@ -232,10 +232,10 @@ export default function AgencyDiaryPage() {
 
         {/* Header — Subtitle Perfectly Centered */}
         <div className="mb-3xl">
-          <h1 className="text-5xl font-bold text-slate-900 mb-2xl">
+          <h1 className="text-3xl font-bold text-slate-900 mb-md">
             📅 Agency Diary
           </h1>
-          <p className="text-lg text-slate-600 mt-2xl">
+          <p className="text-base text-slate-600">
             All property visits, maintenance jobs, and appointments in one place
           </p>
         </div>
