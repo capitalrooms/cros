@@ -3,21 +3,21 @@ import Image from 'next/image'
 export default function Footer() {
   return (
     <footer className="bg-neutral-900 border-t border-neutral-800 py-3xl px-lg">
-      <div className="mx-auto max-w-6xl flex flex-col items-center justify-center gap-lg">
-        {/* Logo Wordmark */}
+      <div className="mx-auto max-w-6xl flex flex-col items-center justify-center gap-3xl">
+        {/* Logo Wordmark - Horizontal */}
         <div className="shrink-0">
           <Image
             src="/logo.png"
             alt="Capital Rooms"
-            width={140}
-            height={90}
+            width={280}
+            height={100}
             className="opacity-100 hover:opacity-90 transition-opacity"
           />
         </div>
 
         {/* Tagline */}
         <div
-          className="text-sm text-neutral-300 tracking-wide"
+          className="text-sm text-neutral-300"
           style={{
             fontFamily: 'Georgia, serif',
             letterSpacing: '0.08em',
