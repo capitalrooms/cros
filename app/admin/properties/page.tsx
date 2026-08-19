@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import AddressAutocomplete from '@/components/admin/AddressAutocomplete';
 import DocReview, { AIResult } from '@/app/components/DocReview';
+import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal';
 
 interface Tenant {
   id: string;
