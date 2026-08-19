@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import ComplianceInspectionGrid from './ComplianceInspectionGrid'
 
 interface Certificate {
   label: string
@@ -450,6 +451,11 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
             </button>
           </div>
         )}
+
+        {/* Inspection Log Section */}
+        <div className="mt-3xl pt-3xl border-t border-neutral-700">
+          <ComplianceInspectionGrid propertyId={property.id} />
+        </div>
       </div>
     </div>
   )
