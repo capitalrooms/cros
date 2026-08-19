@@ -14,6 +14,7 @@ import LettingsTab from './components/LettingsTab'
 import ComplianceTab from './components/ComplianceTab'
 import CommunicationsTab from './components/CommunicationsTab'
 import DocumentsTab from './components/DocumentsTab'
+import PropertyTabComponent from './components/PropertyTab'
 
 type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'compliance' | 'documents'
 
@@ -128,6 +129,26 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           </Link>
         </div>
 
+        {/* Quick Metrics Bar */}
+        <div className="mb-xl grid grid-cols-2 md:grid-cols-4 gap-md">
+          <div className="rounded-lg border border-neutral-200 bg-white p-lg text-center">
+            <p className="text-2xl font-bold text-neutral-900">{property.rooms?.length || property.bedrooms || 0}</p>
+            <p className="text-xs text-neutral-600 mt-sm uppercase tracking-wider font-semibold">Rooms</p>
+          </div>
+          <div className="rounded-lg border border-neutral-200 bg-white p-lg text-center">
+            <p className="text-2xl font-bold text-neutral-900">{tickets.length}</p>
+            <p className="text-xs text-neutral-600 mt-sm uppercase tracking-wider font-semibold">Maintenance</p>
+          </div>
+          <div className="rounded-lg border border-neutral-200 bg-white p-lg text-center">
+            <p className="text-2xl font-bold text-neutral-900">—</p>
+            <p className="text-xs text-neutral-600 mt-sm uppercase tracking-wider font-semibold">Tenants</p>
+          </div>
+          <div className="rounded-lg border border-neutral-200 bg-white p-lg text-center">
+            <p className="text-2xl font-bold text-neutral-900">—</p>
+            <p className="text-xs text-neutral-600 mt-sm uppercase tracking-wider font-semibold">Monthly Cost</p>
+          </div>
+        </div>
+
         {/* Property Header - Two Equal Columns */}
         <div className="mb-3xl grid grid-cols-1 md:grid-cols-2 gap-0 rounded-xl border border-neutral-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
           {/* Left Column: Property Info Card */}
@@ -139,13 +160,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Structure</p>
-                <p className="text-sm font-semibold text-neutral-900">{property.property_type || 'House'}</p>
+                <p className="text-sm font-semibold text-neutral-900 capitalize">{property.property_type || 'House'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Landlord</p>
-                <Link href={`/admin/people/${property.landlord_id}`} className="text-sm font-semibold text-blue-600 hover:text-blue-900 underline">
+                <p className="text-sm font-semibold text-neutral-900">
                   {property.landlord_name || '—'}
-                </Link>
+                </p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Contact</p>
@@ -186,110 +207,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} />}
 
           {/* Property Tab */}
-          {activeTab === 'property' && (
-            <div className="space-y-3xl">
-              {/* Property Details */}
-              <div>
-                <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
-                  Property Details
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
-                  <div className="space-y-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Type</p>
-                    <p className="text-sm font-semibold text-neutral-900">
-                      {property.bedrooms > 1 ? 'HMO' : 'Single Let'}
-                    </p>
-                  </div>
-                  <div className="space-y-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Bedrooms</p>
-                    <p className="text-sm font-semibold text-neutral-900">{property.bedrooms}</p>
-                  </div>
-                  <div className="space-y-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Bathrooms</p>
-                    <p className="text-sm font-semibold text-neutral-900">{property.bathrooms}</p>
-                  </div>
-                  <div className="space-y-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Total Area</p>
-                    <p className="text-sm font-semibold text-neutral-900">—</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Floor Plans & Room Dimensions */}
-              <div>
-                <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
-                  Floor Plans & Room Dimensions
-                </h3>
-                <div className="rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 p-2xl text-center transition hover:border-neutral-400 hover:bg-neutral-100">
-                  <div className="text-3xl mb-md opacity-60">📄</div>
-                  <p className="text-sm font-semibold text-neutral-900 mb-xs">Drop floor plan here or click to upload</p>
-                  <p className="text-xs text-neutral-500">PDF or JPEG • Max 10MB</p>
-                </div>
-              </div>
-
-              {/* Property Photos */}
-              <div>
-                <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
-                  Property Photos (Communal & Exterior)
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
-                  <div className="bg-neutral-100 rounded-lg aspect-square flex items-center justify-center text-xs text-neutral-600 font-medium transition hover:bg-neutral-200">
-                    Shared lounge
-                  </div>
-                  <div className="bg-neutral-100 rounded-lg aspect-square flex items-center justify-center text-xs text-neutral-600 font-medium transition hover:bg-neutral-200">
-                    Kitchen
-                  </div>
-                  <div className="bg-neutral-100 rounded-lg aspect-square flex items-center justify-center text-xs text-neutral-600 font-medium transition hover:bg-neutral-200">
-                    Hallway
-                  </div>
-                  <div className="border-2 border-dashed border-neutral-300 rounded-lg aspect-square flex items-center justify-center text-2xl cursor-pointer transition hover:bg-neutral-50 hover:border-neutral-400">
-                    +
-                  </div>
-                </div>
-              </div>
-
-              {/* HMO Licensing & Compliance */}
-              <div>
-                <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
-                  HMO Licensing & Compliance
-                </h3>
-                {property.hmo_licensed ? (
-                  <div className="space-y-md">
-                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg hover:border-neutral-300 transition">
-                      <div className="flex justify-between items-start mb-sm">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">License Number</span>
-                        <span className="text-sm font-semibold text-neutral-900 text-right">{property.license_number || '—'}</span>
-                      </div>
-                      <div className="flex justify-between items-start pt-md border-t border-neutral-200">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">License Expiry</span>
-                        <span className="text-sm font-semibold text-neutral-900 text-right">
-                          {property.license_expiry ? new Date(property.license_expiry).toLocaleDateString('en-GB') : '—'}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg hover:border-neutral-300 transition">
-                      <div className="space-y-md">
-                        <div>
-                          <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Gas Safety Certificate</span>
-                          <p className="text-sm font-semibold text-neutral-900 mt-xs">
-                            {property.gas_safe_cert_expiry ? new Date(property.gas_safe_cert_expiry).toLocaleDateString('en-GB') : '—'}
-                          </p>
-                        </div>
-                        <div className="pt-md border-t border-neutral-200">
-                          <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Electrical Inspection (EICR)</span>
-                          <p className="text-sm font-semibold text-neutral-900 mt-xs">
-                            {property.electrical_cert_expiry ? new Date(property.electrical_cert_expiry).toLocaleDateString('en-GB') : '—'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-neutral-600">This property is not an HMO</p>
-                )}
-              </div>
-            </div>
-          )}
+          {activeTab === 'property' && <PropertyTabComponent property={property} />}
 
           {/* People Tab */}
           {activeTab === 'people' && <PeopleTab propertyId={id} />}

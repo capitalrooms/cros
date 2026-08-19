@@ -1,0 +1,228 @@
+'use client'
+
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase'
+
+interface PropertyTabProps {
+  property: any
+}
+
+export default function PropertyTab({ property }: PropertyTabProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  const [formData, setFormData] = useState({
+    bedrooms: property.bedrooms || 0,
+    bathrooms: property.bathrooms || 0,
+    total_area: property.total_area || '',
+    description: property.description || '',
+    property_type: property.property_type || 'house'
+  })
+
+  const supabase = createClient()
+
+  async function handleSave() {
+    setSaving(true)
+    const { error: err } = await supabase
+      .from('properties')
+      .update({
+        bedrooms: parseInt(formData.bedrooms),
+        bathrooms: parseInt(formData.bathrooms),
+        total_area: formData.total_area ? parseFloat(formData.total_area) : null,
+        description: formData.description || null,
+        property_type: formData.property_type
+      })
+      .eq('id', property.id)
+
+    if (err) {
+      setError('Failed to save changes')
+      console.error(err)
+    } else {
+      setSuccess('Property updated successfully')
+      setIsEditing(false)
+      setTimeout(() => setSuccess(null), 3000)
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="space-y-3xl">
+      {error && (
+        <div className="p-lg rounded-lg bg-red-50 border border-red-200">
+          <p className="text-sm font-semibold text-red-900">{error}</p>
+        </div>
+      )}
+      {success && (
+        <div className="p-lg rounded-lg bg-green-50 border border-green-200">
+          <p className="text-sm font-semibold text-green-900">✓ {success}</p>
+        </div>
+      )}
+
+      {/* Property Details */}
+      <div>
+        <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
+          <h3 className="text-sm font-bold uppercase text-neutral-600">Property Details</h3>
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-900 underline"
+            >
+              Edit
+            </button>
+          ) : (
+            <div className="flex gap-sm">
+              <button
+                onClick={() => {
+                  setIsEditing(false)
+                  setFormData({
+                    bedrooms: property.bedrooms || 0,
+                    bathrooms: property.bathrooms || 0,
+                    total_area: property.total_area || '',
+                    description: property.description || '',
+                    property_type: property.property_type || 'house'
+                  })
+                }}
+                className="text-xs font-semibold text-neutral-600 hover:text-neutral-900"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-900 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isEditing ? (
+          <div className="space-y-lg">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  Bedrooms
+                </label>
+                <input
+                  type="number"
+                  value={formData.bedrooms}
+                  onChange={(e) => setFormData({ ...formData, bedrooms: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  Bathrooms
+                </label>
+                <input
+                  type="number"
+                  value={formData.bathrooms}
+                  onChange={(e) => setFormData({ ...formData, bathrooms: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  Total Area (m²)
+                </label>
+                <input
+                  type="number"
+                  value={formData.total_area}
+                  onChange={(e) => setFormData({ ...formData, total_area: e.target.value })}
+                  placeholder="0"
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  Property Type
+                </label>
+                <select
+                  value={formData.property_type}
+                  onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="house">House</option>
+                  <option value="flat">Flat</option>
+                  <option value="detached">Detached</option>
+                  <option value="semi-detached">Semi-Detached</option>
+                  <option value="terrace">Terrace</option>
+                  <option value="bungalow">Bungalow</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Add notes about the property..."
+                className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={4}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Bedrooms</p>
+              <p className="text-sm font-semibold text-neutral-900">{property.bedrooms}</p>
+            </div>
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Bathrooms</p>
+              <p className="text-sm font-semibold text-neutral-900">{property.bathrooms}</p>
+            </div>
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Total Area</p>
+              <p className="text-sm font-semibold text-neutral-900">{property.total_area ? `${property.total_area}m²` : '—'}</p>
+            </div>
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Type</p>
+              <p className="text-sm font-semibold text-neutral-900 capitalize">{property.property_type || 'house'}</p>
+            </div>
+          </div>
+        )}
+
+        {property.description && !isEditing && (
+          <div className="mt-lg pt-lg border-t border-neutral-100">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm">Description</p>
+            <p className="text-sm text-neutral-900 whitespace-pre-wrap">{property.description}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Floor Plans & Photos - Upload Ready */}
+      <div>
+        <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
+          Floor Plans & Room Dimensions
+        </h3>
+        <div className="rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 p-2xl text-center transition hover:border-neutral-400 hover:bg-neutral-100">
+          <div className="text-3xl mb-md opacity-60">📄</div>
+          <p className="text-sm font-semibold text-neutral-900 mb-xs">Drop floor plan here or click to upload</p>
+          <p className="text-xs text-neutral-500">PDF or JPEG • Max 10MB</p>
+        </div>
+      </div>
+
+      {/* Property Photos */}
+      <div>
+        <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
+          Property Photos (Communal & Exterior)
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
+          <div className="bg-neutral-100 rounded-lg aspect-square flex items-center justify-center text-xs text-neutral-600 font-medium transition hover:bg-neutral-200 cursor-pointer">
+            + Add Photo
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
