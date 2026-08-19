@@ -125,9 +125,20 @@
 ### API Issues
 - ❓ `/api/ai/compose-notification` endpoint setup verification needed
 
+### 9. Theme Inconsistency in Properties View
+**Problem:** Properties page has entirely black background; other pages have black top bar + white content area  
+**Current:** Properties view uses `bg-black` for entire page  
+**Pattern:** Other screens: black AppBar → white/light content area below  
+**Fix:** Change properties page background to match standard theme pattern  
+**Affected File:** `app/admin/properties/page.tsx` and `app/admin/properties/[id]/page.tsx`  
+**Status:** ⏳ NEEDS FIX
+
 ### Deployment
 - ✅ All fixes deployed to Vercel (cros-sigma.vercel.app)
-- ✅ Latest commit: df43db8
+- ✅ Latest commits:
+  - `629033c` - Compliance grid feature spec clarified
+  - `e6165a0` - Feature gap documented
+  - `30a3c2c` - Critical on-notice issue
 
 ---
 
