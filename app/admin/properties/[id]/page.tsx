@@ -8,6 +8,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import UnitsTab from './components/UnitsTab'
+import PeopleTab from './components/PeopleTab'
 
 type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'compliance' | 'documents'
 
@@ -286,17 +287,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           )}
 
           {/* People Tab */}
-          {activeTab === 'people' && (
-            <div className="space-y-xl">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900 mb-sm">People</h2>
-                <p className="text-sm text-neutral-600">Tenants, staff, contractors, and landlords</p>
-              </div>
-              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center transition hover:bg-neutral-100">
-                <p className="text-sm text-neutral-600">People management coming soon</p>
-              </div>
-            </div>
-          )}
+          {activeTab === 'people' && <PeopleTab propertyId={id} />}
 
           {/* Maintenance Tab */}
           {activeTab === 'maintenance' && (
