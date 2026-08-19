@@ -105,34 +105,43 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
-        {/* Property Header - Two Equal Squares */}
-        <div className="mb-3xl grid grid-cols-1 md:grid-cols-2 gap-0 rounded-lg border border-neutral-200 bg-white overflow-hidden">
-          {/* Left Square: Property Info */}
-          <div className="p-lg grid grid-cols-2 gap-lg">
-            <div>
-              <p className="text-xs font-semibold uppercase text-neutral-500 mb-md">Address</p>
-              <p className="text-sm font-semibold text-neutral-900">{property.address}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase text-neutral-500 mb-md">Type</p>
-              <p className="text-sm font-semibold text-neutral-900">
-                {property.hmo_licensed ? 'HMO' : 'Single Let'} • {property.bedrooms} bed
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase text-neutral-500 mb-md">Occupancy</p>
-              <p className="text-sm font-semibold text-neutral-900">{property.occupied_by_tenants}/{property.bedrooms}</p>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase text-neutral-500 mb-md">Status</p>
-              <p className="text-sm font-semibold text-neutral-900">✓ Active</p>
+        {/* Property Title */}
+        <div className="mb-lg">
+          <h1 className="text-2xl font-bold text-neutral-900 flex items-center gap-sm">
+            🏢 {property.address}
+          </h1>
+        </div>
+
+        {/* Property Header - Two Equal Columns */}
+        <div className="mb-3xl grid grid-cols-1 md:grid-cols-2 gap-0 rounded-lg border border-neutral-200 overflow-hidden">
+          {/* Left Column: Property Info Card */}
+          <div className="bg-white p-lg">
+            <div className="grid grid-cols-2 gap-lg">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-md">Address</p>
+                <p className="text-sm font-semibold text-neutral-900">{property.address}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-md">Type</p>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {property.hmo_licensed ? 'HMO' : 'Single Let'} • {property.bedrooms} bedrooms
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-md">Occupancy</p>
+                <p className="text-sm font-semibold text-neutral-900">{property.occupied_by_tenants}/{property.bedrooms} occupied</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-md">Status</p>
+                <p className="text-sm font-semibold text-neutral-900">✓ All compliant</p>
+              </div>
             </div>
           </div>
 
-          {/* Right Square: Featured Photo Placeholder */}
-          <div className="bg-neutral-200 flex items-center justify-center min-h-[200px]">
+          {/* Right Column: Featured Photo */}
+          <div className="bg-neutral-200 flex items-center justify-center min-h-[280px]">
             <div className="text-center">
-              <div className="text-4xl mb-md">📷</div>
+              <div className="text-5xl mb-md">📷</div>
               <p className="text-sm text-neutral-600">Featured photo</p>
             </div>
           </div>
