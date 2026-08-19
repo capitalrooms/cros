@@ -649,8 +649,8 @@ export default function PropertiesManagementPage() {
                   }}
                 >
                   <div className="flex items-start justify-between gap-md">
-                    <div className="flex-1">
-                      <h2 className="text-xl font-bold">{property.name}</h2>
+                    <Link href={`/admin/properties/${property.id}`} className="flex-1 group hover:opacity-80">
+                      <h2 className="text-xl font-bold group-hover:underline">{property.name}</h2>
                       <p className="text-sm text-neutral-300 mt-xs">{property.address}</p>
                       <div className="flex gap-lg mt-md text-xs text-neutral-400">
                         <span>{property.bedrooms} beds</span>
@@ -663,6 +663,7 @@ export default function PropertiesManagementPage() {
                           {(property.rooms || []).filter((r: any) => r.tenant).length} occupied
                         </span>
                       </div>
+                    </Link>
                     </div>
                     <div className="flex gap-sm">
                       <a
