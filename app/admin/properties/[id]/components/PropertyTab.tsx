@@ -12,6 +12,7 @@ export default function PropertyTab({ property }: PropertyTabProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const [formData, setFormData] = useState({
     bedrooms: property.bedrooms || 0,
@@ -45,6 +46,37 @@ export default function PropertyTab({ property }: PropertyTabProps) {
       setTimeout(() => setSuccess(null), 3000)
     }
     setSaving(false)
+  }
+
+  async function handlePhotoUpload(file: File) {
+    setUploading(true)
+    setError(null)
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('property_id', property.id)
+    formData.append('document_type', 'property_photo')
+    formData.append('file_name', file.name)
+
+    try {
+      const response = await fetch('/api/admin/upload-property-document', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Upload failed')
+      }
+
+      setSuccess(`Photo "${file.name}" uploaded successfully`)
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError(`Failed to upload photo: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      console.error(err)
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -205,10 +237,46 @@ export default function PropertyTab({ property }: PropertyTabProps) {
         <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
           Floor Plans & Room Dimensions
         </h3>
-        <div className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-2xl text-center transition hover:border-neutral-400 hover:bg-neutral-900">
+        <input
+          id="floorplan-input"
+          type="file"
+          multiple
+          accept=".pdf,.jpg,.jpeg,.png,.webp"
+          onChange={(e) => {
+            const files = Array.from(e.currentTarget.files || [])
+            files.forEach(f => {
+              const form = new FormData()
+              form.append('file', f)
+              form.append('property_id', property.id)
+              form.append('document_type', 'floor_plan')
+              form.append('file_name', f.name)
+              handlePhotoUpload(f)
+            })
+            e.currentTarget.value = ''
+          }}
+          className="hidden"
+        />
+        <div
+          onClick={() => document.getElementById('floorplan-input')?.click()}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.currentTarget.classList.add('border-blue-400', 'bg-neutral-800')
+          }}
+          onDragLeave={(e) => {
+            e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
+            const files = Array.from(e.dataTransfer.files)
+            files.forEach(f => handlePhotoUpload(f))
+          }}
+          className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-2xl text-center transition hover:border-neutral-500 hover:bg-neutral-800 cursor-pointer"
+        >
           <div className="text-3xl mb-md opacity-60">📄</div>
           <p className="text-sm font-semibold text-white mb-xs">Drop floor plan here or click to upload</p>
           <p className="text-xs text-neutral-400">PDF or JPEG • Max 10MB</p>
+          {uploading && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
         </div>
       </div>
 
@@ -217,10 +285,39 @@ export default function PropertyTab({ property }: PropertyTabProps) {
         <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
           Property Photos (Communal & Exterior)
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
-          <div className="bg-neutral-900 rounded-lg aspect-square flex items-center justify-center text-xs text-neutral-400 font-medium transition hover:bg-neutral-200 cursor-pointer">
-            + Add Photo
-          </div>
+        <input
+          id="photo-input"
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={(e) => {
+            const files = Array.from(e.currentTarget.files || [])
+            files.forEach(f => handlePhotoUpload(f))
+            e.currentTarget.value = ''
+          }}
+          className="hidden"
+        />
+        <div
+          onClick={() => document.getElementById('photo-input')?.click()}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.currentTarget.classList.add('border-blue-400', 'bg-neutral-800')
+          }}
+          onDragLeave={(e) => {
+            e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
+            const files = Array.from(e.dataTransfer.files)
+            files.forEach(f => handlePhotoUpload(f))
+          }}
+          className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-xl text-center transition hover:border-neutral-500 hover:bg-neutral-800 cursor-pointer"
+        >
+          <div className="text-3xl mb-md opacity-60">📷</div>
+          <p className="text-sm font-semibold text-white mb-xs">Drop photos here or click to upload</p>
+          <p className="text-xs text-neutral-400">PNG, JPG, WebP • Max 10MB each</p>
+          {uploading && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
         </div>
       </div>
     </div>
