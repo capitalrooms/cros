@@ -172,8 +172,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
           <div className="grid grid-cols-2 gap-md">
             {[
               { value: 'all_tenants' as RecipientType, label: 'All Tenants' },
-              { value: 'room' as RecipientType, label: 'Specific Room' },
-              { value: 'individual' as RecipientType, label: 'Individual Tenant' },
+              { value: 'room' as RecipientType, label: 'Specific Unit' },
               { value: 'cleaners' as RecipientType, label: 'Cleaners' }
             ].map(option => (
               <button
