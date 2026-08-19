@@ -9,6 +9,7 @@ import AppBar from '@/components/AppBar'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import UnitsTab from './components/UnitsTab'
 import PeopleTab from './components/PeopleTab'
+import MaintenanceTab from './components/MaintenanceTab'
 
 type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'compliance' | 'documents'
 
@@ -290,49 +291,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'people' && <PeopleTab propertyId={id} />}
 
           {/* Maintenance Tab */}
-          {activeTab === 'maintenance' && (
-            <div className="space-y-xl">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900 mb-sm">Maintenance Jobs</h2>
-                <p className="text-sm text-neutral-600">All maintenance tickets for this property</p>
-              </div>
-              {tickets.length === 0 ? (
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center transition hover:bg-neutral-100">
-                  <p className="text-sm text-neutral-600">No maintenance jobs</p>
-                </div>
-              ) : (
-                <div className="space-y-md">
-                  {tickets.map((ticket) => (
-                    <div key={ticket.id} className="rounded-lg border border-neutral-200 p-lg hover:border-neutral-300 hover:shadow-sm transition">
-                      <div className="flex items-start justify-between gap-lg mb-md">
-                        <div className="flex-1">
-                          <p className="font-semibold text-neutral-900">{ticket.title}</p>
-                          <p className="text-xs text-neutral-500 mt-xs uppercase tracking-wider">{ticket.category}</p>
-                        </div>
-                        <span
-                          className={`text-xs font-semibold px-md py-sm rounded-full whitespace-nowrap ${
-                            ticket.priority === 'high'
-                              ? 'bg-red-100 text-red-700'
-                              : ticket.priority === 'medium'
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-green-100 text-green-700'
-                          }`}
-                        >
-                          {ticket.priority}
-                        </span>
-                      </div>
-                      {ticket.booked_date && (
-                        <p className="text-xs text-neutral-600">
-                          📅 {new Date(ticket.booked_date).toLocaleDateString('en-GB')}
-                          {ticket.booked_slot && ` • ${ticket.booked_slot}`}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {activeTab === 'maintenance' && <MaintenanceTab propertyId={id} tickets={tickets} />}
 
           {/* Lettings Tab */}
           {activeTab === 'lettings' && (
