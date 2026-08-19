@@ -150,7 +150,7 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
   async function loadRoomDetails(room: Room) {
     setSelectedRoomForDetails(room)
 
-    // Fetch current tenant info
+    // Fetch current tenant info (including on-notice tenancies)
     const { data: tenantData } = await supabase
       .from('tenancies')
       .select(`
@@ -158,11 +158,12 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
         start_date,
         end_date,
         rent_monthly,
+        status,
         people(id, email, phone),
         person_id
       `)
       .eq('room_id', room.id)
-      .is('end_date', null)  // Current tenant only
+      .or('end_date.is.null,status.eq.on_notice')  // Current or on-notice tenant
       .single()
 
     if (tenantData && tenantData.people) {

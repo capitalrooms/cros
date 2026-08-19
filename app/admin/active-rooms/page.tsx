@@ -110,7 +110,7 @@ export default function AllUnitsPage() {
         room,
         property,
         person,
-        rent_amount: t.rent_monthly || 0,
+        rent_amount: t.rent_monthly || room?.current_rent || 0,
         person_id: t.person_id,
       }
     })
