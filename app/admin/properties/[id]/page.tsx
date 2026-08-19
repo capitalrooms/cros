@@ -133,7 +133,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Type</p>
                 <p className="text-sm font-semibold text-neutral-900">
-                  {(property.rooms?.length || 0) > 1 ? 'HMO' : 'Single Let'} • {property.bedrooms} bed
+                  {property.bedrooms > 1 ? 'HMO' : 'Single Let'} • {property.bedrooms} bed
                 </p>
               </div>
               <div>
@@ -200,7 +200,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                   <div className="space-y-sm">
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Type</p>
                     <p className="text-sm font-semibold text-neutral-900">
-                      {(property.rooms?.length || 0) > 1 ? 'HMO' : 'Single Let'}
+                      {property.bedrooms > 1 ? 'HMO' : 'Single Let'}
                     </p>
                   </div>
                   <div className="space-y-sm">
