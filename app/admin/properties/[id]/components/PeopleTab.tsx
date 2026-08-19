@@ -12,9 +12,8 @@ interface Tenancy {
   end_date: string | null
   person: {
     id: string
-    name: string
-    email: string | null
-    phone: string | null
+    email: string
+    role: string
   }
   room: {
     id: string
@@ -47,7 +46,7 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
         room_id,
         start_date,
         end_date,
-        person:person_id(id, name, email, phone),
+        person:person_id(id, email, role),
         room:room_id(id, name)
       `)
       .eq('property_id', propertyId)
@@ -111,7 +110,7 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
               <div key={tenancy.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition">
                 <div className="flex items-start justify-between gap-lg mb-md">
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{tenancy.person.name}</p>
+                    <p className="font-semibold text-white">{tenancy.person.email.split('@')[0]}</p>
                     <p className="text-xs text-neutral-400 mt-xs">
                       {tenancy.room.name} • Moved in {formatDate(tenancy.start_date)} ({getDaysAsSince(tenancy.start_date)} days)
                     </p>
@@ -129,15 +128,6 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
                       title="Click to copy"
                     >
                       📧 {tenancy.person.email}
-                    </button>
-                  )}
-                  {tenancy.person.phone && (
-                    <button
-                      onClick={() => navigator.clipboard.writeText(tenancy.person.phone || '')}
-                      className="text-xs text-blue-400 hover:text-blue-300 font-semibold"
-                      title="Click to copy"
-                    >
-                      📱 {tenancy.person.phone}
                     </button>
                   )}
                 </div>
@@ -174,7 +164,7 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
               <div key={tenancy.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg">
                 <div className="flex items-start justify-between gap-lg mb-md">
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{tenancy.person.name}</p>
+                    <p className="font-semibold text-white">{tenancy.person.email.split('@')[0]}</p>
                     <p className="text-xs text-neutral-400 mt-xs">
                       {tenancy.room.name} • {formatDate(tenancy.start_date)} to {formatDate(tenancy.end_date!)}
                     </p>

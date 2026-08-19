@@ -30,6 +30,10 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
   const [isAddingViewing, setIsAddingViewing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [showNotifyModal, setShowNotifyModal] = useState(false)
+  const [selectedViewingForNotify, setSelectedViewingForNotify] = useState<Viewing | null>(null)
+  const [notifyTemplate, setNotifyTemplate] = useState('viewing_notification')
+  const [notifySending, setNotifySending] = useState(false)
 
   const [formData, setFormData] = useState({
     visitor_name: '',
@@ -112,6 +116,42 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
       setIsAddingViewing(false)
       setSuccess(`Viewing scheduled for ${formData.visitor_name}`)
       setTimeout(() => setSuccess(null), 3000)
+    }
+  }
+
+  async function handleSendNotification() {
+    if (!selectedViewingForNotify) return
+
+    setNotifySending(true)
+    try {
+      const response = await fetch('/api/admin/quick-notify-lettings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          property_id: propertyId,
+          subject: 'Viewing Scheduled',
+          message: `Hi All, we have a viewing scheduled for ${selectedViewingForNotify.room?.name} on ${formatDate(selectedViewingForNotify.viewing_date)}${selectedViewingForNotify.viewing_slot ? ` at ${selectedViewingForNotify.viewing_slot}` : ''}. We will try to keep disruption to the communal areas minimal during this period.`,
+          selector_type: 'single',
+          viewing_id: selectedViewingForNotify.id,
+          viewing_period_start: null,
+          viewing_period_end: null,
+          new_arrival_time: null
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to send notification')
+      }
+
+      setSuccess('Notification sent to all tenants!')
+      setShowNotifyModal(false)
+      setSelectedViewingForNotify(null)
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError('Failed to send notification')
+      console.error(err)
+    } finally {
+      setNotifySending(false)
     }
   }
 
@@ -373,7 +413,16 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
                   <p className="text-xs text-neutral-400 mb-md italic">💬 {viewing.feedback}</p>
                 )}
 
-                <div className="flex gap-sm">
+                <div className="flex gap-sm flex-wrap">
+                  <button
+                    onClick={() => {
+                      setSelectedViewingForNotify(viewing)
+                      setShowNotifyModal(true)
+                    }}
+                    className="text-xs font-semibold text-green-400 hover:text-green-300"
+                  >
+                    📢 Notify Tenants
+                  </button>
                   <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
                     Update Status
                   </button>
@@ -408,6 +457,54 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Notify Tenants Modal */}
+      {showNotifyModal && selectedViewingForNotify && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
+          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
+            <h3 className="text-lg font-semibold text-white mb-lg">📢 Notify Tenants</h3>
+
+            <div className="space-y-lg mb-lg">
+              <div>
+                <p className="text-sm text-neutral-400 mb-sm">Room:</p>
+                <p className="font-semibold text-white">{selectedViewingForNotify.room?.name || 'Unknown Room'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-neutral-400 mb-sm">Viewing Date & Time:</p>
+                <p className="font-semibold text-white">
+                  {formatDate(selectedViewingForNotify.viewing_date)}
+                  {selectedViewingForNotify.viewing_slot && ` at ${selectedViewingForNotify.viewing_slot}`}
+                </p>
+              </div>
+              <div className="bg-neutral-900 p-md rounded-lg">
+                <p className="text-xs text-neutral-400 mb-sm">Message Preview:</p>
+                <p className="text-xs text-white">
+                  Hi All, we have a viewing scheduled for {selectedViewingForNotify.room?.name} on {formatDate(selectedViewingForNotify.viewing_date)}{selectedViewingForNotify.viewing_slot && ` at ${selectedViewingForNotify.viewing_slot}`}. We will try to keep disruption to the communal areas minimal during this period.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-md">
+              <button
+                onClick={() => {
+                  setShowNotifyModal(false)
+                  setSelectedViewingForNotify(null)
+                }}
+                className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-900 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendNotification}
+                disabled={notifySending}
+                className="flex-1 px-lg py-md bg-green-600 text-white rounded-lg font-semibold text-sm hover:bg-green-700 disabled:opacity-50 transition"
+              >
+                {notifySending ? 'Sending...' : '✓ Send'}
+              </button>
+            </div>
           </div>
         </div>
       )}
