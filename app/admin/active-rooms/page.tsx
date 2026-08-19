@@ -381,7 +381,7 @@ export default function AllUnitsPage() {
             <p className="text-sm text-neutral-500">No units found</p>
           </div>
         ) : (
-          <div className="rounded-lg border border-neutral-200 bg-white overflow-x-auto">
+          <div className="hidden md:block rounded-lg border border-neutral-200 bg-white overflow-x-auto">
             {/* Spreadsheet-style grid header */}
             <div className="sticky top-0 grid grid-cols-[2fr_1.2fr_1.5fr_1fr_1.2fr_1fr] gap-0 bg-neutral-50 border-b border-neutral-200 text-xs font-semibold text-neutral-900 divide-x divide-neutral-200">
               <div className="px-md py-sm">Property / Room</div>
@@ -425,7 +425,7 @@ export default function AllUnitsPage() {
 
                       {/* Rent */}
                       <div className="px-md py-sm text-neutral-900">
-                        {t.rent_amount ? `£${t.rent_amount.toLocaleString()}` : '£-'}
+                        {t.rent_amount > 0 ? `£${t.rent_amount.toLocaleString()}` : '—'}
                       </div>
 
                       {/* Start date */}
@@ -453,6 +453,78 @@ export default function AllUnitsPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Mobile Card View - Hidden on desktop, shown on mobile */}
+        {allTenancies && allTenancies.length > 0 && (
+          <div className="md:hidden space-y-md">
+            {allTenancies.map((t) => (
+              <div
+                key={t.id}
+                onClick={() => setSelectedTenancy(t)}
+                className="rounded-lg border border-neutral-200 bg-white p-lg hover:shadow-md transition cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-md mb-md">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-neutral-900 truncate">{t.person?.full_name || '(No tenant)'}</p>
+                    <p className="text-sm text-neutral-600 truncate mt-xs">{t.room?.name}</p>
+                    <p className="text-xs text-neutral-500 mt-xs">{t.property?.address}</p>
+                  </div>
+                  <span className={`inline-block px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
+                    t.status === 'on_notice'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {getStatusBadge(t.status)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-md mb-md text-sm">
+                  <div className="bg-neutral-50 p-sm rounded">
+                    <p className="text-xs text-neutral-600 font-semibold mb-xs">Rent</p>
+                    <p className="text-lg font-bold text-neutral-900">
+                      {t.rent_amount > 0 ? `£${t.rent_amount.toLocaleString()}` : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-neutral-50 p-sm rounded">
+                    <p className="text-xs text-neutral-600 font-semibold mb-xs">Since</p>
+                    <p className="text-sm font-semibold text-neutral-900">{formatDate(t.start_date)}</p>
+                  </div>
+                </div>
+
+                {t.end_date && (
+                  <div className="bg-neutral-50 p-sm rounded mb-md">
+                    <p className="text-xs text-neutral-600 font-semibold mb-xs">Move Out</p>
+                    <p className="text-sm font-semibold text-neutral-900">{formatDate(t.end_date)}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-sm flex-wrap">
+                  {t.status !== 'on_notice' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedTenancy(t)
+                        setShowMarkOnNoticeModal(true)
+                      }}
+                      className="flex-1 min-w-[100px] px-sm py-xs bg-amber-50 text-amber-700 rounded text-xs font-semibold hover:bg-amber-100 transition"
+                    >
+                      Mark On Notice
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedTenancy(t)
+                    }}
+                    className="flex-1 min-w-[100px] px-sm py-xs bg-blue-50 text-blue-700 rounded text-xs font-semibold hover:bg-blue-100 transition"
+                  >
+                    Details
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </main>
