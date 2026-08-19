@@ -103,16 +103,21 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     { id: 'documents', label: 'Documents', icon: '📁' },
   ]
 
-  // Quick Notify action in tab bar
-  const handleQuickNotify = () => setShowQuickNotify(true)
-
   return (
     <div className="min-h-screen bg-black">
       <AppBar
         right={
-          <Link href="/admin/properties" className="shrink-0 hover:opacity-80 text-white">
-            Properties
-          </Link>
+          <div className="flex items-center gap-lg">
+            <button
+              onClick={() => setShowQuickNotify(true)}
+              className="px-lg py-md font-semibold text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition border border-blue-500"
+            >
+              📢 Quick Notify
+            </button>
+            <Link href="/admin/properties" className="shrink-0 hover:opacity-80 text-white">
+              Properties
+            </Link>
+          </div>
         }
       />
 
@@ -188,30 +193,20 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Tab Navigation */}
-        <div className="mb-0 flex gap-0 border-b border-neutral-700 overflow-x-auto bg-neutral-950 rounded-t-xl items-center justify-between">
-          <div className="flex gap-0 overflow-x-auto flex-1">
-            {tabs.map((tab, idx) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 px-lg py-md whitespace-nowrap font-semibold text-sm transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-b-2 border-white text-white bg-neutral-900'
-                    : 'border-b-2 border-transparent text-neutral-400 hover:text-white hover:bg-neutral-900'
-                } ${idx > 0 ? 'border-l border-l-neutral-800' : ''}`}
-              >
-                <span className="mr-xs">{tab.icon}</span> {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Quick Notify Button in Tab Bar */}
-          <button
-            onClick={handleQuickNotify}
-            className="px-lg py-md font-semibold text-sm text-white hover:bg-neutral-900 transition border-l border-l-neutral-800 whitespace-nowrap"
-          >
-            📢 Quick Notify
-          </button>
+        <div className="mb-0 flex gap-0 border-b border-neutral-700 overflow-x-auto bg-neutral-950 rounded-t-xl">
+          {tabs.map((tab, idx) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-lg py-md whitespace-nowrap font-semibold text-sm transition-colors ${
+                activeTab === tab.id
+                  ? 'border-b-2 border-white text-white bg-neutral-900'
+                  : 'border-b-2 border-transparent text-neutral-400 hover:text-white hover:bg-neutral-900'
+              } ${idx > 0 ? 'border-l border-l-neutral-800' : ''}`}
+            >
+              <span className="mr-xs">{tab.icon}</span> {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Tab Content */}
