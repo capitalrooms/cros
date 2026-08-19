@@ -12,6 +12,8 @@ import PeopleTab from './components/PeopleTab'
 import MaintenanceTab from './components/MaintenanceTab'
 import LettingsTab from './components/LettingsTab'
 import ComplianceTab from './components/ComplianceTab'
+import CommunicationsTab from './components/CommunicationsTab'
+import DocumentsTab from './components/DocumentsTab'
 
 type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'compliance' | 'documents'
 
@@ -301,33 +303,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           )}
 
           {/* Communications Tab */}
-          {activeTab === 'communications' && (
-            <div className="space-y-xl">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900 mb-sm">Communications</h2>
-                <p className="text-sm text-neutral-600">Messages and notifications history</p>
-              </div>
-              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center transition hover:bg-neutral-100">
-                <p className="text-sm text-neutral-600">Communications history coming soon</p>
-              </div>
-            </div>
-          )}
+          {activeTab === 'communications' && <CommunicationsTab propertyId={id} />}
 
           {/* Compliance Tab */}
           {activeTab === 'compliance' && <ComplianceTab property={property} />}
 
           {/* Documents Tab */}
-          {activeTab === 'documents' && (
-            <div className="space-y-xl">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900 mb-sm">Documents</h2>
-                <p className="text-sm text-neutral-600">Certificates, contracts, and property files</p>
-              </div>
-              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center transition hover:bg-neutral-100">
-                <p className="text-sm text-neutral-600">Document management coming soon</p>
-              </div>
-            </div>
-          )}
+          {activeTab === 'documents' && <DocumentsTab propertyId={id} />}
         </div>
       </main>
     </div>
