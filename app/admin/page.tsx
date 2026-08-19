@@ -117,62 +117,44 @@ export default function AdminDashboard() {
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="space-y-3xl">
+          {/* Welcome Section */}
           <div>
-            <h2 className="text-xl font-semibold text-neutral-900 mb-md">
+            <h2 className="text-2xl font-semibold text-neutral-900 mb-md">
               Welcome, Administrator
             </h2>
-            <p className="text-base text-neutral-600">
+            <p className="text-sm text-neutral-600">
               Logged in as: <span className="font-medium">{user?.email}</span>
             </p>
           </div>
 
           <EnableNotifications />
 
-          {/* Safe-mode banner: tenant/applicant messaging on/off. */}
-          {commsLive !== null && (
-            commsLive ? (
-              <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
-                <h3 className="font-bold text-green-800">🔔 Tenant notifications are LIVE</h3>
-                <p className="mt-xs text-sm text-green-900">
-                  Tenants and applicants will receive push, email and SMS from actions in the app.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-lg">
-                <h3 className="font-bold text-amber-800">🔕 Safe mode — tenant notifications are paused</h3>
-                <p className="mt-xs text-sm text-amber-900">
-                  You can add properties, tenants and real data freely — no tenant or applicant will be
-                  messaged. Staff (contractors, cleaners) still get their notifications. To go live, set
-                  <span className="font-mono"> TENANT_COMMS_LIVE=true</span> in the hosting environment and redeploy.
-                </p>
-              </div>
-            )
-          )}
-
-          {/* Today's Appointments Map */}
-          <div>
-            <h2 className="text-lg font-bold text-neutral-900 mb-md">📍 Today's Activity</h2>
-            <TodayAppointmentsMap />
+          {/* Demo Mode Banner - Tenants NOT receiving notifications */}
+          <div className="rounded-lg border-2 border-neutral-300 bg-neutral-50 p-lg">
+            <h3 className="font-semibold text-neutral-900">🚧 Demo Mode</h3>
+            <p className="mt-sm text-sm text-neutral-700">
+              Tenants are <strong>not currently receiving notifications</strong>. This is a demo environment. When live, all tenant communications will be sent via email and push notifications.
+            </p>
           </div>
 
-          {/* Compliance deadlines — stays here until the dates are updated. */}
+          {/* Compliance Alerts */}
           {alerts.length > 0 && (
-            <div className="rounded-2xl border-2 border-red-300 bg-red-50 p-lg">
-              <div className="flex items-center justify-between gap-md">
-                <h3 className="font-bold text-red-800">
+            <div className="rounded-lg border border-neutral-300 bg-white p-lg">
+              <div className="flex items-center justify-between gap-lg mb-lg">
+                <h3 className="font-semibold text-neutral-900">
                   ⚠️ {alerts.length} compliance deadline{alerts.length > 1 ? 's' : ''} need attention
                 </h3>
                 <Link
-                  href="/admin/compliance"
-                  className="shrink-0 text-sm font-bold text-red-700 underline hover:text-red-900"
+                  href="/admin/properties"
+                  className="text-sm font-semibold text-neutral-600 hover:text-neutral-900 underline"
                 >
                   Review →
                 </Link>
               </div>
-              <ul className="mt-md space-y-xs text-sm text-red-900">
+              <ul className="space-y-xs text-sm text-neutral-700">
                 {alerts.slice(0, 8).map((a, i) => (
                   <li key={i}>
-                    <span className="font-semibold">{a.property}</span> — {a.label}{' '}
+                    <span className="font-medium">{a.property}</span> — {a.label}{' '}
                     {a.days < 0
                       ? `expired ${Math.abs(a.days)} day${Math.abs(a.days) !== 1 ? 's' : ''} ago`
                       : a.days === 0
@@ -184,99 +166,82 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Dashboard sections */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-            <SectionLink
-              icon="📅"
-              title="Agency Diary"
-              href="/admin/agency-diary"
-              description="All property visits, maintenance jobs, and appointments in one place"
-            />
-            <SectionLink
-              icon="🏢"
-              title="Properties & Rooms"
-              href="/admin/properties"
-              description="Manage properties, rooms, licensing and compliance"
-            />
-            <SectionLink
-              icon="🚪"
-              title="Lettings"
-              href="/admin/available-and-lettings"
-              description="Occupied rooms and available properties — two tabs"
-            />
-            <SectionLink
-              icon="🔧"
-              title="All Maintenance"
-              href="/admin/maintenance"
-              description="View and manage maintenance tickets across all properties"
-            />
-            <SectionLink
-              icon="🛡️"
-              title="Compliance"
-              href="/admin/compliance"
-              description="Certificates · Safety Checks · Dashboard — all compliance in one place"
-            />
-            <SectionLink
-              icon="📁"
-              title="Documents"
-              href="/admin/documents"
-              description="Upload, manage, and file — three tabs: Upload · Inbox · Pending Review"
-            />
-            <SectionLink
-              icon="👥"
-              title="People"
-              href="/admin/people"
-              description="Manage tenants, staff, landlords, and administrators — all in one place"
-            />
-            <SectionLink
-              icon="📊"
-              title="System Overview"
-              href="/admin/overview"
-              description="Real-time KPIs, occupancy rate, platform health, quick actions"
-            />
+          {/* Dashboard Tiles */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+            {/* Quick Notify */}
+            <Link href="/admin/notify" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">📢</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Quick Notify</h3>
+                <p className="text-xs text-neutral-600">Send messages to properties & people instantly</p>
+              </div>
+            </Link>
+
+            {/* Upload Documents */}
+            <Link href="/admin/documents" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">📁</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Upload Documents</h3>
+                <p className="text-xs text-neutral-600">AI extraction for compliance & details</p>
+              </div>
+            </Link>
+
+            {/* All Units */}
+            <Link href="/admin/active-rooms" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">📋</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">All Units</h3>
+                <p className="text-xs text-neutral-600">View & manage all rooms</p>
+              </div>
+            </Link>
+
+            {/* Property Info */}
+            <Link href="/admin/properties" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">🏢</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Property Info</h3>
+                <p className="text-xs text-neutral-600">Details, floor plans, compliance</p>
+              </div>
+            </Link>
+
+            {/* Maintenance */}
+            <Link href="/admin/maintenance" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">🔧</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Maintenance</h3>
+                <p className="text-xs text-neutral-600">All maintenance tickets</p>
+              </div>
+            </Link>
+
+            {/* People */}
+            <Link href="/admin/people" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">👥</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">People</h3>
+                <p className="text-xs text-neutral-600">Tenants, staff, contractors, landlords</p>
+              </div>
+            </Link>
+
+            {/* Lettings */}
+            <Link href="/admin/available-and-lettings" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">🔑</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Lettings</h3>
+                <p className="text-xs text-neutral-600">Available properties & viewings</p>
+              </div>
+            </Link>
+
+            {/* Communications */}
+            <Link href="/admin/communications" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">💬</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Communications</h3>
+                <p className="text-xs text-neutral-600">Messages & notifications history</p>
+              </div>
+            </Link>
           </div>
         </div>
       </main>
     </div>
-  )
-}
-
-function Section({ icon, title }: { icon: string; title: string }) {
-  return (
-    <div className="flex items-center gap-lg rounded-2xl border border-neutral-200 bg-white/60 p-lg">
-      <div className="shrink-0 grid h-12 w-12 place-items-center rounded-xl bg-neutral-100 text-xl opacity-60">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <h3 className="text-base font-bold text-neutral-400">{title}</h3>
-        <p className="mt-xs text-xs font-medium uppercase tracking-wide text-neutral-400">
-          Coming soon
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function SectionLink({
-  icon,
-  title,
-  href,
-  description,
-}: {
-  icon: string
-  title: string
-  href: string
-  description: string
-}) {
-  return (
-    <Link href={href} className="group block">
-      <div className="flex items-start gap-md rounded-lg bg-white border border-neutral-200 p-md transition-all hover:border-neutral-300 hover:shadow-sm">
-        <div className="shrink-0 text-2xl pt-sm">{icon}</div>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-neutral-900">{title}</h3>
-          <p className="mt-xs text-xs leading-relaxed text-neutral-600">{description}</p>
-        </div>
-      </div>
-    </Link>
   )
 }
