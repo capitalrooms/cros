@@ -10,6 +10,8 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import UnitsTab from './components/UnitsTab'
 import PeopleTab from './components/PeopleTab'
 import MaintenanceTab from './components/MaintenanceTab'
+import LettingsTab from './components/LettingsTab'
+import ComplianceTab from './components/ComplianceTab'
 
 type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'compliance' | 'documents'
 
@@ -295,15 +297,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Lettings Tab */}
           {activeTab === 'lettings' && (
-            <div className="space-y-xl">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900 mb-sm">Lettings</h2>
-                <p className="text-sm text-neutral-600">Available units and viewing bookings</p>
-              </div>
-              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center transition hover:bg-neutral-100">
-                <p className="text-sm text-neutral-600">Lettings management coming soon</p>
-              </div>
-            </div>
+            <LettingsTab propertyId={id} rooms={property.rooms || []} />
           )}
 
           {/* Communications Tab */}
@@ -320,96 +314,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           )}
 
           {/* Compliance Tab */}
-          {activeTab === 'compliance' && (
-            <div className="space-y-3xl">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900 mb-sm">Compliance & Certifications</h2>
-                <p className="text-sm text-neutral-600">Annual testing, licenses, and safety certificates</p>
-              </div>
-
-              {/* HMO License */}
-              {(property.hmo_licensed || (property.rooms?.length || 0) > 1) && (
-                <div>
-                  <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
-                    HMO License
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
-                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">License Number</p>
-                      <p className="text-sm font-semibold text-neutral-900">{property.license_number || '—'}</p>
-                    </div>
-                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">License Expiry</p>
-                      <p className="text-sm font-semibold text-neutral-900">
-                        {property.license_expiry ? new Date(property.license_expiry).toLocaleDateString('en-GB') : '—'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Annual Testing & Compliance */}
-              <div>
-                <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
-                  Annual Testing & Certificates
-                </h3>
-                <div className="space-y-md">
-                  {[
-                    { label: 'Gas Safety Certificate (CP12)', expiryKey: 'gas_safe_cert_expiry' },
-                    { label: 'EICR (Electrical Inspection)', expiryKey: 'electrical_cert_expiry' },
-                    { label: 'PAT (Portable Appliance Testing)', expiryKey: 'pat_test_expiry' },
-                    { label: 'Fire Detection / Alarm', expiryKey: 'fire_detection_expiry' },
-                    { label: 'Emergency Lighting', expiryKey: 'emergency_lighting_expiry' },
-                    { label: 'Fire Risk Assessment', expiryKey: 'fire_risk_assessment_expiry' },
-                  ].map(({ label, expiryKey }) => {
-                    const expiryDate = (property as any)[expiryKey];
-                    const isExpired = expiryDate && new Date(expiryDate) < new Date();
-                    return (
-                      <div key={expiryKey} className={`rounded-lg border p-lg transition ${
-                        isExpired
-                          ? 'border-red-200 bg-red-50'
-                          : 'border-neutral-200 bg-white'
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-neutral-900">{label}</span>
-                          <span className={`text-xs font-semibold px-md py-sm rounded-full ${
-                            isExpired
-                              ? 'bg-red-100 text-red-700'
-                              : expiryDate ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'
-                          }`}>
-                            {expiryDate ? new Date(expiryDate).toLocaleDateString('en-GB') : 'Not set'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Insurance */}
-              <div>
-                <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
-                  Insurance
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
-                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Provider</p>
-                    <p className="text-sm font-semibold text-neutral-900">{property.insurance_provider || '—'}</p>
-                  </div>
-                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Policy Number</p>
-                    <p className="text-sm font-semibold text-neutral-900">{property.insurance_policy_number || '—'}</p>
-                  </div>
-                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg md:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Expiry Date</p>
-                    <p className="text-sm font-semibold text-neutral-900">
-                      {property.insurance_expiry ? new Date(property.insurance_expiry).toLocaleDateString('en-GB') : '—'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === 'compliance' && <ComplianceTab property={property} />}
 
           {/* Documents Tab */}
           {activeTab === 'documents' && (
