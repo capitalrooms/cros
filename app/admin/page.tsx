@@ -231,12 +231,12 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
-            {/* Communications */}
-            <Link href="/admin/communications" className="group">
+            {/* Communications - Accessed via property detail page → Communications tab */}
+            <Link href="/admin/properties" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
                 <div className="text-2xl mb-md">💬</div>
                 <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Communications</h3>
-                <p className="text-xs text-neutral-600">Messages & notifications history</p>
+                <p className="text-xs text-neutral-600">View property communications & tenant messages</p>
               </div>
             </Link>
           </div>
