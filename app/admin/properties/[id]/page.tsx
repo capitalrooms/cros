@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
+import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import UnitsTab from './components/UnitsTab'
 import PeopleTab from './components/PeopleTab'
 import MaintenanceTab from './components/MaintenanceTab'
@@ -40,6 +41,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('property');
+  const [showQuickNotify, setShowQuickNotify] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -106,6 +108,12 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       <AppBar
         right={
           <div className="flex items-center gap-md">
+            <button
+              onClick={() => setShowQuickNotify(true)}
+              className="shrink-0 hover:opacity-80 text-white font-semibold text-sm px-lg py-md rounded-lg border border-neutral-700 hover:border-blue-600 transition"
+            >
+              📢 Quick Notify
+            </button>
             <Link href="/admin/properties" className="shrink-0 hover:opacity-80 text-white">
               Properties
             </Link>
@@ -230,6 +238,14 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'documents' && <DocumentsTab propertyId={id} />}
         </div>
       </main>
+
+      {/* Quick Notify Modal */}
+      {showQuickNotify && (
+        <QuickNotifyModal
+          propertyId={id}
+          onClose={() => setShowQuickNotify(false)}
+        />
+      )}
     </div>
   );
 }
