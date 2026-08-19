@@ -76,23 +76,33 @@
 **Status:** ⏳ NEEDS VERIFICATION
 
 ### 8. FEATURE: Compliance Inspection Grid & PDF Export Missing
-**Problem:** Cleaner confirms smoke alarm/fire door working but no capture mechanism  
-**Current:** Data has nowhere to go; not stored or displayed  
-**Requirement:** Build grid/table like attached "C - Inspection Log - 8CLH.pdf"  
-**Format Needed:**
-- Date column
-- Inspector/Cleaner name
-- Smoke Alarm status (✓/✗)
-- Fire Door status (✓/✗)
-- Notes/Comments
+**Problem:** Fire door/smoke alarm check results from multiple users have nowhere to display  
+**Current:** Data captured but not shown anywhere; not exportable  
+
+**Location:** Bottom of **Compliance Tab** in Property View (next to existing compliance data)
+
+**Data Sources (all three populate the same grid):**
+1. Admin testing fire door/smoke alarm
+2. Tenants testing (sometimes includes photos)
+3. Cleaners testing and confirming
+
+**Grid Format (like "C - Inspection Log" PDF):**
+| Date | User Type | User Name | Fire Door | Smoke Alarm | Notes | Photo |
+|------|-----------|-----------|-----------|-------------|-------|-------|
+
+**Requirements:**
+- Aggregate all checks from admin/tenant/cleaner
+- Show test results in unified grid
+- Include photo column (when tenant provides)
 - Exportable to PDF matching inspection log format
+- Sortable by date, user type, status
 
-**Scope:** 
-- Smoke alarm logs
-- Fire door logs  
-- Both exportable separately or combined
+**Related Tables:**
+- `tenant_self_checks` (tenant checks)
+- `compliance_logs` (admin/cleaner checks)
+- `attachments` (photos from tenants)
 
-**Status:** 🔴 MISSING FEATURE - Affects compliance tracking workflow
+**Status:** 🔴 MISSING FEATURE - Affects compliance audit trail & reporting
 
 ---
 
