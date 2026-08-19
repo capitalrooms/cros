@@ -104,7 +104,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   ]
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-neutral-100">
       <AppBar
         right={
           <div className="flex items-center gap-lg">
