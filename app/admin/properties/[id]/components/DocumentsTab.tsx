@@ -115,7 +115,7 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-xl">
-        <div className="text-sm text-neutral-600">Loading documents...</div>
+        <div className="text-sm text-neutral-400">Loading documents...</div>
       </div>
     )
   }
@@ -124,14 +124,14 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
     <div className="space-y-xl">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-neutral-900">Documents</h2>
-        <p className="text-sm text-neutral-600 mt-xs">Certificates, insurance, floor plans, and property files</p>
+        <h2 className="text-xl font-semibold text-white">Documents</h2>
+        <p className="text-sm text-neutral-400 mt-xs">Certificates, insurance, floor plans, and property files</p>
       </div>
 
       {/* Filters */}
       <div className="space-y-md">
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
             Search Documents
           </label>
           <input
@@ -139,12 +139,12 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by filename..."
-            className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
             Category
           </label>
           <div className="flex flex-wrap gap-sm">
@@ -155,7 +155,7 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
                 className={`px-md py-sm rounded-lg font-semibold text-sm transition ${
                   categoryFilter === cat
                     ? 'bg-blue-600 text-white'
-                    : 'border border-neutral-300 text-neutral-900 hover:bg-neutral-50'
+                    : 'border border-neutral-700 text-white hover:bg-neutral-900'
                 }`}
               >
                 {cat === 'all' ? 'All' : getCategoryLabel(cat).split(' ')[0]}
@@ -167,10 +167,10 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
 
       {/* Documents List */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 p-xl text-center">
+        <div className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-xl text-center">
           <div className="text-3xl mb-md opacity-50">📁</div>
-          <p className="text-sm font-semibold text-neutral-900 mb-md">No documents found</p>
-          <p className="text-xs text-neutral-600 mb-lg">
+          <p className="text-sm font-semibold text-white mb-md">No documents found</p>
+          <p className="text-xs text-neutral-400 mb-lg">
             {documents.length === 0
               ? 'Upload documents to get started'
               : 'Try adjusting your filters'}
@@ -180,34 +180,34 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
         <div className="space-y-lg">
           {Object.entries(groupedDocuments).map(([category, docs]) => (
             <div key={category}>
-              <h3 className="text-sm font-bold uppercase text-neutral-600 mb-md pb-md border-b border-neutral-100">
+              <h3 className="text-sm font-bold uppercase text-neutral-400 mb-md pb-md border-b border-neutral-100">
                 {getCategoryLabel(category)}
               </h3>
               <div className="space-y-md">
                 {docs.map(doc => (
-                  <div key={doc.id} className="rounded-lg border border-neutral-200 bg-white p-lg hover:shadow-md transition">
+                  <div key={doc.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition">
                     <div className="flex items-start justify-between gap-lg mb-md">
                       <div className="flex-1">
                         <a
                           href="#"
-                          className="font-semibold text-blue-600 hover:text-blue-900 underline"
+                          className="font-semibold text-blue-400 hover:text-blue-300 underline"
                         >
                           {doc.file_name}
                         </a>
-                        <div className="flex items-center gap-md text-xs text-neutral-500 mt-sm">
+                        <div className="flex items-center gap-md text-xs text-neutral-400 mt-sm">
                           <span>{formatFileSize(doc.file_size)}</span>
                           <span>•</span>
                           <span>{formatDate(doc.created_at)}</span>
                         </div>
                       </div>
                       <div className="flex gap-sm">
-                        <button className="text-xs font-semibold text-blue-600 hover:text-blue-900">
+                        <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
                           View
                         </button>
-                        <button className="text-xs font-semibold text-blue-600 hover:text-blue-900">
+                        <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
                           Download
                         </button>
-                        <button className="text-xs font-semibold text-red-600 hover:text-red-900">
+                        <button className="text-xs font-semibold text-red-400 hover:text-red-400">
                           Delete
                         </button>
                       </div>
@@ -223,7 +223,7 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
       {/* Upload Zone Coming Soon */}
       <div className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 p-xl text-center">
         <div className="text-3xl mb-md">☁️</div>
-        <p className="text-sm font-semibold text-blue-900 mb-sm">Upload files</p>
+        <p className="text-sm font-semibold text-blue-300 mb-sm">Upload files</p>
         <p className="text-xs text-blue-700">Drag & drop documents here to upload</p>
       </div>
     </div>

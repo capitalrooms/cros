@@ -159,7 +159,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-xl">
-        <div className="text-sm text-neutral-600">Loading compliance data...</div>
+        <div className="text-sm text-neutral-400">Loading compliance data...</div>
       </div>
     )
   }
@@ -167,19 +167,19 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
   return (
     <div className="space-y-3xl">
       {error && (
-        <div className="p-lg rounded-lg bg-red-50 border border-red-200">
-          <p className="text-sm font-semibold text-red-900">{error}</p>
+        <div className="p-lg rounded-lg bg-red-950 border border-red-800">
+          <p className="text-sm font-semibold text-red-400">{error}</p>
         </div>
       )}
       {success && (
-        <div className="p-lg rounded-lg bg-green-50 border border-green-200">
-          <p className="text-sm font-semibold text-green-900">✓ {success}</p>
+        <div className="p-lg rounded-lg bg-green-950 border border-green-800">
+          <p className="text-sm font-semibold text-green-400">✓ {success}</p>
         </div>
       )}
 
       {/* Annual Testing & Certificates */}
       <div>
-        <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
+        <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
           Annual Testing & Certificates
         </h3>
         <div className="space-y-md">
@@ -190,18 +190,18 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
               <div
                 key={expiryKey}
                 className={`rounded-lg border p-lg transition ${
-                  expired ? 'border-red-200 bg-red-50' : 'border-neutral-200 bg-white'
+                  expired ? 'border-red-800 bg-red-950' : 'border-neutral-700 bg-neutral-950'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-neutral-900">{label}</span>
+                  <span className="text-sm font-semibold text-white">{label}</span>
                   <span
                     className={`text-xs font-semibold px-md py-sm rounded-full ${
                       expired
                         ? 'bg-red-100 text-red-700'
                         : expiryDate
                         ? 'bg-green-100 text-green-700'
-                        : 'bg-neutral-100 text-neutral-600'
+                        : 'bg-neutral-900 text-neutral-400'
                     }`}
                   >
                     {expiryDate ? formatDate(expiryDate) : 'Not set'}
@@ -216,7 +216,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
       {/* Policies & Coverage */}
       <div>
         <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
-          <h3 className="text-sm font-bold uppercase text-neutral-600">
+          <h3 className="text-sm font-bold uppercase text-neutral-400">
             💰 Policies & Coverage
           </h3>
           <button
@@ -230,26 +230,26 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
         {/* Total Monthly Cost */}
         {(appliancePolicies.length > 0 || buildingPolicies.length > 0 || liabilityPolicies.length > 0) && (
           <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-lg mb-lg">
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">Total Monthly Cost</p>
-            <p className="text-3xl font-bold text-blue-900 mt-sm">£{totalMonthlyCost.toFixed(2)}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-400">Total Monthly Cost</p>
+            <p className="text-3xl font-bold text-blue-300 mt-sm">£{totalMonthlyCost.toFixed(2)}</p>
           </div>
         )}
 
         {/* Add Policy Modal */}
         {isAddingPolicy && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-            <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full">
-              <h3 className="text-lg font-semibold text-neutral-900 mb-lg">Add New Policy</h3>
+            <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full">
+              <h3 className="text-lg font-semibold text-white mb-lg">Add New Policy</h3>
 
               <div className="space-y-lg">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
                     Policy Type
                   </label>
                   <select
                     value={formData.policy_type}
                     onChange={(e) => setFormData({ ...formData, policy_type: e.target.value })}
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="appliance">Appliance Policy</option>
                     <option value="building">Building Insurance</option>
@@ -259,7 +259,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
 
                 {formData.policy_type === 'appliance' && (
                   <div>
-                    <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
                       Appliance Type
                     </label>
                     <input
@@ -267,13 +267,13 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
                       value={formData.appliance_type}
                       onChange={(e) => setFormData({ ...formData, appliance_type: e.target.value })}
                       placeholder="e.g., Boiler, Kitchen Appliances"
-                      className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 )}
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
                     Provider Name *
                   </label>
                   <input
@@ -281,13 +281,13 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
                     value={formData.provider_name}
                     onChange={(e) => setFormData({ ...formData, provider_name: e.target.value })}
                     placeholder="e.g., British Gas"
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     autoFocus
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
                     Policy Number *
                   </label>
                   <input
@@ -295,12 +295,12 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
                     value={formData.policy_number}
                     onChange={(e) => setFormData({ ...formData, policy_number: e.target.value })}
                     placeholder="e.g., GB123456"
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
                     Monthly Cost (£)
                   </label>
                   <input
@@ -308,20 +308,20 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
                     value={formData.monthly_cost}
                     onChange={(e) => setFormData({ ...formData, monthly_cost: e.target.value })}
                     placeholder="25.50"
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     step="0.01"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
                     Renewal Date
                   </label>
                   <input
                     type="date"
                     value={formData.renewal_date}
                     onChange={(e) => setFormData({ ...formData, renewal_date: e.target.value })}
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -332,7 +332,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
                     setIsAddingPolicy(false)
                     setError(null)
                   }}
-                  className="flex-1 px-lg py-md border border-neutral-300 text-neutral-900 rounded-lg font-semibold text-sm hover:bg-neutral-50 transition"
+                  className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-900 transition"
                 >
                   Cancel
                 </button>
@@ -350,20 +350,20 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
         {/* Appliance Policies */}
         {appliancePolicies.length > 0 && (
           <div className="mb-lg">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-md">Appliance Policies</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Appliance Policies</h4>
             <div className="space-y-md">
               {appliancePolicies.map((policy) => (
-                <div key={policy.id} className="rounded-lg border border-neutral-200 bg-white p-lg">
+                <div key={policy.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg">
                   <div className="flex items-start justify-between gap-lg mb-md">
                     <div className="flex-1">
-                      <p className="font-semibold text-neutral-900">
+                      <p className="font-semibold text-white">
                         {policy.appliance_type || 'Appliance Policy'}
                       </p>
-                      <p className="text-xs text-neutral-600 mt-xs">{policy.provider_name}</p>
+                      <p className="text-xs text-neutral-400 mt-xs">{policy.provider_name}</p>
                     </div>
                     <button
                       onClick={() => handleDeletePolicy(policy.id)}
-                      className="text-xs font-semibold text-red-600 hover:text-red-900"
+                      className="text-xs font-semibold text-red-400 hover:text-red-400"
                     >
                       Delete
                     </button>
@@ -371,17 +371,17 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
 
                   <div className="space-y-sm text-xs">
                     <div className="flex justify-between">
-                      <span className="text-neutral-600">Policy #:</span>
-                      <span className="font-semibold text-neutral-900">{policy.policy_number}</span>
+                      <span className="text-neutral-400">Policy #:</span>
+                      <span className="font-semibold text-white">{policy.policy_number}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-neutral-600">Monthly Cost:</span>
-                      <span className="font-semibold text-blue-600">£{policy.monthly_cost.toFixed(2)}</span>
+                      <span className="text-neutral-400">Monthly Cost:</span>
+                      <span className="font-semibold text-blue-400">£{policy.monthly_cost.toFixed(2)}</span>
                     </div>
                     {policy.renewal_date && (
                       <div className="flex justify-between">
-                        <span className="text-neutral-600">Renewal:</span>
-                        <span className={`font-semibold ${isRenewalExpired(policy.renewal_date) ? 'text-red-600' : isRenewalSoon(policy.renewal_date) ? 'text-amber-600' : 'text-green-600'}`}>
+                        <span className="text-neutral-400">Renewal:</span>
+                        <span className={`font-semibold ${isRenewalExpired(policy.renewal_date) ? 'text-red-400' : isRenewalSoon(policy.renewal_date) ? 'text-amber-600' : 'text-green-600'}`}>
                           {formatDate(policy.renewal_date)}
                         </span>
                       </div>
@@ -396,20 +396,20 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
         {/* Building & Liability Policies */}
         {[...buildingPolicies, ...liabilityPolicies].length > 0 && (
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-md">Insurance Policies</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Insurance Policies</h4>
             <div className="space-y-md">
               {[...buildingPolicies, ...liabilityPolicies].map((policy) => (
-                <div key={policy.id} className="rounded-lg border border-neutral-200 bg-white p-lg">
+                <div key={policy.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg">
                   <div className="flex items-start justify-between gap-lg mb-md">
                     <div className="flex-1">
-                      <p className="font-semibold text-neutral-900">
+                      <p className="font-semibold text-white">
                         {policy.policy_type === 'building' ? 'Building Insurance' : 'Liability Insurance'}
                       </p>
-                      <p className="text-xs text-neutral-600 mt-xs">{policy.provider_name}</p>
+                      <p className="text-xs text-neutral-400 mt-xs">{policy.provider_name}</p>
                     </div>
                     <button
                       onClick={() => handleDeletePolicy(policy.id)}
-                      className="text-xs font-semibold text-red-600 hover:text-red-900"
+                      className="text-xs font-semibold text-red-400 hover:text-red-400"
                     >
                       Delete
                     </button>
@@ -417,17 +417,17 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
 
                   <div className="space-y-sm text-xs">
                     <div className="flex justify-between">
-                      <span className="text-neutral-600">Policy #:</span>
-                      <span className="font-semibold text-neutral-900">{policy.policy_number}</span>
+                      <span className="text-neutral-400">Policy #:</span>
+                      <span className="font-semibold text-white">{policy.policy_number}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-neutral-600">Monthly Cost:</span>
-                      <span className="font-semibold text-blue-600">£{policy.monthly_cost.toFixed(2)}</span>
+                      <span className="text-neutral-400">Monthly Cost:</span>
+                      <span className="font-semibold text-blue-400">£{policy.monthly_cost.toFixed(2)}</span>
                     </div>
                     {policy.renewal_date && (
                       <div className="flex justify-between">
-                        <span className="text-neutral-600">Renewal:</span>
-                        <span className={`font-semibold ${isRenewalExpired(policy.renewal_date) ? 'text-red-600' : isRenewalSoon(policy.renewal_date) ? 'text-amber-600' : 'text-green-600'}`}>
+                        <span className="text-neutral-400">Renewal:</span>
+                        <span className={`font-semibold ${isRenewalExpired(policy.renewal_date) ? 'text-red-400' : isRenewalSoon(policy.renewal_date) ? 'text-amber-600' : 'text-green-600'}`}>
                           {formatDate(policy.renewal_date)}
                         </span>
                       </div>
@@ -440,11 +440,11 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
         )}
 
         {policies.length === 0 && (
-          <div className="rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 p-xl text-center">
-            <p className="text-sm text-neutral-600">No policies added yet</p>
+          <div className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-xl text-center">
+            <p className="text-sm text-neutral-400">No policies added yet</p>
             <button
               onClick={() => setIsAddingPolicy(true)}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-900 underline mt-md"
+              className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline mt-md"
             >
               Add your first policy
             </button>
