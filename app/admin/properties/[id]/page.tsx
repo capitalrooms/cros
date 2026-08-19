@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -25,8 +25,9 @@ interface Ticket {
   rooms: { name: string } | null;
 }
 
-export default function PropertyDetailPage({ params }: { params: { id: string } }) {
+export default function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { id } = use(params);
   const [property, setProperty] = useState<any>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +47,7 @@ export default function PropertyDetailPage({ params }: { params: { id: string } 
       const { data: prop } = await supabase
         .from('properties')
         .select('*')
-        .eq('id', params.id)
+        .eq('id', id)
         .single();
 
       setProperty(prop);
@@ -55,14 +56,14 @@ export default function PropertyDetailPage({ params }: { params: { id: string } 
       const { data: jobs } = await supabase
         .from('maintenance_tickets')
         .select('*, rooms(name)')
-        .eq('property_id', params.id)
+        .eq('property_id', id)
         .order('created_at', { ascending: false });
 
       setTickets(jobs || []);
       setLoading(false);
     }
     init();
-  }, [params.id, router]);
+  }, [id, router]);
 
   if (loading) return <GenericPageSkeleton />;
 
