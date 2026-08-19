@@ -113,7 +113,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
       case 'delivered': return 'bg-green-100 text-green-700'
       case 'read': return 'bg-green-200 text-green-800'
       case 'failed': return 'bg-red-100 text-red-700'
-      default: return 'bg-neutral-100 text-neutral-600'
+      default: return 'bg-neutral-900 text-neutral-400'
     }
   }
 
@@ -136,7 +136,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
   if (loading) {
     return (
       <div className="flex items-center justify-center p-xl">
-        <div className="text-sm text-neutral-600">Loading communications...</div>
+        <div className="text-sm text-neutral-400">Loading communications...</div>
       </div>
     )
   }
@@ -145,14 +145,14 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
     <div className="space-y-xl">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-neutral-900">Communications</h2>
-        <p className="text-sm text-neutral-600 mt-xs">Messages sent to tenants, contractors, and landlords</p>
+        <h2 className="text-xl font-semibold text-white">Communications</h2>
+        <p className="text-sm text-neutral-400 mt-xs">Messages sent to tenants, contractors, and landlords</p>
       </div>
 
       {/* Filters */}
       <div className="space-y-md">
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
             Search Communications
           </label>
           <input
@@ -160,19 +160,19 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by subject, content, or recipient..."
-            className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-md">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
               Type
             </label>
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {messageTypes.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -181,13 +181,13 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
           </div>
 
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
               Status
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {statuses.map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -199,8 +199,8 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
 
       {/* Messages Timeline */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center">
-          <p className="text-sm text-neutral-600">No communications match your filters</p>
+        <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-xl text-center">
+          <p className="text-sm text-neutral-400">No communications match your filters</p>
           {(searchQuery || typeFilter !== 'all' || statusFilter !== 'all') && (
             <button
               onClick={() => {
@@ -208,7 +208,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
                 setTypeFilter('all')
                 setStatusFilter('all')
               }}
-              className="text-xs text-blue-600 hover:text-blue-900 underline mt-md"
+              className="text-xs text-blue-400 hover:text-blue-300 underline mt-md"
             >
               Clear filters
             </button>
@@ -220,14 +220,14 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
             <div
               key={message.id}
               onClick={() => setSelectedMessage(message)}
-              className="rounded-lg border border-neutral-200 bg-white p-lg hover:shadow-md transition cursor-pointer"
+              className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition cursor-pointer"
             >
               <div className="flex items-start justify-between gap-lg mb-md">
                 <div className="flex items-start gap-md flex-1">
                   <span className="text-2xl">{getTypeIcon(message.type)}</span>
                   <div className="flex-1">
-                    <p className="font-semibold text-neutral-900">{message.subject || 'Untitled'}</p>
-                    <p className="text-xs text-neutral-600 mt-xs line-clamp-2">
+                    <p className="font-semibold text-white">{message.subject || 'Untitled'}</p>
+                    <p className="text-xs text-neutral-400 mt-xs line-clamp-2">
                       {message.preview || 'No content'}
                     </p>
                   </div>
@@ -237,7 +237,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
                 </span>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-neutral-500">
+              <div className="flex items-center justify-between text-xs text-neutral-400">
                 <div className="flex items-center gap-md">
                   <span className="font-semibold">{getTypeLabel(message.type)}</span>
                   <span>•</span>
@@ -253,44 +253,44 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
       {/* Message Detail Modal */}
       {selectedMessage && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full">
+          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full">
             <div className="flex items-start justify-between gap-lg mb-lg">
               <div>
-                <h3 className="text-lg font-semibold text-neutral-900">{selectedMessage.subject || 'Message'}</h3>
-                <p className="text-xs text-neutral-600 mt-xs">
+                <h3 className="text-lg font-semibold text-white">{selectedMessage.subject || 'Message'}</h3>
+                <p className="text-xs text-neutral-400 mt-xs">
                   {getTypeLabel(selectedMessage.type)} • {formatDate(selectedMessage.created_at)}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedMessage(null)}
-                className="text-2xl text-neutral-600 hover:text-neutral-900"
+                className="text-2xl text-neutral-400 hover:text-white"
               >
                 ×
               </button>
             </div>
 
-            <div className="rounded-lg bg-neutral-50 p-lg mb-lg">
-              <p className="text-sm text-neutral-900 whitespace-pre-wrap">{selectedMessage.preview}</p>
+            <div className="rounded-lg bg-neutral-900 p-lg mb-lg">
+              <p className="text-sm text-white whitespace-pre-wrap">{selectedMessage.preview}</p>
             </div>
 
             <div className="space-y-sm text-sm mb-lg">
               <div className="flex justify-between">
-                <span className="text-neutral-600">Type:</span>
-                <span className="font-semibold text-neutral-900">{getTypeLabel(selectedMessage.type)}</span>
+                <span className="text-neutral-400">Type:</span>
+                <span className="font-semibold text-white">{getTypeLabel(selectedMessage.type)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-600">Recipient:</span>
-                <span className="font-semibold text-neutral-900">{selectedMessage.recipient}</span>
+                <span className="text-neutral-400">Recipient:</span>
+                <span className="font-semibold text-white">{selectedMessage.recipient}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-600">Status:</span>
+                <span className="text-neutral-400">Status:</span>
                 <span className={`font-semibold ${getStatusColor(selectedMessage.status).split(' ')[1]}`}>
                   {selectedMessage.status}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-600">Sent:</span>
-                <span className="font-semibold text-neutral-900">
+                <span className="text-neutral-400">Sent:</span>
+                <span className="font-semibold text-white">
                   {new Date(selectedMessage.created_at).toLocaleString('en-GB')}
                 </span>
               </div>

@@ -71,7 +71,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
       case 'booked': return 'bg-amber-100 text-amber-700'
       case 'in_progress': return 'bg-orange-100 text-orange-700'
       case 'completed': return 'bg-green-100 text-green-700'
-      default: return 'bg-neutral-100 text-neutral-700'
+      default: return 'bg-neutral-900 text-neutral-400'
     }
   }
 
@@ -80,7 +80,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
       case 'high': return 'bg-red-100 text-red-700'
       case 'medium': return 'bg-amber-100 text-amber-700'
       case 'low': return 'bg-green-100 text-green-700'
-      default: return 'bg-neutral-100 text-neutral-700'
+      default: return 'bg-neutral-900 text-neutral-400'
     }
   }
 
@@ -98,18 +98,18 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
     <div className="space-y-xl">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-neutral-900">Maintenance Jobs</h2>
-        <p className="text-sm text-neutral-600 mt-xs">Track and manage all maintenance tickets for this property</p>
+        <h2 className="text-xl font-semibold text-white">Maintenance Jobs</h2>
+        <p className="text-sm text-neutral-400 mt-xs">Track and manage all maintenance tickets for this property</p>
       </div>
 
       {/* Statistics Bar */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-md">
-        <div className="rounded-lg border border-neutral-200 bg-white p-lg text-center">
-          <p className="text-2xl font-bold text-neutral-900">{stats.total}</p>
-          <p className="text-xs text-neutral-600 mt-sm uppercase tracking-wider font-semibold">Total</p>
+        <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+          <p className="text-2xl font-bold text-white">{stats.total}</p>
+          <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Total</p>
         </div>
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-lg text-center">
-          <p className="text-2xl font-bold text-blue-900">{stats.reported}</p>
+          <p className="text-2xl font-bold text-blue-300">{stats.reported}</p>
           <p className="text-xs text-blue-700 mt-sm uppercase tracking-wider font-semibold">Reported</p>
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-lg text-center">
@@ -120,8 +120,8 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
           <p className="text-2xl font-bold text-orange-900">{stats.inProgress}</p>
           <p className="text-xs text-orange-700 mt-sm uppercase tracking-wider font-semibold">In Progress</p>
         </div>
-        <div className="rounded-lg border border-green-200 bg-green-50 p-lg text-center">
-          <p className="text-2xl font-bold text-green-900">{stats.completed}</p>
+        <div className="rounded-lg border border-green-800 bg-green-950 p-lg text-center">
+          <p className="text-2xl font-bold text-green-400">{stats.completed}</p>
           <p className="text-xs text-green-700 mt-sm uppercase tracking-wider font-semibold">Done</p>
         </div>
       </div>
@@ -129,7 +129,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
       {/* Filters */}
       <div className="space-y-md">
         <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
             Search Jobs
           </label>
           <input
@@ -137,19 +137,19 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by title or description..."
-            className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-md">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
               Status
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {statuses.map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -158,13 +158,13 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
           </div>
 
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
+            <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
               Priority
             </label>
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {priorities.map(p => (
                 <option key={p.value} value={p.value}>{p.label}</option>
@@ -176,8 +176,8 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
 
       {/* Jobs List */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center">
-          <p className="text-sm text-neutral-600">No maintenance jobs match your filters</p>
+        <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-xl text-center">
+          <p className="text-sm text-neutral-400">No maintenance jobs match your filters</p>
           {(searchQuery || statusFilter !== 'all' || priorityFilter !== 'all') && (
             <button
               onClick={() => {
@@ -185,7 +185,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
                 setStatusFilter('all')
                 setPriorityFilter('all')
               }}
-              className="text-xs text-blue-600 hover:text-blue-900 underline mt-md"
+              className="text-xs text-blue-400 hover:text-blue-300 underline mt-md"
             >
               Clear filters
             </button>
@@ -194,12 +194,12 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
       ) : (
         <div className="space-y-md">
           {filtered.map((ticket) => (
-            <div key={ticket.id} className="rounded-lg border border-neutral-200 bg-white p-lg hover:shadow-md transition">
+            <div key={ticket.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition">
               <div className="flex items-start justify-between gap-lg mb-md">
                 <div className="flex-1">
-                  <p className="font-semibold text-neutral-900">{ticket.title}</p>
+                  <p className="font-semibold text-white">{ticket.title}</p>
                   {ticket.description && (
-                    <p className="text-xs text-neutral-600 mt-xs line-clamp-2">{ticket.description}</p>
+                    <p className="text-xs text-neutral-400 mt-xs line-clamp-2">{ticket.description}</p>
                   )}
                   <div className="flex items-center gap-sm mt-md">
                     <span className={`text-xs font-semibold px-md py-sm rounded-full ${getStatusColor(ticket.status)}`}>
@@ -209,7 +209,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
                       {ticket.priority}
                     </span>
                     {ticket.rooms && (
-                      <span className="text-xs text-neutral-500 font-semibold">
+                      <span className="text-xs text-neutral-400 font-semibold">
                         📍 {ticket.rooms.name}
                       </span>
                     )}
@@ -218,17 +218,17 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
               </div>
 
               {ticket.booked_date && (
-                <p className="text-xs text-neutral-600 mb-md">
+                <p className="text-xs text-neutral-400 mb-md">
                   📅 Booked for {new Date(ticket.booked_date).toLocaleDateString('en-GB')}
                   {ticket.booked_slot && ` at ${ticket.booked_slot}`}
                 </p>
               )}
 
               <div className="flex gap-sm">
-                <button className="text-xs font-semibold text-blue-600 hover:text-blue-900">
+                <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
                   View Details
                 </button>
-                <button className="text-xs font-semibold text-blue-600 hover:text-blue-900">
+                <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
                   Update Status
                 </button>
               </div>
