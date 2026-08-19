@@ -131,18 +131,18 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 <p className="text-sm font-semibold text-neutral-900 leading-snug">{property.address}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Type</p>
-                <p className="text-sm font-semibold text-neutral-900">
-                  {property.bedrooms > 1 ? 'HMO' : 'Single Let'} • {property.bedrooms} bed
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Structure</p>
+                <p className="text-sm font-semibold text-neutral-900">{property.property_type || 'House'}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Occupancy</p>
-                <p className="text-sm font-semibold text-neutral-900">{property.occupied_by_tenants}/{property.bedrooms} occupied</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Landlord</p>
+                <Link href={`/admin/people/${property.landlord_id}`} className="text-sm font-semibold text-blue-600 hover:text-blue-900 underline">
+                  {property.landlord_name || '—'}
+                </Link>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Status</p>
-                <p className="text-sm font-semibold text-neutral-900">✓ Compliant</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Contact</p>
+                <p className="text-sm font-semibold text-neutral-900">{property.landlord_email || property.landlord_phone || '—'}</p>
               </div>
             </div>
           </div>
