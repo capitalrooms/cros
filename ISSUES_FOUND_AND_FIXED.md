@@ -47,6 +47,20 @@
 **Config Needed:** ANTHROPIC_API_KEY environment variable on Vercel  
 **Status:** ❓ NEEDS VERIFICATION
 
+### 4. Rent Amount Disappears on Mobile (All Units Page)
+**Problem:** Rent column shows "£-" instead of actual amounts on phone view  
+**User Action:** Marked Harry on notice → rent disappeared  
+**Affected Component:** `app/admin/active-rooms/page.tsx` or AllUnitsTable display  
+**Console Error:** Check if rent_monthly is being fetched or if styling hides it  
+**Status:** ⏳ NEEDS INVESTIGATION
+
+### 5. All Units Page Layout Broken on Mobile
+**Problem:** "screen generally looks dreadful on phone"  
+**Symptoms:** Table not responsive, columns cramped, poor readability on mobile  
+**Affected Component:** `app/admin/active-rooms/page.tsx` - table layout  
+**Device:** iPhone mobile view (375px width)  
+**Status:** ⏳ NEEDS RESPONSIVE REDESIGN
+
 ---
 
 ## SUMMARY BY CATEGORY
@@ -54,9 +68,12 @@
 ### Database/Schema Issues
 - ⚠️ `people` table field name mismatch (name vs full_name?)
 - ⚠️ `tenancies` table relationships not loading correctly
+- ⚠️ `rent_monthly` field not displaying on All Units table
 
 ### UI/Styling Issues  
 - ⚠️ Quick Notify AI text color visibility problem
+- ⚠️ All Units table layout broken on mobile (unresponsive)
+- ⚠️ Rent amount shows "£-" instead of values on mobile
 
 ### API Issues
 - ❓ `/api/ai/compose-notification` endpoint setup verification needed
