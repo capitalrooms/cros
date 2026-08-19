@@ -91,8 +91,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const tabs: Array<{ id: TabType; label: string; icon: string }> = [
-    { id: 'units', label: 'Units', icon: '📋' },
-    { id: 'property', label: 'Property', icon: '🏢' },
+    { id: 'units', label: 'Lettings', icon: '📋' },
+    { id: 'property', label: 'Property Info', icon: '🏢' },
     { id: 'people', label: 'People', icon: '👥' },
     { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
     { id: 'lettings', label: 'Lettings', icon: '🔑' },

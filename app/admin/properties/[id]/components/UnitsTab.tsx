@@ -22,11 +22,23 @@ interface UnitsTabProps {
   bedrooms: number
 }
 
+interface TenantInfo {
+  id: string
+  name: string
+  email: string
+  phone: string
+  start_date: string
+  end_date: string | null
+  rent_monthly: number
+}
+
 export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [isAddingRoom, setIsAddingRoom] = useState(false)
   const [editingRoom, setEditingRoom] = useState<Room | null>(null)
+  const [selectedRoomForDetails, setSelectedRoomForDetails] = useState<Room | null>(null)
+  const [currentTenant, setCurrentTenant] = useState<TenantInfo | null>(null)
   const [newRoomName, setNewRoomName] = useState('')
   const [newRoomDescription, setNewRoomDescription] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -133,6 +145,39 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
     setSuccess(`Room deleted`)
     setTimeout(() => setSuccess(null), 3000)
     setDeleting(null)
+  }
+
+  async function loadRoomDetails(room: Room) {
+    setSelectedRoomForDetails(room)
+
+    // Fetch current tenant info
+    const { data: tenantData } = await supabase
+      .from('tenancies')
+      .select(`
+        id,
+        start_date,
+        end_date,
+        rent_monthly,
+        people(id, email, phone),
+        person_id
+      `)
+      .eq('room_id', room.id)
+      .is('end_date', null)  // Current tenant only
+      .single()
+
+    if (tenantData && tenantData.people) {
+      setCurrentTenant({
+        id: tenantData.people.id,
+        name: tenantData.people.email?.split('@')[0] || 'Unknown',
+        email: tenantData.people.email || '',
+        phone: tenantData.people.phone || '',
+        start_date: tenantData.start_date,
+        end_date: tenantData.end_date,
+        rent_monthly: tenantData.rent_monthly || 0
+      })
+    } else {
+      setCurrentTenant(null)
+    }
   }
 
   if (loading) {
@@ -283,6 +328,85 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
         </div>
       )}
 
+      {/* Room Details Modal */}
+      {selectedRoomForDetails && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
+          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
+            <div className="flex items-start justify-between mb-lg">
+              <h3 className="text-lg font-semibold text-white">{selectedRoomForDetails.name}</h3>
+              <button
+                onClick={() => {
+                  setSelectedRoomForDetails(null)
+                  setCurrentTenant(null)
+                }}
+                className="text-2xl text-neutral-400 hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+
+            {selectedRoomForDetails.description && (
+              <p className="text-sm text-neutral-300 mb-lg pb-lg border-b border-neutral-700">
+                {selectedRoomForDetails.description}
+              </p>
+            )}
+
+            {currentTenant ? (
+              <div className="space-y-lg">
+                <div className="bg-neutral-900 p-lg rounded-lg border border-neutral-700">
+                  <h4 className="text-sm font-semibold text-white mb-md">Current Tenant</h4>
+                  <div className="space-y-sm text-sm">
+                    <div>
+                      <p className="text-neutral-400">Name</p>
+                      <p className="text-white font-semibold">{currentTenant.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-400">Email</p>
+                      <p className="text-blue-400">{currentTenant.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-400">Phone</p>
+                      <p className="text-white">{currentTenant.phone || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-400">Monthly Rent</p>
+                      <p className="text-white font-semibold">£{currentTenant.rent_monthly}</p>
+                    </div>
+                    <div>
+                      <p className="text-neutral-400">Start Date</p>
+                      <p className="text-white">{new Date(currentTenant.start_date).toLocaleDateString('en-GB')}</p>
+                    </div>
+                    {currentTenant.end_date && (
+                      <div>
+                        <p className="text-neutral-400">End Date</p>
+                        <p className="text-white">{new Date(currentTenant.end_date).toLocaleDateString('en-GB')}</p>
+                      </div>
+                    )}
+                  </div>
+                  <button className="w-full mt-lg px-lg py-md bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition">
+                    View Tenant Profile
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-neutral-900 p-lg rounded-lg border border-neutral-700 text-center">
+                <p className="text-sm text-neutral-400">No current tenant</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                setSelectedRoomForDetails(null)
+                setCurrentTenant(null)
+              }}
+              className="w-full mt-lg px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-900 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Rooms List */}
       {rooms.length === 0 ? (
         <div className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-xl text-center">
@@ -309,6 +433,12 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
                   <p className="text-xs text-neutral-500 mt-sm">Created {new Date(room.created_at).toLocaleDateString()}</p>
                 </div>
                 <div className="flex gap-sm">
+                  <button
+                    onClick={() => loadRoomDetails(room)}
+                    className="px-md py-sm text-green-400 hover:text-green-300 font-semibold text-sm"
+                  >
+                    Details
+                  </button>
                   <button
                     onClick={() => setEditingRoom(room)}
                     className="px-md py-sm text-blue-400 hover:text-blue-300 font-semibold text-sm"
