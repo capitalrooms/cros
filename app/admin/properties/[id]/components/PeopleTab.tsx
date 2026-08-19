@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 interface Tenancy {
   id: string
-  tenant_id: string
+  person_id: string
   room_id: string
   start_date: string
   end_date: string | null
@@ -43,11 +43,11 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
       .from('tenancies')
       .select(`
         id,
-        tenant_id,
+        person_id,
         room_id,
         start_date,
         end_date,
-        person:tenant_id(id, name, email, phone),
+        person:person_id(id, name, email, phone),
         room:room_id(id, name)
       `)
       .eq('property_id', propertyId)
