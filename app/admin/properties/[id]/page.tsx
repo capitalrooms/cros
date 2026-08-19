@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
+import UnitsTab from './components/UnitsTab'
 
 type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'compliance' | 'documents'
 
@@ -176,17 +177,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         {/* Tab Content */}
         <div className="rounded-b-xl border border-t-0 border-neutral-200 bg-white p-lg shadow-sm">
           {/* Units Tab */}
-          {activeTab === 'units' && (
-            <div className="space-y-xl">
-              <div>
-                <h2 className="text-xl font-semibold text-neutral-900 mb-sm">Property Units</h2>
-                <p className="text-sm text-neutral-600">View and manage individual rooms and units</p>
-              </div>
-              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center transition hover:bg-neutral-100">
-                <p className="text-sm text-neutral-600">Units management coming soon</p>
-              </div>
-            </div>
-          )}
+          {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} />}
 
           {/* Property Tab */}
           {activeTab === 'property' && (
