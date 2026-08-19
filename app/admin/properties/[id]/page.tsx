@@ -8,7 +8,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 
-type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'documents'
+type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'compliance' | 'documents'
 
 interface Ticket {
   id: string;
@@ -89,6 +89,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
     { id: 'lettings', label: 'Lettings', icon: '🔑' },
     { id: 'communications', label: 'Communications', icon: '💬' },
+    { id: 'compliance', label: 'Compliance', icon: '✅' },
     { id: 'documents', label: 'Documents', icon: '📁' },
   ]
 
@@ -132,7 +133,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Type</p>
                 <p className="text-sm font-semibold text-neutral-900">
-                  {property.hmo_licensed ? 'HMO' : 'Single Let'} • {property.bedrooms} bed
+                  {(property.rooms?.length || 0) > 1 ? 'HMO' : 'Single Let'} • {property.bedrooms} bed
                 </p>
               </div>
               <div>
@@ -199,7 +200,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                   <div className="space-y-sm">
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Type</p>
                     <p className="text-sm font-semibold text-neutral-900">
-                      {property.hmo_licensed ? 'HMO' : 'Single Let'}
+                      {(property.rooms?.length || 0) > 1 ? 'HMO' : 'Single Let'}
                     </p>
                   </div>
                   <div className="space-y-sm">
@@ -373,6 +374,98 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               </div>
               <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center transition hover:bg-neutral-100">
                 <p className="text-sm text-neutral-600">Communications history coming soon</p>
+              </div>
+            </div>
+          )}
+
+          {/* Compliance Tab */}
+          {activeTab === 'compliance' && (
+            <div className="space-y-3xl">
+              <div>
+                <h2 className="text-xl font-semibold text-neutral-900 mb-sm">Compliance & Certifications</h2>
+                <p className="text-sm text-neutral-600">Annual testing, licenses, and safety certificates</p>
+              </div>
+
+              {/* HMO License */}
+              {(property.hmo_licensed || (property.rooms?.length || 0) > 1) && (
+                <div>
+                  <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
+                    HMO License
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">License Number</p>
+                      <p className="text-sm font-semibold text-neutral-900">{property.license_number || '—'}</p>
+                    </div>
+                    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">License Expiry</p>
+                      <p className="text-sm font-semibold text-neutral-900">
+                        {property.license_expiry ? new Date(property.license_expiry).toLocaleDateString('en-GB') : '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Annual Testing & Compliance */}
+              <div>
+                <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
+                  Annual Testing & Certificates
+                </h3>
+                <div className="space-y-md">
+                  {[
+                    { label: 'Gas Safety Certificate (CP12)', expiryKey: 'gas_safe_cert_expiry' },
+                    { label: 'EICR (Electrical Inspection)', expiryKey: 'electrical_cert_expiry' },
+                    { label: 'PAT (Portable Appliance Testing)', expiryKey: 'pat_test_expiry' },
+                    { label: 'Fire Detection / Alarm', expiryKey: 'fire_detection_expiry' },
+                    { label: 'Emergency Lighting', expiryKey: 'emergency_lighting_expiry' },
+                    { label: 'Fire Risk Assessment', expiryKey: 'fire_risk_assessment_expiry' },
+                  ].map(({ label, expiryKey }) => {
+                    const expiryDate = (property as any)[expiryKey];
+                    const isExpired = expiryDate && new Date(expiryDate) < new Date();
+                    return (
+                      <div key={expiryKey} className={`rounded-lg border p-lg transition ${
+                        isExpired
+                          ? 'border-red-200 bg-red-50'
+                          : 'border-neutral-200 bg-white'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-neutral-900">{label}</span>
+                          <span className={`text-xs font-semibold px-md py-sm rounded-full ${
+                            isExpired
+                              ? 'bg-red-100 text-red-700'
+                              : expiryDate ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-600'
+                          }`}>
+                            {expiryDate ? new Date(expiryDate).toLocaleDateString('en-GB') : 'Not set'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Insurance */}
+              <div>
+                <h3 className="text-sm font-bold uppercase text-neutral-600 mb-lg pb-lg border-b border-neutral-100">
+                  Insurance
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Provider</p>
+                    <p className="text-sm font-semibold text-neutral-900">{property.insurance_provider || '—'}</p>
+                  </div>
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Policy Number</p>
+                    <p className="text-sm font-semibold text-neutral-900">{property.insurance_policy_number || '—'}</p>
+                  </div>
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg md:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm">Expiry Date</p>
+                    <p className="text-sm font-semibold text-neutral-900">
+                      {property.insurance_expiry ? new Date(property.insurance_expiry).toLocaleDateString('en-GB') : '—'}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
