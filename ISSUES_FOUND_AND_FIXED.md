@@ -61,14 +61,26 @@
 **Device:** iPhone mobile view (375px width)  
 **Status:** ⏳ NEEDS RESPONSIVE REDESIGN
 
+### 6. On Notice Tenancies Disappear from Lettings View
+**Problem:** When Harry's room is marked "on notice", no data populates in lettings view  
+**Symptoms:** No tenant name, no rent amount, no property info  
+**Root Cause:** "On notice" status likely filters out or hides tenancy from queries  
+**Affected Pages:** Lettings view, possibly All Units view  
+**Critical:** User cannot manage tenancies marked as on notice  
+**Status:** ⏳ CRITICAL - NEEDS IMMEDIATE FIX
+
 ---
 
 ## SUMMARY BY CATEGORY
+
+### 🔴 CRITICAL ISSUES
+- **On Notice tenancies vanish from views** - User cannot manage tenancies marked on notice
 
 ### Database/Schema Issues
 - ⚠️ `people` table field name mismatch (name vs full_name?)
 - ⚠️ `tenancies` table relationships not loading correctly
 - ⚠️ `rent_monthly` field not displaying on All Units table
+- ⚠️ "On notice" status hides/filters tenancies from queries
 
 ### UI/Styling Issues  
 - ⚠️ Quick Notify AI text color visibility problem
