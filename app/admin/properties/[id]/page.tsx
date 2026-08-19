@@ -125,7 +125,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         {/* Page Header with Title and Back Link */}
         <div className="mb-2xl flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-md">
+            <h1 className="text-3xl font-bold text-neutral-900 flex items-center gap-md">
               🏢 {property.address}
             </h1>
           </div>
