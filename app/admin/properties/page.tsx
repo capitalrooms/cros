@@ -648,41 +648,34 @@ export default function PropertiesManagementPage() {
                     }
                   }}
                 >
-                  <div className="flex items-start justify-between gap-md">
-                    <Link href={`/admin/properties/${property.id}`} className="flex-1 group">
-                      <div className="hover:opacity-80">
-                        <h2 className="text-xl font-bold group-hover:underline">{property.name}</h2>
-                        <p className="text-sm text-neutral-300 mt-xs">{property.address}</p>
-                        <div className="flex gap-lg mt-md text-xs text-neutral-400">
-                          <span>{property.bedrooms} beds</span>
-                          <span>•</span>
-                          <span>{property.bathrooms} baths</span>
-                          <span>•</span>
-                          <span>{property.rooms?.length || 0} rooms</span>
-                          <span>•</span>
-                          <span className="font-semibold text-white">
-                            {(property.rooms || []).filter((r: any) => r.tenant).length} occupied
-                          </span>
+                  <Link href={`/admin/properties/${property.id}`} className="flex-1 group block">
+                      <div className="flex items-start justify-between gap-md hover:opacity-80">
+                        <div>
+                          <h2 className="text-xl font-bold group-hover:underline">{property.name}</h2>
+                          <p className="text-sm text-neutral-300 mt-xs">{property.address}</p>
+                          <div className="flex gap-lg mt-md text-xs text-neutral-400">
+                            <span>{property.bedrooms} beds</span>
+                            <span>•</span>
+                            <span>{property.bathrooms} baths</span>
+                            <span>•</span>
+                            <span>{property.rooms?.length || 0} rooms</span>
+                            <span>•</span>
+                            <span className="font-semibold text-white">
+                              {(property.rooms || []).filter((r: any) => r.tenant).length} occupied
+                            </span>
+                          </div>
                         </div>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                          }}
+                          className="shrink-0 px-md py-sm bg-neutral-700 text-white rounded font-semibold text-sm pointer-events-none select-none"
+                        >
+                          {editingProperty === property.id ? '▼ Close' : '▶ Open'}
+                        </button>
                       </div>
                     </Link>
-                    <div className="flex gap-sm">
-                      <a
-                        href={`/admin/appointments?property=${property.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="shrink-0 px-md py-sm bg-green-600 hover:bg-green-700 text-white rounded font-semibold text-sm transition"
-                        title="Book appointment for this property"
-                      >
-                        📅 Book
-                      </a>
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="shrink-0 px-md py-sm bg-neutral-700 text-white rounded font-semibold text-sm pointer-events-none select-none"
-                      >
-                        {editingProperty === property.id ? '▼ Close' : '▶ Open'}
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Property Details Section (Editable when editingProperty) */}
