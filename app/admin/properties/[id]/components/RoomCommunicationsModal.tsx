@@ -128,8 +128,8 @@ export default function RoomCommunicationsModal({
   const filteredComms = selectedTenant ? getTenantCommunications(selectedTenant) : []
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-      <div className="bg-neutral-950 rounded-xl shadow-lg max-w-2xl w-full border border-neutral-700 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-lg">
+      <div className="bg-neutral-950 rounded-xl shadow-lg max-w-2xl w-full border border-neutral-700 max-h-[90vh] overflow-y-auto z-[1001]">
         {/* Header */}
         <div className="bg-neutral-900 p-lg flex items-start justify-between sticky top-0 border-b border-neutral-700">
           <div>
