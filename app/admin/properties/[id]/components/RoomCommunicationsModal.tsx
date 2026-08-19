@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
 interface Tenancy {
@@ -38,6 +39,7 @@ export default function RoomCommunicationsModal({
   roomName,
   onClose
 }: RoomCommunicationsModalProps) {
+  const router = useRouter()
   const [tenancies, setTenancies] = useState<Tenancy[]>([])
   const [communications, setCommunications] = useState<Notification[]>([])
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null)
@@ -115,6 +117,11 @@ export default function RoomCommunicationsModal({
     return `Since ${formatDate(tenancy.start_date)}`
   }
 
+  const handleTenantClick = (tenantId: string) => {
+    router.push(`/admin/tenant/${tenantId}`)
+    onClose()
+  }
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
@@ -155,9 +162,12 @@ export default function RoomCommunicationsModal({
                       [CURRENT]
                     </span>
                     <div>
-                      <p className="font-semibold text-white">
+                      <button
+                        onClick={() => handleTenantClick(currentTenancy.person_id)}
+                        className="font-semibold text-white hover:text-blue-400 underline text-left"
+                      >
                         {currentTenancy.person?.name || 'Unknown'}
-                      </p>
+                      </button>
                       <p className="text-xs text-neutral-400">
                         {formatDate(currentTenancy.start_date)} - Present
                       </p>
@@ -209,9 +219,12 @@ export default function RoomCommunicationsModal({
                             <span className="bg-neutral-700 text-neutral-300 text-xs font-semibold px-md py-sm rounded">
                               [PREVIOUS]
                             </span>
-                            <p className="font-semibold text-white">
+                            <button
+                              onClick={() => handleTenantClick(tenancy.person_id)}
+                              className="font-semibold text-white hover:text-blue-400 underline text-left"
+                            >
                               {tenancy.person?.name || 'Unknown'}
-                            </p>
+                            </button>
                           </div>
                           <p className="text-xs text-neutral-400">
                             {formatDate(tenancy.start_date)} - {formatDate(tenancy.end_date!)}
