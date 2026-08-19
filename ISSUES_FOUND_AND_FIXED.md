@@ -69,6 +69,31 @@
 **Critical:** User cannot manage tenancies marked as on notice  
 **Status:** ⏳ CRITICAL - NEEDS IMMEDIATE FIX
 
+### 7. Cleaner Notes Not Delivered to Cleaners
+**Problem:** Admin adds note to cleaner for cleaning task but not sure if cleaner receives it  
+**Impact:** Cleaner doesn't get instructions/information about jobs  
+**Workflow:** Admin adds note → Cleaner should see it in their dashboard  
+**Status:** ⏳ NEEDS VERIFICATION
+
+### 8. FEATURE: Compliance Inspection Grid & PDF Export Missing
+**Problem:** Cleaner confirms smoke alarm/fire door working but no capture mechanism  
+**Current:** Data has nowhere to go; not stored or displayed  
+**Requirement:** Build grid/table like attached "C - Inspection Log - 8CLH.pdf"  
+**Format Needed:**
+- Date column
+- Inspector/Cleaner name
+- Smoke Alarm status (✓/✗)
+- Fire Door status (✓/✗)
+- Notes/Comments
+- Exportable to PDF matching inspection log format
+
+**Scope:** 
+- Smoke alarm logs
+- Fire door logs  
+- Both exportable separately or combined
+
+**Status:** 🔴 MISSING FEATURE - Affects compliance tracking workflow
+
 ---
 
 ## SUMMARY BY CATEGORY
