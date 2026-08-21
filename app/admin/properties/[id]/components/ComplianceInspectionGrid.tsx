@@ -205,7 +205,7 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
       {/* Add Inspection Modal */}
       {isAddingInspection && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
+          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
             <h3 className="text-lg font-semibold text-white mb-lg">Record Inspection</h3>
 
             <div className="space-y-lg">
@@ -317,7 +317,7 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
           </button>
         </div>
       ) : (
-        <div className="rounded-lg border border-neutral-700 bg-neutral-950 overflow-x-auto">
+        <div className="rounded-lg border border-neutral-700 bg-neutral-900 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-700 bg-neutral-900">
@@ -369,19 +369,19 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
       {/* Summary Stats */}
       {inspections.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
             <p className="text-2xl font-bold text-white">{inspections.length}</p>
             <p className="text-xs text-neutral-400 mt-xs uppercase tracking-wider font-semibold">Total Checks</p>
           </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
             <p className="text-2xl font-bold text-green-400">{inspections.filter(i => i.fire_door_status === 'pass').length}</p>
             <p className="text-xs text-neutral-400 mt-xs uppercase tracking-wider font-semibold">Fire Door Pass</p>
           </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
             <p className="text-2xl font-bold text-green-400">{inspections.filter(i => i.smoke_alarm_status === 'pass').length}</p>
             <p className="text-xs text-neutral-400 mt-xs uppercase tracking-wider font-semibold">Smoke Alarm Pass</p>
           </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
             <p className="text-2xl font-bold text-red-400">{inspections.filter(i => i.fire_door_status === 'fail' || i.smoke_alarm_status === 'fail').length}</p>
             <p className="text-xs text-neutral-400 mt-xs uppercase tracking-wider font-semibold">Issues Found</p>
           </div>

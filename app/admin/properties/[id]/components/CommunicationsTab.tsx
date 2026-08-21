@@ -162,7 +162,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
     const isComplianceCategory = category === 'compliance'
 
     return (
-      <div className="rounded-lg border border-neutral-700 bg-neutral-950 overflow-hidden">
+      <div className="rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
         {/* Category Header */}
         <div className="bg-neutral-900 p-lg flex items-center justify-between">
           <div className="flex items-center gap-md">
@@ -231,7 +231,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
 
       {/* Room Drill-Down Section */}
       {rooms.length > 0 && (
-        <div className="rounded-lg border border-neutral-700 bg-neutral-950 overflow-hidden">
+        <div className="rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
           <div className="bg-neutral-900 p-lg border-b border-neutral-700">
             <h3 className="font-semibold text-white">Room Communications</h3>
             <p className="text-xs text-neutral-400 mt-xs">Click a room to view tenant-level messages</p>
@@ -265,7 +265,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
       {/* Message Detail Modal */}
       {selectedMessage && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700 max-h-[90vh] overflow-y-auto">
+          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-lg mb-lg">
               <div>
                 <h3 className="text-lg font-semibold text-white">{selectedMessage.title}</h3>

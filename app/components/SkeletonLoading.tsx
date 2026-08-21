@@ -18,7 +18,7 @@ export function TenantDashboardSkeleton() {
 
       <main className="mx-auto max-w-6xl px-lg">
         {/* Header section - dark band */}
-        <section className="-mb-3xl bg-neutral-950 pb-3xl text-white" style={{ marginInline: '-16px', paddingInline: '16px' }}>
+        <section className="-mb-3xl bg-neutral-900 pb-3xl text-white" style={{ marginInline: '-16px', paddingInline: '16px' }}>
           <div className="pt-lg">
             <div className="h-4 w-32 rounded bg-white/20" />
             <div className="mt-md h-8 w-96 rounded bg-white/10" />
@@ -111,7 +111,7 @@ export function ContractorDashboardSkeleton() {
 
       <main className="mx-auto max-w-6xl px-lg">
         {/* Header section */}
-        <section className="-mb-3xl bg-neutral-950 pb-3xl text-white" style={{ marginInline: '-16px', paddingInline: '16px' }}>
+        <section className="-mb-3xl bg-neutral-900 pb-3xl text-white" style={{ marginInline: '-16px', paddingInline: '16px' }}>
           <div className="pt-lg">
             <div className="h-4 w-32 rounded bg-white/20" />
             <div className="mt-md h-8 w-96 rounded bg-white/10" />

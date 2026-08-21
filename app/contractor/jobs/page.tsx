@@ -329,7 +329,7 @@ export default function ContractorJobs() {
         )}
 
         {/* Hero — next job, unmissable */}
-        <section className="-mb-3xl bg-neutral-950 pb-3xl text-white" style={{ marginInline: '-16px', paddingInline: '16px' }}>
+        <section className="-mb-3xl bg-neutral-900 pb-3xl text-white" style={{ marginInline: '-16px', paddingInline: '16px' }}>
           <p className="pt-lg text-xl font-bold leading-tight text-white">
             {todayCount > 0
               ? `You have ${todayCount} job${todayCount > 1 ? 's' : ''} today`
@@ -366,7 +366,7 @@ export default function ContractorJobs() {
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 rounded-xl bg-neutral-950 py-md text-center text-sm font-semibold text-white"
+                  className="flex-1 rounded-xl bg-neutral-900 py-md text-center text-sm font-semibold text-white"
                 >
                   Directions
                 </a>
@@ -483,7 +483,7 @@ export default function ContractorJobs() {
                       setSelectedJob(job);
                       setShowDetails(true);
                     }}
-                    className="mt-lg w-full rounded-xl bg-neutral-950 py-md text-sm font-bold text-white transition-transform active:scale-[0.98]"
+                    className="mt-lg w-full rounded-xl bg-neutral-900 py-md text-sm font-bold text-white transition-transform active:scale-[0.98]"
                   >
                     View &amp; accept
                   </button>
@@ -672,7 +672,7 @@ export default function ContractorJobs() {
             </div>
 
             {selectedJob.booked_date && (
-              <div className="mb-md rounded-2xl bg-neutral-950 p-lg text-white">
+              <div className="mb-md rounded-2xl bg-neutral-900 p-lg text-white">
                 <p className="text-xs uppercase tracking-widest text-white/50">Booked for</p>
                 <p className="mt-xs text-xl font-bold">{dayLabel(selectedJob.booked_date)}</p>
                 <p className="text-base text-white/80">{slotLabel(selectedJob.booked_slot)}</p>
@@ -781,7 +781,7 @@ export default function ContractorJobs() {
 
                 <button
                   onClick={acceptJob}
-                  className="mt-md w-full rounded-xl bg-neutral-950 py-lg text-sm font-bold text-white active:scale-[0.99]"
+                  className="mt-md w-full rounded-xl bg-neutral-900 py-lg text-sm font-bold text-white active:scale-[0.99]"
                 >
                   {selectedJob.status === 'reported' ? 'Accept this job' : 'Confirm this time'}
                 </button>
@@ -793,7 +793,7 @@ export default function ContractorJobs() {
               <div className="mt-lg space-y-sm">
                 <button
                   onClick={() => setStatus('in_progress')}
-                  className="w-full rounded-xl bg-neutral-950 py-lg font-bold text-white"
+                  className="w-full rounded-xl bg-neutral-900 py-lg font-bold text-white"
                 >
                   Start work
                 </button>
@@ -813,7 +813,7 @@ export default function ContractorJobs() {
             {selectedJob.status === 'in_progress' && selectedJob.booked_date && !rescheduling && (
               <button
                 onClick={() => setShowCompleteForm(true)}
-                className="mt-lg w-full rounded-xl bg-neutral-950 py-lg font-bold text-white"
+                className="mt-lg w-full rounded-xl bg-neutral-900 py-lg font-bold text-white"
               >
                 Complete job
               </button>
@@ -1003,7 +1003,7 @@ export default function ContractorJobs() {
               <button
                 onClick={handleCompleteJob}
                 disabled={submittingCompletion || !completionData.price}
-                className="w-full rounded-xl bg-neutral-950 py-lg font-bold text-white disabled:bg-neutral-400"
+                className="w-full rounded-xl bg-neutral-900 py-lg font-bold text-white disabled:bg-neutral-400"
               >
                 {submittingCompletion ? 'Submitting...' : completionData.returnVisitNeeded ? 'Complete job (return visit scheduled)' : 'Complete job'}
               </button>

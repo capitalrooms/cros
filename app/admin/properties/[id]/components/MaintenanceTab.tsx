@@ -104,7 +104,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
 
       {/* Statistics Bar */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-md">
-        <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+        <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
           <p className="text-2xl font-bold text-white">{stats.total}</p>
           <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Total</p>
         </div>
@@ -194,7 +194,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
       ) : (
         <div className="space-y-md">
           {filtered.map((ticket) => (
-            <div key={ticket.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition">
+            <div key={ticket.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
               <div className="flex items-start justify-between gap-lg mb-md">
                 <div className="flex-1">
                   <p className="font-semibold text-white">{ticket.title}</p>

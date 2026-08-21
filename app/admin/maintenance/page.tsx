@@ -40,7 +40,7 @@ const PIPELINE = [
   {
     key: 'awaiting',
     title: 'Awaiting approval',
-    headerClass: 'bg-neutral-950 text-white',
+    headerClass: 'bg-neutral-900 text-white',
     cardClass: 'border-neutral-900 border-2',
     match: (t: Ticket) => t.status === 'reported' && !t.approved_at && !t.on_hold,
   },
@@ -54,7 +54,7 @@ const PIPELINE = [
   {
     key: 'raised',
     title: 'Approved · assign a contractor',
-    headerClass: 'bg-neutral-950 text-white',
+    headerClass: 'bg-neutral-900 text-white',
     cardClass: 'border-neutral-900 border-2',
     match: (t: Ticket) => t.status === 'reported' && !!t.approved_at && !t.on_hold,
   },
@@ -915,7 +915,7 @@ export default function MaintenanceDashboard() {
                 <div
                   key={d.iso}
                   className={`min-w-[72px] rounded-xl px-sm py-md text-center ${
-                    isToday ? 'bg-neutral-950 text-white' : 'bg-white border border-neutral-200'
+                    isToday ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-200'
                   }`}
                 >
                   <p className={`text-xs uppercase tracking-wide ${isToday ? 'opacity-60' : 'text-neutral-500'}`}>

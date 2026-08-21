@@ -105,7 +105,7 @@ export default function CleanerQuickNotifyModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-sm sm:p-lg">
-      <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-2xl w-full border border-neutral-700 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
+      <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-2xl w-full border border-neutral-700 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-lg">
           <div>
             <h3 className="text-lg font-semibold text-white">Quick Notify Tenants</h3>

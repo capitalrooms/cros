@@ -255,7 +255,7 @@ export default function TenantDashboard() {
       <main className="mx-auto max-w-6xl px-lg pb-2xl">
         {/* Dark band butts against the app bar (no light gap between them) */}
         <section
-          className="-mb-3xl bg-neutral-950 pb-3xl text-white"
+          className="-mb-3xl bg-neutral-900 pb-3xl text-white"
           style={{ marginInline: '-16px', paddingInline: '16px' }}
         >
           <p className="pt-lg text-xs font-medium uppercase tracking-widest text-white/40">
@@ -328,7 +328,7 @@ export default function TenantDashboard() {
               <div className="mt-lg flex gap-sm">
                 <button
                   onClick={() => respondToAccess(req.id, true)}
-                  className="flex-1 rounded-xl bg-neutral-950 py-md text-sm font-bold text-white active:scale-[0.99]"
+                  className="flex-1 rounded-xl bg-neutral-900 py-md text-sm font-bold text-white active:scale-[0.99]"
                 >
                   I approve access
                 </button>
@@ -572,7 +572,7 @@ function ActionCard({
         {href ? description : 'Coming soon'}
       </p>
       {primary && (
-        <p className="mt-md rounded-xl bg-neutral-950 py-md text-center text-sm font-bold text-white">
+        <p className="mt-md rounded-xl bg-neutral-900 py-md text-center text-sm font-bold text-white">
           Report now
         </p>
       )}

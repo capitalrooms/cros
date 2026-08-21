@@ -321,7 +321,7 @@ export default function CleanerDashboard() {
           </div>
         )}
 
-        <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-950 p-lg">
+        <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg">
           <h2 className="text-xl font-bold text-white">Book a clean</h2>
           <div className="mt-md grid gap-md sm:grid-cols-3">
             <div>
@@ -447,7 +447,7 @@ export default function CleanerDashboard() {
             )}
           </div>
           {scheduled.length === 0 ? (
-            <p className="mt-md rounded-2xl border border-dashed border-neutral-700 bg-neutral-950 p-xl text-center text-sm text-neutral-400">
+            <p className="mt-md rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-xl text-center text-sm text-neutral-400">
               Nothing booked yet
             </p>
           ) : (
@@ -456,7 +456,7 @@ export default function CleanerDashboard() {
                 <button
                   key={c.id}
                   onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                  className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-900 bg-neutral-950 p-md text-left hover:border-white text-white"
+                  className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-800 bg-neutral-900 p-md text-left hover:border-white text-white"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-bold text-white">{c.properties?.name}</p>
@@ -499,7 +499,7 @@ export default function CleanerDashboard() {
                   <button
                     key={c.id}
                     onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                    className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-900 bg-neutral-950 p-md text-left hover:border-white text-white"
+                    className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-800 bg-neutral-900 p-md text-left hover:border-white text-white"
                   >
                     <div className="min-w-0">
                       <p className="font-bold text-white">{c.properties?.name}</p>
@@ -555,7 +555,7 @@ export default function CleanerDashboard() {
           ) : (
             <div className="space-y-sm">
               {complianceLogs.map((log) => (
-                <div key={log.id} className="rounded-lg border border-neutral-900 bg-neutral-950 p-md">
+                <div key={log.id} className="rounded-lg border border-neutral-800 bg-neutral-900 p-md">
                   <div className="flex items-start justify-between gap-md">
                     <div className="min-w-0">
                       <p className="font-semibold text-white">

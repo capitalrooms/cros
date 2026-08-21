@@ -220,7 +220,7 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
       {/* Add Room Modal */}
       {isAddingRoom && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
+          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
             <h3 className="text-lg font-semibold text-white mb-lg">Add New Room</h3>
 
             <div className="space-y-lg">
@@ -278,7 +278,7 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
       {/* Edit Room Modal */}
       {editingRoom && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
+          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
             <h3 className="text-lg font-semibold text-white mb-lg">Edit Room</h3>
 
             <div className="space-y-lg">
@@ -332,7 +332,7 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
       {/* Room Details Modal */}
       {selectedRoomForDetails && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
+          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
             <div className="flex items-start justify-between mb-lg">
               <h3 className="text-lg font-semibold text-white">{selectedRoomForDetails.name}</h3>
               <button
@@ -424,7 +424,7 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
       ) : (
         <div className="grid gap-md">
           {rooms.map((room) => (
-            <div key={room.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition">
+            <div key={room.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
               <div className="flex items-start justify-between gap-lg">
                 <div className="flex-1">
                   <p className="font-semibold text-white">{room.name}</p>

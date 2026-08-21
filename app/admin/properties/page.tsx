@@ -634,7 +634,7 @@ export default function PropertiesManagementPage() {
               .map((property) => (
               <div key={property.id} className="rounded-2xl border-2 border-neutral-200 bg-white overflow-hidden">
                 {/* Property Header — link to detail page */}
-                <div className="bg-neutral-950 text-white px-lg py-md">
+                <div className="bg-neutral-900 text-white px-lg py-md">
                   <Link href={`/admin/properties/${property.id}`} className="flex-1 group block">
                       <div className="flex items-start justify-between gap-md hover:opacity-80">
                         <div>
