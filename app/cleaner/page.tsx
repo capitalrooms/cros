@@ -301,6 +301,17 @@ export default function CleanerDashboard() {
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
+        {/* Greeting */}
+        {me && (
+          <div className="mb-3xl">
+            <h1 className="text-3xl font-bold text-neutral-900">
+              Hello {me.user_metadata?.full_name || 'there'} 👋
+            </h1>
+            <p className="mt-xs text-neutral-600">Ready to get some work done</p>
+          </div>
+        )}
+
+        {/* Notifications */}
         <div className="mb-lg">
           <EnableNotifications />
         </div>
