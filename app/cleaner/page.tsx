@@ -305,7 +305,7 @@ export default function CleanerDashboard() {
         {me && (
           <div className="mb-3xl">
             <h1 className="text-3xl font-bold text-neutral-900">
-              Hello {me.user_metadata?.full_name || 'there'} 👋
+              Hello {me.user_metadata?.full_name || me.user_metadata?.name || me.email?.split('@')[0] || 'there'} 👋
             </h1>
             <p className="mt-xs text-neutral-600">Ready to get some work done</p>
           </div>
