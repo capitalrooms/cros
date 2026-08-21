@@ -90,7 +90,7 @@ export default function ContractorDashboard() {
   const nextJob = booked[0]
 
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
+    <div className="min-h-screen bg-white pb-3xl">
       <AppBar
         right={
           <button
