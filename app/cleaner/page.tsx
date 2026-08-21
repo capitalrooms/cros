@@ -6,6 +6,7 @@ import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import EnableNotifications from '@/app/components/EnableNotifications'
+import CleanerQuickNotifyModal from '@/app/components/CleanerQuickNotifyModal'
 
 interface ComplianceLog {
   id: string
@@ -44,6 +45,19 @@ export default function CleanerDashboard() {
   const [showAddComplianceModal, setShowAddComplianceModal] = useState(false)
   const [savingCompliance, setSavingCompliance] = useState(false)
   const [complianceForm, setComplianceForm] = useState({ check_type: 'fire_door' as const, date: new Date().toISOString().split('T')[0], notes: '' })
+  const [roomsNeedingCleaning, setRoomsNeedingCleaning] = useState<any[]>([])
+  const [cleansDisplayLimit, setCleansDisplayLimit] = useState(20)
+  const [totalCleansCount, setTotalCleansCount] = useState(0)
+  const [showLogPastCleanModal, setShowLogPastCleanModal] = useState(false)
+  const [pastCleanForm, setPastCleanForm] = useState({ propertyId: '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
+  const [savingPastClean, setSavingPastClean] = useState(false)
+  const [assignedJobs, setAssignedJobs] = useState<any[]>([])
+  const [showAcceptJobModal, setShowAcceptJobModal] = useState<string | null>(null)
+  const [acceptJobForm, setAcceptJobForm] = useState({ cleanDate: new Date().toISOString().split('T')[0], cleanTime: '10:00' })
+  const [acceptingJob, setAcceptingJob] = useState(false)
+  const [compliancePropertyId, setCompliancePropertyId] = useState('')
+  const [showQuickNotifyModal, setShowQuickNotifyModal] = useState(false)
+  const [quickNotifyProperty, setQuickNotifyProperty] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     async function init() {
@@ -63,21 +77,110 @@ export default function CleanerDashboard() {
         setPropertyId(props[0].id)
         await loadComplianceLogs(props[0].id)
       }
-      await loadCleans((data.assignment as any).id)
+      await loadCleans((data.assignment as any).id, cleansDisplayLimit)
+      await loadAssignedJobs()
       setLoading(false)
     }
     init()
   }, [router])
 
-  async function loadCleans(cleanerId: string) {
+  async function loadCleans(cleanerId: string, limit: number = 20) {
     const supabase = createClient()
+
+    // Get total count of cleans
+    const { count } = await supabase
+      .from('cleans')
+      .select('*', { count: 'exact', head: true })
+      .eq('cleaner_id', cleanerId)
+
     const { data } = await supabase
       .from('cleans')
-      .select('*, properties(name, address, clean_frequency_weeks)')
+      .select('*, properties(id, name, address, clean_frequency_weeks)')
       .eq('cleaner_id', cleanerId)
       .order('clean_date', { ascending: false })
-      .limit(20)
+      .limit(limit)
+
     setCleans(data || [])
+    setTotalCleansCount(count || 0)
+  }
+
+  async function loadMoreCleans() {
+    const newLimit = cleansDisplayLimit + 20
+    setCleansDisplayLimit(newLimit)
+    await loadCleans((me as any)?.id, newLimit)
+  }
+
+  async function logPastClean() {
+    if (!pastCleanForm.propertyId || !pastCleanForm.cleanDate) {
+      setError('Please fill in property and date')
+      return
+    }
+
+    setSavingPastClean(true)
+    try {
+      const supabase = createClient()
+      const { error: err } = await supabase.from('cleans').insert({
+        property_id: pastCleanForm.propertyId,
+        cleaner_id: (me as any)?.id,
+        clean_date: pastCleanForm.cleanDate,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        notes: pastCleanForm.notes || null,
+      })
+
+      if (err) throw err
+
+      setPastCleanForm({ propertyId: '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
+      setShowLogPastCleanModal(false)
+      await loadCleans((me as any)?.id, cleansDisplayLimit)
+      setError('')
+    } catch (err) {
+      setError('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    } finally {
+      setSavingPastClean(false)
+    }
+  }
+
+  async function loadAssignedJobs() {
+    try {
+      const response = await fetch('/api/jobs/assigned')
+      if (!response.ok) return
+
+      const data = await response.json()
+      setAssignedJobs(data.jobs || [])
+    } catch (err) {
+      console.error('Failed to load assigned jobs:', err)
+    }
+  }
+
+  async function acceptJob(jobId: string) {
+    if (!acceptJobForm.cleanDate) {
+      setError('Please select a date')
+      return
+    }
+
+    setAcceptingJob(true)
+    try {
+      const response = await fetch(`/api/jobs/${jobId}/accept`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clean_date: acceptJobForm.cleanDate,
+          clean_time: acceptJobForm.cleanTime,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to accept job')
+
+      setShowAcceptJobModal(null)
+      await loadAssignedJobs()
+      await loadCleans((me as any)?.id, cleansDisplayLimit)
+      setError('')
+    } catch (err) {
+      setError('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    } finally {
+      setAcceptingJob(false)
+    }
   }
 
   async function loadComplianceLogs(propId: string) {
@@ -98,7 +201,7 @@ export default function CleanerDashboard() {
   }
 
   async function handleAddComplianceLog() {
-    if (!propertyId || !complianceForm.date) {
+    if (!compliancePropertyId || !complianceForm.date) {
       alert('Please fill in all required fields')
       return
     }
@@ -109,7 +212,7 @@ export default function CleanerDashboard() {
       const { error } = await supabase
         .from('compliance_logs')
         .insert({
-          property_id: propertyId,
+          property_id: compliancePropertyId,
           check_type: complianceForm.check_type,
           checked_by: me?.id,
           checked_by_role: 'cleaner',
@@ -121,7 +224,7 @@ export default function CleanerDashboard() {
 
       setComplianceForm({ check_type: 'fire_door', date: new Date().toISOString().split('T')[0], notes: '' })
       setShowAddComplianceModal(false)
-      await loadComplianceLogs(propertyId)
+      await loadComplianceLogs(compliancePropertyId)
       alert('✅ Check logged')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
@@ -207,15 +310,15 @@ export default function CleanerDashboard() {
           </div>
         )}
 
-        <section className="rounded-2xl border-2 border-neutral-900 bg-white p-lg">
-          <h2 className="text-xl font-bold">Book a clean</h2>
+        <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-950 p-lg">
+          <h2 className="text-xl font-bold text-white">Book a clean</h2>
           <div className="mt-md grid gap-md sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-medium text-neutral-700">Property</label>
+              <label className="block text-xs font-medium text-neutral-200">Property</label>
               <select
                 value={propertyId}
                 onChange={(e) => handlePropertyChange(e.target.value)}
-                className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-md text-sm"
+                className="mt-xs w-full rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
               >
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -225,31 +328,42 @@ export default function CleanerDashboard() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-700">Date</label>
+              <label className="block text-xs font-medium text-neutral-200">Date</label>
               <input
                 type="date"
                 value={cleanDate}
                 onChange={(e) => setCleanDate(e.target.value)}
-                className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-md text-sm"
+                className="mt-xs w-full rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-700">Time</label>
+              <label className="block text-xs font-medium text-neutral-200">Time</label>
               <input
                 type="time"
                 value={cleanTime}
                 onChange={(e) => setCleanTime(e.target.value)}
-                className="mt-xs w-full rounded-xl border border-neutral-300 px-md py-md text-sm"
+                className="mt-xs w-full rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
               />
             </div>
           </div>
-          <button
-            onClick={bookClean}
-            disabled={booking}
-            className="mt-md w-full rounded-xl bg-neutral-950 py-md text-sm font-bold text-white disabled:opacity-40 sm:w-auto sm:px-xl"
-          >
-            {booking ? 'Booking…' : 'Book this clean'}
-          </button>
+          <div className="mt-md flex gap-md">
+            <button
+              onClick={bookClean}
+              disabled={booking}
+              className="flex-1 rounded-xl bg-slate-600 py-md text-sm font-bold text-white disabled:opacity-40 hover:bg-slate-700"
+            >
+              {booking ? 'Booking…' : 'Book this clean'}
+            </button>
+            <button
+              onClick={() => {
+                setPastCleanForm({ propertyId: propertyId || '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
+                setShowLogPastCleanModal(true)
+              }}
+              className="flex-1 rounded-xl bg-slate-600 py-md text-sm font-bold text-white hover:bg-slate-700"
+            >
+              📝 Log Past Clean
+            </button>
+          </div>
           {bookedNotice && (
             <div className="mt-md rounded-xl border border-green-300 bg-green-50 p-md text-sm font-semibold text-green-800">
               {bookedNotice}
@@ -257,10 +371,72 @@ export default function CleanerDashboard() {
           )}
         </section>
 
+        {/* Assigned Jobs Section */}
+        {assignedJobs.length > 0 && (
+          <section className="mt-3xl">
+            <h2 className="text-xl font-bold">📌 Assigned Jobs</h2>
+            <div className="mt-md space-y-sm">
+              {assignedJobs.map((job) => (
+                <div
+                  key={job.id}
+                  className={`rounded-2xl border-2 p-md ${
+                    job.task_type === 'asap'
+                      ? 'border-red-500 bg-red-900'
+                      : job.task_type === 'urgent'
+                      ? 'border-orange-500 bg-orange-900'
+                      : 'border-blue-500 bg-blue-900'
+                  } text-white`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-bold">
+                        {job.properties?.name} - {job.rooms?.name}
+                      </p>
+                      {job.notes && (
+                        <p className="text-sm text-neutral-200 mt-xs">{job.notes}</p>
+                      )}
+                      <p className="text-xs text-neutral-300 mt-xs">
+                        {job.task_type === 'asap' ? '🚨 ASAP' : job.task_type === 'urgent' ? '⚠️ Urgent' : '📌 Normal'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAcceptJobForm({
+                          cleanDate: new Date().toISOString().split('T')[0],
+                          cleanTime: '10:00',
+                        })
+                        setShowAcceptJobModal(job.id)
+                      }}
+                      className="shrink-0 ml-md rounded-lg bg-white px-md py-sm text-xs font-bold text-neutral-900 hover:bg-neutral-100"
+                    >
+                      Accept & Book
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="mt-3xl">
-          <h2 className="text-xl font-bold">Upcoming cleans</h2>
+          <div className="flex items-center justify-between mb-md">
+            <h2 className="text-xl font-bold">Upcoming cleans</h2>
+            {scheduled.length > 0 && (
+              <button
+                onClick={() => {
+                  if (scheduled[0]?.properties) {
+                    setQuickNotifyProperty({ id: scheduled[0].properties.id, name: scheduled[0].properties.name })
+                    setShowQuickNotifyModal(true)
+                  }
+                }}
+                className="rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white hover:bg-blue-700"
+              >
+                📤 Quick Notify
+              </button>
+            )}
+          </div>
           {scheduled.length === 0 ? (
-            <p className="mt-md rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-400">
+            <p className="mt-md rounded-2xl border border-dashed border-neutral-700 bg-neutral-950 p-xl text-center text-sm text-neutral-400">
               Nothing booked yet
             </p>
           ) : (
@@ -269,11 +445,11 @@ export default function CleanerDashboard() {
                 <button
                   key={c.id}
                   onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                  className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-200 bg-white p-md text-left hover:border-neutral-900"
+                  className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-900 bg-neutral-950 p-md text-left hover:border-white text-white"
                 >
                   <div className="min-w-0">
-                    <p className="truncate font-bold">{c.properties?.name}</p>
-                    <p className="text-sm text-neutral-500">
+                    <p className="truncate font-bold text-white">{c.properties?.name}</p>
+                    <p className="text-sm text-neutral-400">
                       {new Date(c.clean_date).toLocaleDateString('en-GB', {
                         weekday: 'short',
                         day: 'numeric',
@@ -282,11 +458,21 @@ export default function CleanerDashboard() {
                       {c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-lg bg-neutral-950 px-md py-sm text-xs font-bold text-white">
+                  <span className="shrink-0 rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white">
                     {c.arrived_at ? 'On site' : 'Open'}
                   </span>
                 </button>
               ))}
+            </div>
+          )}
+          {cleans.length < totalCleansCount && cleans.length > 0 && (
+            <div className="mt-md flex justify-center">
+              <button
+                onClick={loadMoreCleans}
+                className="rounded-lg bg-slate-600 px-lg py-md text-sm font-bold text-white hover:bg-slate-700"
+              >
+                Load More Cleans ({cleans.length} of {totalCleansCount})
+              </button>
             </div>
           )}
         </section>
@@ -302,11 +488,11 @@ export default function CleanerDashboard() {
                   <button
                     key={c.id}
                     onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                    className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-200 bg-white p-md text-left hover:border-neutral-900"
+                    className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-900 bg-neutral-950 p-md text-left hover:border-white text-white"
                   >
                     <div className="min-w-0">
-                      <p className="font-bold">{c.properties?.name}</p>
-                      <p className="text-sm text-neutral-500">
+                      <p className="font-bold text-white">{c.properties?.name}</p>
+                      <p className="text-sm text-neutral-400">
                         {new Date(c.clean_date).toLocaleDateString('en-GB', {
                           day: 'numeric',
                           month: 'short',
@@ -314,7 +500,7 @@ export default function CleanerDashboard() {
                         {c.special_jobs?.length ? ` · ${c.special_jobs.length} extra jobs` : ''}
                       </p>
                       {(freq || due) && (
-                        <p className="mt-xs text-xs font-semibold text-neutral-700">
+                        <p className="mt-xs text-xs font-semibold text-neutral-300">
                           {freq ? freq : ''}
                           {freq && due ? ' · ' : ''}
                           {due ? `next due ${due}` : ''}
@@ -334,10 +520,18 @@ export default function CleanerDashboard() {
         {/* Compliance Logs Section */}
         <section className="mt-3xl">
           <div className="flex items-center justify-between mb-md">
-            <h2 className="text-xl font-bold">Compliance Checks (Last 6 Months)</h2>
+            <div>
+              <h2 className="text-xl font-bold">Compliance Checks</h2>
+              <p className="text-sm text-neutral-600 mt-xs">
+                {properties.find((p) => p.id === propertyId)?.name || 'All properties'} · Last 6 months
+              </p>
+            </div>
             <button
-              onClick={() => setShowAddComplianceModal(true)}
-              className="rounded-lg bg-neutral-900 px-md py-sm text-xs font-bold text-white hover:bg-neutral-800"
+              onClick={() => {
+                setCompliancePropertyId(propertyId)
+                setShowAddComplianceModal(true)
+              }}
+              className="rounded-lg bg-slate-600 px-md py-sm text-xs font-bold text-white hover:bg-blue-600"
             >
               + Add Check
             </button>
@@ -350,13 +544,13 @@ export default function CleanerDashboard() {
           ) : (
             <div className="space-y-sm">
               {complianceLogs.map((log) => (
-                <div key={log.id} className="rounded-lg border border-neutral-200 bg-white p-md">
+                <div key={log.id} className="rounded-lg border border-neutral-900 bg-neutral-950 p-md">
                   <div className="flex items-start justify-between gap-md">
                     <div className="min-w-0">
-                      <p className="font-semibold text-neutral-900">
+                      <p className="font-semibold text-white">
                         {checkTypeLabels[log.check_type]}
                       </p>
-                      <p className="text-sm text-neutral-600 mt-xs">
+                      <p className="text-sm text-neutral-400 mt-xs">
                         {new Date(log.checked_date).toLocaleDateString('en-GB', {
                           day: 'numeric',
                           month: 'short',
@@ -366,7 +560,7 @@ export default function CleanerDashboard() {
                         {log.people?.full_name || 'Unknown'} ({log.checked_by_role})
                       </p>
                       {log.notes && (
-                        <p className="text-sm text-neutral-700 mt-md whitespace-pre-wrap">
+                        <p className="text-sm text-neutral-300 mt-md whitespace-pre-wrap">
                           {log.notes}
                         </p>
                       )}
@@ -386,6 +580,22 @@ export default function CleanerDashboard() {
 
               <div className="space-y-md">
                 <div>
+                  <label className="block text-sm font-bold text-neutral-900 mb-md">Property *</label>
+                  <select
+                    value={compliancePropertyId}
+                    onChange={(e) => setCompliancePropertyId(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
+                  >
+                    <option value="">Select a property</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-sm font-bold text-neutral-900 mb-md">Check Type</label>
                   <div className="flex gap-sm">
                     {(['fire_door', 'smoke_alarm'] as const).map((type) => (
@@ -394,7 +604,7 @@ export default function CleanerDashboard() {
                         onClick={() => setComplianceForm({ ...complianceForm, check_type: type })}
                         className={`flex-1 rounded-lg border px-md py-sm text-xs font-semibold transition-colors ${
                           complianceForm.check_type === type
-                            ? 'border-neutral-900 bg-neutral-900 text-white'
+                            ? 'border-slate-600 bg-slate-600 text-white'
                             : 'border-neutral-300 text-neutral-700'
                         }`}
                       >
@@ -429,7 +639,7 @@ export default function CleanerDashboard() {
                   <button
                     onClick={handleAddComplianceLog}
                     disabled={savingCompliance}
-                    className="flex-1 rounded-lg bg-neutral-900 py-sm font-bold text-white disabled:opacity-50"
+                    className="flex-1 rounded-lg bg-slate-600 py-sm font-bold text-white disabled:opacity-50 hover:bg-slate-700"
                   >
                     {savingCompliance ? 'Saving…' : 'Log Check'}
                   </button>
@@ -443,6 +653,138 @@ export default function CleanerDashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Log Past Clean Modal */}
+        {showLogPastCleanModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
+            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
+              <h2 className="text-xl font-bold text-neutral-900 mb-md">📝 Log Past Clean</h2>
+
+              <div className="space-y-md">
+                <div>
+                  <label className="block text-sm font-bold text-neutral-900 mb-md">Property *</label>
+                  <select
+                    value={pastCleanForm.propertyId}
+                    onChange={(e) => setPastCleanForm({ ...pastCleanForm, propertyId: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
+                  >
+                    <option value="">Select property</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-neutral-900 mb-md">Date Cleaned *</label>
+                  <input
+                    type="date"
+                    value={pastCleanForm.cleanDate}
+                    onChange={(e) => setPastCleanForm({ ...pastCleanForm, cleanDate: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-neutral-900 mb-md">Notes (Optional)</label>
+                  <textarea
+                    placeholder="e.g., Emergency clean, extra rooms, etc."
+                    value={pastCleanForm.notes}
+                    onChange={(e) => setPastCleanForm({ ...pastCleanForm, notes: e.target.value })}
+                    rows={2}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
+                  />
+                </div>
+
+                <div className="flex gap-sm pt-md">
+                  <button
+                    onClick={logPastClean}
+                    disabled={savingPastClean}
+                    className="flex-1 rounded-lg bg-slate-600 py-sm font-bold text-white disabled:opacity-50 hover:bg-slate-700"
+                  >
+                    {savingPastClean ? 'Saving…' : 'Log Clean'}
+                  </button>
+                  <button
+                    onClick={() => setShowLogPastCleanModal(false)}
+                    className="flex-1 rounded-lg border border-neutral-300 py-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Accept Job Modal */}
+        {showAcceptJobModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
+            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
+              <h2 className="text-xl font-bold text-neutral-900 mb-md">Accept & Book Clean</h2>
+
+              <div className="space-y-md">
+                <div>
+                  <label className="block text-sm font-bold text-neutral-900 mb-md">Date *</label>
+                  <input
+                    type="date"
+                    value={acceptJobForm.cleanDate}
+                    onChange={(e) => setAcceptJobForm({ ...acceptJobForm, cleanDate: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-neutral-900 mb-md">Time (Optional)</label>
+                  <input
+                    type="time"
+                    value={acceptJobForm.cleanTime}
+                    onChange={(e) => setAcceptJobForm({ ...acceptJobForm, cleanTime: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
+                  />
+                </div>
+
+                {error && (
+                  <div className="rounded-lg bg-red-50 p-md text-sm font-semibold text-red-800">
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex gap-sm pt-md">
+                  <button
+                    onClick={() => acceptJob(showAcceptJobModal)}
+                    disabled={acceptingJob}
+                    className="flex-1 rounded-lg bg-slate-600 py-sm font-bold text-white disabled:opacity-50 hover:bg-slate-700"
+                  >
+                    {acceptingJob ? 'Accepting...' : 'Accept & Book'}
+                  </button>
+                  <button
+                    onClick={() => setShowAcceptJobModal(null)}
+                    className="flex-1 rounded-lg border border-neutral-300 py-sm font-semibold"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showQuickNotifyModal && quickNotifyProperty && (
+          <CleanerQuickNotifyModal
+            propertyId={quickNotifyProperty.id}
+            propertyName={quickNotifyProperty.name}
+            onClose={() => {
+              setShowQuickNotifyModal(false)
+              setQuickNotifyProperty(null)
+            }}
+            onSuccess={() => {
+              setShowQuickNotifyModal(false)
+              setQuickNotifyProperty(null)
+            }}
+          />
         )}
       </main>
     </div>

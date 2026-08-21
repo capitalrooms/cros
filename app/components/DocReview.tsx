@@ -197,6 +197,8 @@ export default function DocReview({
   const [notifyTenants, setNotifyTenants] = useState(false)
   const [applying, setApplying] = useState(false)
   const [error, setError] = useState('')
+  // Explicit visibility control - default to admin-only (false) for safety
+  const [visibleToTenants, setVisibleToTenants] = useState(false)
 
   useEffect(() => {
     setFields(initial)
@@ -303,9 +305,8 @@ export default function DocReview({
 
         const dbType = PROP_DOC_DB_TYPE[type] || 'other'
         const propName = properties.find((p) => p.id === targetProperty)?.name || 'the property'
-        // Tenant-facing types (evacuation plan, house rules etc.) default visible to tenants.
-        // Expense/admin types (invoices, receipts, other) stay admin-only.
-        const visibleToTenants = TENANT_FACING_PROP_TYPES.has(type)
+        // Use explicit admin choice (visibleToTenants state) rather than auto-defaults
+        // This ensures admin is always asked before sharing with tenants
 
         if (file) {
           const body = new FormData()
@@ -526,6 +527,27 @@ export default function DocReview({
               <option value="">Choose a tenant…</option>
               {people.map((p) => (<option key={p.id} value={p.id}>{p.full_name || p.email}</option>))}
             </select>
+          </div>
+        )}
+
+        {isPropInfo && (
+          <div className="mt-md border-l-4 border-amber-400 bg-amber-50 p-md rounded-lg">
+            <label className="flex items-start gap-md text-sm text-neutral-800">
+              <input
+                type="checkbox"
+                checked={visibleToTenants}
+                onChange={(e) => setVisibleToTenants(e.target.checked)}
+                className="mt-sm flex-shrink-0 w-md h-md accent-amber-600 cursor-pointer"
+              />
+              <span className="flex-1">
+                <strong>Share with tenants?</strong>
+                <p className="text-xs text-neutral-600 mt-xs">
+                  {TENANT_FACING_PROP_TYPES.has(type)
+                    ? 'This document is typically tenant-facing (house rules, safety info, etc.), but you can keep it admin-only.'
+                    : 'This document is admin-only by default. Check only if tenants should see it.'}
+                </p>
+              </span>
+            </label>
           </div>
         )}
       </div>

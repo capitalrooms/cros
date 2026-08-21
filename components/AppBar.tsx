@@ -50,7 +50,7 @@ export default function AppBar({
             to the far right; min-w-0 lets long links truncate rather than push the
             page wide or shove the brand off-centre. */}
         <div
-          className="min-w-0 flex items-center gap-md text-sm font-semibold text-white overflow-hidden"
+          className="min-w-0 flex items-center gap-md text-sm font-semibold text-white overflow-x-auto"
           style={{ justifyContent: 'flex-end' }}
         >
           {right}
