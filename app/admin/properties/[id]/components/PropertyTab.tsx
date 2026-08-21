@@ -1,10 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 
 interface PropertyTabProps {
   property: any
+}
+
+interface Photo {
+  id: string
+  file_name: string
+  file_path: string
+  file_url: string | null
+  is_featured: boolean
 }
 
 export default function PropertyTab({ property }: PropertyTabProps) {
@@ -12,7 +20,11 @@ export default function PropertyTab({ property }: PropertyTabProps) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
+  const [uploadingFloorPlan, setUploadingFloorPlan] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [savingFeatured, setSavingFeatured] = useState<string | null>(null)
+  const [photos, setPhotos] = useState<Photo[]>([])
+  const [loadingPhotos, setLoadingPhotos] = useState(true)
 
   const [formData, setFormData] = useState({
     bedrooms: property.bedrooms || 0,
@@ -23,6 +35,74 @@ export default function PropertyTab({ property }: PropertyTabProps) {
   })
 
   const supabase = createClient()
+
+  useEffect(() => {
+    loadPhotos()
+  }, [property.id])
+
+  async function loadPhotos() {
+    setLoadingPhotos(true)
+    const { data } = await supabase
+      .from('property_photos')
+      .select('*')
+      .eq('property_id', property.id)
+      .order('uploaded_at', { ascending: false })
+
+    setPhotos(data || [])
+    setLoadingPhotos(false)
+  }
+
+  async function handleSetFeatured(photoId: string) {
+    setSavingFeatured(photoId)
+    try {
+      await supabase
+        .from('properties')
+        .update({ featured_photo_id: photoId })
+        .eq('id', property.id)
+
+      // Update local photos state
+      const updated = photos.map(p => ({
+        ...p,
+        is_featured: p.id === photoId
+      }))
+      setPhotos(updated)
+      setSuccess('✓ Featured photo updated - reload to see changes')
+      setTimeout(() => setSuccess(null), 4000)
+    } catch (err) {
+      setError(`Failed to set featured photo: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setSavingFeatured(null)
+    }
+  }
+
+  async function handleDeletePhoto(photoId: string) {
+    try {
+      const photo = photos.find(p => p.id === photoId)
+      if (!photo) return
+
+      // Delete from storage
+      if (photo.file_path) {
+        await fetch('/api/admin/delete-photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_path: photo.file_path })
+        })
+      }
+
+      // Delete from database
+      await supabase
+        .from('property_photos')
+        .delete()
+        .eq('id', photoId)
+
+      // Update local state
+      setPhotos(photos.filter(p => p.id !== photoId))
+      setSuccess('Photo deleted')
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      setError(`Failed to delete photo: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -49,17 +129,15 @@ export default function PropertyTab({ property }: PropertyTabProps) {
   }
 
   async function handlePhotoUpload(file: File) {
-    setUploading(true)
+    setUploadingPhoto(true)
     setError(null)
 
     const formData = new FormData()
     formData.append('file', file)
     formData.append('property_id', property.id)
-    formData.append('document_type', 'property_photo')
-    formData.append('file_name', file.name)
 
     try {
-      const response = await fetch('/api/admin/upload-property-document', {
+      const response = await fetch('/api/admin/upload-photo', {
         method: 'POST',
         body: formData
       })
@@ -69,13 +147,30 @@ export default function PropertyTab({ property }: PropertyTabProps) {
         throw new Error(err.error || 'Upload failed')
       }
 
+      const data = await response.json()
+
+      // Save photo metadata to database
+      await supabase
+        .from('property_photos')
+        .insert({
+          property_id: property.id,
+          file_name: file.name,
+          file_path: data.path,
+          file_url: data.url,
+          file_size: file.size,
+          file_type: file.type
+        })
+
+      // Reload photos
+      await loadPhotos()
+
       setSuccess(`Photo "${file.name}" uploaded successfully`)
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
       setError(`Failed to upload photo: ${err instanceof Error ? err.message : 'Unknown error'}`)
       console.error(err)
     } finally {
-      setUploading(false)
+      setUploadingPhoto(false)
     }
   }
 
@@ -235,7 +330,7 @@ export default function PropertyTab({ property }: PropertyTabProps) {
       {/* Floor Plans & Photos - Upload Ready */}
       <div>
         <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
-          Floor Plans & Room Dimensions
+          Floor Plans
         </h3>
         <input
           id="floorplan-input"
@@ -244,15 +339,10 @@ export default function PropertyTab({ property }: PropertyTabProps) {
           accept=".pdf,.jpg,.jpeg,.png,.webp"
           onChange={(e) => {
             const files = Array.from(e.currentTarget.files || [])
-            files.forEach(f => {
-              const form = new FormData()
-              form.append('file', f)
-              form.append('property_id', property.id)
-              form.append('document_type', 'floor_plan')
-              form.append('file_name', f.name)
-              handlePhotoUpload(f)
-            })
+            setUploadingFloorPlan(true)
+            files.forEach(f => handlePhotoUpload(f))
             e.currentTarget.value = ''
+            setUploadingFloorPlan(false)
           }}
           className="hidden"
         />
@@ -276,7 +366,7 @@ export default function PropertyTab({ property }: PropertyTabProps) {
           <div className="text-3xl mb-md opacity-60">📄</div>
           <p className="text-sm font-semibold text-white mb-xs">Drop floor plan here or click to upload</p>
           <p className="text-xs text-neutral-400">PDF or JPEG • Max 10MB</p>
-          {uploading && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
+          {uploadingFloorPlan && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
         </div>
       </div>
 
@@ -317,8 +407,72 @@ export default function PropertyTab({ property }: PropertyTabProps) {
           <div className="text-3xl mb-md opacity-60">📷</div>
           <p className="text-sm font-semibold text-white mb-xs">Drop photos here or click to upload</p>
           <p className="text-xs text-neutral-400">PNG, JPG, WebP • Max 10MB each</p>
-          {uploading && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
+          {uploadingPhoto && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
         </div>
+
+        {/* Photo Gallery */}
+        {loadingPhotos ? (
+          <p className="text-sm text-neutral-400 mt-lg">Loading photos...</p>
+        ) : photos.length > 0 ? (
+          <div className="mt-lg">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Uploaded Photos</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-md">
+              {photos.map((photo) => (
+                <div
+                  key={photo.id}
+                  className="relative rounded-lg border-2 border-neutral-200 overflow-hidden group bg-neutral-50"
+                >
+                  {/* Image display */}
+                  <div className="aspect-square bg-neutral-100 flex items-center justify-center text-2xl overflow-hidden">
+                    <img
+                      src={photo.file_url || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${photo.file_path?.startsWith('property-photos/') ? photo.file_path : `property-photos/${photo.file_path}`}`}
+                      alt={photo.file_name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  </div>
+
+                  {/* File name */}
+                  <p className="text-xs font-semibold p-sm text-neutral-700 truncate">{photo.file_name}</p>
+
+                  {/* Featured checkbox and delete button */}
+                  <div className="p-sm border-t border-neutral-200 flex items-center justify-between">
+                    <div className="flex items-center gap-sm">
+                      <input
+                        type="checkbox"
+                        checked={photo.is_featured}
+                        onChange={() => handleSetFeatured(photo.id)}
+                        disabled={savingFeatured === photo.id}
+                        className="w-4 h-4 cursor-pointer disabled:opacity-50 transition"
+                        title="Set as featured photo"
+                      />
+                      <label className={`text-xs font-semibold transition ${
+                        savingFeatured === photo.id
+                          ? 'text-blue-600 animate-pulse'
+                          : photo.is_featured
+                          ? 'text-green-600 font-bold'
+                          : 'text-neutral-600 hover:text-blue-600 cursor-pointer'
+                      }`}>
+                        {savingFeatured === photo.id ? '⏳ Saving...' : photo.is_featured ? '✓ Featured' : 'Featured'}
+                      </label>
+                    </div>
+                    <button
+                      onClick={() => handleDeletePhoto(photo.id)}
+                      className="text-xs text-red-600 hover:text-red-700 font-semibold"
+                      title="Delete photo"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-neutral-400 mt-lg">No photos uploaded yet</p>
+        )}
       </div>
     </div>
   )

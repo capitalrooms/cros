@@ -109,24 +109,54 @@ export default function LettingsPage() {
       .eq('status', 'available')
       .order('available_date', { ascending: true })
 
+    // Fetch on-notice tenancies with their rooms
+    const { data: onNoticeData } = await supabase
+      .from('tenancies')
+      .select('id, end_date, rooms(id, name, property_id, current_asking_rent, properties(name, address))')
+      .eq('status', 'on_notice')
+      .order('end_date', { ascending: true })
+
     setProperties(propsData || [])
     setRooms(roomsData || [])
     setTenancies((tenanciesData as any) || [])
 
-    if (availableData) {
-      const transformed = availableData.map((room: any) => ({
-        id: room.id,
-        name: room.name,
-        property_id: room.property_id,
-        property_name: room.properties?.name || 'Unknown',
-        property_address: room.properties?.address || '',
-        current_asking_rent: room.current_asking_rent,
-        available_date: room.available_date,
-        marketing_status: room.marketing_status,
-        days_on_market: room.days_on_market,
+    // Transform available rooms
+    const availableTransformed = (availableData || []).map((room: any) => ({
+      id: room.id,
+      name: room.name,
+      property_id: room.property_id,
+      property_name: room.properties?.name || 'Unknown',
+      property_address: room.properties?.address || '',
+      current_asking_rent: room.current_asking_rent,
+      available_date: room.available_date,
+      marketing_status: room.marketing_status,
+      days_on_market: room.days_on_market,
+      status: 'available' as const,
+    }))
+
+    // Transform on-notice rooms
+    const onNoticeTransformed = (onNoticeData || [])
+      .filter((tenancy: any) => tenancy.rooms && tenancy.rooms.length > 0)
+      .map((tenancy: any) => ({
+        id: tenancy.rooms.id,
+        name: tenancy.rooms.name,
+        property_id: tenancy.rooms.property_id,
+        property_name: tenancy.rooms.properties?.name || 'Unknown',
+        property_address: tenancy.rooms.properties?.address || '',
+        current_asking_rent: tenancy.rooms.current_asking_rent,
+        available_date: tenancy.end_date,
+        marketing_status: 'on_notice' as const,
+        days_on_market: null,
+        status: 'on_notice' as const,
       }))
-      setAvailableRooms(transformed)
-    }
+
+    // Combine and deduplicate
+    const combined = [...availableTransformed, ...onNoticeTransformed]
+    const deduplicated = combined.filter((item, index, self) =>
+      index === self.findIndex(t => t.id === item.id)
+    )
+
+    setAvailableRooms(deduplicated)
 
     setLoading(false)
   }
@@ -174,8 +204,17 @@ export default function LettingsPage() {
                     {availableRooms.map((room, idx) => (
                       <tr key={room.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-neutral-50'}>
                         <td className="px-lg py-md text-sm text-neutral-900">
-                          <p className="font-medium">{room.name}</p>
-                          <p className="text-xs text-neutral-600">{room.property_address}</p>
+                          <div className="flex items-center gap-md">
+                            <div>
+                              <p className="font-medium">{room.name}</p>
+                              <p className="text-xs text-neutral-600">{room.property_address}</p>
+                            </div>
+                            {room.status === 'on_notice' && (
+                              <span className="inline-block px-sm py-xs text-xs font-semibold bg-amber-100 text-amber-800 rounded">
+                                📋 On Notice
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-lg py-md text-sm text-neutral-600">{formatDate(room.available_date)}</td>
                         <td className="px-lg py-md text-sm font-medium text-neutral-900">

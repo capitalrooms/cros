@@ -45,6 +45,19 @@ export default function PropertyNotesPage() {
   const [posting, setPosting] = useState(false)
   const [taskTemplates, setTaskTemplates] = useState<any[]>([])
   const [selectedTasks, setSelectedTasks] = useState<string[]>([])
+  const [cleaningRoom, setCleaningRoom] = useState('')
+  const [cleaningType, setCleaningType] = useState('')
+
+  const cleaningTypes = [
+    { value: 'deep_clean', label: '🧹 Deep Clean - Full property' },
+    { value: 'spot_clean', label: '⚡ Spot Clean - Quick tidy' },
+    { value: 'deep_kitchen', label: '🍽️ Kitchen Focus - Deep clean' },
+    { value: 'deep_bathroom', label: '🚿 Bathroom Focus - Deep clean' },
+    { value: 'deep_bedrooms', label: '🛏️ Bedrooms Focus - Deep clean' },
+    { value: 'post_viewing', label: '👁️ Post-Viewing Clean - Between showings' },
+    { value: 'move_out', label: '📦 Move-Out Clean - Full deep' },
+    { value: 'post_maintenance', label: '🔧 Post-Maintenance - Dust & clean' },
+  ]
 
   useEffect(() => {
     async function init() {
@@ -119,9 +132,29 @@ export default function PropertyNotesPage() {
       const supabase = createClient()
 
       if (audience === 'cleaner') {
-        // Generate note from selected tasks or custom title/content
-        let noteTitle = title || 'Tasks for next visit'
-        let noteContent = content
+        // Generate note from selected tasks, cleaning type, and custom content
+        let noteTitle = cleaningType
+          ? cleaningTypes.find(t => t.value === cleaningType)?.label || 'Cleaning needed'
+          : title || 'Cleaning task'
+
+        let noteContent = ''
+
+        // Add room info if specified
+        if (cleaningRoom) {
+          const roomName = propertyRooms.find(r => r.id === cleaningRoom)?.name || 'Room'
+          noteContent += `📍 Location: ${roomName}\n\n`
+        }
+
+        // Add cleaning type context
+        if (cleaningType && !title) {
+          const typeLabel = cleaningTypes.find(t => t.value === cleaningType)?.label || ''
+          noteContent += `Type: ${typeLabel}\n\n`
+        }
+
+        // Add custom content if provided
+        if (content) {
+          noteContent += content
+        }
 
         if (selectedTasks.length > 0 && !content) {
           // Generate note from selected tasks
@@ -129,7 +162,8 @@ export default function PropertyNotesPage() {
             .filter(t => selectedTasks.includes(t.task_key))
             .map(t => `• ${t.display_name}`)
             .join('\n')
-          noteContent = `Tasks to complete on this visit:\n\n${taskNames}`
+          if (noteContent) noteContent += '\n\n'
+          noteContent += `Tasks to complete:\n\n${taskNames}`
         }
 
         // Attach the note to the property's NEXT upcoming clean so it greets the
@@ -156,6 +190,8 @@ export default function PropertyNotesPage() {
           setTitle('')
           setContent('')
           setSelectedTasks([])
+          setCleaningRoom('')
+          setCleaningType('')
           alert(
             `✅ Tasks added to the cleaner's next visit (${new Date(
               nextClean.clean_date
@@ -165,21 +201,26 @@ export default function PropertyNotesPage() {
           return
         }
 
-        // No upcoming clean — save as pending note to auto-attach to next clean
+        // Save as property-level cleaning note (not tied to specific clean)
+        // This way notes follow the cleaner's actual next visit, even if cleans are rescheduled
         const { error } = await supabase
-          .from('pending_cleaner_notes')
+          .from('property_cleaning_notes')
           .insert({
             property_id: selectedProperty,
-            title: noteTitle,
-            content: noteContent,
+            room_id: cleaningRoom || null,
+            cleaning_type: cleaningType || null,
+            note_title: noteTitle,
+            note_content: noteContent,
             created_by: me?.id,
           })
         if (error) throw error
         setTitle('')
         setContent('')
         setSelectedTasks([])
+        setCleaningRoom('')
+        setCleaningType('')
         alert(
-          '✅ Tasks saved. They will automatically appear on the cleaner\'s next visit to this property.'
+          '✅ Cleaning note saved. It will appear on the cleaner\'s next visit to this property.'
         )
         setPosting(false)
         return
@@ -323,6 +364,44 @@ export default function PropertyNotesPage() {
                       {propertyRooms.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.name} only
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Room selector (cleaner only) */}
+                {audience === 'cleaner' && propertyRooms.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-bold text-neutral-900 mb-md">Which area needs attention?</label>
+                    <select
+                      value={cleaningRoom}
+                      onChange={(e) => setCleaningRoom(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    >
+                      <option value="">Whole house</option>
+                      {propertyRooms.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Cleaning type selector (cleaner only) */}
+                {audience === 'cleaner' && (
+                  <div>
+                    <label className="block text-sm font-bold text-neutral-900 mb-md">Type of cleaning needed</label>
+                    <select
+                      value={cleaningType}
+                      onChange={(e) => setCleaningType(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    >
+                      <option value="">Select a cleaning type...</option>
+                      {cleaningTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
                         </option>
                       ))}
                     </select>

@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import Link from 'next/link'
+import PropertyExitReminder from '@/app/components/PropertyExitReminder'
 
 const TENANT_TODOS: Record<string, string[]> = {
   Bathroom: [
@@ -77,6 +78,11 @@ export default function CleanDetailPage() {
   const [notes, setNotes] = useState('')
   const [issue, setIssue] = useState('')
   const [showFinish, setShowFinish] = useState(false)
+  const [showExitReminder, setShowExitReminder] = useState(false)
+
+  // property-level cleaning notes (stick with property, not individual clean)
+  const [cleaningNotes, setCleaningNotes] = useState<any[]>([])
+  const [savingNotes, setSavingNotes] = useState<string[]>([])
 
   useEffect(() => {
     async function init() {
@@ -100,6 +106,16 @@ export default function CleanDetailPage() {
         setProductsCost((c as any).products_cost != null ? String((c as any).products_cost) : '')
         setReDate((c as any).clean_date || '')
         setReTime((c as any).clean_time ? String((c as any).clean_time).slice(0, 5) : '')
+
+        // Load property-level cleaning notes (not tied to specific clean)
+        const { data: notes } = await supabase
+          .from('property_cleaning_notes')
+          .select('*')
+          .eq('property_id', (c as any).property_id)
+          .eq('is_completed', false)
+          .eq('is_deleted', false)
+          .order('created_at', { ascending: true })
+        setCleaningNotes(notes || [])
       }
       setLoading(false)
     }
@@ -120,6 +136,27 @@ export default function CleanDetailPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ propertyId: clean.property_id, title: 'Capital Rooms', body, url: '/tenant' }),
     }).catch(() => {})
+  }
+
+  async function markNoteCompleted(noteId: string) {
+    setSavingNotes([...savingNotes, noteId])
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('property_cleaning_notes')
+        .update({
+          is_completed: true,
+          completed_by: me?.id,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', noteId)
+      if (error) throw error
+      setCleaningNotes(cleaningNotes.filter(n => n.id !== noteId))
+    } catch (err) {
+      alert('Error marking note completed: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    } finally {
+      setSavingNotes(savingNotes.filter(id => id !== noteId))
+    }
   }
 
   async function handleArrive() {
@@ -221,8 +258,8 @@ export default function CleanDetailPage() {
           raised_by_role: 'cleaner',
         })
       }
-      alert('✅ Clean complete')
-      router.push('/cleaner')
+      setShowExitReminder(true)
+      // Will navigate after reminder is dismissed
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -283,6 +320,37 @@ export default function CleanDetailPage() {
           <div className="rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-lg">
             <p className="text-xs font-bold uppercase tracking-wide text-yellow-800">From the office — for this clean</p>
             <p className="mt-xs text-sm font-semibold text-yellow-900 whitespace-pre-wrap">{clean.admin_note}</p>
+          </div>
+        )}
+
+        {/* Property-level cleaning notes (sticky to property, not individual clean) */}
+        {cleaningNotes.length > 0 && (
+          <div className="space-y-md">
+            {cleaningNotes.map((note) => (
+              <div key={note.id} className="rounded-2xl border-2 border-blue-300 bg-blue-50 p-lg">
+                <div className="flex items-start justify-between gap-md">
+                  <div className="flex-1">
+                    <p className="text-xs font-bold uppercase tracking-wide text-blue-800">
+                      {note.cleaning_type ? `🧹 ${note.cleaning_type.replace(/_/g, ' ')}` : '📋 Cleaning task'}
+                    </p>
+                    {note.room_id && (
+                      <p className="text-xs text-blue-700 mt-xs">📍 Specific room attention needed</p>
+                    )}
+                    <p className="mt-xs text-sm font-semibold text-blue-900">{note.note_title}</p>
+                    {note.note_content && (
+                      <p className="mt-sm text-sm text-blue-800 whitespace-pre-wrap">{note.note_content}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => markNoteCompleted(note.id)}
+                    disabled={savingNotes.includes(note.id)}
+                    className="flex-shrink-0 px-md py-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold disabled:opacity-50 transition-colors"
+                  >
+                    {savingNotes.includes(note.id) ? '✓ Saving' : '✓ Done'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -459,6 +527,17 @@ export default function CleanDetailPage() {
           </>
         )}
       </main>
+
+      {/* Exit Reminder Modal */}
+      {showExitReminder && (
+        <PropertyExitReminder
+          propertyAddress={clean.properties?.address || 'the property'}
+          onDismiss={() => {
+            setShowExitReminder(false)
+            router.push('/cleaner')
+          }}
+        />
+      )}
     </div>
   )
 }
