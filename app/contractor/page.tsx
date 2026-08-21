@@ -362,12 +362,12 @@ function JobCardDark({ job, isDone }: { job: Job; isDone?: boolean }) {
       }`}>
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">
-            {String(job.category || 'General').replace(/-/g, ' ')} — {job.properties?.name}
+            {job.properties?.address} — {job.title}
           </p>
           {job.rooms?.name && (
             <p className="text-xs text-neutral-400 mt-xs">🚪 {job.rooms.name}</p>
           )}
-          <p className="text-sm mt-xs truncate">{job.title}</p>
+          <p className="text-xs mt-xs">{String(job.category || 'General').replace(/-/g, ' ')}</p>
           <div className="mt-xs flex flex-wrap gap-sm text-xs">
             {job.booked_date && (
               <span>
