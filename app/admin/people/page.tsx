@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
-import EditPersonModal from './components/EditPersonModal'
+import EditPersonModal from '../components/EditPersonModal'
 
 type Tab = 'tenants' | 'staff' | 'landlords' | 'administrators'
 
