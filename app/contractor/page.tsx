@@ -104,14 +104,7 @@ export default function ContractorDashboard() {
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         {/* Header */}
-        <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">Your Work</h1>
-          <p className="mt-sm text-sm text-neutral-600">
-            Assigned jobs, upcoming visits, and completed work
-          </p>
-        </div>
-
-        <div className="mb-3xl">
+        <div className="mb-lg">
           <EnableNotifications />
         </div>
 
@@ -157,7 +150,7 @@ export default function ContractorDashboard() {
           </div>
         )}
 
-        {/* Stats */}
+        {/* Stats Grid */}
         <div className="mb-3xl grid gap-lg md:grid-cols-4">
           <StatCard
             label="To schedule"
@@ -185,62 +178,63 @@ export default function ContractorDashboard() {
           />
         </div>
 
-        {/* Jobs by Status */}
-        <div className="space-y-lg">
-          {/* To schedule — assigned to you, needs a date */}
-          {toSchedule.length > 0 && (
-            <div className="rounded-2xl border-2 border-yellow-300 bg-white p-lg">
-              <h3 className="font-bold text-neutral-900 mb-md">🗓️ To schedule — pick a date</h3>
-              <div className="space-y-sm">
-                {toSchedule.map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-              </div>
+        {/* Jobs Sections - Redesigned to match cleaner dashboard */}
+        {/* To schedule section */}
+        {toSchedule.length > 0 && (
+          <section className="mb-3xl">
+            <h2 className="text-xl font-bold mb-md">🗓️ To schedule</h2>
+            <div className="space-y-sm">
+              {toSchedule.map((job) => (
+                <JobCardDark key={job.id} job={job} />
+              ))}
             </div>
-          )}
+          </section>
+        )}
 
-          {/* Booked — date set */}
-          {booked.length > 0 && (
-            <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
-              <h3 className="font-bold text-neutral-900 mb-md">📅 Booked</h3>
-              <div className="space-y-sm">
-                {booked.map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-              </div>
+        {/* Booked section */}
+        {booked.length > 0 && (
+          <section className="mb-3xl">
+            <div className="flex items-center justify-between mb-md">
+              <h2 className="text-xl font-bold">📅 Booked</h2>
+              {booked.length > 0 && (
+                <button
+                  className="rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  📢 Quick Notify
+                </button>
+              )}
             </div>
-          )}
+            <div className="space-y-sm">
+              {booked.map((job) => (
+                <JobCardDark key={job.id} job={job} />
+              ))}
+            </div>
+          </section>
+        )}
 
-          {/* In Progress */}
-          {inProgress.length > 0 && (
-            <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
-              <h3 className="font-bold text-neutral-900 mb-md">🔨 In Progress & Awaiting Return</h3>
-              <div className="space-y-sm">
-                {inProgress.map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-              </div>
+        {/* In Progress section */}
+        {inProgress.length > 0 && (
+          <section className="mb-3xl">
+            <h2 className="text-xl font-bold mb-md">🔨 In Progress</h2>
+            <div className="space-y-sm">
+              {inProgress.map((job) => (
+                <JobCardDark key={job.id} job={job} />
+              ))}
             </div>
-          )}
+          </section>
+        )}
 
-          {/* Completed */}
-          {completed.length > 0 && (
-            <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg opacity-75">
-              <h3 className="font-bold text-neutral-900 mb-md">✅ Completed</h3>
-              <div className="space-y-sm">
-                {completed.slice(0, 5).map((job) => (
-                  <div key={job.id} className="rounded-lg bg-neutral-50 p-md text-sm">
-                    <p className="font-bold text-neutral-900">{job.title}</p>
-                    <p className="text-xs text-neutral-600 mt-xs">
-                      {job.properties?.name}
-                      {job.rooms?.name ? ` · ${job.rooms.name}` : ''}
-                    </p>
-                  </div>
-                ))}
-              </div>
+        {/* Completed section */}
+        {completed.length > 0 && (
+          <section>
+            <h2 className="text-xl font-bold mb-md">✅ Completed</h2>
+            <div className="space-y-sm">
+              {completed.slice(0, 10).map((job) => (
+                <JobCardDark key={job.id} job={job} isDone />
+              ))}
             </div>
-          )}
-        </div>
+          </section>
+        )}
       </main>
     </div>
   )
@@ -307,6 +301,58 @@ function JobCard({ job }: { job: Job }) {
           <span className="text-xl">→</span>
         </div>
       </div>
+    </Link>
+  )
+}
+
+function JobCardDark({ job, isDone }: { job: Job; isDone?: boolean }) {
+  const statusLabel: Record<string, string> = {
+    reported: 'Available',
+    pending: 'Pending',
+    assigned: 'Booked',
+    scheduled: 'Scheduled',
+    in_progress: 'In Progress',
+    contractor_attended: 'Attended',
+    awaiting_return: 'Return Visit',
+    completed: 'Completed',
+  }
+
+  return (
+    <Link href={`/contractor/job/${job.id}`}>
+      <button className={`flex w-full items-center justify-between gap-md rounded-2xl border p-md text-left transition-colors ${
+        isDone
+          ? 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-600'
+          : 'border-neutral-900 bg-neutral-950 text-white hover:border-white'
+      }`}>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-bold">
+            {String(job.category || 'General').replace(/-/g, ' ')} — {job.properties?.name}
+          </p>
+          {job.rooms?.name && (
+            <p className="text-xs text-neutral-400 mt-xs">🚪 {job.rooms.name}</p>
+          )}
+          <p className="text-sm mt-xs truncate">{job.title}</p>
+          <div className="mt-xs flex flex-wrap gap-sm text-xs">
+            {job.booked_date && (
+              <span>
+                📅{' '}
+                {new Date(job.booked_date).toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              </span>
+            )}
+            <span
+              className={`font-bold ${
+                job.priority === 'high' ? 'text-red-400' : job.priority === 'medium' ? 'text-yellow-400' : ''
+              }`}
+            >
+              {job.priority}
+            </span>
+          </div>
+        </div>
+        <span className="shrink-0 text-lg">→</span>
+      </button>
     </Link>
   )
 }
