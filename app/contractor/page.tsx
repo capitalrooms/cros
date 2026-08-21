@@ -41,6 +41,13 @@ export default function ContractorDashboard() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'completed'>('all')
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser()
@@ -152,48 +159,55 @@ export default function ContractorDashboard() {
 
         {/* Stats Grid */}
         <div className="mb-3xl grid gap-lg md:grid-cols-4">
-          <StatCard
-            label="To schedule"
-            value={toSchedule.length}
-            subtext="pick a date"
-            color="bg-white border-neutral-300"
-          />
-          <StatCard
-            label="Booked"
-            value={booked.length}
-            subtext="date set"
-            color="bg-white border-neutral-300"
-          />
-          <StatCard
-            label="In Progress"
-            value={inProgress.length}
-            subtext="active or return"
-            color="bg-white border-neutral-300"
-          />
-          <StatCard
-            label="Completed"
-            value={completed.length}
-            subtext="this month"
-            color="bg-white border-neutral-300"
-          />
+          <button
+            onClick={() => scrollToSection('booked-section')}
+            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+          >
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">Booked</p>
+            <p className="mt-xs text-3xl font-bold text-neutral-900">{booked.length}</p>
+            <p className="text-xs text-neutral-600 mt-xs">date set</p>
+          </button>
+
+          <button
+            onClick={() => scrollToSection('to-schedule-section')}
+            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+          >
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">To schedule</p>
+            <p className={`mt-xs text-3xl font-bold ${toSchedule.length > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
+              {toSchedule.length}
+            </p>
+            <p className="text-xs text-neutral-600 mt-xs">pick a date</p>
+          </button>
+
+          <button
+            onClick={() => scrollToSection('in-progress-section')}
+            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+          >
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">In Progress</p>
+            <p className={`mt-xs text-3xl font-bold ${inProgress.length > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
+              {inProgress.length}
+            </p>
+            <p className="text-xs text-neutral-600 mt-xs">active or return</p>
+          </button>
+
+          <button
+            onClick={() => scrollToSection('completed-section')}
+            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+          >
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">Completed</p>
+            <p className="mt-xs text-3xl font-bold text-neutral-900">
+              {completed.length > 0 && <span className="mr-sm">✓</span>}
+              {completed.length}
+            </p>
+            <p className="text-xs text-neutral-600 mt-xs">this month</p>
+          </button>
         </div>
 
-        {/* Jobs Sections - Redesigned to match cleaner dashboard */}
-        {/* To schedule section */}
-        {toSchedule.length > 0 && (
-          <section className="mb-3xl">
-            <h2 className="text-xl font-bold mb-md">🗓️ To schedule</h2>
-            <div className="space-y-sm">
-              {toSchedule.map((job) => (
-                <JobCardDark key={job.id} job={job} />
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Jobs Sections - Reordered: Booked, To Schedule, In Progress, Completed */}
 
         {/* Booked section */}
         {booked.length > 0 && (
-          <section className="mb-3xl">
+          <section className="mb-3xl" id="booked-section">
             <div className="flex items-center justify-between mb-md">
               <h2 className="text-xl font-bold">📅 Booked</h2>
               {booked.length > 0 && (
@@ -212,9 +226,21 @@ export default function ContractorDashboard() {
           </section>
         )}
 
+        {/* To schedule section */}
+        {toSchedule.length > 0 && (
+          <section className="mb-3xl" id="to-schedule-section">
+            <h2 className="text-xl font-bold mb-md">🗓️ To schedule</h2>
+            <div className="space-y-sm">
+              {toSchedule.map((job) => (
+                <JobCardDark key={job.id} job={job} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* In Progress section */}
         {inProgress.length > 0 && (
-          <section className="mb-3xl">
+          <section className="mb-3xl" id="in-progress-section">
             <h2 className="text-xl font-bold mb-md">🔨 In Progress</h2>
             <div className="space-y-sm">
               {inProgress.map((job) => (
@@ -226,7 +252,7 @@ export default function ContractorDashboard() {
 
         {/* Completed section */}
         {completed.length > 0 && (
-          <section>
+          <section id="completed-section">
             <h2 className="text-xl font-bold mb-md">✅ Completed</h2>
             <div className="space-y-sm">
               {completed.slice(0, 10).map((job) => (
