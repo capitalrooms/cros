@@ -114,7 +114,7 @@ export default function ContractorDashboard() {
         {user && (
           <div className="mb-3xl">
             <h1 className="text-3xl font-bold text-neutral-900">
-              Hello {user.user_metadata?.full_name || 'there'} 👋
+              Hello {user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'there'} 👋
             </h1>
             <p className="mt-xs text-neutral-600">Ready to get some work done</p>
           </div>
