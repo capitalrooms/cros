@@ -362,7 +362,7 @@ function JobCardDark({ job, isDone }: { job: Job; isDone?: boolean }) {
       }`}>
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">
-            {job.properties?.address} — {job.title}
+            {job.properties?.name} — {job.title}
           </p>
           {job.rooms?.name && (
             <p className="text-xs text-neutral-400 mt-xs">🚪 {job.rooms.name}</p>
