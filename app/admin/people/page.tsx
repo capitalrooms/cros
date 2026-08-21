@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import EditPersonModal from './components/EditPersonModal'
 
 type Tab = 'tenants' | 'staff' | 'landlords' | 'administrators'
 
@@ -75,6 +76,10 @@ export default function PeopleManagement() {
   // Add Person form
   const [showAddPerson, setShowAddPerson] = useState(false)
   const [formData, setFormData] = useState({ email: '', role: 'tenant', property_id: '', name: '', full_name: '' })
+
+  // Edit Person modal
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
 
   // Landlords tab state
   const [landlords, setLandlords] = useState<Landlord[]>([])
@@ -531,7 +536,14 @@ export default function PeopleManagement() {
             ) : (
               <div className="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-200">
                 {staffPeople.map((person) => (
-                  <div key={person.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
+                  <button
+                    key={person.id}
+                    onClick={() => {
+                      setSelectedPerson(person)
+                      setIsEditModalOpen(true)
+                    }}
+                    className="w-full flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50 transition text-left"
+                  >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-neutral-900">{person.full_name || person.email}</p>
                       <p className="text-xs text-neutral-500 mt-xs">{person.role === 'contractor' ? '👷 Contractor' : '🧹 Cleaner'}</p>
@@ -539,13 +551,16 @@ export default function PeopleManagement() {
                     <div className="flex shrink-0 items-center gap-md">
                       <NotifyBadge on={notifyOn.has(person.id)} />
                       <button
-                        onClick={() => handleDeletePerson(person.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeletePerson(person.id)
+                        }}
                         className="text-xs text-red-600 hover:text-red-700"
                       >
                         Delete
                       </button>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -781,6 +796,23 @@ export default function PeopleManagement() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Edit Person Modal */}
+        {selectedPerson && (
+          <EditPersonModal
+            person={selectedPerson}
+            isOpen={isEditModalOpen}
+            onClose={() => {
+              setIsEditModalOpen(false)
+              setSelectedPerson(null)
+            }}
+            onSave={(updatedPerson) => {
+              setPeople(people.map(p => p.id === updatedPerson.id ? updatedPerson : p))
+              setIsEditModalOpen(false)
+              setSelectedPerson(null)
+            }}
+          />
         )}
       </main>
     </div>
