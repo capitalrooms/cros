@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { TIME_SLOTS, earliestBookableDate, slotLabel } from '@/lib/booking'
 import AppBar from '@/components/AppBar'
 import JobCompletion from '@/app/components/JobCompletion'
+import CleanerQuickNotifyModal from '@/app/components/CleanerQuickNotifyModal'
 import Link from 'next/link'
 interface Job {
   id: string
@@ -57,6 +58,7 @@ export default function JobDetailPage() {
   const [showCompletion, setShowCompletion] = useState(false)
   const [completionMessage, setCompletionMessage] = useState<string | null>(null)
   const [accessLog, setAccessLog] = useState<string[]>([])
+  const [showQuickNotify, setShowQuickNotify] = useState(false)
 
   const beforeInput = useRef<HTMLInputElement>(null)
   const afterInput = useRef<HTMLInputElement>(null)
@@ -320,6 +322,18 @@ export default function JobDetailPage() {
           </div>
         </div>
 
+        {/* Quick Notify Button */}
+        {isBooked && (
+          <div className="mb-lg">
+            <button
+              onClick={() => setShowQuickNotify(true)}
+              className="w-full px-lg py-md font-semibold text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition border border-blue-500"
+            >
+              📢 Quick Notify Tenants
+            </button>
+          </div>
+        )}
+
         {/* Admin "before you go" note */}
         {job.admin_note && (
           <div className="mb-lg rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-lg">
@@ -553,6 +567,15 @@ export default function JobDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Quick Notify Modal */}
+        {showQuickNotify && job && (
+          <CleanerQuickNotifyModal
+            propertyId={job.property_id}
+            propertyName={job.properties?.name || 'Property'}
+            onClose={() => setShowQuickNotify(false)}
+          />
+        )}
       </main>
     </div>
   )
