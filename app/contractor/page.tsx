@@ -110,7 +110,17 @@ export default function ContractorDashboard() {
       />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
-        {/* Header */}
+        {/* Greeting */}
+        {user && (
+          <div className="mb-3xl">
+            <h1 className="text-3xl font-bold text-neutral-900">
+              Hello {user.user_metadata?.full_name || 'there'} 👋
+            </h1>
+            <p className="mt-xs text-neutral-600">Ready to get some work done</p>
+          </div>
+        )}
+
+        {/* Notifications */}
         <div className="mb-lg">
           <EnableNotifications />
         </div>
