@@ -228,7 +228,7 @@ export default function ContractorDashboard() {
                 </button>
               )}
             </div>
-            <div className="space-y-md">
+            <div className="space-y-lg">
               {booked.map((job) => (
                 <JobCardDark key={job.id} job={job} />
               ))}
@@ -240,7 +240,7 @@ export default function ContractorDashboard() {
         {toSchedule.length > 0 && (
           <section className="mb-3xl" id="to-schedule-section">
             <h2 className="text-xl font-bold mb-md">🗓️ To schedule</h2>
-            <div className="space-y-md">
+            <div className="space-y-lg">
               {toSchedule.map((job) => (
                 <JobCardDark key={job.id} job={job} />
               ))}
@@ -252,7 +252,7 @@ export default function ContractorDashboard() {
         {inProgress.length > 0 && (
           <section className="mb-3xl" id="in-progress-section">
             <h2 className="text-xl font-bold mb-md">🔨 In Progress</h2>
-            <div className="space-y-md">
+            <div className="space-y-lg">
               {inProgress.map((job) => (
                 <JobCardDark key={job.id} job={job} />
               ))}
@@ -264,7 +264,7 @@ export default function ContractorDashboard() {
         {completed.length > 0 && (
           <section id="completed-section">
             <h2 className="text-xl font-bold mb-md">✅ Completed</h2>
-            <div className="space-y-md">
+            <div className="space-y-lg">
               {completed.slice(0, 10).map((job) => (
                 <JobCardDark key={job.id} job={job} isDone />
               ))}
