@@ -208,7 +208,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         {/* Property Header - Two Equal Columns */}
         <div className="mb-xl grid grid-cols-1 md:grid-cols-2 gap-0 rounded-xl border border-neutral-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
           {/* Left Column: Property Info Card */}
-          <div className="bg-neutral-950 p-lg">
+          <div className="bg-neutral-900 p-lg">
             <div className="grid grid-cols-2 gap-xl">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Address</p>
@@ -253,22 +253,22 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
 
         {/* Quick Metrics Bar */}
         <div className="mb-2xl grid grid-cols-2 md:grid-cols-3 gap-md">
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
             <p className="text-2xl font-bold text-white">{property.rooms?.length || property.bedrooms || 0}</p>
             <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Rooms</p>
           </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
             <p className="text-2xl font-bold text-white">{tickets.length}</p>
             <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Maintenance</p>
           </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
             <p className="text-2xl font-bold text-white">—</p>
             <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Monthly Total</p>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="mb-0 flex gap-0 border-b border-neutral-700 overflow-x-auto bg-neutral-950 rounded-t-xl relative">
+        <div className="mb-0 flex gap-0 border-b border-neutral-700 overflow-x-auto bg-neutral-900 rounded-t-xl relative">
           {tabs.map((tab, idx) => (
             <button
               key={tab.id}

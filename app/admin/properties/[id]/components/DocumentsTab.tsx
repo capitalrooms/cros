@@ -185,7 +185,7 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
               </h3>
               <div className="space-y-md">
                 {docs.map(doc => (
-                  <div key={doc.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition">
+                  <div key={doc.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
                     <div className="flex items-start justify-between gap-lg mb-md">
                       <div className="flex-1">
                         <a

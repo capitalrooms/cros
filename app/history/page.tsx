@@ -144,7 +144,7 @@ export default function HistoryPage() {
                 key={t}
                 onClick={() => setTab(t)}
                 className={`rounded-lg px-lg py-sm text-sm font-semibold capitalize transition-colors ${
-                  tab === t ? 'bg-neutral-950 text-white' : 'text-neutral-600'
+                  tab === t ? 'bg-neutral-900 text-white' : 'text-neutral-600'
                 }`}
               >
                 {t}

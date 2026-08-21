@@ -176,7 +176,7 @@ export default function TenantProfilePage({
 
         {/* Current Tenancy */}
         {currentTenancy && (
-          <div className="mb-3xl rounded-lg border border-neutral-700 bg-neutral-950 overflow-hidden">
+          <div className="mb-3xl rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
             <div className="bg-green-950 border-b border-neutral-700 p-lg">
               <h2 className="text-lg font-semibold text-white">🏠 Current Tenancy</h2>
             </div>
@@ -205,7 +205,7 @@ export default function TenantProfilePage({
 
         {/* Previous Tenancies */}
         {previousTenancies.length > 0 && (
-          <div className="mb-3xl rounded-lg border border-neutral-700 bg-neutral-950 overflow-hidden">
+          <div className="mb-3xl rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
             <div className="bg-neutral-800 border-b border-neutral-700 p-lg">
               <h2 className="text-lg font-semibold text-white">📋 Previous Tenancies ({previousTenancies.length})</h2>
             </div>
@@ -260,7 +260,7 @@ export default function TenantProfilePage({
 
         {/* Tab Content */}
         {activeTab === 'communications' && (
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 overflow-hidden">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
             {communications.length === 0 ? (
               <div className="p-lg text-center text-neutral-400">No communications yet</div>
             ) : (
@@ -281,7 +281,7 @@ export default function TenantProfilePage({
         )}
 
         {activeTab === 'safety' && (
-          <div className="rounded-lg border border-neutral-700 bg-neutral-950 overflow-hidden">
+          <div className="rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
             {safetyChecks.length === 0 ? (
               <div className="p-lg text-center text-neutral-400">No safety checks yet</div>
             ) : (
@@ -300,7 +300,7 @@ export default function TenantProfilePage({
 
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
-            <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg">
+            <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg">
               <h3 className="font-semibold text-white mb-md">Contact Info</h3>
               <div className="space-y-md text-sm">
                 <div>
@@ -317,7 +317,7 @@ export default function TenantProfilePage({
                 </div>
               </div>
             </div>
-            <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg">
+            <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg">
               <h3 className="font-semibold text-white mb-md">Quick Stats</h3>
               <div className="space-y-md text-sm">
                 <div>
@@ -339,7 +339,7 @@ export default function TenantProfilePage({
 
         {activeTab === 'history' && (
           <div className="space-y-lg">
-            <div className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg">
+            <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg">
               <h3 className="font-semibold text-white mb-lg">Complete Timeline</h3>
               <div className="space-y-lg">
                 {currentTenancy && (

@@ -226,7 +226,7 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
       {/* Add Viewing Modal */}
       {isAddingViewing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-white mb-lg">Schedule New Viewing</h3>
 
             <div className="space-y-lg">
@@ -370,7 +370,7 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
         ) : (
           <div className="space-y-md">
             {upcomingViewings.map((viewing) => (
-              <div key={viewing.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition">
+              <div key={viewing.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
                 <div className="flex items-start justify-between gap-lg mb-md">
                   <div className="flex-1">
                     <p className="font-semibold text-white">{viewing.visitor_name}</p>
@@ -464,7 +464,7 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
       {/* Notify Tenants Modal */}
       {showNotifyModal && selectedViewingForNotify && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
+          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
             <h3 className="text-lg font-semibold text-white mb-lg">📢 Notify Tenants</h3>
 
             <div className="space-y-lg mb-lg">

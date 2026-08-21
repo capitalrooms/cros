@@ -191,7 +191,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
               <div
                 key={expiryKey}
                 className={`rounded-lg border p-lg transition ${
-                  expired ? 'border-red-800 bg-red-950' : 'border-neutral-700 bg-neutral-950'
+                  expired ? 'border-red-800 bg-red-950' : 'border-neutral-700 bg-neutral-900'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -239,7 +239,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
         {/* Add Policy Modal */}
         {isAddingPolicy && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-            <div className="bg-neutral-950 rounded-xl shadow-lg p-lg max-w-md w-full">
+            <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full">
               <h3 className="text-lg font-semibold text-white mb-lg">Add New Policy</h3>
 
               <div className="space-y-lg">
@@ -354,7 +354,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
             <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Appliance Policies</h4>
             <div className="space-y-md">
               {appliancePolicies.map((policy) => (
-                <div key={policy.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg">
+                <div key={policy.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg">
                   <div className="flex items-start justify-between gap-lg mb-md">
                     <div className="flex-1">
                       <p className="font-semibold text-white">
@@ -400,7 +400,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
             <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Insurance Policies</h4>
             <div className="space-y-md">
               {[...buildingPolicies, ...liabilityPolicies].map((policy) => (
-                <div key={policy.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg">
+                <div key={policy.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg">
                   <div className="flex items-start justify-between gap-lg mb-md">
                     <div className="flex-1">
                       <p className="font-semibold text-white">

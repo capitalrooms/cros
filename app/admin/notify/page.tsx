@@ -90,7 +90,7 @@ export default function QuickNotifyPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
             {properties.length === 0 ? (
-              <div className="col-span-full rounded-lg border border-neutral-700 bg-neutral-950 p-lg text-center">
+              <div className="col-span-full rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
                 <p className="text-neutral-400">No properties found</p>
               </div>
             ) : (
@@ -98,7 +98,7 @@ export default function QuickNotifyPage() {
                 <button
                   key={property.id}
                   onClick={() => handlePropertySelect(property.id)}
-                  className="text-left rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:border-blue-600 hover:bg-neutral-900 transition-all"
+                  className="text-left rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:border-blue-600 hover:bg-neutral-900 transition-all"
                 >
                   <h3 className="text-lg font-semibold text-white mb-sm">📍 {property.address}</h3>
                   <p className="text-xs text-neutral-400">Click to send notifications</p>

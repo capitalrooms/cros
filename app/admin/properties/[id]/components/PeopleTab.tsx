@@ -107,7 +107,7 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
         ) : (
           <div className="grid gap-md">
             {activeTenancies.map((tenancy) => (
-              <div key={tenancy.id} className="rounded-lg border border-neutral-700 bg-neutral-950 p-lg hover:shadow-md transition">
+              <div key={tenancy.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
                 <div className="flex items-start justify-between gap-lg mb-md">
                   <div className="flex-1">
                     <p className="font-semibold text-white">{tenancy.person.email.split('@')[0]}</p>

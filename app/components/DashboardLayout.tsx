@@ -94,7 +94,7 @@ export function DashboardHeaderBand({
 }) {
   return (
     <section
-      className={`-mb-3xl bg-neutral-950 pb-3xl text-white ${className}`}
+      className={`-mb-3xl bg-neutral-900 pb-3xl text-white ${className}`}
       style={{ marginInline: '-16px', paddingInline: '16px' }}
     >
       <div className="pt-lg">
