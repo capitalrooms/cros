@@ -355,7 +355,7 @@ function JobCardDark({ job, isDone }: { job: Job; isDone?: boolean }) {
 
   return (
     <Link href={`/contractor/job/${job.id}`}>
-      <button className={`flex w-full items-center justify-between gap-md rounded-2xl border p-md text-left transition-colors mb-6 ${
+      <button className={`flex w-full items-center justify-between gap-md rounded-2xl border p-md text-left transition-colors mb-1 ${
         isDone
           ? 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-600'
           : 'border-neutral-900 bg-neutral-950 text-white hover:border-white'
