@@ -90,7 +90,7 @@ export default function ContractorDashboard() {
   const nextJob = booked[0]
 
   return (
-    <div className="min-h-screen bg-white pb-3xl">
+    <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
         right={
           <button
@@ -163,25 +163,25 @@ export default function ContractorDashboard() {
             label="To schedule"
             value={toSchedule.length}
             subtext="pick a date"
-            color="bg-yellow-50 border-yellow-200"
+            color="bg-white border-neutral-300"
           />
           <StatCard
             label="Booked"
             value={booked.length}
             subtext="date set"
-            color="bg-blue-50 border-blue-200"
+            color="bg-white border-neutral-300"
           />
           <StatCard
             label="In Progress"
             value={inProgress.length}
             subtext="active or return"
-            color="bg-orange-50 border-orange-200"
+            color="bg-white border-neutral-300"
           />
           <StatCard
             label="Completed"
             value={completed.length}
             subtext="this month"
-            color="bg-green-50 border-green-200"
+            color="bg-white border-neutral-300"
           />
         </div>
 
