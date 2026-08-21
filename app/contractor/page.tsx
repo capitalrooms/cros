@@ -358,7 +358,7 @@ function JobCardDark({ job, isDone }: { job: Job; isDone?: boolean }) {
       <button className={`flex w-full items-center justify-between gap-md rounded-2xl border p-md text-left transition-colors mb-1 ${
         isDone
           ? 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-600'
-          : 'border-neutral-900 bg-neutral-950 text-white hover:border-white'
+          : 'border-neutral-800 bg-neutral-900 text-white hover:border-white'
       }`}>
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">
