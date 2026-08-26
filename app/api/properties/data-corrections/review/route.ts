@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServerClient } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -30,12 +29,35 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get current user using server client (which reads from cookies)
-    const serverSupabase = await createServerClient()
-    const user = await getCurrentUser(serverSupabase)
-    if (!user) {
+    // Get auth token from Authorization header
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+
+    // Create a Supabase client and set the auth token
+    const supabaseClient = createClient()
+
+    // Verify the token by getting the user
+    const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser(token)
+    if (authError || !authUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user assignment
+    const { data: assignment, error: assignmentError } = await supabaseClient
+      .from('people')
+      .select('*')
+      .eq('email', authUser.email)
+      .single()
+
+    if (assignmentError || !assignment) {
+      return NextResponse.json({ error: 'User not found' }, { status: 401 })
+    }
+
+    const user = { user: authUser, assignment }
 
     // Use service role for admin operations
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -57,18 +79,6 @@ export async function POST(req: NextRequest) {
 
     if (fetchError || !correction) {
       return NextResponse.json({ error: 'Correction not found' }, { status: 404 })
-    }
-
-    // Get user's person_id for reviewed_by
-    const { data: personData, error: personError } = await supabase
-      .from('people')
-      .select('id')
-      .eq('email', user.user?.email)
-      .single()
-
-    if (personError && personError.code !== 'PGRST116') {
-      console.error('Person lookup error:', personError)
-      return NextResponse.json({ error: 'Failed to find user record' }, { status: 500 })
     }
 
     if (action === 'accept') {
@@ -116,7 +126,7 @@ export async function POST(req: NextRequest) {
       .from('property_data_corrections')
       .update({
         status: action === 'accept' ? 'accepted' : 'rejected',
-        reviewed_by: personData?.id || null,
+        reviewed_by: assignment.id,
         reviewed_at: new Date().toISOString(),
         admin_notes: admin_notes || null
       })
