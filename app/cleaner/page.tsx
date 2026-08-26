@@ -459,34 +459,139 @@ export default function CleanerDashboard() {
           </section>
         )}
 
-        <section className="mt-3xl">
-          <div className="flex items-center justify-between mb-md">
-            <h2 className="text-xl font-bold">Upcoming cleans</h2>
-            {scheduled.length > 0 && (
-              <button
-                onClick={() => {
-                  if (scheduled[0]?.properties) {
-                    setQuickNotifyProperty({ id: scheduled[0].properties.id, name: scheduled[0].properties.name })
-                    setShowQuickNotifyModal(true)
-                  }
-                }}
-                className="rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white hover:bg-blue-700"
-              >
-                📤 Quick Notify
-              </button>
-            )}
-          </div>
-          {scheduled.length === 0 ? (
-            <p className="mt-md rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-xl text-center text-sm text-neutral-400">
-              Nothing booked yet
+        {/* Stats Grid */}
+        <div className="mt-3xl grid gap-md sm:grid-cols-4">
+          {/* OVERDUE */}
+          {overdueCleans.length > 0 && (
+            <button
+              onClick={() => document.getElementById('overdue-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="rounded-2xl border-2 bg-red-50 border-red-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+            >
+              <p className="text-xs font-bold uppercase tracking-wide text-red-600">⚠️ Overdue</p>
+              <p className="mt-xs text-3xl font-bold text-red-600">{overdueCleans.length}</p>
+              <p className="text-xs text-red-600 mt-xs">action needed</p>
+            </button>
+          )}
+
+          {/* TODAY */}
+          {todayCleans.length > 0 && (
+            <button
+              onClick={() => document.getElementById('today-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="rounded-2xl border-2 bg-blue-50 border-blue-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+            >
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-600">📍 Today</p>
+              <p className="mt-xs text-3xl font-bold text-blue-600">{todayCleans.length}</p>
+              <p className="text-xs text-blue-600 mt-xs">scheduled for now</p>
+            </button>
+          )}
+
+          {/* UPCOMING */}
+          <button
+            onClick={() => document.getElementById('upcoming-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+          >
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">📅 Upcoming</p>
+            <p className="mt-xs text-3xl font-bold text-neutral-900">{upcomingCleans.length}</p>
+            <p className="text-xs text-neutral-600 mt-xs">scheduled ahead</p>
+          </button>
+
+          {/* COMPLETED */}
+          <button
+            onClick={() => document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+          >
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">✅ Completed</p>
+            <p className="mt-xs text-3xl font-bold text-neutral-900">
+              {done.length > 0 && <span className="mr-sm">✓</span>}
+              {done.length}
             </p>
-          ) : (
-            <div className="mt-md space-y-sm">
-              {scheduled.map((c) => (
+            <p className="text-xs text-neutral-600 mt-xs">this month</p>
+          </button>
+        </div>
+
+        {/* OVERDUE section - Red warning */}
+        {overdueCleans.length > 0 && (
+          <section className="mb-3xl mt-3xl" id="overdue-section">
+            <div className="flex items-center justify-between mb-md">
+              <h2 className="text-xl font-bold text-red-600">⚠️ Overdue</h2>
+              <span className="text-sm text-red-600 font-semibold">{overdueCleans.length} clean{overdueCleans.length !== 1 ? 's' : ''} need attention</span>
+            </div>
+            <div className="rounded-lg border-2 border-red-300 bg-red-50 p-md mb-lg">
+              <p className="text-sm text-red-700">
+                These cleans were scheduled for past dates. Please contact admin to reschedule or mark complete.
+              </p>
+            </div>
+            <div className="space-y-md">
+              {overdueCleans.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                  className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-800 bg-neutral-900 p-md text-left hover:border-white text-white"
+                  className="w-full flex items-center justify-between gap-md rounded-2xl border-2 border-red-300 bg-red-50 p-md text-left hover:shadow-md text-red-900"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-red-900">{c.properties?.name}</p>
+                    <p className="text-sm text-red-700">
+                      {new Date(c.clean_date).toLocaleDateString('en-GB', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                      {c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-center">
+                    <span className="inline-block rounded-lg bg-red-600 px-md py-sm text-xs font-bold text-white">
+                      {Math.abs(getDaysUntil(c.clean_date || ''))} days overdue
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* TODAY section - Blue, high priority */}
+        {todayCleans.length > 0 && (
+          <section className="mb-3xl" id="today-section">
+            <div className="flex items-center justify-between mb-md">
+              <h2 className="text-xl font-bold text-blue-600">📍 Today</h2>
+              <span className="text-sm text-blue-600 font-semibold">{todayCleans.length} scheduled</span>
+            </div>
+            <div className="space-y-md">
+              {todayCleans.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => router.push(`/cleaner/clean/${c.id}`)}
+                  className="w-full flex items-center justify-between gap-md rounded-2xl border-2 border-blue-300 bg-blue-50 p-md text-left hover:shadow-md text-blue-900"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-blue-900">{c.properties?.name}</p>
+                    <p className="text-sm text-blue-700">
+                      {c.clean_time ? `Today at ${String(c.clean_time).slice(0, 5)}` : 'Today'}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white">
+                    {c.arrived_at ? 'On site' : 'Ready'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* UPCOMING section */}
+        {upcomingCleans.length > 0 && (
+          <section className="mb-3xl" id="upcoming-section">
+            <div className="flex items-center justify-between mb-md">
+              <h2 className="text-xl font-bold">📅 Upcoming</h2>
+              <span className="text-sm text-neutral-600 font-semibold">{upcomingCleans.length} scheduled</span>
+            </div>
+            <div className="space-y-md">
+              {upcomingCleans.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => router.push(`/cleaner/clean/${c.id}`)}
+                  className="w-full flex items-center justify-between gap-md rounded-2xl border border-neutral-800 bg-neutral-900 p-md text-left hover:border-white text-white"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-bold text-white">{c.properties?.name}</p>
@@ -499,24 +604,50 @@ export default function CleanerDashboard() {
                       {c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white">
-                    {c.arrived_at ? 'On site' : 'Open'}
+                  <span className="shrink-0 text-xs font-bold text-neutral-400">
+                    in {getDaysUntil(c.clean_date || '')} day{getDaysUntil(c.clean_date || '') !== 1 ? 's' : ''}
                   </span>
                 </button>
               ))}
             </div>
-          )}
-          {cleans.length < totalCleansCount && cleans.length > 0 && (
-            <div className="mt-md flex justify-center">
-              <button
-                onClick={loadMoreCleans}
-                className="rounded-lg bg-slate-600 px-lg py-md text-sm font-bold text-white hover:bg-slate-700"
-              >
-                Load More Cleans ({cleans.length} of {totalCleansCount})
-              </button>
+          </section>
+        )}
+
+        {/* COMPLETED section */}
+        {done.length > 0 && (
+          <section id="completed-section">
+            <h2 className="text-xl font-bold mb-md">✅ Completed</h2>
+            <div className="space-y-md">
+              {done.slice(0, 10).map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => router.push(`/cleaner/clean/${c.id}`)}
+                  className="w-full flex items-center justify-between gap-md rounded-2xl border border-neutral-800 bg-neutral-900 p-md text-left hover:border-white text-white"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-bold text-white">{c.properties?.name}</p>
+                    <p className="text-sm text-neutral-400">
+                      {new Date(c.clean_date).toLocaleDateString('en-GB', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-lg bg-green-600 px-md py-sm text-xs font-bold text-white">
+                    Completed
+                  </span>
+                </button>
+              ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
+
+        {scheduled.length === 0 && done.length === 0 && (
+          <p className="mt-3xl rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-xl text-center text-sm text-neutral-400">
+            Nothing booked yet
+          </p>
+        )}
 
         {done.length > 0 && (
           <section className="mt-3xl">
