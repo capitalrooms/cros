@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 interface Room {
@@ -125,7 +126,7 @@ export default function RoomDetailPage() {
   if (!room) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<Link href="/agent" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">Back</Link>} />
+        <AppBar right={<BackButton href="/agent" />} />
         <p className="p-xl text-sm text-neutral-400">Room not found</p>
       </div>
     )

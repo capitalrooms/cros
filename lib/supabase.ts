@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -15,6 +16,36 @@ export function createClient() {
     supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey)
   }
   return supabaseInstance
+}
+
+/**
+ * Server-side Supabase client that reads auth session from cookies
+ * Use this in API routes to get proper user authentication context
+ */
+export async function createServerClient() {
+  const cookieStore = await cookies()
+  const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'supabase-next/server',
+      },
+    },
+  })
+
+  // Extract session from cookies if available
+  const sessionCookie = cookieStore.get('sb-' + supabaseUrl.split('.')[0] + '-auth-token')
+  if (sessionCookie?.value) {
+    const session = JSON.parse(sessionCookie.value)
+    if (session?.access_token) {
+      // Set the auth header for this specific request
+      supabase.auth.setSession(session)
+    }
+  }
+
+  return supabase
 }
 
 /**

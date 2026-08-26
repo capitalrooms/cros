@@ -1,4 +1,5 @@
 import { createClient, UserRole } from './supabase'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export async function signIn(email: string, password: string) {
   const supabase = createClient()
@@ -65,8 +66,8 @@ export async function getUserAssignment(email: string) {
   return data as { email: string; role: UserRole; property_id?: string; room_id?: string }
 }
 
-export async function getCurrentUser() {
-  const supabase = createClient()
+export async function getCurrentUser(supabaseInstance?: SupabaseClient) {
+  const supabase = supabaseInstance || createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {

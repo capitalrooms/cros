@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 
 interface TenantProfile {
   id: string
@@ -122,7 +123,7 @@ export default function TenantProfilePage({
   if (loading) {
     return (
       <div className="min-h-screen bg-black">
-        <AppBar right={<Link href="/admin" className="text-white">← Admin</Link>} />
+        <AppBar right={<BackButton href="/admin" />} />
         <div className="p-xl text-neutral-400">Loading...</div>
       </div>
     )

@@ -7,6 +7,7 @@ import { signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import RoleGreeting from '@/app/components/RoleGreeting'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import { AdminDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import TodayAppointmentsMap from '@/app/components/TodayAppointmentsMap'
@@ -32,6 +33,7 @@ interface CertAlert {
 export default function AdminDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
+  const [adminName, setAdminName] = useState('')
   const [loading, setLoading] = useState(true)
   const [alerts, setAlerts] = useState<CertAlert[]>([])
   const [commsLive, setCommsLive] = useState<boolean | null>(null)
@@ -53,6 +55,7 @@ export default function AdminDashboard() {
         }
 
         setUser(data.user)
+        setAdminName((data.assignment as any)?.full_name || data.user?.email?.split('@')[0] || '')
 
         // Is tenant/applicant messaging live? Drives the safe-mode banner.
         fetch('/api/comms-status').then((r) => r.json()).then((d) => setCommsLive(!!d.live)).catch(() => {})
@@ -117,15 +120,8 @@ export default function AdminDashboard() {
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="space-y-3xl">
-          {/* Welcome Section */}
-          <div>
-            <h2 className="text-2xl font-semibold text-neutral-900 mb-md">
-              Welcome, Administrator
-            </h2>
-            <p className="text-sm text-neutral-600">
-              Logged in as: <span className="font-medium">{user?.email}</span>
-            </p>
-          </div>
+          {/* Greeting - shared across every role dashboard */}
+          <RoleGreeting role="Admin Dashboard" name={adminName} subtitle="Here's what's happening across your properties." />
 
           <EnableNotifications />
 
@@ -177,12 +173,12 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
-            {/* Upload Documents */}
-            <Link href="/admin/documents" className="group">
+            {/* AI File Upload */}
+            <Link href="/admin/ai-upload" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
                 <div className="text-2xl mb-md">📁</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Upload Documents</h3>
-                <p className="text-xs text-neutral-600">AI extraction for compliance & details</p>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">AI File Upload</h3>
+                <p className="text-xs text-neutral-600">AI extraction for documents & photos</p>
               </div>
             </Link>
 
@@ -231,12 +227,31 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
-            {/* Communications - Accessed via property detail page → Communications tab */}
-            <Link href="/admin/properties" className="group">
+            {/* Communications Hub — central, view-only, filterable feed of every
+                message across the platform (built 26 Aug). */}
+            <Link href="/admin/communications" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
                 <div className="text-2xl mb-md">💬</div>
                 <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Communications</h3>
-                <p className="text-xs text-neutral-600">View property communications & tenant messages</p>
+                <p className="text-xs text-neutral-600">Every message, filterable by type & property</p>
+              </div>
+            </Link>
+
+            {/* Compliance Logs */}
+            <Link href="/admin/compliance-logs" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">📋</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Compliance Logs</h3>
+                <p className="text-xs text-neutral-600">Fire door & smoke alarm checks</p>
+              </div>
+            </Link>
+
+            {/* Tenant Safety Checks */}
+            <Link href="/admin/tenant-safety-checks" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">🧪</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Tenant Safety Checks</h3>
+                <p className="text-xs text-neutral-600">Monitor fire door & smoke alarm confirmations</p>
               </div>
             </Link>
           </div>

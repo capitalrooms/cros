@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import PropertyExitReminder from '@/app/components/PropertyExitReminder'
 
@@ -270,7 +271,7 @@ export default function CleanDetailPage() {
   if (loading)
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<Link href="/cleaner" className="font-semibold text-white">Cleans</Link>} />
+        <AppBar right={<BackButton href="/cleaner" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )

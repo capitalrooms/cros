@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import AddressAutocomplete from '@/components/admin/AddressAutocomplete';
@@ -588,22 +589,19 @@ export default function PropertiesManagementPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
+      <AppBar right={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg">
         <div className="pt-lg mb-3xl flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-neutral-900">Properties</h1>
-            <p className="mt-sm text-sm text-neutral-600">
-              Parent units with licensing • Rooms beneath • Tenants in rooms
-            </p>
           </div>
-          <button
-            onClick={() => setShowAddProperty(true)}
-            className="rounded-xl bg-neutral-900 px-lg py-md font-bold text-white hover:bg-neutral-800"
+          <Link
+            href="/admin/properties/new"
+            className="rounded-xl bg-neutral-900 px-lg py-md font-bold text-white hover:bg-neutral-800 transition"
           >
-            + Property
-          </button>
+            + New Property
+          </Link>
         </div>
 
         {/* Search bar */}

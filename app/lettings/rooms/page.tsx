@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton';
 
 interface Room {
   id: string;
@@ -61,7 +62,7 @@ export default function RoomsManagement() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     );

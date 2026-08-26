@@ -6,7 +6,10 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
+import PurchaseReview from '@/app/components/PurchaseReview'
+import InvoiceReview from '@/app/components/InvoiceReview'
 
 const BLANK: AIResult = {
   doc_type: 'other', confidence: 0, summary: '', issue_date: '', expiry_date: '', provider: '',
@@ -81,7 +84,7 @@ export default function InboxPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -89,7 +92,7 @@ export default function InboxPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
+      <AppBar right={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         <div className="flex items-start justify-between gap-md">
@@ -153,14 +156,30 @@ export default function InboxPage() {
                           The AI couldn&apos;t read this ({d.ai_error}). Pick the type and fill the details in yourself below.
                         </p>
                       )}
-                      <DocReview
-                        initial={ai || BLANK}
-                        properties={properties}
-                        people={people}
-                        tenancies={tenancies}
-                        onApplied={(msg) => markFiled(d.id, msg)}
-                        onCancel={() => setOpenId(null)}
-                      />
+                      {ai?.doc_type === 'purchase_receipt' ? (
+                        <PurchaseReview
+                          initial={ai}
+                          properties={properties}
+                          onApplied={(msg) => markFiled(d.id, msg)}
+                          onCancel={() => setOpenId(null)}
+                        />
+                      ) : ai?.doc_type === 'supplier_invoice' ? (
+                        <InvoiceReview
+                          initial={ai}
+                          properties={properties}
+                          onApplied={(msg) => markFiled(d.id, msg)}
+                          onCancel={() => setOpenId(null)}
+                        />
+                      ) : (
+                        <DocReview
+                          initial={ai || BLANK}
+                          properties={properties}
+                          people={people}
+                          tenancies={tenancies}
+                          onApplied={(msg) => markFiled(d.id, msg)}
+                          onCancel={() => setOpenId(null)}
+                        />
+                      )}
                     </div>
                   )}
                 </div>

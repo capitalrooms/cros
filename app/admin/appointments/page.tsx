@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 
@@ -254,7 +255,7 @@ export default function AppointmentsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="font-semibold text-white hover:opacity-80">← Dashboard</Link>} />
+      <AppBar right={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-full px-lg py-2xl">
         {/* Header — Balanced Spacing */}

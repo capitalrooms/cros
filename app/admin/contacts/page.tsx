@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface Contact {
@@ -139,13 +140,7 @@ export default function ContactsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={
-          <div className="flex items-center gap-md">
-            <Link href="/admin" className="shrink-0 hover:opacity-80">
-              Dashboard
-            </Link>
-          </div>
-        }
+        right={<BackButton href="/admin" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">

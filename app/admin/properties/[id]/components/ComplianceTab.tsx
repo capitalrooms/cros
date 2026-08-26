@@ -30,6 +30,7 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
   const [isAddingPolicy, setIsAddingPolicy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   const [formData, setFormData] = useState({
     policy_type: 'appliance',
@@ -157,6 +158,42 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
     return new Date(renewalDate) < new Date()
   }
 
+  async function handleExportComplianceLog() {
+    if (property.property_type !== 'hmo') {
+      setError('Compliance log export is for HMO properties only')
+      return
+    }
+
+    setExporting(true)
+    try {
+      const res = await fetch('/api/export/compliance-log-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property_id: property.id })
+      })
+
+      if (!res.ok) {
+        setError('Failed to export compliance log')
+        return
+      }
+
+      const html = await res.text()
+      const blob = new Blob([html], { type: 'text/html' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.click()
+      window.URL.revokeObjectURL(url)
+      setSuccess('✓ Compliance log opened in new tab')
+    } catch (err) {
+      setError('Failed to export compliance log')
+      console.error(err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-xl">
@@ -176,6 +213,17 @@ export default function ComplianceTab({ property }: ComplianceTabProps) {
         <div className="p-lg rounded-lg bg-green-950 border border-green-800">
           <p className="text-sm font-semibold text-green-400">✓ {success}</p>
         </div>
+      )}
+
+      {/* Export Button */}
+      {property.property_type === 'hmo' && (
+        <button
+          onClick={handleExportComplianceLog}
+          disabled={exporting}
+          className="w-full px-lg py-md bg-neutral-900 text-white rounded-lg font-semibold text-sm hover:bg-neutral-800 disabled:opacity-50 transition border border-neutral-700"
+        >
+          {exporting ? '⏳ Exporting...' : '📋 Export Compliance Log PDF'}
+        </button>
       )}
 
       {/* Annual Testing & Certificates */}

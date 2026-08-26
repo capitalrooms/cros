@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import RoleGreeting from '@/app/components/RoleGreeting'
+import BackButton from '@/app/components/BackButton'
 import DateRangePicker from '../components/DateRangePicker'
 import Link from 'next/link'
 
@@ -39,6 +41,7 @@ export default function LandlordDashboard() {
     statement_count: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [name, setName] = useState('')
 
   useEffect(() => {
     async function checkAuth() {
@@ -48,6 +51,7 @@ export default function LandlordDashboard() {
         return
       }
       setUser(data.user)
+      setName((data.assignment as any)?.full_name || data.user?.email?.split('@')[0] || '')
 
       const supabase = createClient()
 
@@ -314,7 +318,7 @@ export default function LandlordDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<BackButton />} />
         <main className="mx-auto max-w-6xl px-lg py-2xl">
           <div className="animate-pulse">
             <div className="h-10 w-64 bg-neutral-300 rounded-lg mb-lg"></div>
@@ -339,13 +343,8 @@ export default function LandlordDashboard() {
       />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
-        {/* Header */}
-        <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">Your Statements</h1>
-          <p className="mt-sm text-sm text-neutral-600">
-            Financial summaries for your properties
-          </p>
-        </div>
+        {/* Greeting - shared across every role dashboard */}
+        <RoleGreeting role="Landlord Dashboard" name={name} subtitle="Financial summaries for your properties." />
 
         {/* Property Selector */}
         {properties.length > 0 && (

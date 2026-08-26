@@ -7,8 +7,9 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { TIME_SLOTS, earliestBookableDate, slotLabel } from '@/lib/booking'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import JobCompletion from '@/app/components/JobCompletion'
-import CleanerQuickNotifyModal from '@/app/components/CleanerQuickNotifyModal'
+import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
 import Link from 'next/link'
 interface Job {
   id: string
@@ -275,7 +276,7 @@ export default function JobDetailPage() {
   if (!job) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<Link href="/contractor" className="min-w-0 truncate font-semibold text-white hover:text-white/80">← Jobs</Link>} />
+        <AppBar right={<BackButton href="/contractor" />} />
         <p className="p-xl text-sm text-neutral-400">Job not found</p>
       </div>
     )
@@ -570,7 +571,8 @@ export default function JobDetailPage() {
 
         {/* Quick Notify Modal */}
         {showQuickNotify && job && (
-          <CleanerQuickNotifyModal
+          <StaffQuickNotifyModal
+            role="contractor"
             propertyId={job.property_id}
             propertyName={job.properties?.name || 'Property'}
             onClose={() => setShowQuickNotify(false)}

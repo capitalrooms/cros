@@ -3,16 +3,13 @@
 import Link from 'next/link';
 import { MAINTENANCE_CATEGORIES } from './categories';
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 
 export default function MaintenanceHub() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={
-          <Link href="/tenant" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
-            Back
-          </Link>
-        }
+        right={<BackButton href="/tenant" />}
       />
 
       <main className="px-lg py-xl">

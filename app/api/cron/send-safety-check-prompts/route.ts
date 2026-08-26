@@ -1,127 +1,130 @@
-import { createServiceClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase'
+
+export const runtime = 'nodejs'
 
 /**
- * Cron job: Send monthly/quarterly fire door and smoke alarm checks to tenants
- * Triggered daily or on-demand; creates new tenant_self_checks entries for due checks
+ * Generate tenant safety check prompts
+ * GET /api/cron/send-safety-check-prompts?frequency=monthly
+ *
+ * Called monthly/quarterly to send fire door and smoke alarm check prompts to all active tenants.
+ * Creates tenant_self_checks entries for each tenancy.
+ *
+ * Query params:
+ * - frequency: 'monthly' or 'quarterly' (default: monthly)
+ * - property_id: (optional) limit to specific property
  */
 
-const CRON_SECRET = process.env.CRON_SECRET || 'dev-secret'
-
 export async function GET(req: NextRequest) {
-  // Verify cron secret
-  const secret = req.headers.get('authorization')?.replace('Bearer ', '')
-  if (secret !== CRON_SECRET && process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Trusted cron route: service client bypasses RLS (no user session here).
-  const supabase = createServiceClient()
-
   try {
-    // Get all active tenancies
-    const { data: tenancies, error: tenanciesError } = await supabase
-      .from('tenancies')
-      .select('id, person_id, room_id, property_id, start_date')
-      .or('end_date.is.null,end_date.gte.now()')
-
-    if (tenanciesError) throw tenanciesError
-    if (!tenancies || tenancies.length === 0) {
-      return NextResponse.json({ message: 'No active tenancies', processed: 0 })
+    // In production, this would check an API key/authorization header
+    const authHeader = req.headers.get('authorization')
+    const expectedKey = process.env.CRON_SECRET_KEY
+    
+    // Allow unauthenticated in dev, require key in production
+    if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer ${expectedKey}`) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
-    let created = 0
-    const today = new Date().toISOString().split('T')[0]
+    const frequency = (req.nextUrl.searchParams.get('frequency') || 'monthly') as 'monthly' | 'quarterly'
+    const propertyId = req.nextUrl.searchParams.get('property_id')
 
-    for (const tenancy of tenancies) {
-      // Check: Monthly fire door check (every month from start_date)
-      const monthlyFireDoorCheck = await supabase
-        .from('tenant_self_checks')
-        .select('id')
-        .eq('tenancy_id', tenancy.id)
-        .eq('check_type', 'fire_door')
-        .eq('frequency', 'monthly')
-        .gte('request_sent_at', `${today}T00:00:00Z`)
-        .lt('request_sent_at', `${today}T23:59:59Z`)
-        .single()
+    const supabase = createClient({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    })
 
-      if (!monthlyFireDoorCheck.data) {
-        // Check if last check was > 30 days ago
-        const { data: lastCheck } = await supabase
-          .from('tenant_self_checks')
-          .select('request_sent_at')
-          .eq('tenancy_id', tenancy.id)
-          .eq('check_type', 'fire_door')
-          .eq('frequency', 'monthly')
-          .order('request_sent_at', { ascending: false })
-          .limit(1)
-          .single()
+    // Get all active tenancies
+    let query = supabase
+      .from('tenancies')
+      .select('*, rooms(id, name, property_id), people(id, full_name, email)')
+      .is('end_date', null) // Active tenancies only
 
-        const lastCheckDate = lastCheck ? new Date(lastCheck.request_sent_at) : new Date(tenancy.start_date)
-        const daysSince = (new Date().getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60 * 24)
+    if (propertyId) {
+      query = query.eq('rooms.property_id', propertyId)
+    }
 
-        if (daysSince >= 30) {
-          await supabase.from('tenant_self_checks').insert({
-            tenancy_id: tenancy.id,
-            property_id: tenancy.property_id,
-            room_id: tenancy.room_id,
-            check_type: 'fire_door',
-            frequency: 'monthly',
-            request_sent_at: new Date().toISOString(),
-            response_received_at: null,
-            tenant_response: null,
-          })
-          created++
-        }
+    const { data: tenancies, error: tenanciesError } = await query
+
+    if (tenanciesError) {
+      console.error('Error fetching tenancies:', tenanciesError)
+      return NextResponse.json(
+        { error: 'Failed to fetch tenancies' },
+        { status: 500 }
+      )
+    }
+
+    const checksCreated = []
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+
+    // For each tenancy, check if we should create a new check
+    for (const tenancy of tenancies || []) {
+      const roomId = (tenancy as any).rooms?.id
+      const propertyId = (tenancy as any).rooms?.property_id
+      const tenantId = (tenancy as any).tenant_id
+
+      if (!roomId || !propertyId || !tenantId) continue
+
+      // Check if a check already exists for this month (monthly) or quarter (quarterly)
+      const lastMonthStart = new Date()
+      lastMonthStart.setDate(1)
+      lastMonthStart.setHours(0, 0, 0, 0)
+
+      let checkStartDate = lastMonthStart
+      if (frequency === 'quarterly') {
+        const currentQuarter = Math.floor(now.getMonth() / 3)
+        checkStartDate = new Date(now.getFullYear(), currentQuarter * 3, 1)
+        checkStartDate.setHours(0, 0, 0, 0)
       }
 
-      // Check: Quarterly smoke alarm check
-      const quarterlyCheck = await supabase
-        .from('tenant_self_checks')
-        .select('id')
-        .eq('tenancy_id', tenancy.id)
-        .eq('check_type', 'smoke_alarm')
-        .eq('frequency', 'quarterly')
-        .gte('request_sent_at', `${today}T00:00:00Z`)
-        .lt('request_sent_at', `${today}T23:59:59Z`)
-        .single()
-
-      if (!quarterlyCheck.data) {
-        // Check if last check was > 90 days ago
-        const { data: lastCheck } = await supabase
+      // Check if checks already exist for this period
+      for (const checkType of ['fire_door', 'smoke_alarm'] as const) {
+        const { data: existing } = await supabase
           .from('tenant_self_checks')
-          .select('request_sent_at')
-          .eq('tenancy_id', tenancy.id)
-          .eq('check_type', 'smoke_alarm')
-          .eq('frequency', 'quarterly')
-          .order('request_sent_at', { ascending: false })
+          .select('id')
+          .eq('tenancy_id', (tenancy as any).id)
+          .eq('check_type', checkType)
+          .gte('request_sent_at', checkStartDate.toISOString())
           .limit(1)
-          .single()
 
-        const lastCheckDate = lastCheck ? new Date(lastCheck.request_sent_at) : new Date(tenancy.start_date)
-        const daysSince = (new Date().getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60 * 24)
+        if (existing && existing.length > 0) {
+          console.log(`Check already exists for tenancy ${(tenancy as any).id}, type ${checkType}`)
+          continue
+        }
 
-        if (daysSince >= 90) {
-          await supabase.from('tenant_self_checks').insert({
-            tenancy_id: tenancy.id,
-            property_id: tenancy.property_id,
-            room_id: tenancy.room_id,
-            check_type: 'smoke_alarm',
-            frequency: 'quarterly',
-            request_sent_at: new Date().toISOString(),
-            response_received_at: null,
-            tenant_response: null,
+        // Create new check
+        const { error: insertError } = await supabase
+          .from('tenant_self_checks')
+          .insert({
+            tenancy_id: (tenancy as any).id,
+            property_id: propertyId,
+            room_id: roomId,
+            check_type: checkType,
+            frequency,
+            request_sent_at: now.toISOString(),
           })
-          created++
+
+        if (insertError) {
+          console.error(`Error creating check:`, insertError)
+        } else {
+          checksCreated.push({
+            tenancy_id: (tenancy as any).id,
+            check_type: checkType,
+            room: (tenancy as any).rooms?.name,
+          })
         }
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Created ${created} safety check prompts`,
-      processed: tenancies.length,
-      created,
+      frequency,
+      checks_created: checksCreated.length,
+      checks: checksCreated,
     })
   } catch (error) {
     console.error('Cron error:', error)

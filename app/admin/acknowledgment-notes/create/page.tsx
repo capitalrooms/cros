@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 export default function CreateAcknowledgmentNotePage() {
@@ -107,7 +108,7 @@ export default function CreateAcknowledgmentNotePage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
-        right={<Link href="/admin/acknowledgment-notes" className="text-sm font-bold text-white">← Back</Link>}
+        right={<BackButton href="/admin/acknowledgment-notes" />}
       />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">

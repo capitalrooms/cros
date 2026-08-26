@@ -17,7 +17,7 @@ export default function AppBar({
 }) {
   return (
     <nav
-      className="bg-neutral-950 text-white border-b border-neutral-800 sticky top-0 z-50"
+      className="bg-neutral-900 text-white border-b border-neutral-800 sticky top-0 z-50"
       style={{
         // On an installed iPhone PWA the bar renders up under the status bar
         // (clock/battery/signal). Pad the top by the safe-area inset so the

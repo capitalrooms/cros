@@ -6,7 +6,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatBooking } from '@/lib/booking';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton';
 
 interface Ticket {
   id: string;
@@ -144,11 +145,7 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={
-          <Link href="/admin/maintenance" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
-            Dashboard
-          </Link>
-        }
+        right={<BackButton href="/admin/maintenance" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">

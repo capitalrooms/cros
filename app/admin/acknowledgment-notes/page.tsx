@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton';
 import Link from 'next/link';
 import { AcknowledgmentNoteSchema, validateInput } from '@/lib/validation-schemas';
 
@@ -210,7 +211,7 @@ export default function AcknowledgmentNotesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     );

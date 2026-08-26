@@ -1,61 +1,67 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { getCurrentUser } from '@/lib/auth'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
-import Link from 'next/link'
-
-interface ComplianceLog {
-  id: string
-  property_id: string
-  property: { name: string }
-  check_type: 'fire_door' | 'smoke_alarm'
-  checked_by: string
-  checked_by_role: string
-  checked_date: string
-  notes: string | null
-  created_at: string
-}
+import BackButton from '@/app/components/BackButton'
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 
 interface Property {
   id: string
   name: string
+  address: string
+  property_type: string
+}
+
+interface ComplianceLog {
+  id: string
+  check_type: 'fire_door' | 'smoke_alarm'
+  checked_date: string
+  checked_by: string
+  notes: string | null
+  created_at: string
+  person?: { full_name: string; role: string } | null
 }
 
 export default function ComplianceLogsPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const supabase = createClient()
   const [loading, setLoading] = useState(true)
-  const [logs, setLogs] = useState<ComplianceLog[]>([])
   const [properties, setProperties] = useState<Property[]>([])
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
-  const [selectedCheckType, setSelectedCheckType] = useState<'fire_door' | 'smoke_alarm'>('fire_door')
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [formData, setFormData] = useState({
+  const [selectedProperty, setSelectedProperty] = useState<string | null>(null)
+  const [logs, setLogs] = useState<ComplianceLog[]>([])
+  const [tab, setTab] = useState<'fire_door' | 'smoke_alarm'>('fire_door')
+  const [showModal, setShowModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  const [form, setForm] = useState({
     checked_date: new Date().toISOString().split('T')[0],
     notes: '',
   })
-  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || !['administrator', 'admin'].includes(data.assignment?.role)) {
+      if (!data || !['admin', 'administrator'].includes(data.assignment?.role)) {
         router.push('/login')
         return
       }
-      setUser(data.user)
+      setCurrentUser(data)
 
-      const supabase = createClient()
-
-      // Fetch properties
-      const { data: propsData } = await supabase.from('properties').select('id, name').order('name')
-      setProperties(propsData || [])
-
-      if (propsData && propsData.length > 0) {
-        setSelectedPropertyId(propsData[0].id)
+      // Load properties
+      const { data: propsData } = await supabase
+        .from('properties')
+        .select('id, name, address, property_type')
+        .order('name')
+      
+      if (propsData) {
+        setProperties(propsData)
+        setSelectedProperty(propsData[0]?.id || null)
       }
 
       setLoading(false)
@@ -64,197 +70,236 @@ export default function ComplianceLogsPage() {
   }, [router])
 
   useEffect(() => {
-    async function fetchLogs() {
-      if (!selectedPropertyId) return
-
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('compliance_logs')
-        .select('*, property:properties(name)')
-        .eq('property_id', selectedPropertyId)
-        .eq('check_type', selectedCheckType)
-        .order('checked_date', { ascending: false })
-
-      setLogs(data || [])
+    if (selectedProperty) {
+      loadLogs()
     }
+  }, [selectedProperty, tab])
 
-    fetchLogs()
-  }, [selectedPropertyId, selectedCheckType])
+  async function loadLogs() {
+    if (!selectedProperty) return
 
-  async function handleAddLog() {
-    if (!selectedPropertyId || !formData.checked_date) {
-      alert('Please fill in all required fields')
+    const { data: logsData } = await supabase
+      .from('compliance_logs')
+      .select('*, people:checked_by(full_name, role)')
+      .eq('property_id', selectedProperty)
+      .eq('check_type', tab)
+      .order('checked_date', { ascending: false })
+
+    setLogs(logsData || [])
+  }
+
+  async function handleAddCheck() {
+    if (!selectedProperty || !form.checked_date) {
+      setError('Property and date are required')
       return
     }
 
-    setSubmitting(true)
+    setSaving(true)
+    setError(null)
+
     try {
-      const supabase = createClient()
-      const { error } = await supabase.from('compliance_logs').insert([
-        {
-          property_id: selectedPropertyId,
-          check_type: selectedCheckType,
-          checked_by: user.id,
-          checked_by_role: 'admin',
-          checked_date: formData.checked_date,
-          notes: formData.notes || null,
-        },
-      ])
-
-      if (error) throw error
-
-      alert('✅ Compliance log added')
-      setFormData({ checked_date: new Date().toISOString().split('T')[0], notes: '' })
-      setShowAddForm(false)
-
-      // Refresh logs
-      const { data } = await supabase
+      const { error: insertError } = await supabase
         .from('compliance_logs')
-        .select('*, property:properties(name)')
-        .eq('property_id', selectedPropertyId)
-        .eq('check_type', selectedCheckType)
-        .order('checked_date', { ascending: false })
+        .insert({
+          property_id: selectedProperty,
+          check_type: tab,
+          checked_by: currentUser?.user?.id,
+          checked_by_role: currentUser?.assignment?.role,
+          checked_date: form.checked_date,
+          notes: form.notes || null,
+        })
 
-      setLogs(data || [])
+      if (insertError) throw new Error(insertError.message)
+
+      setSuccess(`✓ ${tab === 'fire_door' ? 'Fire door' : 'Smoke alarm'} check recorded`)
+      setForm({
+        checked_date: new Date().toISOString().split('T')[0],
+        notes: '',
+      })
+      setShowModal(false)
+      await loadLogs()
+      setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
-      alert('Error adding log: ' + (err instanceof Error ? err.message : 'Unknown error'))
+      setError(err instanceof Error ? err.message : 'Failed to save check')
     } finally {
-      setSubmitting(false)
+      setSaving(false)
     }
   }
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  if (loading) return <GenericPageSkeleton />
+
+  const selectedProp = properties.find(p => p.id === selectedProperty)
+  const filteredLogs = logs.filter(l => l.check_type === tab)
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="text-sm font-bold text-white">← Admin</Link>} />
+      <AppBar right={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-2xl">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-lg">🏠 Compliance Logs</h1>
+      <main className="mx-auto max-w-4xl px-lg py-lg">
+        <div className="mb-3xl">
+          <h1 className="text-3xl font-bold text-neutral-900">Compliance Logs</h1>
+          <p className="mt-sm text-neutral-600">Fire door and smoke alarm checks across your properties.</p>
+        </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-white p-lg shadow-sm">
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg">
-            <div>
-              <label className="block text-sm font-semibold text-neutral-900 mb-sm">Property</label>
-              <select
-                value={selectedPropertyId || ''}
-                onChange={(e) => setSelectedPropertyId(e.target.value)}
-                className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
-              >
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {error && (
+          <div className="mb-lg rounded-lg bg-red-50 border border-red-200 p-md text-sm text-red-800">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-lg rounded-lg bg-green-50 border border-green-200 p-md text-sm text-green-800">
+            {success}
+          </div>
+        )}
 
-            <div>
-              <label className="block text-sm font-semibold text-neutral-900 mb-sm">Check Type</label>
-              <select
-                value={selectedCheckType}
-                onChange={(e) => setSelectedCheckType(e.target.value as 'fire_door' | 'smoke_alarm')}
-                className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
-              >
-                <option value="fire_door">🚪 Fire Door</option>
-                <option value="smoke_alarm">🔔 Smoke Alarm</option>
-              </select>
-            </div>
+        {/* Property selector */}
+        <div className="mb-lg">
+          <label className="block text-sm font-bold text-neutral-700 mb-sm">Property</label>
+          <select
+            value={selectedProperty || ''}
+            onChange={(e) => setSelectedProperty(e.target.value)}
+            className="w-full rounded-lg border border-neutral-300 px-lg py-md text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+          >
+            {properties.map((prop) => (
+              <option key={prop.id} value={prop.id}>
+                {prop.name} — {prop.address}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            <div className="flex items-end">
+        {/* Tabs */}
+        <div className="mb-lg flex gap-md border-b border-neutral-300">
+          {['fire_door', 'smoke_alarm'].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t as 'fire_door' | 'smoke_alarm')}
+              className={`px-lg py-md text-sm font-semibold transition border-b-2 ${
+                tab === t
+                  ? 'border-neutral-900 text-neutral-900'
+                  : 'border-transparent text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              {t === 'fire_door' ? '🚪 Fire Door Checks' : '🔔 Smoke Alarm Checks'}
+            </button>
+          ))}
+        </div>
+
+        {/* Add check button */}
+        <div className="mb-lg">
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-lg py-md bg-neutral-900 text-white rounded-lg font-semibold text-sm hover:bg-neutral-800 transition"
+          >
+            + Add {tab === 'fire_door' ? 'fire door' : 'smoke alarm'} check
+          </button>
+        </div>
+
+        {/* Logs list */}
+        {filteredLogs.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-neutral-300 bg-white p-xl text-center">
+            <p className="text-sm text-neutral-500">No checks recorded yet</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-neutral-200 divide-y divide-neutral-200 bg-white">
+            {filteredLogs.map((log) => (
+              <div key={log.id} className="p-lg">
+                <div className="flex items-start justify-between gap-lg mb-sm">
+                  <div>
+                    <p className="font-bold text-neutral-900">
+                      {new Date(log.checked_date).toLocaleDateString('en-GB', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </p>
+                    <p className="text-sm text-neutral-600 mt-xs">
+                      Checked by: <span className="font-semibold">{log.person?.full_name || 'Unknown'}</span>
+                      {' '}
+                      <span className="text-xs text-neutral-500">
+                        ({log.person?.role || 'unknown'})
+                      </span>
+                    </p>
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    {new Date(log.created_at).toLocaleDateString('en-GB')}
+                  </p>
+                </div>
+                {log.notes && (
+                  <p className="text-sm text-neutral-700 bg-neutral-50 rounded p-md mt-sm">
+                    {log.notes}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      {/* Add check modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-lg">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl">
+            <div className="flex items-center justify-between mb-lg">
+              <h2 className="text-xl font-bold text-neutral-900">
+                Add {tab === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'} Check
+              </h2>
               <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="w-full rounded-xl bg-blue-600 px-md py-sm text-sm font-semibold text-white hover:bg-blue-700"
+                onClick={() => setShowModal(false)}
+                disabled={saving}
+                className="text-neutral-400 hover:text-neutral-900 text-2xl leading-none"
               >
-                + Add Check
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-lg mb-lg">
+              <div>
+                <label className="block text-sm font-bold text-neutral-700 mb-sm">Date</label>
+                <input
+                  type="date"
+                  value={form.checked_date}
+                  onChange={(e) => setForm({ ...form, checked_date: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-lg py-md text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-neutral-700 mb-sm">Notes (optional)</label>
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  placeholder={
+                    tab === 'fire_door'
+                      ? 'e.g. Door closing smoothly, latch secure'
+                      : 'e.g. Battery level good, sensor responsive'
+                  }
+                  rows={3}
+                  className="w-full rounded-lg border border-neutral-300 px-lg py-md text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-md">
+              <button
+                onClick={() => setShowModal(false)}
+                disabled={saving}
+                className="flex-1 rounded-lg border border-neutral-300 px-lg py-md text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCheck}
+                disabled={saving}
+                className="flex-1 rounded-lg bg-neutral-900 px-lg py-md text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save check'}
               </button>
             </div>
           </div>
-
-          {/* Add Form */}
-          {showAddForm && (
-            <div className="mb-lg p-lg border-2 border-blue-200 bg-blue-50 rounded-xl">
-              <h3 className="font-semibold text-neutral-900 mb-md">Add New Check</h3>
-              <div className="space-y-md">
-                <div>
-                  <label className="block text-sm font-semibold text-neutral-900 mb-sm">Date</label>
-                  <input
-                    type="date"
-                    value={formData.checked_date}
-                    onChange={(e) => setFormData({ ...formData, checked_date: e.target.value })}
-                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-neutral-900 mb-sm">Notes (Optional)</label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
-                    rows={3}
-                    placeholder="e.g., Fire door closing properly, no obstructions..."
-                  />
-                </div>
-
-                <div className="flex gap-md">
-                  <button
-                    onClick={handleAddLog}
-                    disabled={submitting}
-                    className="flex-1 rounded-xl bg-green-600 px-md py-sm text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {submitting ? 'Saving...' : '✓ Save Log'}
-                  </button>
-                  <button
-                    onClick={() => setShowAddForm(false)}
-                    className="flex-1 rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold hover:bg-neutral-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Logs List */}
-          <div className="space-y-sm">
-            <h2 className="text-lg font-semibold text-neutral-900">
-              {selectedCheckType === 'fire_door' ? '🚪 Fire Door' : '🔔 Smoke Alarm'} History
-            </h2>
-
-            {logs.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-lg text-center">
-                <p className="text-sm text-neutral-600">No checks recorded yet</p>
-              </div>
-            ) : (
-              <div className="space-y-sm">
-                {logs.map((log) => (
-                  <div key={log.id} className="rounded-lg border border-neutral-200 bg-neutral-50 p-md">
-                    <div className="flex items-start justify-between gap-md">
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-neutral-900">
-                          {new Date(log.checked_date).toLocaleDateString('en-GB', {
-                            weekday: 'long',
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </p>
-                        {log.notes && <p className="mt-xs text-sm text-neutral-600">{log.notes}</p>}
-                        <p className="mt-sm text-xs text-neutral-500">
-                          Checked by admin • {new Date(log.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                      <span className="text-lg">✅</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
-      </main>
+      )}
     </div>
   )
 }

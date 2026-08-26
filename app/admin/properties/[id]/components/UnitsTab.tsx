@@ -1,20 +1,27 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
 interface Room {
   id: string
   name: string
+  unit_code?: string | null
   property_id: string
+  room_type?: string | null
   description: string | null
   created_at: string
   updated_at: string
-  tenancy?: {
-    tenant_id: string
-    start_date: string
-    tenant_name?: string
+  currentTenant?: {
+    full_name?: string
+    email?: string
   }
+  tenancyInfo?: {
+    start_date: string
+    rent_amount: number | null
+  }
+  tenancyId?: string | null
 }
 
 interface UnitsTabProps {
@@ -33,6 +40,7 @@ interface TenantInfo {
 }
 
 export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
+  const router = useRouter()
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [isAddingRoom, setIsAddingRoom] = useState(false)
@@ -53,18 +61,62 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
 
   async function loadRooms() {
     setLoading(true)
-    const { data, error: err } = await supabase
+    const { data: roomsData, error: roomsErr } = await supabase
       .from('rooms')
-      .select('*')
+      .select('id, name, unit_code, property_id, room_type, description, created_at, updated_at')
       .eq('property_id', propertyId)
-      .order('created_at', { ascending: true })
+      .order('unit_code', { ascending: true, nullsLast: true })
 
-    if (err) {
+    if (roomsErr) {
       setError('Failed to load rooms')
-      console.error(err)
-    } else {
-      setRooms(data || [])
+      console.error(roomsErr)
+      setLoading(false)
+      return
     }
+
+    // Fetch current tenancy info for each room
+    const roomsWithTenants = await Promise.all(
+      (roomsData || []).map(async (room) => {
+        const { data: tenancy, error: tenancyErr } = await supabase
+          .from('tenancies')
+          .select(`
+            id,
+            person_id,
+            start_date,
+            end_date,
+            rent_amount,
+            people(id, full_name, email)
+          `)
+          .eq('room_id', room.id)
+          .is('end_date', null)
+          .maybeSingle()
+
+        if (tenancyErr) {
+          console.error(`Error loading tenancy for room ${room.id}:`, tenancyErr)
+        }
+
+        return {
+          ...room,
+          currentTenant: tenancy?.people || null,
+          tenancyInfo: tenancy ? {
+            start_date: tenancy.start_date,
+            rent_amount: tenancy.rent_amount
+          } : null,
+          tenancyId: tenancy?.id || null
+        }
+      })
+    )
+
+    // Always show units in natural order (Room 1, 2, … 10) — by unit_code when
+    // set, otherwise by name, numeric-aware so it never comes out jumbled.
+    roomsWithTenants.sort((a: any, b: any) =>
+      String(a.unit_code || a.name || '').localeCompare(
+        String(b.unit_code || b.name || ''),
+        undefined,
+        { numeric: true, sensitivity: 'base' }
+      )
+    )
+    setRooms(roomsWithTenants)
     setLoading(false)
   }
 
@@ -422,34 +474,91 @@ export default function UnitsTab({ propertyId, bedrooms }: UnitsTabProps) {
           </button>
         </div>
       ) : (
-        <div className="grid gap-md">
+        <div className="space-y-xs">
           {rooms.map((room) => (
-            <div key={room.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
-              <div className="flex items-start justify-between gap-lg">
-                <div className="flex-1">
-                  <p className="font-semibold text-white">{room.name}</p>
-                  {room.description && (
-                    <p className="text-xs text-neutral-400 mt-xs">{room.description}</p>
+            <div
+              key={room.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/admin/properties/${propertyId}/rooms/${room.id}`)}
+              onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/admin/properties/${propertyId}/rooms/${room.id}`) }}
+            >
+              <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-md hover:shadow-md hover:border-neutral-600 transition cursor-pointer grid grid-cols-[100px_120px_180px_90px_100px_1fr] gap-md items-center">
+                {/* Col 1: Unit Code */}
+                <div>
+                  <p className="font-semibold text-white text-sm truncate">{room.unit_code || room.name}</p>
+                  {room.unit_code && room.name && (
+                    <p className="text-xs text-neutral-500 truncate">{room.name}</p>
                   )}
-                  <p className="text-xs text-neutral-500 mt-sm">Created {new Date(room.created_at).toLocaleDateString()}</p>
                 </div>
-                <div className="flex gap-sm">
+
+                {/* Col 2: Room Type */}
+                <div>
+                  {room.room_type && (
+                    <p className="text-xs text-neutral-400 truncate">{room.room_type}</p>
+                  )}
+                </div>
+
+                {/* Col 3: Tenant Name */}
+                <div>
+                  {room.currentTenant && room.tenancyId ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        router.push(`/admin/properties/${propertyId}/rooms/${room.id}/tenancy/${room.tenancyId}`)
+                      }}
+                      className="text-left"
+                    >
+                      <p className="text-sm text-blue-400 font-semibold truncate hover:text-blue-300 cursor-pointer">
+                        {room.currentTenant.full_name || room.currentTenant.email}
+                      </p>
+                    </button>
+                  ) : room.currentTenant ? (
+                    <p className="text-sm text-blue-400 font-semibold truncate">
+                      {room.currentTenant.full_name || room.currentTenant.email}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-neutral-500 italic">Available</p>
+                  )}
+                </div>
+
+                {/* Col 4: Rent */}
+                <div>
+                  {room.tenancyInfo && (
+                    <p className="text-sm text-neutral-400">£{room.tenancyInfo.rent_amount || '—'}</p>
+                  )}
+                </div>
+
+                {/* Col 5: Since Date */}
+                <div>
+                  {room.tenancyInfo && (
+                    <p className="text-xs text-neutral-500">
+                      {new Date(room.tenancyInfo.start_date).toLocaleDateString('en-GB')}
+                    </p>
+                  )}
+                </div>
+
+                {/* Col 6: Buttons */}
+                <div className="flex gap-sm justify-end">
                   <button
-                    onClick={() => loadRoomDetails(room)}
-                    className="px-md py-sm text-green-400 hover:text-green-300 font-semibold text-sm"
+                    className="px-md py-xs text-green-400 hover:text-green-300 font-semibold text-xs whitespace-nowrap"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/admin/properties/${propertyId}/rooms/${room.id}`)
+                    }}
                   >
-                    Details
+                    Dashboard
                   </button>
                   <button
-                    onClick={() => setEditingRoom(room)}
-                    className="px-md py-sm text-blue-400 hover:text-blue-300 font-semibold text-sm"
+                    onClick={(e) => { e.stopPropagation(); setEditingRoom(room) }}
+                    className="px-md py-xs text-blue-400 hover:text-blue-300 font-semibold text-xs"
                   >
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDeleteRoom(room.id, room.name)}
+                    onClick={(e) => { e.stopPropagation(); handleDeleteRoom(room.id, room.name) }}
                     disabled={deleting === room.id}
-                    className="px-md py-sm text-red-400 hover:text-red-300 font-semibold text-sm disabled:opacity-50"
+                    className="px-md py-xs text-red-400 hover:text-red-300 font-semibold text-xs disabled:opacity-50"
                   >
                     {deleting === room.id ? 'Deleting...' : 'Delete'}
                   </button>

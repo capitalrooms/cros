@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 interface CleanJob {
@@ -109,7 +110,7 @@ export default function BookCleanPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar />
+      <AppBar right={<BackButton />} />
 
       <main className="mx-auto max-w-5xl px-lg py-2xl">
         <Link

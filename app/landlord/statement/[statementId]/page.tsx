@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 interface StatementRoom {
@@ -112,11 +113,7 @@ export default function StatementDetail() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar
-          right={
-            <Link href="/landlord" className="text-sm font-semibold text-white hover:text-white/80">
-              ← Statements
-            </Link>
-          }
+          right={<BackButton href="/landlord" />}
         />
         <main className="mx-auto max-w-6xl px-lg py-2xl">
           <div className="animate-pulse space-y-lg">

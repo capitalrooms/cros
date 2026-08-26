@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import RoleGreeting from '@/app/components/RoleGreeting'
+import BackButton from '@/app/components/BackButton'
 import EnableNotifications from '@/app/components/EnableNotifications'
-import CleanerQuickNotifyModal from '@/app/components/CleanerQuickNotifyModal'
+import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
 
 interface ComplianceLog {
   id: string
@@ -32,6 +34,8 @@ export default function CleanerDashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [me, setMe] = useState<any>(null)
+  const [personId, setPersonId] = useState<string>('')
+  const [cleanerName, setCleanerName] = useState<string>('')
   const [properties, setProperties] = useState<any[]>([])
   const [cleans, setCleans] = useState<any[]>([])
   const [complianceLogs, setComplianceLogs] = useState<ComplianceLog[]>([])
@@ -68,6 +72,22 @@ export default function CleanerDashboard() {
       }
       setMe(data.assignment)
       const supabase = createClient()
+
+      // Fetch cleaner's person record by email (the correct way to get person_id)
+      const userEmail = data.user?.email
+      const { data: personData } = await supabase
+        .from('people')
+        .select('id, full_name')
+        .eq('email', userEmail)
+        .single()
+
+      if (personData?.id) {
+        setPersonId(personData.id)
+      }
+      if (personData?.full_name) {
+        setCleanerName(personData.full_name)
+      }
+
       const { data: props } = await supabase
         .from('properties')
         .select('id, name, address, clean_frequency_weeks')
@@ -77,7 +97,7 @@ export default function CleanerDashboard() {
         setPropertyId(props[0].id)
         await loadComplianceLogs(props[0].id)
       }
-      await loadCleans((data.assignment as any).id, cleansDisplayLimit)
+      await loadCleans(cleanerId, cleansDisplayLimit)
       await loadAssignedJobs()
       setLoading(false)
     }
@@ -201,7 +221,7 @@ export default function CleanerDashboard() {
   }
 
   async function handleAddComplianceLog() {
-    if (!compliancePropertyId || !complianceForm.date) {
+    if (!compliancePropertyId || !complianceForm.date || !personId) {
       alert('Please fill in all required fields')
       return
     }
@@ -214,7 +234,7 @@ export default function CleanerDashboard() {
         .insert({
           property_id: compliancePropertyId,
           check_type: complianceForm.check_type,
-          checked_by: me?.id,
+          checked_by: personId,
           checked_by_role: 'cleaner',
           checked_date: complianceForm.date,
           notes: complianceForm.notes || null,
@@ -275,7 +295,7 @@ export default function CleanerDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -303,12 +323,11 @@ export default function CleanerDashboard() {
       <main className="mx-auto max-w-6xl px-lg py-lg">
         {/* Greeting */}
         {me && (
-          <div className="mb-3xl">
-            <h1 className="text-3xl font-bold text-neutral-900">
-              Hello {me.user_metadata?.full_name || me.user_metadata?.name || me.email?.split('@')[0] || 'there'} 👋
-            </h1>
-            <p className="mt-xs text-neutral-600">Ready to get some work done</p>
-          </div>
+          <RoleGreeting
+            role="Cleaner Dashboard"
+            name={cleanerName || me.user_metadata?.full_name || me.email?.split('@')[0]}
+            subtitle="Ready to get some work done"
+          />
         )}
 
         {/* Notifications */}
@@ -324,12 +343,15 @@ export default function CleanerDashboard() {
         <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg">
           <h2 className="text-xl font-bold text-white">Book a clean</h2>
           <div className="mt-md grid gap-md sm:grid-cols-3">
-            <div>
+            {/* min-w-0 on each grid cell lets the column shrink to the tile
+                width. Without it, the native date/time controls keep their
+                intrinsic min-content width and push out past the tile edges. */}
+            <div className="min-w-0">
               <label className="block text-xs font-medium text-neutral-200">Property</label>
               <select
                 value={propertyId}
                 onChange={(e) => handlePropertyChange(e.target.value)}
-                className="mt-xs w-full rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
+                className="mt-xs w-full min-w-0 rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
               >
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -338,22 +360,22 @@ export default function CleanerDashboard() {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-medium text-neutral-200">Date</label>
               <input
                 type="date"
                 value={cleanDate}
                 onChange={(e) => setCleanDate(e.target.value)}
-                className="mt-xs w-full rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
+                className="mt-xs w-full min-w-0 rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="block text-xs font-medium text-neutral-200">Time</label>
               <input
                 type="time"
                 value={cleanTime}
                 onChange={(e) => setCleanTime(e.target.value)}
-                className="mt-xs w-full rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
+                className="mt-xs w-full min-w-0 rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
               />
             </div>
           </div>
@@ -784,7 +806,8 @@ export default function CleanerDashboard() {
         )}
 
         {showQuickNotifyModal && quickNotifyProperty && (
-          <CleanerQuickNotifyModal
+          <StaffQuickNotifyModal
+            role="cleaner"
             propertyId={quickNotifyProperty.id}
             propertyName={quickNotifyProperty.name}
             onClose={() => {

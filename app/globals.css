@@ -26,12 +26,37 @@ body {
     'Roboto', 'Helvetica Neue', sans-serif;
 }
 
-/* Belt-and-braces: form controls always use dark text on their light background,
-   regardless of device setting. The login's dark inputs opt out via .cr-input. */
-input:not(.cr-input),
-textarea:not(.cr-input),
-select:not(.cr-input) {
+/* Default: form controls use dark text on their usual light background,
+   regardless of device setting. Kept at low (single-element) specificity ON
+   PURPOSE so that a Tailwind text-* utility (e.g. text-white on a dark-card
+   input) reliably overrides it — otherwise new inputs on dark backgrounds
+   render black-on-black. Inputs with no text-* utility still get this dark
+   default. Login's dark inputs (.cr-input) and any dark-surface input keep
+   their light text via the class rule below. */
+input,
+textarea,
+select {
   color: rgb(28, 25, 23);
+}
+
+/* Dark-surface inputs keep light text (login uses .cr-input; this also wins
+   over the element default above via class specificity). */
+.cr-input {
+  color: #fff;
+}
+
+/* Native date/time controls carry a large intrinsic min-content width that
+   ignores `width:100%` and shoves their flex/grid cell wider than the phone
+   screen — the recurring "content flies off to one side" mobile bug. Letting
+   them shrink to their cell (and never exceed it) is the general fix; pair with
+   min-w-0 on the grid/flex CELL where a wrapper still refuses to shrink. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="week"] {
+  min-width: 0;
+  max-width: 100%;
 }
 
 input:focus,

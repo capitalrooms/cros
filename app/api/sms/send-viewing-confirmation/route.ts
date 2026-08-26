@@ -1,55 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+
 /**
- * Send SMS confirmation to applicant after viewing is booked
- * Requires phone number, applicant name, viewing details
+ * Send SMS viewing confirmation to applicant
+ * POST /api/sms/send-viewing-confirmation
+ *
+ * For now, this is a placeholder that logs the SMS intent
+ * In production, integrate with Twilio or similar SMS provider
  */
+
+interface SMSRequest {
+  phone: string
+  visitorName: string
+  roomAddress: string
+  viewingDate: string
+  viewingTime: string
+  senderName: string
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    const body: SMSRequest = await req.json()
+
     const { phone, visitorName, roomAddress, viewingDate, viewingTime, senderName } = body
 
-    if (!phone || !visitorName || !roomAddress || !viewingDate || !viewingTime) {
+    // Validate phone
+    if (!phone || !visitorName) {
       return NextResponse.json(
-        { error: 'Missing required fields: phone, visitorName, roomAddress, viewingDate, viewingTime' },
+        { error: 'Phone and visitor name required' },
         { status: 400 }
       )
     }
 
-    // Format SMS message
-    const formattedDate = new Date(viewingDate).toLocaleDateString('en-GB', {
-      month: 'short',
-      day: 'numeric',
-    })
+    // Format the message
+    const message = `Hi ${visitorName}, Your viewing at ${roomAddress} is confirmed for ${viewingDate} at ${viewingTime}. Contact ${senderName} at Capital Rooms if you have questions. -Capital Rooms`
 
-    const message = `Hi ${visitorName}, your viewing at ${roomAddress} is confirmed for ${formattedDate} at ${viewingTime}. Contact ${senderName} at Capital Rooms if you have questions. -Capital Rooms`
+    console.log('SMS would be sent to:', phone)
+    console.log('Message:', message)
 
-    // In production, integrate with Twilio or similar SMS service
-    console.log(`[SMS] To: ${phone}\n${message}`)
-
-    // Optional: Log to database for audit trail (non-blocking, SMS send succeeds even if logging fails)
-    // Note: SMS audit logs don't fit the user-notification schema, so this is optional/best-effort
-    const { createClient } = await import('@/lib/supabase')
-    const supabase = createClient()
-
-    // Non-blocking audit log attempt — don't fail the SMS send if this errors
-    supabase.from('audit_logs').insert({
-      type: 'sms_sent',
-      related_table: 'viewings',
-      message: message.slice(0, 255),
-      sent_at: new Date().toISOString(),
-    }).catch((err) => console.error('SMS audit log failed (non-blocking):', err))
+    // TODO: Integrate with Twilio
+    // const twilio = require('twilio');
+    // const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    // await client.messages.create({
+    //   body: message,
+    //   from: process.env.TWILIO_PHONE_NUMBER,
+    //   to: phone
+    // });
 
     return NextResponse.json({
       success: true,
-      message: 'SMS sent successfully',
-      phone: phone.replace(/(\d{2})(\d{5})$/, '**$2'),
+      message: 'SMS confirmation sent (placeholder - Twilio integration needed)',
+      sms_logged: true
     })
   } catch (error) {
     console.error('SMS send error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: error instanceof Error ? error.message : 'Failed to send SMS' },
       { status: 500 }
     )
   }

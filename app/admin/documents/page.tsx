@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
 
 const BLANK: AIResult = {
@@ -257,7 +258,7 @@ export default function DocumentsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -265,7 +266,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
+      <AppBar right={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="mb-2xl">
