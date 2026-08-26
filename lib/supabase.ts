@@ -1,5 +1,4 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -23,7 +22,10 @@ export function createClient() {
  * Use this in API routes to get proper user authentication context
  */
 export async function createServerClient() {
+  // Import cookies only when needed (server-side only)
+  const { cookies } = await import('next/headers')
   const cookieStore = await cookies()
+
   const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: false,
