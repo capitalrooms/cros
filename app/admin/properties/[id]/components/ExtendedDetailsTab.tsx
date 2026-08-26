@@ -110,17 +110,9 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
 
   async function handleAccept(correctionId: string) {
     try {
-      // Get the session token from Supabase
-      const { data: { session } } = await supabase.auth.getSession()
-
-      const headers: HeadersInit = { 'Content-Type': 'application/json' }
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-
       const res = await fetch('/api/properties/data-corrections/review', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           correction_id: correctionId,
           action: 'accept'
@@ -142,17 +134,9 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
 
   async function handleReject(correctionId: string) {
     try {
-      // Get the session token from Supabase
-      const { data: { session } } = await supabase.auth.getSession()
-
-      const headers: HeadersInit = { 'Content-Type': 'application/json' }
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-
       const res = await fetch('/api/properties/data-corrections/review', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           correction_id: correctionId,
           action: 'reject'
