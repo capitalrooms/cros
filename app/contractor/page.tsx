@@ -9,6 +9,7 @@ import RoleGreeting from '@/app/components/RoleGreeting'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import { ContractorDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
+import { getTodayGMT, isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 
 interface Job {
   id: string
@@ -99,15 +100,22 @@ export default function ContractorDashboard() {
   }
 
   // Jobs the admin sent you. "To schedule" still needs a date you pick; "Booked"
-  // already has one. Then in-progress and completed.
+  // already has one. Then categorize by date: overdue, today, upcoming.
   const toSchedule = jobs.filter((j) => j.status === 'assigned' && !j.booked_date)
-  const booked = jobs.filter((j) => j.status === 'assigned' && j.booked_date)
+  const bookedWithDate = jobs.filter((j) => j.status === 'assigned' && j.booked_date)
+
+  // Separate booked jobs by date status
+  const overdue = bookedWithDate.filter((j) => j.booked_date && isDatePast(j.booked_date))
+  const todayJobs = bookedWithDate.filter((j) => j.booked_date && isDateToday(j.booked_date))
+  const upcoming = bookedWithDate.filter((j) => j.booked_date && isDateFuture(j.booked_date))
+
+  // "Next job" is TODAY first, then upcoming, then overdue (urgent)
+  const nextJob = todayJobs[0] || upcoming[0] || overdue[0]
+
   const inProgress = jobs.filter((j) =>
     ['in_progress', 'contractor_attended', 'awaiting_return'].includes(j.status)
   )
   const completed = jobs.filter((j) => j.status === 'completed')
-
-  const nextJob = booked[0]
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
@@ -181,37 +189,65 @@ export default function ContractorDashboard() {
 
         {/* Stats Grid */}
         <div className="mb-3xl grid gap-lg md:grid-cols-4">
+          {/* OVERDUE (if any) - Red/Urgent */}
+          {overdue.length > 0 && (
+            <button
+              onClick={() => scrollToSection('overdue-section')}
+              className="rounded-2xl border-2 bg-red-50 border-red-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+            >
+              <p className="text-xs font-bold uppercase tracking-wide text-red-600">⚠️ Overdue</p>
+              <p className="mt-xs text-3xl font-bold text-red-600">{overdue.length}</p>
+              <p className="text-xs text-red-600 mt-xs">action needed</p>
+            </button>
+          )}
+
+          {/* TODAY (if any) */}
+          {todayJobs.length > 0 && (
+            <button
+              onClick={() => scrollToSection('today-section')}
+              className="rounded-2xl border-2 bg-blue-50 border-blue-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+            >
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-600">📍 Today</p>
+              <p className="mt-xs text-3xl font-bold text-blue-600">{todayJobs.length}</p>
+              <p className="text-xs text-blue-600 mt-xs">scheduled for now</p>
+            </button>
+          )}
+
+          {/* UPCOMING */}
           <button
-            onClick={() => scrollToSection('booked-section')}
+            onClick={() => scrollToSection('upcoming-section')}
             className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
           >
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">Booked</p>
-            <p className="mt-xs text-3xl font-bold text-neutral-900">{booked.length}</p>
-            <p className="text-xs text-neutral-600 mt-xs">date set</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">📅 Upcoming</p>
+            <p className="mt-xs text-3xl font-bold text-neutral-900">{upcoming.length}</p>
+            <p className="text-xs text-neutral-600 mt-xs">scheduled ahead</p>
           </button>
 
+          {/* TO SCHEDULE - Red if any */}
           <button
             onClick={() => scrollToSection('to-schedule-section')}
-            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+            className={`rounded-2xl border-2 p-lg text-left hover:shadow-md transition-shadow cursor-pointer ${toSchedule.length > 0 ? 'bg-yellow-50 border-yellow-300' : 'bg-white border-neutral-300'}`}
           >
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">To schedule</p>
-            <p className={`mt-xs text-3xl font-bold ${toSchedule.length > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
+            <p className={`text-xs font-bold uppercase tracking-wide ${toSchedule.length > 0 ? 'text-yellow-600' : 'text-neutral-600'}`}>To schedule</p>
+            <p className={`mt-xs text-3xl font-bold ${toSchedule.length > 0 ? 'text-yellow-600' : 'text-neutral-900'}`}>
               {toSchedule.length}
             </p>
-            <p className="text-xs text-neutral-600 mt-xs">pick a date</p>
+            <p className={`text-xs mt-xs ${toSchedule.length > 0 ? 'text-yellow-600' : 'text-neutral-600'}`}>pick a date</p>
           </button>
 
+          {/* IN PROGRESS */}
           <button
             onClick={() => scrollToSection('in-progress-section')}
-            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+            className={`rounded-2xl border-2 p-lg text-left hover:shadow-md transition-shadow cursor-pointer ${inProgress.length > 0 ? 'bg-orange-50 border-orange-300' : 'bg-white border-neutral-300'}`}
           >
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">In Progress</p>
-            <p className={`mt-xs text-3xl font-bold ${inProgress.length > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
+            <p className={`text-xs font-bold uppercase tracking-wide ${inProgress.length > 0 ? 'text-orange-600' : 'text-neutral-600'}`}>In Progress</p>
+            <p className={`mt-xs text-3xl font-bold ${inProgress.length > 0 ? 'text-orange-600' : 'text-neutral-900'}`}>
               {inProgress.length}
             </p>
-            <p className="text-xs text-neutral-600 mt-xs">active or return</p>
+            <p className={`text-xs mt-xs ${inProgress.length > 0 ? 'text-orange-600' : 'text-neutral-600'}`}>active or return</p>
           </button>
 
+          {/* COMPLETED */}
           <button
             onClick={() => scrollToSection('completed-section')}
             className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
@@ -225,26 +261,53 @@ export default function ContractorDashboard() {
           </button>
         </div>
 
-        {/* Jobs Sections - Reordered: Booked, To Schedule, In Progress, Completed */}
+        {/* Jobs Sections - Organized by date status */}
 
-        {/* Booked section */}
-        {booked.length > 0 && (
-          <section className="mb-3xl" id="booked-section">
+        {/* OVERDUE section - Red warning */}
+        {overdue.length > 0 && (
+          <section className="mb-3xl" id="overdue-section">
             <div className="flex items-center justify-between mb-md">
-              <h2 className="text-xl font-bold">📅 Booked</h2>
-              {booked.length > 0 && (
-                <Link href={booked[0] ? `/contractor/job/${booked[0].id}` : '#'}>
-                  <button
-                    className="rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white hover:bg-blue-700"
-                  >
-                    📢 Next Job
-                  </button>
-                </Link>
-              )}
+              <h2 className="text-xl font-bold text-red-600">⚠️ Overdue</h2>
+              <span className="text-sm text-red-600 font-semibold">{overdue.length} job{overdue.length !== 1 ? 's' : ''} need attention</span>
+            </div>
+            <div className="rounded-lg border-2 border-red-300 bg-red-50 p-md mb-lg">
+              <p className="text-sm text-red-700">
+                These jobs were scheduled for past dates. Please contact admin to reschedule or mark complete.
+              </p>
             </div>
             <div className="space-y-xl">
-              {booked.map((job) => (
-                <JobCardDark key={job.id} job={job} />
+              {overdue.map((job) => (
+                <JobCardDark key={job.id} job={job} overdue daysOverdue={getDaysUntil(job.booked_date || '')} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* TODAY section - Blue, high priority */}
+        {todayJobs.length > 0 && (
+          <section className="mb-3xl" id="today-section">
+            <div className="flex items-center justify-between mb-md">
+              <h2 className="text-xl font-bold text-blue-600">📍 Today</h2>
+              <span className="text-sm text-blue-600 font-semibold">{todayJobs.length} scheduled</span>
+            </div>
+            <div className="space-y-xl">
+              {todayJobs.map((job) => (
+                <JobCardDark key={job.id} job={job} isToday />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* UPCOMING section */}
+        {upcoming.length > 0 && (
+          <section className="mb-3xl" id="upcoming-section">
+            <div className="flex items-center justify-between mb-md">
+              <h2 className="text-xl font-bold">📅 Upcoming</h2>
+              <span className="text-sm text-neutral-600 font-semibold">{upcoming.length} scheduled</span>
+            </div>
+            <div className="space-y-xl">
+              {upcoming.map((job) => (
+                <JobCardDark key={job.id} job={job} daysAhead={getDaysUntil(job.booked_date || '')} />
               ))}
             </div>
           </section>
@@ -355,7 +418,21 @@ function JobCard({ job }: { job: Job }) {
   )
 }
 
-function JobCardDark({ job, isDone }: { job: Job; isDone?: boolean }) {
+function JobCardDark({
+  job,
+  isDone,
+  overdue,
+  isToday,
+  daysOverdue,
+  daysAhead,
+}: {
+  job: Job
+  isDone?: boolean
+  overdue?: boolean
+  isToday?: boolean
+  daysOverdue?: number
+  daysAhead?: number
+}) {
   const statusLabel: Record<string, string> = {
     reported: 'Available',
     pending: 'Pending',
@@ -367,41 +444,58 @@ function JobCardDark({ job, isDone }: { job: Job; isDone?: boolean }) {
     completed: 'Completed',
   }
 
+  // Determine card styling based on status
+  let cardBg = 'border-neutral-800 bg-neutral-900 text-white hover:border-white'
+  if (isDone) {
+    cardBg = 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-600'
+  } else if (overdue) {
+    cardBg = 'border-red-600 bg-red-950 text-red-100 hover:border-red-400'
+  } else if (isToday) {
+    cardBg = 'border-blue-600 bg-blue-950 text-blue-100 hover:border-blue-400'
+  }
+
   return (
     <Link href={`/contractor/job/${job.id}`}>
-      <button className={`flex w-full items-center justify-between gap-md rounded-2xl border p-md text-left transition-colors mb-1 ${
-        isDone
-          ? 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-600'
-          : 'border-neutral-800 bg-neutral-900 text-white hover:border-white'
-      }`}>
+      <button className={`flex w-full items-center justify-between gap-md rounded-2xl border p-md text-left transition-colors mb-1 ${cardBg}`}>
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">
             {job.properties?.name} — {job.title}
           </p>
           {job.rooms?.name && (
-            <p className="text-xs text-neutral-400 mt-xs">🚪 {job.rooms.name}</p>
+            <p className={`text-xs mt-xs ${overdue ? 'text-red-200' : isToday ? 'text-blue-200' : 'text-neutral-400'}`}>🚪 {job.rooms.name}</p>
           )}
-          <p className="text-xs mt-xs">{String(job.category || 'General').replace(/-/g, ' ')}</p>
+          <p className={`text-xs mt-xs ${overdue ? 'text-red-200' : isToday ? 'text-blue-200' : 'text-neutral-400'}`}>
+            {String(job.category || 'General').replace(/-/g, ' ')}
+          </p>
           <div className="mt-xs flex flex-wrap gap-sm text-xs">
             {job.booked_date && (
-              <span>
-                📅{' '}
-                {new Date(job.booked_date).toLocaleDateString('en-GB', {
-                  day: 'numeric',
-                  month: 'short',
-                })}
+              <span className={overdue ? 'text-red-300' : isToday ? 'text-blue-300' : 'text-neutral-300'}>
+                📅 {formatDateUK(job.booked_date)}
+              </span>
+            )}
+            {overdue && daysOverdue && (
+              <span className="font-bold text-red-400">
+                {Math.abs(daysOverdue)} day{Math.abs(daysOverdue) !== 1 ? 's' : ''} overdue
+              </span>
+            )}
+            {isToday && (
+              <span className="font-bold text-blue-400">Today</span>
+            )}
+            {daysAhead && daysAhead > 0 && (
+              <span className={`font-bold ${isToday ? 'text-blue-400' : 'text-neutral-400'}`}>
+                in {daysAhead} day{daysAhead !== 1 ? 's' : ''}
               </span>
             )}
             <span
               className={`font-bold ${
-                job.priority === 'high' ? 'text-red-400' : job.priority === 'medium' ? 'text-yellow-400' : ''
+                job.priority === 'high' ? (overdue ? 'text-red-300' : isToday ? 'text-blue-300' : 'text-red-400') : job.priority === 'medium' ? (overdue ? 'text-red-200' : isToday ? 'text-blue-200' : 'text-yellow-400') : ''
               }`}
             >
               {job.priority}
             </span>
           </div>
         </div>
-        <span className="shrink-0 text-lg">→</span>
+        <span className={`shrink-0 text-lg ${isDone ? 'opacity-50' : ''}`}>→</span>
       </button>
     </Link>
   )
