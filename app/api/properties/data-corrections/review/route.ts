@@ -32,18 +32,23 @@ export async function POST(req: NextRequest) {
     // Get auth token from Authorization header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      console.error('Missing or invalid Authorization header:', authHeader)
+      return NextResponse.json({ error: 'Unauthorized - no token' }, { status: 401 })
     }
 
     const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+    console.log('Token received:', token.substring(0, 20) + '...')
 
     // Create a Supabase client and set the auth token
     const supabaseClient = createClient()
 
     // Verify the token by getting the user
     const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser(token)
+    console.log('Auth user lookup result:', { authUser: authUser?.email, authError })
+
     if (authError || !authUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      console.error('Failed to get user from token:', authError)
+      return NextResponse.json({ error: 'Unauthorized - invalid token', details: authError?.message }, { status: 401 })
     }
 
     // Get user assignment
@@ -53,7 +58,10 @@ export async function POST(req: NextRequest) {
       .eq('email', authUser.email)
       .single()
 
+    console.log('Assignment lookup result:', { assignment: assignment?.email, assignmentError })
+
     if (assignmentError || !assignment) {
+      console.error('User not found in people table:', authUser.email, assignmentError)
       return NextResponse.json({ error: 'User not found' }, { status: 401 })
     }
 
