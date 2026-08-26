@@ -9,6 +9,7 @@ import RoleGreeting from '@/app/components/RoleGreeting'
 import BackButton from '@/app/components/BackButton'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
+import { isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 
 interface ComplianceLog {
   id: string
@@ -302,7 +303,13 @@ export default function CleanerDashboard() {
     )
   }
 
-  const scheduled = cleans.filter((c) => c.status !== 'completed')
+  // Filter scheduled cleans by status AND date
+  const scheduledCleans = cleans.filter((c) => c.status !== 'completed')
+  const overdueCleans = scheduledCleans.filter((c) => c.clean_date && isDatePast(c.clean_date))
+  const todayCleans = scheduledCleans.filter((c) => c.clean_date && isDateToday(c.clean_date))
+  const upcomingCleans = scheduledCleans.filter((c) => c.clean_date && isDateFuture(c.clean_date))
+
+  const scheduled = scheduledCleans // Keep for backward compatibility
   const done = cleans.filter((c) => c.status === 'completed')
 
   return (
