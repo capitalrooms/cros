@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 
 interface QuickNotifyModalProps {
@@ -60,6 +60,14 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
   const [viewingPeriodEnd, setViewingPeriodEnd] = useState('')
 
   const supabase = createClient()
+
+  // Load templates and viewings on mount
+  useEffect(() => {
+    loadTemplates()
+    if (notificationCategory === 'lettings') {
+      loadViewings()
+    }
+  }, [notificationCategory])
 
   // Load templates on mount
   const loadTemplates = async () => {
