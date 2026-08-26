@@ -83,6 +83,8 @@ export default function CleanerDashboard() {
 
       if (personData?.id) {
         setPersonId(personData.id)
+        // Load cleans for this cleaner
+        await loadCleans(personData.id, cleansDisplayLimit)
       }
       if (personData?.full_name) {
         setCleanerName(personData.full_name)
@@ -97,7 +99,6 @@ export default function CleanerDashboard() {
         setPropertyId(props[0].id)
         await loadComplianceLogs(props[0].id)
       }
-      await loadCleans(cleanerId, cleansDisplayLimit)
       await loadAssignedJobs()
       setLoading(false)
     }
