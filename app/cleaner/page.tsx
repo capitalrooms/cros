@@ -312,6 +312,18 @@ export default function CleanerDashboard() {
   const scheduled = scheduledCleans // Keep for backward compatibility
   const done = cleans.filter((c) => c.status === 'completed')
 
+  // State for collapsible sections
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    overdue: overdueCleans.length > 0, // Expanded by default if has items
+  })
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }))
+  }
+
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
@@ -509,44 +521,57 @@ export default function CleanerDashboard() {
           </button>
         </div>
 
-        {/* OVERDUE section - Red warning */}
+        {/* OVERDUE section - Red warning with collapse */}
         {overdueCleans.length > 0 && (
           <section className="mb-3xl mt-3xl" id="overdue-section">
-            <div className="flex items-center justify-between mb-md">
-              <h2 className="text-xl font-bold text-red-600">⚠️ Overdue</h2>
-              <span className="text-sm text-red-600 font-semibold">{overdueCleans.length} clean{overdueCleans.length !== 1 ? 's' : ''} need attention</span>
-            </div>
-            <div className="rounded-lg border-2 border-red-300 bg-red-50 p-md mb-lg">
-              <p className="text-sm text-red-700">
-                These cleans were scheduled for past dates. Please contact admin to reschedule or mark complete.
-              </p>
-            </div>
-            <div className="space-y-md">
-              {overdueCleans.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                  className="w-full flex items-center justify-between gap-md rounded-2xl border-2 border-red-300 bg-red-50 p-md text-left hover:shadow-md text-red-900"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-bold text-red-900">{c.properties?.name}</p>
-                    <p className="text-sm text-red-700">
-                      {new Date(c.clean_date).toLocaleDateString('en-GB', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                      {c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-center">
-                    <span className="inline-block rounded-lg bg-red-600 px-md py-sm text-xs font-bold text-white">
-                      {Math.abs(getDaysUntil(c.clean_date || ''))} days overdue
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => toggleSection('overdue')}
+              className="w-full flex items-center justify-between mb-md p-md rounded-lg border-2 border-red-300 bg-red-50 text-left hover:bg-red-100 transition-colors"
+            >
+              <div className="flex items-center gap-md">
+                <span className="text-lg">{expandedSections.overdue ? '▼' : '▶'}</span>
+                <div>
+                  <h2 className="font-bold text-red-600">⚠️ Overdue</h2>
+                  <p className="text-xs text-red-600">{overdueCleans.length} clean{overdueCleans.length !== 1 ? 's' : ''} need attention</p>
+                </div>
+              </div>
+            </button>
+
+            {expandedSections.overdue && (
+              <>
+                <div className="rounded-lg border-2 border-red-300 bg-red-50 p-md mb-lg mt-md">
+                  <p className="text-sm text-red-700">
+                    These cleans were scheduled for past dates. Please contact admin to reschedule or mark complete.
+                  </p>
+                </div>
+                <div className="space-y-md">
+                  {overdueCleans.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => router.push(`/cleaner/clean/${c.id}`)}
+                      className="w-full flex items-center justify-between gap-md rounded-2xl border-2 border-red-300 bg-red-50 p-md text-left hover:shadow-md text-red-900"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-bold text-red-900">{c.properties?.name}</p>
+                        <p className="text-sm text-red-700">
+                          {new Date(c.clean_date).toLocaleDateString('en-GB', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                          {c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-center">
+                        <span className="inline-block rounded-lg bg-red-600 px-md py-sm text-xs font-bold text-white">
+                          {Math.abs(getDaysUntil(c.clean_date || ''))} days overdue
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </section>
         )}
 
