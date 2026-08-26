@@ -15,9 +15,14 @@ import LettingsTab from './components/LettingsTab'
 import ComplianceTab from './components/ComplianceTab'
 import CommunicationsTab from './components/CommunicationsTab'
 import DocumentsTab from './components/DocumentsTab'
+import PurchasesTab from './components/PurchasesTab'
+import PhotosTab from './components/PhotosTab'
 import PropertyTabComponent from './components/PropertyTab'
+import HousematesTab from './components/HousematesTab'
+import ExtendedDetailsTab from './components/ExtendedDetailsTab'
+import BackButton from '@/app/components/BackButton'
 
-type TabType = 'units' | 'property' | 'people' | 'maintenance' | 'lettings' | 'communications' | 'compliance' | 'documents'
+type TabType = 'units' | 'property' | 'people' | 'housemates' | 'maintenance' | 'purchases' | 'photos' | 'lettings' | 'communications' | 'compliance' | 'documents' | 'extended'
 
 interface Ticket {
   id: string;
@@ -43,7 +48,10 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   const [activeTab, setActiveTab] = useState<TabType>('property');
   const [showQuickNotify, setShowQuickNotify] = useState(false);
   const [editingName, setEditingName] = useState(false);
-  const [editingAddress, setEditingAddress] = useState(property?.address || '');
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [nameValue, setNameValue] = useState(property?.name || '');
+  const [addressValue, setAddressValue] = useState(property?.address || '');
+  const [savingName, setSavingName] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
 
   useEffect(() => {
@@ -84,7 +92,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       }
 
       setProperty(prop);
-      setEditingAddress(prop?.address || '');
+      setNameValue(prop?.name || '');
+      setAddressValue(prop?.address || '');
 
       // Get maintenance jobs for this property
       const { data: jobs } = await supabase
@@ -99,19 +108,57 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     init();
   }, [id, router]);
 
+  async function handleSaveName() {
+    setSavingName(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('properties')
+      .update({ name: nameValue })
+      .eq('id', id);
+
+    if (!error) {
+      setProperty({ ...property, name: nameValue });
+      setEditingName(false);
+    }
+    setSavingName(false);
+  }
+
   async function handleSaveAddress() {
     setSavingAddress(true);
     const supabase = createClient();
     const { error } = await supabase
       .from('properties')
-      .update({ address: editingAddress })
+      .update({ address: addressValue })
       .eq('id', id);
 
     if (!error) {
-      setProperty({ ...property, address: editingAddress });
-      setEditingName(false);
+      setProperty({ ...property, address: addressValue });
+      setEditingAddress(false);
     }
     setSavingAddress(false);
+  }
+
+  const [codeValue, setCodeValue] = useState('');
+  const [savingCode, setSavingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+
+  async function handleSaveCode() {
+    const code = codeValue.trim().toUpperCase();
+    if (!code) return;
+    setSavingCode(true);
+    setCodeError(null);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('properties')
+      .update({ property_code: code })
+      .eq('id', id);
+    if (error) {
+      setCodeError(error.message.includes('duplicate') ? 'That code is already in use.' : 'Could not save the code.');
+    } else {
+      setProperty({ ...property, property_code: code });
+      setCodeValue('');
+    }
+    setSavingCode(false);
   }
 
   if (loading) return <GenericPageSkeleton />;
@@ -132,11 +179,15 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const tabs: Array<{ id: TabType; label: string; icon: string }> = [
-    { id: 'property', label: 'Property Info', icon: '🏢' },
-    { id: 'units', label: 'Tenancies', icon: '📋' },
+    { id: 'property', label: 'Property Info', icon: '🏠' },
+    { id: 'extended', label: 'Extended Details', icon: '📊' },
+    { id: 'units', label: 'Units', icon: '📋' },
+    { id: 'photos', label: 'Photos', icon: '📷' },
     { id: 'lettings', label: 'Lettings', icon: '🔑' },
     { id: 'people', label: 'People', icon: '👥' },
+    { id: 'housemates', label: 'Housemates', icon: '🙋' },
     { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
+    { id: 'purchases', label: 'Purchases', icon: '🛒' },
     { id: 'communications', label: 'Communications', icon: '💬' },
     { id: 'compliance', label: 'Compliance', icon: '✅' },
     { id: 'documents', label: 'Documents', icon: '📁' },
@@ -154,9 +205,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               <span className="hidden md:inline">📢 Quick Notify</span>
               <span className="md:hidden">📢</span>
             </button>
-            <Link href="/admin/properties" className="shrink-0 hover:opacity-80 text-white">
-              Properties
-            </Link>
+            <BackButton href="/admin/properties" />
           </div>
         }
       />
@@ -165,44 +214,74 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         {/* Page Header with Title and Back Link */}
         <div className="mb-2xl flex items-center justify-between">
           <div className="flex-1">
-            <div className="flex items-center gap-md group">
-              <h1 className="text-3xl font-bold text-neutral-900">
-                🏢 {editingName ? (
-                  <input
-                    type="text"
-                    value={editingAddress}
-                    onChange={(e) => setEditingAddress(e.target.value)}
-                    className="inline px-md py-sm border border-neutral-300 rounded text-xl"
-                    autoFocus
-                  />
-                ) : property.address}
-              </h1>
-              <button
-                onClick={() => editingName ? handleSaveAddress() : setEditingName(true)}
-                className="opacity-0 group-hover:opacity-100 transition text-neutral-500 hover:text-neutral-900 p-sm"
-                title={editingName ? "Save" : "Edit property name"}
-              >
-                {editingName ? '✓' : '✏️'}
-              </button>
-              {editingName && (
+            <div className="space-y-sm">
+              {/* Property Name */}
+              <div className="flex items-center gap-md group">
+                <h1 className="text-3xl font-bold text-neutral-900">
+                  🏠 {editingName ? (
+                    <input
+                      type="text"
+                      value={nameValue}
+                      onChange={(e) => setNameValue(e.target.value)}
+                      className="inline px-md py-sm border border-neutral-300 rounded text-xl"
+                      autoFocus
+                    />
+                  ) : (property.name || '—')}
+                </h1>
                 <button
-                  onClick={() => {
-                    setEditingName(false);
-                    setEditingAddress(property.address);
-                  }}
-                  className="text-neutral-400 hover:text-neutral-600 text-sm"
+                  onClick={() => editingName ? handleSaveName() : setEditingName(true)}
+                  className="opacity-0 group-hover:opacity-100 transition text-neutral-500 hover:text-neutral-900 p-sm"
+                  title={editingName ? "Save name" : "Edit property name"}
                 >
-                  Cancel
+                  {editingName ? '✓' : '✏️'}
                 </button>
-              )}
+                {editingName && (
+                  <button
+                    onClick={() => {
+                      setEditingName(false);
+                      setNameValue(property.name || '');
+                    }}
+                    className="text-neutral-400 hover:text-neutral-600 text-sm"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+
+              {/* Property Address */}
+              <div className="flex items-center gap-md group">
+                <p className="text-lg text-neutral-600">
+                  {editingAddress ? (
+                    <input
+                      type="text"
+                      value={addressValue}
+                      onChange={(e) => setAddressValue(e.target.value)}
+                      className="inline px-md py-sm border border-neutral-300 rounded"
+                      autoFocus
+                    />
+                  ) : property.address}
+                </p>
+                <button
+                  onClick={() => editingAddress ? handleSaveAddress() : setEditingAddress(true)}
+                  className="opacity-0 group-hover:opacity-100 transition text-neutral-500 hover:text-neutral-900 p-sm"
+                  title={editingAddress ? "Save address" : "Edit property address"}
+                >
+                  {editingAddress ? '✓' : '✏️'}
+                </button>
+                {editingAddress && (
+                  <button
+                    onClick={() => {
+                      setEditingAddress(false);
+                      setAddressValue(property.address || '');
+                    }}
+                    className="text-neutral-400 hover:text-neutral-600 text-sm"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-          <Link
-            href="/admin/properties"
-            className="text-sm font-semibold text-neutral-400 hover:text-white underline transition shrink-0"
-          >
-            ← Back to properties
-          </Link>
         </div>
 
         {/* Property Header - Two Equal Columns */}
@@ -210,23 +289,55 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {/* Left Column: Property Info Card */}
           <div className="bg-neutral-900 p-lg">
             <div className="grid grid-cols-2 gap-xl">
+              <div className="col-span-1">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Property Code</p>
+                {property.property_code ? (
+                  <p className="text-sm font-semibold text-white">{property.property_code}</p>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-sm">
+                      <input
+                        value={codeValue}
+                        onChange={(e) => setCodeValue(e.target.value.toUpperCase())}
+                        placeholder="e.g. 071ALR"
+                        maxLength={10}
+                        className="w-28 rounded border border-neutral-600 bg-neutral-800 px-sm py-xs text-sm font-mono uppercase text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        onClick={handleSaveCode}
+                        disabled={savingCode || !codeValue.trim()}
+                        className="rounded bg-blue-600 px-md py-xs text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {savingCode ? 'Saving…' : 'Set'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-xs">
+                      {codeError || 'Set once — becomes the immutable property code.'}
+                    </p>
+                  </>
+                )}
+              </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Address</p>
                 <p className="text-sm font-semibold text-white leading-snug">{property.address}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Structure</p>
-                <p className="text-sm font-semibold text-white capitalize">{property.property_type || 'House'}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Type</p>
+                <p className="text-sm font-semibold text-white">
+                  {property.property_type === 'hmo'
+                    ? 'HMO'
+                    : property.property_type === 'single' || property.property_type === 'single_let'
+                    ? 'Single Let'
+                    : property.property_type
+                    ? property.property_type.charAt(0).toUpperCase() + property.property_type.slice(1)
+                    : '—'}
+                </p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Landlord</p>
                 <p className="text-sm font-semibold text-white">
                   {property.landlord_name || '—'}
                 </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Contact</p>
-                <p className="text-sm font-semibold text-white">{property.landlord_email || property.landlord_phone || '—'}</p>
               </div>
             </div>
           </div>
@@ -263,7 +374,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           </div>
           <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
             <p className="text-2xl font-bold text-white">—</p>
-            <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Monthly Total</p>
+            <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Total Rent</p>
           </div>
         </div>
 
@@ -290,21 +401,30 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
 
         {/* Tab Content */}
         <div className="rounded-b-xl border border-t-0 border-neutral-200 bg-white p-lg shadow-sm">
-          {/* Units Tab */}
-          {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} />}
-
           {/* Property Tab */}
           {activeTab === 'property' && <PropertyTabComponent property={property} />}
+
+          {/* Extended Details Tab */}
+          {activeTab === 'extended' && <ExtendedDetailsTab propertyId={id} propertyType={property.property_type} />}
+
+          {/* Units Tab */}
+          {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} />}
 
           {/* People Tab */}
           {activeTab === 'people' && <PeopleTab propertyId={id} />}
 
+          {activeTab === 'housemates' && <HousematesTab propertyId={id} />}
+
           {/* Maintenance Tab */}
           {activeTab === 'maintenance' && <MaintenanceTab propertyId={id} tickets={tickets} />}
 
+          {activeTab === 'photos' && <PhotosTab propertyId={id} />}
+
+          {activeTab === 'purchases' && <PurchasesTab propertyId={id} />}
+
           {/* Lettings Tab */}
           {activeTab === 'lettings' && (
-            <LettingsTab propertyId={id} rooms={property.rooms || []} />
+            <LettingsTab propertyId={id} rooms={property.rooms || []} propertyName={property.name} propertyAddress={property.address} />
           )}
 
           {/* Communications Tab */}

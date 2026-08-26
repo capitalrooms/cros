@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 interface SystemStats {
@@ -91,7 +92,7 @@ export default function OverviewPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
+      <AppBar right={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
         {/* Header */}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import AgencyDiaryMap from '@/app/components/AgencyDiaryMap'
@@ -99,14 +100,20 @@ export default function AgencyDiaryPage() {
   const [showBookMenu, setShowBookMenu] = useState(false)
   const [upcomingPage, setUpcomingPage] = useState(0)
   const itemsPerPage = 10
+  // Lettings staff can VIEW the diary (to time viewings around cleans/contractors)
+  // but only admins can book into it. #8 cross-visibility, 25 Aug.
+  const [canBook, setCanBook] = useState(false)
 
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || (data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin')) {
+      const role = data?.assignment?.role
+      const canView = role === 'administrator' || role === 'admin' || role === 'lettings'
+      if (!data || !canView) {
         router.push('/login')
         return
       }
+      setCanBook(role === 'administrator' || role === 'admin')
 
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekEnd.getDate() + 7)
@@ -140,7 +147,38 @@ export default function AgencyDiaryPage() {
           .lt('appointment_date', weekEnd.toISOString().split('T')[0])
           .order('appointment_date', { ascending: true })
 
-        setAppointments((appts as any) || [])
+        // Lettings books viewings into their own `viewings` table, so they don't
+        // show here by default. Pull them in and map them onto the appointment
+        // shape (there's already a 👀 "viewing" type) so admin sees the lettings
+        // diary alongside everything else — the cross-visibility from 25 Aug #8.
+        // NB: viewings.property_id has no FK, so a PostgREST `properties(...)`
+        // embed 400s here — fetch plainly and resolve names via a separate query.
+        const { data: views } = await supabase
+          .from('viewings')
+          .select('id, property_id, viewing_date, viewing_slot, visitor_name, viewing_status')
+          .gte('viewing_date', weekStart.toISOString().split('T')[0])
+          .lt('viewing_date', weekEnd.toISOString().split('T')[0])
+          .neq('viewing_status', 'closed')
+
+        const viewRows = (views as any[]) || []
+        const viewPropIds = [...new Set(viewRows.map((v) => v.property_id).filter(Boolean))]
+        const propMap = new Map<string, { name: string; address: string }>()
+        if (viewPropIds.length) {
+          const { data: props } = await supabase.from('properties').select('id, name, address').in('id', viewPropIds)
+          for (const p of props || []) propMap.set(p.id, { name: p.name, address: p.address })
+        }
+
+        const viewingAppts: Appointment[] = viewRows.map((v) => ({
+          id: `viewing-${v.id}`,
+          property_id: v.property_id,
+          appointment_type: 'viewing',
+          appointment_date: v.viewing_date,
+          appointment_time: v.viewing_slot || '09:00',
+          visitor_name: v.visitor_name || 'Viewing',
+          property: propMap.get(v.property_id) || { name: 'Unknown', address: '' },
+        }))
+
+        setAppointments([...((appts as any[]) || []), ...viewingAppts])
 
         // Load outstanding jobs (approved but not booked)
         const { data: outstanding } = await supabase
@@ -219,12 +257,12 @@ export default function AgencyDiaryPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar />
+      <AppBar right={<BackButton />} />
 
       <main className="mx-auto max-w-7xl px-lg py-3xl">
         {/* Back Button */}
         <Link
-          href="/admin"
+          href={canBook ? '/admin' : '/lettings'}
           className="inline-flex items-center gap-sm text-neutral-600 hover:text-neutral-900 font-medium mb-3xl transition-colors"
         >
           ← Back to Dashboard
@@ -242,7 +280,8 @@ export default function AgencyDiaryPage() {
 
         {/* Top Controls */}
         <div className="mb-3xl flex flex-wrap items-center gap-lg">
-          {/* Book Button */}
+          {/* Book Button — admins only; lettings sees the diary read-only */}
+          {canBook && (
           <div className="relative">
             <button
               onClick={() => setShowBookMenu(!showBookMenu)}
@@ -277,8 +316,17 @@ export default function AgencyDiaryPage() {
               </div>
             )}
           </div>
+          )}
 
-          {/* Outstanding Jobs Summary */}
+          {/* Read-only badge for lettings staff */}
+          {!canBook && (
+            <span className="inline-flex items-center gap-sm px-lg py-sm rounded-lg bg-neutral-100 border border-neutral-300 text-neutral-600 font-semibold text-sm">
+              👀 Read-only — timing view
+            </span>
+          )}
+
+          {/* Outstanding Jobs Summary — admins only */}
+          {canBook && (
           <button
             onClick={() => setShowOutstanding(!showOutstanding)}
             className="inline-flex items-center gap-sm px-lg py-sm rounded-lg bg-white border border-neutral-300 text-neutral-900 font-semibold hover:bg-neutral-50 transition-colors"
@@ -286,6 +334,7 @@ export default function AgencyDiaryPage() {
             <span className="text-lg">⚠️</span>
             <span>{outstandingJobs.length} Outstanding</span>
           </button>
+          )}
 
           {/* Week Navigation */}
           <div className="ml-auto flex items-center gap-md">
@@ -322,7 +371,7 @@ export default function AgencyDiaryPage() {
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-neutral-900 truncate">{job.title}</div>
                     <div className="text-xs text-neutral-600">
-                      {job.property.name} {job.room ? `- ${job.room.name}` : ''}
+                      {job.property?.name || 'Unknown property'} {job.room ? `- ${job.room.name}` : ''}
                     </div>
                     {job.contractor && (
                       <div className="text-xs text-neutral-600">
@@ -535,7 +584,7 @@ export default function AgencyDiaryPage() {
                                 })}
                               </div>
                             </div>
-                            <div className="text-sm text-slate-600 ml-7">{event.property.name}</div>
+                            <div className="text-sm text-slate-600 ml-7">{event.property?.name || 'Unknown property'}</div>
                             <div className="text-xs text-slate-500 ml-7">
                               ⏰ {event.time} • {event.title}
                             </div>

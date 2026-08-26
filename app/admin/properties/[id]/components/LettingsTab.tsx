@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { buildIcs } from '@/lib/ics'
 
 interface Viewing {
   id: string
@@ -12,7 +13,7 @@ interface Viewing {
   visitor_phone: string | null
   room_id: string | null
   feedback: string | null
-  status: string
+  viewing_status: string
   created_at: string
   room?: {
     name: string
@@ -22,9 +23,11 @@ interface Viewing {
 interface LettingsTabProps {
   propertyId: string
   rooms: Array<{ id: string; name: string }>
+  propertyName?: string
+  propertyAddress?: string
 }
 
-export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
+export default function LettingsTab({ propertyId, rooms, propertyName, propertyAddress }: LettingsTabProps) {
   const [viewings, setViewings] = useState<Viewing[]>([])
   const [loading, setLoading] = useState(true)
   const [isAddingViewing, setIsAddingViewing] = useState(false)
@@ -34,6 +37,12 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
   const [selectedViewingForNotify, setSelectedViewingForNotify] = useState<Viewing | null>(null)
   const [notifyTemplate, setNotifyTemplate] = useState('viewing_notification')
   const [notifySending, setNotifySending] = useState(false)
+  const [smsOffer, setSmsOffer] = useState<{ name: string; phone: string; date: string; slot: string | null; roomName: string } | null>(null)
+  const [smsSending, setSmsSending] = useState(false)
+  const [smsResult, setSmsResult] = useState<string | null>(null)
+  // Offer to drop the booked viewing into the booker's own calendar (#8 Part B).
+  const [calOffer, setCalOffer] = useState<{ title: string; date: string; time: string | null; location: string } | null>(null)
+  const [calResult, setCalResult] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     visitor_name: '',
@@ -45,11 +54,59 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
     feedback: ''
   })
 
+  const [roomList, setRoomList] = useState<Array<{ id: string; name: string; status?: string }>>(rooms)
+
+  // Occasionally an applicant is shown a SECOND property in the same session.
+  // Rather than a whole separate booking flow, we let the booker optionally add
+  // one more property + room; it books a linked second viewing sharing the same
+  // visitor and date. Kept intentionally lightweight (see 25 Aug notes #10).
+  const [allProperties, setAllProperties] = useState<Array<{ id: string; name: string }>>([])
+  const [secondEnabled, setSecondEnabled] = useState(false)
+  const [secondRooms, setSecondRooms] = useState<Array<{ id: string; name: string }>>([])
+  const [secondForm, setSecondForm] = useState({ property_id: '', room_id: '', viewing_slot: '' })
+
   const supabase = createClient()
 
   useEffect(() => {
     loadViewings()
+    loadRooms()
+    loadAllProperties()
   }, [propertyId])
+
+  // Load the second property's rooms whenever it changes.
+  useEffect(() => {
+    if (!secondForm.property_id) { setSecondRooms([]); return }
+    let active = true
+    supabase.from('rooms').select('id, name').eq('property_id', secondForm.property_id).order('name').then(({ data }) => {
+      if (!active) return
+      setSecondRooms(data || [])
+      setSecondForm((f) => ({ ...f, room_id: '' }))
+    })
+    return () => { active = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondForm.property_id])
+
+  async function loadAllProperties() {
+    // Everything except the property we're already on — that's the primary.
+    const { data } = await supabase.from('properties').select('id, name').order('name')
+    setAllProperties((data || []).filter((p: any) => p.id !== propertyId))
+  }
+
+  async function loadRooms() {
+    // The parent page's property fetch doesn't always include rooms, so load
+    // them here — a room is required to book a viewing (viewings.room_id NOT NULL).
+    // Always load room status too so we can show an availability summary.
+    const { data } = await supabase
+      .from('rooms')
+      .select('id, name, status')
+      .eq('property_id', propertyId)
+      .order('name')
+    const list = data && data.length > 0 ? data : rooms
+    if (list && list.length > 0) {
+      setRoomList(list)
+      setFormData((f) => ({ ...f, room_id: f.room_id || list[0].id }))
+    }
+  }
 
   async function loadViewings() {
     setLoading(true)
@@ -81,19 +138,39 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
       return
     }
 
+    if (!formData.room_id) {
+      setError('Please select a room')
+      return
+    }
+
+    // Shared visitor + date across both viewings in a two-property session.
+    const shared = {
+      visitor_name: formData.visitor_name,
+      visitor_email: formData.visitor_email || null,
+      visitor_phone: formData.visitor_phone || null,
+      viewing_date: formData.viewing_date,
+      viewing_status: 'pending',
+      feedback: formData.feedback || null,
+    }
+
+    const rows: any[] = [
+      { ...shared, property_id: propertyId, room_id: formData.room_id || null, viewing_slot: formData.viewing_slot || null },
+    ]
+
+    const bookingSecond = secondEnabled && secondForm.property_id && secondForm.room_id
+    if (bookingSecond) {
+      rows.push({
+        ...shared,
+        property_id: secondForm.property_id,
+        room_id: secondForm.room_id,
+        // Default the second viewing a little later so they don't clash.
+        viewing_slot: secondForm.viewing_slot || formData.viewing_slot || null,
+      })
+    }
+
     const { data, error: err } = await supabase
       .from('viewings')
-      .insert({
-        property_id: propertyId,
-        visitor_name: formData.visitor_name,
-        visitor_email: formData.visitor_email || null,
-        visitor_phone: formData.visitor_phone || null,
-        viewing_date: formData.viewing_date,
-        viewing_slot: formData.viewing_slot || null,
-        room_id: formData.room_id || null,
-        status: 'pending',
-        feedback: formData.feedback || null
-      })
+      .insert(rows)
       .select()
 
     if (err) {
@@ -103,19 +180,118 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
     }
 
     if (data) {
-      setViewings([...viewings, data[0]])
+      // Only the viewing(s) for THIS property belong in this tab's list; the
+      // second (different property) shows on that property's own Lettings tab.
+      const mine = data.filter((v: any) => v.property_id === propertyId)
+      setViewings([...viewings, ...mine])
+      // Offer to text the applicant a confirmation if we captured a phone number.
+      if (formData.visitor_phone.trim()) {
+        setSmsResult(null)
+        setSmsOffer({
+          name: formData.visitor_name,
+          phone: formData.visitor_phone.trim(),
+          date: formData.viewing_date,
+          slot: formData.viewing_slot || null,
+          roomName: roomList.find((r) => r.id === formData.room_id)?.name || '',
+        })
+      }
+
+      // Offer to drop it into the booker's own calendar.
+      const roomName = roomList.find((r) => r.id === formData.room_id)?.name || ''
+      setCalResult(null)
+      setCalOffer({
+        title: `Viewing — ${formData.visitor_name}`,
+        date: formData.viewing_date,
+        time: formData.viewing_slot || null,
+        location: [roomName, propertyAddress || propertyName].filter(Boolean).join(', '),
+      })
       setFormData({
         visitor_name: '',
         visitor_email: '',
         visitor_phone: '',
         viewing_date: new Date().toISOString().split('T')[0],
         viewing_slot: '09:00',
-        room_id: rooms[0]?.id || '',
+        room_id: roomList[0]?.id || '',
         feedback: ''
       })
+      setSecondEnabled(false)
+      setSecondForm({ property_id: '', room_id: '', viewing_slot: '' })
       setIsAddingViewing(false)
-      setSuccess(`Viewing scheduled for ${formData.visitor_name}`)
-      setTimeout(() => setSuccess(null), 3000)
+      const secondName = bookingSecond ? allProperties.find((p) => p.id === secondForm.property_id)?.name : null
+      setSuccess(
+        secondName
+          ? `Two viewings booked for ${formData.visitor_name} — this property and ${secondName}`
+          : `Viewing scheduled for ${formData.visitor_name}`
+      )
+      setTimeout(() => setSuccess(null), 4000)
+    }
+  }
+
+  async function handleSendSms() {
+    if (!smsOffer) return
+    setSmsSending(true)
+    setSmsResult(null)
+    try {
+      const location = [smsOffer.roomName, propertyAddress || propertyName]
+        .filter(Boolean)
+        .join(', ')
+      const res = await fetch('/api/sms/send-viewing-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: smsOffer.phone,
+          visitorName: smsOffer.name,
+          roomAddress: location,
+          viewingDate: smsOffer.date,
+          viewingTime: smsOffer.slot || 'the arranged time',
+          senderName: 'Capital Rooms',
+        }),
+      })
+      const json = await res.json()
+      if (json.sent) {
+        setSmsResult(`✅ Text sent to ${json.phone}`)
+        setTimeout(() => { setSmsOffer(null); setSmsResult(null) }, 3000)
+      } else if (json.reason) {
+        setSmsResult(`⚠️ Not sent — Twilio isn't configured yet. Add the TWILIO_* env vars to enable texts.`)
+      } else {
+        setSmsResult(`⚠️ ${json.error || 'Could not send text'}`)
+      }
+    } catch (err) {
+      setSmsResult(`⚠️ ${err instanceof Error ? err.message : 'Could not send text'}`)
+    } finally {
+      setSmsSending(false)
+    }
+  }
+
+  // Build the .ics in the browser and download it — opens straight into the
+  // booker's Google/Apple calendar. No server auth or email config needed, so
+  // it always works; emailing the invite (via /api/calendar/invite) stays as a
+  // future option once server-side auth + RESEND_API_KEY are wired.
+  function handleAddToCalendar() {
+    if (!calOffer) return
+    try {
+      const ics = buildIcs({
+        uid: `${Date.now()}-${Math.random().toString(36).slice(2)}@capitalrooms.cros`,
+        title: calOffer.title,
+        description: 'Booked in CROS',
+        location: calOffer.location,
+        date: calOffer.date,
+        time: calOffer.time || undefined,
+        durationMinutes: 30,
+      })
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'viewing.ics'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setCalResult('✅ Calendar file downloaded — open it to add the viewing.')
+      setTimeout(() => { setCalOffer(null); setCalResult(null) }, 3000)
+    } catch {
+      setCalResult('⚠️ Could not create the calendar file.')
     }
   }
 
@@ -155,8 +331,12 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
     }
   }
 
-  const upcomingViewings = viewings.filter(v => !v.status || v.status !== 'closed')
-  const completedViewings = viewings.filter(v => v.status === 'closed')
+  const upcomingViewings = viewings.filter(v => !v.viewing_status || v.viewing_status !== 'closed')
+  const completedViewings = viewings.filter(v => v.viewing_status === 'closed')
+
+  const availableCount = roomList.filter(r => r.status === 'available').length
+  const onNoticeCount = roomList.filter(r => r.status === 'on_notice').length
+  const noneToLet = availableCount === 0 && onNoticeCount === 0
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -172,6 +352,7 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
       case 'interested': return 'bg-green-100 text-green-700'
       case 'not_interested': return 'bg-red-100 text-red-700'
       case 'pending': return 'bg-blue-100 text-blue-700'
+      case 'scheduled': return 'bg-blue-100 text-blue-700'
       case 'closed': return 'bg-neutral-900 text-neutral-400'
       default: return 'bg-neutral-900 text-neutral-400'
     }
@@ -182,6 +363,7 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
       case 'interested': return 'Interested'
       case 'not_interested': return 'Not Interested'
       case 'pending': return 'Pending'
+      case 'scheduled': return 'Scheduled'
       case 'closed': return 'Closed'
       default: return 'Pending'
     }
@@ -211,6 +393,24 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
         </button>
       </div>
 
+      {/* Availability summary — makes the "why is this empty" clear */}
+      {noneToLet ? (
+        <div className="p-lg rounded-lg bg-neutral-900 border border-neutral-800">
+          <p className="text-sm text-neutral-300">
+            🏠 No rooms currently available at this property — every room is occupied.
+          </p>
+        </div>
+      ) : (
+        <div className="p-lg rounded-lg bg-neutral-900 border border-neutral-800 flex flex-wrap gap-lg">
+          {availableCount > 0 && (
+            <span className="text-sm font-semibold text-green-400">🟢 {availableCount} available now</span>
+          )}
+          {onNoticeCount > 0 && (
+            <span className="text-sm font-semibold text-amber-400">📋 {onNoticeCount} on notice (coming up)</span>
+          )}
+        </div>
+      )}
+
       {/* Messages */}
       {error && (
         <div className="p-lg rounded-lg bg-red-950 border border-red-800">
@@ -220,6 +420,62 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
       {success && (
         <div className="p-lg rounded-lg bg-green-950 border border-green-800">
           <p className="text-sm font-semibold text-green-400">✓ {success}</p>
+        </div>
+      )}
+
+      {/* SMS confirmation offer (shown after booking a viewing with a phone number) */}
+      {smsOffer && (
+        <div className="p-lg rounded-lg bg-blue-950 border border-blue-800 flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-blue-200">
+              Text a confirmation to {smsOffer.name}?
+            </p>
+            <p className="text-xs text-blue-300/80 mt-xs">{smsOffer.phone}</p>
+            {smsResult && <p className="text-xs text-blue-100 mt-sm">{smsResult}</p>}
+          </div>
+          <div className="flex gap-sm shrink-0">
+            <button
+              onClick={() => { setSmsOffer(null); setSmsResult(null) }}
+              disabled={smsSending}
+              className="px-lg py-sm rounded-lg border border-blue-700 text-sm font-semibold text-blue-200 hover:bg-blue-900 disabled:opacity-50"
+            >
+              No thanks
+            </button>
+            <button
+              onClick={handleSendSms}
+              disabled={smsSending}
+              className="px-lg py-sm rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {smsSending ? 'Sending…' : 'Send text'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Calendar invite offer (shown after booking a viewing) */}
+      {calOffer && (
+        <div className="p-lg rounded-lg bg-neutral-900 border border-neutral-700 flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">Add this viewing to your calendar?</p>
+            <p className="text-xs text-neutral-400 mt-xs">
+              Downloads a calendar file — open it to add the viewing to your own Google/Apple calendar.
+            </p>
+            {calResult && <p className="text-xs text-neutral-200 mt-sm">{calResult}</p>}
+          </div>
+          <div className="flex gap-sm shrink-0">
+            <button
+              onClick={() => { setCalOffer(null); setCalResult(null) }}
+              className="px-lg py-sm rounded-lg border border-neutral-600 text-sm font-semibold text-neutral-200 hover:bg-neutral-800"
+            >
+              No thanks
+            </button>
+            <button
+              onClick={handleAddToCalendar}
+              className="px-lg py-sm rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              📅 Add to my calendar
+            </button>
+          </div>
         </div>
       )}
 
@@ -280,7 +536,7 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
                   className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select a room...</option>
-                  {rooms.map((room) => (
+                  {roomList.map((room) => (
                     <option key={room.id} value={room.id}>
                       {room.name}
                     </option>
@@ -325,6 +581,72 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
                   className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={3}
                 />
+              </div>
+
+              {/* Optional: show this applicant a second property in the same session */}
+              <div className="rounded-lg border border-neutral-700 p-md">
+                <label className="flex cursor-pointer items-center gap-sm">
+                  <input
+                    type="checkbox"
+                    checked={secondEnabled}
+                    onChange={(e) => setSecondEnabled(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm font-semibold text-white">Also showing another property this session</span>
+                </label>
+
+                {secondEnabled && (
+                  <div className="mt-md space-y-md">
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                        Second property
+                      </label>
+                      <select
+                        value={secondForm.property_id}
+                        onChange={(e) => setSecondForm({ ...secondForm, property_id: e.target.value })}
+                        className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select a property…</option>
+                        {allProperties.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-md">
+                      <div className="min-w-0">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                          Room
+                        </label>
+                        <select
+                          value={secondForm.room_id}
+                          onChange={(e) => setSecondForm({ ...secondForm, room_id: e.target.value })}
+                          disabled={!secondForm.property_id}
+                          className="w-full min-w-0 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                        >
+                          <option value="">{secondForm.property_id ? 'Select a room…' : 'Pick a property first'}</option>
+                          {secondRooms.map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="min-w-0">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                          Time
+                        </label>
+                        <input
+                          type="time"
+                          value={secondForm.viewing_slot}
+                          onChange={(e) => setSecondForm({ ...secondForm, viewing_slot: e.target.value })}
+                          className="w-full min-w-0 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      Same visitor and date. Leave the time blank to reuse the first slot.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -379,8 +701,8 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
                       {viewing.viewing_slot && ` at ${viewing.viewing_slot}`}
                     </p>
                   </div>
-                  <span className={`text-xs font-semibold px-md py-sm rounded-full whitespace-nowrap ${getStatusColor(viewing.status)}`}>
-                    {getStatusLabel(viewing.status)}
+                  <span className={`text-xs font-semibold px-md py-sm rounded-full whitespace-nowrap ${getStatusColor(viewing.viewing_status)}`}>
+                    {getStatusLabel(viewing.viewing_status)}
                   </span>
                 </div>
 
@@ -451,8 +773,8 @@ export default function LettingsTab({ propertyId, rooms }: LettingsTabProps) {
                     <p className="font-semibold text-white">{viewing.visitor_name}</p>
                     <p className="text-xs text-neutral-400 mt-xs">{formatDate(viewing.viewing_date)}</p>
                   </div>
-                  <span className={`text-xs font-semibold px-md py-sm rounded-full ${getStatusColor(viewing.status)}`}>
-                    {getStatusLabel(viewing.status)}
+                  <span className={`text-xs font-semibold px-md py-sm rounded-full ${getStatusColor(viewing.viewing_status)}`}>
+                    {getStatusLabel(viewing.viewing_status)}
                   </span>
                 </div>
               </div>

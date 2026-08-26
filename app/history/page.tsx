@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 type Tab = 'repairs' | 'cleans'
@@ -111,11 +112,7 @@ export default function HistoryPage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar
-          right={
-            <Link href={homeHref} className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
-              Dashboard
-            </Link>
-          }
+          right={<BackButton href={homeHref} />}
         />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>

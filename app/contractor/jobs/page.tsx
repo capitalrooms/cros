@@ -6,7 +6,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { TIME_SLOTS, formatBooking, slotLabel, earliestBookableDate, bookingLeadTimeNote } from '@/lib/booking';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton';
 import JobMap, { type MapPin } from '@/components/JobMap';
 
 interface Attachment {
@@ -314,11 +315,7 @@ export default function ContractorJobs() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {/* Top bar */}
       <AppBar
-        right={
-          <Link href="/contractor" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
-            Dashboard
-          </Link>
-        }
+        right={<BackButton href="/contractor" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg">

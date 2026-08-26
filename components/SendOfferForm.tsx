@@ -141,11 +141,11 @@ export default function SendOfferForm() {
     : null
 
   return (
-    <div className="bg-white rounded-2xl p-xl border-2 border-neutral-200 shadow-sm">
-      <h2 className="text-2xl font-bold text-neutral-900 mb-md">
+    <div className="bg-neutral-900 rounded-2xl p-xl border-2 border-neutral-950 text-white">
+      <h2 className="text-2xl font-bold text-white mb-md">
         📧 Send Offer Letter
       </h2>
-      <p className="text-sm text-neutral-600 mb-lg">
+      <p className="text-sm text-white/60 mb-lg">
         Send a personalized application link to an applicant
       </p>
 
@@ -163,13 +163,13 @@ export default function SendOfferForm() {
 
       <form onSubmit={handleSendOffer} className="space-y-md">
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-xs">
+          <label className="block text-sm font-medium text-white mb-xs">
             Select Room <span className="text-red-500">*</span>
           </label>
           <select
             value={selectedRoom}
             onChange={(e) => setSelectedRoom(e.target.value)}
-            className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           >
             <option value="">Choose a room...</option>
@@ -182,24 +182,24 @@ export default function SendOfferForm() {
         </div>
 
         {selectedRoomData && selectedProperty && (
-          <div className="bg-neutral-50 p-md rounded-lg border border-neutral-200">
-            <div className="text-sm text-neutral-600">
+          <div className="bg-neutral-800 p-md rounded-xl border border-neutral-700">
+            <div className="text-sm text-white/80">
               <div>
-                <strong>Room:</strong> {selectedRoomData.name}
+                <strong className="text-white">Room:</strong> {selectedRoomData.name}
               </div>
               <div>
-                <strong>Property:</strong> {selectedProperty.name}, {selectedProperty.address}
+                <strong className="text-white">Property:</strong> {selectedProperty.name}, {selectedProperty.address}
               </div>
             </div>
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-xs">
+          <label className="block text-sm font-medium text-white mb-xs">
             Advertised Rent (pcm) <span className="text-red-500">*</span>
           </label>
           <div className="flex items-center gap-xs">
-            <span className="text-neutral-600 font-medium">£</span>
+            <span className="text-white/70 font-medium">£</span>
             <input
               type="number"
               value={advertisedRent}
@@ -207,20 +207,20 @@ export default function SendOfferForm() {
               placeholder="850"
               step="0.01"
               min="0"
-              className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
-            <span className="text-neutral-600 font-medium whitespace-nowrap">pcm</span>
+            <span className="text-white/70 font-medium whitespace-nowrap">pcm</span>
           </div>
           {advertisedRent && (
-            <p className="mt-xs text-xs text-neutral-600">
+            <p className="mt-xs text-xs text-white/60">
               Holding deposit: £{(parseFloat(advertisedRent) / 4.33).toFixed(2)} (1 week's rent)
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-xs">
+          <label className="block text-sm font-medium text-white mb-xs">
             Applicant Email <span className="text-red-500">*</span>
           </label>
           <input
@@ -228,13 +228,13 @@ export default function SendOfferForm() {
             value={applicantEmail}
             onChange={(e) => setApplicantEmail(e.target.value)}
             placeholder="applicant@email.com"
-            className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-xs">
+          <label className="block text-sm font-medium text-white mb-xs">
             Applicant Name (optional)
           </label>
           <input
@@ -242,23 +242,23 @@ export default function SendOfferForm() {
             value={applicantName}
             onChange={(e) => setApplicantName(e.target.value)}
             placeholder="e.g., Jane Doe"
-            className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-neutral-900 mb-xs">
+          <label className="block text-sm font-medium text-white mb-xs">
             Suggested Move-In Date (optional)
           </label>
           <input
             type="date"
             value={moveInDate}
             onChange={(e) => setMoveInDate(e.target.value)}
-            className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        <div className="flex items-center gap-md p-md rounded-lg bg-blue-50 border border-blue-200">
+        <div className="flex items-center gap-md p-md rounded-xl bg-blue-950/50 border border-blue-800">
           <input
             type="checkbox"
             id="requestDeposit"
@@ -266,7 +266,7 @@ export default function SendOfferForm() {
             onChange={(e) => setRequestDeposit(e.target.checked)}
             className="w-4 h-4 cursor-pointer"
           />
-          <label htmlFor="requestDeposit" className="text-sm font-medium text-neutral-900 cursor-pointer flex-1">
+          <label htmlFor="requestDeposit" className="text-sm font-medium text-white cursor-pointer flex-1">
             🏦 Request Holding Deposit to Reserve Room
           </label>
         </div>
@@ -285,13 +285,13 @@ export default function SendOfferForm() {
         <button
           type="submit"
           disabled={sending || !selectedRoom || !applicantEmail}
-          className="w-full py-md px-lg rounded-lg bg-neutral-900 text-white font-semibold hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full py-md px-lg rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {sending ? 'Sending...' : 'Send Offer Letter'}
         </button>
       </form>
 
-      <p className="text-xs text-neutral-500 mt-lg">
+      <p className="text-xs text-white/50 mt-lg">
         💡 The applicant will receive an email with a personalized link to complete their application.
         The link expires in 30 days.
       </p>

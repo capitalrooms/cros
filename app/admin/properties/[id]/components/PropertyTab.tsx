@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import FloorPlanMap from './FloorPlanMap'
 
 interface PropertyTabProps {
   property: any
@@ -21,12 +22,20 @@ export default function PropertyTab({ property }: PropertyTabProps) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [uploadingFloorPlan, setUploadingFloorPlan] = useState(false)
+  const [scanningPlan, setScanningPlan] = useState(false)
+  const [floorPlanResult, setFloorPlanResult] = useState<{ detected: any[]; notes: string; bathrooms_count?: number; ensuite_room_labels?: string[]; layout_notes?: string } | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [savingFeatured, setSavingFeatured] = useState<string | null>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loadingPhotos, setLoadingPhotos] = useState(true)
 
   const [formData, setFormData] = useState({
+    landlord_name: property.landlord_name || '',
+    landlord_email: property.landlord_email || '',
+    landlord_phone: property.landlord_phone || '',
+    council_tax_band: property.council_tax_band || '',
+    bills_included: property.bills_included !== undefined ? property.bills_included : true,
+    notice_period_months: property.notice_period_months || 2,
     bedrooms: property.bedrooms || 0,
     bathrooms: property.bathrooms || 0,
     total_area: property.total_area || '',
@@ -109,6 +118,12 @@ export default function PropertyTab({ property }: PropertyTabProps) {
     const { error: err } = await supabase
       .from('properties')
       .update({
+        landlord_name: formData.landlord_name || null,
+        landlord_email: formData.landlord_email || null,
+        landlord_phone: formData.landlord_phone || null,
+        council_tax_band: formData.council_tax_band || null,
+        bills_included: formData.bills_included,
+        notice_period_months: parseInt(formData.notice_period_months),
         bedrooms: parseInt(formData.bedrooms),
         bathrooms: parseInt(formData.bathrooms),
         total_area: formData.total_area ? parseFloat(formData.total_area) : null,
@@ -126,6 +141,34 @@ export default function PropertyTab({ property }: PropertyTabProps) {
       setTimeout(() => setSuccess(null), 3000)
     }
     setSaving(false)
+  }
+
+  // Scan an uploaded floor plan with the AI to pull room sizes, then open the
+  // mapping review so the admin can confirm and apply them to units.
+  async function scanFloorPlan(file: File) {
+    setScanningPlan(true)
+    setError(null)
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      const res = await fetch('/api/ai/scan-floorplan', { method: 'POST', body })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error || 'Could not scan the floor plan for sizes')
+        return
+      }
+      setFloorPlanResult({
+        detected: json.result?.detected_rooms || [],
+        notes: json.result?.notes || '',
+        bathrooms_count: json.result?.bathrooms_count,
+        ensuite_room_labels: json.result?.ensuite_room_labels || [],
+        layout_notes: json.result?.layout_notes || '',
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not scan the floor plan')
+    } finally {
+      setScanningPlan(false)
+    }
   }
 
   async function handlePhotoUpload(file: File) {
@@ -187,6 +230,141 @@ export default function PropertyTab({ property }: PropertyTabProps) {
         </div>
       )}
 
+      {/* Landlord Information */}
+      <div>
+        <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
+          <h3 className="text-sm font-bold uppercase text-neutral-400">👨 Landlord Information</h3>
+        </div>
+
+        {isEditing ? (
+          <div className="space-y-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.landlord_name}
+                  onChange={(e) => setFormData({ ...formData, landlord_name: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={formData.landlord_email}
+                  onChange={(e) => setFormData({ ...formData, landlord_email: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.landlord_phone}
+                  onChange={(e) => setFormData({ ...formData, landlord_phone: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Name</p>
+              <p className="text-sm font-semibold text-white">{property.landlord_name || '—'}</p>
+            </div>
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Email</p>
+              <p className="text-sm font-semibold text-white">{property.landlord_email || '—'}</p>
+            </div>
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Phone</p>
+              <p className="text-sm font-semibold text-white">{property.landlord_phone || '—'}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tenancy Settings */}
+      <div>
+        <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
+          <h3 className="text-sm font-bold uppercase text-neutral-400">⚙️ Tenancy Settings</h3>
+        </div>
+
+        {isEditing ? (
+          <div className="space-y-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                  Council Tax Band
+                </label>
+                <input
+                  type="text"
+                  value={formData.council_tax_band}
+                  onChange={(e) => setFormData({ ...formData, council_tax_band: e.target.value.toUpperCase() })}
+                  maxLength="1"
+                  placeholder="A-H"
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                  Notice Period (months)
+                </label>
+                <select
+                  value={formData.notice_period_months}
+                  onChange={(e) => setFormData({ ...formData, notice_period_months: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="1">1 month</option>
+                  <option value="2">2 months</option>
+                  <option value="3">3 months</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                  Bills Included
+                </label>
+                <select
+                  value={formData.bills_included ? 'yes' : 'no'}
+                  onChange={(e) => setFormData({ ...formData, bills_included: e.target.value === 'yes' })}
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Council Tax Band</p>
+              <p className="text-sm font-semibold text-white">{property.council_tax_band || '—'}</p>
+            </div>
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Notice Period</p>
+              <p className="text-sm font-semibold text-white">{property.notice_period_months || 2} months</p>
+            </div>
+            <div className="space-y-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bills</p>
+              <p className="text-sm font-semibold text-white">{property.bills_included ? '✓ Included' : '✗ Not included'}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Property Details */}
       <div>
         <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
@@ -204,6 +382,12 @@ export default function PropertyTab({ property }: PropertyTabProps) {
                 onClick={() => {
                   setIsEditing(false)
                   setFormData({
+                    landlord_name: property.landlord_name || '',
+                    landlord_email: property.landlord_email || '',
+                    landlord_phone: property.landlord_phone || '',
+                    council_tax_band: property.council_tax_band || '',
+                    bills_included: property.bills_included !== undefined ? property.bills_included : true,
+                    notice_period_months: property.notice_period_months || 2,
                     bedrooms: property.bedrooms || 0,
                     bathrooms: property.bathrooms || 0,
                     total_area: property.total_area || '',
@@ -341,6 +525,7 @@ export default function PropertyTab({ property }: PropertyTabProps) {
             const files = Array.from(e.currentTarget.files || [])
             setUploadingFloorPlan(true)
             files.forEach(f => handlePhotoUpload(f))
+            if (files[0]) scanFloorPlan(files[0])
             e.currentTarget.value = ''
             setUploadingFloorPlan(false)
           }}
@@ -360,13 +545,15 @@ export default function PropertyTab({ property }: PropertyTabProps) {
             e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
             const files = Array.from(e.dataTransfer.files)
             files.forEach(f => handlePhotoUpload(f))
+            if (files[0]) scanFloorPlan(files[0])
           }}
           className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-2xl text-center transition hover:border-neutral-500 hover:bg-neutral-800 cursor-pointer"
         >
           <div className="text-3xl mb-md opacity-60">📄</div>
           <p className="text-sm font-semibold text-white mb-xs">Drop floor plan here or click to upload</p>
-          <p className="text-xs text-neutral-400">PDF or JPEG • Max 10MB</p>
+          <p className="text-xs text-neutral-400">PDF or JPEG • Max 10MB • AI reads room sizes on upload</p>
           {uploadingFloorPlan && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
+          {scanningPlan && <p className="text-xs text-blue-400 mt-md">🔎 Scanning floor plan for room sizes…</p>}
         </div>
       </div>
 
@@ -474,6 +661,20 @@ export default function PropertyTab({ property }: PropertyTabProps) {
           <p className="text-sm text-neutral-400 mt-lg">No photos uploaded yet</p>
         )}
       </div>
+
+      {floorPlanResult && (
+        <FloorPlanMap
+          propertyId={property.id}
+          detected={floorPlanResult.detected}
+          notes={floorPlanResult.notes}
+          bathroomsCount={floorPlanResult.bathrooms_count}
+          ensuiteLabels={floorPlanResult.ensuite_room_labels}
+          layoutNotes={floorPlanResult.layout_notes}
+          existingNotes={property.property_notes || ''}
+          onClose={() => setFloorPlanResult(null)}
+          onApplied={(msg) => { setSuccess(msg); setFloorPlanResult(null) }}
+        />
+      )}
     </div>
   )
 }

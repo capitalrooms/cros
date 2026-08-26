@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface Request {
@@ -102,11 +103,7 @@ export default function TenantRequests() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
-        right={
-          <Link href="/tenant" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
-            Back
-          </Link>
-        }
+        right={<BackButton href="/tenant" />}
       />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">

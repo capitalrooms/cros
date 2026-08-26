@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 interface PropertyDocument {
@@ -88,7 +89,7 @@ export default function PropertyInfoPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<Link href="/tenant" className="text-sm font-bold text-white hover:text-white/80">← Home</Link>} />
+        <AppBar right={<BackButton href="/tenant" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )

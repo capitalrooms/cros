@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
@@ -58,11 +59,7 @@ export default function QuickNotifyPage() {
     return (
       <div className="min-h-screen bg-black">
         <AppBar
-          right={
-            <Link href="/admin" className="shrink-0 hover:opacity-80 text-white">
-              ← Dashboard
-            </Link>
-          }
+          right={<BackButton href="/admin" />}
         />
         <main className="mx-auto max-w-4xl px-lg py-3xl">
           <p className="text-neutral-400">Loading properties...</p>

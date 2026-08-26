@@ -1,267 +1,219 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { getCurrentUser } from '@/lib/auth'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
-import Link from 'next/link'
+import BackButton from '@/app/components/BackButton'
+import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 
 interface SafetyCheckResponse {
   id: string
-  tenancy_id: string
-  property_id: string
-  room_id: string
   check_type: 'fire_door' | 'smoke_alarm'
   request_sent_at: string
   response_received_at: string | null
   tenant_response: string | null
   issue_type: string | null
   issue_description: string | null
-  tenant_name?: string
-  property_name?: string
-  room_name?: string
+  properties?: { name: string } | null
+  rooms?: { name: string } | null
+  people?: { full_name: string } | null
 }
 
-export default function TenantSafetyChecksPage() {
+const checkTypeLabels: Record<string, string> = {
+  fire_door: '🚪 Fire Door',
+  smoke_alarm: '🔔 Smoke Alarm',
+}
+
+const responseLabels: Record<string, { label: string; color: string }> = {
+  confirmed_ok: { label: '✓ All good', color: 'bg-green-100 text-green-800' },
+  issue_reported: { label: '⚠️ Issue found', color: 'bg-red-100 text-red-800' },
+  no_response: { label: '⏳ Awaiting response', color: 'bg-yellow-100 text-yellow-800' },
+}
+
+export default function TenantSafetyChecksAdminPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [checks, setChecks] = useState<SafetyCheckResponse[]>([])
+  const supabase = createClient()
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'fire_door' | 'smoke_alarm'>('all')
-  const [responseFilter, setResponseFilter] = useState<'all' | 'pending' | 'ok' | 'issues'>('all')
+  const [checks, setChecks] = useState<SafetyCheckResponse[]>([])
+  const [tab, setTab] = useState<'fire_door' | 'smoke_alarm'>('fire_door')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'completed'>('all')
 
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || !['administrator', 'landlord', 'admin'].includes(data.assignment?.role)) {
+      if (!data || !['admin', 'administrator'].includes(data.assignment?.role)) {
         router.push('/login')
         return
       }
-      setUser(data.user)
 
-      const supabase = createClient()
-
-      // Fetch all tenant self-checks with tenant/property/room names
-      const { data: checksData } = await supabase
-        .from('tenant_self_checks')
-        .select(`
-          *,
-          tenancies (
-            tenant_id,
-            room_id
-          ),
-          properties (
-            name
-          ),
-          rooms (
-            name
-          ),
-          people (
-            name
-          )
-        `)
-        .order('request_sent_at', { ascending: false })
-
-      // Transform data
-      const transformed = (checksData || []).map((check: any) => ({
-        id: check.id,
-        tenancy_id: check.tenancy_id,
-        property_id: check.property_id,
-        room_id: check.room_id,
-        check_type: check.check_type,
-        request_sent_at: check.request_sent_at,
-        response_received_at: check.response_received_at,
-        tenant_response: check.tenant_response,
-        issue_type: check.issue_type,
-        issue_description: check.issue_description,
-        property_name: check.properties?.name,
-        room_name: check.rooms?.name,
-        tenant_name: check.people?.name,
-      }))
-
-      setChecks(transformed)
+      await loadChecks()
       setLoading(false)
     }
+
     init()
   }, [router])
 
-  const filteredChecks = checks.filter((check) => {
-    if (filter !== 'all' && check.check_type !== filter) return false
-    if (responseFilter === 'pending' && check.response_received_at) return false
-    if (responseFilter === 'ok' && check.tenant_response !== 'confirmed_ok') return false
-    if (responseFilter === 'issues' && check.tenant_response !== 'issue_reported') return false
-    return true
+  async function loadChecks() {
+    const { data: checksData } = await supabase
+      .from('tenant_self_checks')
+      .select('*, properties(name), rooms(name), people:checked_by(full_name)')
+      .order('response_received_at', { ascending: false, nullsFirst: false })
+      .order('request_sent_at', { ascending: false })
+
+    if (checksData) {
+      setChecks(checksData as any)
+    }
+  }
+
+  if (loading) return <GenericPageSkeleton />
+
+  const filtered = checks.filter((check) => {
+    const typeMatch = check.check_type === tab
+    let statusMatch = true
+
+    if (filterStatus === 'pending') statusMatch = check.response_received_at === null
+    if (filterStatus === 'completed') statusMatch = check.response_received_at !== null
+
+    return typeMatch && statusMatch
   })
 
-  const pendingCount = checks.filter((c) => !c.response_received_at).length
-  const issuesCount = checks.filter((c) => c.tenant_response === 'issue_reported').length
-
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  const stats = {
+    total: checks.filter(c => c.check_type === tab).length,
+    pending: checks.filter(c => c.check_type === tab && c.response_received_at === null).length,
+    completed: checks.filter(c => c.check_type === tab && c.response_received_at !== null).length,
+    issues: checks.filter(c => c.check_type === tab && c.tenant_response === 'issue_reported').length,
+  }
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="text-sm font-bold text-white">← Admin</Link>} />
+      <AppBar right={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-2xl">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-lg">🏠 Tenant Safety Checks</h1>
+      <main className="mx-auto max-w-6xl px-lg py-lg">
+        <div className="mb-3xl">
+          <h1 className="text-3xl font-bold text-neutral-900">Tenant Safety Checks</h1>
+          <p className="mt-sm text-neutral-600">Monitor fire door and smoke alarm safety confirmations from tenants.</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-lg flex gap-md border-b border-neutral-300">
+          {['fire_door', 'smoke_alarm'].map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t as 'fire_door' | 'smoke_alarm')}
+              className={`px-lg py-md text-sm font-semibold transition border-b-2 ${
+                tab === t
+                  ? 'border-neutral-900 text-neutral-900'
+                  : 'border-transparent text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              {checkTypeLabels[t]}
+            </button>
+          ))}
+        </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-md mb-3xl">
-          <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-md">
-            <p className="text-xs font-semibold text-neutral-600 uppercase">Pending Response</p>
-            <p className="text-2xl font-bold text-blue-600 mt-xs">{pendingCount}</p>
+        <div className="mb-lg grid grid-cols-4 gap-md">
+          <div className="rounded-lg border border-neutral-200 bg-white p-md">
+            <p className="text-xs text-neutral-600 font-semibold">Total</p>
+            <p className="text-2xl font-bold text-neutral-900 mt-sm">{stats.total}</p>
           </div>
-          <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-md">
-            <p className="text-xs font-semibold text-neutral-600 uppercase">Issues Reported</p>
-            <p className="text-2xl font-bold text-red-600 mt-xs">{issuesCount}</p>
+          <div className="rounded-lg border border-neutral-200 bg-white p-md">
+            <p className="text-xs text-neutral-600 font-semibold">Pending</p>
+            <p className="text-2xl font-bold text-yellow-600 mt-sm">{stats.pending}</p>
           </div>
-          <div className="rounded-2xl border-2 border-green-200 bg-green-50 p-md">
-            <p className="text-xs font-semibold text-neutral-600 uppercase">Total Checks</p>
-            <p className="text-2xl font-bold text-green-600 mt-xs">{checks.length}</p>
+          <div className="rounded-lg border border-neutral-200 bg-white p-md">
+            <p className="text-xs text-neutral-600 font-semibold">Responded</p>
+            <p className="text-2xl font-bold text-green-600 mt-sm">{stats.completed}</p>
           </div>
-        </div>
-
-        {/* Filters */}
-        <div className="mb-3xl space-y-md">
-          <div>
-            <label className="block text-sm font-semibold text-neutral-900 mb-sm">Check Type</label>
-            <div className="flex gap-sm">
-              {(['all', 'fire_door', 'smoke_alarm'] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setFilter(type)}
-                  className={`flex-1 rounded-lg px-md py-sm text-sm font-semibold transition-colors ${
-                    filter === type
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-neutral-300 text-neutral-900 hover:bg-neutral-50'
-                  }`}
-                >
-                  {type === 'all' ? 'All' : type === 'fire_door' ? '🚪 Fire Door' : '🔔 Smoke Alarm'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-neutral-900 mb-sm">Response Status</label>
-            <div className="flex gap-sm">
-              {(['all', 'pending', 'ok', 'issues'] as const).map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setResponseFilter(status)}
-                  className={`flex-1 rounded-lg px-md py-sm text-sm font-semibold transition-colors ${
-                    responseFilter === status
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-neutral-300 text-neutral-900 hover:bg-neutral-50'
-                  }`}
-                >
-                  {status === 'all'
-                    ? 'All'
-                    : status === 'pending'
-                      ? '⏰ Pending'
-                      : status === 'ok'
-                        ? '✅ All Good'
-                        : '⚠️ Issues'}
-                </button>
-              ))}
-            </div>
+          <div className="rounded-lg border border-neutral-200 bg-white p-md">
+            <p className="text-xs text-neutral-600 font-semibold">Issues Found</p>
+            <p className="text-2xl font-bold text-red-600 mt-sm">{stats.issues}</p>
           </div>
         </div>
 
-        {/* Results Table */}
-        <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-          {filteredChecks.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="border-b border-neutral-200 bg-neutral-50">
-                  <tr>
-                    <th className="px-md py-sm text-left font-semibold text-neutral-900">Tenant</th>
-                    <th className="px-md py-sm text-left font-semibold text-neutral-900">Property / Room</th>
-                    <th className="px-md py-sm text-left font-semibold text-neutral-900">Check Type</th>
-                    <th className="px-md py-sm text-left font-semibold text-neutral-900">Sent</th>
-                    <th className="px-md py-sm text-left font-semibold text-neutral-900">Response</th>
-                    <th className="px-md py-sm text-left font-semibold text-neutral-900">Issue</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredChecks.map((check, idx) => (
-                    <tr key={check.id} className={idx > 0 ? 'border-t border-neutral-200' : ''}>
-                      <td className="px-md py-sm text-neutral-900 font-medium">{check.tenant_name || 'Unknown'}</td>
-                      <td className="px-md py-sm text-neutral-600">
-                        {check.property_name} / {check.room_name}
-                      </td>
-                      <td className="px-md py-sm">
-                        <span className="text-sm">
-                          {check.check_type === 'fire_door' ? '🚪 Fire Door' : '🔔 Smoke Alarm'}
-                        </span>
-                      </td>
-                      <td className="px-md py-sm text-neutral-600 text-xs">
-                        {new Date(check.request_sent_at).toLocaleDateString('en-GB')}
-                      </td>
-                      <td className="px-md py-sm">
-                        {!check.response_received_at ? (
-                          <span className="text-xs font-semibold text-orange-600">⏰ Awaiting</span>
-                        ) : check.tenant_response === 'confirmed_ok' ? (
-                          <span className="text-xs font-semibold text-green-600">✅ Confirmed OK</span>
-                        ) : check.tenant_response === 'issue_reported' ? (
-                          <span className="text-xs font-semibold text-red-600">⚠️ Issue Reported</span>
-                        ) : (
-                          <span className="text-xs font-semibold text-neutral-600">No Response</span>
-                        )}
-                      </td>
-                      <td className="px-md py-sm text-neutral-600 text-xs">
-                        {check.issue_type ? (
-                          <div>
-                            <p className="font-medium">{check.issue_type}</p>
-                            {check.issue_description && (
-                              <p className="text-neutral-500 mt-xs">{check.issue_description}</p>
-                            )}
-                          </div>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-lg text-center">
-              <p className="text-neutral-600">No checks match your filters</p>
-            </div>
-          )}
+        {/* Filter */}
+        <div className="mb-lg flex gap-md">
+          {(['all', 'pending', 'completed'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilterStatus(f)}
+              className={`px-lg py-sm rounded-lg text-sm font-semibold transition ${
+                filterStatus === f
+                  ? 'bg-neutral-900 text-white'
+                  : 'border border-neutral-300 text-neutral-700 hover:border-neutral-400'
+              }`}
+            >
+              {f === 'all' ? 'All' : f === 'pending' ? 'Pending' : 'Completed'}
+            </button>
+          ))}
         </div>
 
-        {/* Action Cards for Issues */}
-        {issuesCount > 0 && (
-          <section className="mt-3xl">
-            <h2 className="text-xl font-bold text-neutral-900 mb-md">⚠️ Issues Requiring Action</h2>
-            <div className="space-y-md">
-              {checks
-                .filter((c) => c.tenant_response === 'issue_reported')
-                .map((check) => (
-                  <div key={check.id} className="rounded-2xl border-2 border-red-200 bg-red-50 p-lg">
-                    <div className="flex items-start justify-between gap-md">
-                      <div>
-                        <h3 className="font-bold text-neutral-900">
-                          {check.check_type === 'fire_door' ? '🚪' : '🔔'} {check.property_name} / {check.room_name}
-                        </h3>
-                        <p className="text-sm text-neutral-600 mt-xs">Tenant: {check.tenant_name}</p>
-                        <p className="text-sm font-semibold text-red-600 mt-sm">Issue: {check.issue_type}</p>
-                        {check.issue_description && (
-                          <p className="text-sm text-neutral-700 mt-xs italic">"{check.issue_description}"</p>
-                        )}
-                      </div>
-                      <button className="rounded-lg bg-red-600 px-md py-sm text-sm font-semibold text-white hover:bg-red-700 whitespace-nowrap">
-                        Create Job
-                      </button>
+        {/* Checks Table */}
+        {filtered.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-neutral-300 bg-white p-xl text-center">
+            <p className="text-sm text-neutral-500">No safety checks found</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-neutral-200 divide-y divide-neutral-200 bg-white overflow-hidden">
+            {filtered.map((check) => (
+              <div key={check.id} className="p-lg hover:bg-neutral-50 transition">
+                <div className="flex items-start justify-between gap-lg mb-md">
+                  <div>
+                    <div className="flex items-center gap-sm mb-sm">
+                      <p className="font-bold text-neutral-900">{check.properties?.name}</p>
+                      <span className="text-xs px-md py-xs bg-neutral-100 rounded text-neutral-700">
+                        {check.rooms?.name}
+                      </span>
                     </div>
+                    <p className="text-sm text-neutral-600">
+                      Tenant: <span className="font-semibold">{check.people?.full_name || 'Unknown'}</span>
+                    </p>
                   </div>
-                ))}
-            </div>
-          </section>
+                  <span className={`px-md py-xs rounded-full text-xs font-semibold shrink-0 ${
+                    check.response_received_at ? 
+                    (check.tenant_response === 'issue_reported' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800') :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {check.response_received_at 
+                      ? (check.tenant_response === 'issue_reported' ? '⚠️ Issue' : '✓ OK') 
+                      : '⏳ Pending'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-md text-sm">
+                  <div>
+                    <p className="text-xs text-neutral-500 font-semibold">Requested</p>
+                    <p className="mt-xs text-neutral-700">
+                      {new Date(check.request_sent_at).toLocaleDateString('en-GB')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-neutral-500 font-semibold">Responded</p>
+                    <p className="mt-xs text-neutral-700">
+                      {check.response_received_at 
+                        ? new Date(check.response_received_at).toLocaleDateString('en-GB')
+                        : '—'}
+                    </p>
+                  </div>
+                  {check.tenant_response === 'issue_reported' && (
+                    <div>
+                      <p className="text-xs text-neutral-500 font-semibold">Issue</p>
+                      <p className="mt-xs text-red-700 font-semibold">{check.issue_type}</p>
+                    </div>
+                  )}
+                </div>
+
+                {check.issue_description && (
+                  <div className="mt-md p-md bg-neutral-50 rounded">
+                    <p className="text-xs font-semibold text-neutral-600 mb-xs">Details:</p>
+                    <p className="text-sm text-neutral-700">{check.issue_description}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </main>
     </div>

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton';
 
 const MAINTENANCE_CATEGORIES = [
   { id: 'plumbing', title: 'Plumbing' },
@@ -190,11 +191,7 @@ export default function NewJobPage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar
-          right={
-            <Link href="/admin/maintenance" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
-              Back
-            </Link>
-          }
+          right={<BackButton href="/admin/maintenance" />}
         />
         <p className="p-xl text-neutral-500">Loading...</p>
       </div>

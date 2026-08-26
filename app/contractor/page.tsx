@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import RoleGreeting from '@/app/components/RoleGreeting'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import { ContractorDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
@@ -37,6 +38,7 @@ interface Job {
 export default function ContractorDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
+  const [contractorName, setContractorName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<Job[]>([])
   const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'completed'>('all')
@@ -62,6 +64,17 @@ export default function ContractorDashboard() {
       // Only jobs the admin has approved AND sent to THIS contractor. Contractors
       // don't browse a shared pool — the admin picks who does each job.
       const contractorId = (data.assignment as any).id
+
+      // Fetch contractor's full name from people table
+      const { data: personData } = await supabase
+        .from('people')
+        .select('full_name')
+        .eq('id', contractorId)
+        .single()
+
+      if (personData?.full_name) {
+        setContractorName(personData.full_name)
+      }
 
       const { data: jobsData } = await supabase
         .from('maintenance_tickets')
@@ -110,14 +123,13 @@ export default function ContractorDashboard() {
       />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
-        {/* Greeting */}
+        {/* Greeting - shared across every role dashboard */}
         {user && (
-          <div className="mb-3xl">
-            <h1 className="text-3xl font-bold text-neutral-900">
-              Hello {user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'there'} 👋
-            </h1>
-            <p className="mt-xs text-neutral-600">Ready to get some work done</p>
-          </div>
+          <RoleGreeting
+            role="Contractor Dashboard"
+            name={contractorName || user.user_metadata?.full_name || user.email?.split('@')[0]}
+            subtitle="Ready to get some work done"
+          />
         )}
 
         {/* Notifications */}
@@ -221,11 +233,13 @@ export default function ContractorDashboard() {
             <div className="flex items-center justify-between mb-md">
               <h2 className="text-xl font-bold">📅 Booked</h2>
               {booked.length > 0 && (
-                <button
-                  className="rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white hover:bg-blue-700"
-                >
-                  📢 Quick Notify
-                </button>
+                <Link href={booked[0] ? `/contractor/job/${booked[0].id}` : '#'}>
+                  <button
+                    className="rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white hover:bg-blue-700"
+                  >
+                    📢 Next Job
+                  </button>
+                </Link>
               )}
             </div>
             <div className="space-y-xl">

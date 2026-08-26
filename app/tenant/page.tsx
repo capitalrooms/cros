@@ -81,6 +81,7 @@ export default function TenantDashboard() {
   const [upcoming, setUpcoming] = useState<any[]>([])
   const [notes, setNotes] = useState<PropertyNote[]>([])
   const [compliance, setCompliance] = useState<any>(null)
+  const [messages, setMessages] = useState<any[]>([])
 
   useEffect(() => {
     async function checkAuth() {
@@ -175,7 +176,30 @@ export default function TenantDashboard() {
             }
           })
 
-        const merged = [...(up || []), ...cleanItems, ...viewingItems].sort((x, y) =>
+        // Property appointments (inspections, gas safety, landlord visits…) the
+        // admin booked and chose to notify tenants about. These belong in the
+        // tenant's "what's coming up" just like a repair or clean.
+        // NB: the live property_appointments table has no room_id column, so
+        // these are treated as property-wide (they land under "at your property").
+        const { data: apptData } = await supabase
+          .from('property_appointments')
+          .select('id, appointment_type, appointment_date, appointment_time, visitor_name, notify_tenants')
+          .eq('property_id', a.property_id)
+          .eq('notify_tenants', true)
+          .gte('appointment_date', todayISO())
+
+        const apptItems = (apptData || []).map((ap: any) => ({
+          id: `appt-${ap.id}`,
+          category: String(ap.appointment_type || 'appointment').replace(/_/g, ' '),
+          location: ap.appointment_time ? String(ap.appointment_time).slice(0, 5) : (ap.visitor_name || 'Appointment'),
+          room_id: null,
+          booked_date: ap.appointment_date,
+          booked_slot: ap.appointment_time ? String(ap.appointment_time).slice(0, 5) : null,
+          status: 'scheduled',
+          rooms: null,
+        }))
+
+        const merged = [...(up || []), ...cleanItems, ...viewingItems, ...apptItems].sort((x, y) =>
           String(x.booked_date ?? '').localeCompare(String(y.booked_date ?? ''))
         )
         setUpcoming(merged)
@@ -195,6 +219,15 @@ export default function TenantDashboard() {
         .eq('id', active.property_id)
         .maybeSingle()
       setCompliance(prop || null)
+
+      // Notifications sent to this tenant (Quick Notify, cleaner/lettings alerts).
+      // RLS scopes this to the logged-in tenant, so no filter is needed here.
+      const { data: notifs } = await supabase
+        .from('notifications')
+        .select('id, title, body, type, link, read, created_at')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      setMessages(notifs || [])
 
       setPersonId(a?.id ?? null)
       setRoomId(active.room_id ?? null)
@@ -225,6 +258,14 @@ export default function TenantDashboard() {
   async function handleSignOut() {
     await signOut()
     router.push('/login')
+  }
+
+  async function markMessagesRead() {
+    const unread = messages.filter((m) => !m.read).map((m) => m.id)
+    if (unread.length === 0) return
+    setMessages((prev) => prev.map((m) => ({ ...m, read: true })))
+    const supabase = createClient()
+    await supabase.from('notifications').update({ read: true }).in('id', unread)
   }
 
   if (loading) {
@@ -379,6 +420,47 @@ export default function TenantDashboard() {
           <EnableNotifications />
         </div>
 
+        {messages.length > 0 && (
+          <section className="mt-3xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-neutral-900">
+                Messages
+                {messages.some((m) => !m.read) && (
+                  <span className="ml-sm rounded-full bg-blue-600 px-sm py-0.5 text-xs font-bold text-white align-middle">
+                    {messages.filter((m) => !m.read).length} new
+                  </span>
+                )}
+              </h2>
+              {messages.some((m) => !m.read) && (
+                <button onClick={markMessagesRead} className="text-sm font-semibold text-neutral-500 hover:text-neutral-900">
+                  Mark all read
+                </button>
+              )}
+            </div>
+            <div className="mt-md space-y-md">
+              {messages.map((m) => (
+                <div
+                  key={m.id}
+                  className={`rounded-2xl border p-lg ${
+                    m.read ? 'border-neutral-200 bg-white' : 'border-blue-300 bg-blue-50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-md">
+                    <p className="font-bold text-neutral-900">{m.title}</p>
+                    {!m.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />}
+                  </div>
+                  {m.body && <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{m.body}</p>}
+                  <p className="mt-md text-xs text-neutral-400">
+                    {new Date(m.created_at).toLocaleDateString('en-GB', {
+                      weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="mt-3xl pt-md">
           <h2 className="text-xl font-bold text-neutral-900">What&apos;s coming up</h2>
           <div className="mt-md grid gap-md md:grid-cols-2">
@@ -391,6 +473,25 @@ export default function TenantDashboard() {
               title="At your property"
               items={atProperty}
               emptyText="Nothing booked at the property"
+            />
+          </div>
+        </section>
+
+        <section className="mt-3xl">
+          <h2 className="text-xl font-bold text-neutral-900">Meet your housemates</h2>
+          <p className="mt-xs text-sm text-neutral-500">
+            Say hello and see who else lives here.
+          </p>
+          <div className="mt-md grid gap-md sm:grid-cols-2">
+            <ActionCard
+              href="/tenant/housemates"
+              title="Meet your housemates"
+              description="See who you share the house with"
+            />
+            <ActionCard
+              href="/tenant/icebreaker"
+              title="Your profile"
+              description="A few light questions about you"
             />
           </div>
         </section>

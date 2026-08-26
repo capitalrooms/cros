@@ -6,7 +6,22 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult } from '@/app/components/DocReview'
+import PhotoReview from '@/app/components/PhotoReview'
+import PurchaseReview from '@/app/components/PurchaseReview'
+import InvoiceReview from '@/app/components/InvoiceReview'
+
+// A scanned file is treated as a marketing photo (not a document) when it's an
+// image the AI didn't recognise as any specific document type. Check the file
+// extension as well as the MIME type — drag-dropped phone photos often arrive
+// with an empty or non-image MIME type.
+function isPhoto(result: AIResult, file: File) {
+  const name = (file.name || '').toLowerCase()
+  const looksLikeImage =
+    file.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|heic|heif|bmp|tiff?)$/.test(name)
+  return looksLikeImage && (!result.doc_type || result.doc_type === 'other')
+}
 
 export default function AIUploadPage() {
   const router = useRouter()
@@ -146,7 +161,7 @@ export default function AIUploadPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar right={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -154,14 +169,14 @@ export default function AIUploadPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Dashboard</Link>} />
+      <AppBar right={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         <div className="flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">AI document upload</h1>
+            <h1 className="text-3xl font-bold text-neutral-900">AI File Upload</h1>
             <p className="mt-sm text-sm text-neutral-600">
-              Drop in certificates, tenancy agreements, evacuation plans, contact sheets, utility bills — any property document. The AI reads them, tells you what they are, and files once you confirm.
+              Drop in certificates, tenancy agreements, contact sheets, utility bills, invoices and receipts — plus property photos. The AI reads documents, tells you what they are, and files once you confirm. For photos, you&apos;ll confirm which property they belong to (and assign rooms now or later on the property&apos;s Photos tab).
             </p>
           </div>
           <Link href="/admin/inbox" className="shrink-0 rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">
@@ -213,7 +228,7 @@ export default function AIUploadPage() {
           <div className="mt-lg space-y-lg">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-neutral-700">
-                📋 {results.length} document{results.length > 1 ? 's' : ''} identified
+                📋 {results.length} file{results.length > 1 ? 's' : ''} to review
               </p>
               <button
                 onClick={() => { setResults([]); setError(''); setApplied('') }}
@@ -222,21 +237,18 @@ export default function AIUploadPage() {
                 Upload more
               </button>
             </div>
-            {results.map(({ result, file }, i) => (
-              <DocReview
-                key={i}
-                initial={result}
-                file={file}
-                properties={properties}
-                people={people}
-                tenancies={tenancies}
-                onApplied={(msg) => {
-                  setApplied(msg)
-                  setResults(prev => prev.filter((_, idx) => idx !== i))
-                }}
-                onCancel={() => setResults(prev => prev.filter((_, idx) => idx !== i))}
-              />
-            ))}
+            {results.map(({ result, file }, i) => {
+              const onApplied = (msg: string) => {
+                setApplied(msg)
+                setResults(prev => prev.filter((_, idx) => idx !== i))
+              }
+              const onCancel = () => setResults(prev => prev.filter((_, idx) => idx !== i))
+              const common = { initial: result, file, properties, onApplied, onCancel }
+              if (isPhoto(result, file)) return <PhotoReview key={i} {...common} />
+              if (result.doc_type === 'purchase_receipt') return <PurchaseReview key={i} {...common} />
+              if (result.doc_type === 'supplier_invoice') return <InvoiceReview key={i} {...common} />
+              return <DocReview key={i} {...common} people={people} tenancies={tenancies} />
+            })}
           </div>
         )}
       </main>

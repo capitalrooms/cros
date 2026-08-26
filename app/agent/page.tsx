@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import RoleGreeting from '@/app/components/RoleGreeting'
 import Link from 'next/link'
 
 interface Room {
@@ -37,6 +38,7 @@ export default function AgentDashboard() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [viewings, setViewings] = useState<Viewing[]>([])
   const [filter, setFilter] = useState<'all' | 'available' | 'on_notice'>('available')
+  const [name, setName] = useState('')
 
   useEffect(() => {
     async function checkAuth() {
@@ -46,6 +48,7 @@ export default function AgentDashboard() {
         return
       }
       setUser(data.user)
+      setName((data.assignment as any)?.full_name || data.user?.email?.split('@')[0] || '')
 
       const supabase = createClient()
 
@@ -107,13 +110,8 @@ export default function AgentDashboard() {
       />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
-        {/* Header */}
-        <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">Lettings</h1>
-          <p className="mt-sm text-sm text-neutral-600">
-            Manage availability, track viewings, and monitor marketing performance
-          </p>
-        </div>
+        {/* Greeting - shared across every role dashboard */}
+        <RoleGreeting role="Agent Dashboard" name={name} subtitle="Manage availability, track viewings, and monitor marketing." />
 
         {/* Key Stats */}
         <div className="mb-3xl grid gap-lg md:grid-cols-4">

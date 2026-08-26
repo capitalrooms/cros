@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatBooking, TIME_SLOTS, earliestBookableDate, bookingLeadTimeNote } from '@/lib/booking';
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 
 interface Ticket {
   id: string;
@@ -35,58 +36,80 @@ interface Ticket {
 /**
  * Left-to-right flow of progression — completed sits on the right so the board
  * reads as a pipeline rather than a list.
+ *
+ * Section headers are color-coded to indicate whether admin action is needed:
+ * - ACTION_NEEDED (orange/red): tenant or contractor waiting on admin decision/step
+ * - PASSIVE_TRACKING (neutral): process already in motion, nothing needed from admin right now
  */
-const PIPELINE = [
+type SectionType = 'ACTION_NEEDED' | 'PASSIVE_TRACKING';
+
+interface PipelineStage {
+  key: string;
+  title: string;
+  actionType: SectionType;
+  getHeaderClass: (itemCount: number) => string;
+  cardClass: string;
+  match: (t: Ticket) => boolean;
+}
+
+const PIPELINE: PipelineStage[] = [
   {
     key: 'awaiting',
-    title: 'Awaiting approval',
-    headerClass: 'bg-neutral-900 text-white',
-    cardClass: 'border-neutral-900 border-2',
+    title: 'New · tenant awaiting reply',
+    actionType: 'ACTION_NEEDED',
+    getHeaderClass: () => 'bg-red-600 text-white',
+    cardClass: 'border-red-500 border-2',
     match: (t: Ticket) => t.status === 'reported' && !t.approved_at && !t.on_hold,
   },
   {
     key: 'hold',
-    title: 'Held to batch',
-    headerClass: 'bg-neutral-700 text-white',
+    title: 'Batched · tenant not yet told',
+    actionType: 'PASSIVE_TRACKING',
+    getHeaderClass: () => 'bg-neutral-700 text-white',
     cardClass: 'border-dashed border-neutral-400 border-2',
     match: (t: Ticket) => t.on_hold && t.status === 'reported',
   },
   {
     key: 'raised',
-    title: 'Approved · assign a contractor',
-    headerClass: 'bg-neutral-900 text-white',
-    cardClass: 'border-neutral-900 border-2',
+    title: 'Approved · tenant told, needs contractor',
+    actionType: 'ACTION_NEEDED',
+    getHeaderClass: () => 'bg-red-600 text-white',
+    cardClass: 'border-red-500 border-2',
     match: (t: Ticket) => t.status === 'reported' && !!t.approved_at && !t.on_hold,
   },
   {
     key: 'assigned',
-    title: 'With contractor · awaiting date',
-    headerClass: 'bg-neutral-800 text-white',
-    cardClass: 'border-neutral-300',
+    title: 'Sent to contractor · tenant awaiting date',
+    actionType: 'ACTION_NEEDED',
+    getHeaderClass: () => 'bg-red-600 text-white',
+    cardClass: 'border-red-500 border-2',
     match: (t: Ticket) => t.status === 'assigned' && !t.booked_date,
   },
   {
     key: 'booked',
-    title: 'Booked in',
-    headerClass: 'bg-neutral-800 text-white',
+    title: 'Booked in · tenant has a date',
+    actionType: 'PASSIVE_TRACKING',
+    getHeaderClass: () => 'bg-neutral-800 text-white',
     cardClass: 'border-neutral-300',
     match: (t: Ticket) => t.status === 'assigned' && !!t.booked_date,
   },
   {
     key: 'progress',
-    title: 'In progress',
-    headerClass: 'bg-neutral-600 text-white',
+    title: 'In progress · tenant knows work\'s underway',
+    actionType: 'PASSIVE_TRACKING',
+    getHeaderClass: () => 'bg-neutral-600 text-white',
     cardClass: 'border-neutral-300',
     match: (t: Ticket) => t.status === 'in_progress',
   },
   {
     key: 'completed',
-    title: 'Completed',
-    headerClass: 'bg-neutral-400 text-white',
+    title: 'Completed · tenant notified',
+    actionType: 'PASSIVE_TRACKING',
+    getHeaderClass: () => 'bg-neutral-400 text-white',
     cardClass: 'border-neutral-200 opacity-70',
     match: (t: Ticket) => t.status === 'completed',
   },
-] as const;
+];
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: 'text-neutral-400',
@@ -402,8 +425,17 @@ export default function MaintenanceDashboard() {
     return { iso, d, count };
   });
 
-  // Group booked jobs by date
-  const bookedTickets = tickets.filter((t) => t.booked_date && t.status !== 'completed').sort((a, b) => a.booked_date!.localeCompare(b.booked_date!));
+  // Get the week range for display
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekStartStr = weekStart.toISOString().split('T')[0];
+  const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+  // Group booked jobs by date, filtered to the selected week only
+  const bookedTickets = tickets
+    .filter((t) => t.booked_date && t.status !== 'completed' && t.booked_date >= weekStartStr && t.booked_date <= weekEndStr)
+    .sort((a, b) => a.booked_date!.localeCompare(b.booked_date!));
+
   const byDay = bookedTickets.reduce<Record<string, Ticket[]>>((acc, t) => {
     (acc[t.booked_date!] ||= []).push(t);
     return acc;
@@ -422,11 +454,7 @@ export default function MaintenanceDashboard() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
-        right={
-          <Link href="/admin" className="min-w-0 truncate hover:opacity-80">
-            Dashboard
-          </Link>
-        }
+        right={<BackButton href="/admin" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
@@ -498,12 +526,48 @@ export default function MaintenanceDashboard() {
           <div className="grid gap-md md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             {PIPELINE.map((col) => {
               const items = filteredTickets.filter((t) => col.match(t));
+              const isActionNeeded = col.actionType === 'ACTION_NEEDED';
+              const isEmpty = items.length === 0;
+
+              // ACTION_NEEDED sections always expand; others collapse when empty
+              const shouldExpand = isActionNeeded || isEmpty === false;
+
+              // Collapsed thin row (for empty or passive-tracking sections)
+              if (!shouldExpand && isEmpty) {
+                return (
+                  <div key={col.key} className="flex items-center gap-md rounded-xl bg-neutral-200 px-md py-sm">
+                    <span className="flex-1 text-sm font-medium text-neutral-600">{col.title}</span>
+                    <span className="rounded-full bg-neutral-300 px-sm text-xs font-semibold text-neutral-700">
+                      {items.length}
+                    </span>
+                  </div>
+                );
+              }
+
+              // Collapsed thin row (for passive-tracking sections with items)
+              if (!shouldExpand && !isEmpty) {
+                return (
+                  <div key={col.key} className="flex items-center gap-md rounded-xl bg-white border border-neutral-200 px-md py-sm">
+                    <span className="flex-1 text-sm font-medium text-neutral-700">{col.title}</span>
+                    <span className="rounded-full bg-neutral-100 px-sm text-xs font-semibold text-neutral-600">
+                      {items.length}
+                    </span>
+                  </div>
+                );
+              }
+
+              // Expanded section (for ACTION_NEEDED or empty sections being displayed)
               return (
-                <div key={col.key} className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
+                <div key={col.key} className={`flex min-w-0 flex-col overflow-hidden rounded-xl border ${isActionNeeded ? 'border-orange-600' : 'border-neutral-200'} bg-neutral-50`}>
                   <div
-                    className={`flex items-center justify-between px-md py-sm ${col.headerClass}`}
+                    className={`flex items-center justify-between px-md py-sm ${col.getHeaderClass(items.length)}`}
                   >
-                    <span className="text-sm font-semibold">{col.title}</span>
+                    <div className="flex items-center gap-sm">
+                      {isActionNeeded && (
+                        <span className="text-lg">⚠️</span>
+                      )}
+                      <span className="text-sm font-semibold">{col.title}</span>
+                    </div>
                     <span className="rounded-full bg-white/20 px-sm text-xs font-semibold">
                       {items.length}
                     </span>
@@ -619,21 +683,24 @@ export default function MaintenanceDashboard() {
                               <p className="text-xs text-neutral-500">
                                 {ticket.contractor_id ? 'Contractor assigned' : 'Unassigned'}
                               </p>
-                              <input
-                                type="checkbox"
-                                checked={selectedForBatch.has(ticket.id)}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  const newSet = new Set(selectedForBatch);
-                                  if (e.target.checked) {
-                                    newSet.add(ticket.id);
-                                  } else {
-                                    newSet.delete(ticket.id);
-                                  }
-                                  setSelectedForBatch(newSet);
-                                }}
-                                className="cursor-pointer"
-                              />
+                              <label className="flex items-center gap-xs cursor-pointer" title="Select for batching">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedForBatch.has(ticket.id)}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const newSet = new Set(selectedForBatch);
+                                    if (e.target.checked) {
+                                      newSet.add(ticket.id);
+                                    } else {
+                                      newSet.delete(ticket.id);
+                                    }
+                                    setSelectedForBatch(newSet);
+                                  }}
+                                  className="cursor-pointer"
+                                />
+                                <span className="text-xs text-neutral-400">Select</span>
+                              </label>
                             </div>
                           )}
                           {col.key === 'progress' && ticket.return_needed && (

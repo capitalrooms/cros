@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import WorksTab from './WorksTab'
 
 interface Ticket {
   id: string
@@ -236,6 +237,11 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
           ))}
         </div>
       )}
+
+      {/* Completed-job history lives here at the bottom rather than a separate tab */}
+      <div className="mt-2xl border-t border-neutral-800 pt-xl">
+        <WorksTab propertyId={propertyId} />
+      </div>
     </div>
   )
 }

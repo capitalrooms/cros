@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 interface Property {
@@ -137,7 +138,7 @@ export default function BookAppointmentPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar />
+      <AppBar right={<BackButton />} />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">
         <Link
@@ -161,10 +162,10 @@ export default function BookAppointmentPage() {
           </div>
         )}
 
-        <div className="rounded-2xl bg-white shadow-lg border border-slate-200 p-lg space-y-lg">
+        <div className="rounded-2xl bg-neutral-900 border-2 border-neutral-950 p-lg space-y-lg text-white">
           {/* Property */}
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-sm">
+            <label className="block text-sm font-semibold text-white mb-sm">
               Property <span className="text-red-500">*</span>
             </label>
             <select
@@ -187,7 +188,7 @@ export default function BookAppointmentPage() {
                   setRooms([])
                 }
               }}
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Select a property...</option>
               {properties.map((p) => (
@@ -201,13 +202,13 @@ export default function BookAppointmentPage() {
           {/* Room (only for viewings) */}
           {appointmentType === 'viewing' && selectedProperty && (
             <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-sm">
+              <label className="block text-sm font-semibold text-white mb-sm">
                 Room <span className="text-amber-600">(optional)</span>
               </label>
               <select
                 value={selectedRoom}
                 onChange={(e) => setSelectedRoom(e.target.value)}
-                className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Any room / Whole property viewing</option>
                 {rooms.map((r) => (
@@ -216,7 +217,7 @@ export default function BookAppointmentPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-500 mt-xs">
+              <p className="text-xs text-white/50 mt-xs">
                 If you select a specific room, that tenant will be notified the viewing is for their room. Other tenants will be notified of a property-wide viewing.
               </p>
             </div>
@@ -224,7 +225,7 @@ export default function BookAppointmentPage() {
 
           {/* Appointment Type */}
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-sm">Type</label>
+            <label className="block text-sm font-semibold text-white mb-sm">Type</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-sm">
               {(Object.entries(APPOINTMENT_TYPES) as [AppointmentType, { label: string; icon: string }][]).map(
                 ([type, { label, icon }]) => (
@@ -233,8 +234,8 @@ export default function BookAppointmentPage() {
                     onClick={() => setAppointmentType(type)}
                     className={`px-md py-md rounded-lg border-2 transition-all ${
                       appointmentType === type
-                        ? 'border-neutral-900 bg-neutral-50 text-neutral-900 font-semibold'
-                        : 'border-neutral-200 hover:border-neutral-400'
+                        ? 'border-blue-500 bg-blue-900 text-white font-semibold'
+                        : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
                     }`}
                   >
                     <div className="text-lg">{icon}</div>
@@ -248,37 +249,37 @@ export default function BookAppointmentPage() {
           {/* Date & Time */}
           <div className="grid grid-cols-2 gap-md">
             <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-sm">
+              <label className="block text-sm font-semibold text-white mb-sm">
                 Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={appointmentDate}
                 onChange={(e) => setAppointmentDate(e.target.value)}
-                className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-sm">
+              <label className="block text-sm font-semibold text-white mb-sm">
                 Time <span className="text-red-500">*</span>
               </label>
               <input
                 type="time"
                 value={appointmentTime}
                 onChange={(e) => setAppointmentTime(e.target.value)}
-                className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Duration */}
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-sm">Duration</label>
+            <label className="block text-sm font-semibold text-white mb-sm">Duration</label>
             <select
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(parseInt(e.target.value))}
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value={15}>15 minutes</option>
               <option value={30}>30 minutes</option>
@@ -290,7 +291,7 @@ export default function BookAppointmentPage() {
 
           {/* Visitor Info */}
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-sm">
+            <label className="block text-sm font-semibold text-white mb-sm">
               Visitor Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -298,68 +299,68 @@ export default function BookAppointmentPage() {
               value={visitorName}
               onChange={(e) => setVisitorName(e.target.value)}
               placeholder="e.g., John Smith"
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-sm">Company (optional)</label>
+            <label className="block text-sm font-semibold text-white mb-sm">Company (optional)</label>
             <input
               type="text"
               value={visitorCompany}
               onChange={(e) => setVisitorCompany(e.target.value)}
               placeholder="e.g., ABC Inspections"
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-sm">Phone (optional)</label>
+            <label className="block text-sm font-semibold text-white mb-sm">Phone (optional)</label>
             <input
               type="tel"
               value={visitorPhone}
               onChange={(e) => setVisitorPhone(e.target.value)}
               placeholder="e.g., 07700 900000"
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-semibold text-slate-900 mb-sm">Notes (optional)</label>
+            <label className="block text-sm font-semibold text-white mb-sm">Notes (optional)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Any special instructions or notes..."
               rows={3}
-              className="w-full px-md py-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Notify Tenants */}
-          <label className="flex items-center gap-md cursor-pointer">
+          <label className="flex items-center gap-md cursor-pointer rounded-xl border border-blue-800 bg-blue-950/50 p-md">
             <input
               type="checkbox"
               checked={notifyTenants}
               onChange={(e) => setNotifyTenants(e.target.checked)}
               className="w-5 h-5 rounded"
             />
-            <span className="text-sm font-semibold text-slate-900">Notify tenants about this appointment</span>
+            <span className="text-sm font-semibold text-white">Notify tenants about this appointment</span>
           </label>
 
           {/* Buttons */}
-          <div className="flex gap-md pt-lg border-t border-slate-200">
+          <div className="flex gap-md pt-lg border-t border-neutral-700">
             <button
               onClick={handleBook}
               disabled={!selectedProperty || !appointmentDate || !appointmentTime || !visitorName || saving}
-              className="flex-1 py-md px-lg rounded-lg bg-neutral-900 text-white font-semibold hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-md px-lg rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? 'Booking...' : 'Create Appointment'}
             </button>
 
             <Link
               href="/admin/agency-diary"
-              className="flex-1 py-md px-lg rounded-lg bg-neutral-200 text-neutral-900 font-semibold text-center hover:bg-neutral-300 transition-colors"
+              className="flex-1 py-md px-lg rounded-xl border border-neutral-700 text-white font-semibold text-center hover:bg-neutral-800 transition-colors"
             >
               Cancel
             </Link>

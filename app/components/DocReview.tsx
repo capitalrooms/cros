@@ -28,6 +28,12 @@ export interface AIResult {
   other_document_type?: string
   // Admin override for filing destination when type doesn't have a natural home
   filing_category?: 'compliance' | 'property_info' | 'tenancy' | 'person' | 'other'
+  // Purchase / invoice extraction (purchase_receipt & supplier_invoice)
+  purchase_category?: string
+  item_name?: string
+  item_make_model?: string
+  amount?: string
+  work_description?: string
 }
 
 export const TYPE_LABELS: Record<string, string> = {
@@ -508,11 +514,23 @@ export default function DocReview({
             <select value={targetTenancy} onChange={(e) => setTargetTenancy(e.target.value)}
               className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-neutral-900 focus:outline-none">
               <option value="">Choose a tenancy…</option>
-              {tenancies.map((t: any) => (
-                <option key={t.id} value={t.id}>
-                  {t.people?.full_name || 'Tenant'} · {t.rooms?.name || ''} · {t.properties?.name || ''}
-                </option>
-              ))}
+              {tenancies.map((t: any) => {
+                // Property can arrive either directly on the tenancy
+                // (inbox query) or nested under the room (AI-upload query).
+                // Room alone is ambiguous once there's >1 property, so always
+                // show the property — falling back across both shapes.
+                const prop =
+                  t.properties?.name ||
+                  t.rooms?.properties?.name ||
+                  t.properties?.address ||
+                  ''
+                const parts = [t.people?.full_name || 'Tenant', t.rooms?.name, prop].filter(Boolean)
+                return (
+                  <option key={t.id} value={t.id}>
+                    {parts.join(' · ')}
+                  </option>
+                )
+              })}
             </select>
           </div>
         )}

@@ -108,7 +108,7 @@ export default function AgencyDiaryMap({ events }: AgencyDiaryMapProps) {
                       {event.person_name}
                     </div>
                     <div className="text-xs text-neutral-600 mt-xs">
-                      📍 {event.property.address}
+                      📍 {event.property?.address || '—'}
                     </div>
                     <div className="text-xs text-neutral-500 mt-xs">
                       ⏰ {event.time} • {event.title}

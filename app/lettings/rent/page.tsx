@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import AppBar from '@/components/AppBar';
+import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 
 interface RentRecord {
@@ -66,11 +67,7 @@ export default function RentTracking() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={
-          <Link href="/lettings" className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
-            Dashboard
-          </Link>
-        }
+        right={<BackButton href="/lettings" />}
       />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">

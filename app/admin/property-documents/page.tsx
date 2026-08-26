@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
 interface Property {
@@ -83,7 +84,7 @@ export default function PropertyDocumentsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<Link href="/admin" className="text-sm font-bold text-neutral-700">← Admin</Link>} />
+        <AppBar right={<BackButton href="/admin" />} />
         <div className="flex items-center justify-center h-96">Loading...</div>
       </div>
     )
