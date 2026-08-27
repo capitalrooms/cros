@@ -40,6 +40,7 @@ export default function AdminDashboard() {
   const [alerts, setAlerts] = useState<CertAlert[]>([])
   const [commsLive, setCommsLive] = useState<boolean | null>(null)
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false)
+  const [calendarExpanded, setCalendarExpanded] = useState(false)
 
   useEffect(() => {
     async function checkAuth() {
@@ -128,9 +129,19 @@ export default function AdminDashboard() {
 
           <EnableNotifications />
 
-          {/* 3-Day Calendar with Add Button */}
+          {/* 3-Day Calendar with Toggle */}
           <div className="flex items-center justify-between gap-lg mb-lg">
-            <h3 className="text-lg font-semibold text-neutral-900">Calendar</h3>
+            <button
+              onClick={() => setCalendarExpanded(!calendarExpanded)}
+              className="flex items-center gap-md hover:opacity-80 transition-opacity"
+            >
+              <span className="text-lg font-semibold text-neutral-900">
+                {calendarExpanded ? '📅' : '📅'} Calendar
+              </span>
+              <span className="text-xs text-neutral-600">
+                {calendarExpanded ? '▼ Hide' : '▶ Show'}
+              </span>
+            </button>
             <button
               onClick={() => setShowAddAppointmentModal(true)}
               className="rounded-lg bg-blue-600 px-lg py-md text-sm font-bold text-white hover:bg-blue-700"
@@ -138,13 +149,16 @@ export default function AdminDashboard() {
               + Add Appointment
             </button>
           </div>
-          <ThreeDayCalendar
-            appointments={[]}
-            role="admin"
-            onAppointmentClick={(appt) => {
-              router.push(`/admin/appointments`)
-            }}
-          />
+
+          {calendarExpanded && (
+            <ThreeDayCalendar
+              appointments={[]}
+              role="admin"
+              onAppointmentClick={(appt) => {
+                router.push(`/admin/appointments`)
+              }}
+            />
+          )}
 
           {/* Demo Mode Banner - Tenants NOT receiving notifications */}
           <div className="rounded-lg border-2 border-neutral-300 bg-neutral-50 p-lg">
