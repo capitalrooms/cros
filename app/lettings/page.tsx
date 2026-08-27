@@ -9,6 +9,7 @@ import RoleGreeting from '@/app/components/RoleGreeting'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import SendOfferForm from '@/components/SendOfferForm'
+import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
 
 interface AvailableRoom {
   id: string
@@ -102,6 +103,15 @@ export default function LettingsPage() {
       <main className="mx-auto max-w-6xl px-lg py-lg">
         {/* Greeting — shared across every role dashboard */}
         <RoleGreeting role="Lettings Dashboard" name={name} subtitle="Ready to let some properties!" />
+
+        {/* 3-Day Calendar */}
+        <ThreeDayCalendar
+          appointments={viewings}
+          role="lettings"
+          onAppointmentClick={(viewing) => {
+            router.push(`/lettings/viewings`)
+          }}
+        />
 
         {/* Primary action heroes — bold black cards, blue accent on the standout */}
         <div className="grid gap-md sm:grid-cols-2">

@@ -9,6 +9,7 @@ import RoleGreeting from '@/app/components/RoleGreeting'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import { ContractorDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
+import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
 import { getTodayGMT, isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 
 interface Job {
@@ -144,6 +145,15 @@ export default function ContractorDashboard() {
         <div className="mb-lg">
           <EnableNotifications />
         </div>
+
+        {/* 3-Day Calendar */}
+        <ThreeDayCalendar
+          appointments={bookedWithDate}
+          role="contractor"
+          onAppointmentClick={(job) => {
+            router.push(`/contractor/job/${job.id}`)
+          }}
+        />
 
         {/* Next Job Hero */}
         {nextJob && (

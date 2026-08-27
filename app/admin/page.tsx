@@ -11,6 +11,7 @@ import RoleGreeting from '@/app/components/RoleGreeting'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import { AdminDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import TodayAppointmentsMap from '@/app/components/TodayAppointmentsMap'
+import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
 
 // Compliance expiry dates that must never lapse.
 const CERT_CHECKS: { field: string; label: string }[] = [
@@ -124,6 +125,15 @@ export default function AdminDashboard() {
           <RoleGreeting role="Admin Dashboard" name={adminName} subtitle="Here's what's happening across your properties." />
 
           <EnableNotifications />
+
+          {/* 3-Day Calendar */}
+          <ThreeDayCalendar
+            appointments={[]}
+            role="admin"
+            onAppointmentClick={(appt) => {
+              router.push(`/admin/appointments`)
+            }}
+          />
 
           {/* Demo Mode Banner - Tenants NOT receiving notifications */}
           <div className="rounded-lg border-2 border-neutral-300 bg-neutral-50 p-lg">
