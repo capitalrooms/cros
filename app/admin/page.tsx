@@ -12,6 +12,7 @@ import EnableNotifications from '@/app/components/EnableNotifications'
 import { AdminDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import TodayAppointmentsMap from '@/app/components/TodayAppointmentsMap'
 import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
+import AdminAddAppointmentModal from '@/app/components/AdminAddAppointmentModal'
 
 // Compliance expiry dates that must never lapse.
 const CERT_CHECKS: { field: string; label: string }[] = [
@@ -38,6 +39,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [alerts, setAlerts] = useState<CertAlert[]>([])
   const [commsLive, setCommsLive] = useState<boolean | null>(null)
+  const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false)
 
   useEffect(() => {
     async function checkAuth() {
@@ -126,7 +128,16 @@ export default function AdminDashboard() {
 
           <EnableNotifications />
 
-          {/* 3-Day Calendar */}
+          {/* 3-Day Calendar with Add Button */}
+          <div className="flex items-center justify-between gap-lg mb-lg">
+            <h3 className="text-lg font-semibold text-neutral-900">Calendar</h3>
+            <button
+              onClick={() => setShowAddAppointmentModal(true)}
+              className="rounded-lg bg-blue-600 px-lg py-md text-sm font-bold text-white hover:bg-blue-700"
+            >
+              + Add Appointment
+            </button>
+          </div>
           <ThreeDayCalendar
             appointments={[]}
             role="admin"
@@ -266,6 +277,16 @@ export default function AdminDashboard() {
             </Link>
           </div>
         </div>
+
+        {/* Add Appointment Modal */}
+        <AdminAddAppointmentModal
+          isOpen={showAddAppointmentModal}
+          onClose={() => setShowAddAppointmentModal(false)}
+          onSuccess={() => {
+            // Refresh appointments if needed
+            setShowAddAppointmentModal(false)
+          }}
+        />
       </main>
     </div>
   )
