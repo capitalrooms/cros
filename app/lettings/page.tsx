@@ -106,7 +106,15 @@ export default function LettingsPage() {
 
         {/* 3-Day Calendar */}
         <ThreeDayCalendar
-          appointments={viewings}
+          appointments={(viewings || []).map((v: any) => ({
+            id: v.id,
+            title: v.visitor_name || 'Viewing',
+            property_name: v.properties?.name || v.property_name,
+            room_name: v.rooms?.name,
+            viewing_date: v.viewing_date,
+            start_time: v.viewing_slot,
+            status: v.status,
+          }))}
           role="lettings"
           onAppointmentClick={(viewing) => {
             router.push(`/lettings/viewings`)
