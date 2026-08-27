@@ -363,16 +363,12 @@ export default function CleanerDashboard() {
 
         {/* 3-Day Calendar */}
         <ThreeDayCalendar
-          appointments={cleans.map((c) => ({
+          appointments={cleans.map((c: any) => ({
             id: c.id,
-            title: c.properties?.name || 'Cleaning job',
-            property_name: c.properties?.name,
             clean_date: c.clean_date,
-            start_time: c.clean_time,
-            status: c.status,
           }))}
           role="cleaner"
-          onAppointmentClick={(clean) => {
+          onAppointmentClick={(clean: any) => {
             router.push(`/cleaner/clean/${clean.id}`)
           }}
         />

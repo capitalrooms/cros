@@ -148,17 +148,12 @@ export default function ContractorDashboard() {
 
         {/* 3-Day Calendar */}
         <ThreeDayCalendar
-          appointments={bookedWithDate.map((j) => ({
+          appointments={bookedWithDate.map((j: any) => ({
             id: j.id,
-            title: j.title || 'Maintenance job',
-            property_name: j.properties?.name,
-            room_name: j.rooms?.name,
             booked_date: j.booked_date,
-            start_time: j.booked_slot,
-            status: j.status,
           }))}
           role="contractor"
-          onAppointmentClick={(job) => {
+          onAppointmentClick={(job: any) => {
             router.push(`/contractor/job/${job.id}`)
           }}
         />

@@ -5,7 +5,7 @@ import { getTodayGMT, getDaysUntil, formatDateUK } from '@/lib/dateUtils'
 
 interface CalendarAppointment {
   id: string
-  title: string
+  title?: string
   property_name?: string
   room_name?: string
   booked_date?: string
@@ -42,7 +42,7 @@ export default function ThreeDayCalendar({
   })
 
   // Get date field based on role
-  const getDateField = (appt: CalendarAppointment): string | undefined => {
+  const getDateField = (appt: any): string | undefined => {
     if (role === 'cleaner') return appt.clean_date
     if (role === 'contractor') return appt.booked_date
     if (role === 'lettings') return appt.viewing_date
