@@ -137,19 +137,43 @@ export default function ThreeDayCalendar({
         })}
       </div>
 
-      {/* Calendar grid - simplified for now */}
-      <div className="p-4 text-center text-sm text-neutral-400">
-        <p>3-day calendar view (appointments will render here)</p>
-        <div className="mt-4 space-y-2">
-          {appointmentsByDay.map((dayAppts, idx) =>
-            dayAppts.length > 0 ? (
-              <div key={dates[idx]} className="rounded-lg bg-neutral-800 p-2">
-                <p className="font-semibold text-white">{formatDateUK(dates[idx])}</p>
-                <p className="text-xs text-neutral-300">{dayAppts.length} appointment(s)</p>
+      {/* Calendar grid - appointment display */}
+      <div className="grid grid-cols-3 gap-1 border-b border-neutral-800">
+        {dates.map((date, idx) => (
+          <div
+            key={date}
+            className={`min-h-64 border-r border-neutral-800 p-3 ${
+              idx === 2 ? 'border-r-0' : ''
+            }`}
+          >
+            {appointmentsByDay[idx].length === 0 ? (
+              <p className="text-xs text-neutral-600">No appointments</p>
+            ) : (
+              <div className="space-y-2">
+                {appointmentsByDay[idx].map((appt, apptIdx) => (
+                  <button
+                    key={`${appt.id}-${apptIdx}`}
+                    onClick={() => onAppointmentClick?.(appt)}
+                    className={`w-full rounded-lg p-2.5 text-left text-xs transition-all hover:shadow-md cursor-pointer ${getAppointmentColor(
+                      appt,
+                      date
+                    )}`}
+                  >
+                    <div className="font-semibold truncate">{appt.title || appt.property_name || 'Appointment'}</div>
+                    <div className="text-xs opacity-80 mt-0.5">
+                      {appt.start_time ? `${appt.start_time}` : '—'}
+                    </div>
+                    {appt.room_name && (
+                      <div className="text-xs opacity-70 mt-0.5 truncate">
+                        {appt.room_name}
+                      </div>
+                    )}
+                  </button>
+                ))}
               </div>
-            ) : null
-          )}
-        </div>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Navigation */}
