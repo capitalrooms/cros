@@ -9,6 +9,7 @@ import RoleGreeting from '@/app/components/RoleGreeting'
 import BackButton from '@/app/components/BackButton'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
+import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
 import { isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 
 interface ComplianceLog {
@@ -359,6 +360,15 @@ export default function CleanerDashboard() {
             {error}
           </div>
         )}
+
+        {/* 3-Day Calendar */}
+        <ThreeDayCalendar
+          appointments={cleans}
+          role="cleaner"
+          onAppointmentClick={(clean) => {
+            router.push(`/cleaner/clean/${clean.id}`)
+          }}
+        />
 
         <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg">
           <h2 className="text-xl font-bold text-white">Book a clean</h2>
