@@ -63,6 +63,9 @@ export default function CleanerDashboard() {
   const [compliancePropertyId, setCompliancePropertyId] = useState('')
   const [showQuickNotifyModal, setShowQuickNotifyModal] = useState(false)
   const [quickNotifyProperty, setQuickNotifyProperty] = useState<{ id: string; name: string } | null>(null)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    overdue: false,
+  })
 
   useEffect(() => {
     async function init() {
@@ -331,16 +334,16 @@ export default function CleanerDashboard() {
   const scheduled = scheduledCleans // Keep for backward compatibility
   const done = cleans.filter((c) => c.status === 'completed')
 
-  // State for collapsible sections
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    overdue: overdueCleans.length > 0, // Expanded by default if has items
-  })
-
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
     }))
+  }
+
+  // Initialize expandedSections with overdue status on first render
+  if (expandedSections.overdue === false && overdueCleans.length > 0) {
+    setExpandedSections({ overdue: true })
   }
 
   return (
