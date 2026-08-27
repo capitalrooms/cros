@@ -51,14 +51,17 @@ export default function ThreeDayCalendar({
 
   // Filter appointments for each day
   const appointmentsByDay = dates.map((date) => {
-    return appointments.filter((appt) => {
-      const apptDate = getDateField(appt)
-      return apptDate === date
-    })
+    return appointments
+      .filter((appt) => {
+        const apptDate = getDateField(appt)
+        return apptDate === date
+      })
+      .sort((a, b) => {
+        const timeA = a.start_time || '00:00'
+        const timeB = b.start_time || '00:00'
+        return timeA.localeCompare(timeB)
+      })
   })
-
-  // Count for each day
-  const dayCounts = appointmentsByDay.map((appts) => appts.length)
 
   // Get color based on status/priority
   const getAppointmentColor = (appt: CalendarAppointment, dateStr: string): string => {
@@ -95,6 +98,26 @@ export default function ThreeDayCalendar({
     setCurrentDate(`${year}-${month}-${day}`)
   }
 
+  // Time slots from 8am to 6pm
+  const timeSlots = Array.from({ length: 22 }, (_, i) => {
+    const hour = 8 + Math.floor(i / 2)
+    const mins = i % 2 === 0 ? '00' : '30'
+    return `${String(hour).padStart(2, '0')}:${mins}`
+  })
+
+  const getAppointmentPosition = (startTime?: string): { top: string; height: string } => {
+    if (!startTime) return { top: '0', height: '60px' }
+
+    const [hours, mins] = startTime.split(':').map(Number)
+    const totalMins = hours * 60 + mins - 8 * 60 // Offset from 8am
+    const topPercent = (totalMins / (10 * 60)) * 100 // 10 hours total
+
+    return {
+      top: `${topPercent}%`,
+      height: `${Math.max(40, (60 / 60) * 100)}px`, // Min 40px height
+    }
+  }
+
   return (
     <section className="mb-8 rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden">
       {/* Header */}
@@ -127,9 +150,9 @@ export default function ThreeDayCalendar({
             >
               <div>{dayName}</div>
               <div className="text-xs font-normal text-neutral-300">{dayNum}</div>
-              {dayCounts[idx] > 0 && (
+              {appointmentsByDay[idx].length > 0 && (
                 <div className="mt-1 inline-block rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">
-                  {dayCounts[idx]}
+                  {appointmentsByDay[idx].length}
                 </div>
               )}
             </button>
@@ -137,43 +160,81 @@ export default function ThreeDayCalendar({
         })}
       </div>
 
-      {/* Calendar grid - appointment display */}
-      <div className="grid grid-cols-3 gap-1 border-b border-neutral-800">
-        {dates.map((date, idx) => (
-          <div
-            key={date}
-            className={`min-h-64 border-r border-neutral-800 p-3 ${
-              idx === 2 ? 'border-r-0' : ''
-            }`}
-          >
-            {appointmentsByDay[idx].length === 0 ? (
-              <p className="text-xs text-neutral-600">No appointments</p>
-            ) : (
-              <div className="space-y-2">
-                {appointmentsByDay[idx].map((appt, apptIdx) => (
-                  <button
-                    key={`${appt.id}-${apptIdx}`}
-                    onClick={() => onAppointmentClick?.(appt)}
-                    className={`w-full rounded-lg p-2.5 text-left text-xs transition-all hover:shadow-md cursor-pointer ${getAppointmentColor(
-                      appt,
-                      date
-                    )}`}
+      {/* Time grid calendar */}
+      <div className="overflow-x-auto">
+        <div className="inline-block min-w-full">
+          {/* Hours header */}
+          <div className="grid grid-cols-[60px_1fr_1fr_1fr] border-b border-neutral-800">
+            <div className="px-2 py-2 text-xs font-semibold text-neutral-500">Time</div>
+            {dates.map((_, idx) => (
+              <div
+                key={idx}
+                className={`border-r border-neutral-800 px-2 py-2 text-xs font-semibold text-neutral-500 text-center ${
+                  idx === 2 ? 'border-r-0' : ''
+                }`}
+              >
+                {formatDateUK(dates[idx]).split(' ').join('\n')}
+              </div>
+            ))}
+          </div>
+
+          {/* Time slots */}
+          <div className="grid grid-cols-[60px_1fr_1fr_1fr] bg-neutral-900">
+            {timeSlots.map((time, timeIdx) => (
+              <div key={time} className="contents">
+                {/* Time label */}
+                {timeIdx % 2 === 0 && (
+                  <div className="border-r border-b border-neutral-800 px-2 py-2 text-xs text-neutral-500 font-semibold h-12">
+                    {time}
+                  </div>
+                )}
+                {timeIdx % 2 !== 0 && <div className="border-r border-b border-neutral-800 h-12"></div>}
+
+                {/* Day columns */}
+                {dates.map((date, dayIdx) => (
+                  <div
+                    key={`${date}-${time}`}
+                    className={`border-r border-b border-neutral-800 relative h-12 ${
+                      dayIdx === 2 ? 'border-r-0' : ''
+                    }`}
                   >
-                    <div className="font-semibold truncate">{appt.title || appt.property_name || 'Appointment'}</div>
-                    <div className="text-xs opacity-80 mt-0.5">
-                      {appt.start_time ? `${appt.start_time}` : '—'}
-                    </div>
-                    {appt.room_name && (
-                      <div className="text-xs opacity-70 mt-0.5 truncate">
-                        {appt.room_name}
-                      </div>
-                    )}
-                  </button>
+                    {/* Render appointments starting at this time */}
+                    {timeIdx % 2 === 0 &&
+                      appointmentsByDay[dayIdx].map((appt) => {
+                        if (appt.start_time !== time) return null
+
+                        const duration = appt.duration_minutes || 60
+                        const heightPx = Math.max(40, (duration / 30) * 24) // 24px per 30 mins
+
+                        return (
+                          <button
+                            key={appt.id}
+                            onClick={() => onAppointmentClick?.(appt)}
+                            className={`absolute inset-x-0.5 left-1 right-1 text-xs p-1 rounded cursor-pointer overflow-hidden text-left truncate hover:shadow-lg transition-shadow ${getAppointmentColor(
+                              appt,
+                              date
+                            )}`}
+                            style={{
+                              top: '2px',
+                              height: `${heightPx}px`,
+                            }}
+                            title={`${appt.title || appt.property_name || 'Appointment'} at ${appt.start_time}`}
+                          >
+                            <div className="font-semibold truncate text-xs">
+                              {appt.title || appt.property_name || 'Appt'}
+                            </div>
+                            {appt.room_name && (
+                              <div className="text-xs opacity-80 truncate">{appt.room_name}</div>
+                            )}
+                          </button>
+                        )
+                      })}
+                  </div>
                 ))}
               </div>
-            )}
+            ))}
           </div>
-        ))}
+        </div>
       </div>
 
       {/* Navigation */}
