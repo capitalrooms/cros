@@ -66,42 +66,61 @@ export default function CleanerDashboard() {
 
   useEffect(() => {
     async function init() {
-      const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'cleaner') {
-        router.push('/login')
-        return
-      }
-      setMe(data.assignment)
-      const supabase = createClient()
+      try {
+        const data = await getCurrentUser()
+        if (!data || data.assignment?.role !== 'cleaner') {
+          router.push('/login')
+          return
+        }
+        setMe(data.assignment)
+        const supabase = createClient()
 
-      // Fetch cleaner's person record by email (the correct way to get person_id)
-      const userEmail = data.user?.email
-      const { data: personData } = await supabase
-        .from('people')
-        .select('id, full_name')
-        .eq('email', userEmail)
-        .single()
+        // Fetch cleaner's person record by email (the correct way to get person_id)
+        const userEmail = data.user?.email
+        try {
+          const { data: personData } = await supabase
+            .from('people')
+            .select('id, full_name')
+            .eq('email', userEmail)
+            .single()
 
-      if (personData?.id) {
-        setPersonId(personData.id)
-        // Load cleans for this cleaner
-        await loadCleans(personData.id, cleansDisplayLimit)
-      }
-      if (personData?.full_name) {
-        setCleanerName(personData.full_name)
-      }
+          if (personData?.id) {
+            setPersonId(personData.id)
+            // Load cleans for this cleaner
+            await loadCleans(personData.id, cleansDisplayLimit)
+          }
+          if (personData?.full_name) {
+            setCleanerName(personData.full_name)
+          }
+        } catch (err) {
+          console.error('Error loading person data:', err)
+        }
 
-      const { data: props } = await supabase
-        .from('properties')
-        .select('id, name, address, clean_frequency_weeks')
-        .order('name')
-      setProperties(props || [])
-      if (props?.[0]) {
-        setPropertyId(props[0].id)
-        await loadComplianceLogs(props[0].id)
+        try {
+          const { data: props } = await supabase
+            .from('properties')
+            .select('id, name, address, clean_frequency_weeks')
+            .order('name')
+          setProperties(props || [])
+          if (props?.[0]) {
+            setPropertyId(props[0].id)
+            await loadComplianceLogs(props[0].id)
+          }
+        } catch (err) {
+          console.error('Error loading properties:', err)
+        }
+
+        try {
+          await loadAssignedJobs()
+        } catch (err) {
+          console.error('Error loading assigned jobs:', err)
+        }
+
+        setLoading(false)
+      } catch (err) {
+        console.error('Fatal error in cleaner dashboard init:', err)
+        setLoading(false)
       }
-      await loadAssignedJobs()
-      setLoading(false)
     }
     init()
   }, [router])
