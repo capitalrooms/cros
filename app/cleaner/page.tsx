@@ -361,8 +361,8 @@ export default function CleanerDashboard() {
           </div>
         )}
 
-        {/* 3-Day Calendar */}
-        <ThreeDayCalendar
+        {/* 3-Day Calendar - TEMPORARILY DISABLED FOR DEBUGGING */}
+        {/* <ThreeDayCalendar
           appointments={cleans.map((c: any) => ({
             id: c.id,
             clean_date: c.clean_date,
@@ -371,7 +371,7 @@ export default function CleanerDashboard() {
           onAppointmentClick={(clean: any) => {
             router.push(`/cleaner/clean/${clean.id}`)
           }}
-        />
+        /> */}
 
         <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg">
           <h2 className="text-xl font-bold text-white">Book a clean</h2>
