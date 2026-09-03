@@ -8,6 +8,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
+import TenantCardBody from '@/app/components/TenantCardBody';
 
 interface Property {
   id: string;
@@ -524,57 +525,24 @@ export default function TenanciesManagementPage() {
             tenancies.map((tenancy) => (
               <div key={tenancy.id} className="rounded-2xl border border-neutral-200 bg-white p-lg">
                 <div className="flex items-start justify-between gap-md">
-                  <div className="flex-1">
-                    <p className="font-semibold text-neutral-900">
-                      {tenancy.people.name || 'Unknown tenant'}
-                      {tenancy.rooms?.name ? ` • ${tenancy.rooms.name}` : ''}
-                    </p>
-                    <p className="text-sm text-neutral-600 mt-xs">
-                      {tenancy.properties?.name ?? 'Property'}
-                      {tenancy.properties?.address ? ` — ${tenancy.properties.address}` : ''}
-                    </p>
-                    <div className="flex flex-wrap gap-sm mt-md text-xs text-neutral-600">
-                      <span
-                        className={`px-sm py-xs rounded font-semibold ${
-                          tenancy.end_date ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
-                        }`}
-                      >
-                        {tenancy.end_date ? '📋 On notice' : '🏠 Active'}
-                      </span>
-                      <span className="px-sm py-xs bg-neutral-100 rounded">
-                        📅 Moved in {new Date(tenancy.start_date).toLocaleDateString('en-GB')}
-                      </span>
-                      {tenancy.end_date && (
-                        <span className="px-sm py-xs bg-amber-100 text-amber-800 rounded font-semibold">
-                          🚚 Available from {new Date(tenancy.end_date).toLocaleDateString('en-GB')}
-                        </span>
-                      )}
-                      {tenancy.rent_amount != null && (
-                        <span className="px-sm py-xs bg-neutral-100 rounded">
-                          £{tenancy.rent_amount}/month
-                        </span>
-                      )}
-                      {tenancy.communication_preference && (
-                        <span className="px-sm py-xs bg-neutral-100 rounded">
-                          {tenancy.communication_preference === 'email' ? '📧' : '💬'}{' '}
-                          {tenancy.communication_preference}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-md text-xs text-neutral-600">
-                      <p className="font-medium mb-xs">Notification preferences:</p>
-                      <p>
-                        {[
-                          tenancy.opt_in_maintenance && '🔧 Maintenance',
-                          tenancy.opt_in_viewings && '👁️ Viewings',
-                          tenancy.opt_in_appointments && '📅 Appointments',
-                          tenancy.opt_in_cleaning && '🧹 Cleaning',
-                        ]
-                          .filter(Boolean)
-                          .join(' • ')}
-                      </p>
-                    </div>
-                  </div>
+                  <TenantCardBody
+                    name={tenancy.people?.name || 'Unknown tenant'}
+                    email={tenancy.people?.email}
+                    roomName={tenancy.rooms?.name}
+                    propertyName={tenancy.properties?.name}
+                    propertyAddress={tenancy.properties?.address}
+                    rentAmount={tenancy.rent_amount}
+                    startDate={tenancy.start_date}
+                    endDate={tenancy.end_date}
+                    communicationPreference={tenancy.communication_preference}
+                    optIns={{
+                      maintenance: tenancy.opt_in_maintenance,
+                      viewings: tenancy.opt_in_viewings,
+                      appointments: tenancy.opt_in_appointments,
+                      cleaning: tenancy.opt_in_cleaning,
+                    }}
+                    showPreferences={true}
+                  />
                   <div className="flex shrink-0 flex-col items-stretch gap-sm">
                     {tenancy.end_date ? (
                       <button

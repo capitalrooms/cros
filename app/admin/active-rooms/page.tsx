@@ -8,6 +8,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
+import PropertyHeader from '@/app/components/PropertyHeader'
 
 interface Room {
   id: string
@@ -177,25 +178,17 @@ export default function AllUnitsPage() {
                   return (
                     <Fragment key={property.id}>
                       {/* Property header row */}
-                      <tr
-                        className="cursor-pointer bg-neutral-900 text-white hover:bg-neutral-800"
-                        onClick={() => router.push(`/admin/properties/${property.id}`)}
-                      >
-                        <td colSpan={5} className="px-lg py-sm">
-                          <div className="flex items-center justify-between gap-md">
-                            <div className="min-w-0">
-                              {property.property_code && (
-                                <span className="mr-sm font-mono text-xs font-bold text-neutral-400">{property.property_code}</span>
-                              )}
-                              <span className="font-bold text-white">{property.address || property.name}</span>
-                              {property.name && property.name !== property.address && (
-                                <span className="ml-sm text-xs text-neutral-400">{property.name}</span>
-                              )}
-                            </div>
-                            <span className={`shrink-0 rounded px-md py-xs text-xs font-semibold ${isHmo ? 'bg-purple-600 text-white' : 'bg-teal-600 text-white'}`}>
-                              {isHmo ? `HMO · ${property.rooms.length} room${property.rooms.length === 1 ? '' : 's'}` : 'Single let'}
-                            </span>
-                          </div>
+                      <tr className="bg-neutral-900 text-white hover:bg-neutral-800">
+                        <td colSpan={5} className="p-0">
+                          <PropertyHeader
+                            id={property.id}
+                            name={property.name}
+                            address={property.address}
+                            propertyCode={property.property_code}
+                            propertyType={property.property_type as 'hmo' | 'single_let' | undefined}
+                            roomCount={property.rooms.length}
+                            compact={true}
+                          />
                         </td>
                       </tr>
 
