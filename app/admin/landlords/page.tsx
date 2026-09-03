@@ -411,7 +411,16 @@ export default function LandlordsPage() {
                         </div>
                         <p className="text-sm text-neutral-500 mt-xs">{landlord.email}</p>
                       </div>
-                      <span className="text-neutral-400 text-lg">{isOpen ? '▲' : '▼'}</span>
+                      <div className="flex items-center gap-sm">
+                        <a
+                          href={`/admin/landlord/${landlord.id}`}
+                          onClick={e => e.stopPropagation()}
+                          className="text-xs font-semibold text-blue-600 hover:underline whitespace-nowrap"
+                        >
+                          Full profile →
+                        </a>
+                        <span className="text-neutral-400 text-lg">{isOpen ? '▲' : '▼'}</span>
+                      </div>
                     </div>
                   </button>
 

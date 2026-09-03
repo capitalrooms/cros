@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import LandlordCard, { fromOnboarding } from '@/app/components/LandlordCard'
 
 // ── Stage definitions ──────────────────────────────────────────────────────────
 
@@ -268,24 +269,23 @@ export default function OnboardingPage() {
           {/* Detail panel */}
           {selected && (
             <div className="w-96 shrink-0 bg-white rounded-2xl border border-neutral-200 p-lg sticky top-24 space-y-lg max-h-[calc(100vh-8rem)] overflow-y-auto">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-neutral-900">{selected.name}</h2>
-                  <p className="text-xs text-neutral-500 mt-xs">{selected.email}</p>
-                </div>
+              <div className="flex items-start justify-between mb-sm">
+                <span />
                 <button onClick={() => setSelected(null)} className="text-neutral-400 hover:text-neutral-700 text-xl leading-none">×</button>
               </div>
 
-              {/* Stage badge */}
-              {(() => {
-                const stage = STAGES.find(s => s.n === selected.stage)!
-                return (
-                  <div className={`inline-flex items-center gap-xs px-sm py-xs rounded-lg border text-xs font-semibold ${stageStyle(stage.type)}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${stageDot(stage.type)}`} />
-                    {stage.label}
-                  </div>
-                )
-              })()}
+              {/* Landlord identity card */}
+              <LandlordCard
+                data={fromOnboarding(selected)}
+                actions={
+                  selected.landlord_people_id ? (
+                    <a href={`/admin/landlord/${selected.landlord_people_id}`}
+                      className="text-xs font-semibold text-blue-600 hover:underline whitespace-nowrap">
+                      Full profile →
+                    </a>
+                  ) : undefined
+                }
+              />
 
               {/* AML form link */}
               <div>
