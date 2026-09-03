@@ -1,34 +1,60 @@
--- Make admin_appointments flexible for off-system / custom-address bookings
--- and add missing columns the modal UI expects.
+-- Create admin_appointments table (015 was never applied to live DB)
+-- All nullable columns — property_id optional for custom-address appointments.
 
--- 1. Make property_id nullable (needed for custom-address appointments)
-ALTER TABLE public.admin_appointments
-  ALTER COLUMN property_id DROP NOT NULL;
+CREATE TABLE IF NOT EXISTS public.admin_appointments (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id             UUID REFERENCES public.people(id) ON DELETE CASCADE,
+  property_id          UUID REFERENCES public.properties(id) ON DELETE CASCADE,
+  room_id              UUID REFERENCES public.rooms(id) ON DELETE SET NULL,
+  appointment_date     DATE NOT NULL,
+  appointment_slot     VARCHAR(50),
+  appointment_time     VARCHAR(50),
+  title                VARCHAR(255),
+  type                 VARCHAR(50),
+  appointment_type     VARCHAR(50),
+  description          TEXT,
+  notes                TEXT,
+  notification_message TEXT,
+  custom_location      TEXT,
+  notify_tenants       BOOLEAN DEFAULT true,
+  notifications_sent   BOOLEAN DEFAULT false,
+  created_at           TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at           TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
--- 2. Make admin_id nullable (modal doesn't always have the person id at insert time)
-ALTER TABLE public.admin_appointments
-  ALTER COLUMN admin_id DROP NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_admin_appointments_property ON public.admin_appointments(property_id);
+CREATE INDEX IF NOT EXISTS idx_admin_appointments_date     ON public.admin_appointments(appointment_date);
+CREATE INDEX IF NOT EXISTS idx_admin_appointments_type     ON public.admin_appointments(type);
 
--- 3. Make title nullable (we generate it from type in code)
-ALTER TABLE public.admin_appointments
-  ALTER COLUMN title DROP NOT NULL;
+ALTER TABLE public.admin_appointments ENABLE ROW LEVEL SECURITY;
 
--- 4. Add appointment_time column (the slot column is named differently)
-ALTER TABLE public.admin_appointments
-  ADD COLUMN IF NOT EXISTS appointment_time VARCHAR(50);
-
--- 5. Add notes column (separate from description)
-ALTER TABLE public.admin_appointments
-  ADD COLUMN IF NOT EXISTS notes TEXT;
-
--- 6. Add notification_message column
-ALTER TABLE public.admin_appointments
-  ADD COLUMN IF NOT EXISTS notification_message TEXT;
-
--- 7. Add custom_location column for off-system addresses
-ALTER TABLE public.admin_appointments
-  ADD COLUMN IF NOT EXISTS custom_location TEXT;
-
--- 8. Add type column alias (schema uses appointment_type; modal sends type)
-ALTER TABLE public.admin_appointments
-  ADD COLUMN IF NOT EXISTS type VARCHAR(50);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'admin_appointments' AND policyname = 'anyone_can_read_admin_appointments'
+  ) THEN
+    CREATE POLICY "anyone_can_read_admin_appointments"
+      ON public.admin_appointments FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'admin_appointments' AND policyname = 'authenticated_can_insert_admin_appointments'
+  ) THEN
+    CREATE POLICY "authenticated_can_insert_admin_appointments"
+      ON public.admin_appointments FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'admin_appointments' AND policyname = 'authenticated_can_update_admin_appointments'
+  ) THEN
+    CREATE POLICY "authenticated_can_update_admin_appointments"
+      ON public.admin_appointments FOR UPDATE USING (auth.role() = 'authenticated');
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'admin_appointments' AND policyname = 'authenticated_can_delete_admin_appointments'
+  ) THEN
+    CREATE POLICY "authenticated_can_delete_admin_appointments"
+      ON public.admin_appointments FOR DELETE USING (auth.role() = 'authenticated');
+  END IF;
+END $$;
