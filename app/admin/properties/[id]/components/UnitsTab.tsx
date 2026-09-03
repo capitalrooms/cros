@@ -44,6 +44,11 @@ interface RoomDetail extends RoomRow {
   tenancy: TenancyDetail | null
 }
 
+interface RoomPhoto {
+  id: string
+  url: string
+}
+
 interface UnitsTabProps {
   propertyId: string
   bedrooms: number
@@ -94,6 +99,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
   const supabase = createClient()
 
   const [rooms, setRooms] = useState<RoomRow[]>([])
+  const [roomPhotos, setRoomPhotos] = useState<Record<string, RoomPhoto[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -164,6 +170,21 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
       String(a.unit_code || a.name || '').localeCompare(String(b.unit_code || b.name || ''), undefined, { numeric: true })
     )
     setRooms(enriched)
+
+    // Fetch room-tagged photos in one batch
+    const roomIds = enriched.map(r => r.id)
+    if (roomIds.length > 0) {
+      const { data: photosData } = await supabase
+        .from('property_photos')
+        .select('id, url, room_id')
+        .in('room_id', roomIds)
+      const byRoom: Record<string, RoomPhoto[]> = {}
+      for (const p of (photosData || []) as any[]) {
+        if (p.room_id) (byRoom[p.room_id] ||= []).push({ id: p.id, url: p.url })
+      }
+      setRoomPhotos(byRoom)
+    }
+
     setLoading(false)
   }
 
@@ -310,8 +331,24 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
                       className="border-t border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors"
                     >
                       <td className="px-lg py-md">
-                        <p className="font-semibold text-neutral-900">{room.unit_code || room.name}</p>
-                        {room.unit_code && <p className="text-xs text-neutral-400">{room.name}</p>}
+                        <div className="flex items-center gap-sm">
+                          {/* Room photo thumbnail */}
+                          {roomPhotos[room.id]?.[0] ? (
+                            <img
+                              src={roomPhotos[room.id][0].url}
+                              alt=""
+                              className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-neutral-100"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-md bg-neutral-100 flex items-center justify-center flex-shrink-0 text-neutral-300 text-xs">
+                              🖼
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-neutral-900">{room.unit_code || room.name}</p>
+                            {room.unit_code && <p className="text-xs text-neutral-400">{room.name}</p>}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-lg py-md hidden md:table-cell text-neutral-500 text-xs">{room.room_type || '—'}</td>
                       <td className="px-lg py-md">
@@ -460,6 +497,30 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
                       <p className="text-sm text-neutral-500">{selectedRoom.description}</p>
                     )}
                   </div>
+                </div>
+
+                {/* Room photos */}
+                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                  <div className="px-xl py-lg border-b border-neutral-100">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Room photos</p>
+                  </div>
+                  {roomPhotos[selectedRoom.id]?.length > 0 ? (
+                    <div className="p-xl grid grid-cols-2 gap-sm">
+                      {roomPhotos[selectedRoom.id].map(photo => (
+                        <img
+                          key={photo.id}
+                          src={photo.url}
+                          alt=""
+                          className="w-full aspect-video object-cover rounded-lg bg-neutral-100"
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-xl py-xl text-center">
+                      <p className="text-sm text-neutral-400">No photos yet</p>
+                      <p className="text-xs text-neutral-400 mt-xs">Tag photos to this room in the Photos tab</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Quick links to room page sections */}
