@@ -72,6 +72,7 @@ export default function LandlordDashboard() {
   interface LineItem { id: string; description: string; amount: number; statement_date: string; category: string; category_type: string; room_id?: string | null; room_label?: string | null; ai_confidence?: number; admin_confirmed: boolean }
   const [lineItems, setLineItems] = useState<LineItem[]>([])
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [expandedExpSubcat, setExpandedExpSubcat] = useState<string | null>(null)
 
   useEffect(() => {
     async function checkAuth() {
@@ -747,41 +748,65 @@ export default function LandlordDashboard() {
           return (
             <div className="mt-3xl space-y-3xl">
 
-              {/* ── 1. Expenses ── */}
+              {/* ── 1. Expenses — single outer accordion, sub-categories inside ── */}
               {expenseItems.length > 0 && (
                 <div>
                   <div className="flex items-baseline justify-between mb-md">
                     <h2 className="text-xl font-bold text-neutral-900">Expenses</h2>
                     <span className="text-sm text-neutral-500">Total: {gbpFmt(expenseTotal)}</span>
                   </div>
-                  <div className="space-y-xs">
-                    {expSortedKeys.map(key => {
-                      const group = expGroups[key]
-                      const isOpen = expandedCategory === key
-                      const label = key === UNMATCHED_SLUG ? 'Other / Not Matched' : categoryLabel(key)
-                      const emoji = key === UNMATCHED_SLUG ? '📦' : categoryEmoji(key)
-                      return (
-                        <div key={key} className="rounded-2xl overflow-hidden border border-neutral-200 bg-white">
-                          <button
-                            className="flex items-center justify-between w-full px-lg py-md text-left"
-                            onClick={() => setExpandedCategory(isOpen ? null : key)}
-                          >
-                            <div className="flex items-center gap-sm">
-                              <span className="text-lg">{emoji}</span>
-                              <div>
-                                <p className="text-sm font-semibold text-neutral-900">{label}</p>
-                                <p className="text-xs text-neutral-400">{group.items.length} item{group.items.length !== 1 ? 's' : ''}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-md">
-                              <span className="text-sm font-bold text-neutral-900">{gbpFmt(group.total)}</span>
-                              <span className="text-neutral-400 text-sm">{isOpen ? '▲' : '▼'}</span>
-                            </div>
-                          </button>
-                          {isOpen && renderItemList(group.items)}
+                  <div className="rounded-2xl overflow-hidden border border-neutral-200 bg-white">
+                    {/* Outer row */}
+                    <button
+                      className="flex items-center justify-between w-full px-lg py-md text-left"
+                      onClick={() => setExpandedCategory(expandedCategory === '__all_expenses' ? null : '__all_expenses')}
+                    >
+                      <div className="flex items-center gap-sm">
+                        <span className="text-lg">📦</span>
+                        <div>
+                          <p className="text-sm font-semibold text-neutral-900">All Expenses</p>
+                          <p className="text-xs text-neutral-400">
+                            {expenseItems.length} item{expenseItems.length !== 1 ? 's' : ''} · {expSortedKeys.length} categor{expSortedKeys.length !== 1 ? 'ies' : 'y'}
+                          </p>
                         </div>
-                      )
-                    })}
+                      </div>
+                      <div className="flex items-center gap-md">
+                        <span className="text-sm font-bold text-neutral-900">{gbpFmt(expenseTotal)}</span>
+                        <span className="text-neutral-400 text-sm">{expandedCategory === '__all_expenses' ? '▲' : '▼'}</span>
+                      </div>
+                    </button>
+                    {/* Sub-categories */}
+                    {expandedCategory === '__all_expenses' && (
+                      <div className="border-t border-neutral-100 divide-y divide-neutral-50">
+                        {expSortedKeys.map(key => {
+                          const group = expGroups[key]
+                          const isOpen = expandedExpSubcat === key
+                          const label = key === UNMATCHED_SLUG ? 'Other / Not Matched' : categoryLabel(key)
+                          const emoji = key === UNMATCHED_SLUG ? '📦' : categoryEmoji(key)
+                          return (
+                            <div key={key}>
+                              <button
+                                className="flex items-center justify-between w-full px-lg py-sm text-left hover:bg-neutral-50 transition-colors"
+                                onClick={() => setExpandedExpSubcat(isOpen ? null : key)}
+                              >
+                                <div className="flex items-center gap-sm">
+                                  <span className="text-base leading-none">{emoji}</span>
+                                  <div>
+                                    <p className="text-sm text-neutral-800">{label}</p>
+                                    <p className="text-xs text-neutral-400">{group.items.length} item{group.items.length !== 1 ? 's' : ''}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-md">
+                                  <span className="text-sm font-semibold text-neutral-700">{gbpFmt(group.total)}</span>
+                                  <span className="text-neutral-400 text-xs">{isOpen ? '▲' : '▼'}</span>
+                                </div>
+                              </button>
+                              {isOpen && renderItemList(group.items)}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

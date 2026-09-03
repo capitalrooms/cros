@@ -80,6 +80,7 @@ export default function FinancialsTab({ propertyId }: FinancialsTabProps) {
   const [lineItemsByStatement, setLineItemsByStatement] = useState<Record<string, LineItem[]>>({})
   const [expanded, setExpanded] = useState<string | null>(null)         // expanded statement id
   const [expandedCat, setExpandedCat] = useState<string | null>(null)   // expanded category key within a statement
+  const [expandedExpKey, setExpandedExpKey] = useState<string | null>(null) // expanded expense sub-cat
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -289,24 +290,47 @@ export default function FinancialsTab({ propertyId }: FinancialsTabProps) {
               </AccordionSection>
             )}
 
-            {/* Expenses by category */}
-            {expKeys.map(key => {
-              const grp = expGroups[key]
-              const label = key === '__other' ? 'Other Expenses' : (key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
-              const emoji = key === 'repairs' ? '🔧' : key === 'cleaning' ? '🧹' : key === 'insurance' ? '🛡️' : key === 'utilities' ? '💡' : '📦'
-              return (
-                <AccordionSection
-                  key={key}
-                  id={`${stmt.id}__exp__${key}`}
-                  emoji={emoji}
-                  title={label}
-                  itemCount={grp.items.length}
-                  total={grp.total}
-                >
-                  {renderItemList(grp.items)}
-                </AccordionSection>
-              )
-            })}
+            {/* Expenses — single outer accordion; sub-categories expand inside */}
+            {expenseItems.length > 0 && (
+              <AccordionSection
+                id={`${stmt.id}__all_expenses`}
+                emoji="📦"
+                title="Expenses"
+                itemCount={expenseItems.length}
+                total={expenseItems.reduce((s, i) => s + num(i.amount), 0)}
+              >
+                <div className="divide-y divide-neutral-100">
+                  {expKeys.map(key => {
+                    const grp = expGroups[key]
+                    const label = key === '__other' ? 'Other Expenses' : key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                    const emoji = key === 'repairs' ? '🔧' : key === 'cleaning' ? '🧹' : key === 'insurance' ? '🛡️' : key === 'utilities' ? '💡' : '📦'
+                    const subKey = `${stmt.id}__sub__${key}`
+                    const isSubOpen = expandedExpKey === subKey
+                    return (
+                      <div key={key}>
+                        <button
+                          className="flex items-center justify-between w-full px-lg py-sm text-left hover:bg-neutral-50 transition-colors bg-white"
+                          onClick={() => setExpandedExpKey(isSubOpen ? null : subKey)}
+                        >
+                          <div className="flex items-center gap-sm">
+                            <span className="text-base leading-none">{emoji}</span>
+                            <div>
+                              <p className="text-sm text-neutral-800">{label}</p>
+                              <p className="text-xs text-neutral-400">{grp.items.length} item{grp.items.length !== 1 ? 's' : ''}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-md">
+                            <span className="text-sm font-semibold text-neutral-700 tabular-nums">{gbp(grp.total)}</span>
+                            <span className="text-neutral-400 text-xs">{isSubOpen ? '▲' : '▼'}</span>
+                          </div>
+                        </button>
+                        {isSubOpen && renderItemList(grp.items)}
+                      </div>
+                    )
+                  })}
+                </div>
+              </AccordionSection>
+            )}
           </div>
         )}
 
