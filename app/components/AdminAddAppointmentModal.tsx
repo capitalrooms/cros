@@ -208,27 +208,28 @@ export default function AdminAddAppointmentModal({
 
   if (step === 'type') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-        <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-lg">
-          <h2 className="text-xl font-bold text-neutral-900 mb-lg">Select Appointment Type</h2>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-lg">
+        <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-neutral-950 p-xl">
+          <h2 className="text-xl font-bold text-white mb-xs">Select Appointment Type</h2>
+          <p className="text-sm text-neutral-400 mb-xl">Choose the type of visit to schedule</p>
 
-          <div className="grid grid-cols-2 gap-md">
+          <div className="grid grid-cols-2 gap-sm">
             {APPOINTMENT_TYPES.map((type) => (
               <button
                 key={type.id}
                 onClick={() => handleTypeSelect(type.id)}
-                className="rounded-lg border-2 border-neutral-200 bg-white p-lg text-left hover:border-blue-500 hover:bg-blue-50 transition-all"
+                className="rounded-xl border border-neutral-800 bg-neutral-900 p-lg text-left hover:border-neutral-600 hover:bg-neutral-800 transition-all group"
               >
-                <div className="text-2xl mb-md">{type.icon}</div>
-                <div className="font-semibold text-neutral-900">{type.label}</div>
+                <div className="text-2xl mb-sm">{type.icon}</div>
+                <div className="font-semibold text-white text-sm">{type.label}</div>
               </button>
             ))}
           </div>
 
-          <div className="flex gap-sm mt-lg pt-lg border-t">
+          <div className="mt-xl pt-lg border-t border-neutral-800">
             <button
               onClick={onClose}
-              className="flex-1 rounded-lg border border-neutral-300 py-sm font-semibold"
+              className="w-full rounded-xl border border-neutral-700 py-sm text-sm font-semibold text-neutral-400 hover:text-white hover:border-neutral-500 transition"
             >
               Cancel
             </button>
