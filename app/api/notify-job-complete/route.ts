@@ -1,10 +1,10 @@
 import { createClient } from '@/lib/supabase';
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
+  if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
   try {

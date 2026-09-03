@@ -30,6 +30,8 @@ export default function AIUploadPage() {
   const [people, setPeople] = useState<any[]>([])
   const [tenancies, setTenancies] = useState<any[]>([])
 
+  const [recentFiles, setRecentFiles] = useState<any[]>([])
+
   const [busy, setBusy] = useState(false)
   const [busyLabel, setBusyLabel] = useState('')
   const [error, setError] = useState('')
@@ -47,14 +49,44 @@ export default function AIUploadPage() {
       }
       const supabase = createClient()
       const { data: props } = await supabase.from('properties').select('id, name, address').order('name')
-      const { data: ppl } = await supabase.from('people').select('id, full_name, email').eq('role', 'tenant').order('full_name')
+      const { data: ppl } = await supabase.from('people').select('id, full_name, first_name, last_name, email').eq('role', 'tenant').order('full_name')
       const { data: tens } = await supabase
         .from('tenancies')
-        .select('id, start_date, end_date, people(full_name), rooms(id, name, property_id, properties(id, name))')
+        .select('id, start_date, end_date, people(full_name, first_name, last_name), rooms(id, name, property_id, properties(id, name))')
         .order('start_date', { ascending: false })
       setProperties(props || [])
       setPeople(ppl || [])
       setTenancies((tens as any) || [])
+
+      // Recent uploads — pull from all three filing destinations
+      const [{ data: docs }, { data: photos }, { data: purch }] = await Promise.all([
+        supabase
+          .from('property_documents')
+          .select('id, file_name, document_type, uploaded_at, properties(name)')
+          .order('uploaded_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('property_photos')
+          .select('id, file_name, file_url, created_at, properties(name)')
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('purchases')
+          .select('id, name, category, created_at, properties(name)')
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ])
+
+      const combined = [
+        ...(docs || []).map((d: any) => ({ kind: 'doc', label: d.file_name, sub: d.document_type?.replace(/_/g, ' '), property: d.properties?.name, date: d.uploaded_at })),
+        ...(photos || []).map((p: any) => ({ kind: 'photo', label: p.file_name || 'Photo', sub: 'room photo', property: p.properties?.name, date: p.created_at })),
+        ...(purch || []).map((p: any) => ({ kind: 'purchase', label: p.name || 'Purchase', sub: p.category, property: p.properties?.name, date: p.created_at })),
+      ]
+        .filter(f => f.date)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 20)
+
+      setRecentFiles(combined)
       setLoading(false)
     }
     init()
@@ -161,7 +193,7 @@ export default function AIUploadPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton />} />
+        <AppBar left={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -169,7 +201,7 @@ export default function AIUploadPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         <div className="flex items-start justify-between gap-md">
@@ -249,6 +281,30 @@ export default function AIUploadPage() {
               if (result.doc_type === 'supplier_invoice') return <InvoiceReview key={i} {...common} />
               return <DocReview key={i} {...common} people={people} tenancies={tenancies} />
             })}
+          </div>
+        )}
+        {/* ── Recently filed ─────────────────────────────────────────── */}
+        {recentFiles.length > 0 && results.length === 0 && (
+          <div className="mt-2xl">
+            <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-md">Recently filed</p>
+            <div className="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100">
+              {recentFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-md px-lg py-sm">
+                  <span className="text-lg shrink-0">
+                    {f.kind === 'photo' ? '📷' : f.kind === 'purchase' ? '🧾' : '📄'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-neutral-900 truncate">{f.label}</p>
+                    <p className="text-xs text-neutral-400 truncate">
+                      {[f.sub, f.property].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <p className="text-xs text-neutral-400 shrink-0 tabular-nums">
+                    {new Date(f.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </main>

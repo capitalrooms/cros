@@ -103,7 +103,7 @@ export default function TenantRequests() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
-        right={<BackButton href="/tenant" />}
+        left={<BackButton href="/tenant" />}
       />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">

@@ -145,7 +145,7 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={<BackButton href="/admin/maintenance" />}
+        left={<BackButton href="/admin/maintenance" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">

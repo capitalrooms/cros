@@ -8,12 +8,15 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import EditPersonModal from '../components/EditPersonModal'
+import { displayName, nameFields } from '@/lib/people'
 
 type Tab = 'tenants' | 'staff' | 'landlords' | 'administrators'
 
 interface Person {
   id: string
   email: string
+  first_name?: string
+  last_name?: string
   full_name?: string
   name?: string
   role: string
@@ -32,6 +35,8 @@ interface Property {
 interface Landlord {
   id: string
   email: string
+  first_name?: string
+  last_name?: string
   full_name?: string
   name?: string
   created_at: string
@@ -76,7 +81,7 @@ export default function PeopleManagement() {
 
   // Add Person form
   const [showAddPerson, setShowAddPerson] = useState(false)
-  const [formData, setFormData] = useState({ email: '', role: 'tenant', property_id: '', name: '', full_name: '' })
+  const [formData, setFormData] = useState({ email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', last_name: '' })
 
   // Edit Person modal
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
@@ -85,7 +90,7 @@ export default function PeopleManagement() {
   // Landlords tab state
   const [landlords, setLandlords] = useState<Landlord[]>([])
   const [showAddLandlord, setShowAddLandlord] = useState(false)
-  const [landlordForm, setLandlordForm] = useState({ email: '', name: '', selectedProperties: [] as string[] })
+  const [landlordForm, setLandlordForm] = useState({ email: '', salutation: '', first_name: '', last_name: '', selectedProperties: [] as string[] })
   const [landlordSuccessMessage, setLandlordSuccessMessage] = useState('')
   const [statements, setStatements] = useState<Statement[]>([])
 
@@ -157,7 +162,7 @@ export default function PeopleManagement() {
       // Load landlords
       const { data: landlordData } = await supabase
         .from('people')
-        .select('id, email, name, full_name, created_at')
+        .select('id, email, full_name, first_name, last_name, created_at')
         .eq('role', 'landlord')
         .order('created_at', { ascending: false })
 
@@ -195,8 +200,8 @@ export default function PeopleManagement() {
       const { error: err } = await supabase.from('people').insert([
         {
           email: formData.email,
-          full_name: formData.full_name || formData.name || null,
-          name: formData.name || null,
+          ...nameFields(formData.first_name, formData.last_name),
+          salutation: formData.salutation || null,
           role: formData.role,
           property_id: formData.property_id || null,
         },
@@ -205,7 +210,7 @@ export default function PeopleManagement() {
       if (err) throw err
 
       setSuccess(`User ${formData.email} added successfully`)
-      setFormData({ email: '', role: 'tenant', property_id: '', name: '', full_name: '' })
+      setFormData({ email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', last_name: '' })
       setShowAddPerson(false)
 
       // Refresh
@@ -236,13 +241,8 @@ export default function PeopleManagement() {
   // ==========================================================================
 
   async function handleAddLandlord() {
-    if (!landlordForm.email || !landlordForm.name) {
-      setError('Please fill in email and name')
-      return
-    }
-
-    if (landlordForm.selectedProperties.length === 0) {
-      setError('Please select at least one property')
+    if (!landlordForm.email || !landlordForm.first_name) {
+      setError('Please fill in email and first name')
       return
     }
 
@@ -251,8 +251,8 @@ export default function PeopleManagement() {
         .from('people')
         .insert({
           email: landlordForm.email,
-          full_name: landlordForm.name,
-          name: landlordForm.name,
+          ...nameFields(landlordForm.first_name, landlordForm.last_name),
+          salutation: landlordForm.salutation || null,
           role: 'landlord',
         })
         .select()
@@ -260,22 +260,22 @@ export default function PeopleManagement() {
 
       if (error) throw error
 
-      // Assign properties
+      // Link selected properties via properties.landlord_id FK
       for (const propertyId of landlordForm.selectedProperties) {
-        await supabase.from('landlord_properties').insert({
-          landlord_id: landlord.id,
-          property_id: propertyId,
-        })
+        await supabase
+          .from('properties')
+          .update({ landlord_id: landlord.id })
+          .eq('id', propertyId)
       }
 
       setLandlordSuccessMessage(`✓ Landlord added! Email: ${landlordForm.email}`)
-      setLandlordForm({ email: '', name: '', selectedProperties: [] })
+      setLandlordForm({ email: '', salutation: '', first_name: '', last_name: '', selectedProperties: [] })
       setShowAddLandlord(false)
 
       // Refresh landlords
       const { data: landlordData } = await supabase
         .from('people')
-        .select('id, email, name, full_name, created_at')
+        .select('id, email, full_name, first_name, last_name, created_at')
         .eq('role', 'landlord')
         .order('created_at', { ascending: false })
 
@@ -298,7 +298,7 @@ export default function PeopleManagement() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton />} />
+        <AppBar left={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -309,7 +309,7 @@ export default function PeopleManagement() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="mb-2xl">
@@ -368,7 +368,7 @@ export default function PeopleManagement() {
               <h2 className="text-xl font-bold text-neutral-900">Tenants by property</h2>
               <button
                 onClick={() => {
-                  setFormData({ email: '', role: 'tenant', property_id: '', name: '', full_name: '' })
+                  setFormData({ email: '', role: 'tenant', property_id: '', first_name: '', last_name: '' })
                   setShowAddPerson(true)
                 }}
                 className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
@@ -381,27 +381,48 @@ export default function PeopleManagement() {
               <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
                 <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Tenant</h3>
                 <form onSubmit={handleAddPerson} className="space-y-md">
-                  <div className="grid grid-cols-2 gap-md">
+                  <div className="grid grid-cols-[100px_1fr_1fr] gap-md">
                     <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
-                        placeholder="tenant@example.com"
-                      />
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Salutation</label>
+                      <select
+                        value={formData.salutation}
+                        onChange={(e) => setFormData({ ...formData, salutation: e.target.value })}
+                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm bg-white"
+                      >
+                        <option value="">—</option>
+                        {['Mr','Mrs','Ms','Miss','Dr','Prof','Rev','Mx'].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Full Name</label>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">First Name</label>
                       <input
                         type="text"
-                        value={formData.full_name}
-                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                        value={formData.first_name}
+                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                         className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
-                        placeholder="Jane Doe"
+                        placeholder="Jane"
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Last Name</label>
+                      <input
+                        type="text"
+                        value={formData.last_name}
+                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
+                        placeholder="Doe"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
+                      placeholder="tenant@example.com"
+                    />
                   </div>
                   <div className="flex gap-md">
                     <button
@@ -442,15 +463,24 @@ export default function PeopleManagement() {
                           <div key={room.id}>
                             <div className="px-lg py-md bg-neutral-50 text-xs font-semibold text-neutral-700">{room.name}</div>
                             {room.tenants.map((tenant) => (
-                              <div key={tenant.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
+                              <div key={tenant.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50 cursor-pointer"
+                                onClick={() => router.push(`/admin/tenant/${tenant.id}`)}>
                                 <div className="min-w-0">
-                                  <p className="text-sm font-medium text-neutral-900">{tenant.full_name || tenant.email}</p>
-                                  <p className="text-xs text-neutral-500">{tenant.full_name ? tenant.email : ''}</p>
+                                  <p className="text-sm font-medium text-neutral-900">{displayName(tenant) || tenant.email}</p>
+                                  <p className="text-xs text-neutral-500">{(tenant.first_name || tenant.full_name) ? tenant.email : ''}</p>
                                 </div>
-                                <div className="flex shrink-0 items-center gap-md">
+                                <div className="flex shrink-0 items-center gap-sm">
                                   <NotifyBadge on={notifyOn.has(tenant.id)} />
+                                  <Link
+                                    href={`/tenant?as=${tenant.id}`}
+                                    onClick={e => e.stopPropagation()}
+                                    title="View tenant dashboard as this person"
+                                    className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors"
+                                  >
+                                    👁
+                                  </Link>
                                   <button
-                                    onClick={() => handleDeletePerson(tenant.id)}
+                                    onClick={(e) => { e.stopPropagation(); handleDeletePerson(tenant.id) }}
                                     className="text-xs text-red-600 hover:text-red-700"
                                   >
                                     Delete
@@ -476,7 +506,7 @@ export default function PeopleManagement() {
               <h2 className="text-xl font-bold text-neutral-900">Contractors & Cleaners</h2>
               <button
                 onClick={() => {
-                  setFormData({ email: '', role: 'contractor', property_id: '', name: '', full_name: '' })
+                  setFormData({ email: '', role: 'contractor', property_id: '', salutation: '', first_name: '', last_name: '' })
                   setShowAddPerson(true)
                 }}
                 className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
@@ -489,6 +519,27 @@ export default function PeopleManagement() {
               <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
                 <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Staff Member</h3>
                 <form onSubmit={handleAddPerson} className="space-y-md">
+                  <div className="grid grid-cols-[100px_1fr_1fr] gap-md">
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Salutation</label>
+                      <select
+                        value={formData.salutation}
+                        onChange={(e) => setFormData({ ...formData, salutation: e.target.value })}
+                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm bg-white"
+                      >
+                        <option value="">—</option>
+                        {['Mr','Mrs','Ms','Miss','Dr','Prof','Rev','Mx'].map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">First Name</label>
+                      <input type="text" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} className="w-full rounded border border-neutral-300 px-md py-sm text-sm" placeholder="Jane" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Last Name</label>
+                      <input type="text" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} className="w-full rounded border border-neutral-300 px-md py-sm text-sm" placeholder="Doe" />
+                    </div>
+                  </div>
                   <div className="grid grid-cols-2 gap-md">
                     <div>
                       <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
@@ -537,31 +588,33 @@ export default function PeopleManagement() {
             ) : (
               <div className="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-200">
                 {staffPeople.map((person) => (
-                  <button
+                  <div
                     key={person.id}
-                    onClick={() => {
-                      setSelectedPerson(person)
-                      setIsEditModalOpen(true)
-                    }}
-                    className="w-full flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50 transition text-left"
+                    onClick={() => router.push(`/admin/person/${person.id}`)}
+                    className="w-full flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50 transition cursor-pointer"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-neutral-900">{person.full_name || person.email}</p>
+                      <p className="text-sm font-medium text-neutral-900">{displayName(person) || person.email}</p>
                       <p className="text-xs text-neutral-500 mt-xs">{person.role === 'contractor' ? '👷 Contractor' : '🧹 Cleaner'}</p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-md">
+                    <div className="flex shrink-0 items-center gap-sm">
                       <NotifyBadge on={notifyOn.has(person.id)} />
+                      <Link
+                        href={person.role === 'contractor' ? `/contractor?as=${person.id}` : `/admin/view-as/${person.id}`}
+                        onClick={e => e.stopPropagation()}
+                        title={`View ${person.role} dashboard as this person`}
+                        className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors"
+                      >
+                        👁
+                      </Link>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeletePerson(person.id)
-                        }}
+                        onClick={(e) => { e.stopPropagation(); handleDeletePerson(person.id) }}
                         className="text-xs text-red-600 hover:text-red-700"
                       >
                         Delete
                       </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -591,14 +644,35 @@ export default function PeopleManagement() {
             {showAddLandlord && (
               <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg">
                 <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Landlord</h3>
-                <div className="grid gap-md md:grid-cols-2 mb-md">
+                <div className="grid gap-md md:grid-cols-4 mb-md">
                   <div>
-                    <label className="block text-xs font-semibold text-neutral-700 mb-xs">Name</label>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-xs">Salutation</label>
+                    <select
+                      value={landlordForm.salutation}
+                      onChange={(e) => setLandlordForm({ ...landlordForm, salutation: e.target.value })}
+                      className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm bg-white"
+                    >
+                      <option value="">—</option>
+                      {['Mr','Mrs','Ms','Miss','Dr','Prof','Rev','Mx'].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-xs">First Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. John Smith"
-                      value={landlordForm.name}
-                      onChange={(e) => setLandlordForm({ ...landlordForm, name: e.target.value })}
+                      placeholder="John"
+                      value={landlordForm.first_name}
+                      onChange={(e) => setLandlordForm({ ...landlordForm, first_name: e.target.value })}
+                      className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-xs">Last Name</label>
+                    <input
+                      type="text"
+                      placeholder="Smith"
+                      value={landlordForm.last_name}
+                      onChange={(e) => setLandlordForm({ ...landlordForm, last_name: e.target.value })}
                       className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
                     />
                   </div>
@@ -664,18 +738,30 @@ export default function PeopleManagement() {
             ) : (
               <div className="space-y-md">
                 {landlords.map((landlord) => (
-                  <div key={landlord.id} className="rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-300 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-neutral-900">{landlord.full_name || landlord.name || landlord.email}</h3>
+                  <div key={landlord.id}
+                    onClick={() => router.push(`/admin/person/${landlord.id}`)}
+                    className="rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-400 transition-colors cursor-pointer">
+                    <div className="flex items-start justify-between gap-md">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-bold text-neutral-900">{displayName(landlord) || landlord.email}</h3>
                         <p className="text-sm text-neutral-600">{landlord.email}</p>
-                        <p className="text-xs text-neutral-500 mt-sm">
+                        <p className="text-xs text-neutral-500 mt-xs">
                           Added {new Date(landlord.created_at).toLocaleDateString()}
                         </p>
                       </div>
-                      <span className="text-sm font-semibold text-neutral-700 bg-neutral-100 px-md py-xs rounded-full">
-                        Landlord
-                      </span>
+                      <div className="flex shrink-0 items-center gap-sm">
+                        <Link
+                          href={`/landlord?as=${landlord.id}`}
+                          onClick={e => e.stopPropagation()}
+                          title="View landlord dashboard as this person"
+                          className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors"
+                        >
+                          👁
+                        </Link>
+                        <span className="text-xs font-semibold text-neutral-700 bg-neutral-100 px-md py-xs rounded-full">
+                          Landlord
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -730,7 +816,7 @@ export default function PeopleManagement() {
               <h2 className="text-xl font-bold text-neutral-900">Administrators</h2>
               <button
                 onClick={() => {
-                  setFormData({ email: '', role: 'administrator', property_id: '', name: '', full_name: '' })
+                  setFormData({ email: '', role: 'administrator', property_id: '', salutation: '', first_name: '', last_name: '' })
                   setShowAddPerson(true)
                 }}
                 className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
@@ -780,7 +866,7 @@ export default function PeopleManagement() {
                 {adminPeople.map((person) => (
                   <div key={person.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-neutral-900">{person.full_name || person.email}</p>
+                      <p className="text-sm font-medium text-neutral-900">{displayName(person) || person.email}</p>
                       <p className="text-xs text-neutral-500">Administrator</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-md">

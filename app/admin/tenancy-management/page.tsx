@@ -1,4 +1,5 @@
 'use client'
+import { displayName } from '@/lib/people'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -21,7 +22,7 @@ interface Tenancy {
   status: 'active' | 'on_notice'
   person?: {
     id: string
-    full_name: string
+    name: string
     email: string
     phone: string
   }
@@ -38,7 +39,7 @@ interface Tenancy {
 
 interface Cleaner {
   id: string
-  full_name: string
+  name: string
   email?: string
   phone?: string
 }
@@ -73,7 +74,7 @@ export default function TenancyManagementPage() {
     // Fetch tenancies
     const { data: tenanciesData } = await supabase
       .from('tenancies')
-      .select('*, people(id, full_name, email, phone), rooms(id, name), properties(id, name, address)')
+      .select('*, people(id, full_name, first_name, last_name, email, phone), rooms(id, name), properties(id, name, address)')
       .order('start_date', { ascending: false })
 
     const active = (tenanciesData || []).filter((t: any) => t.status === 'active')
@@ -85,7 +86,7 @@ export default function TenancyManagementPage() {
     // Fetch cleaners
     const { data: cleanersData } = await supabase
       .from('people')
-      .select('id, full_name, email, phone')
+      .select('id, full_name, first_name, last_name, email, phone')
       .eq('role', 'cleaner')
       .order('full_name')
 
@@ -113,12 +114,12 @@ export default function TenancyManagementPage() {
           newAskingRent: noticeData.newAskingRent,
           emailTenant: noticeData.emailTenant,
           tenantEmail: selectedTenancy.person?.email,
-          tenantName: selectedTenancy.person?.full_name,
+          tenantName: displayName(selectedTenancy.person),
           checkoutEmailHtml: noticeData.checkoutEmailHtml,
           emailCleaner: noticeData.emailCleaner,
           cleanerId: noticeData.cleanerId,
           cleanerEmail: cleaners.find((c) => c.id === noticeData.cleanerId)?.email,
-          cleanerName: cleaners.find((c) => c.id === noticeData.cleanerId)?.full_name,
+          cleanerName: cleaners.find((c) => c.id === noticeData.cleanerId).name,
           notesForLettings: noticeData.notesForLettings,
           roomName: selectedTenancy.room?.name,
           propertyAddress: selectedTenancy.property?.address,
@@ -167,7 +168,7 @@ export default function TenancyManagementPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="mb-2xl">
@@ -203,7 +204,7 @@ export default function TenancyManagementPage() {
                 <div key={tenancy.id} className="rounded-lg border border-neutral-200 bg-white p-md">
                   <div className="flex items-start justify-between gap-md">
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-neutral-900">{tenancy.person?.full_name}</p>
+                      <p className="font-bold text-neutral-900">{displayName(tenancy.person)}</p>
                       <p className="text-sm text-neutral-600">
                         {tenancy.room?.name}, {tenancy.property?.name}
                       </p>
@@ -257,7 +258,7 @@ export default function TenancyManagementPage() {
                   >
                     <div className="flex items-start justify-between gap-md">
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-neutral-900">{tenancy.person?.full_name}</p>
+                        <p className="font-bold text-neutral-900">{displayName(tenancy.person)}</p>
                         <p className="text-sm text-neutral-600">
                           {tenancy.room?.name}, {tenancy.property?.name}
                         </p>

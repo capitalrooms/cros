@@ -89,7 +89,7 @@ export default function PropertyComplianceDashboard() {
           `
           room_id,
           person_id,
-          tenant:person_id(name:full_name),
+          tenant:person_id(name),
           room:room_id(name, property_id)
         `
         )

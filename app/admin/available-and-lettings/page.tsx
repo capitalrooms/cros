@@ -6,46 +6,11 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
-import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import SendOfferForm from '@/components/SendOfferForm'
-
-
-interface Property {
-  id: string
-  name: string
-  address: string
-}
-
-interface Room {
-  id: string
-  name: string
-  property_id: string
-  status: 'occupied' | 'available' | 'on_notice'
-}
-
-interface Tenancy {
-  id: string
-  person_id: string
-  room_id: string
-  start_date: string
-  end_date: string | null
-  status: 'active' | 'on_notice' | 'available'
-  rent_amount: number
-  communication_preference: 'email' | 'text'
-  opt_in_maintenance: boolean
-  opt_in_viewings: boolean
-  opt_in_appointments: boolean
-  opt_in_cleaning: boolean
-  person?: {
-    id: string
-    full_name: string
-    email: string
-    phone: string
-  }
-  room?: Room
-  property?: Property
-}
+import Link from 'next/link'
+import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
+import RoomDetailTags from '@/app/components/RoomDetailTags'
 
 interface AvailableRoom {
   id: string
@@ -57,25 +22,23 @@ interface AvailableRoom {
   available_date: string | null
   marketing_status: string
   days_on_market: number | null
-}
-
-interface TenantPerson {
-  full_name: string
-  email: string
-  phone: string
+  status: 'available' | 'on_notice'
+  // let-only extras
+  is_let_only?: boolean
+  let_only_listing_id?: string
+  has_ensuite?: boolean | null
+  has_shared_bathroom?: boolean | null
+  has_lounge?: boolean | null
 }
 
 export default function LettingsPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Shared state
   const [loading, setLoading] = useState(true)
-  const [properties, setProperties] = useState<Property[]>([])
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [tenancies, setTenancies] = useState<Tenancy[]>([])
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([])
-
+  const [showAddLetOnly, setShowAddLetOnly] = useState(false)
+  const [personId, setPersonId] = useState<string | undefined>()
 
   useEffect(() => {
     async function init() {
@@ -85,43 +48,43 @@ export default function LettingsPage() {
         return
       }
 
+      // Resolve person id for created_by
+      if (data.user?.email) {
+        const { data: person } = await supabase
+          .from('people')
+          .select('id')
+          .eq('email', data.user.email)
+          .maybeSingle()
+        setPersonId(person?.id)
+      }
+
       await loadData()
     }
     init()
   }, [router])
 
   async function loadData() {
-    // Fetch properties
-    const { data: propsData } = await supabase.from('properties').select('id, name, address').order('name')
-
-    // Fetch rooms
-    const { data: roomsData } = await supabase.from('rooms').select('id, name, property_id, status').order('name')
-
-    // Fetch tenancies
-    const { data: tenanciesData } = await supabase
-      .from('tenancies')
-      .select('*, people(id, full_name, email, phone), rooms(id, name, property_id, status), properties(id, name, address)')
-      .order('start_date', { ascending: false })
-
-    // Fetch available rooms
+    // Managed available rooms
     const { data: availableData } = await supabase
       .from('rooms')
-      .select('id, name, property_id, current_asking_rent, available_date, marketing_status, days_on_market, properties(name, address)')
+      .select('id, name, property_id, current_asking_rent, available_date, marketing_status, days_on_market, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address)')
       .eq('status', 'available')
       .order('available_date', { ascending: true })
 
-    // Fetch on-notice tenancies with their rooms
+    // On-notice tenancies
     const { data: onNoticeData } = await supabase
       .from('tenancies')
-      .select('id, end_date, rooms(id, name, property_id, current_asking_rent, properties(name, address))')
+      .select('id, end_date, rooms(id, name, property_id, current_asking_rent, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address))')
       .eq('status', 'on_notice')
       .order('end_date', { ascending: true })
 
-    setProperties(propsData || [])
-    setRooms(roomsData || [])
-    setTenancies((tenanciesData as any) || [])
+    // Let-only rooms (active listings only)
+    const { data: letOnlyData } = await supabase
+      .from('let_only_rooms')
+      .select('id, room_name, monthly_rent, available_date, has_ensuite, has_shared_bathroom, has_lounge, let_only_listings(id, address, postcode, is_active)')
+      .eq('status', 'available')
+      .order('available_date', { ascending: true })
 
-    // Transform available rooms
     const availableTransformed = (availableData || []).map((room: any) => ({
       id: room.id,
       name: room.name,
@@ -133,37 +96,62 @@ export default function LettingsPage() {
       marketing_status: room.marketing_status,
       days_on_market: room.days_on_market,
       status: 'available' as const,
+      has_ensuite: room.has_ensuite,
+      has_shared_bathroom: room.has_shared_bathroom,
+      has_lounge: room.has_lounge,
     }))
 
-    // Transform on-notice rooms
     const onNoticeTransformed = (onNoticeData || [])
-      .filter((tenancy: any) => tenancy.rooms && tenancy.rooms.length > 0)
-      .map((tenancy: any) => ({
-        id: tenancy.rooms.id,
-        name: tenancy.rooms.name,
-        property_id: tenancy.rooms.property_id,
-        property_name: tenancy.rooms.properties?.name || 'Unknown',
-        property_address: tenancy.rooms.properties?.address || '',
-        current_asking_rent: tenancy.rooms.current_asking_rent,
-        available_date: tenancy.end_date,
-        marketing_status: 'on_notice' as const,
+      .filter((t: any) => t.rooms)
+      .map((t: any) => ({
+        id: t.rooms.id,
+        name: t.rooms.name,
+        property_id: t.rooms.property_id,
+        property_name: t.rooms.properties?.name || 'Unknown',
+        property_address: t.rooms.properties?.address || '',
+        current_asking_rent: t.rooms.current_asking_rent,
+        available_date: t.end_date,
+        marketing_status: 'on_notice',
         days_on_market: null,
         status: 'on_notice' as const,
+        has_ensuite: t.rooms.has_ensuite,
+        has_shared_bathroom: t.rooms.has_shared_bathroom,
+        has_lounge: t.rooms.has_lounge,
       }))
 
-    // Combine and deduplicate
+    const letOnlyTransformed = (letOnlyData || [])
+      .filter((r: any) => r.let_only_listings?.is_active)
+      .map((r: any) => {
+        const listing = r.let_only_listings
+        const addr = listing.postcode ? `${listing.address}, ${listing.postcode}` : listing.address
+        return {
+          id: r.id,
+          name: r.room_name,
+          property_id: listing.id,
+          property_name: listing.address,
+          property_address: addr,
+          current_asking_rent: r.monthly_rent,
+          available_date: r.available_date,
+          marketing_status: 'available',
+          days_on_market: null,
+          status: 'available' as const,
+          is_let_only: true,
+          let_only_listing_id: listing.id,
+          has_ensuite: r.has_ensuite,
+          has_shared_bathroom: r.has_shared_bathroom,
+          has_lounge: r.has_lounge,
+        }
+      })
+
     const combined = [...availableTransformed, ...onNoticeTransformed]
-    const deduplicated = combined.filter((item, index, self) =>
-      index === self.findIndex(t => t.id === item.id)
-    )
+    const deduped = combined.filter((item, idx, arr) => idx === arr.findIndex(t => t.id === item.id))
 
-    setAvailableRooms(deduplicated)
-
+    setAvailableRooms([...deduped, ...letOnlyTransformed])
     setLoading(false)
   }
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-'
+    if (!dateString) return '—'
     return new Date(dateString).toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
@@ -175,61 +163,109 @@ export default function LettingsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="mb-2xl">
           <h1 className="text-3xl font-bold text-neutral-900">🚪 Available Rooms</h1>
-          <p className="mt-sm text-sm text-neutral-600 mb-lg">Send offers and manage available properties</p>
+          <p className="mt-sm text-sm text-neutral-600">Send offers and manage available properties</p>
         </div>
 
         <div>
-            <h2 className="text-xl font-bold text-neutral-900 mb-lg">Available Rooms</h2>
+          {/* Section header + add button */}
+          <div className="flex items-center justify-between mb-lg">
+            <h2 className="text-xl font-bold text-neutral-900">Available Rooms</h2>
+            <button
+              onClick={() => setShowAddLetOnly(true)}
+              className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 transition-colors"
+            >
+              + Add let-only room
+            </button>
+          </div>
 
-            {availableRooms.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-                <p className="text-sm text-neutral-500">No available rooms</p>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-neutral-200 bg-neutral-50">
-                      <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Property & Room</th>
-                      <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Available Date</th>
-                      <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Rent (£pcm)</th>
-                      <th className="px-lg py-md text-center text-sm font-semibold text-neutral-900">Days on Market</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {availableRooms.map((room, idx) => (
-                      <tr key={room.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-neutral-50'}>
-                        <td className="px-lg py-md text-sm text-neutral-900">
-                          <div className="flex items-center gap-md">
-                            <div>
-                              <p className="font-medium">{room.name}</p>
-                              <p className="text-xs text-neutral-600">{room.property_address}</p>
-                            </div>
+          {availableRooms.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
+              <p className="text-sm text-neutral-500">No available rooms</p>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-neutral-200 bg-neutral-50">
+                    <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Property &amp; Room</th>
+                    <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Features</th>
+                    <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Available</th>
+                    <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Rent (£pcm)</th>
+                    <th className="px-lg py-md text-center text-sm font-semibold text-neutral-900">Days on market</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availableRooms.map((room, idx) => {
+                    const href = room.is_let_only
+                      ? `/admin/let-only/${room.let_only_listing_id}`
+                      : `/admin/properties/${room.property_id}`
+                    return (
+                    <tr
+                      key={room.id}
+                      onClick={() => router.push(href)}
+                      className={`border-b border-neutral-100 last:border-0 cursor-pointer transition-colors ${
+                        room.is_let_only
+                          ? 'bg-neutral-50 hover:bg-purple-50'
+                          : idx % 2 === 0
+                          ? 'bg-white hover:bg-blue-50'
+                          : 'bg-neutral-50 hover:bg-blue-50'
+                      }`}
+                    >
+                      <td className="px-lg py-md text-sm text-neutral-900">
+                        <div className="flex items-start gap-md">
+                          <div>
+                            <p className="font-medium">{room.name}</p>
+                            <p className="text-xs text-neutral-500">
+                              {room.property_address || room.property_name}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-xs">
                             {room.status === 'on_notice' && (
                               <span className="inline-block px-sm py-xs text-xs font-semibold bg-amber-100 text-amber-800 rounded">
                                 📋 On Notice
                               </span>
                             )}
+                            {room.is_let_only && (
+                              <span className="inline-block px-sm py-xs text-xs font-semibold bg-purple-100 text-purple-700 rounded">
+                                🔑 Let-only
+                              </span>
+                            )}
                           </div>
-                        </td>
-                        <td className="px-lg py-md text-sm text-neutral-600">{formatDate(room.available_date)}</td>
-                        <td className="px-lg py-md text-sm font-medium text-neutral-900">
-                          £{room.current_asking_rent?.toLocaleString() || '-'}
-                        </td>
-                        <td className="px-lg py-md text-sm text-center text-neutral-600">
-                          {room.days_on_market || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                        </div>
+                      </td>
+                      <td className="px-lg py-md text-sm">
+                        <RoomDetailTags
+                          has_ensuite={room.has_ensuite}
+                          has_shared_bathroom={room.has_shared_bathroom}
+                          has_lounge={room.has_lounge}
+                        />
+                      </td>
+                      <td className="px-lg py-md text-sm text-neutral-600">{formatDate(room.available_date)}</td>
+                      <td className="px-lg py-md text-sm font-medium text-neutral-900">
+                        £{room.current_asking_rent?.toLocaleString() || '—'}
+                      </td>
+                      <td className="px-lg py-md text-sm text-center text-neutral-600">
+                        {room.days_on_market ?? '—'}
+                      </td>
+                    </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Legend */}
+          {availableRooms.some(r => r.is_let_only) && (
+            <p className="mt-sm text-xs text-neutral-400">
+              🔑 Let-only rooms are landlord-marketed — Capital Rooms runs viewings only, not full management.
+            </p>
+          )}
         </div>
 
         {/* Send Offer Form */}
@@ -237,6 +273,18 @@ export default function LettingsPage() {
           <SendOfferForm />
         </div>
       </main>
+
+      {showAddLetOnly && (
+        <AddLetOnlyModal
+          createdByPersonId={personId}
+          onClose={() => setShowAddLetOnly(false)}
+          onSave={async () => {
+            setShowAddLetOnly(false)
+            setLoading(true)
+            await loadData()
+          }}
+        />
+      )}
     </div>
   )
 }

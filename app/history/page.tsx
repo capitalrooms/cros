@@ -112,7 +112,7 @@ export default function HistoryPage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar
-          right={<BackButton href={homeHref} />}
+          left={<BackButton href={homeHref} />}
         />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>

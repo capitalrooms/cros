@@ -13,6 +13,7 @@ import { AdminDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import TodayAppointmentsMap from '@/app/components/TodayAppointmentsMap'
 import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
 import AdminAddAppointmentModal from '@/app/components/AdminAddAppointmentModal'
+import AdminNotificationBell from '@/app/components/AdminNotificationBell'
 
 // Compliance expiry dates that must never lapse.
 const CERT_CHECKS: { field: string; label: string }[] = [
@@ -59,7 +60,7 @@ export default function AdminDashboard() {
         }
 
         setUser(data.user)
-        setAdminName((data.assignment as any)?.full_name || data.user?.email?.split('@')[0] || '')
+        setAdminName((data.assignment as any).name || data.user?.email?.split('@')[0] || '')
 
         // Is tenant/applicant messaging live? Drives the safe-mode banner.
         fetch('/api/comms-status').then((r) => r.json()).then((d) => setCommsLive(!!d.live)).catch(() => {})
@@ -113,12 +114,15 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
         right={
-          <button
-            onClick={handleSignOut}
-            className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
-          >
-            <span>👋</span> Sign out
-          </button>
+          <div className="flex items-center gap-md">
+            <AdminNotificationBell />
+            <button
+              onClick={handleSignOut}
+              className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
+            >
+              <span>👋</span> Sign out
+            </button>
+          </div>
         }
       />
 
@@ -197,14 +201,15 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Dashboard Tiles */}
+          {/* Dashboard Tiles — alphabetical order */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
-            {/* Quick Notify */}
-            <Link href="/admin/notify" className="group">
+
+            {/* Agency Accounts */}
+            <Link href="/admin/accounts" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">📢</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Quick Notify</h3>
-                <p className="text-xs text-neutral-600">Send messages to properties & people instantly</p>
+                <div className="text-2xl mb-md">🏦</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Agency Accounts</h3>
+                <p className="text-xs text-neutral-600">Rent ledger, landlord remittance, fee income, and arrears</p>
               </div>
             </Link>
 
@@ -220,36 +225,72 @@ export default function AdminDashboard() {
             {/* All Units */}
             <Link href="/admin/active-rooms" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">📋</div>
+                <div className="text-2xl mb-md">🏠</div>
                 <h3 className="text-sm font-semibold text-neutral-900 mb-xs">All Units</h3>
-                <p className="text-xs text-neutral-600">View & manage all rooms</p>
+                <p className="text-xs text-neutral-600">View & manage all rooms across every property</p>
               </div>
             </Link>
 
-            {/* Property Info */}
-            <Link href="/admin/properties" className="group">
+            {/* AutoLedger */}
+            <Link href="/admin/autoledger" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🏢</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Property Info</h3>
-                <p className="text-xs text-neutral-600">Details, floor plans, compliance</p>
+                <div className="text-2xl mb-md">⚡</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">AutoLedger</h3>
+                <p className="text-xs text-neutral-600">BCC statements@ to auto-import expenses from email</p>
               </div>
             </Link>
 
-            {/* Maintenance */}
-            <Link href="/admin/maintenance" className="group">
+            {/* Communications */}
+            <Link href="/admin/communications" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🔧</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Maintenance</h3>
-                <p className="text-xs text-neutral-600">All maintenance tickets</p>
+                <div className="text-2xl mb-md">💬</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Communications</h3>
+                <p className="text-xs text-neutral-600">Every message, filterable by type & property</p>
               </div>
             </Link>
 
-            {/* People */}
-            <Link href="/admin/people" className="group">
+            {/* Compliance Logs */}
+            <Link href="/admin/compliance-logs" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">👥</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">People</h3>
-                <p className="text-xs text-neutral-600">Tenants, staff, contractors, landlords</p>
+                <div className="text-2xl mb-md">✅</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Compliance Logs</h3>
+                <p className="text-xs text-neutral-600">Fire door & smoke alarm checks</p>
+              </div>
+            </Link>
+
+            {/* Expense Review */}
+            <Link href="/admin/expense-review" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">🏷️</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Expense Review</h3>
+                <p className="text-xs text-neutral-600">Categorise unmatched landlord expense lines</p>
+              </div>
+            </Link>
+
+            {/* Fee Income */}
+            <Link href="/admin/income" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">💰</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Fee Income</h3>
+                <p className="text-xs text-neutral-600">Monthly management fee dashboard with YoY comparison</p>
+              </div>
+            </Link>
+
+            {/* Import Statements */}
+            <Link href="/admin/statements/import" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">📥</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Import Statements</h3>
+                <p className="text-xs text-neutral-600">Bulk import historical statements from accounting software</p>
+              </div>
+            </Link>
+
+            {/* Invite to Apply */}
+            <Link href="/admin/invite-to-apply" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">📨</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Invite to Apply</h3>
+                <p className="text-xs text-neutral-600">Send an application link by email or SMS after a viewing</p>
               </div>
             </Link>
 
@@ -262,22 +303,57 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
-            {/* Communications Hub — central, view-only, filterable feed of every
-                message across the platform (built 26 Aug). */}
-            <Link href="/admin/communications" className="group">
+            {/* Maintenance */}
+            <Link href="/admin/maintenance" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">💬</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Communications</h3>
-                <p className="text-xs text-neutral-600">Every message, filterable by type & property</p>
+                <div className="text-2xl mb-md">🔧</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Maintenance</h3>
+                <p className="text-xs text-neutral-600">All maintenance tickets</p>
               </div>
             </Link>
 
-            {/* Compliance Logs */}
-            <Link href="/admin/compliance-logs" className="group">
+            {/* New Business */}
+            <Link href="/admin/new-business" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">📋</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Compliance Logs</h3>
-                <p className="text-xs text-neutral-600">Fire door & smoke alarm checks</p>
+                <div className="text-2xl mb-md">🏗</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">New Business</h3>
+                <p className="text-xs text-neutral-600">Acquisition emails, valuations, and landlord onboarding</p>
+              </div>
+            </Link>
+
+            {/* People */}
+            <Link href="/admin/people" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">👥</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">People</h3>
+                <p className="text-xs text-neutral-600">Tenants, staff, contractors, landlords</p>
+              </div>
+            </Link>
+
+            {/* Property Info */}
+            <Link href="/admin/properties" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">🏢</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Property Info</h3>
+                <p className="text-xs text-neutral-600">Details, floor plans, compliance</p>
+              </div>
+            </Link>
+
+            {/* Quick Notify */}
+            <Link href="/admin/notify" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">📢</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Quick Notify</h3>
+                <p className="text-xs text-neutral-600">Send messages to properties & people instantly</p>
+              </div>
+            </Link>
+
+            {/* Suspected Activity Reports */}
+            <Link href="/admin/sar" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">🔐</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Suspected Activity Reports</h3>
+                <p className="text-xs text-neutral-600">Internal SAR log — MLR 2017 / POCA 2002</p>
               </div>
             </Link>
 
@@ -289,6 +365,7 @@ export default function AdminDashboard() {
                 <p className="text-xs text-neutral-600">Monitor fire door & smoke alarm confirmations</p>
               </div>
             </Link>
+
           </div>
         </div>
 

@@ -14,7 +14,7 @@ import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModa
 
 interface Tenant {
   id: string;
-  full_name: string | null;
+  name: string | null;
   email: string;
 }
 
@@ -26,7 +26,7 @@ interface TenancyRecord {
   rent_amount: number | null;
   deposit_amount: number | null;
   lease_reference: string | null;
-  people: { full_name: string | null; email: string } | null;
+  people: { full_name?: string | null; first_name?: string | null; last_name?: string | null; name?: string | null; email: string } | null;
 }
 
 interface Room {
@@ -122,7 +122,7 @@ export default function PropertiesManagementPage() {
   // Room whose "+ Add Tenancy" form is open
   const [addTenancyRoomId, setAddTenancyRoomId] = useState<string | null>(null);
   const [newTenancy, setNewTenancy] = useState({
-    full_name: '', email: '', start_date: '', end_date: '',
+    name: '', email: '', start_date: '', end_date: '',
     rent_amount: '', deposit_amount: '', lease_reference: '',
   });
   const [tenancySaving, setTenancySaving] = useState(false);
@@ -179,11 +179,12 @@ export default function PropertiesManagementPage() {
     }
 
     // Fetch all rooms with tenant info
-    const { data: roomsData } = await supabase
+    const { data: roomsData, error: roomsErr } = await supabase
       .from('rooms')
       .select(
-        'id,name,internal_name,property_id,status,current_asking_rent,previous_rent,tenancies(person_id,end_date,people(id,full_name,email))'
+        'id,name,internal_name,property_id,status,current_asking_rent,previous_rent,tenancies(person_id,end_date,people!person_id(id,full_name,first_name,last_name,email))'
       );
+    if (roomsErr) console.error('rooms query error:', roomsErr);
 
     // Build rooms with tenant info
     const today = new Date().toISOString().split('T')[0];
@@ -213,6 +214,11 @@ export default function PropertiesManagementPage() {
       rooms: roomsWithTenants.filter((r: any) => r.property_id === prop.id),
     }));
 
+    // Natural numeric sort: "1 St Georges" < "4 Willis" < "8 Clement" < "13 Redstart" < "315 Eden"
+    propsWithRooms.sort((a: any, b: any) =>
+      (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
+    );
+
     setProperties(propsWithRooms);
     setLoading(false);
   }
@@ -238,11 +244,12 @@ export default function PropertiesManagementPage() {
     if (!rooms || rooms.length === 0) return;
     const roomIds = rooms.map((r: any) => r.id);
 
-    const { data } = await supabase
+    const { data, error: tenErr } = await supabase
       .from('tenancies')
-      .select('id, person_id, room_id, start_date, end_date, rent_amount, deposit_amount, lease_reference, people(full_name, email)')
+      .select('id, person_id, room_id, start_date, end_date, rent_amount, deposit_amount, lease_reference, people!person_id(full_name, first_name, last_name, email)')
       .in('room_id', roomIds)
       .order('start_date', { ascending: false });
+    if (tenErr) console.error('tenancies query error:', tenErr);
 
     // Group by room_id
     const grouped: Record<string, TenancyRecord[]> = {};
@@ -273,17 +280,17 @@ export default function PropertiesManagementPage() {
       if (existing) {
         personId = existing.id;
         // Update name if provided and blank
-        if (newTenancy.full_name) {
+        if (newTenancy.name) {
           await supabase
             .from('people')
-            .update({ full_name: newTenancy.full_name, room_id: roomId, property_id: propertyId })
+            .update({ name: newTenancy.name, room_id: roomId, property_id: propertyId })
             .eq('id', personId);
         }
       } else {
         const { data: created, error: peErr } = await supabase
           .from('people')
           .insert({
-            full_name: newTenancy.full_name || null,
+            name: newTenancy.name || null,
             email: newTenancy.email.trim().toLowerCase(),
             role: 'tenant',
             room_id: roomId,
@@ -320,7 +327,7 @@ export default function PropertiesManagementPage() {
       await loadRoomTenancies(propertyId);
       await loadProperties();
       setAddTenancyRoomId(null);
-      setNewTenancy({ full_name: '', email: '', start_date: '', end_date: '', rent_amount: '', deposit_amount: '', lease_reference: '' });
+      setNewTenancy({ name: '', email: '', start_date: '', end_date: '', rent_amount: '', deposit_amount: '', lease_reference: '' });
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
@@ -409,8 +416,8 @@ export default function PropertiesManagementPage() {
       // Load people + tenancies needed by DocReview (lazy — only when modal opens)
       const supabase = createClient();
       const [{ data: ppl }, { data: tens }] = await Promise.all([
-        supabase.from('people').select('id, full_name, email').eq('role', 'tenant').order('full_name'),
-        supabase.from('tenancies').select('id, start_date, end_date, people(full_name), rooms(id, name, property_id, properties(id, name))').order('start_date', { ascending: false }),
+        supabase.from('people').select('id, full_name, first_name, last_name, email').eq('role', 'tenant').order('full_name'),
+        supabase.from('tenancies').select('id, start_date, end_date, people(full_name, first_name, last_name), rooms(id, name, property_id, properties(id, name))').order('start_date', { ascending: false }),
       ]);
 
       setAiScan((s) => s ? { ...s, busy: false, busyLabel: '', result: json.result as AIResult, file, allPeople: ppl || [], allTenancies: (tens || []) as any[] } : null);
@@ -589,7 +596,7 @@ export default function PropertiesManagementPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg">
         <div className="pt-lg mb-3xl flex items-center justify-between">
@@ -1037,7 +1044,7 @@ export default function PropertiesManagementPage() {
                                   <button
                                     onClick={() => {
                                       setAddTenancyRoomId(addTenancyRoomId === room.id ? null : room.id);
-                                      setNewTenancy({ full_name: '', email: '', start_date: '', end_date: '', rent_amount: '', deposit_amount: '', lease_reference: '' });
+                                      setNewTenancy({ name: '', email: '', start_date: '', end_date: '', rent_amount: '', deposit_amount: '', lease_reference: '' });
                                     }}
                                     className="text-xs px-sm py-xs bg-neutral-900 text-white rounded font-semibold hover:bg-neutral-700"
                                   >
@@ -1093,7 +1100,14 @@ export default function PropertiesManagementPage() {
                                               {t.end_date ? new Date(t.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : <span className="text-emerald-600 font-semibold">Active</span>}
                                             </td>
                                             <td className="px-md py-sm">
-                                              <p className="font-semibold text-neutral-900 text-xs">{t.people?.full_name || '—'}</p>
+                                              <p className="font-semibold text-neutral-900 text-xs">{
+                                                t.people
+                                                  ? (t.people as any).full_name
+                                                    || [(t.people as any).first_name, (t.people as any).last_name].filter(Boolean).join(' ')
+                                                    || (t.people as any).name
+                                                    || '—'
+                                                  : '—'
+                                              }</p>
                                               <p className="text-[11px] text-neutral-500">{t.people?.email || ''}</p>
                                             </td>
                                             <td className="px-md py-sm text-xs text-right text-neutral-700 whitespace-nowrap">
@@ -1156,8 +1170,8 @@ export default function PropertiesManagementPage() {
                                     <input
                                       type="text"
                                       placeholder="Full name"
-                                      value={newTenancy.full_name}
-                                      onChange={(e) => setNewTenancy({ ...newTenancy, full_name: e.target.value })}
+                                      value={newTenancy.name}
+                                      onChange={(e) => setNewTenancy({ ...newTenancy, name: e.target.value })}
                                       className="rounded border border-neutral-300 px-sm py-xs text-sm"
                                     />
                                     <input

@@ -27,9 +27,15 @@ interface Job {
   notes?: string | null
   property_id: string
   room_id?: string
-  properties: { name: string; address: string; lat: number | null; lng: number | null }
+  properties: { name: string; address: string; lat: number | null; lng: number | null; key_safe_code?: string | null }
   rooms?: { name: string }
   location?: string
+  return_visit_needed?: boolean | null
+  return_visit_reason?: string | null
+  return_visit_date_estimate?: string | null
+  return_visit_notes?: string | null
+  duration_estimate_label?: string | null
+  duration_estimate_minutes?: number | null
 }
 
 /** Metres between two lat/lng points. */
@@ -60,6 +66,16 @@ export default function JobDetailPage() {
   const [completionMessage, setCompletionMessage] = useState<string | null>(null)
   const [accessLog, setAccessLog] = useState<string[]>([])
   const [showQuickNotify, setShowQuickNotify] = useState(false)
+  // Need-to-return flow
+  const [showReturnFlow, setShowReturnFlow] = useState(false)
+  const [returnReason, setReturnReason] = useState('')
+  const [returnDate, setReturnDate] = useState('')
+  const [returnUncertain, setReturnUncertain] = useState(false)
+  const [areaInstruction, setAreaInstruction] = useState('')
+  const [savingReturn, setSavingReturn] = useState(false)
+
+  const [durationLabel, setDurationLabel] = useState<string | null>(null)
+  const [loadingEstimate, setLoadingEstimate] = useState(false)
 
   const beforeInput = useRef<HTMLInputElement>(null)
   const afterInput = useRef<HTMLInputElement>(null)
@@ -74,7 +90,7 @@ export default function JobDetailPage() {
       const supabase = createClient()
       const { data: jobData } = await supabase
         .from('maintenance_tickets')
-        .select('*, properties(name, address, lat, lng), rooms(name)')
+        .select('*, properties(name, address, lat, lng, key_safe_code), rooms(name)')
         .eq('id', jobId)
         .single()
       if (jobData) {
@@ -82,6 +98,23 @@ export default function JobDetailPage() {
         setNotes((jobData as any).notes || '')
         setBookDate((jobData as any).booked_date || '')
         setBookSlot((jobData as any).booked_slot || '')
+
+        // Show cached estimate immediately, then fetch/generate if missing
+        if ((jobData as any).duration_estimate_label) {
+          setDurationLabel((jobData as any).duration_estimate_label)
+        } else {
+          // Fire-and-forget estimate — don't block the page
+          setLoadingEstimate(true)
+          fetch('/api/jobs/estimate-duration', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticketId: jobData.id }),
+          })
+            .then((r) => r.json())
+            .then((d) => { if (d.label) setDurationLabel(d.label) })
+            .catch(() => {})
+            .finally(() => setLoadingEstimate(false))
+        }
       }
       setLoading(false)
     }
@@ -119,6 +152,14 @@ export default function JobDetailPage() {
     try {
       await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
       notify('/api/notify-booking')
+      // If this is a room-specific job, send a personal notice to the tenant in that room
+      if (job.room_id) {
+        fetch('/api/notify-room-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId: jobId }),
+        }).catch(() => {})
+      }
       pushTenants(
         `A repair is booked at your property for ${new Date(bookDate).toLocaleDateString('en-GB', {
           weekday: 'short',
@@ -243,10 +284,10 @@ export default function JobDetailPage() {
 
         // Build notification message
         let msg = '✅ Job completed\n\n'
-        if (summary.adminNotified) msg += `📧 Property manager notified\n`
-        if (summary.tenantInRoomNotified) msg += `📧 Tenant notified of repair completion\n`
-        if (summary.otherTenantsNotified > 0) msg += `📧 ${summary.otherTenantsNotified} other tenant(s) notified\n`
-        if (summary.total === 0) msg += `⚠️ No notifications sent (check notification preferences)\n`
+        if (summary?.adminNotified) msg += `📧 Property manager notified\n`
+        if (summary?.tenantInRoomNotified) msg += `📧 Tenant notified of repair completion\n`
+        if ((summary?.otherTenantsNotified ?? 0) > 0) msg += `📧 ${summary.otherTenantsNotified} other tenant(s) notified\n`
+        if (!summary || (summary.total ?? 0) === 0) msg += `⚠️ No notifications sent (check notification preferences)\n`
 
         setCompletionMessage(msg.trim())
         alert(msg.trim())
@@ -258,6 +299,39 @@ export default function JobDetailPage() {
     } finally {
       setBusy('')
     }
+  }
+
+  async function handleNeedToReturn() {
+    if (!job) return
+    if (!returnReason.trim()) { alert('Please add a reason.'); return }
+    if (!returnUncertain && !returnDate) { alert('Please pick a return date, or tick "Not sure yet".'); return }
+    setSavingReturn(true)
+    try {
+      await patch({
+        return_visit_needed: true,
+        return_visit_reason: returnReason,
+        return_visit_date_estimate: returnUncertain ? null : returnDate || null,
+        return_visit_notes: areaInstruction || null,
+        status: 'in_progress',
+      })
+      setShowReturnFlow(false)
+      alert('Logged — admin has been notified. The job stays open until you return.')
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    } finally {
+      setSavingReturn(false)
+    }
+  }
+
+  // Smart-suggest a return reason based on job category
+  function suggestedReturnReason(category?: string): string {
+    const c = (category || '').toLowerCase()
+    if (c.includes('plumb') || c.includes('leak') || c.includes('pipe')) return 'Waiting on parts'
+    if (c.includes('electr')) return 'Waiting on parts'
+    if (c.includes('decor') || c.includes('paint')) return 'Needs to dry/cure'
+    if (c.includes('damp') || c.includes('mould')) return 'Treatment needs to dry'
+    if (c.includes('boiler') || c.includes('heating') || c.includes('gas')) return 'Waiting on parts'
+    return ''
   }
 
   async function saveNotes() {
@@ -276,7 +350,7 @@ export default function JobDetailPage() {
   if (!job) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton href="/contractor" />} />
+        <AppBar left={<BackButton href="/contractor" />} />
         <p className="p-xl text-sm text-neutral-400">Job not found</p>
       </div>
     )
@@ -285,6 +359,10 @@ export default function JobDetailPage() {
   const isBooked = !!job.booked_date
   const hasArrived = !!job.arrived_at
   const isDone = job.status === 'completed'
+  const isPast =
+    isBooked &&
+    !!job.booked_date &&
+    new Date(job.booked_date) < new Date(new Date().toDateString())
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
@@ -320,6 +398,18 @@ export default function JobDetailPage() {
                 <p className="text-sm text-white/80">{slotLabel(job.booked_slot)}</p>
               </div>
             )}
+            {/* Duration estimate */}
+            <div>
+              <p className="text-xs text-white/60">Estimated time</p>
+              {durationLabel ? (
+                <p className="text-base font-bold mt-xs">{durationLabel}</p>
+              ) : loadingEstimate ? (
+                <p className="text-sm text-white/40 mt-xs italic">Estimating…</p>
+              ) : (
+                <p className="text-sm text-white/40 mt-xs">—</p>
+              )}
+              <p className="text-xs text-white/40 mt-xs">Guide only — not a limit</p>
+            </div>
           </div>
         </div>
 
@@ -345,6 +435,17 @@ export default function JobDetailPage() {
           </div>
         )}
 
+        {/* Key safe code — only shown after job is booked */}
+        {isBooked && job.properties?.key_safe_code && (
+          <div className="mb-lg rounded-2xl border-2 border-neutral-800 bg-neutral-900 text-white p-lg flex items-center justify-between gap-lg">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-white/60 mb-xs">🔐 Key Safe Code</p>
+              <p className="text-3xl font-bold tracking-widest">{job.properties.key_safe_code}</p>
+              <p className="text-xs text-white/50 mt-xs">House key safe · front of property</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-lg md:grid-cols-3">
           <div className="md:col-span-2 space-y-lg">
             {/* Description */}
@@ -360,7 +461,7 @@ export default function JobDetailPage() {
               <>
                 <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
                   <h3 className="font-bold text-green-800">✅ Completed</h3>
-                  <p className="mt-xs text-sm text-green-700">This job is done and everyone’s been notified.</p>
+                  <p className="mt-xs text-sm text-green-700">This job is done and everyone's been notified.</p>
                 </div>
                 {completionMessage && (
                   <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-lg">
@@ -401,17 +502,84 @@ export default function JobDetailPage() {
                 </button>
               </div>
             ) : !hasArrived ? (
-              /* Step 2: arrive */
-              <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg text-center">
-                <h3 className="font-bold text-neutral-900">On your way?</h3>
-                <p className="mt-xs text-sm text-neutral-500">
-                  Tap this when you get there — we’ll check your location and let the tenants know you’ve arrived.
-                </p>
-                <button onClick={handleArrive} disabled={busy === 'arrive'}
-                  className="mt-md w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40">
-                  {busy === 'arrive' ? 'Checking location…' : '📍 I’ve arrived'}
-                </button>
-              </div>
+              isPast ? (
+                /* Past visit — date has passed without marking arrived */
+                <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-lg space-y-md">
+                  <h3 className="font-bold text-amber-900">Visit date has passed</h3>
+                  <p className="text-sm text-amber-800">
+                    This was booked for <strong>
+                      {new Date(job.booked_date!).toLocaleDateString('en-GB', {
+                        weekday: 'long', day: 'numeric', month: 'long',
+                      })}
+                    </strong>.{' If you attended, log it below — or reschedule if you did not make it.'}
+                  </p>
+                  <button
+                    onClick={handleArrive}
+                    disabled={busy === 'arrive'}
+                    className="w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40"
+                  >
+                    {busy === 'arrive' ? 'Updating…' : '✅ I attended this visit — log & complete'}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!bookDate || !bookSlot) {
+                        alert('Pick a new date and time slot first (in the sidebar below).')
+                        return
+                      }
+                      setBusy('book')
+                      try {
+                        await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
+                        notify('/api/notify-booking')
+                        alert('✅ Rescheduled — tenants have been updated.')
+                      } catch (err) {
+                        alert('Error: ' + (err instanceof Error ? err.message : 'Unknown'))
+                      } finally {
+                        setBusy('')
+                      }
+                    }}
+                    disabled={busy === 'book'}
+                    className="w-full rounded-lg border-2 border-neutral-300 bg-white font-semibold py-md text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
+                  >
+                    🗓 Reschedule this visit
+                  </button>
+                  {/* Inline reschedule pickers */}
+                  <div className="grid gap-md sm:grid-cols-2 pt-xs">
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-700 mb-xs">New date</label>
+                      <input
+                        type="date"
+                        value={bookDate}
+                        min={earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
+                        onChange={(e) => setBookDate(e.target.value)}
+                        className="w-full rounded-lg border border-neutral-300 px-md py-md text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-700 mb-xs">Time slot</label>
+                      <select
+                        value={bookSlot}
+                        onChange={(e) => setBookSlot(e.target.value)}
+                        className="w-full rounded-lg border border-neutral-300 px-md py-md text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                      >
+                        <option value="">Select slot…</option>
+                        {TIME_SLOTS.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Step 2: arrive (upcoming visit) */
+                <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg text-center">
+                  <h3 className="font-bold text-neutral-900">On your way?</h3>
+                  <p className="mt-xs text-sm text-neutral-500">
+                    Tap this when you get there — we’ll check your location and let the tenants know you've arrived.
+                  </p>
+                  <button onClick={handleArrive} disabled={busy === 'arrive'}
+                    className="mt-md w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40">
+                    {busy === 'arrive' ? 'Checking location…' : '📍 I\'ve arrived'}
+                  </button>
+                </div>
+              )
             ) : (
               /* Step 3+: on site — before / after photos */
               <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg space-y-lg">
@@ -519,16 +687,118 @@ export default function JobDetailPage() {
                     onChange={(e) => e.target.files?.[0] && handleAfterPhoto(e.target.files[0])} />
                 </div>
 
-                {/* Complete */}
-                <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
-                  className="w-full rounded-lg bg-green-700 text-white font-bold py-md hover:bg-green-800 disabled:opacity-40">
-                  {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
-                </button>
-                {!job.after_photo && !notes.trim() && (
-                  <p className="text-center text-xs text-neutral-400">Add a photo or notes to complete this job.</p>
+                {/* Two paths forward (only available after before photo) */}
+                {job.before_photo && !job.return_visit_needed && (
+                  <div className="space-y-sm">
+                    {/* Path A: Mark complete */}
+                    <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
+                      className="w-full rounded-lg bg-green-700 text-white font-bold py-md hover:bg-green-800 disabled:opacity-40">
+                      {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
+                    </button>
+                    {!job.after_photo && !notes.trim() && (
+                      <p className="text-center text-xs text-neutral-400">Take an after photo or add notes first.</p>
+                    )}
+
+                    {/* Path B: Need to return */}
+                    {!showReturnFlow ? (
+                      <button onClick={() => {
+                        setShowReturnFlow(true)
+                        const suggested = suggestedReturnReason(job.category)
+                        if (suggested) setReturnReason(suggested)
+                      }}
+                        className="w-full rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-900 font-semibold py-md hover:bg-amber-100 transition text-sm">
+                        🔄 Need to return to finish
+                      </button>
+                    ) : (
+                      <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-lg space-y-md">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-amber-900 text-sm">Return visit needed</p>
+                          <button onClick={() => setShowReturnFlow(false)} className="text-amber-600 text-xs hover:underline">Cancel</button>
+                        </div>
+
+                        {/* Reason */}
+                        <div>
+                          <label className="text-xs font-semibold text-amber-800 block mb-xs">Reason *</label>
+                          <input
+                            type="text"
+                            value={returnReason}
+                            onChange={(e) => setReturnReason(e.target.value)}
+                            placeholder="e.g. Waiting on parts, needs to dry…"
+                            className="w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                          />
+                          {/* Quick presets */}
+                          <div className="flex flex-wrap gap-xs mt-xs">
+                            {['Waiting on parts', 'Needs to dry/cure', 'Specialist needed', 'Part ordered — awaiting delivery'].map(r => (
+                              <button key={r} onClick={() => setReturnReason(r)}
+                                className={`text-xs px-sm py-xs rounded-full border transition ${returnReason === r ? 'bg-amber-400 border-amber-500 text-amber-900 font-semibold' : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-100'}`}>
+                                {r}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Return date */}
+                        <div>
+                          <label className="text-xs font-semibold text-amber-800 block mb-xs">Return date</label>
+                          <label className="flex items-center gap-sm text-sm text-amber-900 mb-sm cursor-pointer">
+                            <input type="checkbox" checked={returnUncertain} onChange={(e) => setReturnUncertain(e.target.checked)} className="rounded" />
+                            Not sure yet (e.g. waiting on delivery)
+                          </label>
+                          {!returnUncertain && (
+                            <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)}
+                              min={new Date().toISOString().split('T')[0]}
+                              className="w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                          )}
+                        </div>
+
+                        {/* Area instructions */}
+                        <div>
+                          <label className="text-xs font-semibold text-amber-800 block mb-xs">Area instructions for tenants/cleaners</label>
+                          <div className="flex flex-wrap gap-xs mb-sm">
+                            {['Do not use', 'Use with care', 'Avoid this area', 'Fine to use normally'].map(i => (
+                              <button key={i} onClick={() => setAreaInstruction(i)}
+                                className={`text-xs px-sm py-xs rounded-full border transition ${areaInstruction === i ? 'bg-amber-400 border-amber-500 text-amber-900 font-semibold' : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-100'}`}>
+                                {i}
+                              </button>
+                            ))}
+                          </div>
+                          <input type="text" value={areaInstruction} onChange={(e) => setAreaInstruction(e.target.value)}
+                            placeholder="Custom instruction…"
+                            className="w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                        </div>
+
+                        <button onClick={handleNeedToReturn} disabled={savingReturn}
+                          className="w-full rounded-lg bg-amber-500 text-white font-bold py-md hover:bg-amber-600 disabled:opacity-40 text-sm">
+                          {savingReturn ? 'Saving…' : '🔄 Log return visit needed'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
-                {!job.after_photo && notes.trim() && (
-                  <p className="text-center text-xs text-green-600">✅ Ready to complete (notes provided)</p>
+
+                {/* Already flagged as return needed */}
+                {job.return_visit_needed && (
+                  <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-lg">
+                    <p className="font-bold text-amber-900 text-sm mb-xs">🔄 In progress — return visit needed</p>
+                    {job.return_visit_reason && <p className="text-xs text-amber-800 mb-xs">Reason: {job.return_visit_reason}</p>}
+                    {job.return_visit_date_estimate && <p className="text-xs text-amber-800 mb-xs">Return date: {new Date(job.return_visit_date_estimate).toLocaleDateString('en-GB')}</p>}
+                    {!job.return_visit_date_estimate && <p className="text-xs text-amber-600">Return date: not yet confirmed</p>}
+                    <div className="mt-md border-t border-amber-200 pt-md">
+                      <p className="text-xs font-semibold text-amber-800 mb-sm">Ready to finish now?</p>
+                      <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
+                        className="w-full rounded-lg bg-green-700 text-white font-bold py-sm hover:bg-green-800 disabled:opacity-40 text-sm">
+                        {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Original complete button when no before photo yet */}
+                {!job.before_photo && (
+                  <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
+                    className="w-full rounded-lg bg-green-700 text-white font-bold py-md hover:bg-green-800 disabled:opacity-40">
+                    {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
+                  </button>
                 )}
               </div>
             )}

@@ -10,7 +10,7 @@ export default function TestPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar right={<BackButton />} />
+      <AppBar left={<BackButton />} />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">
         <h1 className="text-3xl font-bold mb-lg">Button Click Test</h1>

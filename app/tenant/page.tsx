@@ -1,14 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { getActiveTenancy } from '@/lib/tenancy'
 import { formatBooking, slotLabel } from '@/lib/booking'
+import { displayName } from '@/lib/people'
 import AppBar from '@/components/AppBar'
 import EnableNotifications from '@/app/components/EnableNotifications'
+import InstallPrompt from '@/app/components/InstallPrompt'
 import { TenantDashboardSkeleton } from '@/app/components/SkeletonLoading'
+import ViewAsBanner from '@/app/components/ViewAsBanner'
 import Link from 'next/link'
 
 interface Tenancy {
@@ -26,7 +29,7 @@ interface PropertyNote {
   note_type: 'cleaner' | 'agent' | 'admin'
   room_id: string | null
   created_at: string
-  people: { full_name: string; email: string } | null
+  people: { name: string; email: string } | null
 }
 
 const todayISO = () => new Date().toISOString().split('T')[0]
@@ -82,27 +85,47 @@ export default function TenantDashboard() {
   const [notes, setNotes] = useState<PropertyNote[]>([])
   const [compliance, setCompliance] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
+  const [viewingAs, setViewingAs] = useState<{ id: string; name: string; role: string } | null>(null)
+
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'tenant') {
+      const asParam = searchParams.get('as')
+      const isAdmin = ['administrator', 'admin'].includes(data?.assignment?.role || '')
+
+      // ── Impersonation: admin visiting /tenant?as=[personId] ──────────────
+      let effectiveId: string
+      if (asParam && isAdmin) {
+        const supabase = createClient()
+        const { data: target } = await supabase
+          .from('people')
+          .select('id, first_name, last_name, full_name, email, role')
+          .eq('id', asParam)
+          .single()
+        if (!target || target.role !== 'tenant') { router.push('/admin/people'); return }
+        setUser(data!.user)
+        setViewingAs({ id: asParam, name: displayName(target), role: target.role })
+        effectiveId = asParam
+      } else if (!data || data.assignment?.role !== 'tenant') {
         router.push('/login')
         return
+      } else {
+        setUser(data.user)
+        effectiveId = (data.assignment as any)?.id
       }
-      setUser(data.user)
 
       const supabase = createClient()
-      const a = data.assignment as any
 
       // Single source of truth: the ACTIVE tenancy. Once its end_date passes,
       // this returns null and every query below is skipped — so a former tenant
       // stops receiving anything automatically, with no admin action needed.
-      const active = await getActiveTenancy(a?.id)
+      const active = await getActiveTenancy(effectiveId)
       setTenancy(active as any)
 
       if (!active) {
-        setPersonId(a?.id ?? null)
+        setPersonId(effectiveId ?? null)
         setRoomId(null)
         setLoading(false)
         return
@@ -119,11 +142,14 @@ export default function TenantDashboard() {
         setAccessRequests(reqs || [])
       }
 
-      if (a?.property_id) {
+      // Property-wide queries use the active tenancy's property_id, which is the
+      // ground truth regardless of whether this is a real or impersonated session.
+      const propId = (active as any).property_id
+      if (propId) {
         const { data: up } = await supabase
           .from('maintenance_tickets')
           .select('id, category, location, room_id, booked_date, booked_slot, status, arrived_at, rooms(name)')
-          .eq('property_id', a.property_id)
+          .eq('property_id', propId)
           .gte('booked_date', todayISO())
           .neq('status', 'completed')
           .order('booked_date')
@@ -134,7 +160,7 @@ export default function TenantDashboard() {
         const { data: cleansData } = await supabase
           .from('cleans')
           .select('id, clean_date, clean_time, status')
-          .eq('property_id', a.property_id)
+          .eq('property_id', propId)
           .eq('notify_tenants', true)
           .gte('clean_date', todayISO())
           .neq('status', 'completed')
@@ -160,7 +186,7 @@ export default function TenantDashboard() {
           .gte('viewing_date', todayISO())
 
         const viewingItems = (viewingsData || [])
-          .filter((v: any) => v.rooms?.property_id === a.property_id)
+          .filter((v: any) => v.rooms?.property_id === propId)
           .map((v: any) => {
             // viewing_slot may be a 3-hour code ("12-15") or a 15-min time ("10:30").
             const time = v.viewing_slot ? slotLabel(v.viewing_slot) || v.viewing_slot : ''
@@ -184,7 +210,7 @@ export default function TenantDashboard() {
         const { data: apptData } = await supabase
           .from('property_appointments')
           .select('id, appointment_type, appointment_date, appointment_time, visitor_name, notify_tenants')
-          .eq('property_id', a.property_id)
+          .eq('property_id', propId)
           .eq('notify_tenants', true)
           .gte('appointment_date', todayISO())
 
@@ -205,7 +231,7 @@ export default function TenantDashboard() {
         setUpcoming(merged)
 
         // Fetch property notes
-        const res = await fetch(`/api/property-notes?propertyId=${a.property_id}`)
+        const res = await fetch(`/api/property-notes?propertyId=${propId}`)
         if (res.ok) {
           const { notes: propertyNotes } = await res.json()
           setNotes(propertyNotes || [])
@@ -221,20 +247,25 @@ export default function TenantDashboard() {
       setCompliance(prop || null)
 
       // Notifications sent to this tenant (Quick Notify, cleaner/lettings alerts).
-      // RLS scopes this to the logged-in tenant, so no filter is needed here.
-      const { data: notifs } = await supabase
+      // In normal mode, RLS scopes this to the logged-in tenant automatically.
+      // In view-as mode we add an explicit person_id filter so the admin sees
+      // the target tenant's messages, not their own (empty) inbox.
+      const notifBuilder = supabase
         .from('notifications')
         .select('id, title, body, type, link, read, created_at')
         .order('created_at', { ascending: false })
         .limit(20)
+      const { data: notifs } = asParam && isAdmin
+        ? await notifBuilder.eq('person_id', effectiveId)
+        : await notifBuilder
       setMessages(notifs || [])
 
-      setPersonId(a?.id ?? null)
+      setPersonId(effectiveId ?? null)
       setRoomId(active.room_id ?? null)
       setLoading(false)
     }
     checkAuth()
-  }, [router])
+  }, [router, searchParams])
 
   async function respondToAccess(ticketId: string, approved: boolean) {
     const supabase = createClient()
@@ -282,6 +313,10 @@ export default function TenantDashboard() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
+      {viewingAs && (
+        <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
+      )}
+      <InstallPrompt />
       <AppBar
         right={
           <button
@@ -579,6 +614,20 @@ export default function TenantDashboard() {
         </section>
 
         <section className="mt-3xl">
+          <h2 className="text-xl font-bold text-neutral-900">Moving out?</h2>
+          <p className="mt-xs text-sm text-neutral-500">
+            Planning to leave before your tenancy ends? Let us know and we&apos;ll walk you through your options.
+          </p>
+          <div className="mt-md">
+            <ActionCard
+              href="/tenant/early-move-out"
+              title="Request early move-out"
+              description="End your tenancy before the contract date"
+            />
+          </div>
+        </section>
+
+        <section className="mt-3xl">
           <h2 className="text-xl font-bold text-neutral-900">Anything wrong?</h2>
           <p className="mt-xs text-sm text-neutral-500">
             Report something that needs fixing, or check on what you&apos;ve already reported.
@@ -754,7 +803,7 @@ function PropertyNoteCard({ note, isForMyRoom }: { note: PropertyNote; isForMyRo
           <p className="mt-xs text-sm font-bold text-neutral-900">{note.title}</p>
           <p className="mt-md text-sm text-neutral-700 whitespace-pre-wrap">{note.content}</p>
           <p className="mt-md text-xs text-neutral-500">
-            {note.people?.full_name || 'Unknown'} • {createdDate}
+            {note.people.name || 'Unknown'} • {createdDate}
           </p>
         </div>
       </div>

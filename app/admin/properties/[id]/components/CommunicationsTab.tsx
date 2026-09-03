@@ -65,13 +65,49 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
 
     setRooms(roomData || [])
 
-    // Load communications
-    const { data, error } = await supabase
+    // Get all tenant person_ids at this property (active and recently ended)
+    const today = new Date().toISOString().split('T')[0]
+    const { data: tenancyData } = await supabase
+      .from('tenancies')
+      .select('person_id')
+      .eq('property_id', propertyId)
+      .or(`end_date.is.null,end_date.gte.${today}`)
+
+    const personIds = [...new Set((tenancyData || []).map((t: any) => t.person_id).filter(Boolean))]
+
+    // Load communications: notifications sent to tenants at this property
+    // OR explicitly tagged with this property_id (admin broadcasts).
+    // Using two queries unioned in JS because Supabase OR on different cols
+    // requires careful quoting.
+    let allNotifs: any[] = []
+
+    if (personIds.length > 0) {
+      const { data: tenantNotifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .in('user_id', personIds)
+        .order('created_at', { ascending: false })
+        .limit(200)
+      allNotifs = tenantNotifs || []
+    }
+
+    // Also grab any property-tagged notifications not already in the list
+    const { data: propNotifs } = await supabase
       .from('notifications')
       .select('*')
       .eq('property_id', propertyId)
       .order('created_at', { ascending: false })
       .limit(100)
+
+    for (const n of propNotifs || []) {
+      if (!allNotifs.find((x: any) => x.id === n.id)) allNotifs.push(n)
+    }
+
+    // Sort combined list newest-first
+    allNotifs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+    const data = allNotifs
+    const error = null
 
     if (error) {
       console.error(error)
@@ -225,7 +261,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
     <div className="space-y-xl">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-white">Communications</h2>
+        <h2 className="text-xl font-semibold text-neutral-900">Communications</h2>
         <p className="text-sm text-neutral-400 mt-xs">5 most recent messages by type, plus room drill-down</p>
       </div>
 

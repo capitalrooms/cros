@@ -94,7 +94,7 @@ export default function IcebreakerPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton />} />
+        <AppBar left={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -104,7 +104,7 @@ export default function IcebreakerPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">

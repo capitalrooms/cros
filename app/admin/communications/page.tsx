@@ -83,7 +83,7 @@ export default function CommunicationsHubPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
         <div className="mb-lg text-center">

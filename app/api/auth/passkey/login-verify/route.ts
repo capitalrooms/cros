@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     // Get user info
     const { data: user } = await supabase
       .from('people')
-      .select('id, email, full_name, role')
+      .select('id, email, full_name, first_name, last_name, role')
       .eq('id', passkey.user_id)
       .single()
 
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       user: {
         id: user.id,
         email: user.email,
-        name: user.full_name,
+        name: user.name,
         role: user.role,
       },
       message: 'Successfully authenticated with passkey',

@@ -69,10 +69,10 @@ export default function DocumentsPage() {
         return
       }
       const { data: props } = await supabase.from('properties').select('id, name, address').order('name')
-      const { data: ppl } = await supabase.from('people').select('id, full_name, email').eq('role', 'tenant').order('full_name')
+      const { data: ppl } = await supabase.from('people').select('id, full_name, first_name, last_name, email').eq('role', 'tenant').order('full_name')
       const { data: tens } = await supabase
         .from('tenancies')
-        .select('id, start_date, end_date, people(full_name), rooms(id, name, property_id, properties(id, name))')
+        .select('id, start_date, end_date, people(full_name, first_name, last_name), rooms(id, name, property_id, properties(id, name))')
         .order('start_date', { ascending: false })
       setProperties(props || [])
       setPeople(ppl || [])
@@ -258,7 +258,7 @@ export default function DocumentsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton />} />
+        <AppBar left={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -266,7 +266,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="mb-2xl">

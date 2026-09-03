@@ -5,11 +5,41 @@
  * without anyone being notified. Staff messaging (contractors, cleaners, admins)
  * is unaffected — only tenant/applicant-facing sends are paused.
  *
- * To go live: set the env var TENANT_COMMS_LIVE=true (in Vercel → Settings →
- * Environment Variables, then redeploy). Anything other than the exact string
- * "true" is treated as OFF, so the safe state is the default.
+ * TWO layers of control:
+ *   1. DB setting (system_settings.comms_live) — toggled from admin settings UI.
+ *      Takes precedence when the row exists.
+ *   2. Env var TENANT_COMMS_LIVE=true — fallback / permanent override.
+ *      Requires a redeploy to change; useful for locking in the live state.
+ *
+ * Safe default: if neither is explicitly "true", the switch is OFF.
+ */
+
+import { createServiceClient } from './supabase'
+
+/**
+ * Sync check — env var only. Used in places where an async call isn't possible.
+ * Prefer getCommsLive() in API routes.
  */
 export function tenantCommsLive(): boolean {
+  return process.env.TENANT_COMMS_LIVE === 'true'
+}
+
+/**
+ * Async check — reads from DB first (admin-toggleable), falls back to env var.
+ * Use this in all notification API routes.
+ */
+export async function getCommsLive(): Promise<boolean> {
+  try {
+    const supabase = createServiceClient()
+    const { data } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'comms_live')
+      .maybeSingle()
+    if (data?.value !== undefined) return data.value === 'true'
+  } catch (_) {
+    // DB unavailable — fall through to env var
+  }
   return process.env.TENANT_COMMS_LIVE === 'true'
 }
 

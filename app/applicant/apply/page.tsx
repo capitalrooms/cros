@@ -63,6 +63,16 @@ export default function ApplicantForm() {
   // Privacy & consent
   const [privacyConsent, setPrivacyConsent] = useState(false)
 
+  // House standards pre-screening
+  const [standardsAgreed, setStandardsAgreed] = useState(false)
+
+  // Student route
+  const [isStudent, setIsStudent] = useState(false)
+  const [university, setUniversity] = useState('')
+  const [courseStudied, setCourseStudied] = useState('')
+  const [studyYear, setStudyYear] = useState('')
+  const [guarantorConfirmed, setGuarantorConfirmed] = useState(false)
+
   useEffect(() => {
     if (!roomId || !propertyId) {
       setError('Invalid application link. Missing room or property ID.')
@@ -90,6 +100,48 @@ export default function ApplicantForm() {
     setPreviousAddresses(previousAddresses.filter((_, i) => i !== index))
   }
 
+  // Parse the lower bound of a salary string like "£35,000 - £40,000" or "35000"
+  const parseSalaryLow = (str: string): number | null => {
+    const cleaned = str.replace(/[£,\s]/g, '')
+    const match = cleaned.match(/(\d+)/)
+    if (!match) return null
+    const val = parseInt(match[1], 10)
+    return val < 1000 ? val * 1000 : val
+  }
+
+  const getAffordability = () => {
+    if (isStudent) return { status: 'student' as const }
+    if (!advertiserRent) return { status: 'unknown' as const }
+    const parsedSalary = parseSalaryLow(salary)
+    if (!parsedSalary) return { status: 'unknown' as const }
+    const minSalary = advertiserRent * 30
+    const minSavings = advertiserRent * 6
+    const guarantorMinSalary = advertiserRent * 36
+    const fmt = (n: number) => `£${Math.round(n).toLocaleString()}`
+    if (parsedSalary >= minSalary) {
+      return {
+        status: 'pass' as const,
+        message: `✓ Your salary meets standard referencing criteria (${fmt(minSalary)}/yr minimum).`,
+      }
+    }
+    if (parsedSalary >= Math.round(minSalary * 0.8)) {
+      return {
+        status: 'borderline' as const,
+        message: `Your salary is slightly below the usual threshold of ${fmt(minSalary)}/yr. A referencing agent may approve it, but you may be asked for 6 months' rent in savings (${fmt(minSavings)}) or a UK guarantor earning at least ${fmt(guarantorMinSalary)}/yr.`,
+        minSavings: fmt(minSavings),
+        guarantorMinSalary: fmt(guarantorMinSalary),
+      }
+    }
+    return {
+      status: 'fail' as const,
+      message: `Based on the salary entered, you are unlikely to pass standard referencing for this room (threshold: ${fmt(minSalary)}/yr). To proceed you will need one of the following:`,
+      options: [
+        `6 months' rent in savings — ${fmt(minSavings)}`,
+        `A UK-based guarantor earning at least ${fmt(guarantorMinSalary)}/yr`,
+      ],
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -98,6 +150,13 @@ export default function ApplicantForm() {
     // Validate required fields
     if (!fullName || !email || !profession || !bio) {
       setError('Please fill in all required fields')
+      setLoading(false)
+      return
+    }
+
+    // Validate standards agreement
+    if (!standardsAgreed) {
+      setError('Please confirm you meet the Capital Rooms house standard before applying')
       setLoading(false)
       return
     }
@@ -200,9 +259,50 @@ export default function ApplicantForm() {
             Tell Us About Yourself
           </h1>
           <p className="text-sm text-neutral-600">
-            Help us understand if this is a great fit. This should take about
-            2-3 minutes.
+            Help us understand if this is a great fit. This should take less than 5 minutes.
           </p>
+        </div>
+
+        {/* The Capital Rooms Standard — pre-screening gate */}
+        <div className="bg-neutral-900 text-white rounded-2xl p-lg mb-lg border border-neutral-800">
+          <div className="flex items-center gap-sm mb-md">
+            <span className="text-xl">🏡</span>
+            <h2 className="text-lg font-bold tracking-tight">The Capital Rooms Standard</h2>
+          </div>
+          <p className="text-sm text-neutral-300 mb-md leading-relaxed">
+            Shared living works best when everyone plays their part. Our houses attract
+            people who are naturally considerate and self-motivated — the kind of
+            housemates others genuinely enjoy living with.
+          </p>
+          <ul className="space-y-sm mb-md">
+            {[
+              'You leave all communal spaces — kitchen, bathrooms, hallways, lounge — as you found them',
+              'You clear up after yourself without needing to be reminded',
+              'You try to resolve small issues yourself before reporting — and know when a professional is needed',
+              'You contribute fairly to communal supplies and shared upkeep',
+              'You understand the cleaner is here for deep cleans, not day-to-day tidying',
+              'When something isn\'t right, you raise it calmly and directly',
+            ].map((item) => (
+              <li key={item} className="flex items-start gap-sm text-sm text-neutral-200">
+                <span className="text-green-400 mt-0.5 shrink-0">✓</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm text-neutral-400 border-t border-neutral-700 pt-md mb-md">
+            If this sounds like you, we think you&apos;ll fit right in.
+          </p>
+          <label className={`flex items-start gap-sm cursor-pointer p-md rounded-xl transition-colors ${standardsAgreed ? 'bg-green-900/40 border border-green-700' : 'bg-neutral-800 border border-neutral-700'}`}>
+            <input
+              type="checkbox"
+              checked={standardsAgreed}
+              onChange={(e) => setStandardsAgreed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-green-500"
+            />
+            <span className="text-sm text-neutral-100 leading-snug">
+              This sounds like me — I&apos;m ready to be a great housemate.
+            </span>
+          </label>
         </div>
 
         {error && (
@@ -291,37 +391,107 @@ export default function ApplicantForm() {
 
           {/* Work & Financial */}
           <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
-              Work & Finances
-            </h2>
+            <div className="flex items-center justify-between mb-lg">
+              <h2 className="text-lg font-semibold text-neutral-900">Work & Finances</h2>
+              {/* Student toggle */}
+              <label className="flex items-center gap-sm cursor-pointer select-none">
+                <span className="text-sm text-neutral-600">I&apos;m a student</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isStudent}
+                  onClick={() => setIsStudent(!isStudent)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-900 ${isStudent ? 'bg-neutral-900' : 'bg-neutral-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isStudent ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </label>
+            </div>
 
             <div className="space-y-md">
               <div>
                 <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Profession <span className="text-red-500">*</span>
+                  Profession {!isStudent && <span className="text-red-500">*</span>}
                 </label>
                 <input
                   type="text"
                   value={profession}
                   onChange={(e) => setProfession(e.target.value)}
-                  placeholder="e.g., Software Engineer, Marketing Manager"
+                  placeholder={isStudent ? 'e.g., Student, Part-time barista' : 'e.g., Software Engineer, Marketing Manager'}
                   className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  required
+                  required={!isStudent}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Salary (Annual)
-                </label>
-                <input
-                  type="text"
-                  value={salary}
-                  onChange={(e) => setSalary(e.target.value)}
-                  placeholder="e.g., £35,000 - £40,000"
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
+              {isStudent ? (
+                <>
+                  <div className="grid grid-cols-2 gap-md">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-900 mb-xs">University</label>
+                      <input
+                        type="text"
+                        value={university}
+                        onChange={(e) => setUniversity(e.target.value)}
+                        placeholder="e.g., University of London"
+                        className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-900 mb-xs">Year of Study</label>
+                      <select
+                        value={studyYear}
+                        onChange={(e) => setStudyYear(e.target.value)}
+                        className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                      >
+                        <option value="">Select year</option>
+                        {['1st year','2nd year','3rd year','4th year','Masters','PhD','Foundation'].map(y => (
+                          <option key={y} value={y}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-900 mb-xs">Course / Subject</label>
+                    <input
+                      type="text"
+                      value={courseStudied}
+                      onChange={(e) => setCourseStudied(e.target.value)}
+                      placeholder="e.g., Computer Science, Business Management"
+                      className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    />
+                  </div>
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-md">
+                    <p className="text-sm font-semibold text-amber-900 mb-xs">🎓 Student applications require a UK guarantor</p>
+                    <p className="text-sm text-amber-800">
+                      As a student, a UK-based guarantor earning at least{' '}
+                      <strong>£{advertiserRent ? Math.round(advertiserRent * 36).toLocaleString() : '---'}/yr</strong>{' '}
+                      will be required before we can proceed. This is typically a parent or guardian.
+                    </p>
+                    <label className="flex items-start gap-sm mt-md cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={guarantorConfirmed}
+                        onChange={(e) => setGuarantorConfirmed(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-amber-700"
+                      />
+                      <span className="text-sm text-amber-900">I have a UK guarantor who can meet this requirement</span>
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                    Salary (Annual)
+                  </label>
+                  <input
+                    type="text"
+                    value={salary}
+                    onChange={(e) => setSalary(e.target.value)}
+                    placeholder="e.g., £35,000 - £40,000"
+                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-neutral-900 mb-xs">
@@ -549,6 +719,42 @@ export default function ApplicantForm() {
                 </div>
               </div>
 
+              {/* Affordability calculator */}
+              {(() => {
+                const aff = getAffordability()
+                if (aff.status === 'unknown') return null
+                if (aff.status === 'student') return null
+                return (
+                  <div className={`rounded-xl p-md border text-sm ${
+                    aff.status === 'pass'
+                      ? 'bg-green-50 border-green-200 text-green-900'
+                      : aff.status === 'borderline'
+                      ? 'bg-amber-50 border-amber-200 text-amber-900'
+                      : 'bg-red-50 border-red-200 text-red-900'
+                  }`}>
+                    <p className="font-semibold mb-xs">
+                      {aff.status === 'pass' ? '✓ Referencing check' : aff.status === 'borderline' ? '⚠️ Referencing check' : '✗ Referencing check'}
+                    </p>
+                    <p className="leading-relaxed">{aff.message}</p>
+                    {aff.status === 'fail' && 'options' in aff && (
+                      <ul className="mt-sm space-y-xs">
+                        {aff.options.map((opt: string) => (
+                          <li key={opt} className="flex items-start gap-sm">
+                            <span className="shrink-0">→</span>
+                            <span>{opt}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {(aff.status === 'fail' || aff.status === 'borderline') && (
+                      <p className="mt-sm text-xs opacity-80">
+                        Salary threshold: 30× monthly rent. Guarantor threshold: 36× monthly rent. You can still submit your application — our team will be in touch about next steps.
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
+
               {rentOfferType === 'below_asking' && (
                 <div>
                   <label className="block text-sm font-medium text-neutral-900 mb-xs">
@@ -651,24 +857,30 @@ export default function ApplicantForm() {
                   />
 
                   <div className="grid grid-cols-2 gap-md">
-                    <input
-                      type="date"
-                      placeholder="Moved in"
-                      value={addr.movedIn}
-                      onChange={(e) =>
-                        updatePreviousAddress(idx, 'movedIn', e.target.value)
-                      }
-                      className="px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                    />
-                    <input
-                      type="date"
-                      placeholder="Moved out"
-                      value={addr.movedOut}
-                      onChange={(e) =>
-                        updatePreviousAddress(idx, 'movedOut', e.target.value)
-                      }
-                      className="px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                    />
+                    <div>
+                      <label className="block text-xs text-neutral-500 mb-xs">Moved in</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sept 2021"
+                        value={addr.movedIn}
+                        onChange={(e) =>
+                          updatePreviousAddress(idx, 'movedIn', e.target.value)
+                        }
+                        className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-500 mb-xs">Moved out</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. March 2023"
+                        value={addr.movedOut}
+                        onChange={(e) =>
+                          updatePreviousAddress(idx, 'movedOut', e.target.value)
+                        }
+                        className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
+                      />
+                    </div>
                   </div>
 
                   <input

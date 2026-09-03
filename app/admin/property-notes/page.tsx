@@ -28,7 +28,7 @@ interface PropertyNote {
   note_type: 'cleaner' | 'agent' | 'admin'
   room_id: string | null
   created_at: string
-  people?: { full_name: string }
+  people?: { name: string }
 }
 
 export default function PropertyNotesPage() {
@@ -276,7 +276,7 @@ export default function PropertyNotesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">
         <div className="mb-3xl">
@@ -519,7 +519,7 @@ export default function PropertyNotesPage() {
                         </div>
                         <p className="font-bold text-neutral-900 line-clamp-2">{note.title}</p>
                         <p className="text-neutral-500 text-xs mt-xs">
-                          {note.people?.full_name ? `${note.people.full_name} • ` : ''}
+                          {note.people.name ? `${note.people.name} • ` : ''}
                           {createdDate}
                         </p>
                         <p className="text-neutral-600 line-clamp-3 text-xs mt-xs">{note.content}</p>

@@ -20,7 +20,7 @@ interface Job {
   before_photo: string | null
   after_photo: string | null
   photos: any
-  contractor?: { full_name: string | null } | null
+  contractor?: { name: string | null } | null
   room?: { name: string | null } | null
 }
 
@@ -72,7 +72,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
 
       const [{ data: people }, { data: rooms }] = await Promise.all([
         contractorIds.length
-          ? supabase.from('people').select('id, full_name').in('id', contractorIds)
+          ? supabase.from('people').select('id, full_name, first_name, last_name').in('id', contractorIds)
           : Promise.resolve({ data: [] as any[] }),
         roomIds.length
           ? supabase.from('rooms').select('id, name').in('id', roomIds)
@@ -84,7 +84,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
       setJobs(
         tickets.map((t) => ({
           ...t,
-          contractor: t.contractor_id ? { full_name: peopleById.get(t.contractor_id)?.full_name ?? null } : null,
+          contractor: t.contractor_id ? { name: peopleById.get(t.contractor_id).name ?? null } : null,
           room: t.room_id ? { name: roomsById.get(t.room_id)?.name ?? null } : null,
         }))
       )
@@ -98,7 +98,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
   return (
     <div className="space-y-xl">
       <div>
-        <h2 className="text-xl font-semibold text-white">Works Carried Out</h2>
+        <h2 className="text-xl font-semibold text-neutral-900">Works Carried Out</h2>
         <p className="text-sm text-neutral-400 mt-xs">
           Completed jobs at this property. Cost shown where recorded — some invoices are settled outside the app.
         </p>
@@ -140,7 +140,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
                     <td className="px-md py-sm text-neutral-400 text-xs">
                       {j.completed_at ? new Date(j.completed_at).toLocaleDateString('en-GB') : '—'}
                     </td>
-                    <td className="px-md py-sm text-neutral-400 text-xs">{j.contractor?.full_name || '—'}</td>
+                    <td className="px-md py-sm text-neutral-400 text-xs">{j.contractor.name || '—'}</td>
                     <td className="px-md py-sm text-right">
                       {j.final_price != null
                         ? <span className="text-neutral-200">£{Number(j.final_price).toLocaleString()}</span>
@@ -177,7 +177,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
                 Completed {selected.completed_at ? new Date(selected.completed_at).toLocaleDateString('en-GB') : '—'}
               </span>
               <span className="rounded bg-neutral-800 px-sm py-0.5 text-neutral-300">
-                {selected.contractor?.full_name || 'Contractor not recorded'}
+                {selected.contractor.name || 'Contractor not recorded'}
               </span>
               <span className={`rounded px-sm py-0.5 ${selected.final_price != null ? 'bg-green-900 text-green-200' : 'bg-neutral-800 text-neutral-400 italic'}`}>
                 {selected.final_price != null ? `£${Number(selected.final_price).toLocaleString()}` : 'cost not recorded'}

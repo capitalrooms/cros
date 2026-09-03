@@ -81,7 +81,7 @@ export default function ReviewPage() {
           <div className="grid grid-cols-2 gap-lg text-sm">
             <div>
               <div className="text-neutral-600 font-medium mb-xs">Name</div>
-              <div className="text-neutral-900">{applicant.full_name}</div>
+              <div className="text-neutral-900">{applicant.name}</div>
             </div>
             <div>
               <div className="text-neutral-600 font-medium mb-xs">Email</div>

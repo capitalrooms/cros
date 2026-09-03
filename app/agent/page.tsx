@@ -48,7 +48,7 @@ export default function AgentDashboard() {
         return
       }
       setUser(data.user)
-      setName((data.assignment as any)?.full_name || data.user?.email?.split('@')[0] || '')
+      setName((data.assignment as any).name || data.user?.email?.split('@')[0] || '')
 
       const supabase = createClient()
 

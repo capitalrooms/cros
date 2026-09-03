@@ -153,7 +153,7 @@ export default function PurchasesTab({ propertyId }: PurchasesTabProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Purchases</h2>
+          <h2 className="text-xl font-semibold text-neutral-900">Purchases</h2>
           <p className="text-sm text-neutral-400 mt-xs">
             Everything bought for this property — appliances, furniture, materials. Recorded for the whole property, or for an individual room.
           </p>

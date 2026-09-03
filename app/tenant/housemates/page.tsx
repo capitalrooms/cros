@@ -56,7 +56,7 @@ export default function HousematesPage() {
       // Everyone currently living at this property (me included).
       const { data: tens } = await supabase
         .from('tenancies')
-        .select('person_id, room_id, people(full_name), rooms(name)')
+        .select('person_id, room_id, people(full_name, first_name, last_name), rooms(name)')
         .eq('property_id', active.property_id)
         .lte('start_date', today)
         .or(`end_date.is.null,end_date.gte.${today}`)
@@ -83,7 +83,7 @@ export default function HousematesPage() {
         const t = byPerson.get(pid)
         return {
           personId: pid,
-          name: t.people?.full_name || 'A housemate',
+          name: t.people.name || 'A housemate',
           roomName: t.rooms?.name || null,
           isMe: pid === myId,
           answers: icebreakers.get(pid) || {},
@@ -109,7 +109,7 @@ export default function HousematesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton />} />
+        <AppBar left={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -119,7 +119,7 @@ export default function HousematesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">

@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
+import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = 'Capital Rooms <onboarding@resend.dev>'
-const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/maintenance-photos/brand/logo.png`
-const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3000'
 
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
+  if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
 
@@ -83,19 +81,6 @@ export async function POST(request: NextRequest) {
   const roomName = (appointment.rooms as any)?.name || null
   const roomId = appointment.room_id
 
-  const shell = (inner: string) => `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1c1917">
-      <a href="${PORTAL_URL}">
-        <img src="${LOGO_URL}" alt="Capital Rooms" style="height:64px;width:auto;margin-bottom:20px" />
-      </a>
-      ${inner}
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e7e5e4">
-        <p style="margin:0;color:#a8a29e;font-size:13px">
-          Capital Rooms — Property Management
-        </p>
-      </div>
-    </div>`
-
   async function send(to: string, subject: string, html: string) {
     const res = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
@@ -128,17 +113,17 @@ export async function POST(request: NextRequest) {
       // Send to tenant IN this room: "A viewing has been booked on your room"
       const { data: tenancies } = await supabase
         .from('tenancies')
-        .select('person_id, people(full_name, email), opt_in_viewings')
+        .select('person_id, people(full_name, first_name, last_name, email), opt_in_viewings')
         .eq('room_id', roomId)
         .is('end_date', null)
         .single()
 
       if (tenancies && (tenancies as any).people?.email && tenancies?.opt_in_viewings) {
-        const tenantName = (tenancies as any).people.full_name || 'Tenant'
+        const tenantName = (tenancies as any).people.name || 'Tenant'
         await send(
           (tenancies as any).people.email,
           `A viewing has been booked for your room — ${roomName}`,
-          shell(`
+          emailHtml(`
             <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
             <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
             <p style="margin:0 0 20px;line-height:1.6">A viewing has been booked for your room.</p>
@@ -164,7 +149,7 @@ export async function POST(request: NextRequest) {
       // Send to all OTHER tenants in the property: "A viewing is booked at the house"
       const { data: allTenancies } = await supabase
         .from('tenancies')
-        .select('person_id, room_id, people(full_name, email), opt_in_viewings')
+        .select('person_id, room_id, people(full_name, first_name, last_name, email), opt_in_viewings')
         .eq('property_id', propertyId)
         .neq('room_id', roomId)
         .is('end_date', null)
@@ -172,11 +157,11 @@ export async function POST(request: NextRequest) {
       if (allTenancies && allTenancies.length > 0) {
         for (const tenancy of allTenancies) {
           if ((tenancy as any).people?.email && tenancy.opt_in_viewings) {
-            const tenantName = (tenancy as any).people.full_name || 'Tenant'
+            const tenantName = (tenancy as any).people.name || 'Tenant'
             await send(
               (tenancy as any).people.email,
               `A viewing is booked at the house — ${propertyName}`,
-              shell(`
+              emailHtml(`
                 <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled at Your Property</h2>
                 <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
                 <p style="margin:0 0 20px;line-height:1.6">Please note that a viewing has been booked at your property.</p>
@@ -202,18 +187,18 @@ export async function POST(request: NextRequest) {
       // No specific room selected — notify all tenants in the property
       const { data: allTenancies } = await supabase
         .from('tenancies')
-        .select('person_id, people(full_name, email), opt_in_viewings')
+        .select('person_id, people(full_name, first_name, last_name, email), opt_in_viewings')
         .eq('property_id', propertyId)
         .is('end_date', null)
 
       if (allTenancies && allTenancies.length > 0) {
         for (const tenancy of allTenancies) {
           if ((tenancy as any).people?.email && tenancy.opt_in_viewings) {
-            const tenantName = (tenancy as any).people.full_name || 'Tenant'
+            const tenantName = (tenancy as any).people.name || 'Tenant'
             await send(
               (tenancy as any).people.email,
               `A viewing is booked at the house — ${propertyName}`,
-              shell(`
+              emailHtml(`
                 <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled at Your Property</h2>
                 <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
                 <p style="margin:0 0 20px;line-height:1.6">Please note that a viewing has been booked at your property.</p>

@@ -38,7 +38,7 @@ export default function HousematesTab({ propertyId }: { propertyId: string }) {
 
     const { data: tens } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people(full_name, email), rooms(name)')
+      .select('person_id, room_id, people(full_name, first_name, last_name, email), rooms(name)')
       .eq('property_id', propertyId)
       .lte('start_date', today)
       .or(`end_date.is.null,end_date.gte.${today}`)
@@ -66,7 +66,7 @@ export default function HousematesTab({ propertyId }: { propertyId: string }) {
       const ib = ibs.get(pid)
       return {
         personId: pid,
-        name: t.people?.full_name || 'Unnamed tenant',
+        name: t.people.name || 'Unnamed tenant',
         email: t.people?.email || null,
         roomName: t.rooms?.name || null,
         answers: ib?.answers || {},

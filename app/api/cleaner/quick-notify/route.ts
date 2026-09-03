@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { insertNotifications, activeTenantIds, tryPush } from '@/lib/serverNotify'
+import { insertNotifications, activeTenantIds, tryPush, tryEmailFallback } from '@/lib/serverNotify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,6 +41,7 @@ export async function POST(request: Request) {
     }
 
     await tryPush(recipientIds, subject, message, '/tenant')
+    await tryEmailFallback(service, recipientIds, { title: subject, body: message, link: '/tenant' })
 
     return Response.json({ success: true, message: `Notification sent to ${count} tenant(s)`, tenant_count: count })
   } catch (error) {

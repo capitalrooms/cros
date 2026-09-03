@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
+import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = 'Capital Rooms <onboarding@resend.dev>'
-const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/maintenance-photos/brand/logo.png`
-const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3000'
 
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
+  if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
   const user = await getCurrentUser()
@@ -52,19 +50,6 @@ export async function POST(request: NextRequest) {
   const where = [property?.name, property?.address].filter(Boolean).join(', ')
   const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
-  const shell = (inner: string) => `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1c1917">
-      <a href="${PORTAL_URL}">
-        <img src="${LOGO_URL}" alt="Capital Rooms" style="height:64px;width:auto;margin-bottom:20px" />
-      </a>
-      ${inner}
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e7e5e4">
-        <p style="margin:0;color:#a8a29e;font-size:13px">
-          Capital Rooms — Property Management
-        </p>
-      </div>
-    </div>`
-
   async function send(to: string, subject: string, html: string) {
     const res = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
@@ -90,7 +75,7 @@ export async function POST(request: NextRequest) {
     await send(
       admin,
       `Repair completed — ${category} at ${property?.name}`,
-      shell(`
+      emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">Repair completed</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${category}</p>
 
@@ -112,17 +97,17 @@ export async function POST(request: NextRequest) {
   if (room?.id) {
     const { data: tenancy } = await supabase
       .from('tenancies')
-      .select('person_id, people(full_name, email), opt_in_maintenance')
+      .select('person_id, people(full_name, first_name, last_name, email), opt_in_maintenance')
       .eq('room_id', room.id)
       .is('end_date', null)
       .single()
 
     if (tenancy?.people?.email && tenancy?.opt_in_maintenance) {
-      const tenantName = tenancy.people.full_name || 'Tenant'
+      const tenantName = tenancy.people.name || 'Tenant'
       await send(
         tenancy.people.email,
         `Your repair is complete — ${category}`,
-        shell(`
+        emailHtml(`
           <h2 style="margin:0 0 18px;font-size:22px">Repair Completed</h2>
           <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${category}</p>
 
@@ -151,7 +136,7 @@ export async function POST(request: NextRequest) {
   if (property?.id) {
     const { data: otherTenancies } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people(full_name, email), opt_in_maintenance')
+      .select('person_id, room_id, people(full_name, first_name, last_name, email), opt_in_maintenance')
       .eq('property_id', property.id)
       .neq('room_id', room?.id) // Exclude the room with the repair
       .is('end_date', null)
@@ -159,11 +144,11 @@ export async function POST(request: NextRequest) {
     if (otherTenancies && otherTenancies.length > 0) {
       for (const tenancy of otherTenancies) {
         if (tenancy.people?.email && tenancy.opt_in_maintenance) {
-          const tenantName = tenancy.people.full_name || 'Tenant'
+          const tenantName = tenancy.people.name || 'Tenant'
           await send(
             tenancy.people.email,
             `Maintenance completed at your property — ${category}`,
-            shell(`
+            emailHtml(`
               <h2 style="margin:0 0 18px;font-size:22px">Maintenance Completed</h2>
               <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${category}</p>
 

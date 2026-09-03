@@ -1,4 +1,5 @@
 'use client'
+import { displayName } from '@/lib/people'
 
 import { useState } from 'react'
 import { buildCheckoutEmail } from '@/lib/checkoutEmailTemplate'
@@ -6,7 +7,7 @@ import { buildCheckoutEmail } from '@/lib/checkoutEmailTemplate'
 interface Tenancy {
   id: string
   person?: {
-    full_name: string
+    name: string
     email: string
     phone: string
   }
@@ -22,7 +23,7 @@ interface Tenancy {
 
 interface Cleaner {
   id: string
-  full_name: string
+  name: string
   email?: string
   phone?: string
 }
@@ -83,7 +84,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
 
   // Build preview email
   const checkoutEmailHtml = emailTenant && moveOutDate && proRata ? buildCheckoutEmail({
-    tenantName: tenancy.person?.full_name || 'Tenant',
+    tenantName: displayName(tenancy.person) || 'Tenant',
     tenantEmail: tenancy.person?.email || '',
     roomName: tenancy.room?.name || 'Room',
     propertyAddress: tenancy.property?.address || '',
@@ -142,7 +143,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
               {/* Tenant Info */}
               <div className="p-md bg-neutral-50 rounded-lg border border-neutral-200">
                 <p className="text-sm text-neutral-600">
-                  <strong>Tenant:</strong> {tenancy.person?.full_name}
+                  <strong>Tenant:</strong> {displayName(tenancy.person)}
                 </p>
                 <p className="text-sm text-neutral-600">
                   <strong>Room:</strong> {tenancy.room?.name}, {tenancy.property?.address}
@@ -242,7 +243,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
                       <option value="">Select cleaner...</option>
                       {cleaners.map((cleaner) => (
                         <option key={cleaner.id} value={cleaner.id}>
-                          {cleaner.full_name} {cleaner.email ? `(${cleaner.email})` : ''}
+                          {cleaner.name} {cleaner.email ? `(${cleaner.email})` : ''}
                         </option>
                       ))}
                     </select>

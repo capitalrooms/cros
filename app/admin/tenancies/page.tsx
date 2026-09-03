@@ -37,7 +37,7 @@ interface Tenancy {
   opt_in_cleaning: boolean;
   person?: {
     id: string;
-    full_name: string;
+    name: string;
     email: string;
     phone: string;
   };
@@ -46,7 +46,7 @@ interface Tenancy {
 }
 
 interface TenantPerson {
-  full_name: string;
+  name: string;
   email: string;
   phone: string;
 }
@@ -65,7 +65,7 @@ export default function TenanciesManagementPage() {
   const [savingNotice, setSavingNotice] = useState(false);
 
   const [newTenant, setNewTenant] = useState<TenantPerson>({
-    full_name: '',
+    name: '',
     email: '',
     phone: '',
   });
@@ -113,7 +113,7 @@ export default function TenanciesManagementPage() {
     const { data: tenanciesData } = await supabase
       .from('tenancies')
       .select(
-        '*, people(id, full_name, email, phone), rooms(id, name, property_id, status), properties(id, name, address)'
+        '*, people(id, full_name, first_name, last_name, email, phone), rooms(id, name, property_id, status), properties(id, name, address)'
       )
       .order('start_date', { ascending: false });
 
@@ -128,7 +128,7 @@ export default function TenanciesManagementPage() {
     : [];
 
   const handleAddTenancy = async () => {
-    if (!selectedRoom || !newTenant.full_name || !newTenant.email) {
+    if (!selectedRoom || !newTenant.name || !newTenant.email) {
       alert('Please fill in all required fields');
       return;
     }
@@ -150,7 +150,7 @@ export default function TenanciesManagementPage() {
         await supabase
           .from('people')
           .update({
-            full_name: newTenant.full_name,
+            name: newTenant.name,
             phone: newTenant.phone,
           })
           .eq('id', personId);
@@ -160,7 +160,7 @@ export default function TenanciesManagementPage() {
           .from('people')
           .insert([
             {
-              full_name: newTenant.full_name,
+              name: newTenant.name,
               email: newTenant.email,
               phone: newTenant.phone,
               role: 'tenant',
@@ -198,7 +198,7 @@ export default function TenanciesManagementPage() {
       setShowAddTenancy(false);
       setSelectedProperty('');
       setSelectedRoom('');
-      setNewTenant({ full_name: '', email: '', phone: '' });
+      setNewTenant({ name: '', email: '', phone: '' });
       setNewTenancy({
         start_date: new Date().toISOString().split('T')[0],
         status: 'active',
@@ -286,7 +286,7 @@ export default function TenanciesManagementPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg">
         <div className="pt-lg mb-3xl flex items-center justify-between">
@@ -358,8 +358,8 @@ export default function TenanciesManagementPage() {
                     <input
                       type="text"
                       placeholder="Full name *"
-                      value={newTenant.full_name}
-                      onChange={(e) => setNewTenant({ ...newTenant, full_name: e.target.value })}
+                      value={newTenant.name}
+                      onChange={(e) => setNewTenant({ ...newTenant, name: e.target.value })}
                       className="w-full rounded-xl border border-neutral-300 px-md py-md text-base"
                     />
                     <input
@@ -526,7 +526,7 @@ export default function TenanciesManagementPage() {
                 <div className="flex items-start justify-between gap-md">
                   <div className="flex-1">
                     <p className="font-semibold text-neutral-900">
-                      {tenancy.people?.full_name || 'Unknown tenant'}
+                      {tenancy.people.name || 'Unknown tenant'}
                       {tenancy.rooms?.name ? ` • ${tenancy.rooms.name}` : ''}
                     </p>
                     <p className="text-sm text-neutral-600 mt-xs">
@@ -610,7 +610,7 @@ export default function TenanciesManagementPage() {
             <div className="w-full max-w-md rounded-3xl bg-white p-lg">
               <h2 className="text-xl font-bold text-neutral-900">Set move-out date</h2>
               <p className="mt-xs text-sm text-neutral-600">
-                {(noticeTenancy as any).people?.full_name}
+                {(noticeTenancy as any).people.name}
                 {(noticeTenancy as any).rooms?.name ? ` · ${(noticeTenancy as any).rooms.name}` : ''}
                 {(noticeTenancy as any).properties?.name ? ` · ${(noticeTenancy as any).properties.name}` : ''}
               </p>

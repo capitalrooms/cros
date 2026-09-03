@@ -126,7 +126,7 @@ export default function MaintenanceDashboard() {
   const [filterPriority, setFilterPriority] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [contractors, setContractors] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+  const [contractors, setContractors] = useState<{ id: string; name: string | null; email: string }[]>([]);
   const [bookContractor, setBookContractor] = useState('');
   const [adminNote, setAdminNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
@@ -153,7 +153,7 @@ export default function MaintenanceDashboard() {
       const supabase = createClient();
       const { data } = await supabase
         .from('people')
-        .select('id, full_name, email')
+        .select('id, full_name, first_name, last_name, email')
         .eq('role', 'contractor')
         .order('full_name');
       setContractors(data || []);
@@ -454,7 +454,7 @@ export default function MaintenanceDashboard() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
-        right={<BackButton href="/admin" />}
+        left={<BackButton href="/admin" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
@@ -860,7 +860,7 @@ export default function MaintenanceDashboard() {
                     <option value="">Select contractor…</option>
                     {contractors.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.full_name || c.email}
+                        {c.name || c.email}
                       </option>
                     ))}
                   </select>

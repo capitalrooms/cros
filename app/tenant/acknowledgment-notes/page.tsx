@@ -139,7 +139,7 @@ export default function AcknowledgmentNotesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">
         <h1 className="text-3xl font-bold text-neutral-900 mb-lg">📝 Important Notes</h1>

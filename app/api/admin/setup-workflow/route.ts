@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           .from('people')
           .insert({
             email: user.email,
-            full_name: user.name,
+            name: user.name,
             phone: user.phone,
             role: user.role,
           })

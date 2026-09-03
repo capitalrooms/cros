@@ -45,6 +45,15 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all') // 'all' | 'communal' | room_id
 
+  // AI photo scan state
+  const [scanResult, setScanResult] = useState<{
+    roomId: string
+    roomName: string
+    features: Record<string, any>
+    accepted: Record<string, boolean>
+  } | null>(null)
+  const [savingFeatures, setSavingFeatures] = useState(false)
+
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
@@ -147,6 +156,51 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
       }
       setUploadMsg(`✓ ${done} photo${done === 1 ? '' : 's'} uploaded.`)
       pending.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+
+      // After uploading, check if any were tagged to a room — if so, trigger photo scan
+      // on the first room photo uploaded this batch (don't spam if multiple uploaded).
+      const firstRoomItem = pending.find(item => item.target.startsWith('room:'))
+      if (firstRoomItem && process.env.NEXT_PUBLIC_ANTHROPIC_ENABLED !== 'false') {
+        const roomId = firstRoomItem.target.replace('room:', '')
+        const roomName = rooms.find(r => r.id === roomId)?.name || 'Room'
+        // Get the public URL we just uploaded
+        const safe = firstRoomItem.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+        // Find the uploaded photo URL by re-querying
+        const { data: newPhoto } = await supabase
+          .from('property_photos')
+          .select('file_url')
+          .eq('property_id', propertyId)
+          .eq('room_id', roomId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (newPhoto?.file_url) {
+          setUploadMsg('✨ Scanning room photo for features…')
+          try {
+            const res = await fetch('/api/rooms/scan-photo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ photo_url: newPhoto.file_url }),
+            })
+            const { features } = await res.json()
+            if (features) {
+              // Build accepted map — only include non-null features
+              const accepted: Record<string, boolean> = {}
+              for (const key of Object.keys(features)) {
+                const val = features[key]
+                if (val !== null && val !== undefined && !(Array.isArray(val) && val.length === 0)) {
+                  accepted[key] = true
+                }
+              }
+              setScanResult({ roomId, roomName, features, accepted })
+            }
+          } catch {
+            // Scan failed silently — don't block the upload flow
+          }
+        }
+      }
+
       setPending([])
       await loadPhotos()
       setTimeout(() => setUploadMsg(null), 5000)
@@ -156,6 +210,24 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
     } finally {
       setUploading(false)
     }
+  }
+
+  async function saveDetectedFeatures() {
+    if (!scanResult) return
+    setSavingFeatures(true)
+    // Build the features object with only accepted items
+    const toSave: Record<string, any> = {}
+    for (const [key, val] of Object.entries(scanResult.features)) {
+      if (scanResult.accepted[key]) toSave[key] = val
+    }
+    await supabase
+      .from('rooms')
+      .update({ detected_features: toSave })
+      .eq('id', scanResult.roomId)
+    setSavingFeatures(false)
+    setScanResult(null)
+    setUploadMsg(`✓ Room features saved for ${scanResult.roomName}`)
+    setTimeout(() => setUploadMsg(null), 4000)
   }
 
   /** The current label of an already-uploaded photo, in TargetSelect's scheme. */
@@ -202,7 +274,7 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
     <div className="space-y-xl">
       <div className="flex items-start justify-between gap-md">
         <div>
-          <h2 className="text-xl font-semibold text-white">Photos</h2>
+          <h2 className="text-xl font-semibold text-neutral-900">Photos</h2>
           <p className="text-sm text-neutral-400 mt-xs">
             Choose photos, tell us which room or area each one shows, then upload. Room photos also show on that room&apos;s dashboard.
           </p>
@@ -228,6 +300,66 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
 
       {uploadMsg && <div className="p-md rounded-lg bg-blue-950 border border-blue-800 text-sm text-blue-200">{uploadMsg}</div>}
       {error && <div className="p-md rounded-lg bg-red-950 border border-red-800 text-sm text-red-300">{error}</div>}
+
+      {/* AI scan result — feature confirmation */}
+      {scanResult && (
+        <div className="rounded-xl border border-purple-700 bg-purple-950/60 p-lg">
+          <div className="flex items-start justify-between gap-md mb-md">
+            <div>
+              <p className="text-sm font-bold text-purple-200">✨ Features detected in {scanResult.roomName}</p>
+              <p className="text-xs text-purple-400 mt-xs">Uncheck anything that doesn't look right, then save.</p>
+            </div>
+            <button onClick={() => setScanResult(null)} className="text-purple-400 hover:text-purple-200 text-xs">Dismiss</button>
+          </div>
+          <div className="space-y-xs">
+            {Object.entries(scanResult.features).map(([key, val]) => {
+              if (val === null || val === undefined) return null
+              if (Array.isArray(val) && val.length === 0) return null
+              const label = Array.isArray(val) ? val.join(', ') : String(val)
+              const fieldLabel: Record<string, string> = {
+                flooring: 'Flooring',
+                natural_light: 'Natural light',
+                window_treatment: 'Window treatment',
+                wardrobe: 'Wardrobe',
+                window_type: 'Windows',
+                extras: 'Other features',
+              }
+              return (
+                <label key={key} className="flex items-center gap-sm cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={!!scanResult.accepted[key]}
+                    onChange={e => setScanResult(prev => prev ? {
+                      ...prev,
+                      accepted: { ...prev.accepted, [key]: e.target.checked },
+                    } : null)}
+                    className="h-4 w-4 rounded accent-purple-500"
+                  />
+                  <span className="text-xs text-purple-300">
+                    <span className="text-purple-500 font-semibold">{fieldLabel[key] || key}:</span>{' '}
+                    {label}
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+          <div className="flex gap-sm mt-md">
+            <button
+              onClick={() => setScanResult(null)}
+              className="flex-1 rounded-lg border border-purple-700 py-sm text-xs font-semibold text-purple-300 hover:bg-purple-900/40"
+            >
+              Skip
+            </button>
+            <button
+              onClick={saveDetectedFeatures}
+              disabled={savingFeatures}
+              className="flex-1 rounded-lg bg-purple-700 py-sm text-xs font-bold text-white hover:bg-purple-600 disabled:opacity-50"
+            >
+              {savingFeatures ? 'Saving…' : 'Save to room'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Classify-before-upload panel */}
       {pending.length > 0 && (

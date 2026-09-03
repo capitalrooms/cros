@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@/lib/supabase'
 import { TIME_SLOTS } from '@/lib/booking'
 
@@ -30,7 +30,7 @@ function push(payload: any) {
  */
 export async function GET() {
   // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
+  if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
   const supabase = createClient()

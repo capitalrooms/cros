@@ -34,7 +34,7 @@ interface Tenancy {
   person_id: string
   start_date: string
   rent_amount?: number
-  people: { full_name: string; email: string }
+  people: { name: string; email: string }
 }
 
 export default function RoomDetailPage() {
@@ -83,7 +83,7 @@ export default function RoomDetailPage() {
         if (roomData.status === 'occupied') {
           const { data: tenancyData } = await supabase
             .from('tenancies')
-            .select('*, people(full_name, email)')
+            .select('*, people(full_name, first_name, last_name, email)')
             .eq('room_id', roomId)
             .is('end_date', null)
             .single()
@@ -126,7 +126,7 @@ export default function RoomDetailPage() {
   if (!room) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton href="/agent" />} />
+        <AppBar left={<BackButton href="/agent" />} />
         <p className="p-xl text-sm text-neutral-400">Room not found</p>
       </div>
     )
@@ -213,7 +213,7 @@ export default function RoomDetailPage() {
                 <div className="space-y-md">
                   <div>
                     <p className="text-xs text-neutral-600 uppercase">Name</p>
-                    <p className="font-bold text-neutral-900 mt-xs">{tenancy.people.full_name}</p>
+                    <p className="font-bold text-neutral-900 mt-xs">{tenancy.people.name}</p>
                   </div>
                   <div>
                     <p className="text-xs text-neutral-600 uppercase">Email</p>

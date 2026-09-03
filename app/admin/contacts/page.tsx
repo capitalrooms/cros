@@ -140,7 +140,7 @@ export default function ContactsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={<BackButton href="/admin" />}
+        left={<BackButton href="/admin" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
@@ -254,42 +254,66 @@ export default function ContactsPage() {
           ))}
         </div>
 
-        {/* Contacts List */}
+        {/* Contacts List — table layout matching All Units for row clarity */}
         {filteredContacts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
             <p className="text-sm text-neutral-500">No contacts found</p>
           </div>
         ) : (
-          <div className="space-y-sm">
-            {filteredContacts.map((contact) => (
-              <div key={contact.id} className="rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-300 transition-colors">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-md">
-                      <h3 className="text-lg font-bold text-neutral-900">{contact.name || contact.email}</h3>
-                      <span className={`text-xs font-semibold px-md py-xs rounded-full ${getRoleColor(contact.role)}`}>
+          <div className="overflow-x-auto rounded-xl border border-neutral-300 bg-white">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-neutral-100 text-left text-xs font-semibold uppercase tracking-wide text-neutral-600">
+                  <th className="px-md py-sm">Name</th>
+                  <th className="px-md py-sm hidden sm:table-cell">Role</th>
+                  <th className="px-md py-sm hidden md:table-cell">Email</th>
+                  <th className="px-md py-sm hidden md:table-cell">Phone</th>
+                  <th className="px-md py-sm hidden sm:table-cell">Assigned to</th>
+                  <th className="px-md py-sm w-[120px]"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContacts.map((contact) => (
+                  <tr key={contact.id} className="border-t border-neutral-200 bg-white hover:bg-neutral-50 transition-colors">
+                    <td className="px-md py-sm">
+                      <p className="font-semibold text-neutral-900">{contact.name || contact.email}</p>
+                      {/* Show email on mobile where dedicated column is hidden */}
+                      <p className="text-xs text-neutral-500 md:hidden">{contact.email}</p>
+                      <span className={`mt-xs inline-block text-xs font-semibold px-sm py-xs rounded-full sm:hidden ${getRoleColor(contact.role)}`}>
                         {getRoleLabel(contact.role)}
                       </span>
-                    </div>
-                    <p className="mt-xs text-sm text-neutral-600">{contact.email}</p>
-                    {contact.phone && (
-                      <p className="text-sm text-neutral-600">{contact.phone}</p>
-                    )}
-                    {contact.properties?.name && (
-                      <p className="mt-sm text-xs font-semibold text-neutral-700">
-                        📍 Assigned to: {contact.properties.name}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleDeleteContact(contact.id)}
-                    className="text-sm text-red-600 hover:text-red-700 font-semibold"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+                    </td>
+                    <td className="px-md py-sm hidden sm:table-cell">
+                      <span className={`text-xs font-semibold px-sm py-xs rounded-full ${getRoleColor(contact.role)}`}>
+                        {getRoleLabel(contact.role)}
+                      </span>
+                    </td>
+                    <td className="px-md py-sm hidden md:table-cell text-neutral-600">{contact.email}</td>
+                    <td className="px-md py-sm hidden md:table-cell text-neutral-600">{contact.phone || '—'}</td>
+                    <td className="px-md py-sm hidden sm:table-cell text-neutral-600 text-xs">
+                      {contact.properties?.name ? `📍 ${contact.properties.name}` : '—'}
+                    </td>
+                    <td className="px-md py-sm">
+                      <div className="flex items-center justify-end gap-sm">
+                        <a
+                          href={`/admin/view-as/${contact.id}`}
+                          title="View as this person"
+                          className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors whitespace-nowrap"
+                        >
+                          👁 View as
+                        </a>
+                        <button
+                          onClick={() => handleDeleteContact(contact.id)}
+                          className="text-xs text-red-600 hover:text-red-700 font-semibold"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </main>

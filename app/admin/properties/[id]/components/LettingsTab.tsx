@@ -25,9 +25,10 @@ interface LettingsTabProps {
   rooms: Array<{ id: string; name: string }>
   propertyName?: string
   propertyAddress?: string
+  propertyPostcode?: string
 }
 
-export default function LettingsTab({ propertyId, rooms, propertyName, propertyAddress }: LettingsTabProps) {
+export default function LettingsTab({ propertyId, rooms, propertyName, propertyAddress, propertyPostcode }: LettingsTabProps) {
   const [viewings, setViewings] = useState<Viewing[]>([])
   const [loading, setLoading] = useState(true)
   const [isAddingViewing, setIsAddingViewing] = useState(false)
@@ -54,7 +55,23 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
     feedback: ''
   })
 
-  const [roomList, setRoomList] = useState<Array<{ id: string; name: string; status?: string }>>(rooms)
+  const [roomList, setRoomList] = useState<Array<{
+    id: string
+    name: string
+    status?: string
+    current_asking_rent?: number | null
+    available_date?: string | null
+    has_ensuite?: boolean | null
+    has_shared_bathroom?: boolean | null
+    has_lounge?: boolean | null
+    marketing_description?: string | null
+  }>>(rooms)
+
+  // Marketing copy state
+  const [advertDrafts, setAdvertDrafts] = useState<Record<string, string>>({})
+  const [generatingAdvert, setGeneratingAdvert] = useState<string | null>(null) // "roomId:format"
+  const [savingAdvert, setSavingAdvert] = useState<string | null>(null)
+  const [advertBanner, setAdvertBanner] = useState<string | null>(null)
 
   // Occasionally an applicant is shown a SECOND property in the same session.
   // Rather than a whole separate booking flow, we let the booker optionally add
@@ -93,19 +110,63 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
   }
 
   async function loadRooms() {
-    // The parent page's property fetch doesn't always include rooms, so load
-    // them here — a room is required to book a viewing (viewings.room_id NOT NULL).
-    // Always load room status too so we can show an availability summary.
     const { data } = await supabase
       .from('rooms')
-      .select('id, name, status')
+      .select('id, name, status, current_asking_rent, available_date, has_ensuite, has_shared_bathroom, has_lounge, marketing_description')
       .eq('property_id', propertyId)
       .order('name')
     const list = data && data.length > 0 ? data : rooms
     if (list && list.length > 0) {
       setRoomList(list)
       setFormData((f) => ({ ...f, room_id: f.room_id || list[0].id }))
+      // Seed advert drafts from saved descriptions
+      const drafts: Record<string, string> = {}
+      for (const r of list) drafts[r.id] = (r as any).marketing_description || ''
+      setAdvertDrafts(drafts)
     }
+  }
+
+  async function generateAdvert(room: any, format: 'listing' | 'group') {
+    const key = `${room.id}:${format}`
+    setGeneratingAdvert(key)
+    try {
+      const res = await fetch('/api/let-only/generate-advert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          format,
+          room_id: room.id,
+          property_id: propertyId,
+          room_name: room.name,
+          monthly_rent: room.current_asking_rent,
+          available_date: room.available_date,
+          has_ensuite: room.has_ensuite,
+          has_shared_bathroom: room.has_shared_bathroom,
+          has_lounge: room.has_lounge,
+          detected_features: room.detected_features || null,
+          address: propertyAddress || '',
+          postcode: propertyPostcode || '',
+        }),
+      })
+      const data = await res.json()
+      if (data.advert) {
+        setAdvertDrafts(prev => ({ ...prev, [room.id]: data.advert }))
+      }
+    } finally {
+      setGeneratingAdvert(null)
+    }
+  }
+
+  async function saveAdvert(roomId: string) {
+    setSavingAdvert(roomId)
+    await supabase
+      .from('rooms')
+      .update({ marketing_description: advertDrafts[roomId] || null })
+      .eq('id', roomId)
+    setRoomList(prev => prev.map(r => r.id === roomId ? { ...r, marketing_description: advertDrafts[roomId] } : r))
+    setSavingAdvert(null)
+    setAdvertBanner('Copy saved')
+    setTimeout(() => setAdvertBanner(null), 2500)
   }
 
   async function loadViewings() {
@@ -382,7 +443,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Lettings</h2>
+          <h2 className="text-xl font-semibold text-neutral-900">Lettings</h2>
           <p className="text-sm text-neutral-400 mt-xs">Manage property viewings and track leads</p>
         </div>
         <button
@@ -670,6 +731,89 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
           </div>
         </div>
       )}
+
+      {/* ── Marketing copy ── */}
+      {(() => {
+        const marketingRooms = roomList.filter(r => r.status === 'available' || r.status === 'on_notice')
+        if (marketingRooms.length === 0) return null
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-lg pb-sm border-b border-neutral-700">
+              <h3 className="text-sm font-bold uppercase text-neutral-400">✨ Room Marketing</h3>
+              {advertBanner && (
+                <span className="text-xs text-green-400 font-semibold">{advertBanner}</span>
+              )}
+            </div>
+            <div className="space-y-md">
+              {marketingRooms.map(room => (
+                <div key={room.id} className="rounded-xl border border-neutral-700 bg-neutral-900 p-lg">
+                  <div className="flex items-start justify-between gap-md mb-md">
+                    <div>
+                      <p className="font-semibold text-white">{room.name}</p>
+                      <div className="flex flex-wrap gap-md mt-xs text-xs text-neutral-400">
+                        {room.current_asking_rent && <span>£{Number(room.current_asking_rent).toLocaleString()} pcm</span>}
+                        {room.available_date && (
+                          <span>Available {new Date(room.available_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        )}
+                        {room.status === 'on_notice' && (
+                          <span className="text-amber-400 font-semibold">📋 On notice</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-sm shrink-0 flex-wrap justify-end">
+                      <button
+                        onClick={() => generateAdvert(room, 'listing')}
+                        disabled={!!generatingAdvert}
+                        className="text-xs text-purple-400 hover:text-purple-300 font-semibold disabled:opacity-50"
+                        title={room.detected_features ? 'Uses saved room features + photos' : 'Upload a room photo to enable photo-based generation'}
+                      >
+                        {generatingAdvert === `${room.id}:listing` ? '✨ Drafting…' : '✨ Advert'}
+                      </button>
+                      <span className="text-neutral-600 text-xs">|</span>
+                      <button
+                        onClick={() => generateAdvert(room, 'group')}
+                        disabled={!!generatingAdvert}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold disabled:opacity-50"
+                      >
+                        {generatingAdvert === `${room.id}:group` ? '✨ Drafting…' : '✨ Group post'}
+                      </button>
+                    </div>
+                  </div>
+                  {room.detected_features && Object.keys(room.detected_features).length > 0 && (
+                    <div className="mb-sm flex flex-wrap gap-xs">
+                      {Object.entries(room.detected_features as Record<string, any>).map(([k, v]) => {
+                        if (!v || (Array.isArray(v) && v.length === 0)) return null
+                        const display = Array.isArray(v) ? v.join(', ') : String(v)
+                        return (
+                          <span key={k} className="rounded-full bg-purple-900/40 border border-purple-700/50 px-sm py-0.5 text-xs text-purple-300">
+                            {display}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <textarea
+                    value={advertDrafts[room.id] || ''}
+                    onChange={e => setAdvertDrafts(prev => ({ ...prev, [room.id]: e.target.value }))}
+                    rows={5}
+                    placeholder="Generate an advert or group post with the buttons above, then edit and save…"
+                    className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-md py-sm text-sm text-neutral-100 placeholder:text-neutral-500 resize-y focus:border-purple-500 focus:ring-2 focus:ring-purple-900 outline-none"
+                  />
+                  {(advertDrafts[room.id] || '') !== (room.marketing_description || '') && (
+                    <button
+                      onClick={() => saveAdvert(room.id)}
+                      disabled={savingAdvert === room.id}
+                      className="mt-xs text-xs text-blue-400 hover:text-blue-300 font-semibold disabled:opacity-50"
+                    >
+                      {savingAdvert === room.id ? 'Saving…' : 'Save copy'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Upcoming Viewings */}
       <div>

@@ -255,7 +255,7 @@ export default function AppointmentsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-full px-lg py-2xl">
         {/* Header — Balanced Spacing */}

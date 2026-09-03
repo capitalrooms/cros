@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { tenantCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
+import twilio from 'twilio'
+import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+
+async function sendSms(to: string, body: string) {
+  const sid = process.env.TWILIO_ACCOUNT_SID
+  const token = process.env.TWILIO_AUTH_TOKEN
+  const from = process.env.TWILIO_FROM_NUMBER
+  if (!sid || !token || !from) return // SMS not configured yet — skip silently
+  try {
+    const client = twilio(sid, token)
+    await client.messages.create({ to, from, body })
+  } catch (e) {
+    console.warn('SMS failed:', e)
+  }
+}
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = 'Capital Rooms <onboarding@resend.dev>'
-const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/maintenance-photos/brand/logo.png`
-const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3002'
 
 function jobHeading(
   category: string | null,
@@ -22,10 +33,6 @@ function jobHeading(
 }
 
 export async function POST(request: NextRequest) {
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
-  }
   const user = await getCurrentUser()
   if (!user) {
     await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized notify-job-raised access', ipAddress: getClientIp(request.headers) })
@@ -50,7 +57,13 @@ export async function POST(request: NextRequest) {
 
   const { data: ticket, error } = await supabase
     .from('maintenance_tickets')
-    .select('*, properties(name, address), rooms(name), people(email)')
+    .select(`
+      *,
+      properties(name, address),
+      rooms(name),
+      people(email),
+      contractor:people!contractor_id(id, first_name, last_name, full_name, email, phone)
+    `)
     .eq('id', ticketId)
     .single()
 
@@ -61,26 +74,9 @@ export async function POST(request: NextRequest) {
   const property = ticket.properties as any
   const room = ticket.rooms as any
   const reporter = ticket.people as any
+  const contractor = ticket.contractor as any
   const where = [property?.name, property?.address].filter(Boolean).join(', ')
   const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-
-  const shell = (inner: string) => `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1c1917">
-      <a href="${PORTAL_URL}">
-        <img src="${LOGO_URL}" alt="Capital Rooms" style="height:64px;width:auto;margin-bottom:20px" />
-      </a>
-      ${inner}
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e7e5e4">
-        <a href="${PORTAL_URL}/tenant"
-           style="display:inline-block;background:#1c1917;color:#ffffff;font-size:15px;font-weight:600;
-                  padding:13px 24px;border-radius:8px;text-decoration:none">
-          View your requests
-        </a>
-        <p style="margin-top:14px;color:#a8a29e;font-size:13px">
-          Track this repair and get updates as it progresses.
-        </p>
-      </div>
-    </div>`
 
   async function send(to: string, subject: string, html: string) {
     const res = await fetch(RESEND_ENDPOINT, {
@@ -109,7 +105,7 @@ export async function POST(request: NextRequest) {
     const success = await send(
       reporter.email,
       `Request received — ${heading}`,
-      shell(`
+      emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">We received your request</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
 
@@ -137,7 +133,7 @@ export async function POST(request: NextRequest) {
     await send(
       admin,
       `New request — ${heading}`,
-      shell(`
+      emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">New maintenance request</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
 
@@ -157,6 +153,63 @@ export async function POST(request: NextRequest) {
         </p>`)
     )
     sent.push(admin)
+  }
+
+  // Contractor — notify them of the new job assignment
+  if (contractor?.email) {
+    const contractorName = contractor.first_name
+      ? `${contractor.first_name}${contractor.last_name ? ' ' + contractor.last_name : ''}`
+      : contractor.full_name || 'there'
+    await send(
+      contractor.email,
+      `New job assigned — ${heading}`,
+      emailHtml(`
+        <h2 style="margin:0 0 8px;font-size:22px">Hi ${contractorName}, you've been assigned a job</h2>
+        <p style="margin:0 0 24px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
+
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <tr><td style="padding:6px 0;color:#78716c;width:110px">Job</td>
+              <td style="padding:6px 0;font-weight:600">${ticket.title}</td></tr>
+          <tr><td style="padding:6px 0;color:#78716c">Property</td>
+              <td style="padding:6px 0">${property?.name || '—'}</td></tr>
+          <tr><td style="padding:6px 0;color:#78716c">Address</td>
+              <td style="padding:6px 0">${property?.address || '—'}</td></tr>
+          ${room?.name ? `<tr><td style="padding:6px 0;color:#78716c">Room</td>
+              <td style="padding:6px 0">${room.name}</td></tr>` : ''}
+          <tr><td style="padding:6px 0;color:#78716c">Priority</td>
+              <td style="padding:6px 0">${ticket.priority}</td></tr>
+          ${ticket.description ? `<tr><td style="padding:6px 0;color:#78716c">Details</td>
+              <td style="padding:6px 0">${ticket.description}</td></tr>` : ''}
+        </table>
+
+        <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
+          Please log in to the contractor portal to confirm you've received this job and book a date to attend.
+        </p>`)
+    )
+    sent.push(contractor.email)
+
+    // SMS — send if contractor has a phone number and Twilio is configured
+    const contractorPhone = (contractor as any).phone
+    if (contractorPhone) {
+      const address = property?.address || property?.name || 'the property'
+      const smsBody = `Hi ${contractorName}, new job from Capital Rooms: ${ticket.title} at ${address}. Reply Y to confirm you'll attend, or N if you have a scheduling issue. Portal: ${PORTAL_URL}/contractor/jobs — Capital Rms`
+      await sendSms(contractorPhone, smsBody)
+      // Log for Y/N reply matching
+      try {
+        const supa = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+        await supa.from('sms_confirmations').insert({
+          phone: contractorPhone,
+          type: 'contractor_job',
+          related_id: ticketId,
+          context_text: `Job: ${ticket.title} at ${address}`,
+        })
+      } catch (e) {
+        console.warn('sms_confirmations insert failed:', e)
+      }
+    }
   }
 
   return NextResponse.json({ sent })

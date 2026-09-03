@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     const { data: landlord, error: landlordError } = await supabase
       .from('people')
       .insert({
-        full_name: 'Capital Rooms Landlord',
+        name: 'Capital Rooms Landlord',
         email: 'landlord@example.co.uk',
         phone: '020 7946 0958',
         role: 'landlord',
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
       .from('people')
       .insert(
         tenantEmails.map((t) => ({
-          full_name: t.name,
+          name: t.name,
           email: t.email,
           role: 'tenant',
         }))
@@ -232,7 +232,7 @@ export async function POST(request: Request) {
       data: {
         landlord: {
           email: landlord.email,
-          name: landlord.full_name,
+          name: landlord.name,
           id: landlord.id,
         },
         property: {

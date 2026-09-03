@@ -224,7 +224,7 @@ export default function DocReview({
     }
     if (initial.person_name) {
       const hit = (people || []).find((p) =>
-        String(p.full_name || '').toLowerCase().includes(initial.person_name.toLowerCase())
+        String(p.name || '').toLowerCase().includes(initial.person_name.toLowerCase())
       )
       setTargetPerson(hit?.id || '')
     } else setTargetPerson('')
@@ -391,7 +391,7 @@ export default function DocReview({
         if (fields.previous_address) update.previous_address  = fields.previous_address
         const { error: e } = await supabase.from('people').update(update).eq('id', targetPerson)
         if (e) throw e
-        onApplied(`Saved to ${people.find((p) => p.id === targetPerson)?.full_name || 'the tenant'}.`)
+        onApplied(`Saved to ${people.find((p) => p.id === targetPerson).name || 'the tenant'}.`)
         return
       }
 
@@ -524,7 +524,7 @@ export default function DocReview({
                   t.rooms?.properties?.name ||
                   t.properties?.address ||
                   ''
-                const parts = [t.people?.full_name || 'Tenant', t.rooms?.name, prop].filter(Boolean)
+                const parts = [t.people.name || 'Tenant', t.rooms?.name, prop].filter(Boolean)
                 return (
                   <option key={t.id} value={t.id}>
                     {parts.join(' · ')}
@@ -543,7 +543,7 @@ export default function DocReview({
             <select value={targetPerson} onChange={(e) => setTargetPerson(e.target.value)}
               className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-neutral-900 focus:outline-none">
               <option value="">Choose a tenant…</option>
-              {people.map((p) => (<option key={p.id} value={p.id}>{p.full_name || p.email}</option>))}
+              {people.map((p) => (<option key={p.id} value={p.id}>{p.name || p.email}</option>))}
             </select>
           </div>
         )}

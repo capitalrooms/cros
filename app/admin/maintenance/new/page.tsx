@@ -47,7 +47,7 @@ export default function NewJobPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
-  const [contractors, setContractors] = useState<{ id: string; full_name: string | null; email: string }[]>([]);
+  const [contractors, setContractors] = useState<{ id: string; name: string | null; email: string }[]>([]);
   const [contractorId, setContractorId] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -65,7 +65,7 @@ export default function NewJobPage() {
       setProperties(props || []);
       const { data: cons } = await supabase
         .from('people')
-        .select('id, full_name, email')
+        .select('id, full_name, first_name, last_name, email')
         .eq('role', 'contractor')
         .order('full_name');
       setContractors(cons || []);
@@ -191,7 +191,7 @@ export default function NewJobPage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar
-          right={<BackButton href="/admin/maintenance" />}
+          left={<BackButton href="/admin/maintenance" />}
         />
         <p className="p-xl text-neutral-500">Loading...</p>
       </div>
@@ -342,7 +342,7 @@ export default function NewJobPage() {
                 <option value="">Leave unassigned (assign on the board)</option>
                 {contractors.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.full_name || c.email}
+                    {c.name || c.email}
                   </option>
                 ))}
               </select>

@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const { data: recipient, error: recipientError } = await supabase
       .from('people')
-      .select('id, email, full_name')
+      .select('id, email, full_name, first_name, last_name')
       .eq('email', recipientEmail)
       .single()
 
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       notification: createdMessage?.[0],
       recipient: {
         email: recipient.email,
-        name: recipient.full_name,
+        name: recipient.name,
         role: recipientRole,
       },
     })

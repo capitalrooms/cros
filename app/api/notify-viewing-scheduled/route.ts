@@ -1,18 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
+import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import twilio from 'twilio'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = 'Capital Rooms <onboarding@resend.dev>'
-const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/maintenance-photos/brand/logo.png`
-const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3000'
+
+async function sendConfirmationSms(
+  supabase: ReturnType<typeof import('@supabase/supabase-js').createClient>,
+  phone: string,
+  viewingId: string,
+  contextText: string,
+  smsBody: string
+) {
+  const sid   = process.env.TWILIO_ACCOUNT_SID
+  const token = process.env.TWILIO_AUTH_TOKEN
+  const from  = process.env.TWILIO_FROM_NUMBER
+  if (!sid || !token || !from) return
+  try {
+    const client = twilio(sid, token)
+    await client.messages.create({ to: phone, from, body: smsBody })
+    // Log so the inbound webhook can match the reply
+    await supabase.from('sms_confirmations').insert({
+      phone,
+      type: 'viewing',
+      related_id: viewingId,
+      context_text: contextText,
+    })
+  } catch (e) {
+    console.warn('Viewing confirmation SMS failed:', e)
+  }
+}
 
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
+  if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
   // Step 1: Verify authentication
@@ -78,19 +103,6 @@ export async function POST(request: NextRequest) {
   const propertyId = (viewing.rooms as any)?.properties?.id
   const roomId = viewing.rooms?.id
 
-  const shell = (inner: string) => `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1c1917">
-      <a href="${PORTAL_URL}">
-        <img src="${LOGO_URL}" alt="Capital Rooms" style="height:64px;width:auto;margin-bottom:20px" />
-      </a>
-      ${inner}
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e7e5e4">
-        <p style="margin:0;color:#a8a29e;font-size:13px">
-          Capital Rooms — Property Management
-        </p>
-      </div>
-    </div>`
-
   async function send(to: string, subject: string, html: string) {
     const res = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
@@ -121,7 +133,7 @@ export async function POST(request: NextRequest) {
     await send(
       admin,
       `Viewing scheduled — ${roomName} at ${propertyName}`,
-      shell(`
+      emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">Viewing scheduled</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${roomName}</p>
 
@@ -140,22 +152,29 @@ export async function POST(request: NextRequest) {
     sent.push(admin)
   }
 
+  // SMS confirmation to the applicant (if they have a phone number)
+  if (viewing.visitor_phone) {
+    const contextText = `Viewing — ${roomName} at ${propertyName}${propertyAddress ? `, ${propertyAddress}` : ''} on ${when}`
+    const smsBody = `Hi ${viewing.visitor_name?.split(' ')[0] || 'there'}, your viewing of ${roomName} at ${propertyAddress || propertyName} is confirmed for ${when}. Reply Y to confirm you're coming, or N if you're running late. — Capital Rms`
+    await sendConfirmationSms(supabase, viewing.visitor_phone, viewingId, contextText, smsBody)
+  }
+
   // Send to tenant IN this room: "A viewing has been booked on your room"
   // Check if tenant has opted into viewing notifications
   if (roomId) {
     const { data: tenancies } = await supabase
       .from('tenancies')
-      .select('person_id, people(full_name, email), opt_in_viewings')
+      .select('person_id, people(full_name, first_name, last_name, email), opt_in_viewings')
       .eq('room_id', roomId)
       .is('end_date', null)
       .single()
 
     if (tenancies?.people?.email && tenancies?.opt_in_viewings) {
-      const tenantName = tenancies.people.full_name || 'Tenant'
+      const tenantName = tenancies.people.name || 'Tenant'
       await send(
         tenancies.people.email,
         `A viewing has been booked on your room — ${roomName}`,
-        shell(`
+        emailHtml(`
           <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
           <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
           <p style="margin:0 0 20px;line-height:1.6">A viewing has been booked on your room.</p>
@@ -184,7 +203,7 @@ export async function POST(request: NextRequest) {
   if (propertyId) {
     const { data: allTenancies } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people(full_name, email), opt_in_viewings')
+      .select('person_id, room_id, people(full_name, first_name, last_name, email), opt_in_viewings')
       .eq('property_id', propertyId)
       .neq('room_id', roomId) // Exclude the room with the viewing
       .is('end_date', null)
@@ -193,11 +212,11 @@ export async function POST(request: NextRequest) {
       for (const tenancy of allTenancies) {
         // Only send if tenant has opted into viewing notifications
         if (tenancy.people?.email && tenancy.opt_in_viewings) {
-          const tenantName = tenancy.people.full_name || 'Tenant'
+          const tenantName = tenancy.people.name || 'Tenant'
           await send(
             tenancy.people.email,
             `A viewing is booked at the house — ${propertyName}`,
-            shell(`
+            emailHtml(`
               <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled at Your Property</h2>
               <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
               <p style="margin:0 0 20px;line-height:1.6">Please note that a viewing has been booked at your property.</p>
