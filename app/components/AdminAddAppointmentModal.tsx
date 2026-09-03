@@ -182,18 +182,24 @@ export default function AdminAddAppointmentModal({
       const locationNote = isCustom ? `📍 Location: ${customAddress.trim()}` : null
       const combinedNotes = [locationNote, notes || null].filter(Boolean).join('\n') || null
 
-      // Store window as "09:00-17:00" in the single time column
+      // Store window as "09:00-17:00" in the time column
       const storedTime = timeWindow ? `${time}-${timeTo}` : time
+      const typeLabel  = APPOINTMENT_TYPES.find(t => t.id === selectedType)?.label || selectedType
 
       const { error: err } = await supabase.from('admin_appointments').insert({
-        type: selectedType,
-        appointment_date: date,
-        appointment_time: storedTime,
-        property_id: isCustom ? null : property,
-        notes: combinedNotes,
-        notify_tenants: isCustom ? false : notifyTenants, // can't notify tenants for off-system addresses
+        type:                 selectedType,
+        appointment_type:     selectedType,
+        title:                typeLabel,
+        appointment_date:     date,
+        appointment_slot:     storedTime,
+        appointment_time:     storedTime,
+        property_id:          isCustom ? null : property,
+        custom_location:      isCustom ? customAddress.trim() : null,
+        notes:                combinedNotes,
+        description:          combinedNotes,
+        notify_tenants:       isCustom ? false : notifyTenants,
         notification_message: (!isCustom && notifyTenants) ? notificationMessage : null,
-        created_at: new Date().toISOString(),
+        created_at:           new Date().toISOString(),
       })
 
       if (err) throw err
