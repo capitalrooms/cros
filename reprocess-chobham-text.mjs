@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import fs from 'fs'
 import crypto from 'crypto'
-import pdfParse from 'pdf-parse/lib/pdf-parse.js'
+import { PDFParse } from 'pdf-parse'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -147,8 +147,11 @@ async function run() {
 
   // Step 1: Extract all text from PDF
   const pdfBuffer = fs.readFileSync('/tmp/statement.pdf')
-  const { text, numpages } = await pdfParse(pdfBuffer)
-  console.log(`PDF: ${numpages} pages, ${text.length.toLocaleString()} characters of text extracted`)
+  const parser = new PDFParse({ data: pdfBuffer })
+  const parseResult = await parser.getText()
+  await parser.destroy()
+  const text = parseResult.text
+  console.log(`PDF: ${text.length.toLocaleString()} characters of text extracted`)
 
   // Step 2: Chunk text and parse each chunk
   const chunks = chunkText(text, 4000)
