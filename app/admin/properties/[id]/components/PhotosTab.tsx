@@ -11,6 +11,7 @@ interface Photo {
   file_path: string
   file_url: string | null
   caption: string | null
+  is_featured: boolean
   room?: { name: string } | null
 }
 
@@ -44,6 +45,7 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
   const [uploadMsg, setUploadMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all') // 'all' | 'communal' | room_id
+  const [savingFeatured, setSavingFeatured] = useState<string | null>(null)
 
   // AI photo scan state
   const [scanResult, setScanResult] = useState<{
@@ -255,6 +257,23 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
     }
   }
 
+  async function handleSetFeatured(photoId: string) {
+    setSavingFeatured(photoId)
+    try {
+      // Clear is_featured on all photos for this property, then set it on the chosen one
+      await supabase.from('property_photos').update({ is_featured: false }).eq('property_id', propertyId)
+      await supabase.from('property_photos').update({ is_featured: true }).eq('id', photoId)
+      // Stamp featured_photo_id on the property itself (drives the header display)
+      await supabase.from('properties').update({ featured_photo_id: photoId }).eq('id', propertyId)
+      // Update local state so the UI reflects immediately without a reload
+      setPhotos((prev) => prev.map((p) => ({ ...p, is_featured: p.id === photoId })))
+    } catch {
+      setError('Failed to set featured photo — please try again')
+    } finally {
+      setSavingFeatured(null)
+    }
+  }
+
   async function handleDelete(photo: Photo) {
     if (!confirm('Delete this photo?')) return
     await supabase.storage.from(BUCKET).remove([photo.file_path])
@@ -448,7 +467,23 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
               <div className="p-sm space-y-xs">
                 <label className="block text-[10px] font-bold uppercase tracking-wide text-neutral-500">Room / area</label>
                 <TargetSelect rooms={rooms} value={photoTargetValue(p)} onChange={(v) => reclassify(p.id, v)} />
-                <button onClick={() => handleDelete(p)} className="text-xs text-neutral-500 hover:text-red-400">Delete</button>
+                <div className="flex items-center justify-between pt-xs">
+                  <button
+                    onClick={() => { if (!p.is_featured) handleSetFeatured(p.id) }}
+                    disabled={savingFeatured === p.id}
+                    title={p.is_featured ? 'This is the featured photo' : 'Set as featured photo'}
+                    className={`text-xs font-semibold transition-colors ${
+                      p.is_featured
+                        ? 'text-amber-500 cursor-default'
+                        : savingFeatured === p.id
+                        ? 'text-neutral-400 animate-pulse cursor-wait'
+                        : 'text-neutral-400 hover:text-amber-500 cursor-pointer'
+                    }`}
+                  >
+                    {savingFeatured === p.id ? '⏳ Saving…' : p.is_featured ? '⭐ Featured' : '⭐ Set featured'}
+                  </button>
+                  <button onClick={() => handleDelete(p)} className="text-xs text-neutral-500 hover:text-red-400">Delete</button>
+                </div>
               </div>
             </div>
           ))}
