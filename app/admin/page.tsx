@@ -116,6 +116,12 @@ export default function AdminDashboard() {
         right={
           <div className="flex items-center gap-md">
             <AdminNotificationBell />
+            <a
+              href="/admin/profile"
+              className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm text-sm"
+            >
+              <span>👤</span> {adminName || 'Profile'}
+            </a>
             <button
               onClick={handleSignOut}
               className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
