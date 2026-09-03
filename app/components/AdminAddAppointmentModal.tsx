@@ -100,14 +100,17 @@ export default function AdminAddAppointmentModal({
   const [error, setError] = useState('')
   const [notificationMessage, setNotificationMessage] = useState('')
   const [messageCustomised, setMessageCustomised] = useState(false)
+  const [customAddress, setCustomAddress] = useState('')
 
   // Auto-generate notification message whenever key fields change
   useEffect(() => {
     if (!notifyTenants || !selectedType) return
     if (messageCustomised) return // user has edited manually — don't clobber
-    const propertyName = properties.find((p) => p.id === property)?.name || ''
+    const propertyName = property === '__custom__'
+      ? (customAddress || 'the meeting location')
+      : (properties.find((p) => p.id === property)?.name || '')
     setNotificationMessage(generateDefaultMessage(selectedType, date, time, propertyName))
-  }, [notifyTenants, selectedType, date, time, property, properties, messageCustomised])
+  }, [notifyTenants, selectedType, date, time, property, properties, messageCustomised, customAddress])
 
   if (!isOpen) return null
 
@@ -149,8 +152,16 @@ export default function AdminAddAppointmentModal({
   }
 
   const handleSubmit = async () => {
-    if (!selectedType || !date || !time || !property) {
+    if (!selectedType || !date || !time) {
       setError('Please fill in all required fields')
+      return
+    }
+    if (!property) {
+      setError('Please select a property or enter a custom address')
+      return
+    }
+    if (property === '__custom__' && !customAddress.trim()) {
+      setError('Please enter a meeting location / address')
       return
     }
 
@@ -158,14 +169,18 @@ export default function AdminAddAppointmentModal({
     try {
       const supabase = createClient()
 
+      const isCustom = property === '__custom__'
+      const locationNote = isCustom ? `📍 Location: ${customAddress.trim()}` : null
+      const combinedNotes = [locationNote, notes || null].filter(Boolean).join('\n') || null
+
       const { error: err } = await supabase.from('admin_appointments').insert({
         type: selectedType,
         appointment_date: date,
         appointment_time: time,
-        property_id: property,
-        notes: notes || null,
-        notify_tenants: notifyTenants,
-        notification_message: notifyTenants ? notificationMessage : null,
+        property_id: isCustom ? null : property,
+        notes: combinedNotes,
+        notify_tenants: isCustom ? false : notifyTenants, // can't notify tenants for off-system addresses
+        notification_message: (!isCustom && notifyTenants) ? notificationMessage : null,
         created_at: new Date().toISOString(),
       })
 
@@ -192,6 +207,7 @@ export default function AdminAddAppointmentModal({
       setDate(new Date().toISOString().split('T')[0])
       setTime('10:00')
       setProperty('')
+      setCustomAddress('')
       setRooms([])
       setSelectedRoomId('')
       setVisitorName('')
@@ -240,7 +256,9 @@ export default function AdminAddAppointmentModal({
   }
 
   const selectedTypeLabel = APPOINTMENT_TYPES.find((t) => t.id === selectedType)?.label || ''
-  const selectedPropertyName = properties.find((p) => p.id === property)?.name || ''
+  const selectedPropertyName = property === '__custom__'
+    ? (customAddress || 'custom address')
+    : (properties.find((p) => p.id === property)?.name || '')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
@@ -273,19 +291,35 @@ export default function AdminAddAppointmentModal({
 
           {/* Property */}
           <div>
-            <label className="block text-sm font-bold text-neutral-900 mb-sm">Property *</label>
+            <label className="block text-sm font-bold text-neutral-900 mb-sm">Property / location *</label>
             <select
               value={property}
-              onChange={(e) => { handlePropertyChange(e.target.value); setMessageCustomised(false) }}
+              onChange={(e) => { handlePropertyChange(e.target.value); setCustomAddress(''); setMessageCustomised(false) }}
               className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
             >
               <option value="">Select a property</option>
               {properties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
+              <option value="__custom__">📍 Other / custom address…</option>
             </select>
+
+            {/* Custom address input — shown when "Other" is selected */}
+            {property === '__custom__' && (
+              <div className="mt-sm">
+                <input
+                  type="text"
+                  value={customAddress}
+                  onChange={(e) => { setCustomAddress(e.target.value); setMessageCustomised(false) }}
+                  placeholder="e.g. 12 High Street, London, SW1A 1AA"
+                  autoFocus
+                  className="w-full rounded-lg border border-amber-300 bg-amber-50 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+                <p className="text-xs text-amber-700 mt-xs">
+                  ⚠ Tenant notifications are not available for off-system locations.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Lettings-specific: room + visitor name */}
