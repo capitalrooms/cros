@@ -420,12 +420,14 @@ export default function LandlordDashboard() {
       )}
       <AppBar
         right={
-          <button
-            onClick={handleSignOut}
-            className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
-          >
-            <span>👋</span> Sign out
-          </button>
+          <div className="flex items-center gap-md">
+            <a href="/landlord/profile" className="shrink-0 transition-colors hover:opacity-80 flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10" title="Profile settings">
+              <span className="text-lg leading-none">⚙️</span>
+            </a>
+            <button onClick={handleSignOut} className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm">
+              <span>👋</span> Sign out
+            </button>
+          </div>
         }
       />
 
