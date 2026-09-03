@@ -20,9 +20,10 @@ import PhotosTab from './components/PhotosTab'
 import PropertyTabComponent from './components/PropertyTab'
 import HousematesTab from './components/HousematesTab'
 import ExtendedDetailsTab from './components/ExtendedDetailsTab'
+import FinancialsTab from './components/FinancialsTab'
 import BackButton from '@/app/components/BackButton'
 
-type TabType = 'units' | 'property' | 'people' | 'housemates' | 'maintenance' | 'purchases' | 'photos' | 'lettings' | 'communications' | 'compliance' | 'documents' | 'extended'
+type TabType = 'units' | 'property' | 'people' | 'housemates' | 'maintenance' | 'purchases' | 'photos' | 'lettings' | 'communications' | 'compliance' | 'documents' | 'extended' | 'financials'
 
 interface Ticket {
   id: string;
@@ -188,6 +189,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     { id: 'communications', label: 'Communications', icon: '💬' },
     { id: 'compliance', label: 'Compliance', icon: '✅' },
     { id: 'documents', label: 'Documents', icon: '📁' },
+    { id: 'financials', label: 'Financials', icon: '💷' },
   ]
 
   return (
@@ -433,6 +435,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Documents Tab */}
           {activeTab === 'documents' && <DocumentsTab propertyId={id} />}
+
+          {/* Financials Tab */}
+          {activeTab === 'financials' && <FinancialsTab propertyId={id} />}
         </div>
       </main>
 
