@@ -17,7 +17,7 @@ interface Contact {
   name?: string;
   property_id?: string;
   created_at: string;
-  properties?: { name: string };
+  properties?: { id: string; name: string };
 }
 
 export default function ContactsPage() {
@@ -48,7 +48,7 @@ export default function ContactsPage() {
       // Get contacts
       const { data: contactsData } = await supabase
         .from('people')
-        .select('*, properties(name)')
+        .select('*, properties(id, name)')
         .in('role', ['contractor', 'cleaner', 'landlord'])
         .order('role, email');
 
@@ -92,7 +92,7 @@ export default function ContactsPage() {
     // Refresh contacts
     const { data: contactsData } = await supabase
       .from('people')
-      .select('*, properties(name)')
+      .select('*, properties(id, name)')
       .in('role', ['contractor', 'cleaner', 'landlord'])
       .order('role, email');
     setContacts(contactsData || []);
@@ -274,7 +274,11 @@ export default function ContactsPage() {
               </thead>
               <tbody>
                 {filteredContacts.map((contact) => (
-                  <tr key={contact.id} className="border-t border-neutral-200 bg-white hover:bg-neutral-50 transition-colors">
+                  <tr
+                    key={contact.id}
+                    onClick={() => router.push(`/admin/person/${contact.id}`)}
+                    className="border-t border-neutral-200 bg-white hover:bg-neutral-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-md py-sm">
                       <p className="font-semibold text-neutral-900">{contact.name || contact.email}</p>
                       {/* Show email on mobile where dedicated column is hidden */}
@@ -290,20 +294,29 @@ export default function ContactsPage() {
                     </td>
                     <td className="px-md py-sm hidden md:table-cell text-neutral-600">{contact.email}</td>
                     <td className="px-md py-sm hidden md:table-cell text-neutral-600">{contact.phone || '—'}</td>
-                    <td className="px-md py-sm hidden sm:table-cell text-neutral-600 text-xs">
-                      {contact.properties?.name ? `📍 ${contact.properties.name}` : '—'}
+                    <td className="px-md py-sm hidden sm:table-cell text-xs">
+                      {contact.properties?.name ? (
+                        <a
+                          href={`/admin/properties/${contact.property_id}`}
+                          onClick={e => e.stopPropagation()}
+                          className="text-blue-600 hover:underline font-medium"
+                        >
+                          📍 {contact.properties.name}
+                        </a>
+                      ) : '—'}
                     </td>
                     <td className="px-md py-sm">
                       <div className="flex items-center justify-end gap-sm">
                         <a
                           href={`/admin/view-as/${contact.id}`}
+                          onClick={e => e.stopPropagation()}
                           title="View as this person"
                           className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors whitespace-nowrap"
                         >
                           👁 View as
                         </a>
                         <button
-                          onClick={() => handleDeleteContact(contact.id)}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteContact(contact.id) }}
                           className="text-xs text-red-600 hover:text-red-700 font-semibold"
                         >
                           Delete
