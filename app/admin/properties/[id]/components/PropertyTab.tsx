@@ -368,7 +368,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
                   <div className="space-y-sm">
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Name</p>
-                    <a href="/admin/landlords" className="text-sm font-semibold text-blue-600 hover:underline block">{linked.full_name || [linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'}</a>
+                    <a href={`/admin/landlord/${linked.id}`} className="text-sm font-semibold text-blue-600 hover:underline block">{linked.full_name || linked.company || [linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'}</a>
                   </div>
                   <div className="space-y-sm">
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Email</p>
