@@ -10,18 +10,18 @@ interface AdminAddAppointmentModalProps {
 }
 
 const APPOINTMENT_TYPES = [
-  { id: 'inspection', label: '🔍 Inspection', icon: '🔍' },
-  { id: 'communal_visit', label: '🏢 Visit to communal areas', icon: '🏢' },
-  { id: 'maintenance', label: '🔧 Maintenance visit', icon: '🔧' },
-  { id: 'lettings', label: '🔑 Lettings viewing', icon: '🔑' },
-  { id: 'landlord', label: '👤 Landlord visit', icon: '👤' },
-  { id: 'cleaner', label: '🧹 Cleaner visit', icon: '🧹' },
-  { id: 'contractor', label: '⚡ Contractor visit', icon: '⚡' },
-  { id: 'utility', label: '🚰 Utility/Gas engineer', icon: '🚰' },
-  { id: 'pest_control', label: '🐛 Pest control', icon: '🐛' },
-  { id: 'fire_safety', label: '🔥 Fire safety inspection', icon: '🔥' },
-  { id: 'manager_visit', label: '📋 Property manager visit', icon: '📋' },
-  { id: 'insurance', label: '🛡️ Insurance inspection', icon: '🛡️' },
+  { id: 'inspection', label: 'Inspection', icon: '🔍' },
+  { id: 'communal_visit', label: 'Visit to communal areas', icon: '🏢' },
+  { id: 'maintenance', label: 'Maintenance visit', icon: '🔧' },
+  { id: 'lettings', label: 'Lettings viewing', icon: '🔑' },
+  { id: 'landlord', label: 'Landlord visit', icon: '👤' },
+  { id: 'cleaner', label: 'Cleaner visit', icon: '🧹' },
+  { id: 'contractor', label: 'Contractor visit', icon: '⚡' },
+  { id: 'utility', label: 'Utility/Gas engineer', icon: '🚰' },
+  { id: 'pest_control', label: 'Pest control', icon: '🐛' },
+  { id: 'fire_safety', label: 'Fire safety inspection', icon: '🔥' },
+  { id: 'manager_visit', label: 'Property manager visit', icon: '📋' },
+  { id: 'insurance', label: 'Insurance inspection', icon: '🛡️' },
 ]
 
 function formatDateNice(iso: string): string {
