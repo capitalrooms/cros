@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
+import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = 'Capital Rooms <onboarding@resend.dev>'
-const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/maintenance-photos/brand/logo.png`
-const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3000'
 
 /**
  * Tells the tenant their job has been held for batching.
@@ -19,7 +17,7 @@ const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3000
  */
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
+  if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
   const user = await getCurrentUser()
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   const { data: reporter } = await supabase
     .from('people')
-    .select('email, full_name')
+    .select('email, full_name, first_name, last_name')
     .eq('id', ticket.reporter_id)
     .maybeSingle()
 
@@ -64,38 +62,28 @@ export async function POST(request: NextRequest) {
 
   const category = (ticket.category ?? 'maintenance').replace(/-/g, ' ')
 
-  const html = `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1c1917">
-      <a href="${PORTAL_URL}">
-        <img src="${LOGO_URL}" alt="Capital Rooms" style="height:64px;width:auto;margin-bottom:20px" />
-      </a>
-
-      <h2 style="margin:0 0 18px;font-size:22px">Thanks for reporting this</h2>
-      <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">
+  const html = emailHtml(`
+      <h2 style="margin:0 0 14px;font-size:20px;color:#1c1917;font-weight:700;">Thanks for reporting this</h2>
+      <p style="margin:0 0 20px;font-size:16px;font-weight:600;color:#1c1917;line-height:1.4;">
         ${category.charAt(0).toUpperCase() + category.slice(1)} —
         ${(ticket.rooms as any)?.name ?? ticket.location ?? ''}
       </p>
-
-      <p style="font-size:15px;line-height:1.6">
+      <p style="font-size:15px;line-height:1.6;color:#1c1917;margin:0 0 12px;">
         We've logged this. It's a smaller job that can sensibly be done at the same
         time as other work, so we're holding it until there's more to do at your
         property — that way you're disrupted once rather than several times.
       </p>
-      <p style="font-size:15px;line-height:1.6">
+      <p style="font-size:15px;line-height:1.6;color:#1c1917;margin:0 0 12px;">
         <strong>You'll be given a date and arrival time as soon as it's booked in.</strong>
       </p>
-      <p style="font-size:14px;color:#78716c">
+      <p style="font-size:14px;color:#78716c;margin:0 0 24px;">
         If this becomes urgent in the meantime, report it again and tell us it's got worse.
       </p>
-
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e7e5e4">
-        <a href="${PORTAL_URL}"
-           style="display:inline-block;background:#1c1917;color:#ffffff;font-size:15px;font-weight:600;
-                  padding:13px 24px;border-radius:8px;text-decoration:none">
-          Open dashboard
-        </a>
-      </div>
-    </div>`
+      <a href="${PORTAL_URL}/tenant"
+         style="display:inline-block;background:#1c1917;color:#ffffff;font-size:14px;font-weight:600;
+                padding:12px 22px;border-radius:8px;text-decoration:none;">
+        Open dashboard
+      </a>`)
 
   const res = await fetch(RESEND_ENDPOINT, {
     method: 'POST',

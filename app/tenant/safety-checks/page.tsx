@@ -154,7 +154,7 @@ export default function TenantSafetyChecksPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         <div className="mb-3xl">

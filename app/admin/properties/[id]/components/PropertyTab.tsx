@@ -6,6 +6,7 @@ import FloorPlanMap from './FloorPlanMap'
 
 interface PropertyTabProps {
   property: any
+  onUpdate?: (updates: Record<string, any>) => void
 }
 
 interface Photo {
@@ -16,11 +17,13 @@ interface Photo {
   is_featured: boolean
 }
 
-export default function PropertyTab({ property }: PropertyTabProps) {
+export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  // Local display copy — updated on save so values reflect immediately without a page reload
+  const [displayed, setDisplayed] = useState(property)
   const [uploadingFloorPlan, setUploadingFloorPlan] = useState(false)
   const [scanningPlan, setScanningPlan] = useState(false)
   const [floorPlanResult, setFloorPlanResult] = useState<{ detected: any[]; notes: string; bathrooms_count?: number; ensuite_room_labels?: string[]; layout_notes?: string } | null>(null)
@@ -28,26 +31,42 @@ export default function PropertyTab({ property }: PropertyTabProps) {
   const [savingFeatured, setSavingFeatured] = useState<string | null>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loadingPhotos, setLoadingPhotos] = useState(true)
+  // Landlord picker
+  const [landlords, setLandlords] = useState<any[]>([])
+  const [selectedLandlordId, setSelectedLandlordId] = useState<string | null>(property.landlord_id || null)
 
   const [formData, setFormData] = useState({
-    landlord_name: property.landlord_name || '',
-    landlord_email: property.landlord_email || '',
-    landlord_phone: property.landlord_phone || '',
+    name: property.name || '',
+    address: property.address || '',
     council_tax_band: property.council_tax_band || '',
     bills_included: property.bills_included !== undefined ? property.bills_included : true,
     notice_period_months: property.notice_period_months || 2,
+    license_date: property.license_date || '',
+    license_expiry: property.license_expiry || '',
     bedrooms: property.bedrooms || 0,
     bathrooms: property.bathrooms || 0,
     total_area: property.total_area || '',
     description: property.description || '',
-    property_type: property.property_type || 'house'
+    property_type: property.property_type || 'house',
+    key_safe_code: property.key_safe_code || '',
+    management_fee_pct: property.management_fee_pct != null ? String(property.management_fee_pct) : '12',
   })
 
   const supabase = createClient()
 
   useEffect(() => {
     loadPhotos()
+    loadLandlords()
   }, [property.id])
+
+  async function loadLandlords() {
+    const { data } = await supabase
+      .from('people')
+      .select('id, full_name, first_name, last_name, email, phone')
+      .eq('role', 'landlord')
+      .order('full_name')
+    setLandlords(data || [])
+  }
 
   async function loadPhotos() {
     setLoadingPhotos(true)
@@ -118,9 +137,9 @@ export default function PropertyTab({ property }: PropertyTabProps) {
     const { error: err } = await supabase
       .from('properties')
       .update({
-        landlord_name: formData.landlord_name || null,
-        landlord_email: formData.landlord_email || null,
-        landlord_phone: formData.landlord_phone || null,
+        name: formData.name.trim() || null,
+        address: formData.address.trim() || null,
+        landlord_id: selectedLandlordId || null,
         council_tax_band: formData.council_tax_band || null,
         bills_included: formData.bills_included,
         notice_period_months: parseInt(formData.notice_period_months),
@@ -128,7 +147,11 @@ export default function PropertyTab({ property }: PropertyTabProps) {
         bathrooms: parseInt(formData.bathrooms),
         total_area: formData.total_area ? parseFloat(formData.total_area) : null,
         description: formData.description || null,
-        property_type: formData.property_type
+        property_type: formData.property_type,
+        key_safe_code: formData.key_safe_code.trim() || null,
+        management_fee_pct: formData.management_fee_pct ? parseFloat(formData.management_fee_pct) : 12,
+        license_date: formData.license_date || null,
+        license_expiry: formData.license_expiry || null,
       })
       .eq('id', property.id)
 
@@ -136,9 +159,29 @@ export default function PropertyTab({ property }: PropertyTabProps) {
       setError('Failed to save changes')
       console.error(err)
     } else {
-      setSuccess('Property updated successfully')
+      // Update local display copy AND bubble up to parent so it survives tab switches
+      const updates = {
+        name: formData.name.trim() || null,
+        address: formData.address.trim() || null,
+        landlord_id: selectedLandlordId || null,
+        council_tax_band: formData.council_tax_band || null,
+        bills_included: formData.bills_included,
+        notice_period_months: parseInt(formData.notice_period_months),
+        bedrooms: parseInt(formData.bedrooms),
+        bathrooms: parseInt(formData.bathrooms),
+        total_area: formData.total_area ? parseFloat(formData.total_area) : null,
+        description: formData.description || null,
+        property_type: formData.property_type,
+        key_safe_code: formData.key_safe_code.trim() || null,
+        management_fee_pct: formData.management_fee_pct ? parseFloat(formData.management_fee_pct) : 12,
+        license_date: formData.license_date || null,
+        license_expiry: formData.license_expiry || null,
+      }
+      setDisplayed(prev => ({ ...prev, ...updates }))
+      onUpdate?.(updates)
+      setSuccess('Saved')
       setIsEditing(false)
-      setTimeout(() => setSuccess(null), 3000)
+      setTimeout(() => setSuccess(null), 2000)
     }
     setSaving(false)
   }
@@ -230,112 +273,193 @@ export default function PropertyTab({ property }: PropertyTabProps) {
         </div>
       )}
 
-      {/* Landlord Information */}
-      <div>
-        <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
-          <h3 className="text-sm font-bold uppercase text-neutral-400">👨 Landlord Information</h3>
-        </div>
-
-        {isEditing ? (
-          <div className="space-y-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.landlord_name}
-                  onChange={(e) => setFormData({ ...formData, landlord_name: e.target.value })}
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.landlord_email}
-                  onChange={(e) => setFormData({ ...formData, landlord_email: e.target.value })}
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={formData.landlord_phone}
-                  onChange={(e) => setFormData({ ...formData, landlord_phone: e.target.value })}
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          </div>
+      {/* Edit / Save / Cancel — top of page so it's clear it covers everything */}
+      <div className="flex items-center justify-between pb-lg border-b border-neutral-200">
+        <p className="text-xs text-neutral-400">
+          {isEditing ? 'Editing property info — save or cancel below' : 'Property information'}
+        </p>
+        {!isEditing ? (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="rounded-full bg-neutral-800 px-md py-xs text-xs font-semibold text-white hover:bg-neutral-700 transition"
+          >
+            ✎ Edit
+          </button>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Name</p>
-              <p className="text-sm font-semibold text-white">{property.landlord_name || '—'}</p>
-            </div>
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Email</p>
-              <p className="text-sm font-semibold text-white">{property.landlord_email || '—'}</p>
-            </div>
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Phone</p>
-              <p className="text-sm font-semibold text-white">{property.landlord_phone || '—'}</p>
-            </div>
+          <div className="flex gap-sm">
+            <button
+              onClick={() => {
+                setIsEditing(false)
+                setSelectedLandlordId(property.landlord_id || null)
+                setFormData({
+                  name: property.name || '',
+                  address: property.address || '',
+                  council_tax_band: property.council_tax_band || '',
+                  bills_included: property.bills_included !== undefined ? property.bills_included : true,
+                  notice_period_months: property.notice_period_months || 2,
+                  bedrooms: property.bedrooms || 0,
+                  bathrooms: property.bathrooms || 0,
+                  total_area: property.total_area || '',
+                  description: property.description || '',
+                  property_type: property.property_type || 'house'
+                })
+              }}
+              className="rounded-full border border-neutral-600 px-md py-xs text-xs font-semibold text-neutral-400 hover:text-white transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-full bg-blue-600 px-md py-xs text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50 transition"
+            >
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
           </div>
         )}
       </div>
 
-      {/* Tenancy Settings */}
+      {/* Landlord Information */}
       <div>
         <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
-          <h3 className="text-sm font-bold uppercase text-neutral-400">⚙️ Tenancy Settings</h3>
+          <h3 className="text-sm font-bold uppercase text-neutral-400">👨 Landlord</h3>
+        </div>
+
+        {isEditing ? (
+          <div className="space-y-md">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                Link landlord record
+              </label>
+              <select
+                value={selectedLandlordId || ''}
+                onChange={(e) => setSelectedLandlordId(e.target.value || null)}
+                className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-neutral-900"
+              >
+                <option value="">— No landlord linked —</option>
+                {landlords.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}{l.email ? ` (${l.email})` : ''}</option>
+                ))}
+              </select>
+              {landlords.length === 0 && (
+                <p className="text-xs text-neutral-400 mt-sm">
+                  No landlord records yet.{' '}
+                  <a href="/admin/landlords" className="text-blue-600 underline">Create one first →</a>
+                </p>
+              )}
+              {selectedLandlordId && (() => {
+                const linked = landlords.find(l => l.id === selectedLandlordId)
+                if (!linked) return null
+                return (
+                  <div className="mt-md rounded-lg bg-neutral-50 border border-neutral-200 p-md grid grid-cols-3 gap-md text-sm">
+                    <div><p className="text-xs text-neutral-400 mb-xs">Name</p><p className="font-semibold text-neutral-900">{linked.full_name || [linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'}</p></div>
+                    <div><p className="text-xs text-neutral-400 mb-xs">Email</p><p className="font-semibold text-neutral-900">{linked.email || '—'}</p></div>
+                    <div><p className="text-xs text-neutral-400 mb-xs">Phone</p><p className="font-semibold text-neutral-900">{linked.phone || '—'}</p></div>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        ) : (
+          (() => {
+            const linked = landlords.find(l => l.id === displayed.landlord_id)
+            if (linked) {
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+                  <div className="space-y-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Name</p>
+                    <a href="/admin/landlords" className="text-sm font-semibold text-blue-600 hover:underline block">{linked.full_name || [linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'}</a>
+                  </div>
+                  <div className="space-y-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Email</p>
+                    <p className="text-sm font-semibold text-neutral-900">{linked.email || '—'}</p>
+                  </div>
+                  <div className="space-y-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Phone</p>
+                    <p className="text-sm font-semibold text-neutral-900">{linked.phone || '—'}</p>
+                  </div>
+                </div>
+              )
+            }
+            return (
+              <div className="flex items-center gap-md rounded-lg border border-dashed border-neutral-300 p-md">
+                <span className="text-neutral-400 text-sm">No landlord linked to this property.</span>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs text-blue-600 font-semibold hover:underline"
+                >
+                  Link one →
+                </button>
+              </div>
+            )
+          })()
+        )}
+      </div>
+
+      {/* Property Details (merged: tenancy settings + physical details) */}
+      <div>
+        <div className="mb-lg pb-lg border-b border-neutral-100">
+          <h3 className="text-sm font-bold uppercase text-neutral-400">⚙️ Property Details</h3>
         </div>
 
         {isEditing ? (
           <div className="space-y-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
+            {/* Row 0: name and address */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Council Tax Band
-                </label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Display Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. 71 Alloa Road"
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Full Address</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="e.g. 71 Alloa Road, London, SE8 5AH"
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            {/* Row 1: council tax, HMO license dates, bills */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-lg">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Council Tax Band</label>
                 <input
                   type="text"
                   value={formData.council_tax_band}
                   onChange={(e) => setFormData({ ...formData, council_tax_band: e.target.value.toUpperCase() })}
-                  maxLength="1"
-                  placeholder="A-H"
+                  maxLength={1}
+                  placeholder="A–H"
                   className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Notice Period (months)
-                </label>
-                <select
-                  value={formData.notice_period_months}
-                  onChange={(e) => setFormData({ ...formData, notice_period_months: e.target.value })}
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">HMO Licence Issued</label>
+                <input
+                  type="date"
+                  value={formData.license_date}
+                  onChange={(e) => setFormData({ ...formData, license_date: e.target.value })}
                   className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="1">1 month</option>
-                  <option value="2">2 months</option>
-                  <option value="3">3 months</option>
-                </select>
+                />
               </div>
-
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Bills Included
-                </label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">HMO Licence Expiry</label>
+                <input
+                  type="date"
+                  value={formData.license_expiry}
+                  onChange={(e) => setFormData({ ...formData, license_expiry: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Bills Included</label>
                 <select
                   value={formData.bills_included ? 'yes' : 'no'}
                   onChange={(e) => setFormData({ ...formData, bills_included: e.target.value === 'yes' })}
@@ -346,77 +470,11 @@ export default function PropertyTab({ property }: PropertyTabProps) {
                 </select>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Council Tax Band</p>
-              <p className="text-sm font-semibold text-white">{property.council_tax_band || '—'}</p>
-            </div>
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Notice Period</p>
-              <p className="text-sm font-semibold text-white">{property.notice_period_months || 2} months</p>
-            </div>
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bills</p>
-              <p className="text-sm font-semibold text-white">{property.bills_included ? '✓ Included' : '✗ Not included'}</p>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Property Details */}
-      <div>
-        <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
-          <h3 className="text-sm font-bold uppercase text-neutral-400">Property Details</h3>
-          {!isEditing ? (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
-            >
-              Edit
-            </button>
-          ) : (
-            <div className="flex gap-sm">
-              <button
-                onClick={() => {
-                  setIsEditing(false)
-                  setFormData({
-                    landlord_name: property.landlord_name || '',
-                    landlord_email: property.landlord_email || '',
-                    landlord_phone: property.landlord_phone || '',
-                    council_tax_band: property.council_tax_band || '',
-                    bills_included: property.bills_included !== undefined ? property.bills_included : true,
-                    notice_period_months: property.notice_period_months || 2,
-                    bedrooms: property.bedrooms || 0,
-                    bathrooms: property.bathrooms || 0,
-                    total_area: property.total_area || '',
-                    description: property.description || '',
-                    property_type: property.property_type || 'house'
-                  })
-                }}
-                className="text-xs font-semibold text-neutral-400 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="text-xs font-semibold text-blue-400 hover:text-blue-300 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          )}
-        </div>
-
-        {isEditing ? (
-          <div className="space-y-lg">
+            {/* Row 2: bedrooms, bathrooms, area, type */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Bedrooms
-                </label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Bedrooms</label>
                 <input
                   type="number"
                   value={formData.bedrooms}
@@ -424,11 +482,8 @@ export default function PropertyTab({ property }: PropertyTabProps) {
                   className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Bathrooms
-                </label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Bathrooms</label>
                 <input
                   type="number"
                   value={formData.bathrooms}
@@ -436,11 +491,8 @@ export default function PropertyTab({ property }: PropertyTabProps) {
                   className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Total Area (m²)
-                </label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Total Area (m²)</label>
                 <input
                   type="number"
                   value={formData.total_area}
@@ -449,11 +501,8 @@ export default function PropertyTab({ property }: PropertyTabProps) {
                   className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                  Property Type
-                </label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Property Type</label>
                 <select
                   value={formData.property_type}
                   onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
@@ -469,44 +518,138 @@ export default function PropertyTab({ property }: PropertyTabProps) {
               </div>
             </div>
 
+            {/* Key safe code + Management fee */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">🔐 Key Safe Code</label>
+                <input
+                  type="text"
+                  value={formData.key_safe_code}
+                  onChange={(e) => setFormData({ ...formData, key_safe_code: e.target.value })}
+                  placeholder="e.g. 1234"
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-neutral-500 mt-xs">Only shown to contractors/cleaners after they book through the system.</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Management Fee %</label>
+                <div className="flex items-center gap-sm">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={formData.management_fee_pct}
+                    onChange={(e) => setFormData({ ...formData, management_fee_pct: e.target.value })}
+                    className="w-24 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-neutral-400">% of monthly rent</span>
+                </div>
+                <p className="text-xs text-neutral-500 mt-xs">Set once per property — this rate applies to all rooms.</p>
+              </div>
+            </div>
+
+            {/* Description */}
             <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-                Description
-              </label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Description</label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Add notes about the property..."
+                placeholder="Add notes about the property…"
                 className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={4}
               />
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bedrooms</p>
-              <p className="text-sm font-semibold text-white">{property.bedrooms}</p>
+          <div className="space-y-lg">
+            {/* Row 1: what kind of property is this */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Property Type</p>
+                <p className="text-sm font-semibold text-neutral-900 capitalize">
+                  {displayed.property_type === 'hmo' ? 'HMO'
+                    : displayed.property_type === 'single' || displayed.property_type === 'single_let' ? 'Single Let'
+                    : displayed.property_type
+                    ? displayed.property_type.charAt(0).toUpperCase() + displayed.property_type.slice(1)
+                    : '—'}
+                </p>
+              </div>
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bedrooms</p>
+                <p className="text-sm font-semibold text-neutral-900">{displayed.bedrooms || '—'}</p>
+              </div>
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bathrooms</p>
+                <p className="text-sm font-semibold text-neutral-900">{displayed.bathrooms || '—'}</p>
+              </div>
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Total Area</p>
+                <p className="text-sm font-semibold text-neutral-900">{displayed.total_area ? `${displayed.total_area} m²` : '—'}</p>
+              </div>
             </div>
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bathrooms</p>
-              <p className="text-sm font-semibold text-white">{property.bathrooms}</p>
-            </div>
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Total Area</p>
-              <p className="text-sm font-semibold text-white">{property.total_area ? `${property.total_area}m²` : '—'}</p>
-            </div>
-            <div className="space-y-sm">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Type</p>
-              <p className="text-sm font-semibold text-white capitalize">{property.property_type || 'house'}</p>
-            </div>
-          </div>
-        )}
 
-        {property.description && !isEditing && (
-          <div className="mt-lg pt-lg border-t border-neutral-100">
-            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Description</p>
-            <p className="text-sm text-white whitespace-pre-wrap">{property.description}</p>
+            {/* Row 2: management/tenancy settings */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-lg pt-lg border-t border-neutral-200">
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Council Tax Band</p>
+                <p className="text-sm font-semibold text-neutral-900">{displayed.council_tax_band ? `Band ${displayed.council_tax_band}` : '—'}</p>
+              </div>
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">HMO Licence Issued</p>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {displayed.license_date ? new Date(displayed.license_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                </p>
+              </div>
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">HMO Licence Expiry</p>
+                {(() => {
+                  if (!displayed.license_expiry) return <p className="text-sm font-semibold text-neutral-900">—</p>
+                  const expiry = new Date(displayed.license_expiry)
+                  const now = new Date()
+                  const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                  const color = daysLeft < 0 ? 'text-red-600' : daysLeft < 90 ? 'text-amber-600' : 'text-neutral-900'
+                  const badge = daysLeft < 0 ? ' · EXPIRED' : daysLeft < 90 ? ` · ${daysLeft}d left` : ''
+                  return (
+                    <p className={`text-sm font-semibold ${color}`}>
+                      {expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {badge && <span className="text-xs ml-xs">{badge}</span>}
+                    </p>
+                  )
+                })()}
+              </div>
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bills Included</p>
+                <p className="text-sm font-semibold text-neutral-900">{displayed.bills_included ? '✓ Yes' : '✗ No'}</p>
+              </div>
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">🔐 Key Safe</p>
+                <p className="text-sm font-semibold text-neutral-900 font-mono">
+                  {displayed.key_safe_code ? displayed.key_safe_code : '—'}
+                </p>
+                {displayed.key_safe_code && (
+                  <p className="text-xs text-neutral-400">Shown to contractors after booking</p>
+                )}
+              </div>
+            </div>
+
+            {/* Row 3: fee */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-lg pt-lg border-t border-neutral-200">
+              <div className="space-y-sm">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Management Fee</p>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {displayed.management_fee_pct != null ? `${displayed.management_fee_pct}%` : '12%'}
+                  <span className="text-xs font-normal text-neutral-400 ml-sm">of monthly rent</span>
+                </p>
+              </div>
+            </div>
+
+            {displayed.description && (
+              <div className="pt-lg border-t border-neutral-200">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Description / Notes</p>
+                <p className="text-sm text-neutral-900 whitespace-pre-wrap">{displayed.description}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

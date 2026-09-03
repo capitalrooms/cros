@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     // Get all active tenancies
     let query = supabase
       .from('tenancies')
-      .select('*, rooms(id, name, property_id), people(id, full_name, email)')
+      .select('*, rooms(id, name, property_id), people(id, full_name, first_name, last_name, email)')
       .is('end_date', null) // Active tenancies only
 
     if (propertyId) {

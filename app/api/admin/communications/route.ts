@@ -22,7 +22,7 @@ const CAP = 600
 interface Msg {
   id: string
   date: string
-  type: 'Tenant' | 'Maintenance' | 'Landlord' | 'Cleaning' | 'Lettings'
+  type: 'Tenant' | 'Maintenance' | 'Landlord' | 'Cleaning' | 'Lettings' | 'Statement'
   from: string
   to: string
   message: string
@@ -57,14 +57,14 @@ export async function GET() {
 
   // ── Lookups ────────────────────────────────────────────────────────────────
   const [people, rooms, properties, tenancies] = await Promise.all([
-    safe(s.from('people').select('id, full_name, email, role')),
+    safe(s.from('people').select('id, full_name, first_name, last_name, email, role')),
     safe(s.from('rooms').select('id, name, property_id')),
     safe(s.from('properties').select('id, name, address')),
     safe(s.from('tenancies').select('person_id, room_id, property_id, end_date')),
   ])
   const personName = new Map<string, string>()
   const personRole = new Map<string, string>()
-  for (const p of people as any[]) { personName.set(p.id, p.full_name || p.email || 'Someone'); personRole.set(p.id, p.role) }
+  for (const p of people as any[]) { personName.set(p.id, p.name || p.email || 'Someone'); personRole.set(p.id, p.role) }
   const roomName = new Map<string, string>()
   const roomProp = new Map<string, string>()
   for (const r of rooms as any[]) { roomName.set(r.id, r.name); roomProp.set(r.id, r.property_id) }
@@ -87,8 +87,8 @@ export async function GET() {
   // ── 1. notifications (Quick Notify / cleaner / lettings alerts) ──────────────
   for (const n of await safe(s.from('notifications').select('*').order('created_at', { ascending: false }).limit(300)) as any[]) {
     const t = String(n.type || '').toLowerCase()
-    const type: Msg['type'] = t.includes('lettings') ? 'Lettings' : t.includes('clean') ? 'Cleaning' : t.includes('maint') ? 'Maintenance' : 'Tenant'
-    const from = t.includes('lettings') ? 'Lettings' : t.includes('clean') ? 'Cleaner' : 'Admin'
+    const type: Msg['type'] = t.includes('statement') ? 'Statement' : t.includes('lettings') ? 'Lettings' : t.includes('clean') ? 'Cleaning' : t.includes('maint') ? 'Maintenance' : 'Tenant'
+    const from = t.includes('statement') ? 'AutoLedger' : t.includes('lettings') ? 'Lettings' : t.includes('clean') ? 'Cleaner' : 'Admin'
     // derive property/room from the recipient's active tenancy if not stamped
     const derived = n.user_id ? personTenancy.get(n.user_id) : undefined
     const propertyId = n.property_id || derived?.propertyId || null

@@ -1,16 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
-import RoleGreeting from '@/app/components/RoleGreeting'
-import EnableNotifications from '@/app/components/EnableNotifications'
+import { displayName } from '@/lib/people'
 import { ContractorDashboardSkeleton } from '@/app/components/SkeletonLoading'
+import EnableNotifications from '@/app/components/EnableNotifications'
+import ViewAsBanner from '@/app/components/ViewAsBanner'
 import Link from 'next/link'
-import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
-import { getTodayGMT, isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
+import { getTodayGMT, isDatePast, isDateToday, formatDateUK } from '@/lib/dateUtils'
 
 interface Job {
   id: string
@@ -18,15 +18,7 @@ interface Job {
   description?: string
   category?: string
   priority: string
-  status:
-    | 'reported'
-    | 'assigned'
-    | 'pending'
-    | 'scheduled'
-    | 'in_progress'
-    | 'contractor_attended'
-    | 'awaiting_return'
-    | 'completed'
+  status: string
   booked_date?: string
   booked_slot?: string
   property_id: string
@@ -37,89 +29,122 @@ interface Job {
   completed_at?: string
 }
 
+/** Returns an array of ISO date strings starting from today, for N days */
+function buildDiaryDays(n = 14): string[] {
+  const days: string[] = []
+  const base = new Date()
+  base.setHours(0, 0, 0, 0)
+  for (let i = 0; i < n; i++) {
+    const d = new Date(base)
+    d.setDate(base.getDate() + i)
+    days.push(d.toISOString().slice(0, 10))
+  }
+  return days
+}
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function isoToDateParts(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return { day: DAY_LABELS[date.getDay()], date: d, month: MONTH_SHORT[m - 1] }
+}
+
 export default function ContractorDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [contractorName, setContractorName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [jobs, setJobs] = useState<Job[]>([])
-  const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'completed'>('all')
+  const [selectedDay, setSelectedDay] = useState<string>(getTodayGMT())
+  const [viewingAs, setViewingAs] = useState<{ id: string; name: string; role: string } | null>(null)
+  const stripRef = useRef<HTMLDivElement>(null)
 
-  const scrollToSection = (sectionId: string) => {
-    const element = document.getElementById(sectionId)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }
+  const searchParams = useSearchParams()
+  const diaryDays = buildDiaryDays(21) // 3 weeks ahead
 
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'contractor') {
+      const asParam = searchParams.get('as')
+      const isAdmin = ['administrator', 'admin'].includes(data?.assignment?.role || '')
+
+      // ── Impersonation: admin visiting /contractor?as=[personId] ──────────
+      let contractorId: string
+      if (asParam && isAdmin) {
+        const supabase = createClient()
+        const { data: target } = await supabase
+          .from('people')
+          .select('id, first_name, last_name, full_name, email, role')
+          .eq('id', asParam)
+          .single()
+        if (!target || target.role !== 'contractor') { router.push('/admin/people'); return }
+        setUser(data!.user)
+        setViewingAs({ id: asParam, name: displayName(target), role: target.role })
+        contractorId = asParam
+        setContractorName(displayName(target))
+      } else if (!data || data.assignment?.role !== 'contractor') {
         router.push('/login')
         return
+      } else {
+        setUser(data.user)
+        contractorId = (data.assignment as any).id
+        const supabase = createClient()
+        const { data: personData } = await supabase
+          .from('people')
+          .select('full_name, first_name, last_name')
+          .eq('id', contractorId)
+          .single()
+        if (personData) setContractorName(displayName(personData))
       }
-      setUser(data.user)
 
       const supabase = createClient()
-
-      // Only jobs the admin has approved AND sent to THIS contractor. Contractors
-      // don't browse a shared pool — the admin picks who does each job.
-      const contractorId = (data.assignment as any).id
-
-      // Fetch contractor's full name from people table
-      const { data: personData } = await supabase
-        .from('people')
-        .select('full_name')
-        .eq('id', contractorId)
-        .single()
-
-      if (personData?.full_name) {
-        setContractorName(personData.full_name)
-      }
-
       const { data: jobsData } = await supabase
         .from('maintenance_tickets')
         .select('*, properties(name, address), rooms(name)')
         .eq('contractor_id', contractorId)
+        .neq('status', 'completed')
         .order('booked_date', { ascending: true })
 
       setJobs(jobsData || [])
       setLoading(false)
     }
-
     checkAuth()
-  }, [router])
+  }, [router, searchParams])
 
   async function handleSignOut() {
     await signOut()
     router.push('/login')
   }
 
-  if (loading) {
-    return <ContractorDashboardSkeleton />
+  if (loading) return <ContractorDashboardSkeleton />
+
+  // Categorise jobs
+  const overdue = jobs.filter(
+    (j) => j.booked_date && isDatePast(j.booked_date) && j.status !== 'completed'
+  )
+  const toSchedule = jobs.filter((j) => !j.booked_date && j.status === 'assigned')
+  const bookedAhead = jobs.filter(
+    (j) => j.booked_date && !isDatePast(j.booked_date)
+  )
+
+  // Jobs count per diary day
+  const countByDay: Record<string, number> = {}
+  for (const j of bookedAhead) {
+    if (j.booked_date) countByDay[j.booked_date] = (countByDay[j.booked_date] || 0) + 1
   }
 
-  // Jobs the admin sent you. "To schedule" still needs a date you pick; "Booked"
-  // already has one. Then categorize by date: overdue, today, upcoming.
-  const toSchedule = jobs.filter((j) => j.status === 'assigned' && !j.booked_date)
-  const bookedWithDate = jobs.filter((j) => j.status === 'assigned' && j.booked_date)
+  // Jobs on selected day
+  const dayJobs = bookedAhead.filter((j) => j.booked_date === selectedDay)
 
-  // Separate booked jobs by date status
-  const overdue = bookedWithDate.filter((j) => j.booked_date && isDatePast(j.booked_date))
-  const todayJobs = bookedWithDate.filter((j) => j.booked_date && isDateToday(j.booked_date))
-  const upcoming = bookedWithDate.filter((j) => j.booked_date && isDateFuture(j.booked_date))
-
-  // "Next job" is TODAY first, then upcoming, then overdue (urgent)
-  const nextJob = todayJobs[0] || upcoming[0] || overdue[0]
-
-  const inProgress = jobs.filter((j) =>
-    ['in_progress', 'contractor_attended', 'awaiting_return'].includes(j.status)
-  )
-  const completed = jobs.filter((j) => j.status === 'completed')
+  const firstName = contractorName.split(' ')[0] || 'there'
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
+      {viewingAs && (
+        <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
+      )}
       <AppBar
         right={
           <button
@@ -131,233 +156,130 @@ export default function ContractorDashboard() {
         }
       />
 
-      <main className="mx-auto max-w-6xl px-lg py-2xl">
-        {/* Greeting - shared across every role dashboard */}
-        {user && (
-          <RoleGreeting
-            role="Contractor Dashboard"
-            name={contractorName || user.user_metadata?.full_name || user.email?.split('@')[0]}
-            subtitle="Ready to get some work done"
-          />
-        )}
+      <main className="mx-auto max-w-2xl px-lg py-lg">
+
+        {/* Header */}
+        <div className="mb-lg">
+          <h1 className="text-2xl font-bold text-neutral-900">Hi {firstName} 👋</h1>
+          <p className="text-sm text-neutral-500 mt-xs">
+            {overdue.length > 0
+              ? `${overdue.length} overdue job${overdue.length !== 1 ? 's' : ''} need attention`
+              : toSchedule.length > 0
+              ? `${toSchedule.length} job${toSchedule.length !== 1 ? 's' : ''} waiting for a date`
+              : bookedAhead.length > 0
+              ? `${bookedAhead.length} job${bookedAhead.length !== 1 ? 's' : ''} coming up`
+              : 'All clear — no open jobs'}
+          </p>
+        </div>
 
         {/* Notifications */}
         <div className="mb-lg">
           <EnableNotifications />
         </div>
 
-        {/* 3-Day Calendar */}
-        <ThreeDayCalendar
-          appointments={bookedWithDate.map((j: any) => ({
-            id: j.id,
-            booked_date: j.booked_date,
-          }))}
-          role="contractor"
-          onAppointmentClick={(job: any) => {
-            router.push(`/contractor/job/${job.id}`)
-          }}
-        />
-
-        {/* Next Job Hero */}
-        {nextJob && (
-          <div className="mb-3xl rounded-3xl bg-gradient-to-br from-neutral-900 to-neutral-800 text-white p-lg overflow-hidden">
-            <div className="flex items-start justify-between gap-lg">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-md">
-                  Next job
-                </p>
-                <h2 className="text-2xl font-bold mb-xs">
-                  {String(nextJob.category || 'General').replace(/-/g, ' ')}
-                </h2>
-                <p className="text-lg text-white/80">
-                  {nextJob.properties?.name} — {nextJob.rooms?.name || nextJob.title}
-                </p>
-
-                <div className="mt-lg grid grid-cols-2 gap-lg">
-                  <div>
-                    <p className="text-xs text-white/60">When</p>
-                    <p className="text-base font-bold mt-xs">
-                      {new Date(nextJob.booked_date || '').toLocaleDateString('en-GB', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </p>
-                    <p className="text-sm text-white/80">{nextJob.booked_slot}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-white/60">Address</p>
-                    <p className="text-base font-bold mt-xs">{nextJob.properties?.address}</p>
-                  </div>
-                </div>
-              </div>
-              <Link href={`/contractor/job/${nextJob.id}`}>
-                <button className="shrink-0 rounded-xl bg-white text-neutral-900 px-lg py-md font-bold hover:bg-neutral-100">
-                  View details →
-                </button>
-              </Link>
-            </div>
+        {/* ── Diary strip ── */}
+        <div className="mb-lg">
+          <div className="flex items-center justify-between mb-sm">
+            <h2 className="text-base font-bold text-neutral-900">Diary</h2>
+            <span className="text-xs text-neutral-500">Tap a day to see jobs</span>
           </div>
-        )}
-
-        {/* Stats Grid */}
-        <div className="mb-3xl grid gap-lg md:grid-cols-4">
-          {/* OVERDUE (if any) - Red/Urgent */}
-          {overdue.length > 0 && (
-            <button
-              onClick={() => scrollToSection('overdue-section')}
-              className="rounded-2xl border-2 bg-red-50 border-red-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
-            >
-              <p className="text-xs font-bold uppercase tracking-wide text-red-600">⚠️ Overdue</p>
-              <p className="mt-xs text-3xl font-bold text-red-600">{overdue.length}</p>
-              <p className="text-xs text-red-600 mt-xs">action needed</p>
-            </button>
-          )}
-
-          {/* TODAY (if any) */}
-          {todayJobs.length > 0 && (
-            <button
-              onClick={() => scrollToSection('today-section')}
-              className="rounded-2xl border-2 bg-blue-50 border-blue-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
-            >
-              <p className="text-xs font-bold uppercase tracking-wide text-blue-600">📍 Today</p>
-              <p className="mt-xs text-3xl font-bold text-blue-600">{todayJobs.length}</p>
-              <p className="text-xs text-blue-600 mt-xs">scheduled for now</p>
-            </button>
-          )}
-
-          {/* UPCOMING */}
-          <button
-            onClick={() => scrollToSection('upcoming-section')}
-            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
+          <div
+            ref={stripRef}
+            className="flex gap-sm overflow-x-auto pb-sm"
+            style={{ scrollbarWidth: 'none' }}
           >
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">📅 Upcoming</p>
-            <p className="mt-xs text-3xl font-bold text-neutral-900">{upcoming.length}</p>
-            <p className="text-xs text-neutral-600 mt-xs">scheduled ahead</p>
-          </button>
-
-          {/* TO SCHEDULE - Red if any */}
-          <button
-            onClick={() => scrollToSection('to-schedule-section')}
-            className={`rounded-2xl border-2 p-lg text-left hover:shadow-md transition-shadow cursor-pointer ${toSchedule.length > 0 ? 'bg-yellow-50 border-yellow-300' : 'bg-white border-neutral-300'}`}
-          >
-            <p className={`text-xs font-bold uppercase tracking-wide ${toSchedule.length > 0 ? 'text-yellow-600' : 'text-neutral-600'}`}>To schedule</p>
-            <p className={`mt-xs text-3xl font-bold ${toSchedule.length > 0 ? 'text-yellow-600' : 'text-neutral-900'}`}>
-              {toSchedule.length}
-            </p>
-            <p className={`text-xs mt-xs ${toSchedule.length > 0 ? 'text-yellow-600' : 'text-neutral-600'}`}>pick a date</p>
-          </button>
-
-          {/* IN PROGRESS */}
-          <button
-            onClick={() => scrollToSection('in-progress-section')}
-            className={`rounded-2xl border-2 p-lg text-left hover:shadow-md transition-shadow cursor-pointer ${inProgress.length > 0 ? 'bg-orange-50 border-orange-300' : 'bg-white border-neutral-300'}`}
-          >
-            <p className={`text-xs font-bold uppercase tracking-wide ${inProgress.length > 0 ? 'text-orange-600' : 'text-neutral-600'}`}>In Progress</p>
-            <p className={`mt-xs text-3xl font-bold ${inProgress.length > 0 ? 'text-orange-600' : 'text-neutral-900'}`}>
-              {inProgress.length}
-            </p>
-            <p className={`text-xs mt-xs ${inProgress.length > 0 ? 'text-orange-600' : 'text-neutral-600'}`}>active or return</p>
-          </button>
-
-          {/* COMPLETED */}
-          <button
-            onClick={() => scrollToSection('completed-section')}
-            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
-          >
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">Completed</p>
-            <p className="mt-xs text-3xl font-bold text-neutral-900">
-              {completed.length > 0 && <span className="mr-sm">✓</span>}
-              {completed.length}
-            </p>
-            <p className="text-xs text-neutral-600 mt-xs">this month</p>
-          </button>
+            {diaryDays.map((iso) => {
+              const { day, date, month } = isoToDateParts(iso)
+              const isToday = iso === getTodayGMT()
+              const isSelected = iso === selectedDay
+              const jobCount = countByDay[iso] ?? 0
+              return (
+                <button
+                  key={iso}
+                  onClick={() => setSelectedDay(iso)}
+                  className={`shrink-0 flex flex-col items-center rounded-2xl px-md py-sm transition-colors min-w-[52px]
+                    ${isSelected
+                      ? 'bg-neutral-900 text-white'
+                      : isToday
+                      ? 'bg-neutral-200 text-neutral-900 border-2 border-neutral-400'
+                      : 'bg-white text-neutral-700 border border-neutral-200'
+                    }`}
+                >
+                  <span className="text-xs font-semibold opacity-70">{day}</span>
+                  <span className="text-lg font-bold leading-none my-xs">{date}</span>
+                  <span className="text-xs opacity-60">{month}</span>
+                  {jobCount > 0 && (
+                    <span
+                      className={`mt-xs text-xs font-bold rounded-full px-xs py-0
+                        ${isSelected ? 'bg-white text-neutral-900' : 'bg-neutral-900 text-white'}`}
+                    >
+                      {jobCount}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
-        {/* Jobs Sections - Organized by date status */}
+        {/* ── Selected day jobs ── */}
+        <section className="mb-xl">
+          <div className="flex items-center justify-between mb-sm">
+            <h2 className="text-base font-bold text-neutral-900">
+              {selectedDay === getTodayGMT() ? 'Today' : formatDateUK(selectedDay)}
+            </h2>
+            {dayJobs.length > 0 && (
+              <span className="text-xs text-neutral-500">{dayJobs.length} job{dayJobs.length !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+          {dayJobs.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-lg text-center">
+              <p className="text-sm text-neutral-400">Nothing booked for this day</p>
+            </div>
+          ) : (
+            <div className="space-y-sm">
+              {dayJobs.map((job) => <JobRow key={job.id} job={job} />)}
+            </div>
+          )}
+        </section>
 
-        {/* OVERDUE section - Red warning */}
+        {/* ── Overdue ── */}
         {overdue.length > 0 && (
-          <section className="mb-3xl" id="overdue-section">
-            <div className="flex items-center justify-between mb-md">
-              <h2 className="text-xl font-bold text-red-600">⚠️ Overdue</h2>
-              <span className="text-sm text-red-600 font-semibold">{overdue.length} job{overdue.length !== 1 ? 's' : ''} need attention</span>
+          <section className="mb-xl">
+            <div className="flex items-center justify-between mb-sm">
+              <h2 className="text-base font-bold text-red-600">⚠️ Overdue</h2>
+              <span className="text-xs text-red-500">{overdue.length} missed</span>
             </div>
-            <div className="rounded-lg border-2 border-red-300 bg-red-50 p-md mb-lg">
-              <p className="text-sm text-red-700">
-                These jobs were scheduled for past dates. Please contact admin to reschedule or mark complete.
-              </p>
+            <div className="rounded-xl border border-red-200 bg-red-50 px-md py-sm mb-sm">
+              <p className="text-xs text-red-700">These visits have passed — tap to log or reschedule.</p>
             </div>
-            <div className="space-y-xl">
-              {overdue.map((job) => (
-                <JobCardDark key={job.id} job={job} overdue daysOverdue={getDaysUntil(job.booked_date || '')} />
-              ))}
+            <div className="space-y-sm">
+              {overdue.map((job) => <JobRow key={job.id} job={job} variant="overdue" />)}
             </div>
           </section>
         )}
 
-        {/* TODAY section - Blue, high priority */}
-        {todayJobs.length > 0 && (
-          <section className="mb-3xl" id="today-section">
-            <div className="flex items-center justify-between mb-md">
-              <h2 className="text-xl font-bold text-blue-600">📍 Today</h2>
-              <span className="text-sm text-blue-600 font-semibold">{todayJobs.length} scheduled</span>
-            </div>
-            <div className="space-y-xl">
-              {todayJobs.map((job) => (
-                <JobCardDark key={job.id} job={job} isToday />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* UPCOMING section */}
-        {upcoming.length > 0 && (
-          <section className="mb-3xl" id="upcoming-section">
-            <div className="flex items-center justify-between mb-md">
-              <h2 className="text-xl font-bold">📅 Upcoming</h2>
-              <span className="text-sm text-neutral-600 font-semibold">{upcoming.length} scheduled</span>
-            </div>
-            <div className="space-y-xl">
-              {upcoming.map((job) => (
-                <JobCardDark key={job.id} job={job} daysAhead={getDaysUntil(job.booked_date || '')} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* To schedule section */}
+        {/* ── Waiting (needs a date) ── */}
         {toSchedule.length > 0 && (
-          <section className="mb-3xl" id="to-schedule-section">
-            <h2 className="text-xl font-bold mb-md">🗓️ To schedule</h2>
-            <div className="space-y-xl">
-              {toSchedule.map((job) => (
-                <JobCardDark key={job.id} job={job} />
-              ))}
+          <section className="mb-xl">
+            <div className="flex items-center justify-between mb-sm">
+              <h2 className="text-base font-bold text-amber-700">Waiting</h2>
+              <span className="text-xs text-amber-600">{toSchedule.length} to book</span>
+            </div>
+            <div className="space-y-sm">
+              {toSchedule.map((job) => <JobRow key={job.id} job={job} variant="schedule" />)}
             </div>
           </section>
         )}
 
-        {/* In Progress section */}
-        {inProgress.length > 0 && (
-          <section className="mb-3xl" id="in-progress-section">
-            <h2 className="text-xl font-bold mb-md">🔨 In Progress</h2>
-            <div className="space-y-xl">
-              {inProgress.map((job) => (
-                <JobCardDark key={job.id} job={job} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Completed section */}
-        {completed.length > 0 && (
-          <section id="completed-section">
-            <h2 className="text-xl font-bold mb-md">✅ Completed</h2>
-            <div className="space-y-xl">
-              {completed.slice(0, 10).map((job) => (
-                <JobCardDark key={job.id} job={job} isDone />
-              ))}
+        {/* ── Booked (upcoming, not today) ── */}
+        {bookedAhead.filter((j) => j.booked_date !== selectedDay).length > 0 && (
+          <section>
+            <h2 className="text-base font-bold text-neutral-900 mb-sm">Booked</h2>
+            <div className="space-y-sm">
+              {bookedAhead
+                .filter((j) => j.booked_date !== selectedDay)
+                .map((job) => <JobRow key={job.id} job={job} />)}
             </div>
           </section>
         )}
@@ -366,170 +288,47 @@ export default function ContractorDashboard() {
   )
 }
 
-function JobCard({ job }: { job: Job }) {
-  const statusColors: Record<string, string> = {
-    reported: 'bg-yellow-50 border-yellow-200 text-yellow-700',
-    pending: 'bg-yellow-50 border-yellow-200 text-yellow-700',
-    assigned: 'bg-blue-50 border-blue-200 text-blue-700',
-    scheduled: 'bg-blue-50 border-blue-200 text-blue-700',
-    in_progress: 'bg-orange-50 border-orange-200 text-orange-700',
-    contractor_attended: 'bg-orange-50 border-orange-200 text-orange-700',
-    awaiting_return: 'bg-orange-50 border-orange-200 text-orange-700',
-    completed: 'bg-green-50 border-green-200 text-green-700',
-  }
+function JobRow({ job, variant }: { job: Job; variant?: 'overdue' | 'schedule' }) {
+  const borderCls =
+    variant === 'overdue'
+      ? 'border-red-300 bg-red-50 hover:border-red-500'
+      : variant === 'schedule'
+      ? 'border-amber-300 bg-amber-50 hover:border-amber-500'
+      : 'border-neutral-200 bg-white hover:border-neutral-900 hover:shadow-sm'
 
-  const statusLabel: Record<string, string> = {
-    reported: 'Available',
-    pending: 'Pending',
-    assigned: 'Booked',
-    scheduled: 'Scheduled',
-    in_progress: 'In Progress',
-    contractor_attended: 'Attended',
-    awaiting_return: 'Return Visit',
-    completed: 'Completed',
-  }
+  const category = String(job.category || 'General').replace(/-/g, ' ')
 
   return (
     <Link href={`/contractor/job/${job.id}`}>
-      <div className="rounded-lg border border-neutral-200 p-md hover:border-neutral-900 hover:shadow-md transition-all cursor-pointer">
-        <div className="flex items-start justify-between gap-md">
-          <div className="flex-1">
-            <div className="flex items-center gap-md mb-xs">
-              <h4 className="font-bold text-neutral-900">
-                {String(job.category || 'General').replace(/-/g, ' ')}
-              </h4>
-              <span className={`text-xs font-bold px-md py-xs rounded border ${statusColors[job.status]}`}>
-                {job.status === 'assigned' && !job.booked_date ? 'To schedule' : statusLabel[job.status]}
-              </span>
-            </div>
-            <p className="text-sm text-neutral-600">{job.title}</p>
-            <div className="mt-md flex flex-wrap gap-md text-xs text-neutral-600">
-              <span>📍 {job.properties?.name}</span>
-              {job.rooms?.name && <span>🚪 {job.rooms.name}</span>}
-              {job.booked_date && (
-                <span>
-                  📅{' '}
-                  {new Date(job.booked_date).toLocaleDateString('en-GB', {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </span>
-              )}
-              <span
-                className={`font-bold ${
-                  job.priority === 'high' ? 'text-red-600' : job.priority === 'medium' ? 'text-yellow-600' : 'text-neutral-600'
-                }`}
-              >
-                {job.priority}
-              </span>
-            </div>
-          </div>
-          <span className="text-xl">→</span>
+      <div className={`rounded-xl border px-md py-sm flex items-center justify-between gap-md transition-all cursor-pointer ${borderCls}`}>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-sm text-neutral-900 truncate">{job.properties?.name}</p>
+          <p className="text-xs text-neutral-500 truncate">
+            {category}
+            {job.rooms?.name ? ` · ${job.rooms.name}` : ''}
+          </p>
+          {job.booked_date && (
+            <p className={`text-xs mt-xs font-semibold ${variant === 'overdue' ? 'text-red-600' : 'text-neutral-500'}`}>
+              {variant === 'overdue' ? '⚠️ ' : '📅 '}
+              {formatDateUK(job.booked_date)}
+              {job.booked_slot ? ` · ${String(job.booked_slot).slice(0, 5)}` : ' · time TBC'}
+            </p>
+          )}
+          {variant === 'schedule' && (
+            <p className="text-xs mt-xs text-amber-700 font-semibold">Tap to pick a date</p>
+          )}
+        </div>
+        <div className="flex items-center gap-sm shrink-0">
+          {job.priority === 'high' && (
+            <span className="text-xs font-bold text-red-600 bg-red-100 px-sm py-xs rounded-full">High</span>
+          )}
+          {/* Red clock: date booked but time not yet confirmed */}
+          {job.booked_date && !job.booked_slot && variant !== 'schedule' && (
+            <span title="Time not yet confirmed — tap to set" className="text-base">🕐</span>
+          )}
+          <span className="text-neutral-400 text-sm">→</span>
         </div>
       </div>
     </Link>
-  )
-}
-
-function JobCardDark({
-  job,
-  isDone,
-  overdue,
-  isToday,
-  daysOverdue,
-  daysAhead,
-}: {
-  job: Job
-  isDone?: boolean
-  overdue?: boolean
-  isToday?: boolean
-  daysOverdue?: number
-  daysAhead?: number
-}) {
-  const statusLabel: Record<string, string> = {
-    reported: 'Available',
-    pending: 'Pending',
-    assigned: 'Booked',
-    scheduled: 'Scheduled',
-    in_progress: 'In Progress',
-    contractor_attended: 'Attended',
-    awaiting_return: 'Return Visit',
-    completed: 'Completed',
-  }
-
-  // Determine card styling based on status
-  let cardBg = 'border-neutral-800 bg-neutral-900 text-white hover:border-white'
-  if (isDone) {
-    cardBg = 'border-neutral-700 bg-neutral-900 text-neutral-300 hover:border-neutral-600'
-  } else if (overdue) {
-    cardBg = 'border-red-600 bg-red-950 text-red-100 hover:border-red-400'
-  } else if (isToday) {
-    cardBg = 'border-blue-600 bg-blue-950 text-blue-100 hover:border-blue-400'
-  }
-
-  return (
-    <Link href={`/contractor/job/${job.id}`}>
-      <button className={`flex w-full items-center justify-between gap-md rounded-2xl border p-md text-left transition-colors mb-1 ${cardBg}`}>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-bold">
-            {job.properties?.name} — {job.title}
-          </p>
-          {job.rooms?.name && (
-            <p className={`text-xs mt-xs ${overdue ? 'text-red-200' : isToday ? 'text-blue-200' : 'text-neutral-400'}`}>🚪 {job.rooms.name}</p>
-          )}
-          <p className={`text-xs mt-xs ${overdue ? 'text-red-200' : isToday ? 'text-blue-200' : 'text-neutral-400'}`}>
-            {String(job.category || 'General').replace(/-/g, ' ')}
-          </p>
-          <div className="mt-xs flex flex-wrap gap-sm text-xs">
-            {job.booked_date && (
-              <span className={overdue ? 'text-red-300' : isToday ? 'text-blue-300' : 'text-neutral-300'}>
-                📅 {formatDateUK(job.booked_date)}
-              </span>
-            )}
-            {overdue && daysOverdue && (
-              <span className="font-bold text-red-400">
-                {Math.abs(daysOverdue)} day{Math.abs(daysOverdue) !== 1 ? 's' : ''} overdue
-              </span>
-            )}
-            {isToday && (
-              <span className="font-bold text-blue-400">Today</span>
-            )}
-            {daysAhead && daysAhead > 0 && (
-              <span className={`font-bold ${isToday ? 'text-blue-400' : 'text-neutral-400'}`}>
-                in {daysAhead} day{daysAhead !== 1 ? 's' : ''}
-              </span>
-            )}
-            <span
-              className={`font-bold ${
-                job.priority === 'high' ? (overdue ? 'text-red-300' : isToday ? 'text-blue-300' : 'text-red-400') : job.priority === 'medium' ? (overdue ? 'text-red-200' : isToday ? 'text-blue-200' : 'text-yellow-400') : ''
-              }`}
-            >
-              {job.priority}
-            </span>
-          </div>
-        </div>
-        <span className={`shrink-0 text-lg ${isDone ? 'opacity-50' : ''}`}>→</span>
-      </button>
-    </Link>
-  )
-}
-
-function StatCard({
-  label,
-  value,
-  subtext,
-  color,
-}: {
-  label: string
-  value: number
-  subtext: string
-  color: string
-}) {
-  return (
-    <div className={`rounded-2xl border-2 ${color} p-lg`}>
-      <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">{label}</p>
-      <p className="mt-xs text-3xl font-bold text-neutral-900">{value}</p>
-      <p className="text-xs text-neutral-600 mt-xs">{subtext}</p>
-    </div>
   )
 }

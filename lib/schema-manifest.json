@@ -1,7 +1,7 @@
 {
   "_comment": "Single source of truth for the DB contract the code depends on. Read by scripts/doctor.mjs (local) and app/api/health/route.ts (production). Add a table/column here whenever code starts depending on it; the checks enforce it against the live DB.",
   "tables": {
-    "people": ["id", "email", "role", "property_id", "room_id", "full_name"],
+    "people": ["id", "email", "role", "property_id", "room_id", "name", "first_name", "last_name"],
     "properties": ["id", "name"],
     "rooms": ["id", "name", "property_id"],
     "tenancies": ["id", "person_id", "property_id", "room_id", "start_date", "end_date"],

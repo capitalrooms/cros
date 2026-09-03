@@ -14,7 +14,7 @@ interface CleanJob {
   cleaner_id?: string
   status: string
   property: { name: string; address: string }
-  cleaner?: { full_name: string }
+  cleaner?: { name: string }
 }
 
 export default function BookCleanPage() {
@@ -110,7 +110,7 @@ export default function BookCleanPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar right={<BackButton />} />
+      <AppBar left={<BackButton />} />
 
       <main className="mx-auto max-w-5xl px-lg py-2xl">
         <Link
@@ -162,7 +162,7 @@ export default function BookCleanPage() {
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-neutral-900">Cleaning Service</div>
                         <div className="text-sm text-slate-600 mt-xs">📍 {job.property.name}</div>
-                        {job.cleaner && <div className="text-sm text-slate-600">👤 Assigned to: {job.cleaner.full_name}</div>}
+                        {job.cleaner && <div className="text-sm text-slate-600">👤 Assigned to: {job.cleaner.name}</div>}
                       </div>
                     </label>
                   ))}

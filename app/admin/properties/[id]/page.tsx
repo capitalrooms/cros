@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -41,11 +41,14 @@ interface Ticket {
 
 export default function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { id } = use(params);
   const [property, setProperty] = useState<any>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabType>('property');
+  const initialTab = (searchParams.get('tab') as TabType) || 'property';
+  const initialRoomId = searchParams.get('room') || undefined;
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [showQuickNotify, setShowQuickNotify] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
@@ -166,13 +169,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   if (!property) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar
-          right={
-            <Link href="/admin/properties" className="shrink-0 hover:opacity-80">
-              ← Properties
-            </Link>
-          }
-        />
+        <AppBar left={<BackButton href="/admin/properties" />} />
         <p className="p-xl text-sm text-neutral-600">Property not found</p>
       </div>
     );
@@ -196,17 +193,15 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
+        left={<BackButton href="/admin/properties" />}
         right={
-          <div className="flex items-center gap-lg">
-            <button
-              onClick={() => setShowQuickNotify(true)}
-              className="px-md py-md md:px-lg font-semibold text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition border border-blue-500 whitespace-nowrap shrink-0"
-            >
-              <span className="hidden md:inline">📢 Quick Notify</span>
-              <span className="md:hidden">📢</span>
-            </button>
-            <BackButton href="/admin/properties" />
-          </div>
+          <button
+            onClick={() => setShowQuickNotify(true)}
+            className="px-md py-md md:px-lg font-semibold text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition border border-blue-500 whitespace-nowrap shrink-0"
+          >
+            <span className="hidden md:inline">📢 Quick Notify</span>
+            <span className="md:hidden">📢</span>
+          </button>
         }
       />
 
@@ -338,6 +333,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 <p className="text-sm font-semibold text-white">
                   {property.landlord_name || '—'}
                 </p>
+                {property.cc_emails && (
+                  <p className="text-xs text-neutral-400 mt-xs">CC: {property.cc_emails}</p>
+                )}
               </div>
             </div>
           </div>
@@ -402,13 +400,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         {/* Tab Content */}
         <div className="rounded-b-xl border border-t-0 border-neutral-200 bg-white p-lg shadow-sm">
           {/* Property Tab */}
-          {activeTab === 'property' && <PropertyTabComponent property={property} />}
+          {activeTab === 'property' && <PropertyTabComponent property={property} onUpdate={(updates) => setProperty((p: any) => ({ ...p, ...updates }))} />}
 
           {/* Extended Details Tab */}
           {activeTab === 'extended' && <ExtendedDetailsTab propertyId={id} propertyType={property.property_type} />}
 
           {/* Units Tab */}
-          {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} />}
+          {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} initialRoomId={initialRoomId} />}
 
           {/* People Tab */}
           {activeTab === 'people' && <PeopleTab propertyId={id} />}

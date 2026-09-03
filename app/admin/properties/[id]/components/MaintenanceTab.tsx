@@ -99,7 +99,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
     <div className="space-y-xl">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-white">Maintenance Jobs</h2>
+        <h2 className="text-xl font-semibold text-neutral-900">Maintenance Jobs</h2>
         <p className="text-sm text-neutral-400 mt-xs">Track and manage all maintenance tickets for this property</p>
       </div>
 

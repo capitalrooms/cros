@@ -1,54 +1,56 @@
 'use client'
 
+import Link from 'next/link'
 import Logo from './Logo'
 
 /**
  * The single top bar for every page, whatever the user's role.
  *
- * Identical everywhere by design — the brand shouldn't change size or treatment
- * depending on who logged in, and it stops the bar being re-litigated per page.
+ * Grid: [left] [logo] [right]
+ *  left  — back button (BackButton component) — always on the left per convention
+ *  right — role-specific actions: sign out, Quick Notify, etc.
+ *
+ * The logo is centred and tapping it routes to the user's home dashboard.
  */
 export default function AppBar({
-  title,
+  left,
   right,
+  title,
 }: {
-  title?: string
+  left?: React.ReactNode
   right?: React.ReactNode
+  /** @deprecated — pass left={<BackButton />} instead */
+  title?: string
 }) {
   return (
     <nav
       className="bg-neutral-900 text-white border-b border-neutral-800 sticky top-0 z-50"
-      style={{
-        // On an installed iPhone PWA the bar renders up under the status bar
-        // (clock/battery/signal). Pad the top by the safe-area inset so the
-        // black bar fills that strip and the content sits below it.
-        paddingTop: 'env(safe-area-inset-top)',
-      }}
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div
-        className="mx-auto max-w-6xl px-lg py-md grid items-center gap-md"
+        className="mx-auto max-w-6xl py-md grid items-center gap-md"
         style={{
           gridTemplateColumns: '1fr auto 1fr',
           minHeight: 52,
-          // Keep the far-right control clear of the rounded corner / notch area
-          // in landscape too.
           paddingLeft: 'max(16px, env(safe-area-inset-left))',
           paddingRight: 'max(16px, env(safe-area-inset-right))',
         }}
       >
-        {/* Left cell — optional page title */}
-        <div className="justify-self-start min-w-0">
-          {title && <p className="truncate text-sm font-medium text-white/70">{title}</p>}
+        {/* Left — back button */}
+        <div className="justify-self-start min-w-0 flex items-center">
+          {left ?? (title && (
+            <p className="truncate text-sm font-medium text-white/70">{title}</p>
+          ))}
         </div>
 
-        {/* Centre cell — just the emblem, centred. One brand element, uncluttered. */}
+        {/* Centre — logo, links to home */}
         <div className="justify-self-center">
-          <Logo variant="emblem" height={30} invert priority />
+          <Link href="/home" aria-label="Home" className="block hover:opacity-80 transition-opacity">
+            <Logo variant="emblem" height={30} invert priority />
+          </Link>
         </div>
 
-        {/* Right cell — sign out, buttons, etc. Fills its track and pins content
-            to the far right; min-w-0 lets long links truncate rather than push the
-            page wide or shove the brand off-centre. */}
+        {/* Right — sign out, quick notify, etc. */}
         <div
           className="min-w-0 flex items-center gap-md text-sm font-semibold text-white overflow-x-auto"
           style={{ justifyContent: 'flex-end' }}

@@ -52,7 +52,11 @@ export default function StatementDetail() {
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'landlord') {
+      const role = data?.assignment?.role || ''
+      const isAdmin = ['administrator', 'admin'].includes(role)
+      const isLandlord = role === 'landlord'
+
+      if (!data || (!isLandlord && !isAdmin)) {
         router.push('/login')
         return
       }
@@ -60,15 +64,18 @@ export default function StatementDetail() {
 
       const supabase = createClient()
       const statementId = params.statementId as string
-      const landlordId = (data.assignment as any)?.id
+      // Admin can view any statement; landlord is scoped to their own
+      const landlordId = isAdmin ? undefined : (data.assignment as any)?.id
 
-      // Get basic statement first (skip problematic joins)
-      const { data: stmtData, error: queryError } = await supabase
+      // Get statement — admin not filtered by landlord_id
+      const query = supabase
         .from('landlord_statements')
         .select('*')
         .eq('id', statementId)
-        .eq('landlord_id', landlordId)
-        .single()
+      if (landlordId) query.eq('landlord_id', landlordId)
+
+      // Get basic statement first (skip problematic joins)
+      const { data: stmtData, error: queryError } = await query.single()
 
       if (queryError) {
         console.error('Statement query error:', queryError)
@@ -113,7 +120,7 @@ export default function StatementDetail() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar
-          right={<BackButton href="/landlord" />}
+          left={<BackButton href="/landlord" />}
         />
         <main className="mx-auto max-w-6xl px-lg py-2xl">
           <div className="animate-pulse space-y-lg">

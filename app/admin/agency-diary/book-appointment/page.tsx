@@ -138,7 +138,7 @@ export default function BookAppointmentPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar right={<BackButton />} />
+      <AppBar left={<BackButton />} />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">
         <Link

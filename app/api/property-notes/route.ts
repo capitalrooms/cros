@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   const { data: notes, error } = await supabase
     .from('property_notes')
-    .select('*, people(full_name, email)')
+    .select('*, people(full_name, first_name, last_name, email)')
     .eq('property_id', propertyId)
     .eq('is_deleted', false)
     .order('created_at', { ascending: false })
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       content,
       note_type: noteType,
     })
-    .select('*, people(full_name, email)')
+    .select('*, people(full_name, first_name, last_name, email)')
     .single()
 
   if (error) {

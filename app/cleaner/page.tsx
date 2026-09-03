@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import { displayName } from '@/lib/people'
 import RoleGreeting from '@/app/components/RoleGreeting'
 import BackButton from '@/app/components/BackButton'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
-import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
+import UpcomingList, { UpcomingItem } from '@/app/components/UpcomingList'
 import { isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 
 interface ComplianceLog {
@@ -18,7 +19,7 @@ interface ComplianceLog {
   checked_date: string
   notes: string | null
   checked_by_role: string
-  people?: { full_name: string } | null
+  people?: { name: string } | null
 }
 
 const checkTypeLabels: Record<string, string> = {
@@ -64,6 +65,7 @@ export default function CleanerDashboard() {
   const [compliancePropertyId, setCompliancePropertyId] = useState('')
   const [showQuickNotifyModal, setShowQuickNotifyModal] = useState(false)
   const [quickNotifyProperty, setQuickNotifyProperty] = useState<{ id: string; name: string } | null>(null)
+  const bookingRef = useRef<HTMLElement | null>(null)
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     overdue: false,
   })
@@ -84,7 +86,7 @@ export default function CleanerDashboard() {
         try {
           const { data: personData } = await supabase
             .from('people')
-            .select('id, full_name')
+            .select('id, full_name, first_name, last_name')
             .eq('email', userEmail)
             .single()
 
@@ -93,8 +95,8 @@ export default function CleanerDashboard() {
             // Load cleans for this cleaner
             await loadCleans(personData.id, cleansDisplayLimit)
           }
-          if (personData?.full_name) {
-            setCleanerName(personData.full_name)
+          if (personData) {
+            setCleanerName(displayName(personData))
           }
         } catch (err) {
           console.error('Error loading person data:', err)
@@ -152,7 +154,7 @@ export default function CleanerDashboard() {
   async function loadMoreCleans() {
     const newLimit = cleansDisplayLimit + 20
     setCleansDisplayLimit(newLimit)
-    await loadCleans((me as any)?.id, newLimit)
+    await loadCleans(personId, newLimit)
   }
 
   async function logPastClean() {
@@ -166,7 +168,7 @@ export default function CleanerDashboard() {
       const supabase = createClient()
       const { error: err } = await supabase.from('cleans').insert({
         property_id: pastCleanForm.propertyId,
-        cleaner_id: (me as any)?.id,
+        cleaner_id: personId,
         clean_date: pastCleanForm.cleanDate,
         status: 'completed',
         completed_at: new Date().toISOString(),
@@ -177,7 +179,7 @@ export default function CleanerDashboard() {
 
       setPastCleanForm({ propertyId: '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
       setShowLogPastCleanModal(false)
-      await loadCleans((me as any)?.id, cleansDisplayLimit)
+      await loadCleans(personId, cleansDisplayLimit)
       setError('')
     } catch (err) {
       setError('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
@@ -219,7 +221,7 @@ export default function CleanerDashboard() {
 
       setShowAcceptJobModal(null)
       await loadAssignedJobs()
-      await loadCleans((me as any)?.id, cleansDisplayLimit)
+      await loadCleans(personId, cleansDisplayLimit)
       setError('')
     } catch (err) {
       setError('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
@@ -232,7 +234,7 @@ export default function CleanerDashboard() {
     const supabase = createClient()
     const { data } = await supabase
       .from('compliance_logs')
-      .select('id, check_type, checked_date, notes, checked_by_role, people(full_name)')
+      .select('id, check_type, checked_date, notes, checked_by_role, people(full_name, first_name, last_name)')
       .eq('property_id', propId)
       .gte('checked_date', sixMonthsAgo())
       .order('checked_date', { ascending: false })
@@ -287,7 +289,7 @@ export default function CleanerDashboard() {
     const supabase = createClient()
     const { error: err } = await supabase.from('cleans').insert({
       property_id: propertyId,
-      cleaner_id: (me as any)?.id,
+      cleaner_id: personId,
       clean_date: cleanDate,
       clean_time: cleanTime || null,
     })
@@ -295,7 +297,7 @@ export default function CleanerDashboard() {
       setBooking(false)
       return setError(err.message)
     }
-    await loadCleans((me as any).id)
+    await loadCleans(personId)
     setBooking(false)
     const propName = properties.find((p) => p.id === propertyId)?.name || 'the property'
     const when = new Date(cleanDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -320,7 +322,7 @@ export default function CleanerDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton />} />
+        <AppBar left={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -368,7 +370,7 @@ export default function CleanerDashboard() {
         {me && (
           <RoleGreeting
             role="Cleaner Dashboard"
-            name={cleanerName || me.user_metadata?.full_name || me.email?.split('@')[0]}
+            name={cleanerName || me?.email?.split('@')[0]}
             subtitle="Ready to get some work done"
           />
         )}
@@ -383,20 +385,26 @@ export default function CleanerDashboard() {
           </div>
         )}
 
-        {/* 3-Day Calendar */}
-        <ThreeDayCalendar
-          appointments={cleans.map((c: any) => ({
-            id: c.id,
-            clean_date: c.clean_date,
-          }))}
-          role="cleaner"
-          onAppointmentClick={(clean: any) => {
-            router.push(`/cleaner/clean/${clean.id}`)
-          }}
+        {/* Upcoming cleans — pill list */}
+        <UpcomingList
+          title="All upcoming cleans"
+          emptyMessage="No cleans booked yet — use the booking form below."
+          items={[...scheduledCleans]
+            .filter(c => c.clean_date)
+            .sort((a, b) => a.clean_date.localeCompare(b.clean_date))
+            .map((c): UpcomingItem => ({
+              id: c.id,
+              date: c.clean_date,
+              time: c.clean_time ? String(c.clean_time).slice(0, 5) : undefined,
+              label: c.properties?.name || 'Property',
+              sublabel: c.properties?.address || undefined,
+              badge: isDatePast(c.clean_date) ? 'Overdue' : isDateToday(c.clean_date) ? 'Today' : undefined,
+              badgeColor: isDatePast(c.clean_date) ? 'bg-red-100 text-red-700' : isDateToday(c.clean_date) ? 'bg-blue-100 text-blue-700' : undefined,
+            }))}
+          onItemClick={(item) => router.push(`/cleaner/clean/${item.id}`)}
         />
 
-
-        <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg">
+        <section ref={bookingRef} className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg">
           <h2 className="text-xl font-bold text-white">Book a clean</h2>
           <div className="mt-md grid gap-md sm:grid-cols-3">
             {/* min-w-0 on each grid cell lets the column shrink to the tile
@@ -674,36 +682,6 @@ export default function CleanerDashboard() {
           </section>
         )}
 
-        {/* COMPLETED section */}
-        {done.length > 0 && (
-          <section id="completed-section">
-            <h2 className="text-xl font-bold mb-md">✅ Completed</h2>
-            <div className="space-y-md">
-              {done.slice(0, 10).map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                  className="w-full flex items-center justify-between gap-md rounded-2xl border border-neutral-800 bg-neutral-900 p-md text-left hover:border-white text-white"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-bold text-white">{c.properties?.name}</p>
-                    <p className="text-sm text-neutral-400">
-                      {new Date(c.clean_date).toLocaleDateString('en-GB', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-lg bg-green-600 px-md py-sm text-xs font-bold text-white">
-                    Completed
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
         {scheduled.length === 0 && done.length === 0 && (
           <p className="mt-3xl rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-xl text-center text-sm text-neutral-400">
             Nothing booked yet
@@ -790,7 +768,7 @@ export default function CleanerDashboard() {
                           year: 'numeric',
                         })}
                         {' · '}
-                        {log.people?.full_name || 'Unknown'} ({log.checked_by_role})
+                        {displayName(log.people) || 'Unknown'} ({log.checked_by_role})
                       </p>
                       {log.notes && (
                         <p className="text-sm text-neutral-300 mt-md whitespace-pre-wrap">

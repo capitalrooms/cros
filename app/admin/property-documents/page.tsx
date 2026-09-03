@@ -84,7 +84,7 @@ export default function PropertyDocumentsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" />} />
         <div className="flex items-center justify-center h-96">Loading...</div>
       </div>
     )

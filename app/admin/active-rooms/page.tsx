@@ -15,6 +15,9 @@ interface Room {
   unit_code: string | null
   room_type: string | null
   status: string | null
+  tenant_name: string | null
+  tenant_id: string | null
+  has_push: boolean
 }
 
 interface Property {
@@ -72,19 +75,40 @@ export default function AllUnitsPage() {
   }, [router])
 
   async function loadData() {
-    const [{ data: propsData }, { data: roomsData }] = await Promise.all([
+    const [{ data: propsData }, { data: roomsData }, { data: tenanciesData }, { data: pushData }] = await Promise.all([
       supabase.from('properties').select('id, name, address, property_code, property_type'),
       supabase.from('rooms').select('id, name, unit_code, room_type, status, property_id'),
+      // Current tenancies: rolling (no end_date) OR on-notice (future end_date)
+      supabase.from('tenancies').select('room_id, person_id, people!person_id(id, first_name, last_name, full_name, email)').or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`),
+      // People with active push subscriptions
+      supabase.from('push_subscriptions').select('person_id').not('person_id', 'is', null),
     ])
+
+    // Build push lookup (person_id → true)
+    const pushSet = new Set((pushData || []).map((p: any) => p.person_id))
+
+    // Build tenancy lookup (room_id → { person_id, name })
+    const tenancyByRoom: Record<string, { person_id: string; name: string }> = {}
+    for (const t of tenanciesData || []) {
+      const p = (t as any).people
+      const name = p
+        ? [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || '—'
+        : '—'
+      tenancyByRoom[t.room_id] = { person_id: t.person_id, name }
+    }
 
     const roomsByProperty: Record<string, Room[]> = {}
     for (const r of roomsData || []) {
+      const tenancy = tenancyByRoom[r.id]
       ;(roomsByProperty[r.property_id] ||= []).push({
         id: r.id,
         name: r.name,
         unit_code: r.unit_code,
         room_type: r.room_type,
         status: r.status,
+        tenant_name: tenancy?.name ?? null,
+        tenant_id: tenancy?.person_id ?? null,
+        has_push: tenancy ? pushSet.has(tenancy.person_id) : false,
       })
     }
 
@@ -102,24 +126,17 @@ export default function AllUnitsPage() {
       }),
     }))
 
-    // Sort by property code when set (the intended ordering), else fall back to
-    // natural address order. Coded properties come first, in numeric code order.
-    merged.sort((a, b) => {
-      if (a.property_code && b.property_code) {
-        return a.property_code.localeCompare(b.property_code, undefined, { numeric: true })
-      }
-      if (a.property_code) return -1
-      if (b.property_code) return 1
-      const [an, as] = addressSortKey(a.address)
-      const [bn, bs] = addressSortKey(b.address)
-      return an - bn || as.localeCompare(bs)
-    })
+    // Sort all properties by name alphabetically (numeric-aware so "4 Willis" < "12 Saltwell" < "71 Alloa").
+    // Previously coded properties were forced first, which pushed uncoded properties to the bottom — regression.
+    merged.sort((a, b) =>
+      (a.name || a.address || '').localeCompare(b.name || b.address || '', undefined, { numeric: true, sensitivity: 'base' })
+    )
 
     setProperties(merged)
   }
 
   function openRoom(propertyId: string, roomId: string) {
-    router.push(`/admin/properties/${propertyId}/rooms/${roomId}?from=all-units`)
+    router.push(`/admin/properties/${propertyId}?tab=units&room=${roomId}`)
   }
 
   if (loading) return <GenericPageSkeleton />
@@ -128,7 +145,7 @@ export default function AllUnitsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-5xl px-lg py-2xl">
         <div className="mb-xl">
@@ -147,15 +164,16 @@ export default function AllUnitsPage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-neutral-100 text-left text-xs font-semibold uppercase tracking-wide text-neutral-600">
-                  <th className="px-md py-sm w-[140px]">Unit code</th>
+                  <th className="px-md py-sm w-[130px]">Unit code</th>
                   <th className="px-md py-sm">Room</th>
-                  <th className="px-md py-sm">Type</th>
+                  <th className="px-md py-sm hidden sm:table-cell w-[90px]">Status</th>
+                  <th className="px-md py-sm">Tenant</th>
+                  <th className="px-md py-sm w-[52px] text-center" title="Push notifications enabled">🔔</th>
                 </tr>
               </thead>
               <tbody>
                 {properties.map((property) => {
                   const isHmo = (property.property_type || 'hmo') === 'hmo'
-                  const singleRoom = property.rooms[0]
                   return (
                     <Fragment key={property.id}>
                       {/* Property header row */}
@@ -163,7 +181,7 @@ export default function AllUnitsPage() {
                         className="cursor-pointer bg-neutral-900 text-white hover:bg-neutral-800"
                         onClick={() => router.push(`/admin/properties/${property.id}`)}
                       >
-                        <td colSpan={4} className="px-lg py-sm">
+                        <td colSpan={5} className="px-lg py-sm">
                           <div className="flex items-center justify-between gap-md">
                             <div className="min-w-0">
                               {property.property_code && (
@@ -184,25 +202,39 @@ export default function AllUnitsPage() {
                       {/* Rooms beneath an HMO */}
                       {isHmo && property.rooms.length === 0 && (
                         <tr key={`empty-${property.id}`}>
-                          <td colSpan={4} className="px-md py-sm pl-xl text-xs italic text-neutral-400">
+                          <td colSpan={5} className="px-md py-sm pl-xl text-xs italic text-neutral-400">
                             No rooms configured yet
                           </td>
                         </tr>
                       )}
-                      {isHmo &&
-                        property.rooms.map((room) => (
-                          <tr
-                            key={room.id}
-                            className="cursor-pointer border-t border-neutral-200 bg-white hover:bg-neutral-50"
-                            onClick={() => openRoom(property.id, room.id)}
-                          >
-                            <td className="px-md py-sm pl-xl font-mono text-xs text-neutral-700">
-                              {room.unit_code || '—'}
-                            </td>
-                            <td className="px-md py-sm font-medium text-neutral-900">{room.name}, {property.address}</td>
-                            <td className="px-md py-sm text-neutral-500">{room.room_type || '—'}</td>
-                          </tr>
-                        ))}
+                      {property.rooms.map((room) => (
+                        <tr
+                          key={room.id}
+                          className="cursor-pointer border-t border-neutral-200 bg-white hover:bg-neutral-50"
+                          onClick={() => openRoom(property.id, room.id)}
+                        >
+                          <td className="px-md py-sm pl-xl font-mono text-xs text-neutral-700">
+                            {room.unit_code || '—'}
+                          </td>
+                          <td className="px-md py-sm font-medium text-neutral-900">{room.name}</td>
+                          <td className="px-md py-sm hidden sm:table-cell">
+                            <span className={`text-xs font-semibold px-sm py-xs rounded-full ${statusStyle(room.status)}`}>
+                              {statusLabel(room.status)}
+                            </span>
+                          </td>
+                          <td className="px-md py-sm text-sm text-neutral-700">
+                            {room.tenant_name || <span className="text-neutral-400 italic">Vacant</span>}
+                          </td>
+                          <td className="px-md py-sm text-center">
+                            {room.tenant_id
+                              ? room.has_push
+                                ? <span title="Push notifications on" className="text-base">🔔</span>
+                                : <span title="No push notifications" className="text-base opacity-30">🔕</span>
+                              : null
+                            }
+                          </td>
+                        </tr>
+                      ))}
                     </Fragment>
                   )
                 })}

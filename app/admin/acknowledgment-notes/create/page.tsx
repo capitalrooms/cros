@@ -108,7 +108,7 @@ export default function CreateAcknowledgmentNotePage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
-        right={<BackButton href="/admin/acknowledgment-notes" />}
+        left={<BackButton href="/admin/acknowledgment-notes" />}
       />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">

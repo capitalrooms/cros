@@ -134,7 +134,7 @@ export default function CompliancePage() {
           *,
           properties (name),
           rooms (name),
-          people (full_name)
+          people (full_name, first_name, last_name)
         `
         )
         .order('request_sent_at', { ascending: false })
@@ -152,7 +152,7 @@ export default function CompliancePage() {
         issue_description: check.issue_description,
         property_name: check.properties?.name,
         room_name: check.rooms?.name,
-        tenant_name: check.people?.full_name,
+        tenant_name: check.people.name,
       }))
 
       setChecks(transformed)
@@ -194,7 +194,7 @@ export default function CompliancePage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="mb-2xl">

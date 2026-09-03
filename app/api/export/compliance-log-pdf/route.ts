@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     // Fetch all compliance logs
     const { data: logs, error: logsError } = await supabase
       .from('compliance_logs')
-      .select('*, people(full_name)')
+      .select('*, people(full_name, first_name, last_name)')
       .eq('property_id', property_id)
       .order('checked_date', { ascending: false })
 
@@ -276,7 +276,7 @@ export async function POST(req: NextRequest) {
                 })}</span>
           </div>
           <div class="entry-details">
-            <strong>Checked by:</strong> ${log.people?.full_name || 'Unknown'} (${log.checked_by_role})
+            <strong>Checked by:</strong> ${log.people.name || 'Unknown'} (${log.checked_by_role})
           </div>
           ${log.notes ? `<div class="entry-notes"><strong>Notes:</strong> ${log.notes}</div>` : ''}
         </div>

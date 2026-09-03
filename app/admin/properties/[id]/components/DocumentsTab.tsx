@@ -124,7 +124,7 @@ export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
     <div className="space-y-xl">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-white">Documents</h2>
+        <h2 className="text-xl font-semibold text-neutral-900">Documents</h2>
         <p className="text-sm text-neutral-400 mt-xs">Certificates, insurance, floor plans, and property files</p>
       </div>
 

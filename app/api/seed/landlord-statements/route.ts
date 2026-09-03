@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const { data: property } = await supabase
       .from('properties')
       .select('id, name, address')
-      .order('name')
+      .order('created_at', { ascending: false })
       .limit(1)
       .single()
 
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         id,
         room_id,
         tenant_id,
-        people (full_name)
+        people (full_name, first_name, last_name)
       `)
       .eq('property_id', property.id)
       .order('room_id')
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         statement_id: statement.id,
         room_id: tenancy.room_id,
         tenant_id: tenancy.tenant_id,
-        tenant_name: roomRents[idx]?.name || tenancy.people.full_name,
+        tenant_name: roomRents[idx]?.name || tenancy.people.name,
         rent_income: rent,
         management_fee: fee,
         net_to_landlord: rent - fee,

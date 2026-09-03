@@ -98,7 +98,7 @@ export async function POST() {
       .from('rooms')
       .select('id, name')
       .eq('property_id', propertyData.id)
-      .order('name')
+      .order('created_at', { ascending: false })
 
     if (roomsError || !rooms || rooms.length === 0) {
       return NextResponse.json({

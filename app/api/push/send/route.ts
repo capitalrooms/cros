@@ -4,7 +4,7 @@ import webpush from 'web-push'
 import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateEmail, validateUUID } from '@/lib/validation'
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     // Master switch: while tenant comms are paused, never push to tenant devices.
     // Staff devices (contractor/cleaner/admin/lettings) are unaffected.
-    if (!tenantCommsLive()) {
+    if (!await getCommsLive()) {
       const before = (subs || []).length
       subs = (subs || []).filter((s: any) => s.role && s.role !== 'tenant')
       const suppressed = before - subs.length

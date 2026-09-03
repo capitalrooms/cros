@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
@@ -21,6 +21,7 @@ interface Viewing {
   visitor_email: string | null;
   visitor_phone: string | null;
   feedback: string | null;
+  let_only_room_id: string | null;
   rooms?: { name: string } | null;
 }
 
@@ -63,14 +64,36 @@ function getNextSevenDays(): DayInfo[] {
   return days;
 }
 
+interface Room {
+  id: string;
+  name: string;
+  property_id: string;
+  properties: { id: string; name: string } | null;
+}
+
+const blankNewForm = (date = '') => ({
+  viewing_date: date,
+  viewing_slot: '',
+  room_id: '',
+  property_id: '',
+  visitor_name: '',
+  visitor_email: '',
+  visitor_phone: '',
+  feedback: '',
+});
+
 export default function ViewingsDiary() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [viewings, setViewings] = useState<Viewing[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Viewing | null>(null);
   const [notifying, setNotifying] = useState<Viewing | null>(null);
   const [saving, setSaving] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
+  const [newForm, setNewForm] = useState(blankNewForm());
   const [form, setForm] = useState({
     viewing_date: '',
     viewing_slot: '',
@@ -82,11 +105,16 @@ export default function ViewingsDiary() {
   const [banner, setBanner] = useState<string | null>(null);
   const [days, setDays] = useState<DayInfo[]>(getNextSevenDays());
 
+  function openNewViewing(date = '') {
+    setNewForm(blankNewForm(date));
+    setAddingNew(true);
+  }
+
   async function loadViewings() {
     const supabase = createClient();
     const { data: viewingsData } = await supabase
       .from('viewings')
-      .select('*, rooms(name)')
+      .select('*, rooms(name), let_only_room_id, let_only_rooms(listing_id)')
       .order('viewing_date');
     setViewings(viewingsData || []);
 
@@ -108,11 +136,58 @@ export default function ViewingsDiary() {
         router.push('/login');
         return;
       }
+      const supabase = createClient();
+      const { data: roomsData } = await supabase
+        .from('rooms')
+        .select('id, name, property_id, properties(id, name)')
+        .order('name');
+      setRooms((roomsData as any) || []);
       await loadViewings();
       setLoading(false);
+
+      // Auto-open new viewing modal when arriving from a calendar slot tap
+      const dateParam = searchParams.get('date');
+      const timeParam = searchParams.get('time');
+      if (dateParam) {
+        setNewForm(blankNewForm(dateParam));
+        if (timeParam) setNewForm(f => ({ ...f, viewing_slot: timeParam }));
+        setAddingNew(true);
+      }
     }
     init();
-  }, [router]);
+  }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleCreate() {
+    if (!newForm.viewing_date || !newForm.room_id) {
+      setBanner('A date and room are required');
+      return;
+    }
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const room = rooms.find(r => r.id === newForm.room_id);
+      const { error } = await supabase.from('viewings').insert({
+        room_id: newForm.room_id,
+        property_id: room?.property_id ?? newForm.property_id,
+        viewing_date: newForm.viewing_date,
+        viewing_slot: newForm.viewing_slot || null,
+        visitor_name: newForm.visitor_name || null,
+        visitor_email: newForm.visitor_email || null,
+        visitor_phone: newForm.visitor_phone || null,
+        feedback: newForm.feedback || null,
+        viewing_status: 'scheduled',
+      });
+      if (error) throw new Error(error.message);
+      setAddingNew(false);
+      await loadViewings();
+      setBanner('Viewing booked ✓');
+      setTimeout(() => setBanner(null), 4000);
+    } catch (err) {
+      setBanner(err instanceof Error ? err.message : 'Failed to book viewing');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function openEdit(v: Viewing) {
     setEditing(v);
@@ -152,6 +227,29 @@ export default function ViewingsDiary() {
 
       const dateChanged = editing.viewing_date !== form.viewing_date;
       const timeChanged = (editing.viewing_slot ?? '') !== form.viewing_slot;
+
+      // Notify remaining tenants at let-only properties when date/time changes
+      if ((dateChanged || timeChanged) && (editing as any).let_only_rooms?.listing_id) {
+        try {
+          const userData = await getCurrentUser();
+          const senderName = userData?.user?.email?.split('@')[0] || 'Capital Rooms';
+          await fetch('/api/let-only/notify-contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              listing_id: (editing as any).let_only_rooms.listing_id,
+              event: 'rescheduled',
+              viewing_date: form.viewing_date,
+              viewing_time: form.viewing_slot || '',
+              room_name: editing.rooms?.name,
+              sender_name: senderName,
+            }),
+          });
+        } catch {
+          // Non-blocking — don't fail the save if notify fails
+        }
+      }
+
       setEditing(null);
       await loadViewings();
       setBanner(
@@ -172,13 +270,21 @@ export default function ViewingsDiary() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={<BackButton href="/lettings" />}
+        left={<BackButton href="/lettings" />}
       />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">
-        <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">Viewing Diary</h1>
-          <p className="mt-sm text-neutral-600">Manage all property viewings — click a day to see that day's viewings, then tap one to amend the date, time or visitor.</p>
+        <div className="mb-3xl flex items-start justify-between gap-md">
+          <div>
+            <h1 className="text-3xl font-bold text-neutral-900">Viewing Diary</h1>
+            <p className="mt-sm text-neutral-600">Click a day to see viewings for that date, tap a card to amend, or book a new one.</p>
+          </div>
+          <button
+            onClick={() => openNewViewing()}
+            className="shrink-0 rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 transition"
+          >
+            + Book viewing
+          </button>
         </div>
 
         {banner && (
@@ -192,14 +298,21 @@ export default function ViewingsDiary() {
           {days.map((day) => (
             <button
               key={day.iso}
-              onClick={() => setExpandedDay(expandedDay === day.iso ? null : day.iso)}
+              onClick={() => {
+                if (day.viewingCount === 0) {
+                  openNewViewing(day.iso);
+                } else {
+                  setExpandedDay(expandedDay === day.iso ? null : day.iso);
+                }
+              }}
               className={`p-md rounded-lg text-center transition ${
                 expandedDay === day.iso
                   ? 'bg-neutral-900 text-white border-2 border-neutral-900'
                   : day.viewingCount > 0
                   ? 'bg-blue-50 border-2 border-blue-200 text-blue-900'
-                  : 'bg-neutral-50 border-2 border-neutral-200 text-neutral-600'
+                  : 'bg-neutral-50 border-2 border-dashed border-neutral-300 text-neutral-400 hover:border-neutral-400 hover:text-neutral-600'
               }`}
+              title={day.viewingCount === 0 ? 'Click to book a viewing on this day' : undefined}
             >
               <p className="text-xs font-bold uppercase tracking-wide">
                 {day.date.toLocaleDateString('en-GB', { weekday: 'short' })}
@@ -207,10 +320,12 @@ export default function ViewingsDiary() {
               <p className="text-lg font-bold mt-xs">
                 {day.date.getDate()}
               </p>
-              {day.viewingCount > 0 && (
+              {day.viewingCount > 0 ? (
                 <p className="text-xs mt-sm font-semibold">
                   {day.viewingCount} {day.viewingCount === 1 ? 'viewing' : 'viewings'}
                 </p>
+              ) : (
+                <p className="text-xs mt-sm">+ add</p>
               )}
             </button>
           ))}
@@ -275,6 +390,124 @@ export default function ViewingsDiary() {
           </div>
         )}
       </main>
+
+      {/* ── New viewing modal ── */}
+      {addingNew && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-lg" onClick={() => !saving && setAddingNew(false)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-lg">
+              <h2 className="text-xl font-bold text-neutral-900">Book a viewing</h2>
+              <button onClick={() => !saving && setAddingNew(false)} className="text-neutral-400 hover:text-neutral-900 text-2xl leading-none">×</button>
+            </div>
+
+            <div className="space-y-md">
+              {/* Room selector */}
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-xs">Room <span className="text-red-500">*</span></label>
+                <select
+                  value={newForm.room_id}
+                  onChange={(e) => {
+                    const room = rooms.find(r => r.id === e.target.value);
+                    setNewForm({ ...newForm, room_id: e.target.value, property_id: room?.property_id ?? '' });
+                  }}
+                  className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                >
+                  <option value="">Select a room…</option>
+                  {rooms.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.properties?.name ? `${r.properties.name} — ` : ''}{r.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-md">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-xs">Date <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    value={newForm.viewing_date}
+                    onChange={(e) => setNewForm({ ...newForm, viewing_date: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-xs">Time / slot</label>
+                  <input
+                    type="text"
+                    value={newForm.viewing_slot}
+                    placeholder="e.g. 10:00 or 14:30"
+                    onChange={(e) => setNewForm({ ...newForm, viewing_slot: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-xs">Visitor name</label>
+                <input
+                  type="text"
+                  value={newForm.visitor_name}
+                  placeholder="Applicant full name"
+                  onChange={(e) => setNewForm({ ...newForm, visitor_name: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-md">
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-xs">Email</label>
+                  <input
+                    type="email"
+                    value={newForm.visitor_email}
+                    placeholder="applicant@email.com"
+                    onChange={(e) => setNewForm({ ...newForm, visitor_email: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 mb-xs">Phone</label>
+                  <input
+                    type="tel"
+                    value={newForm.visitor_phone}
+                    placeholder="07700 000000"
+                    onChange={(e) => setNewForm({ ...newForm, visitor_phone: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 mb-xs">Notes</label>
+                <textarea
+                  value={newForm.feedback}
+                  rows={2}
+                  placeholder="Any notes about this viewing…"
+                  onChange={(e) => setNewForm({ ...newForm, feedback: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+              </div>
+            </div>
+
+            <div className="mt-lg flex gap-md">
+              <button
+                onClick={() => setAddingNew(false)}
+                disabled={saving}
+                className="flex-1 rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={saving || !newForm.room_id || !newForm.viewing_date}
+                className="flex-1 rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              >
+                {saving ? 'Booking…' : 'Book viewing'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notify-the-house modal */}
       {notifying && (

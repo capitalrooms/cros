@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // Get the person record
     const { data: person, error: personError } = await supabase
       .from('people')
-      .select('id, email, full_name, role')
+      .select('id, email, full_name, first_name, last_name, role')
       .eq('email', testEmail)
       .single()
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         id: person.id,
         email: person.email,
         user_metadata: {
-          full_name: person.full_name,
+          name: person.name,
           role: person.role,
         },
       },
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       success: true,
       session: mockSession,
       user: person,
-      message: `Test session created for ${person.full_name} (${role})`,
+      message: `Test session created for ${person.name} (${role})`,
     })
   } catch (error) {
     console.error('Test session error:', error)

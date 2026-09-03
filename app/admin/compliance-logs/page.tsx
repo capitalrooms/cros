@@ -1,4 +1,5 @@
 'use client'
+import { displayName } from '@/lib/people'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -22,7 +23,7 @@ interface ComplianceLog {
   checked_by: string
   notes: string | null
   created_at: string
-  person?: { full_name: string; role: string } | null
+  person?: { name: string; role: string } | null
 }
 
 export default function ComplianceLogsPage() {
@@ -80,7 +81,7 @@ export default function ComplianceLogsPage() {
 
     const { data: logsData } = await supabase
       .from('compliance_logs')
-      .select('*, people:checked_by(full_name, role)')
+      .select('*, people:checked_by(full_name, first_name, last_name, role)')
       .eq('property_id', selectedProperty)
       .eq('check_type', tab)
       .order('checked_date', { ascending: false })
@@ -133,7 +134,7 @@ export default function ComplianceLogsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">
         <div className="mb-3xl">
@@ -215,7 +216,7 @@ export default function ComplianceLogsPage() {
                       })}
                     </p>
                     <p className="text-sm text-neutral-600 mt-xs">
-                      Checked by: <span className="font-semibold">{log.person?.full_name || 'Unknown'}</span>
+                      Checked by: <span className="font-semibold">{displayName(log.person) || 'Unknown'}</span>
                       {' '}
                       <span className="text-xs text-neutral-500">
                         ({log.person?.role || 'unknown'})

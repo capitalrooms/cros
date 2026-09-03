@@ -89,7 +89,7 @@ export default function PropertyInfoPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -98,7 +98,7 @@ export default function PropertyInfoPage() {
   if (error || !property) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<Link href="/tenant" className="text-sm font-bold text-white hover:text-white/80">← Home</Link>} />
+        <AppBar left={<BackButton href="/tenant" />} />
         <main className="mx-auto max-w-2xl px-lg py-2xl">
           <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-lg">
             <p className="font-bold text-red-900">⚠️ {error || 'Could not load property information'}</p>

@@ -9,7 +9,7 @@ export default function MaintenanceHub() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={<BackButton href="/tenant" />}
+        left={<BackButton href="/tenant" />}
       />
 
       <main className="px-lg py-xl">

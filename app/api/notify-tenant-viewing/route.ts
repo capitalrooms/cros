@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
+import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = 'Capital Rooms <onboarding@resend.dev>'
-const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/maintenance-photos/brand/logo.png`
-const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3000'
 
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
+  if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
   const user = await getCurrentUser()
@@ -36,19 +34,6 @@ export async function POST(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
-
-  const shell = (inner: string) => `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1c1917">
-      <a href="${PORTAL_URL}">
-        <img src="${LOGO_URL}" alt="Capital Rooms" style="height:64px;width:auto;margin-bottom:20px" />
-      </a>
-      ${inner}
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e7e5e4">
-        <p style="margin:0;color:#a8a29e;font-size:13px">
-          Capital Rooms — Property Management
-        </p>
-      </div>
-    </div>`
 
   async function send(to: string, subject: string, html: string) {
     const res = await fetch(RESEND_ENDPOINT, {
@@ -83,7 +68,7 @@ export async function POST(request: NextRequest) {
       const success = await send(
         tenancy.people.email,
         'Notice of scheduled viewing at your property',
-        shell(`
+        emailHtml(`
           <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
           <p style="margin:0 0 30px;font-size:16px;line-height:1.5">
             Please note that there will be a viewing scheduled in your room.
@@ -115,7 +100,7 @@ export async function POST(request: NextRequest) {
         const success = await send(
           tenancy.people.email,
           'Notice: Scheduled activity in your property',
-          shell(`
+          emailHtml(`
             <h2 style="margin:0 0 18px;font-size:22px">Property Notice</h2>
             <p style="margin:0 0 30px;font-size:16px;line-height:1.5">
               Please be advised that there is a scheduled viewing or maintenance activity

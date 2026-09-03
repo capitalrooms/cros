@@ -1,23 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { tenantCommsLive } from '@/lib/comms'
+import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { buildVisitICS } from '@/lib/calendar'
 import { formatBooking } from '@/lib/booking'
 import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
+import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 // Resend's shared sender — works with no domain set up. Swap for
 // bookings@capitalrooms.co.uk once the domain is verified in Resend.
-const FROM = 'Capital Rooms <onboarding@resend.dev>'
 
 // Publicly hosted, because Gmail strips `data:` URIs in <img> tags — an inlined
 // logo simply does not render.
-const LOGO_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/maintenance-photos/brand/logo.png`
 
-const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://192.168.1.125:3002'
 
 /**
  * A clean, professional heading derived from category + location.
@@ -39,7 +37,7 @@ function jobHeading(
 
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!tenantCommsLive()) {
+  if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
   const user = await getCurrentUser()
@@ -103,32 +101,14 @@ export async function POST(request: NextRequest) {
   const { data: contractor } = ticket.contractor_id
     ? await supabase
         .from('people')
-        .select('full_name, email, phone')
+        .select('full_name, first_name, last_name, email, phone')
         .eq('id', ticket.contractor_id)
         .maybeSingle()
     : { data: null }
 
   const attending = contractor
-    ? `${contractor.full_name ?? contractor.email}${contractor.phone ? ` · ${contractor.phone}` : ''}`
+    ? `${contractor.name ?? contractor.email}${contractor.phone ? ` · ${contractor.phone}` : ''}`
     : 'Not yet assigned'
-
-  const shell = (inner: string) => `
-    <div style="font-family:Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1c1917">
-      <a href="${PORTAL_URL}">
-        <img src="${LOGO_URL}" alt="Capital Rooms" style="height:64px;width:auto;margin-bottom:20px" />
-      </a>
-      ${inner}
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e7e5e4">
-        <a href="${PORTAL_URL}"
-           style="display:inline-block;background:#1c1917;color:#ffffff;font-size:15px;font-weight:600;
-                  padding:13px 24px;border-radius:8px;text-decoration:none">
-          Open dashboard
-        </a>
-        <p style="margin-top:14px;color:#a8a29e;font-size:13px">
-          Track this repair and everything else at your property.
-        </p>
-      </div>
-    </div>`
 
   async function send(to: string, subject: string, html: string, attachIcs: boolean) {
     const res = await fetch(RESEND_ENDPOINT, {
@@ -156,7 +136,7 @@ export async function POST(request: NextRequest) {
     await send(
       admin,
       `Repair booked — ${heading} — ${when}`,
-      shell(`
+      emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">Repair booked</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
 
@@ -185,7 +165,7 @@ export async function POST(request: NextRequest) {
     await send(
       contractor.email,
       `Job confirmed — ${heading} — ${when}`,
-      shell(`
+      emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">Job confirmed</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
 
@@ -229,7 +209,7 @@ export async function POST(request: NextRequest) {
     await send(
       landlord.email,
       `Repair scheduled at ${property?.name ?? 'your property'}`,
-      shell(`
+      emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">A repair has been scheduled</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
 

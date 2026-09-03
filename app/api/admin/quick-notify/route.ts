@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { insertNotifications, activeTenantIds, tryPush } from '@/lib/serverNotify'
+import { insertNotifications, activeTenantIds, tryPush, tryEmailFallback } from '@/lib/serverNotify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     await tryPush(recipientIds, subject, message, '/tenant')
+    await tryEmailFallback(service, recipientIds, { title: subject, body: message, link: '/tenant' })
 
     return NextResponse.json({ ok: true, message: `Notification sent to ${count} recipient(s)` })
   } catch (error) {

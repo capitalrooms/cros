@@ -9,7 +9,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 
 interface Property { id: string; name: string; address: string; management_fee_pct: number | null }
-interface Landlord { id: string; full_name: string | null; email: string; property_id: string | null }
+interface Landlord { id: string; name: string | null; email: string; property_id: string | null }
 interface StatementRow {
   id: string
   statement_reference: string
@@ -93,7 +93,7 @@ export default function AdminStatementsPage() {
       const supabase = createClient()
       const [{ data: props }, { data: lls }] = await Promise.all([
         supabase.from('properties').select('id, name, address, management_fee_pct').order('name'),
-        supabase.from('people').select('id, full_name, email, property_id').eq('role', 'landlord').order('full_name'),
+        supabase.from('people').select('id, full_name, first_name, last_name, email, property_id').eq('role', 'landlord').order('full_name'),
       ])
       setProperties((props as any) || [])
       setLandlords((lls as any) || [])
@@ -244,6 +244,21 @@ export default function AdminStatementsPage() {
       // Remember this property's fee rate for next time (best-effort; ignore if column absent).
       supabase.from('properties').update({ management_fee_pct: num(feePct) }).eq('id', propertyId).then(() => {})
 
+      // Fire-and-forget: AI-categorise expense lines into statement_line_items.
+      // Fetch the statement ID we just upserted, then POST to the categorise endpoint.
+      supabase
+        .from('landlord_statements')
+        .select('id')
+        .eq('landlord_id', landlordId)
+        .eq('property_id', propertyId)
+        .eq('statement_reference', reference.trim())
+        .single()
+        .then(({ data: s }) => {
+          if (s?.id) {
+            fetch(`/api/admin/statements/${s.id}/categorise`, { method: 'POST' }).catch(() => {})
+          }
+        })
+
       const prop = properties.find((p) => p.id === propertyId)
       const where = prop?.name || prop?.address || 'the property'
       setNotice(breakdownSaved
@@ -272,7 +287,7 @@ export default function AdminStatementsPage() {
   }, [statements])
 
   if (loading) {
-    return <div className="min-h-screen bg-neutral-100"><AppBar right={<BackButton />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
+    return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
   }
 
   const field = 'mt-xs w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none'
@@ -281,7 +296,7 @@ export default function AdminStatementsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
       <main className="mx-auto max-w-3xl px-lg py-lg">
         <h1 className="text-3xl font-bold text-neutral-900">Landlord statements</h1>
         <p className="mt-sm text-sm text-neutral-600">
@@ -315,7 +330,7 @@ export default function AdminStatementsPage() {
                 <span className={label}>Landlord</span>
                 <select value={landlordId} onChange={(e) => setLandlordId(e.target.value)} className={field} required>
                   <option value="">Select the landlord…</option>
-                  {landlords.map((l) => <option key={l.id} value={l.id}>{l.full_name || l.email}</option>)}
+                  {landlords.map((l) => <option key={l.id} value={l.id}>{l.name || l.email}</option>)}
                 </select>
               </div>
               <div>

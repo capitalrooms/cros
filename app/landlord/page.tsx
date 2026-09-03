@@ -1,14 +1,32 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
+import { displayName } from '@/lib/people'
 import AppBar from '@/components/AppBar'
 import RoleGreeting from '@/app/components/RoleGreeting'
 import BackButton from '@/app/components/BackButton'
+import ViewAsBanner from '@/app/components/ViewAsBanner'
 import DateRangePicker from '../components/DateRangePicker'
 import Link from 'next/link'
+import { PROPERTY_WIDE_CATEGORIES, ROOM_SPECIFIC_CATEGORY_TYPES, UNMATCHED_SLUG, categoryLabel, categoryEmoji } from '@/lib/expense-categories'
+
+// Notification categories the landlord can self-manage
+const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
+  { key: 'urgent',               label: '🚨 Urgent issues',            description: 'Emergency maintenance at your property', mandatory: true },
+  { key: 'job_approval',         label: '✅ Job approvals',             description: 'Large or costly jobs needing your sign-off' },
+  { key: 'job_updates',          label: '🔧 Job updates',               description: 'Contractor visits booked, jobs completed' },
+  { key: 'rent_received',        label: '💷 Rent received',             description: 'Monthly rent payment confirmed' },
+  { key: 'rent_arrears',         label: '⚠️ Rent arrears',              description: 'Tenant is late or in arrears' },
+  { key: 'financial_statements', label: '📄 Monthly statements',        description: 'New statement ready to view' },
+  { key: 'compliance_expiry',    label: '📋 Compliance expiry',         description: 'Certificates expiring within 60 days' },
+  { key: 'compliance_breach',    label: '🔴 Compliance breach',         description: 'Issue requiring attention' },
+  { key: 'tenant_changes',       label: '🏠 Tenant changes',            description: 'Move-in, move-out, or notice given' },
+  { key: 'cleaner_visits',       label: '🧹 Cleaner visits',            description: 'Scheduled cleans and completion reports' },
+  { key: 'viewings',             label: '👀 Viewings',                  description: 'Viewing appointments at your property' },
+]
 
 interface Statement {
   id: string
@@ -42,27 +60,70 @@ export default function LandlordDashboard() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
+  const [personId, setPersonId] = useState<string | null>(null)
+  const [commsEnabled, setCommsEnabled] = useState(false)
+  const [prefs, setPrefs] = useState<Record<string, boolean>>({})
+  const [showNotifPrefs, setShowNotifPrefs] = useState(false)
+  const [viewingAs, setViewingAs] = useState<{ id: string; name: string; role: string } | null>(null)
+
+  const searchParams = useSearchParams()
+
+  // Expense breakdown (from statement_line_items)
+  interface LineItem { id: string; description: string; amount: number; statement_date: string; category: string; category_type: string; room_id?: string | null; room_label?: string | null; ai_confidence?: number; admin_confirmed: boolean }
+  const [lineItems, setLineItems] = useState<LineItem[]>([])
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
 
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'landlord') {
+      const asParam = searchParams.get('as')
+      const isAdmin = ['administrator', 'admin'].includes(data?.assignment?.role || '')
+
+      // ── Impersonation: admin visiting /landlord?as=[personId] ────────────
+      let pid: string | null
+      if (asParam && isAdmin) {
+        const supabase = createClient()
+        const { data: target } = await supabase
+          .from('people')
+          .select('id, first_name, last_name, full_name, email, role')
+          .eq('id', asParam)
+          .single()
+        if (!target || target.role !== 'landlord') { router.push('/admin/people'); return }
+        setUser(data!.user)
+        const targetName = displayName(target)
+        setName(targetName)
+        setViewingAs({ id: asParam, name: targetName, role: target.role })
+        pid = asParam
+        setPersonId(pid)
+      } else if (!data || data.assignment?.role !== 'landlord') {
         router.push('/login')
         return
+      } else {
+        setUser(data.user)
+        setName((data.assignment as any).name || data.user?.email?.split('@')[0] || '')
+        pid = (data.assignment as any)?.id ?? null
+        setPersonId(pid)
       }
-      setUser(data.user)
-      setName((data.assignment as any)?.full_name || data.user?.email?.split('@')[0] || '')
 
       const supabase = createClient()
 
-      // Get landlord's statements
+      // Get landlord's statements (using effective pid, which is overridden for impersonation)
       const { data: statementsData } = await supabase
         .from('landlord_statements')
         .select('*, properties(name, address)')
-        .eq('landlord_id', (data.assignment as any).id)
+        .eq('landlord_id', pid!)
         .order('statement_date', { ascending: false })
 
       setStatements(statementsData || [])
+
+      // Load expense line items for the breakdown view
+      const { data: lineData } = await supabase
+        .from('statement_line_items')
+        .select('id, description, amount, statement_date, category, category_type, room_id, room_label, ai_confidence, admin_confirmed')
+        .eq('landlord_id', pid!)
+        .order('statement_date', { ascending: false })
+      setLineItems(lineData || [])
+
       if (statementsData && statementsData.length > 0) {
         const mostRecentStatement = statementsData[0] // Already sorted by date descending
         const earliestStatement = statementsData[statementsData.length - 1]
@@ -79,11 +140,34 @@ export default function LandlordDashboard() {
 
         calculateAggregatedSummary(statementsData, rangeStart, rangeEnd)
       }
+      // Load notification prefs
+      if (pid) {
+        const { data: personRow } = await supabase.from('people').select('landlord_comms_enabled').eq('id', pid).single()
+        setCommsEnabled(personRow?.landlord_comms_enabled ?? false)
+
+        const { data: prefsData } = await supabase
+          .from('landlord_notification_prefs').select('category, enabled').eq('person_id', pid)
+        const pm: Record<string, boolean> = {}
+        for (const row of (prefsData || [])) pm[row.category] = row.enabled
+        setPrefs(pm)
+      }
+
       setLoading(false)
     }
 
     checkAuth()
-  }, [router])
+  }, [router, searchParams])
+
+  async function togglePref(category: string) {
+    if (!personId) return
+    const newVal = !(prefs[category] ?? true)
+    setPrefs(prev => ({ ...prev, [category]: newVal }))
+    const supabase = createClient()
+    await supabase.from('landlord_notification_prefs').upsert(
+      { person_id: personId, category, enabled: newVal, updated_at: new Date().toISOString() },
+      { onConflict: 'person_id,category' }
+    )
+  }
 
   async function handleSignOut() {
     await signOut()
@@ -318,7 +402,7 @@ export default function LandlordDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton />} />
+        <AppBar left={<BackButton />} />
         <main className="mx-auto max-w-6xl px-lg py-2xl">
           <div className="animate-pulse">
             <div className="h-10 w-64 bg-neutral-300 rounded-lg mb-lg"></div>
@@ -331,6 +415,9 @@ export default function LandlordDashboard() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
+      {viewingAs && (
+        <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
+      )}
       <AppBar
         right={
           <button
@@ -363,7 +450,7 @@ export default function LandlordDashboard() {
             >
               {properties.map((prop) => (
                 <option key={prop.id} value={prop.id} style={{ backgroundColor: '#1f2937', color: '#ffffff' }}>
-                  {prop.name} • {prop.address}
+                  {prop.name && prop.name !== prop.address ? `${prop.name} — ${prop.address}` : (prop.address || prop.name)}
                 </option>
               ))}
             </select>
@@ -436,24 +523,34 @@ export default function LandlordDashboard() {
               </h2>
               <div className="space-y-sm">
                 {dateFilteredStatements.length > 0 ? (
-                  dateFilteredStatements.map((stmt) => (
+                  dateFilteredStatements.map((stmt) => {
+                    // Build a human-readable label from the period dates
+                    const start = stmt.period_start ? new Date(stmt.period_start) : null
+                    const end   = stmt.period_end   ? new Date(stmt.period_end)   : new Date(stmt.statement_date)
+                    const fmtMY = (d: Date) => d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+                    const sameMonth = start && fmtMY(start) === fmtMY(end)
+                    const periodLabel = start && !sameMonth
+                      ? `${fmtMY(start)} – ${fmtMY(end)}`
+                      : fmtMY(end)
+                    const isMultiYear = start && end.getFullYear() !== start.getFullYear()
+
+                    return (
                     <Link
                       key={stmt.id}
                       href={`/landlord/statement/${stmt.id}`}
                       className="block p-md bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors border-l-2 border-blue-500"
                     >
-                      <div className="font-bold text-lg">{stmt.statement_reference}</div>
-                      <div className="text-sm text-white/60 mt-xs">
-                        {new Date(stmt.statement_date).toLocaleDateString('en-GB', {
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </div>
-                      <div className="text-base font-bold text-green-400 mt-md">
-                        £{stmt.net_to_landlord.toFixed(2)}
+                      <div className="font-bold text-white">{periodLabel}</div>
+                      {isMultiYear && (
+                        <div className="text-xs text-blue-400 mt-xs">Historical import</div>
+                      )}
+                      <div className="text-base font-bold text-green-400 mt-sm">
+                        £{num(stmt.net_to_landlord).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <span className="text-xs font-normal text-white/40 ml-xs">net to you</span>
                       </div>
                     </Link>
-                  ))
+                    )
+                  })
                 ) : (
                   <div className="text-center py-lg text-white/60">
                     <p>No statements in this period</p>
@@ -502,22 +599,42 @@ export default function LandlordDashboard() {
                 </div>
               </div>
 
-              {(aggregatedSummary || selectedStatement || latestStatement) && (
-                <div className="space-y-md mb-2xl">
+              {(aggregatedSummary || selectedStatement || latestStatement) && (() => {
+                const s = aggregatedSummary
+                  ? { gross_rent: aggregatedSummary.gross_rent, management_fees: aggregatedSummary.management_fees, property_charges: aggregatedSummary.property_charges }
+                  : (selectedStatement || latestStatement)!
+
+                // Letting fees are stored inside property_charges in older statements;
+                // compute separately from line items when available
+                const lettingTotal = lineItems.filter(i => i.category === 'letting_fee').reduce((t, i) => t + Number(i.amount), 0)
+                const mgmtTotal    = lineItems.filter(i => i.category === 'management_fee').reduce((t, i) => t + Number(i.amount), 0)
+                const useLineItems = lineItems.length > 0
+
+                const grossRent  = Number(s.gross_rent || 0)
+                const mgmtFees   = useLineItems ? mgmtTotal    : Number(s.management_fees || 0)
+                const lettingFees = useLineItems ? lettingTotal : 0
+                const expenses   = useLineItems
+                  ? lineItems.filter(i => !['management_fee','letting_fee','rent_income'].includes(i.category)).reduce((t, i) => t + Number(i.amount), 0)
+                  : Number(s.property_charges || 0)
+
+                const row = (label: string, value: number, isDeduction: boolean) => (
                   <div className="flex justify-between items-center pb-md border-b border-white/10">
-                    <span className="text-white/80">Gross Rent Collected</span>
-                    <span className="text-lg font-bold">£{(aggregatedSummary ? aggregatedSummary.gross_rent : (selectedStatement?.gross_rent || latestStatement?.gross_rent || 0)).toFixed(2)}</span>
+                    <span className="text-white/80">{label}</span>
+                    <span className={`text-lg font-bold ${isDeduction ? 'text-red-400' : ''}`}>
+                      {isDeduction ? '-' : ''}£{value.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
-                  <div className="flex justify-between items-center pb-md border-b border-white/10">
-                    <span className="text-white/80">Management Fees (12%)</span>
-                    <span className="text-lg font-bold text-red-400">-£{(aggregatedSummary ? aggregatedSummary.management_fees : (selectedStatement?.management_fees || latestStatement?.management_fees || 0)).toFixed(2)}</span>
+                )
+
+                return (
+                  <div className="space-y-md mb-2xl">
+                    {grossRent > 0 && row('Gross Rent Collected', grossRent, false)}
+                    {mgmtFees > 0 && row('Management Fees', mgmtFees, true)}
+                    {lettingFees > 0 && row('Letting Fees', lettingFees, true)}
+                    {expenses > 0 && row('Expenses', expenses, true)}
                   </div>
-                  <div className="flex justify-between items-center pb-md border-b border-white/10">
-                    <span className="text-white/80">Property Charges</span>
-                    <span className="text-lg font-bold text-red-400">-£{(aggregatedSummary ? aggregatedSummary.property_charges : (selectedStatement?.property_charges || latestStatement?.property_charges || 0)).toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
+                )
+              })()}
 
               {(aggregatedSummary || selectedStatement || latestStatement) && (
                 <div className="bg-blue-900/30 border border-blue-500 rounded-lg px-lg py-md mb-lg">
@@ -566,6 +683,213 @@ export default function LandlordDashboard() {
             <p className="text-sm text-white/40 mt-sm">
               Check back soon for your financial statements
             </p>
+          </div>
+        )}
+
+        {/* ─── Statement Breakdown: 3 separate sections ─── */}
+        {lineItems.length > 0 && (() => {
+          const gbpFmt = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+          // Partition into the three statement sections
+          const AGENT_FEE_SLUGS = ['management_fee', 'letting_fee']
+          const INCOME_SLUG = 'rent_income'
+
+          const expenseItems = lineItems.filter(i => !AGENT_FEE_SLUGS.includes(i.category) && i.category !== INCOME_SLUG)
+          const mgmtItems    = lineItems.filter(i => i.category === 'management_fee')
+          const lettingItems = lineItems.filter(i => i.category === 'letting_fee')
+
+          const mgmtTotal    = mgmtItems.reduce((s, i) => s + Number(i.amount), 0)
+          const lettingTotal = lettingItems.reduce((s, i) => s + Number(i.amount), 0)
+          const expenseTotal = expenseItems.reduce((s, i) => s + Number(i.amount), 0)
+
+          // Group expenses by category
+          const expGroups: Record<string, { items: typeof lineItems; total: number }> = {}
+          for (const item of expenseItems) {
+            const key = item.category || UNMATCHED_SLUG
+            if (!expGroups[key]) expGroups[key] = { items: [], total: 0 }
+            expGroups[key].items.push(item)
+            expGroups[key].total += Number(item.amount)
+          }
+          const expSortedKeys = Object.keys(expGroups).sort((a, b) => {
+            if (a === UNMATCHED_SLUG) return 1
+            if (b === UNMATCHED_SLUG) return -1
+            return expGroups[b].total - expGroups[a].total
+          })
+
+          // Reusable item list renderer
+          const renderItemList = (items: typeof lineItems) => (
+            <div className="border-t border-neutral-100">
+              {items.map((item, i) => (
+                <div key={item.id} className={`flex items-start justify-between px-lg py-sm ${i < items.length - 1 ? 'border-b border-neutral-50' : ''}`}>
+                  <div className="flex-1 min-w-0 mr-md">
+                    <p className="text-sm text-neutral-800">{item.description}</p>
+                    <p className="text-xs text-neutral-400">
+                      {new Date(item.statement_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {item.room_label ? ` · ${item.room_label}` : ''}
+                    </p>
+                  </div>
+                  <span className="text-sm font-medium text-neutral-700 whitespace-nowrap">
+                    {gbpFmt(Number(item.amount))}
+                  </span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center px-lg py-sm bg-neutral-50 border-t border-neutral-100">
+                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Subtotal</span>
+                <span className="text-sm font-bold text-neutral-900">
+                  {gbpFmt(items.reduce((s, i) => s + Number(i.amount), 0))}
+                </span>
+              </div>
+            </div>
+          )
+
+          return (
+            <div className="mt-3xl space-y-3xl">
+
+              {/* ── 1. Expenses ── */}
+              {expenseItems.length > 0 && (
+                <div>
+                  <div className="flex items-baseline justify-between mb-md">
+                    <h2 className="text-xl font-bold text-neutral-900">Expenses</h2>
+                    <span className="text-sm text-neutral-500">Total: {gbpFmt(expenseTotal)}</span>
+                  </div>
+                  <div className="space-y-xs">
+                    {expSortedKeys.map(key => {
+                      const group = expGroups[key]
+                      const isOpen = expandedCategory === key
+                      const label = key === UNMATCHED_SLUG ? 'Other / Not Matched' : categoryLabel(key)
+                      const emoji = key === UNMATCHED_SLUG ? '📦' : categoryEmoji(key)
+                      return (
+                        <div key={key} className="rounded-2xl overflow-hidden border border-neutral-200 bg-white">
+                          <button
+                            className="flex items-center justify-between w-full px-lg py-md text-left"
+                            onClick={() => setExpandedCategory(isOpen ? null : key)}
+                          >
+                            <div className="flex items-center gap-sm">
+                              <span className="text-lg">{emoji}</span>
+                              <div>
+                                <p className="text-sm font-semibold text-neutral-900">{label}</p>
+                                <p className="text-xs text-neutral-400">{group.items.length} item{group.items.length !== 1 ? 's' : ''}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-md">
+                              <span className="text-sm font-bold text-neutral-900">{gbpFmt(group.total)}</span>
+                              <span className="text-neutral-400 text-sm">{isOpen ? '▲' : '▼'}</span>
+                            </div>
+                          </button>
+                          {isOpen && renderItemList(group.items)}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 2. Management Fees ── */}
+              {mgmtItems.length > 0 && (
+                <div>
+                  <div className="flex items-baseline justify-between mb-md">
+                    <h2 className="text-xl font-bold text-neutral-900">Management Fees</h2>
+                    <span className="text-sm text-neutral-500">Total: {gbpFmt(mgmtTotal)}</span>
+                  </div>
+                  <div className="rounded-2xl overflow-hidden border border-neutral-200 bg-white">
+                    <button
+                      className="flex items-center justify-between w-full px-lg py-md text-left"
+                      onClick={() => setExpandedCategory(expandedCategory === '__mgmt' ? null : '__mgmt')}
+                    >
+                      <div className="flex items-center gap-sm">
+                        <span className="text-lg">💼</span>
+                        <div>
+                          <p className="text-sm font-semibold text-neutral-900">Management Fee</p>
+                          <p className="text-xs text-neutral-400">{mgmtItems.length} charge{mgmtItems.length !== 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-md">
+                        <span className="text-sm font-bold text-neutral-900">{gbpFmt(mgmtTotal)}</span>
+                        <span className="text-neutral-400 text-sm">{expandedCategory === '__mgmt' ? '▲' : '▼'}</span>
+                      </div>
+                    </button>
+                    {expandedCategory === '__mgmt' && renderItemList(mgmtItems)}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 3. Letting Fees ── */}
+              {lettingItems.length > 0 && (
+                <div>
+                  <div className="flex items-baseline justify-between mb-md">
+                    <h2 className="text-xl font-bold text-neutral-900">Letting Fees</h2>
+                    <span className="text-sm text-neutral-500">Total: {gbpFmt(lettingTotal)}</span>
+                  </div>
+                  <div className="rounded-2xl overflow-hidden border border-neutral-200 bg-white">
+                    <button
+                      className="flex items-center justify-between w-full px-lg py-md text-left"
+                      onClick={() => setExpandedCategory(expandedCategory === '__letting' ? null : '__letting')}
+                    >
+                      <div className="flex items-center gap-sm">
+                        <span className="text-lg">🏠</span>
+                        <div>
+                          <p className="text-sm font-semibold text-neutral-900">Letting Fee</p>
+                          <p className="text-xs text-neutral-400">{lettingItems.length} charge{lettingItems.length !== 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-md">
+                        <span className="text-sm font-bold text-neutral-900">{gbpFmt(lettingTotal)}</span>
+                        <span className="text-neutral-400 text-sm">{expandedCategory === '__letting' ? '▲' : '▼'}</span>
+                      </div>
+                    </button>
+                    {expandedCategory === '__letting' && renderItemList(lettingItems)}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )
+        })()}
+
+        {/* ─── Notification Preferences ─── */}
+        {commsEnabled && (
+          <div className="mt-3xl">
+            <button
+              onClick={() => setShowNotifPrefs(v => !v)}
+              className="flex items-center justify-between w-full rounded-2xl bg-neutral-900 px-lg py-md text-left"
+            >
+              <div>
+                <p className="text-sm font-bold text-white">🔔 Notification preferences</p>
+                <p className="text-xs text-white/40 mt-xs">Choose which updates you receive from Capital Rooms</p>
+              </div>
+              <span className="text-white/40 text-lg ml-md">{showNotifPrefs ? '▲' : '▼'}</span>
+            </button>
+
+            {showNotifPrefs && (
+              <div className="mt-sm rounded-2xl bg-neutral-900 overflow-hidden">
+                {NOTIF_CATEGORIES.map((cat, i) => {
+                  const isEnabled = cat.mandatory ? true : (prefs[cat.key] ?? true)
+                  return (
+                    <div key={cat.key} className={`flex items-center justify-between px-lg py-md ${i < NOTIF_CATEGORIES.length - 1 ? 'border-b border-white/5' : ''}`}>
+                      <div className="flex-1 min-w-0 mr-md">
+                        <p className="text-sm font-semibold text-white">{cat.label}</p>
+                        <p className="text-xs text-white/40">{cat.description}</p>
+                      </div>
+                      {cat.mandatory ? (
+                        <span className="text-xs text-white/30 italic">Always on</span>
+                      ) : (
+                        <button
+                          onClick={() => togglePref(cat.key)}
+                          className={`relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors ${isEnabled ? 'bg-emerald-500' : 'bg-neutral-600'}`}
+                        >
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+                <div className="px-lg py-md border-t border-white/5">
+                  <p className="text-xs text-white/30">
+                    Your property manager can see these preferences. Emergency notifications cannot be turned off.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </main>

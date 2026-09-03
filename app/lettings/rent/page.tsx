@@ -67,7 +67,7 @@ export default function RentTracking() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        right={<BackButton href="/lettings" />}
+        left={<BackButton href="/lettings" />}
       />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">

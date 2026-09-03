@@ -19,10 +19,10 @@ interface AcknowledgmentNote {
   created_at: string;
   acknowledged_at: string | null;
   expires_at: string;
-  tenancies?: { people?: { full_name: string } } | null;
+  tenancies?: { people?: { name: string } } | null;
   properties?: { name: string } | null;
   rooms?: { name: string } | null;
-  people?: { full_name: string } | null;
+  people?: { name: string } | null;
 }
 
 interface Property {
@@ -38,7 +38,7 @@ interface Room {
 
 interface Tenancy {
   id: string;
-  people: { full_name: string };
+  people: { name: string };
 }
 
 export default function AcknowledgmentNotesPage() {
@@ -106,7 +106,7 @@ export default function AcknowledgmentNotesPage() {
       const today = new Date().toISOString().split('T')[0];
       const { data: tenanciesData } = await supabase
         .from('tenancies')
-        .select('id, people:person_id(full_name)')
+        .select('id, people:person_id(full_name, first_name, last_name)')
         .eq('property_id', propertyId)
         .or(`end_date.is.null,end_date.gte.${today}`)
         .order('created_at', { ascending: false });
@@ -124,7 +124,7 @@ export default function AcknowledgmentNotesPage() {
       const supabase = createClient();
       const { data } = await supabase
         .from('tenant_acknowledgment_notes')
-        .select('*, tenancies(people:person_id(full_name)), properties(name), rooms(name), people:created_by(full_name)')
+        .select('*, tenancies(people:person_id(full_name, first_name, last_name)), properties(name), rooms(name), people:created_by(full_name, first_name, last_name)')
         .eq('property_id', propertyId)
         .order('created_at', { ascending: false });
 
@@ -211,7 +211,7 @@ export default function AcknowledgmentNotesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<BackButton />} />
+        <AppBar left={<BackButton />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     );
@@ -300,7 +300,7 @@ export default function AcknowledgmentNotesPage() {
                   <div className="flex-1">
                     <h3 className="text-lg font-bold text-neutral-900">{note.title}</h3>
                     <p className="text-sm text-neutral-600 mt-xs">
-                      {note.tenancies?.people?.full_name} • {note.rooms?.name || 'Whole house'}
+                      {note.tenancies?.people.name} • {note.rooms?.name || 'Whole house'}
                     </p>
                   </div>
                   <span
@@ -346,7 +346,7 @@ export default function AcknowledgmentNotesPage() {
                   )}
                   <p>
                     Created {new Date(note.created_at).toLocaleDateString('en-GB')} by{' '}
-                    {note.people?.full_name || 'Unknown'}
+                    {note.people.name || 'Unknown'}
                   </p>
                   <p>
                     Expires{' '}
@@ -390,7 +390,7 @@ export default function AcknowledgmentNotesPage() {
                     <option value="">Select a tenant…</option>
                     {tenancies.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.people.full_name}
+                        {t.people.name}
                       </option>
                     ))}
                   </select>

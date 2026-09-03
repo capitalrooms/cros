@@ -18,7 +18,7 @@ interface MaintenanceJob {
   priority: string
   property: { name: string; address: string }
   room?: { name: string }
-  contractor?: { full_name: string }
+  contractor?: { name: string }
 }
 
 const PRIORITY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -143,7 +143,7 @@ export default function BookMaintenancePage() {
   const selectedJobs = jobs.filter((j) => selectedJobIds.has(j.id))
   const groupedByContractor = selectedJobs.reduce(
     (acc, job) => {
-      const key = job.contractor?.full_name || 'Unassigned'
+      const key = job.contractor.name || 'Unassigned'
       if (!acc[key]) acc[key] = []
       acc[key].push(job)
       return acc
@@ -153,7 +153,7 @@ export default function BookMaintenancePage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar right={<BackButton />} />
+      <AppBar left={<BackButton />} />
 
       <main className="mx-auto max-w-5xl px-lg py-2xl">
         {/* Back Link */}
@@ -216,7 +216,7 @@ export default function BookMaintenancePage() {
                         <div className="text-sm text-neutral-600 mt-xs space-y-xs">
                           <div>📍 {job.property.name}</div>
                           {job.room && <div>🚪 Room: {job.room.name}</div>}
-                          {job.contractor && <div>👤 Assigned to: {job.contractor.full_name}</div>}
+                          {job.contractor && <div>👤 Assigned to: {job.contractor.name}</div>}
                         </div>
 
                         {job.description && <div className="text-sm text-neutral-600 mt-sm">{job.description}</div>}

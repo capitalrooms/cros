@@ -23,7 +23,7 @@ interface MaintenanceJob {
   booked_slot?: string
   property: { name: string; address: string }
   room?: { name: string }
-  contractor?: { full_name: string }
+  contractor?: { name: string }
 }
 
 interface CleanJob {
@@ -34,7 +34,7 @@ interface CleanJob {
   cleaner_id?: string
   status: string
   property: { name: string; address: string }
-  cleaner?: { full_name: string }
+  cleaner?: { name: string }
 }
 
 interface Appointment {
@@ -257,7 +257,7 @@ export default function AgencyDiaryPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar right={<BackButton />} />
+      <AppBar left={<BackButton />} />
 
       <main className="mx-auto max-w-7xl px-lg py-3xl">
         {/* Back Button */}
@@ -375,7 +375,7 @@ export default function AgencyDiaryPage() {
                     </div>
                     {job.contractor && (
                       <div className="text-xs text-neutral-600">
-                        Assigned to: {job.contractor.full_name}
+                        Assigned to: {job.contractor.name}
                       </div>
                     )}
                   </div>
@@ -401,7 +401,7 @@ export default function AgencyDiaryPage() {
                   id: j.id,
                   type: 'maintenance' as const,
                   property: j.property,
-                  person_name: j.contractor?.full_name || 'Unassigned',
+                  person_name: j.contractor.name || 'Unassigned',
                   time: j.booked_slot || '09:00',
                   title: j.title,
                 })),
@@ -409,7 +409,7 @@ export default function AgencyDiaryPage() {
                   id: c.id,
                   type: 'clean' as const,
                   property: c.property,
-                  person_name: c.cleaner?.full_name || 'Unassigned',
+                  person_name: c.cleaner.name || 'Unassigned',
                   time: c.clean_time || '09:00',
                   title: 'Cleaning',
                 })),
@@ -469,8 +469,8 @@ export default function AgencyDiaryPage() {
                         }`}
                       >
                         <div className="font-semibold truncate">
-                          {event.type === 'maintenance' && `🔧 ${(event as MaintenanceJob).contractor?.full_name || 'Unassigned'}`}
-                          {event.type === 'clean' && `🧹 ${(event as CleanJob).cleaner?.full_name || 'Unassigned'}`}
+                          {event.type === 'maintenance' && `🔧 ${(event as MaintenanceJob).contractor.name || 'Unassigned'}`}
+                          {event.type === 'clean' && `🧹 ${(event as CleanJob).cleaner.name || 'Unassigned'}`}
                           {event.type === 'appointment' && `${APPOINTMENT_TYPE_ICONS[(event as Appointment).appointment_type] || '📋'} ${(event as Appointment).visitor_name}`}
                         </div>
                         <div className="text-xs opacity-80 truncate mt-xs">
@@ -525,7 +525,7 @@ export default function AgencyDiaryPage() {
                     date: j.booked_date || '',
                     time: j.booked_slot || '09:00',
                     property: j.property,
-                    person: j.contractor?.full_name || 'Unassigned',
+                    person: j.contractor.name || 'Unassigned',
                     title: j.title,
                   })),
                   ...cleanJobs.map((c) => ({
@@ -534,7 +534,7 @@ export default function AgencyDiaryPage() {
                     date: c.clean_date || '',
                     time: c.clean_time || '09:00',
                     property: c.property,
-                    person: c.cleaner?.full_name || 'Unassigned',
+                    person: c.cleaner.name || 'Unassigned',
                     title: 'Cleaning',
                   })),
                   ...appointments.map((a) => ({

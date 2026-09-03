@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     // 2. Get the cleaner
     const { data: cleaner } = await supabase
       .from('people')
-      .select('id, email, full_name')
+      .select('id, email, full_name, first_name, last_name')
       .eq('email', 'cleaner+test@capitalrooms.co.uk')
       .single()
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     results.cleaner = {
       id: cleaner.id,
       email: cleaner.email,
-      name: cleaner.full_name,
+      name: cleaner.name,
     }
 
     // 3. Check if cleaning job exists

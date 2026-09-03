@@ -18,7 +18,7 @@ interface SafetyCheckResponse {
   issue_description: string | null
   properties?: { name: string } | null
   rooms?: { name: string } | null
-  people?: { full_name: string } | null
+  people?: { name: string } | null
 }
 
 const checkTypeLabels: Record<string, string> = {
@@ -58,7 +58,7 @@ export default function TenantSafetyChecksAdminPage() {
   async function loadChecks() {
     const { data: checksData } = await supabase
       .from('tenant_self_checks')
-      .select('*, properties(name), rooms(name), people:checked_by(full_name)')
+      .select('*, properties(name), rooms(name), people:checked_by(full_name, first_name, last_name)')
       .order('response_received_at', { ascending: false, nullsFirst: false })
       .order('request_sent_at', { ascending: false })
 
@@ -88,7 +88,7 @@ export default function TenantSafetyChecksAdminPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
         <div className="mb-3xl">
@@ -168,7 +168,7 @@ export default function TenantSafetyChecksAdminPage() {
                       </span>
                     </div>
                     <p className="text-sm text-neutral-600">
-                      Tenant: <span className="font-semibold">{check.people?.full_name || 'Unknown'}</span>
+                      Tenant: <span className="font-semibold">{check.people.name || 'Unknown'}</span>
                     </p>
                   </div>
                   <span className={`px-md py-xs rounded-full text-xs font-semibold shrink-0 ${

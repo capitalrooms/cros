@@ -59,7 +59,7 @@ export default function QuickNotifyPage() {
     return (
       <div className="min-h-screen bg-black">
         <AppBar
-          right={<BackButton href="/admin" />}
+          left={<BackButton href="/admin" />}
         />
         <main className="mx-auto max-w-4xl px-lg py-3xl">
           <p className="text-neutral-400">Loading properties...</p>
