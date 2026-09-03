@@ -11,6 +11,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import AddressAutocomplete from '@/components/admin/AddressAutocomplete';
 import DocReview, { AIResult } from '@/app/components/DocReview';
 import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal';
+import PropertyHeader from '@/app/components/PropertyHeader';
 
 interface Tenant {
   id: string;
@@ -638,36 +639,23 @@ export default function PropertiesManagementPage() {
               })
               .map((property) => (
               <div key={property.id} className="rounded-2xl border-2 border-neutral-200 bg-white overflow-hidden">
-                {/* Property Header — link to detail page */}
-                <div className="bg-neutral-900 text-white px-lg py-md">
-                  <Link href={`/admin/properties/${property.id}`} className="flex-1 group block">
-                      <div className="flex items-start justify-between gap-md hover:opacity-80">
-                        <div>
-                          <h2 className="text-xl font-bold group-hover:underline">{property.name}</h2>
-                          <p className="text-sm text-neutral-300 mt-xs">{property.address}</p>
-                          <div className="flex gap-lg mt-md text-xs text-neutral-400">
-                            <span>{property.bedrooms} beds</span>
-                            <span>•</span>
-                            <span>{property.bathrooms} baths</span>
-                            <span>•</span>
-                            <span>{property.rooms?.length || 0} rooms</span>
-                            <span>•</span>
-                            <span className="font-semibold text-white">
-                              {(property.rooms || []).filter((r: any) => r.tenant).length} occupied
-                            </span>
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                          }}
-                          className="shrink-0 px-md py-sm bg-neutral-700 text-white rounded font-semibold text-sm pointer-events-none select-none"
-                        >
-                          {editingProperty === property.id ? '▼ Close' : '▶ Open'}
-                        </button>
-                      </div>
-                    </Link>
+                {/* Property Header — shared component */}
+                <div className="bg-neutral-900">
+                  <PropertyHeader
+                    id={property.id}
+                    name={property.name}
+                    address={property.address}
+                    propertyType={property.property_type}
+                    roomCount={property.rooms?.length || 0}
+                    occupiedCount={(property.rooms || []).filter((r: any) => r.tenant).length}
+                    bedrooms={property.bedrooms}
+                    bathrooms={property.bathrooms}
+                    rightSlot={
+                      <span className="shrink-0 px-md py-sm bg-neutral-700 text-white rounded font-semibold text-sm pointer-events-none select-none">
+                        {editingProperty === property.id ? '▼ Close' : '▶ Open'}
+                      </span>
+                    }
+                  />
                 </div>
 
                 {/* Property Details Section (Editable when editingProperty) */}

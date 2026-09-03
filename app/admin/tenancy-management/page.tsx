@@ -10,6 +10,7 @@ import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal'
+import TenantCardBody from '@/app/components/TenantCardBody'
 
 interface Tenancy {
   id: string
@@ -203,25 +204,24 @@ export default function TenancyManagementPage() {
               {activeTenancies.map((tenancy) => (
                 <div key={tenancy.id} className="rounded-lg border border-neutral-200 bg-white p-md">
                   <div className="flex items-start justify-between gap-md">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-neutral-900">{displayName(tenancy.person)}</p>
-                      <p className="text-sm text-neutral-600">
-                        {tenancy.room?.name}, {tenancy.property?.name}
-                      </p>
-                      <p className="text-sm text-neutral-600">{tenancy.property?.address}</p>
-                      <p className="text-xs text-neutral-500 mt-xs">
-                        £{tenancy.rent_amount}/month • Since {formatDate(tenancy.start_date)}
-                      </p>
-                      {tenancy.person?.email && (
-                        <p className="text-xs text-neutral-500">{tenancy.person.email}</p>
-                      )}
+                    <TenantCardBody
+                      name={displayName(tenancy.person)}
+                      email={tenancy.person?.email}
+                      roomName={tenancy.room?.name}
+                      propertyName={tenancy.property?.name}
+                      propertyAddress={tenancy.property?.address}
+                      rentAmount={tenancy.rent_amount}
+                      startDate={tenancy.start_date}
+                      endDate={tenancy.end_date}
+                    />
+                    <div className="shrink-0">
+                      <button
+                        onClick={() => handleSetOnNotice(tenancy)}
+                        className="rounded-lg bg-blue-600 px-lg py-md text-sm font-semibold text-white hover:bg-blue-700"
+                      >
+                        Set Notice
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleSetOnNotice(tenancy)}
-                      className="shrink-0 rounded-lg bg-blue-600 px-lg py-md text-sm font-semibold text-white hover:bg-blue-700"
-                    >
-                      Set Notice
-                    </button>
                   </div>
                 </div>
               ))}
@@ -257,15 +257,14 @@ export default function TenancyManagementPage() {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-md">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-neutral-900">{displayName(tenancy.person)}</p>
-                        <p className="text-sm text-neutral-600">
-                          {tenancy.room?.name}, {tenancy.property?.name}
-                        </p>
-                        <p className="text-sm font-semibold text-orange-700 mt-xs">
-                          Moving out: {formatDate(tenancy.end_date)} ({daysLeft} days)
-                        </p>
-                      </div>
+                      <TenantCardBody
+                        name={displayName(tenancy.person)}
+                        roomName={tenancy.room?.name}
+                        propertyName={tenancy.property?.name}
+                        rentAmount={tenancy.rent_amount}
+                        startDate={tenancy.start_date}
+                        endDate={tenancy.end_date}
+                      />
                     </div>
                   </div>
                 )
