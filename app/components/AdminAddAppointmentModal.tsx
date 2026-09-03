@@ -101,6 +101,8 @@ export default function AdminAddAppointmentModal({
   const [notificationMessage, setNotificationMessage] = useState('')
   const [messageCustomised, setMessageCustomised] = useState(false)
   const [customAddress, setCustomAddress] = useState('')
+  const [timeWindow, setTimeWindow] = useState(false)   // false = single time, true = from/to
+  const [timeTo, setTimeTo] = useState('17:00')
 
   // Auto-generate notification message whenever key fields change
   useEffect(() => {
@@ -109,8 +111,12 @@ export default function AdminAddAppointmentModal({
     const propertyName = property === '__custom__'
       ? (customAddress || 'the meeting location')
       : (properties.find((p) => p.id === property)?.name || '')
-    setNotificationMessage(generateDefaultMessage(selectedType, date, time, propertyName))
-  }, [notifyTenants, selectedType, date, time, property, properties, messageCustomised, customAddress])
+    // For time windows, pass "9am–5pm" style into the message
+    const displayTime = timeWindow
+      ? `${formatTimeNice(time)}–${formatTimeNice(timeTo)}`
+      : time
+    setNotificationMessage(generateDefaultMessage(selectedType, date, displayTime, propertyName))
+  }, [notifyTenants, selectedType, date, time, timeTo, timeWindow, property, properties, messageCustomised, customAddress])
 
   if (!isOpen) return null
 
@@ -147,8 +153,11 @@ export default function AdminAddAppointmentModal({
 
   const handleResetMessage = () => {
     setMessageCustomised(false)
-    const propertyName = properties.find((p) => p.id === property)?.name || ''
-    setNotificationMessage(generateDefaultMessage(selectedType, date, time, propertyName))
+    const propertyName = property === '__custom__'
+      ? (customAddress || 'the meeting location')
+      : (properties.find((p) => p.id === property)?.name || '')
+    const displayTime = timeWindow ? `${formatTimeNice(time)}–${formatTimeNice(timeTo)}` : time
+    setNotificationMessage(generateDefaultMessage(selectedType, date, displayTime, propertyName))
   }
 
   const handleSubmit = async () => {
@@ -173,10 +182,13 @@ export default function AdminAddAppointmentModal({
       const locationNote = isCustom ? `📍 Location: ${customAddress.trim()}` : null
       const combinedNotes = [locationNote, notes || null].filter(Boolean).join('\n') || null
 
+      // Store window as "09:00-17:00" in the single time column
+      const storedTime = timeWindow ? `${time}-${timeTo}` : time
+
       const { error: err } = await supabase.from('admin_appointments').insert({
         type: selectedType,
         appointment_date: date,
-        appointment_time: time,
+        appointment_time: storedTime,
         property_id: isCustom ? null : property,
         notes: combinedNotes,
         notify_tenants: isCustom ? false : notifyTenants, // can't notify tenants for off-system addresses
@@ -208,6 +220,8 @@ export default function AdminAddAppointmentModal({
       setTime('10:00')
       setProperty('')
       setCustomAddress('')
+      setTimeWindow(false)
+      setTimeTo('17:00')
       setRooms([])
       setSelectedRoomId('')
       setVisitorName('')
@@ -280,13 +294,45 @@ export default function AdminAddAppointmentModal({
 
           {/* Time */}
           <div>
-            <label className="block text-sm font-bold text-neutral-900 mb-sm">Time *</label>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => { setTime(e.target.value); setMessageCustomised(false) }}
-              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-            />
+            <div className="flex items-center justify-between mb-sm">
+              <label className="text-sm font-bold text-neutral-900">Time *</label>
+              <button
+                type="button"
+                onClick={() => { setTimeWindow(w => !w); setMessageCustomised(false) }}
+                className={`text-xs font-semibold px-sm py-xs rounded-full border transition ${
+                  timeWindow
+                    ? 'bg-neutral-900 text-white border-neutral-900'
+                    : 'border-neutral-300 text-neutral-500 hover:border-neutral-500'
+                }`}
+              >
+                {timeWindow ? '⏱ Window on' : '⏱ Add window'}
+              </button>
+            </div>
+
+            {timeWindow ? (
+              <div className="flex items-center gap-sm">
+                <div className="flex-1">
+                  <p className="text-xs text-neutral-500 mb-xs">From</p>
+                  <input type="time" value={time}
+                    onChange={e => { setTime(e.target.value); setMessageCustomised(false) }}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                </div>
+                <span className="text-neutral-400 font-semibold mt-4">→</span>
+                <div className="flex-1">
+                  <p className="text-xs text-neutral-500 mb-xs">Until</p>
+                  <input type="time" value={timeTo}
+                    onChange={e => { setTimeTo(e.target.value); setMessageCustomised(false) }}
+                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                </div>
+              </div>
+            ) : (
+              <input
+                type="time"
+                value={time}
+                onChange={(e) => { setTime(e.target.value); setMessageCustomised(false) }}
+                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
+              />
+            )}
           </div>
 
           {/* Property */}
