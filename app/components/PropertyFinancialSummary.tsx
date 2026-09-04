@@ -76,10 +76,13 @@ function issuedLabel(dateStr: string): string {
 function applyPeriod(statements: Statement[], period: Period): Statement[] {
   if (period === 'latest') return statements.slice(0, 1)
   if (period === 'all') return statements
+  if (statements.length === 0) return []
   const months = period === '3m' ? 3 : period === '6m' ? 6 : 12
-  const cutoff = new Date()
-  cutoff.setMonth(cutoff.getMonth() - months)
-  const cutoffIso = cutoff.toISOString().split('T')[0]
+  // Anchor from the most recent statement, not today — so historical data
+  // (statements older than N months from the current date) still appears.
+  const anchor = new Date(statements[0].statement_date)
+  anchor.setMonth(anchor.getMonth() - months)
+  const cutoffIso = anchor.toISOString().split('T')[0]
   return statements.filter(s => s.statement_date.split('T')[0] >= cutoffIso)
 }
 
