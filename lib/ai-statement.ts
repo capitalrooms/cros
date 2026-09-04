@@ -15,6 +15,10 @@ export interface ExtractedRoom {
 export interface ExtractedExpense {
   description: string
   amount: number
+  /** Category slug from expense-categories.ts — used when writing statement_line_items */
+  category: string
+  /** Room label if room-specific (e.g. "Room 3"), otherwise "" */
+  room_label: string
 }
 export interface ExtractedStatement {
   statement_reference: string
@@ -69,8 +73,10 @@ const SCHEMA = {
         properties: {
           description: { type: 'string' },
           amount: { type: 'number' },
+          category: { type: 'string' },
+          room_label: { type: 'string' },
         },
-        required: ['description', 'amount'],
+        required: ['description', 'amount', 'category', 'room_label'],
       },
     },
     gross_rent: { type: 'number' },
@@ -96,7 +102,7 @@ Extract the figures exactly as printed — do not recompute or "correct" them. R
 1. Money fields are plain GBP numbers with no symbols or commas (e.g. 6780.00). Use 0 only if genuinely absent.
 2. Dates are ISO yyyy-mm-dd. Leave a date "" if not present. Never guess.
 3. rooms: one entry per occupied room's rent line, in room-number order. For each: room_number (1,2,3…; infer sequentially if the statement lists rooms without explicit numbers), tenant_name (the tenant in that room), rent_income (rent received for that room this period), management_fee (the agency fee charged on that room; 0 if the fee is only shown as a single total).
-4. expenses: one entry per itemised property cost/deduction that is NOT the management fee (e.g. broadband, cleaning, a repair, a subscription). Each with description and amount. Empty array if none.
+4. expenses: one entry per itemised property cost/deduction that is NOT the management fee (e.g. broadband, cleaning, a repair, a subscription). Each with description, amount, category, and room_label. For category use exactly one slug from: roof_exterior, boiler_heating, plumbing, electrical, cleaning, broadband, fire_safety, insurance, communal_areas, communal_kitchen, garden_outdoor, pest_control, decorating, security, appliances_property, compliance_certs, letting_fee, maintenance_repair, legal_professional, tv_licensing, furniture_property, room_furniture, room_decorating, room_appliances, room_maintenance, other_property. Use "other_property" if unsure. For room_label: if the expense is for a specific room (e.g. "Room 3 furniture"), write the room label (e.g. "Room 3"); otherwise "". Empty array if none.
 5. management_fee_pct: the management fee percentage applied (e.g. 12). 0 if not stated.
 6. Totals as printed: gross_rent (total rent across rooms), management_fees (total agency fee), property_charges (total of the expenses), net_to_landlord (final amount due), amount_paid, paid_date.
 7. statement_reference, property_address, landlord_name, statement_date, period_start, period_end as labelled.
