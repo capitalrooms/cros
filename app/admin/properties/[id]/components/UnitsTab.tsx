@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal'
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -53,6 +54,15 @@ interface UnitsTabProps {
   propertyId: string
   bedrooms: number
   initialRoomId?: string
+  propertyName?: string
+  propertyAddress?: string
+}
+
+interface CleanerOption {
+  id: string
+  name: string
+  email?: string
+  phone?: string
 }
 
 type View = 'list' | 'room'
@@ -94,7 +104,7 @@ function statusPill(room: RoomRow) {
 
 /* ─── Component ──────────────────────────────────────────── */
 
-export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsTabProps) {
+export default function UnitsTab({ propertyId, bedrooms, initialRoomId, propertyName, propertyAddress }: UnitsTabProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -108,6 +118,10 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
   const [view, setView] = useState<View>('list')
   const [selectedRoom, setSelectedRoom] = useState<RoomDetail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // Mark on notice modal
+  const [onNoticeForRoom, setOnNoticeForRoom] = useState<RoomRow | null>(null)
+  const [cleaners, setCleaners] = useState<CleanerOption[]>([])
 
   // Add / edit modals
   const [isAddingRoom, setIsAddingRoom] = useState(false)
@@ -186,6 +200,60 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
     }
 
     setLoading(false)
+  }
+
+  async function loadCleaners() {
+    const { data } = await supabase
+      .from('people')
+      .select('id, first_name, last_name, full_name, email, phone')
+      .eq('role', 'cleaner')
+      .order('first_name')
+    setCleaners((data || []).map((p: any) => ({
+      id: p.id,
+      name: p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
+      email: p.email,
+      phone: p.phone,
+    })))
+  }
+
+  function openOnNotice(room: RoomRow, e: React.MouseEvent) {
+    e.stopPropagation() // don't also open the room drill-down
+    loadCleaners()
+    setOnNoticeForRoom(room)
+  }
+
+  async function handleConfirmOnNotice(noticeData: OnNoticeData) {
+    if (!onNoticeForRoom) return
+    const cleaner = cleaners.find(c => c.id === noticeData.cleanerId)
+    const res = await fetch('/api/tenancies/set-on-notice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenancyId: onNoticeForRoom.tenancyId,
+        roomId: onNoticeForRoom.id,
+        moveOutDate: noticeData.moveOutDate,
+        newAskingRent: noticeData.newAskingRent,
+        emailTenant: noticeData.emailTenant,
+        tenantEmail: onNoticeForRoom.currentTenant?.email,
+        tenantName: onNoticeForRoom.currentTenant?.name,
+        checkoutEmailHtml: noticeData.checkoutEmailHtml,
+        emailCleaner: noticeData.emailCleaner,
+        cleanerId: noticeData.cleanerId,
+        cleanerEmail: cleaner?.email,
+        cleanerName: cleaner?.name,
+        notesForLettings: noticeData.notesForLettings,
+        roomName: onNoticeForRoom.name,
+        propertyAddress: propertyAddress || '',
+      }),
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || 'Failed to mark on notice')
+    }
+    setOnNoticeForRoom(null)
+    setSuccess('Tenancy marked as on notice')
+    loadRooms() // refresh status pills
+    if (selectedRoom?.id === onNoticeForRoom.id) setView('list') // exit drill-down
   }
 
   async function openRoom(room: RoomRow) {
@@ -358,7 +426,19 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
                       </td>
                       <td className="px-lg py-md hidden sm:table-cell text-neutral-600">{fmtRent(room.tenancyInfo?.rent_amount)}</td>
                       <td className="px-lg py-md hidden lg:table-cell text-neutral-400 text-xs">{fmtDate(room.tenancyInfo?.start_date)}</td>
-                      <td className="px-lg py-md text-right">{statusPill(room)}</td>
+                      <td className="px-lg py-md text-right">
+                        <div className="flex items-center justify-end gap-sm">
+                          {room.currentTenant && room.status !== 'on_notice' && (
+                            <button
+                              onClick={(e) => openOnNotice(room, e)}
+                              className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs hover:bg-amber-100 transition-colors whitespace-nowrap"
+                            >
+                              Mark on notice
+                            </button>
+                          )}
+                          {statusPill(room)}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -449,6 +529,14 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
                         >
                           View tenancy details
                         </button>
+                        {selectedRoom.status !== 'on_notice' && (
+                          <button
+                            onClick={(e) => openOnNotice(selectedRoom, e)}
+                            className="px-lg py-sm text-sm font-semibold border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition"
+                          >
+                            Mark on notice
+                          </button>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -553,6 +641,24 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId }: UnitsT
             </div>
           )}
         </div>
+      )}
+
+      {/* ── MARK ON NOTICE MODAL ── */}
+      {onNoticeForRoom && (
+        <SetOnNoticeModal
+          tenancy={{
+            id: onNoticeForRoom.tenancyId || '',
+            person: onNoticeForRoom.currentTenant
+              ? { name: onNoticeForRoom.currentTenant.name, email: onNoticeForRoom.currentTenant.email, phone: '' }
+              : undefined,
+            room: { name: onNoticeForRoom.name },
+            property: { name: propertyName || '', address: propertyAddress || '' },
+            rent_amount: onNoticeForRoom.tenancyInfo?.rent_amount || 0,
+          }}
+          cleaners={cleaners}
+          onClose={() => setOnNoticeForRoom(null)}
+          onConfirm={handleConfirmOnNotice}
+        />
       )}
 
             {/* ── ADD ROOM MODAL ── */}

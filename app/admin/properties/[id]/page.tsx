@@ -408,7 +408,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'extended' && <ExtendedDetailsTab propertyId={id} propertyType={property.property_type} />}
 
           {/* Units Tab */}
-          {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} initialRoomId={initialRoomId} />}
+          {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} initialRoomId={initialRoomId} propertyName={property.name} propertyAddress={property.address} />}
 
           {/* People Tab */}
           {activeTab === 'people' && <PeopleTab propertyId={id} />}
