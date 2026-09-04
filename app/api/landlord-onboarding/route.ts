@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const svc = () =>
   createClient(
@@ -58,8 +59,14 @@ export async function POST(req: NextRequest) {
   let emailSent = false
   let emailError: string | undefined
 
+  const onboardTpl = await getTemplate('landlord-onboarding-welcome')
+  const firstName = full_name_or_name.trim().split(' ')[0]
+  const welcomeSubject = onboardTpl?.subject_line
+    ? render(onboardTpl.subject_line, { first_name: firstName })
+    : 'Welcome to Capital Rooms — Getting Started'
+
   try {
-    await sendEmail(email.trim(), 'Welcome to Capital Rooms — Getting Started', welcomePackHtml(full_name_or_name.trim(), formUrl))
+    await sendEmail(email.trim(), welcomeSubject, welcomePackHtml(full_name_or_name.trim(), formUrl))
     emailSent = true
 
     // Advance to stage 2 and record sent time

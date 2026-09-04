@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -105,6 +106,31 @@ export async function POST(request: NextRequest) {
     month: 'long',
   })
   const when = `${appointmentDate} at ${appointment.appointment_time}`
+  const propertyNameAddress = `${propertyName}${propertyAddress ? `, ${propertyAddress}` : ''}`
+
+  // Load tenant viewing template once — used for both room tenant and other tenants
+  const tenantTpl = await getTemplate('appointment-viewing-tenants')
+
+  function buildViewingEmail(tenantName: string, roomOrAtProperty: string): string {
+    const vars = { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: roomOrAtProperty }
+    if (tenantTpl) return emailHtml(render(tenantTpl.template_text, vars))
+    return emailHtml(`
+      <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
+      <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
+      <p style="margin:0 0 20px;line-height:1.6">A viewing has been booked ${roomOrAtProperty}.</p>
+      <div style="background:#f3f1ef;padding:16px;border-radius:8px;margin:20px 0">
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <tr><td style="padding:6px 0;color:#78716c;width:100px">When</td>
+              <td style="padding:6px 0;font-weight:600">${when}</td></tr>
+          ${roomName ? `<tr><td style="padding:6px 0;color:#78716c">Room</td>
+              <td style="padding:6px 0;font-weight:600">${roomName}</td></tr>` : ''}
+          <tr><td style="padding:6px 0;color:#78716c">Property</td>
+              <td style="padding:6px 0">${propertyName}</td></tr>
+        </table>
+      </div>
+      <p style="margin:0;color:#78716c;font-size:14px">Please keep shared areas tidy during this time. Thank you!</p>
+    `)
+  }
 
   // Only send tenant notifications for viewing appointments
   if (appointment.notify_tenants && appointment.appointment_type === 'viewing') {
@@ -119,29 +145,14 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (tenancies && (tenancies as any).people?.email && tenancies?.opt_in_viewings) {
-        const tenantName = (tenancies as any).people.name || 'Tenant'
+        const tenantName = (tenancies as any).people.first_name || (tenancies as any).people.name || 'Tenant'
+        const roomSubject = tenantTpl
+          ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: roomName, property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'on your room' })
+          : `A viewing has been booked for your room — ${roomName}`
         await send(
           (tenancies as any).people.email,
-          `A viewing has been booked for your room — ${roomName}`,
-          emailHtml(`
-            <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
-            <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
-            <p style="margin:0 0 20px;line-height:1.6">A viewing has been booked for your room.</p>
-
-            <div style="background:#f3f1ef;padding:16px;border-radius:8px;margin:20px 0">
-              <p style="margin:0 0 12px;font-size:14px;font-weight:600">Viewing Details:</p>
-              <table style="width:100%;border-collapse:collapse;font-size:14px">
-                <tr><td style="padding:6px 0;color:#78716c;width:100px">When</td>
-                    <td style="padding:6px 0;font-weight:600">${when}</td></tr>
-                <tr><td style="padding:6px 0;color:#78716c">Room</td>
-                    <td style="padding:6px 0;font-weight:600">${roomName}</td></tr>
-                <tr><td style="padding:6px 0;color:#78716c">Property</td>
-                    <td style="padding:6px 0">${propertyName}</td></tr>
-              </table>
-            </div>
-
-            <p style="margin:0;color:#78716c;font-size:14px">If you have any questions, please contact us.</p>
-          `)
+          roomSubject,
+          buildViewingEmail(tenantName, 'on your room')
         )
         sent.push(tenancies.people.email)
       }
@@ -157,27 +168,14 @@ export async function POST(request: NextRequest) {
       if (allTenancies && allTenancies.length > 0) {
         for (const tenancy of allTenancies) {
           if ((tenancy as any).people?.email && tenancy.opt_in_viewings) {
-            const tenantName = (tenancy as any).people.name || 'Tenant'
+            const tenantName = (tenancy as any).people.first_name || (tenancy as any).people.name || 'Tenant'
+            const otherSubject = tenantTpl
+              ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'at your property' })
+              : `A viewing is booked at the house — ${propertyName}`
             await send(
               (tenancy as any).people.email,
-              `A viewing is booked at the house — ${propertyName}`,
-              emailHtml(`
-                <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled at Your Property</h2>
-                <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
-                <p style="margin:0 0 20px;line-height:1.6">Please note that a viewing has been booked at your property.</p>
-
-                <div style="background:#f3f1ef;padding:16px;border-radius:8px;margin:20px 0">
-                  <p style="margin:0 0 12px;font-size:14px;font-weight:600">Viewing Details:</p>
-                  <table style="width:100%;border-collapse:collapse;font-size:14px">
-                    <tr><td style="padding:6px 0;color:#78716c;width:100px">When</td>
-                        <td style="padding:6px 0;font-weight:600">${when}</td></tr>
-                    <tr><td style="padding:6px 0;color:#78716c">Property</td>
-                        <td style="padding:6px 0">${propertyName}</td></tr>
-                  </table>
-                </div>
-
-                <p style="margin:0;color:#78716c;font-size:14px">Please keep your shared areas tidy during this time. Thank you!</p>
-              `)
+              otherSubject,
+              buildViewingEmail(tenantName, 'at your property')
             )
             sent.push(tenancy.people.email)
           }
@@ -194,27 +192,14 @@ export async function POST(request: NextRequest) {
       if (allTenancies && allTenancies.length > 0) {
         for (const tenancy of allTenancies) {
           if ((tenancy as any).people?.email && tenancy.opt_in_viewings) {
-            const tenantName = (tenancy as any).people.name || 'Tenant'
+            const tenantName = (tenancy as any).people.first_name || (tenancy as any).people.name || 'Tenant'
+            const allSubject = tenantTpl
+              ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'at your property' })
+              : `A viewing is booked at the house — ${propertyName}`
             await send(
               (tenancy as any).people.email,
-              `A viewing is booked at the house — ${propertyName}`,
-              emailHtml(`
-                <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled at Your Property</h2>
-                <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
-                <p style="margin:0 0 20px;line-height:1.6">Please note that a viewing has been booked at your property.</p>
-
-                <div style="background:#f3f1ef;padding:16px;border-radius:8px;margin:20px 0">
-                  <p style="margin:0 0 12px;font-size:14px;font-weight:600">Viewing Details:</p>
-                  <table style="width:100%;border-collapse:collapse;font-size:14px">
-                    <tr><td style="padding:6px 0;color:#78716c;width:100px">When</td>
-                        <td style="padding:6px 0;font-weight:600">${when}</td></tr>
-                    <tr><td style="padding:6px 0;color:#78716c">Property</td>
-                        <td style="padding:6px 0">${propertyName}</td></tr>
-                  </table>
-                </div>
-
-                <p style="margin:0;color:#78716c;font-size:14px">Please keep your shared areas tidy during this time. Thank you!</p>
-              `)
+              allSubject,
+              buildViewingEmail(tenantName, 'at your property')
             )
             sent.push(tenancy.people.email)
           }

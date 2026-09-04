@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 
@@ -133,21 +134,48 @@ export async function POST(req: NextRequest) {
     ? `${listing.address}, ${listing.postcode}`
     : listing.address
 
+  const letOnlyTpl = await getTemplate('let-only-contact-notice')
+
   // Send email to each contact with a valid email address
   const results = await Promise.allSettled(
     contacts
       .filter(c => c.email)
       .map(async contact => {
-        const { subject, html } = buildEmailBody({
-          event,
-          viewing_date,
-          viewing_time,
-          visitor_name,
-          room_name,
-          address,
-          sender_name,
-          contact_name: contact.name,
-        })
+        const contactName = contact.first_name || contact.full_name || 'there'
+
+        let subject: string
+        let html: string
+
+        if (letOnlyTpl) {
+          const dateStr = formatDate(viewing_date)
+          const timeStr = formatTime(viewing_time)
+          const roomStr = room_name ? ` (${room_name})` : ''
+          let eventSubject = ''
+          let eventIntro = ''
+          if (event === 'booked') {
+            eventSubject = `Viewing booked -- ${address}`
+            eventIntro = `A viewing has been booked at your property${roomStr} on ${dateStr} at ${timeStr}.`
+          } else if (event === 'rescheduled') {
+            eventSubject = `Viewing rescheduled -- ${address}`
+            eventIntro = `A viewing at your property${roomStr} has been rescheduled to ${dateStr} at ${timeStr}.`
+          } else {
+            eventSubject = `Viewing cancelled -- ${address}`
+            eventIntro = `A viewing at your property${roomStr} scheduled for ${dateStr} at ${timeStr} has been cancelled.`
+          }
+          const vars = { event_subject: eventSubject, address, contact_name: contactName, event_intro: eventIntro, sender_name }
+          subject = render(letOnlyTpl.subject_line, vars)
+          const bodyText = render(letOnlyTpl.template_text, vars)
+          html = `<div style="font-family:system-ui,sans-serif;max-width:540px;margin:0 auto;padding:24px;color:#1a1a1a;">
+            <p style="font-size:18px;font-weight:bold;margin-bottom:8px;">Capital Rooms</p>
+            <hr style="border:none;border-top:1px solid #e5e5e5;margin-bottom:24px;"/>
+            <div style="white-space:pre-line">${bodyText}</div>
+            <p style="margin-top:24px;color:#777;font-size:12px;">Capital Rooms · You're receiving this because you're a contact at this property.</p>
+          </div>`
+        } else {
+          const result = buildEmailBody({ event, viewing_date, viewing_time, visitor_name, room_name, address, sender_name, contact_name: contactName })
+          subject = result.subject
+          html = result.html
+        }
 
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',

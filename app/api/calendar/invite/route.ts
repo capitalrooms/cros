@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { buildIcs } from '@/lib/ics'
 import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -49,6 +50,11 @@ export async function POST(request: NextRequest) {
       <p style="color:#888;font-size:13px;margin-top:16px">Open the attached invite to add this to your calendar.</p>
     </div>`
 
+  const calTpl = await getTemplate('staff-calendar-invite')
+  const calSubject = calTpl?.subject_line
+    ? render(calTpl.subject_line, { title, when })
+    : `📅 ${title} — ${when}`
+
   try {
     const res = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
@@ -56,7 +62,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         from: FROM,
         to: [recipient],
-        subject: `📅 ${title} — ${when}`,
+        subject: calSubject,
         html,
         attachments: [{ filename: 'invite.ics', content: icsBase64 }],
       }),

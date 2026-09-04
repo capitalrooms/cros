@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -61,12 +62,17 @@ export async function POST(request: NextRequest) {
   }
 
   const category = (ticket.category ?? 'maintenance').replace(/-/g, ' ')
+  const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1)
+  const roomName = (ticket.rooms as any)?.name ?? ticket.location ?? ''
 
-  const html = emailHtml(`
+  const tpl = await getTemplate('job-held-tenant')
+  const vars = { category: categoryTitle, room_name: roomName }
+
+  const subject = tpl ? render(tpl.subject_line, vars) : `We've logged your ${category} report`
+  const body = tpl ? render(tpl.template_text, vars) : `
       <h2 style="margin:0 0 14px;font-size:20px;color:#1c1917;font-weight:700;">Thanks for reporting this</h2>
       <p style="margin:0 0 20px;font-size:16px;font-weight:600;color:#1c1917;line-height:1.4;">
-        ${category.charAt(0).toUpperCase() + category.slice(1)} —
-        ${(ticket.rooms as any)?.name ?? ticket.location ?? ''}
+        ${categoryTitle} — ${roomName}
       </p>
       <p style="font-size:15px;line-height:1.6;color:#1c1917;margin:0 0 12px;">
         We've logged this. It's a smaller job that can sensibly be done at the same
@@ -83,17 +89,14 @@ export async function POST(request: NextRequest) {
          style="display:inline-block;background:#1c1917;color:#ffffff;font-size:14px;font-weight:600;
                 padding:12px 22px;border-radius:8px;text-decoration:none;">
         Open dashboard
-      </a>`)
+      </a>`
+
+  const html = emailHtml(body)
 
   const res = await fetch(RESEND_ENDPOINT, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: FROM,
-      to: [reporter.email],
-      subject: `We've logged your ${category} report`,
-      html,
-    }),
+    body: JSON.stringify({ from: FROM, to: [reporter.email], subject, html }),
   })
 
   if (!res.ok) {

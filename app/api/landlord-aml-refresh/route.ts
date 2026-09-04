@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const svc = () =>
   createClient(
@@ -52,6 +53,12 @@ export async function POST(req: NextRequest) {
 
   const formUrl = `${BASE_URL}/landlord/onboard/${row.token}`
 
+  const amlTpl = await getTemplate('landlord-aml-reverification')
+  const firstName = (landlord.name ?? landlord.email.split('@')[0]).split(' ')[0]
+  const amlSubject = amlTpl?.subject_line
+    ? render(amlTpl.subject_line, { first_name: firstName })
+    : 'Action Required: AML Re-verification — Capital Rooms'
+
   // Send re-verification email
   const emailRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -63,7 +70,7 @@ export async function POST(req: NextRequest) {
       from: 'Capital Rooms Compliance <management@capitalrooms.co.uk>',
       reply_to: 'management@capitalrooms.co.uk',
       to: landlord.email,
-      subject: 'Action Required: AML Re-verification — Capital Rooms',
+      subject: amlSubject,
       html: amlRefreshHtml(landlord.name ?? landlord.email.split('@')[0], formUrl),
     }),
   })
