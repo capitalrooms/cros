@@ -6,6 +6,8 @@ export interface ActiveTenancy {
   room_id: string | null
   start_date: string
   end_date: string | null
+  status: string | null
+  notice_received_date: string | null
   rent_amount: number | null
   rent_due_day: number | null
   properties: { name: string; address: string } | null
@@ -31,7 +33,7 @@ export async function getActiveTenancy(personId: string): Promise<ActiveTenancy 
   const { data } = await supabase
     .from('tenancies')
     .select(
-      'id, property_id, room_id, start_date, end_date, rent_amount, rent_due_day, properties(name, address), rooms(name)'
+      'id, property_id, room_id, start_date, end_date, status, notice_received_date, rent_amount, rent_due_day, properties(name, address), rooms(name)'
     )
     .eq('person_id', personId)
     .lte('start_date', today)
