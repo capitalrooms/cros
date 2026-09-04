@@ -19,7 +19,11 @@ interface Tenancy {
   property_id: string
   start_date: string
   end_date: string | null
+  notice_received_date: string | null
   rent_amount: number
+  rent_due_day: number | null
+  rescind_requested_at: string | null
+  checkout_confirmation_sent_at: string | null
   status: 'active' | 'on_notice'
   person?: {
     id: string
@@ -99,12 +103,45 @@ export default function TenancyManagementPage() {
     setShowNoticeModal(true)
   }
 
+  const handleApproveRescind = async (tenancyId: string) => {
+    if (!confirm('Approve rescind? This will revert the tenancy to active and clear all notice/checkout dates.')) return
+    const res = await fetch('/api/tenant/rescind-notice', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenancyId, action: 'approve' }),
+    })
+    if (res.ok) {
+      setMessage({ type: 'success', text: 'Notice rescinded — tenancy reverted to active.' })
+      await loadData()
+    } else {
+      const j = await res.json()
+      setMessage({ type: 'error', text: j.error || 'Failed to rescind notice' })
+    }
+  }
+
+  const handleRejectRescind = async (tenancyId: string) => {
+    if (!confirm('Reject rescind request? Tenancy stays on notice.')) return
+    const res = await fetch('/api/tenant/rescind-notice', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenancyId, action: 'reject' }),
+    })
+    if (res.ok) {
+      setMessage({ type: 'success', text: 'Rescind request rejected. Tenancy remains on notice.' })
+      await loadData()
+    } else {
+      const j = await res.json()
+      setMessage({ type: 'error', text: j.error || 'Failed to reject rescind' })
+    }
+  }
+
   const handleConfirmOnNotice = async (noticeData: OnNoticeData) => {
     if (!selectedTenancy) return
 
     setSavingNotice(true)
 
     try {
+      const cleaner = cleaners.find((c) => c.id === noticeData.cleanerId)
       const response = await fetch('/api/tenancies/set-on-notice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,6 +149,8 @@ export default function TenancyManagementPage() {
           tenancyId: selectedTenancy.id,
           roomId: selectedTenancy.room_id,
           moveOutDate: noticeData.moveOutDate,
+          noticeReceivedDate: noticeData.noticeReceivedDate,
+          rentDueDay: noticeData.rentDueDay,
           newAskingRent: noticeData.newAskingRent,
           emailTenant: noticeData.emailTenant,
           tenantEmail: selectedTenancy.person?.email,
@@ -119,11 +158,15 @@ export default function TenancyManagementPage() {
           checkoutEmailHtml: noticeData.checkoutEmailHtml,
           emailCleaner: noticeData.emailCleaner,
           cleanerId: noticeData.cleanerId,
-          cleanerEmail: cleaners.find((c) => c.id === noticeData.cleanerId)?.email,
-          cleanerName: cleaners.find((c) => c.id === noticeData.cleanerId).name,
+          cleanerEmail: cleaner?.email,
+          cleanerName: cleaner?.name,
           notesForLettings: noticeData.notesForLettings,
           roomName: selectedTenancy.room?.name,
           propertyAddress: selectedTenancy.property?.address,
+          proRataAmount: noticeData.proRataAmount,
+          proRataDays: noticeData.proRataDays,
+          daysInMonth: noticeData.daysInMonth,
+          monthlyRent: selectedTenancy.rent_amount,
         }),
       })
 
@@ -244,27 +287,72 @@ export default function TenancyManagementPage() {
               {onNoticeTenancies.map((tenancy) => {
                 const daysLeft = daysUntilMoveOut(tenancy.end_date!)
                 const urgency = daysLeft <= 7 ? 'urgent' : daysLeft <= 14 ? 'soon' : 'normal'
+                const hasRescindRequest = !!tenancy.rescind_requested_at
 
                 return (
                   <div
                     key={tenancy.id}
                     className={`rounded-lg border p-md ${
-                      urgency === 'urgent'
-                        ? 'border-red-300 bg-red-50'
-                        : urgency === 'soon'
-                          ? 'border-yellow-300 bg-yellow-50'
-                          : 'border-neutral-200 bg-white'
+                      hasRescindRequest
+                        ? 'border-purple-300 bg-purple-50'
+                        : urgency === 'urgent'
+                          ? 'border-red-300 bg-red-50'
+                          : urgency === 'soon'
+                            ? 'border-yellow-300 bg-yellow-50'
+                            : 'border-neutral-200 bg-white'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-md">
-                      <TenantCardBody
-                        name={displayName(tenancy.person)}
-                        roomName={tenancy.room?.name}
-                        propertyName={tenancy.property?.name}
-                        rentAmount={tenancy.rent_amount}
-                        startDate={tenancy.start_date}
-                        endDate={tenancy.end_date}
-                      />
+                      <div className="flex-1">
+                        <TenantCardBody
+                          name={displayName(tenancy.person)}
+                          roomName={tenancy.room?.name}
+                          propertyName={tenancy.property?.name}
+                          rentAmount={tenancy.rent_amount}
+                          startDate={tenancy.start_date}
+                          endDate={tenancy.end_date}
+                        />
+                        {tenancy.notice_received_date && (
+                          <p className="text-xs text-neutral-500 mt-xs">
+                            Notice given: {formatDate(tenancy.notice_received_date)}
+                            {tenancy.rent_due_day && ` · Rent due: ${tenancy.rent_due_day}${tenancy.rent_due_day === 1 ? 'st' : tenancy.rent_due_day === 2 ? 'nd' : tenancy.rent_due_day === 3 ? 'rd' : 'th'}`}
+                          </p>
+                        )}
+                        {!tenancy.checkout_confirmation_sent_at && (
+                          <p className="text-xs text-amber-700 font-semibold mt-xs">
+                            ⚠️ Checkout email not yet sent
+                          </p>
+                        )}
+                        {hasRescindRequest && (
+                          <div className="mt-sm rounded-lg bg-purple-100 border border-purple-300 p-sm">
+                            <p className="text-xs font-bold text-purple-800">
+                              🔄 Rescind request — tenant wants to cancel notice
+                            </p>
+                            {tenancy.rescind_note && (
+                              <p className="text-xs text-purple-700 mt-xs">
+                                Reason: {tenancy.rescind_note}
+                              </p>
+                            )}
+                            <p className="text-xs text-purple-600 mt-xs">
+                              Requested: {formatDate(tenancy.rescind_requested_at!)}
+                            </p>
+                            <div className="flex gap-sm mt-sm">
+                              <button
+                                onClick={() => handleApproveRescind(tenancy.id)}
+                                className="rounded-lg bg-purple-700 text-white text-xs font-bold px-md py-xs hover:bg-purple-800"
+                              >
+                                Approve — revert to active
+                              </button>
+                              <button
+                                onClick={() => handleRejectRescind(tenancy.id)}
+                                className="rounded-lg bg-white border border-purple-400 text-purple-700 text-xs font-bold px-md py-xs hover:bg-purple-50"
+                              >
+                                Reject — keep on notice
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
@@ -275,9 +363,12 @@ export default function TenancyManagementPage() {
       </main>
 
       {/* Set On Notice Modal */}
-      {showNoticeModal && (
+      {showNoticeModal && selectedTenancy && (
         <SetOnNoticeModal
-          tenancy={selectedTenancy}
+          tenancy={{
+            ...selectedTenancy,
+            rent_due_day: selectedTenancy.rent_due_day ?? 1,
+          }}
           cleaners={cleaners}
           onClose={() => {
             setShowNoticeModal(false)

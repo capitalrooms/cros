@@ -16,6 +16,9 @@ import Link from 'next/link'
 
 interface Tenancy {
   start_date: string
+  end_date: string | null
+  status: string | null
+  notice_received_date: string | null
   rent_amount: number | null
   rent_due_day: number | null
   properties: { name: string; address: string; id: string } | null
@@ -616,13 +619,39 @@ export default function TenantDashboard() {
         <section className="mt-3xl">
           <h2 className="text-xl font-bold text-neutral-900">Moving out?</h2>
           <p className="mt-xs text-sm text-neutral-500">
-            Planning to leave before your tenancy ends? Let us know and we&apos;ll walk you through your options.
+            Let us know you&apos;re leaving and we&apos;ll walk you through what happens next.
           </p>
-          <div className="mt-md">
+          <div className="mt-md grid gap-md">
+            {tenancy?.status === 'on_notice' ? (
+              <>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-md">
+                  <p className="text-sm font-semibold text-amber-900">Notice in progress</p>
+                  <p className="mt-xs text-xs text-amber-700">
+                    You&apos;ve given notice to leave
+                    {tenancy.end_date
+                      ? ` on ${new Date(tenancy.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                      : ''}
+                    . Your team will send checkout details shortly.
+                  </p>
+                </div>
+                <ActionCard
+                  href="/tenant/rescind-notice"
+                  title="Changed your mind?"
+                  description="Request to cancel your notice — our team will review it"
+                />
+              </>
+            ) : (
+              <ActionCard
+                href="/tenant/give-notice"
+                title="Give notice to leave"
+                description="Standard 2-month notice — tell us your intended move-out date"
+                primary
+              />
+            )}
             <ActionCard
               href="/tenant/early-move-out"
               title="Request early move-out"
-              description="End your tenancy before the contract date"
+              description="Need to leave sooner than 2 months? Submit a request"
             />
           </div>
         </section>
