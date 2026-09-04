@@ -1,5 +1,24 @@
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
+import { FROM } from '@/lib/emailTemplate'
+
+const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
+async function sendEmail(to: string, subject: string, html: string) {
+  const key = process.env.RESEND_API_KEY
+  if (!key) { console.warn('RESEND_API_KEY not set — email skipped'); return false }
+  const res = await fetch(RESEND_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ from: FROM, to, subject, html }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    console.error('Resend error:', err)
+    return false
+  }
+  return true
+}
 
 export async function POST(request: Request) {
   const supabase = createClient()
@@ -83,27 +102,31 @@ export async function POST(request: Request) {
     }
 
     // 4. Send checkout email to tenant
+    let tenantEmailSent = false
     if (emailTenant && tenantEmail && checkoutEmailHtml) {
-      console.log(`[EMAIL] Sending checkout email to ${tenantEmail}`)
-      console.log(`[EMAIL] Tenant: ${tenantName}, Move-out date: ${moveOutDate}`)
-      // TODO: Integrate with email service (Resend, SendGrid, etc.)
-      // For now, just log it
+      tenantEmailSent = await sendEmail(
+        tenantEmail,
+        'Your notice period has been recorded — Capital Rooms',
+        checkoutEmailHtml,
+      )
     }
 
     // 5. Send notification email to cleaner
+    let cleanerEmailSent = false
     if (emailCleaner && cleanerId && cleanerEmail) {
       const cleanerEmailHtml = buildCleanerNotificationEmail({
         cleanerName: cleanerName || 'Cleaner',
         roomName: data.roomName || 'Room',
         propertyAddress: data.propertyAddress || '',
         moveOutDate,
-        moveInDate: new Date(moveOutDate).toISOString().split('T')[0], // Can be same day or day after
+        moveInDate: new Date(moveOutDate).toISOString().split('T')[0],
         urgency: 'standard',
       })
-
-      console.log(`[EMAIL] Sending cleaning notification to ${cleanerEmail}`)
-      console.log(`[EMAIL] Cleaner: ${cleanerName}, Move-out date: ${moveOutDate}`)
-      // TODO: Integrate with email service
+      cleanerEmailSent = await sendEmail(
+        cleanerEmail,
+        `Move-out coming up — ${data.roomName || 'Room'} at ${data.propertyAddress || 'property'}`,
+        cleanerEmailHtml,
+      )
     }
 
     // 6. Create notification record for tracking
@@ -119,8 +142,8 @@ export async function POST(request: Request) {
             moveOutDate,
             newAskingRent,
             emailsSent: {
-              tenant: emailTenant,
-              cleaner: emailCleaner,
+              tenant: tenantEmailSent,
+              cleaner: cleanerEmailSent,
             },
           },
         },
@@ -133,8 +156,8 @@ export async function POST(request: Request) {
       success: true,
       message: 'Tenancy marked as on notice',
       emailsSent: {
-        tenant: emailTenant,
-        cleaner: emailCleaner,
+        tenant: tenantEmailSent,
+        cleaner: cleanerEmailSent,
       },
     })
   } catch (err) {
