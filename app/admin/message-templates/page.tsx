@@ -168,9 +168,11 @@ export default function MessageTemplatesPage() {
             <span className="rounded-full bg-neutral-900 px-md py-xs text-sm font-semibold text-white">
               {totalCount} message types
             </span>
-            <span className="rounded-full bg-emerald-100 px-md py-xs text-sm font-semibold text-emerald-700">
-              ✏️ {editableCount} editable
-            </span>
+            {editableCount > 0 && (
+              <span className="rounded-full bg-emerald-100 px-md py-xs text-sm font-semibold text-emerald-700">
+                ✏️ {editableCount} editable
+              </span>
+            )}
             <span className="rounded-full bg-amber-100 px-md py-xs text-sm font-semibold text-amber-700">
               ⚙️ {totalCount - editableCount - unwiredCount} in code
             </span>

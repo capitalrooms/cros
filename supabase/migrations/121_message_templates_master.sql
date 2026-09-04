@@ -12,6 +12,18 @@ ALTER TABLE notification_templates
   ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0,
   ADD COLUMN IF NOT EXISTS is_system_message BOOLEAN DEFAULT false;
 
+-- Unique constraint on name (needed for ON CONFLICT below; guard with DO block so it's idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'notification_templates_name_key'
+      AND conrelid = 'notification_templates'::regclass
+  ) THEN
+    ALTER TABLE notification_templates ADD CONSTRAINT notification_templates_name_key UNIQUE (name);
+  END IF;
+END $$;
+
 -- Index for the new master-screen query
 CREATE INDEX IF NOT EXISTS idx_notification_templates_system ON notification_templates(is_system_message, group_name, sort_order);
 
