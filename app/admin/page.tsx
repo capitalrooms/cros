@@ -249,6 +249,15 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
+            {/* Message Templates */}
+            <Link href="/admin/message-templates" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">✉️</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Message Templates</h3>
+                <p className="text-xs text-neutral-600">All 24 automated messages — triggers, recipients, channels</p>
+              </div>
+            </Link>
+
             {/* Compliance Logs */}
             <Link href="/admin/compliance-logs" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
