@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { FROM } from '@/lib/emailTemplate'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -101,12 +102,21 @@ export async function POST(request: Request) {
       }
     }
 
+    // Load checkout templates (non-blocking — graceful fallback if unavailable)
+    const [tenantCheckoutTpl, cleanerCheckoutTpl] = await Promise.all([
+      getTemplate('checkout-tenant-notice'),
+      getTemplate('checkout-cleaner-headsup'),
+    ])
+
     // 4. Send checkout email to tenant
     let tenantEmailSent = false
     if (emailTenant && tenantEmail && checkoutEmailHtml) {
+      const tenantSubject = tenantCheckoutTpl?.subject_line
+        ? render(tenantCheckoutTpl.subject_line, { move_out_date: moveOutDate })
+        : 'Your notice period has been recorded — Capital Rooms'
       tenantEmailSent = await sendEmail(
         tenantEmail,
-        'Your notice period has been recorded — Capital Rooms',
+        tenantSubject,
         checkoutEmailHtml,
       )
     }
@@ -122,9 +132,12 @@ export async function POST(request: Request) {
         moveInDate: new Date(moveOutDate).toISOString().split('T')[0],
         urgency: 'standard',
       })
+      const cleanerSubject = cleanerCheckoutTpl?.subject_line
+        ? render(cleanerCheckoutTpl.subject_line, { room_name: data.roomName || 'Room', property_address: data.propertyAddress || 'property', move_out_date: moveOutDate, cleaner_name: cleanerName || 'Cleaner', clean_date: '' })
+        : `Move-out coming up — ${data.roomName || 'Room'} at ${data.propertyAddress || 'property'}`
       cleanerEmailSent = await sendEmail(
         cleanerEmail,
-        `Move-out coming up — ${data.roomName || 'Room'} at ${data.propertyAddress || 'property'}`,
+        cleanerSubject,
         cleanerEmailHtml,
       )
     }

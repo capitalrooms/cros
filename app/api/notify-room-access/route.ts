@@ -15,6 +15,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getCommsLive } from '@/lib/comms'
 import { activeTenantIds, insertNotifications, tryEmailFallback } from '@/lib/serverNotify'
 import { slotLabel } from '@/lib/booking'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -69,8 +70,15 @@ export async function POST(req: NextRequest) {
   const timeStr = ticket.booked_slot ? slotLabel(ticket.booked_slot) : null
   const when = timeStr ? `${dateStr}, ${timeStr}` : dateStr
 
-  const notifyTitle = `Contractor accessing your room — ${dateStr}`
-  const notifyBody = `A contractor will need access to your room at ${propertyName} on ${when}. Work: ${ticket.title}. Please make sure your room is accessible and any valuables are stored safely.`
+  const tpl = await getTemplate('contractor-room-access')
+  const vars = { property_name: propertyName, when, ticket_title: ticket.title, date_str: dateStr }
+
+  const notifyTitle = tpl
+    ? render(tpl.subject_line, vars)
+    : `Contractor accessing your room — ${dateStr}`
+  const notifyBody = tpl
+    ? render(tpl.template_text, vars)
+    : `A contractor will need access to your room at ${propertyName} on ${when}. Work: ${ticket.title}. Please make sure your room is accessible and any valuables are stored safely.`
 
   // Get the tenant(s) in this specific room
   const recipientIds = await activeTenantIds(service, ticket.property_id, ticket.room_id)

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@/lib/supabase'
 import { TIME_SLOTS } from '@/lib/booking'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -44,12 +45,18 @@ export async function GET() {
     .not('contractor_id', 'is', null)
     .is('arrived_at', null)
 
+  const nudgeTpl = await getTemplate('contractor-nudge')
+
   let nudged = 0
   for (const j of jobs || []) {
+    const slot = slotLabel(j.booked_slot)
+    const nudgeBody = nudgeTpl
+      ? render(nudgeTpl.template_text, { slot })
+      : `Your ${slot} job today — tap to confirm you're on track, or reschedule.`
     await push({
       personId: j.contractor_id,
       title: 'Still on time?',
-      body: `Your ${slotLabel(j.booked_slot)} job today — tap to confirm you're on track, or reschedule.`,
+      body: nudgeBody,
       url: `/contractor/job/${j.id}`,
       tag: `nudge-${j.id}`,
       requireInteraction: true,

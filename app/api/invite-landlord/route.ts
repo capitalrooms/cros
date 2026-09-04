@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/auth'
 import { firstName as getFirstName } from '@/lib/people'
 import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 function createServiceClient() {
   return createClient(
@@ -145,13 +146,18 @@ export async function POST(req: NextRequest) {
 </body>
 </html>`
 
+  const landlordTpl = await getTemplate('landlord-portal-invite')
+  const landlordSubject = landlordTpl?.subject_line
+    ? render(landlordTpl.subject_line, { first_name: firstName })
+    : 'Welcome to Capital Rooms — your landlord portal is ready'
+
   const emailRes = await fetch(RESEND, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
     body: JSON.stringify({
       from: FROM,
       to:   [person.email],
-      subject: 'Welcome to Capital Rooms — your landlord portal is ready',
+      subject: landlordSubject,
       html,
     }),
   })

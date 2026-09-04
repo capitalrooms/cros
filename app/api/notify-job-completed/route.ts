@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -69,12 +70,15 @@ export async function POST(request: NextRequest) {
 
   const sent: string[] = []
   const category = (ticket.category ?? 'maintenance').replace(/-/g, ' ')
+  const completedTpl = await getTemplate('job-completed-all')
+  const completedVars = { category, property_name: property?.name ?? '', where, room_name: room?.name ?? '' }
 
   // Send to admin
   if (admin) {
+    const adminSubject = completedTpl ? render(completedTpl.subject_line, completedVars) : `Repair completed — ${category} at ${property?.name}`
     await send(
       admin,
-      `Repair completed — ${category} at ${property?.name}`,
+      adminSubject,
       emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">Repair completed</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${category}</p>
@@ -104,9 +108,10 @@ export async function POST(request: NextRequest) {
 
     if (tenancy?.people?.email && tenancy?.opt_in_maintenance) {
       const tenantName = tenancy.people.name || 'Tenant'
+      const tenantSubject = completedTpl ? render(completedTpl.subject_line, { ...completedVars, tenant_name: tenantName }) : `Your repair is complete — ${category}`
       await send(
         tenancy.people.email,
-        `Your repair is complete — ${category}`,
+        tenantSubject,
         emailHtml(`
           <h2 style="margin:0 0 18px;font-size:22px">Repair Completed</h2>
           <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${category}</p>

@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
   const failed: { to: string; error: string }[] = []
 
   const heading = jobHeading(ticket.category, property?.name, room?.name ?? ticket.location)
+  const bookingTpl = await getTemplate('repair-booked-all')
 
   // Who is attending — admin sees this, the landlord never does.
   const { data: contractor } = ticket.contractor_id
@@ -131,11 +133,14 @@ export async function POST(request: NextRequest) {
     else failed.push({ to, error: await res.text() })
   }
 
+  const bookingVars = { heading, when, attending, where, room_name: room?.name ?? ticket.location ?? '', priority: ticket.priority ?? '', title: ticket.title ?? '', property_name: property?.name ?? '' }
+
   // Admin — full detail plus the calendar invite.
   if (admin) {
+    const adminSubject = bookingTpl ? render(bookingTpl.subject_line, bookingVars) : `Repair booked — ${heading} — ${when}`
     await send(
       admin,
-      `Repair booked — ${heading} — ${when}`,
+      adminSubject,
       emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">Repair booked</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
