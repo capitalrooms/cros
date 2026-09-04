@@ -312,7 +312,8 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
-            {/* Maintenance */}
+
+{/* Maintenance */}
             <Link href="/admin/maintenance" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
                 <div className="text-2xl mb-md">🔧</div>
