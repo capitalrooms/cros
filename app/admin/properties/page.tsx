@@ -481,7 +481,7 @@ export default function PropertiesManagementPage() {
           rooms = createdRooms || [];
         }
 
-        setProperties([...properties, { ...created[0], rooms }]);
+        setProperties(sortPropertiesNumerically([...properties, { ...created[0], rooms }]));
         setNewProperty({ name: '', address: '', property_type: 'hmo', bedrooms: 0, bathrooms: 0, bulkRoomCount: 0 });
         setShowAddProperty(false);
         alert(`✅ Property added${bulkRoomCount > 0 ? ` with ${bulkRoomCount} rooms` : ''}`);
