@@ -22,257 +22,262 @@ export function buildCheckoutEmail(data: CheckoutEmailData): string {
     day: 'numeric',
   })
 
+  const contactEmail = data.contactEmail || 'management@capitalrooms.co.uk'
+  const contactPhone = data.contactPhone || '0207 112 9163'
+
   return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Time to Check Out - Capital Rooms</title>
+  <title>Sorry To See You Go - Capital Rooms</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+      font-family: 'Courier New', Courier, monospace;
       line-height: 1.6;
-      color: #333;
-      background-color: #f9f9f9;
+      color: #0a0a0a;
+      background-color: #d6d5d1;
       margin: 0;
       padding: 0;
     }
-    .email-container {
-      max-width: 600px;
-      margin: 20px auto;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      overflow: hidden;
+    .email-outer {
+      background: #d6d5d1;
+      padding: 28px 16px 40px;
     }
-    .header {
-      background: linear-gradient(135deg, #86284a 0%, #a83356 100%);
-      color: white;
-      padding: 40px 30px;
+    .email-wrap {
+      max-width: 580px;
+      margin: 0 auto;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    /* Header */
+    .e-header {
+      background: #0a0a0a;
+      padding: 18px 28px;
       text-align: center;
     }
-    .header h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: bold;
+    .e-header span {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #FFE000;
+      font-family: 'Courier New', Courier, monospace;
     }
-    .header p {
-      margin: 10px 0 0 0;
+    /* Hero */
+    .e-hero {
+      background: #d6d5d1;
+      text-align: center;
+      padding: 36px 32px 0;
+      border-bottom: 3px solid #0a0a0a;
+    }
+    .e-hero h1 {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      margin: 0 0 8px;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    .e-hero .sub {
+      font-size: 15px;
+      margin: 0 0 20px;
+    }
+    .yellow-block {
+      background: #FFE000;
+      margin: 0 -32px;
+      padding: 28px 32px 32px;
+      text-align: center;
+    }
+    .yellow-block .big {
+      font-size: 52px;
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+    }
+    /* Sections */
+    .e-section {
+      padding: 28px 32px;
+      text-align: center;
+      line-height: 1.75;
+      border-bottom: 1px solid #b0afa9;
       font-size: 14px;
-      opacity: 0.9;
+      color: #0a0a0a;
+      background: #d6d5d1;
     }
-    .content {
-      padding: 30px;
+    .e-section p + p { margin-top: 14px; }
+    .amount-big {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      margin: 10px 0 6px;
     }
-    .greeting {
-      font-size: 16px;
-      margin-bottom: 20px;
+    /* Steps */
+    .steps-hdr {
+      background: #0a0a0a;
+      color: #FFE000;
+      text-align: center;
+      padding: 22px 32px;
     }
-    .section {
-      margin: 25px 0;
-      padding: 20px;
-      background-color: #f5f5f5;
-      border-left: 4px solid #86284a;
-      border-radius: 4px;
-    }
-    .section h3 {
-      margin: 0 0 15px 0;
-      color: #86284a;
-      font-size: 16px;
-      font-weight: 600;
-    }
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      margin: 10px 0;
-      padding: 8px 0;
-      border-bottom: 1px solid #e0e0e0;
-    }
-    .detail-row:last-child {
-      border-bottom: none;
-    }
-    .detail-label {
-      font-weight: 600;
-      color: #555;
-    }
-    .detail-value {
-      text-align: right;
-      color: #333;
-    }
-    .amount {
-      font-size: 18px;
-      font-weight: bold;
-      color: #86284a;
-    }
-    .pro-rata-note {
-      font-size: 12px;
-      color: #666;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #ddd;
-    }
-    .checklist {
-      margin: 20px 0;
-    }
-    .checklist-item {
-      display: flex;
-      align-items: flex-start;
-      margin: 12px 0;
-      padding: 10px;
-      background: white;
-      border-radius: 4px;
-    }
-    .checklist-icon {
-      margin-right: 12px;
+    .steps-hdr h2 {
       font-size: 20px;
-      flex-shrink: 0;
-    }
-    .checklist-text {
-      flex: 1;
-    }
-    .checklist-text strong {
-      display: block;
-      color: #333;
-      margin-bottom: 4px;
-    }
-    .checklist-text p {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
       margin: 0;
-      font-size: 14px;
-      color: #666;
+      color: #FFE000;
     }
-    .footer {
-      background-color: #f5f5f5;
-      padding: 20px 30px;
-      border-top: 1px solid #ddd;
+    .steps-intro {
+      background: #f5f5f1;
+      padding: 24px 32px;
       text-align: center;
-      font-size: 12px;
-      color: #666;
+      font-size: 14px;
+      line-height: 1.7;
+      border-bottom: 1px solid #ddd;
     }
-    .contact-info {
-      background: white;
-      padding: 15px;
-      border-radius: 4px;
-      margin-top: 10px;
-    }
-    .contact-info p {
-      margin: 5px 0;
+    .steps-intro p + p { margin-top: 12px; }
+    .step-item {
+      background: #f5f5f1;
+      padding: 20px 32px;
+      border-bottom: 1px solid #e0dfda;
       font-size: 14px;
     }
-    .cta-button {
-      display: inline-block;
-      background-color: #86284a;
-      color: white;
-      padding: 12px 30px;
-      text-decoration: none;
-      border-radius: 4px;
-      margin: 20px 0;
-      font-weight: 600;
+    .step-item .icon { font-size: 24px; margin: 0 0 6px; }
+    .step-item h3 {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0 0 5px;
+      font-size: 14px;
+    }
+    /* Voucher */
+    .voucher {
+      background: #FFE000;
+      padding: 28px 32px;
+      text-align: center;
+      border-top: 3px solid #0a0a0a;
+      border-bottom: 3px solid #0a0a0a;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .voucher .icon { font-size: 28px; margin: 0 0 10px; }
+    .voucher h2 {
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin: 0 0 14px;
+      line-height: 1.3;
+    }
+    .voucher p + p { margin-top: 10px; }
+    /* Sign-off */
+    .signoff {
+      padding: 28px 32px;
+      text-align: center;
+      background: #d6d5d1;
+      font-size: 14px;
+      line-height: 1.75;
+    }
+    .signoff p + p { margin-top: 12px; }
+    .signoff .brand {
+      font-weight: 700;
+      font-size: 17px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 18px;
+    }
+    /* Footer */
+    .e-footer {
+      background: #0a0a0a;
+      color: #aaa;
+      text-align: center;
+      padding: 20px 28px;
+      font-size: 11px;
+      line-height: 1.9;
+      letter-spacing: 0.03em;
     }
   </style>
 </head>
 <body>
-  <div class="email-container">
-    <div class="header">
-      <h1>Time to Check Out</h1>
-      <p>We're sad to see you go!</p>
-    </div>
+  <div class="email-outer">
+    <div class="email-wrap">
 
-    <div class="content">
-      <div class="greeting">
-        <p>Hi ${data.tenantName},</p>
-        <p>We hope you've enjoyed your time at <strong>${data.roomName}, ${data.propertyAddress}</strong>. Your tenancy is coming to an end, and we want to make sure everything runs smoothly for your checkout.</p>
+      <div class="e-header">
+        <span>Capital Rooms</span>
       </div>
 
-      <div class="section">
-        <h3>📅 Important Dates & Details</h3>
-        <div class="detail-row">
-          <span class="detail-label">Room:</span>
-          <span class="detail-value">${data.roomName}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Property:</span>
-          <span class="detail-value">${data.propertyAddress}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Move-Out Date:</span>
-          <span class="detail-value"><strong>${moveOutFormatted}</strong></span>
+      <div class="e-hero">
+        <h1>Sorry To See You Go!</h1>
+        <p class="sub">It's the..</p>
+        <div class="yellow-block">
+          <div class="big">end<br>of<br>an<br>era.</div>
         </div>
       </div>
 
-      <div class="section">
-        <h3>💷 Final Rent Payment</h3>
-        <p style="margin:0 0 12px;font-size:14px">Just to confirm, your final rent payment is:</p>
-        <p style="margin:0;font-size:32px;font-weight:700;color:#86284a">£${data.proRataRent.toFixed(2)}</p>
+      <div class="e-section">
+        <p>Dear ${data.tenantName},</p>
+        <p>We are sorry to hear you are leaving us on <strong>${moveOutFormatted}</strong>.</p>
+        <p>We hope you enjoyed your stay and wish you all the best in the future.</p>
       </div>
 
-      <div class="section">
-        <h3>✅ Checkout Checklist</h3>
-        <div class="checklist">
-          <div class="checklist-item">
-            <div class="checklist-icon">🧹</div>
-            <div class="checklist-text">
-              <strong>Deep Clean the Room</strong>
-              <p>Please ensure the room is thoroughly cleaned, including all fixtures and fittings. ${data.cleaningNotes || 'We may arrange a professional clean if needed.'}</p>
-            </div>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon">🔑</div>
-            <div class="checklist-text">
-              <strong>Return Keys</strong>
-              <p>Please return all keys to the property by your move-out date. Keep track of your key return for your records.</p>
-            </div>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon">💡</div>
-            <div class="checklist-text">
-              <strong>Meter Readings</strong>
-              <p>Please take final readings of gas, electricity, and water meters. Send these to us with photos if possible.</p>
-            </div>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon">📋</div>
-            <div class="checklist-text">
-              <strong>Forward Your Address</strong>
-              <p>Please ensure you've informed us of your forwarding address for any final correspondence or deposit return.</p>
-            </div>
-          </div>
-          <div class="checklist-item">
-            <div class="checklist-icon">📸</div>
-            <div class="checklist-text">
-              <strong>Take Photos</strong>
-              <p>Take photos/videos of the room in its clean state as evidence of the condition for your records.</p>
-            </div>
-          </div>
-        </div>
+      <div class="e-section">
+        <p>Just to confirm, your final rent payment is:</p>
+        <p class="amount-big">£${data.proRataRent.toFixed(2)}</p>
       </div>
 
-      ${data.depositAmount ? `
-      <div class="section">
-        <h3>🏦 Deposit Information</h3>
-        <p>Your deposit of <span class="amount">£${data.depositAmount.toFixed(2)}</span> is held in a government-approved scheme. Once we've confirmed the room is clean and undamaged, we'll process your deposit return within 30 days of checkout.</p>
-        ${data.depositReturnInfo ? `<p>${data.depositReturnInfo}</p>` : ''}
-      </div>
-      ` : ''}
-
-      <div class="section">
-        <h3>❓ Questions?</h3>
-        <p>If you have any questions about your checkout process, please get in touch:</p>
-        ${data.contactEmail || data.contactPhone ? `
-        <div class="contact-info">
-          ${data.contactEmail ? `<p>📧 Email: ${data.contactEmail}</p>` : ''}
-          ${data.contactPhone ? `<p>📞 Phone: ${data.contactPhone}</p>` : ''}
-        </div>
-        ` : ''}
+      <div class="e-section">
+        <p>You are welcome to complete your departure on your own schedule. Just drop us an email to let us know when you have left the room and where in the room you have left the keys (e.g. top drawer of bedside table). Double check you have everything before you lock the front door!</p>
       </div>
 
-      <p>Thank you for being a valued resident. We wish you all the best with your next chapter!</p>
-      <p><strong>Best regards,</strong><br/>The Capital Rooms Team</p>
-    </div>
+      <div class="steps-hdr">
+        <h2>3 Steps For A Speedy Deposit Refund</h2>
+      </div>
 
-    <div class="footer">
-      <p>Capital Rooms Ltd | Innovating London living since 2018</p>
-      <p>This is an automated message from Capital Rooms. Please do not reply to this email.</p>
+      <div class="steps-intro">
+        <p>It is our obligation to refund your deposit within 30 days of your tenancy end date. However, we know how useful it is to get this refunded sooner.</p>
+        <p>If you follow the simple steps below, we will be able to refund your deposit within <strong>3 working days</strong> instead of 30!</p>
+      </div>
+
+      <div class="step-item">
+        <p class="icon">📦</p>
+        <h3>Take Your Stuff</h3>
+        <p>Make sure you do a full sweep of the room; nothing should be left behind that requires removal after departure.</p>
+      </div>
+
+      <div class="step-item">
+        <p class="icon">🧹</p>
+        <h3>Hooooover!</h3>
+        <p>Make sure you vacuum the room thoroughly. That includes inside, below, and behind all of the furniture too.</p>
+      </div>
+
+      <div class="step-item" style="border-bottom:none">
+        <p class="icon">🏠</p>
+        <h3>Love Thy Neighbour</h3>
+        <p>Make sure you have not left any bits and pieces lying around in the communal areas or outside the property.</p>
+      </div>
+
+      <div class="voucher">
+        <p class="icon">🎁</p>
+        <h2>Find Your Own Replacement &amp; Earn a £75 Amazon Voucher!</h2>
+        <p>If you're planning to move out, why not earn a <strong>£75 Amazon voucher?</strong> Simply find someone who passes our referencing checks to take over your room. If they successfully rent the room, we'll send you a <strong>£75 Amazon voucher</strong> as a thank you.</p>
+        <p>To make it even easier, we're happy to arrange a dedicated viewing evening where you can show everyone around in one go. It's a great way to help secure your replacement quickly while earning yourself a reward.</p>
+        <p><strong>Just let us know if you'd like to take part and we'll arrange the rest.</strong></p>
+      </div>
+
+      <div class="signoff">
+        <p><strong>Finally..</strong></p>
+        <p>We are wishing you the best for these final few weeks and hope that your move goes smoothly!</p>
+        <p>If you have any questions or queries in relation to your check out just drop us an email and we will assist you.</p>
+        <p>Best wishes,</p>
+        <p class="brand">Capital Rooms</p>
+      </div>
+
+      <div class="e-footer">
+        Capital Rooms<br>
+        Third Floor | 86–90 Paul Street | London | EC2A 4NE<br>
+        ${contactEmail} | ${contactPhone}
+      </div>
+
     </div>
   </div>
 </body>
