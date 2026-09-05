@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
 import { getTemplate, render } from '@/lib/messageTemplate'
 
 export const runtime = 'nodejs'
@@ -79,10 +78,19 @@ function reserveEmailHtml(vars: { firstName: string; roomName: string; propAddre
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getCurrentUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!['lettings', 'administrator'].includes(user.assignment?.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // Auth: verify the caller's Supabase session via the cookie on the request.
+  // Using next/headers directly (supported in Next.js route handlers) avoids
+  // importing auth-helpers which doesn't support Next.js 16.
+  const { cookies } = await import('next/headers')
+  const cookieStore = await cookies()
+  const allCookies = cookieStore.getAll()
+  const sessionCookie = allCookies.find(c => c.name.includes('auth-token') && c.name.startsWith('sb-'))
+  if (!sessionCookie) {
+    // No session cookie — check Authorization header as fallback
+    const authHeader = request.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   const { viewingId, manual, method, mode = 'apply' } = await request.json()

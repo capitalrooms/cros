@@ -67,23 +67,7 @@ export async function getUserAssignment(email: string) {
 }
 
 export async function getCurrentUser(supabaseInstance?: SupabaseClient) {
-  let supabase: SupabaseClient
-
-  if (supabaseInstance) {
-    supabase = supabaseInstance
-  } else {
-    // In API routes (server context), use the route-handler client so it reads
-    // the auth cookie from the incoming request. In client components, next/headers
-    // is unavailable so we fall back to the browser anon client (localStorage auth).
-    try {
-      const { createRouteHandlerClient } = await import('@supabase/auth-helpers-nextjs')
-      const { cookies } = await import('next/headers')
-      supabase = createRouteHandlerClient({ cookies }) as unknown as SupabaseClient
-    } catch {
-      supabase = createClient()
-    }
-  }
-
+  const supabase = supabaseInstance || createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
   if (error || !user) {
