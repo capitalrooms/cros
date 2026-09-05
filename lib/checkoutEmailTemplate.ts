@@ -201,18 +201,9 @@ export function buildCheckoutEmail(data: CheckoutEmailData): string {
       </div>
 
       <div class="section">
-        <h3>💷 Final Payment Breakdown</h3>
-        <div class="detail-row">
-          <span class="detail-label">Regular Monthly Rent:</span>
-          <span class="detail-value">£${data.lastRentAmount.toFixed(2)}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Pro-Rata Amount (${data.proRataCalculation}):</span>
-          <span class="detail-value"><span class="amount">£${data.proRataRent.toFixed(2)}</span></span>
-        </div>
-        <div class="pro-rata-note">
-          ℹ️ Your final rent payment is calculated on a pro-rata basis for the days you're occupying the room in your final month.
-        </div>
+        <h3>💷 Final Rent Payment</h3>
+        <p style="margin:0 0 12px;font-size:14px">Just to confirm, your final rent payment is:</p>
+        <p style="margin:0;font-size:32px;font-weight:700;color:#86284a">£${data.proRataRent.toFixed(2)}</p>
       </div>
 
       <div class="section">
