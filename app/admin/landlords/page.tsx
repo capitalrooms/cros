@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
-import { nameFields, displayName } from '@/lib/people';
+import { nameFields, displayName } from '@/lib/people'
+import LandlordCard, { fromPeople } from '@/app/components/LandlordCard';
 
 // All notification categories available to landlords
 const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
@@ -388,30 +389,14 @@ export default function LandlordsPage() {
                 <div key={landlord.id} className={`rounded-2xl border bg-white transition-all ${isOpen ? 'border-neutral-900 shadow-md' : 'border-neutral-200 hover:border-neutral-300'}`}>
                   {/* Card header — always visible */}
                   <button
-                    className="w-full text-left p-lg"
+                    className="w-full text-left"
                     onClick={() => setSelectedLandlord(isOpen ? null : landlord)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-md flex-wrap">
-                          <h3 className="text-lg font-bold text-neutral-900">{displayName(landlord) || landlord.email}</h3>
-                          <span className={`text-xs font-semibold px-sm py-xs rounded-full ${aml.colour}`}>
-                            {aml.label}
-                          </span>
-                          {/* App registration badge */}
-                          <span className={`text-xs font-semibold px-sm py-xs rounded-full ${isRegistered ? 'text-blue-700 bg-blue-100' : 'text-neutral-400 bg-neutral-100'}`}>
-                            {isRegistered ? '📱 App active' : '📱 Not on app'}
-                          </span>
-                          {/* Comms status */}
-                          {landlord.landlord_comms_enabled && (
-                            <span className="text-xs font-semibold px-sm py-xs rounded-full text-emerald-700 bg-emerald-100">
-                              🔔 Notifications on
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-neutral-500 mt-xs">{landlord.email}</p>
+                    <div className="flex items-center">
+                      <div className="flex-1 min-w-0">
+                        <LandlordCard compact data={fromPeople(landlord)} />
                       </div>
-                      <div className="flex items-center gap-sm">
+                      <div className="flex items-center gap-sm px-lg flex-shrink-0">
                         <a
                           href={`/admin/landlord/${landlord.id}`}
                           onClick={e => e.stopPropagation()}
