@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
@@ -12,26 +12,40 @@ const supabase = createClient(
 
 export default function InviteToApplyPage() {
   const [viewings, setViewings] = useState<any[]>([])
+  const [properties, setProperties] = useState<any[]>([])
+  const [rooms, setRooms] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<any | null>(null)
   const [manualMode, setManualMode] = useState(false)
-  const [manual, setManual] = useState({ name: '', email: '', phone: '', roomLabel: '', address: '' })
+  const [manual, setManual] = useState({ name: '', email: '', phone: '', property_id: '', room_id: '' })
   const [method, setMethod] = useState<'email' | 'sms' | 'both'>('email')
   const [mode, setMode] = useState<'apply' | 'reserve'>('apply')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<any | null>(null)
   const [copied, setCopied] = useState(false)
 
+  // Rooms filtered to the selected property in manual mode
+  const filteredRooms = useMemo(
+    () => manual.property_id ? rooms.filter(r => r.property_id === manual.property_id) : [],
+    [manual.property_id, rooms]
+  )
+
   useEffect(() => {
     const load = async () => {
       const since = new Date()
       since.setDate(since.getDate() - 60)
-      const { data } = await supabase
-        .from('viewings')
-        .select('id, visitor_name, visitor_email, visitor_phone, viewing_date, viewing_slot, room_id, property_id, rooms(name), properties(name, address)')
-        .gte('viewing_date', since.toISOString().split('T')[0])
-        .order('viewing_date', { ascending: false })
-      setViewings(data || [])
+      const [viewingsRes, propertiesRes, roomsRes] = await Promise.all([
+        supabase
+          .from('viewings')
+          .select('id, visitor_name, visitor_email, visitor_phone, viewing_date, viewing_slot, room_id, property_id, rooms(name), properties(name, address)')
+          .gte('viewing_date', since.toISOString().split('T')[0])
+          .order('viewing_date', { ascending: false }),
+        supabase.from('properties').select('id, name, address').order('name'),
+        supabase.from('rooms').select('id, name, property_id').order('name'),
+      ])
+      setViewings(viewingsRes.data || [])
+      setProperties(propertiesRes.data || [])
+      setRooms(roomsRes.data || [])
       setLoading(false)
     }
     load()
@@ -53,7 +67,7 @@ export default function InviteToApplyPage() {
   const contactPhone = manualMode ? manual.phone : selected?.visitor_phone
 
   const canSend = manualMode
-    ? manual.name.trim() && (manual.email.trim() || manual.phone.trim())
+    ? manual.name.trim() && manual.room_id && (manual.email.trim() || manual.phone.trim())
     : !!selected
 
   const send = async () => {
@@ -62,7 +76,7 @@ export default function InviteToApplyPage() {
     setResult(null)
 
     const body = manualMode
-      ? { manual: { name: manual.name, email: manual.email, phone: manual.phone, roomLabel: manual.roomLabel, address: manual.address }, method, mode }
+      ? { manual: { name: manual.name, email: manual.email, phone: manual.phone, room_id: manual.room_id, property_id: manual.property_id }, method, mode }
       : { viewingId: selected.id, method, mode }
 
     const res = await fetch('/api/lettings/invite-to-apply', {
@@ -192,27 +206,37 @@ export default function InviteToApplyPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-neutral-600 block mb-xs">Room (optional)</label>
-                  <input
-                    type="text"
-                    value={manual.roomLabel}
-                    onChange={e => setManual(m => ({ ...m, roomLabel: e.target.value }))}
-                    placeholder="e.g. Room 3"
+                  <label className="text-xs font-medium text-neutral-600 block mb-xs">Property *</label>
+                  <select
+                    value={manual.property_id}
+                    onChange={e => setManual(m => ({ ...m, property_id: e.target.value, room_id: '' }))}
                     className="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
-                  />
+                  >
+                    <option value="">Select property…</option>
+                    {properties.map(p => (
+                      <option key={p.id} value={p.id}>{p.name || p.address}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-neutral-600 block mb-xs">Property address (optional)</label>
-                <input
-                  type="text"
-                  value={manual.address}
-                  onChange={e => setManual(m => ({ ...m, address: e.target.value }))}
-                  placeholder="e.g. 4 Willis Road, London, E15 3HH"
-                  className="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
-                />
+                <label className="text-xs font-medium text-neutral-600 block mb-xs">
+                  Room *
+                  {!manual.property_id && <span className="text-neutral-400 ml-xs font-normal">(select a property first)</span>}
+                </label>
+                <select
+                  value={manual.room_id}
+                  onChange={e => setManual(m => ({ ...m, room_id: e.target.value }))}
+                  disabled={!manual.property_id}
+                  className="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select room…</option>
+                  {filteredRooms.map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
               </div>
-              <p className="text-xs text-neutral-400">* At least name + email or phone required</p>
+              <p className="text-xs text-neutral-400">* Name, room, and at least email or phone are required</p>
             </div>
           )}
         </div>
