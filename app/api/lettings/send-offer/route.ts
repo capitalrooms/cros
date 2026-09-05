@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase'
 import { buildOfferLetterEmail, buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { randomBytes } from 'crypto'
 
+const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+const FROM = 'Capital Rooms <noreply@capitalrooms.co.uk>'
+
 export async function POST(request: Request) {
   const supabase = createClient()
 
@@ -104,16 +107,42 @@ export async function POST(request: Request) {
       })
     }
 
-    console.log(`[EMAIL] Sending ${data.requestDeposit ? 'Search is Over' : 'Offer Letter'} to ${data.applicantEmail}`)
-    console.log(`[EMAIL] Applicant: ${data.applicantName || 'N/A'}`)
-    console.log(`[EMAIL] Room: ${selectedRoomData?.name}, Rent: £${data.advertisedRent}`)
-    if (data.requestDeposit) {
-      console.log(`[EMAIL] Holding deposit: £${holdingDeposit.toFixed(2)}`)
+    // Send via Resend
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      console.error('[send-offer] RESEND_API_KEY not set — email not sent')
+      return Response.json(
+        { error: 'Email service not configured (RESEND_API_KEY missing)' },
+        { status: 500 }
+      )
     }
 
-    // TODO: Integrate with email service (Resend, SendGrid, etc.)
-    // For now, just log the HTML. In production, send via email API.
-    // console.log('[EMAIL HTML]', emailHtml.substring(0, 200) + '...')
+    const subject = data.requestDeposit
+      ? `THE SEARCH IS OVER! — ${selectedRoomData?.name || 'your room'}${selectedProperty?.address ? `, ${selectedProperty.address}` : ''}`
+      : `Your application for ${selectedRoomData?.name || 'a room'}${selectedProperty?.address ? ` at ${selectedProperty.address}` : ''}`
+
+    const emailRes = await fetch(RESEND_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM,
+        to: [data.applicantEmail],
+        subject,
+        html: emailHtml,
+      }),
+    })
+
+    if (!emailRes.ok) {
+      const err = await emailRes.json().catch(() => ({}))
+      console.error('[send-offer] Resend error:', err)
+      return Response.json(
+        { error: `Email failed to send: ${(err as any)?.message || emailRes.statusText}` },
+        { status: 502 }
+      )
+    }
 
     return Response.json(
       {

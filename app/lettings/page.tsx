@@ -193,6 +193,10 @@ export default function LettingsPage() {
       setViewingBanner('A date and room are required')
       return
     }
+    if (!viewingForm.visitor_name.trim()) {
+      setViewingBanner('Visitor name is required — needed for the invite-to-apply flow')
+      return
+    }
     setSavingViewing(true)
     try {
       const room = bookingRooms.find(r => r.id === viewingForm.room_id)
@@ -732,12 +736,13 @@ export default function LettingsPage() {
               {/* Visitor details */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
                 <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">Visitor name</label>
+                  <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">Visitor name <span className="text-red-500 normal-case">*</span></label>
                   <input
                     type="text"
                     value={viewingForm.visitor_name}
                     onChange={(e) => setViewingForm(f => ({ ...f, visitor_name: e.target.value }))}
                     placeholder="Jane Smith"
+                    required
                     className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
                   />
                 </div>
