@@ -32,7 +32,6 @@ export async function POST(request: Request) {
       moveOutDate,
       noticeReceivedDate,
       rentDueDay,
-      newAskingRent,
       emailTenant,
       tenantEmail,
       tenantName,
@@ -47,7 +46,7 @@ export async function POST(request: Request) {
       propertyAddress,
       proRataAmount,
       proRataDays,
-      daysInMonth,
+      dailyRate,
       monthlyRent,
     } = data
 
@@ -70,9 +69,8 @@ export async function POST(request: Request) {
 
     if (tenancyError) { console.error('Error updating tenancy:', tenancyError); throw tenancyError }
 
-    // 2. Update room status + optional new asking rent
+    // 2. Update room status
     const roomUpdate: Record<string, unknown> = { status: 'on_notice' }
-    if (newAskingRent) roomUpdate.current_asking_rent = newAskingRent
 
     const { error: roomError } = await supabase
       .from('rooms')
@@ -153,9 +151,8 @@ export async function POST(request: Request) {
           rentDueDay,
           proRataAmount,
           proRataDays,
-          daysInMonth,
+          dailyRate,
           monthlyRent,
-          newAskingRent,
           emailsSent: { tenant: tenantEmailSent, cleaner: cleanerEmailSent },
         },
       }])
