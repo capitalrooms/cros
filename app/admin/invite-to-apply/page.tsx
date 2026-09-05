@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
@@ -23,6 +23,7 @@ export default function InviteToApplyPage() {
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<any | null>(null)
   const [copied, setCopied] = useState(false)
+  const resultRef = useRef<HTMLDivElement>(null)
 
   // Rooms filtered to the selected property in manual mode
   const filteredRooms = useMemo(
@@ -93,6 +94,11 @@ export default function InviteToApplyPage() {
       setSending(false)
     }
   }
+
+  // Scroll result into view whenever it updates
+  useEffect(() => {
+    if (result) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [result])
 
   const copyLink = async () => {
     if (!result?.link) return
@@ -315,42 +321,45 @@ export default function InviteToApplyPage() {
             >
               {sending ? 'Sending…' : 'Send Invitation'}
             </button>
-          </div>
-        )}
 
-        {/* Result */}
-        {result && (
-          <div className="bg-white rounded-xl border border-neutral-200 p-lg space-y-sm">
-            {result.emailSent && (
-              <div className="flex items-center gap-sm text-green-700 text-sm font-medium">
-                <span>✓</span> Email sent to {contactEmail}
-              </div>
-            )}
-            {result.emailError && (
-              <div className="text-amber-700 text-sm">⚠ Email: {result.emailError}</div>
-            )}
-            {result.smsSent && (
-              <div className="flex items-center gap-sm text-green-700 text-sm font-medium">
-                <span>✓</span> SMS sent to {contactPhone}
-              </div>
-            )}
-            {result.smsError && (
-              <div className="text-amber-700 text-sm">⚠ SMS: {result.smsError}</div>
-            )}
-            {result.link && (
-              <div className="mt-sm">
-                <p className="text-xs text-neutral-500 mb-xs">Link (copy to share manually):</p>
-                <div className="flex items-center gap-sm">
-                  <p className="text-xs text-neutral-600 bg-neutral-50 px-sm py-xs rounded border border-neutral-200 flex-1 break-all">
-                    {result.link}
-                  </p>
-                  <button
-                    onClick={copyLink}
-                    className="shrink-0 text-xs font-medium bg-neutral-900 text-white px-sm py-xs rounded hover:bg-neutral-800 transition-colors"
-                  >
-                    {copied ? 'Copied!' : 'Copy'}
-                  </button>
-                </div>
+            {/* Result — inline, right under the button */}
+            {result && (
+              <div ref={resultRef} className="mt-md rounded-lg border border-neutral-200 bg-neutral-50 p-md space-y-sm">
+                {result.emailSent && (
+                  <div className="flex items-center gap-sm text-green-700 text-sm font-semibold">
+                    <span>✓</span> Email sent to {contactEmail}
+                  </div>
+                )}
+                {result.emailError && (
+                  <div className="text-amber-700 text-sm font-medium">⚠ Email: {result.emailError}</div>
+                )}
+                {result.smsSent && (
+                  <div className="flex items-center gap-sm text-green-700 text-sm font-semibold">
+                    <span>✓</span> SMS sent to {contactPhone}
+                  </div>
+                )}
+                {result.smsError && (
+                  <div className="text-amber-700 text-sm font-medium">⚠ SMS: {result.smsError}</div>
+                )}
+                {!result.emailSent && !result.emailError && !result.smsSent && !result.smsError && !result.link && (
+                  <div className="text-neutral-500 text-sm">No result returned — try again or check network tab.</div>
+                )}
+                {result.link && (
+                  <div className="pt-xs border-t border-neutral-200">
+                    <p className="text-xs text-neutral-500 mb-xs">Application link (copy to share manually):</p>
+                    <div className="flex items-center gap-sm">
+                      <p className="text-xs text-neutral-600 bg-white px-sm py-xs rounded border border-neutral-200 flex-1 break-all">
+                        {result.link}
+                      </p>
+                      <button
+                        onClick={copyLink}
+                        className="shrink-0 text-xs font-medium bg-neutral-900 text-white px-sm py-xs rounded hover:bg-neutral-800 transition-colors"
+                      >
+                        {copied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
