@@ -108,15 +108,43 @@ export async function POST(request: NextRequest) {
   let viewingRow: any = null
 
   if (manual) {
-    roomLabel     = manual.roomLabel || ''
-    propAddress   = manual.address   || ''
-    propCode      = null
-    monthly       = null
-    weekly        = null
-    visitorName   = manual.name  || 'there'
-    firstName     = visitorName.split(' ')[0]
-    visitorEmail  = manual.email || null
-    visitorPhone  = manual.phone || null
+    visitorName  = manual.name  || 'there'
+    firstName    = visitorName.split(' ')[0]
+    visitorEmail = manual.email || null
+    visitorPhone = manual.phone || null
+
+    // If a real room_id was supplied, look it up for accurate room/property details
+    if (manual.room_id) {
+      roomId     = manual.room_id
+      propertyId = manual.property_id || null
+      const { data: roomRow } = await supabase
+        .from('rooms')
+        .select('id, name, current_asking_rent, property_id, properties(name, address, property_code)')
+        .eq('id', manual.room_id)
+        .single()
+      if (roomRow) {
+        roomLabel  = roomRow.name || ''
+        const prop = (roomRow.properties as any)
+        propAddress = prop?.address || prop?.name || ''
+        propCode    = prop?.property_code || null
+        monthly     = roomRow.current_asking_rent || null
+        weekly      = monthly ? weeklyRent(monthly) : null
+        if (!propertyId) propertyId = roomRow.property_id
+      } else {
+        roomLabel   = ''
+        propAddress = ''
+        propCode    = null
+        monthly     = null
+        weekly      = null
+      }
+    } else {
+      // No room selected — fallback to blank labels (apply URL will be generic)
+      roomLabel   = ''
+      propAddress = ''
+      propCode    = null
+      monthly     = null
+      weekly      = null
+    }
   } else {
     const { data: viewing, error } = await supabase
       .from('viewings')
