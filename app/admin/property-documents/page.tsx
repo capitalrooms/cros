@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface Property {
   id: string
   name: string
@@ -38,7 +38,7 @@ export default function PropertyDocumentsPage() {
         .from('properties')
         .select('id, name, address')
         .order('name')
-      setProperties(data || [])
+      setProperties(sortPropertiesNumerically(data || []))
       setLoading(false)
     }
     loadProperties()

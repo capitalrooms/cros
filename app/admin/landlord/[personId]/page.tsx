@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromPeople, LandlordCardData, LandlordProperty } from '@/app/components/LandlordCard'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const STAGES: Record<number, string> = {
@@ -122,7 +122,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
         .from('properties')
         .select('id, name, address, management_fee_pct, property_type, cc_emails')
         .eq('landlord_id', personId).order('name')
-      setProperties(props || [])
+      setProperties(sortPropertiesNumerically(props || []))
 
       // Load ALL AML / onboarding records — newest first
       const { data: records } = await supabase

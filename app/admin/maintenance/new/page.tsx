@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 const MAINTENANCE_CATEGORIES = [
   { id: 'plumbing', title: 'Plumbing' },
   { id: 'electrical', title: 'Electrical' },
@@ -62,7 +62,7 @@ export default function NewJobPage() {
 
       const supabase = createClient();
       const { data: props } = await supabase.from('properties').select('*').order('name');
-      setProperties(props || []);
+      setProperties(sortPropertiesNumerically(props || []));
       const { data: cons } = await supabase
         .from('people')
         .select('id, full_name, first_name, last_name, email')

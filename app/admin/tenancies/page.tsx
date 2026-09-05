@@ -8,7 +8,8 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
-import TenantCardBody from '@/app/components/TenantCardBody';
+import TenantCardBody from '@/app/components/TenantCardBody'
+import { sortPropertiesNumerically } from '@/lib/sortProperties';
 
 interface Property {
   id: string;
@@ -118,7 +119,7 @@ export default function TenanciesManagementPage() {
       )
       .order('start_date', { ascending: false });
 
-    setProperties(propsData || []);
+    setProperties(sortPropertiesNumerically(propsData || []));
     setRooms(roomsData || []);
     setTenancies((tenanciesData as any[]) || []);
     setLoading(false);

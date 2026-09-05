@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface AdminAddAppointmentModalProps {
   isOpen: boolean
   onClose: () => void
@@ -125,7 +125,7 @@ export default function AdminAddAppointmentModal({
     setMessageCustomised(false)
     const supabase = createClient()
     const { data } = await supabase.from('properties').select('id, name').order('name')
-    setProperties(data || [])
+    setProperties(sortPropertiesNumerically(data || []))
     setStep('details')
   }
 

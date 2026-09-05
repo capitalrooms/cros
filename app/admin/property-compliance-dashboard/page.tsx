@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface PropertyComplianceData {
   property_id: string;
   property_name: string;
@@ -72,7 +72,7 @@ export default function PropertyComplianceDashboard() {
         .select('*')
         .order('property_name');
 
-      setProperties((propertySummary as any) || []);
+      setProperties(sortPropertiesNumerically((propertySummary as any) || []));
       setLoading(false);
     } catch (error) {
       console.error('Failed to load compliance data:', error);

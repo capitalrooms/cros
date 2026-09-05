@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 type Tab = 'certificates' | 'safety-checks' | 'dashboard'
 
 interface Property {
@@ -124,7 +124,7 @@ export default function CompliancePage() {
       }
 
       const { data: propsData } = await supabase.from('properties').select('*').order('name')
-      setProperties(propsData || [])
+      setProperties(sortPropertiesNumerically(propsData || []))
 
       // Load safety checks
       const { data: checksData } = await supabase

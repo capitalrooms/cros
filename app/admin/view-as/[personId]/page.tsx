@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { displayName } from '@/lib/people'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface Person {
   id: string
   first_name: string | null
@@ -101,7 +101,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
           .from('properties')
           .select('id, name, address, landlord_id')
           .eq('landlord_id', personId)
-        setProperties((pr || []) as PropertyRecord[])
+        setProperties(sortPropertiesNumerically(pr || []) as PropertyRecord[])
       }
       setLoading(false)
     }

@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { ValuationData, ValuationType, PriceRow, RefurbItem } from '@/lib/valuations/ValuationDocument'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const VALUATION_TYPES: { value: ValuationType; label: string; desc: string }[] = [
@@ -133,7 +133,7 @@ export default function ValuationsPage() {
       }
       const supabase = createClient()
       const { data } = await supabase.from('properties').select('id, name, address').order('name')
-      setProperties(data ?? [])
+      setProperties(sortPropertiesNumerically(data ?? []))
       setPreparedBy(displayName(user.person) ?? '')
       setLoading(false)
       fetchHistory()

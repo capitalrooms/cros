@@ -8,7 +8,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
 import Link from 'next/link';
 import { AcknowledgmentNoteSchema, validateInput } from '@/lib/validation-schemas';
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface AcknowledgmentNote {
   id: string;
   title: string;
@@ -76,7 +76,7 @@ export default function AcknowledgmentNotesPage() {
         .select('id, name, address')
         .order('name');
 
-      setProperties(propsData || []);
+      setProperties(sortPropertiesNumerically(propsData || []));
       if (propsData?.[0]) {
         setSelectedProperty(propsData[0].id);
         await loadRoomsAndTenancies(propsData[0].id);

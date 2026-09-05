@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import AddressAutocomplete from '@/components/admin/AddressAutocomplete';
 import DocReview, { AIResult } from '@/app/components/DocReview';
+import { sortPropertiesNumerically } from '@/lib/sortProperties';
 import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal';
 import PropertyHeader from '@/app/components/PropertyHeader';
 
@@ -215,12 +216,8 @@ export default function PropertiesManagementPage() {
       rooms: roomsWithTenants.filter((r: any) => r.property_id === prop.id),
     }));
 
-    // Natural numeric sort: "1 St Georges" < "4 Willis" < "8 Clement" < "13 Redstart" < "315 Eden"
-    propsWithRooms.sort((a: any, b: any) =>
-      (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' })
-    );
-
-    setProperties(propsWithRooms);
+    // Natural numeric sort: "1 St Georges" < "4 Willis" < "8 Clement" < "13 Redstart" < "208 Rotherhithe"
+    setProperties(sortPropertiesNumerically(propsWithRooms));
     setLoading(false);
   }
 

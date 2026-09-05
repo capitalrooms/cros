@@ -9,6 +9,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import EditPersonModal from '../components/EditPersonModal'
 import { displayName, nameFields } from '@/lib/people'
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 type Tab = 'tenants' | 'staff' | 'landlords' | 'administrators'
 
@@ -157,7 +158,7 @@ export default function PeopleManagement() {
         p.rooms.sort((a, b) => roomNum(a.name) - roomNum(b.name) || a.name.localeCompare(b.name))
       )
 
-      setProperties(Object.values(propMap).sort((a, b) => a.name.localeCompare(b.name)))
+      setProperties(sortPropertiesNumerically(Object.values(propMap)))
 
       // Load landlords
       const { data: landlordData } = await supabase

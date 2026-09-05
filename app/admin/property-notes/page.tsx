@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface Property {
   id: string
   name: string
@@ -84,7 +84,7 @@ export default function PropertyNotesPage() {
         .eq('is_active', true)
         .order('sort_order')
 
-      setProperties(props || [])
+      setProperties(sortPropertiesNumerically(props || []))
       setRooms(rms || [])
       setTaskTemplates(tasks || [])
       if (props?.[0]) {

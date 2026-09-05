@@ -8,6 +8,7 @@ import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 interface Property {
   id: string
@@ -37,7 +38,7 @@ export default function QuickNotifyPage() {
         .order('address')
 
       if (!error && data) {
-        setProperties(data)
+        setProperties(sortPropertiesNumerically(data))
       }
       setLoading(false)
     }
