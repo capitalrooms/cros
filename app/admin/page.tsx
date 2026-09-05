@@ -294,6 +294,15 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
+            {/* Applicants */}
+            <Link href="/admin/applicants" className="group">
+              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
+                <div className="text-2xl mb-md">📋</div>
+                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Applicants</h3>
+                <p className="text-xs text-neutral-600">Track applicants from invite through to tenant conversion</p>
+              </div>
+            </Link>
+
             {/* Invite to Apply */}
             <Link href="/admin/invite-to-apply" className="group">
               <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
