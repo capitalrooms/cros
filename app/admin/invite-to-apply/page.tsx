@@ -38,11 +38,11 @@ export default function InviteToApplyPage() {
       const [viewingsRes, propertiesRes, roomsRes] = await Promise.all([
         supabase
           .from('viewings')
-          .select('id, visitor_name, visitor_email, visitor_phone, viewing_date, viewing_slot, room_id, property_id, rooms(name), properties(name, address)')
+          .select('id, visitor_name, visitor_email, visitor_phone, viewing_date, viewing_slot, room_id, property_id, rooms(name, is_let_only), properties(name, address)')
           .gte('viewing_date', since.toISOString().split('T')[0])
           .order('viewing_date', { ascending: false }),
         supabase.from('properties').select('id, name, address').order('name'),
-        supabase.from('rooms').select('id, name, property_id').order('name'),
+        supabase.from('rooms').select('id, name, property_id, is_let_only, current_asking_rent').order('name'),
       ])
       setViewings(viewingsRes.data || [])
       setProperties(propertiesRes.data || [])
@@ -131,6 +131,7 @@ export default function InviteToApplyPage() {
             <div className="space-y-sm max-h-72 overflow-y-auto pr-xs">
               {viewings.map((v) => {
                 const room = (v.rooms as any)?.name || 'Room'
+                const isLetOnly = (v.rooms as any)?.is_let_only
                 const prop = (v.properties as any)?.address || (v.properties as any)?.name || ''
                 const isSelected = !manualMode && selected?.id === v.id
                 return (
@@ -146,8 +147,9 @@ export default function InviteToApplyPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-semibold text-neutral-900">
+                        <p className="text-sm font-semibold text-neutral-900 flex items-center gap-xs">
                           {v.visitor_name || 'Unknown visitor'}
+                          {isLetOnly && <span className="text-xs bg-purple-100 text-purple-700 px-xs py-0.5 rounded font-medium">Let Only</span>}
                         </p>
                         <p className="text-xs text-neutral-500">
                           {room}{prop ? ` · ${prop}` : ''} · {v.viewing_date}
@@ -197,7 +199,9 @@ export default function InviteToApplyPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-neutral-600 block mb-xs">Email</label>
+                  <label className="text-xs font-medium text-neutral-600 block mb-xs">
+                    Email{(method === 'email' || method === 'both') ? <span className="text-red-500 ml-xs">*</span> : <span className="text-neutral-400 ml-xs font-normal">(for email invite)</span>}
+                  </label>
                   <input
                     type="email"
                     value={manual.email}
@@ -207,7 +211,9 @@ export default function InviteToApplyPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-neutral-600 block mb-xs">Phone</label>
+                  <label className="text-xs font-medium text-neutral-600 block mb-xs">
+                    Phone{(method === 'sms' || method === 'both') ? <span className="text-red-500 ml-xs">*</span> : <span className="text-neutral-400 ml-xs font-normal">(for SMS)</span>}
+                  </label>
                   <input
                     type="tel"
                     value={manual.phone}
@@ -243,7 +249,9 @@ export default function InviteToApplyPage() {
                 >
                   <option value="">Select room…</option>
                   {filteredRooms.map(r => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
+                    <option key={r.id} value={r.id}>
+                      {r.name}{r.is_let_only ? ' — Let Only' : ''}{r.current_asking_rent ? ` (£${r.current_asking_rent}/mo)` : ''}
+                    </option>
                   ))}
                 </select>
               </div>
