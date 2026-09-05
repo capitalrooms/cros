@@ -12,7 +12,7 @@ import EnableNotifications from '@/app/components/EnableNotifications'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
 import UpcomingList, { UpcomingItem } from '@/app/components/UpcomingList'
 import { isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface ComplianceLog {
   id: string
   check_type: 'fire_door' | 'smoke_alarm'
@@ -107,7 +107,7 @@ export default function CleanerDashboard() {
             .from('properties')
             .select('id, name, address, clean_frequency_weeks')
             .order('name')
-          setProperties(props || [])
+          setProperties(sortPropertiesNumerically(props || []))
           if (props?.[0]) {
             setPropertyId(props[0].id)
             await loadComplianceLogs(props[0].id)

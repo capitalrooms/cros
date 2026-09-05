@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface Property {
   id: string
   name: string
@@ -61,7 +61,7 @@ export default function ComplianceLogsPage() {
         .order('name')
       
       if (propsData) {
-        setProperties(propsData)
+        setProperties(sortPropertiesNumerically(propsData))
         setSelectedProperty(propsData[0]?.id || null)
       }
 

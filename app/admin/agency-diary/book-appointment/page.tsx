@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface Property {
   id: string
   name: string
@@ -66,7 +66,7 @@ export default function BookAppointmentPage() {
 
       try {
         const { data: propsData } = await supabase.from('properties').select('id, name, address').order('name')
-        setProperties((propsData as any) || [])
+        setProperties(sortPropertiesNumerically((propsData as any) || []))
         setLoading(false)
       } catch (err) {
         console.error('Error loading properties:', err)

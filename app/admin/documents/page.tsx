@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 const BLANK: AIResult = {
   doc_type: 'other', confidence: 0, summary: '', issue_date: '', expiry_date: '', provider: '',
   policy_number: '', property_address: '', person_name: '', person_phone: '', person_email: '',
@@ -74,7 +74,7 @@ export default function DocumentsPage() {
         .from('tenancies')
         .select('id, start_date, end_date, people(full_name, first_name, last_name), rooms(id, name, property_id, properties(id, name))')
         .order('start_date', { ascending: false })
-      setProperties(props || [])
+      setProperties(sortPropertiesNumerically(props || []))
       setPeople(ppl || [])
       setTenancies((tens as any) || [])
 

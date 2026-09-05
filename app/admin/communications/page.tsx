@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface Msg {
   id: string
   date: string
@@ -55,7 +55,7 @@ export default function CommunicationsHubPage() {
         const json = await res.json()
         setMessages(json.messages || [])
         setTotal(json.total || 0)
-        setProperties(json.properties || [])
+        setProperties(sortPropertiesNumerically(json.properties || []))
       }
       setLoading(false)
     }

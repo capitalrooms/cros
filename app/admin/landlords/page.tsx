@@ -9,7 +9,7 @@ import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import { nameFields, displayName } from '@/lib/people'
 import LandlordCard, { fromPeople } from '@/app/components/LandlordCard';
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 // All notification categories available to landlords
 const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
   { key: 'urgent',               label: '🚨 Urgent issues',            description: 'Emergency maintenance, gas/fire/flood — always on', mandatory: true },
@@ -157,7 +157,7 @@ export default function LandlordsPage() {
         .select('id, name, address, bedrooms')
         .order('name');
 
-      setProperties(propsData || []);
+      setProperties(sortPropertiesNumerically(propsData || []));
       setLoading(false);
     }
     init();

@@ -10,7 +10,7 @@ import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
 import PurchaseReview from '@/app/components/PurchaseReview'
 import InvoiceReview from '@/app/components/InvoiceReview'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 const BLANK: AIResult = {
   doc_type: 'other', confidence: 0, summary: '', issue_date: '', expiry_date: '', provider: '',
   policy_number: '', property_address: '', person_name: '', person_phone: '', person_email: '',
@@ -41,7 +41,7 @@ export default function InboxPage() {
         .from('tenancies')
         .select('id, start_date, end_date, people(full_name, first_name, last_name), rooms(name), properties(name)')
         .order('start_date', { ascending: false })
-      setProperties(props || [])
+      setProperties(sortPropertiesNumerically(props || []))
       setPeople(ppl || [])
       setTenancies((tens as any) || [])
       await loadDocs()

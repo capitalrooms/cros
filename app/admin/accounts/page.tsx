@@ -6,7 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Person {
@@ -354,7 +354,7 @@ export default function AccountsPage() {
         })()),
     ])
 
-    setProperties((propsRes.data as any[]) || [])
+    setProperties(sortPropertiesNumerically((propsRes.data as any[]) || []))
     setCharges((chargesRes.data as any[]) || [])
     setExpenses((expensesRes.data as any[]) || [])
     setLoading(false)

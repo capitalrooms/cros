@@ -7,7 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface Property { id: string; name: string; address: string; management_fee_pct: number | null }
 interface Landlord { id: string; name: string | null; email: string; property_id: string | null }
 interface StatementRow {
@@ -95,7 +95,7 @@ export default function AdminStatementsPage() {
         supabase.from('properties').select('id, name, address, management_fee_pct').order('name'),
         supabase.from('people').select('id, full_name, first_name, last_name, email, property_id').eq('role', 'landlord').order('full_name'),
       ])
-      setProperties((props as any) || [])
+      setProperties(sortPropertiesNumerically((props as any) || []))
       setLandlords((lls as any) || [])
       await loadStatements()
       setLoading(false)

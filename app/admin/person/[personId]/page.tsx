@@ -8,7 +8,7 @@ import { displayName, landlordName } from '@/lib/people'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Person {
@@ -148,7 +148,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
           .from('properties')
           .select('id, name, address, property_code, cc_emails')
           .eq('landlord_id', personId)
-        setProperties((pr || []) as Property[])
+        setProperties(sortPropertiesNumerically(pr || []) as Property[])
 
         const { data: st } = await supabase
           .from('landlord_statements')

@@ -9,7 +9,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 type AppointmentType = 'landlord' | 'lettings' | 'contractor' | 'cleaner' | 'delivery' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 interface Appointment {
@@ -94,7 +94,7 @@ export default function AppointmentsPage() {
       }
 
       const { data: propsData } = await supabase.from('properties').select('id, name, address').order('name')
-      setProperties(propsData || [])
+      setProperties(sortPropertiesNumerically(propsData || []))
 
       // Pre-fill property if passed from URL (e.g., from Properties card quick-book button)
       const propertyId = searchParams.get('property')

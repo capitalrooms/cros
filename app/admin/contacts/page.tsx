@@ -8,7 +8,7 @@ import Link from 'next/link';
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface Contact {
   id: string;
   email: string;
@@ -63,7 +63,7 @@ export default function ContactsPage() {
         .select('id, name')
         .order('name');
 
-      setProperties(propsData || []);
+      setProperties(sortPropertiesNumerically(propsData || []));
       setLoading(false);
     }
     init();

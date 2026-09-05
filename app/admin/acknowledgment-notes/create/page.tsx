@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 export default function CreateAcknowledgmentNotePage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -39,7 +39,7 @@ export default function CreateAcknowledgmentNotePage() {
 
       // Fetch properties
       const { data: propsData } = await supabase.from('properties').select('id, name').order('name')
-      setProperties(propsData || [])
+      setProperties(sortPropertiesNumerically(propsData || []))
 
       setLoading(false)
     }

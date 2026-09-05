@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
-
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 type Tab = 'repairs' | 'cleans'
 
 /**
@@ -44,7 +44,7 @@ export default function HistoryPage() {
         .from('properties')
         .select('id, name, address, clean_frequency_weeks')
         .order('name')
-      setProperties(props || [])
+      setProperties(sortPropertiesNumerically(props || []))
 
       // Tenants only ever see their own property.
       const scopedProperty = a?.role === 'tenant' ? a?.property_id : null
