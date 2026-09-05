@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import TenantCard, { TenantCardTenant, TenantCardTenancy, tenantDisplayName } from '@/app/components/TenantCard'
+import EditPersonModal from '@/app/admin/components/EditPersonModal'
 
 /* ── Types ── */
 
@@ -148,6 +149,7 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
 
   const [inviting, setInviting]   = useState(false)
   const [inviteMsg, setInviteMsg] = useState<string | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
 
   /* Reference import */
   const [uploadedFiles, setUploadedFiles]     = useState<File[]>([])
@@ -391,12 +393,18 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-xl">
             <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-              <div className="px-xl py-lg border-b border-neutral-100">
+              <div className="px-xl py-lg border-b border-neutral-100 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Contact info</p>
+                <button
+                  onClick={() => setIsEditOpen(true)}
+                  className="text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  Edit details
+                </button>
               </div>
               <div className="px-xl py-lg space-y-md text-sm">
                 <div><p className="text-xs text-neutral-400 mb-xs">Email</p><p className="font-semibold text-neutral-900 break-all">{tenant.email}</p></div>
-                <div><p className="text-xs text-neutral-400 mb-xs">Phone</p><p className="font-semibold text-neutral-900">{tenant.phone || '—'}</p></div>
+                <div><p className="text-xs text-neutral-400 mb-xs">Phone</p><p className="font-semibold text-neutral-900">{(tenant as any).phone_number || (tenant as any).phone || '—'}</p></div>
                 {(tenant as any).nationality    && <div><p className="text-xs text-neutral-400 mb-xs">Nationality</p><p className="font-semibold text-neutral-900">{(tenant as any).nationality}</p></div>}
                 {(tenant as any).date_of_birth  && <div><p className="text-xs text-neutral-400 mb-xs">Date of birth</p><p className="font-semibold text-neutral-900">{fmt((tenant as any).date_of_birth)}</p></div>}
                 {(tenant as any).verified_income_annual && <div><p className="text-xs text-neutral-400 mb-xs">Verified income</p><p className="font-semibold text-neutral-900">£{Number((tenant as any).verified_income_annual).toLocaleString()}/yr</p></div>}
@@ -728,6 +736,19 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
         )}
 
       </main>
+
+      {/* Edit tenant details modal */}
+      {tenant && (
+        <EditPersonModal
+          person={tenant as any}
+          isOpen={isEditOpen}
+          onClose={() => setIsEditOpen(false)}
+          onSave={(updated) => {
+            setTenant(prev => prev ? { ...prev, ...updated } as TenantCardTenant : prev)
+            setIsEditOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }

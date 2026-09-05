@@ -26,6 +26,7 @@ export default function ContactsPage() {
   const [properties, setProperties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'contractor' | 'cleaner' | 'landlord'>('all');
+  const [search, setSearch] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -50,7 +51,9 @@ export default function ContactsPage() {
         .from('people')
         .select('*, properties(id, name)')
         .in('role', ['contractor', 'cleaner', 'landlord'])
-        .order('role, email');
+        .order('first_name', { ascending: true })
+        .order('last_name',  { ascending: true })
+        .order('email',      { ascending: true });
 
       setContacts(contactsData || []);
 
@@ -94,7 +97,9 @@ export default function ContactsPage() {
       .from('people')
       .select('*, properties(id, name)')
       .in('role', ['contractor', 'cleaner', 'landlord'])
-      .order('role, email');
+      .order('first_name', { ascending: true })
+      .order('last_name',  { ascending: true })
+      .order('email',      { ascending: true });
     setContacts(contactsData || []);
   }
 
@@ -107,7 +112,17 @@ export default function ContactsPage() {
     setContacts(contacts.filter((c) => c.id !== id));
   }
 
-  const filteredContacts = filter === 'all' ? contacts : contacts.filter((c) => c.role === filter);
+  const filteredContacts = contacts.filter((c) => {
+    if (filter !== 'all' && c.role !== filter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const name = (c.name || c.email || '').toLowerCase();
+      const email = c.email.toLowerCase();
+      const phone = (c.phone || '').toLowerCase();
+      return name.includes(q) || email.includes(q) || phone.includes(q);
+    }
+    return true;
+  });
 
   const getRoleLabel = (role: string) => {
     switch (role) {
@@ -237,21 +252,38 @@ export default function ContactsPage() {
           </div>
         )}
 
+        {/* Search bar */}
+        <div className="mb-md relative">
+          <span className="absolute left-md top-1/2 -translate-y-1/2 text-neutral-400 text-sm pointer-events-none">🔍</span>
+          <input
+            type="text"
+            placeholder="Search by name, email or phone…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-neutral-300 bg-white pl-[2.5rem] pr-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+          />
+        </div>
+
         {/* Filter Buttons */}
         <div className="mb-lg flex gap-sm">
-          {(['all', 'contractor', 'cleaner', 'landlord'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`rounded-xl px-md py-sm text-sm font-semibold transition-all ${
-                filter === f
-                  ? 'bg-neutral-900 text-white'
-                  : 'border border-neutral-300 text-neutral-700 hover:border-neutral-400'
-              }`}
-            >
-              {f === 'all' ? 'All' : getRoleLabel(f)} ({filteredContacts.length})
-            </button>
-          ))}
+          {(['all', 'contractor', 'cleaner', 'landlord'] as const).map((f) => {
+            const count = f === 'all'
+              ? contacts.length
+              : contacts.filter(c => c.role === f).length;
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`rounded-xl px-md py-sm text-sm font-semibold transition-all ${
+                  filter === f
+                    ? 'bg-neutral-900 text-white'
+                    : 'border border-neutral-300 text-neutral-700 hover:border-neutral-400'
+                }`}
+              >
+                {f === 'all' ? 'All' : getRoleLabel(f)} ({count})
+              </button>
+            );
+          })}
         </div>
 
         {/* Contacts List — table layout matching All Units for row clarity */}
