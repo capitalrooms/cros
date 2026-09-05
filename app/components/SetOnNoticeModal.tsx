@@ -24,7 +24,6 @@ export interface OnNoticeData {
   moveOutDate: string
   noticeReceivedDate: string
   rentDueDay: number
-  newAskingRent: number | null
   emailTenant: boolean
   emailCleaner: boolean
   cleanerId?: string
@@ -32,7 +31,7 @@ export interface OnNoticeData {
   checkoutEmailHtml?: string
   proRataAmount: number
   proRataDays: number
-  daysInMonth: number
+  dailyRate: number
 }
 
 interface Props {
@@ -43,16 +42,17 @@ interface Props {
 }
 
 // ─── Pro-rata calculation ───────────────────────────────────────────────────
-// Calculates from the last rent-due date (based on rent_due_day) up to
-// move-out date. This is what the tenant actually owes for their final
-// partial rent period.
+// Calculates from the last rent-due date (based on rent_due_day) up to and
+// including the move-out date. Formula: rent × 12 / 365 × days.
+// This gives a consistent daily rate regardless of how many days are in the
+// calendar month (e.g. 1 Aug → 31 Aug = 31 days = 31 × daily rate).
 function calcProRata(
   monthlyRent: number,
   rentDueDay: number,
   moveOutDate: string
-): { proRataAmount: number; daysOccupied: number; daysInMonth: number; lastDueDate: Date } {
+): { proRataAmount: number; daysOccupied: number; dailyRate: number; lastDueDate: Date } {
   if (!monthlyRent || monthlyRent <= 0 || !moveOutDate) {
-    return { proRataAmount: 0, daysOccupied: 0, daysInMonth: 30, lastDueDate: new Date() }
+    return { proRataAmount: 0, daysOccupied: 0, dailyRate: 0, lastDueDate: new Date() }
   }
 
   const moveOut = new Date(moveOutDate + 'T12:00:00')
@@ -71,13 +71,14 @@ function calcProRata(
   }
 
   const lastDueDate = new Date(year, month, dueDay, 12, 0, 0)
+  // +1: count both start and end dates (1st to 31st inclusive = 31 days, not 30)
   const daysOccupied = Math.round(
     (moveOut.getTime() - lastDueDate.getTime()) / (1000 * 60 * 60 * 24)
-  )
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const proRataAmount = Math.max(0, (monthlyRent / daysInMonth) * daysOccupied)
+  ) + 1
+  const dailyRate = monthlyRent * 12 / 365
+  const proRataAmount = Math.max(0, dailyRate * daysOccupied)
 
-  return { proRataAmount, daysOccupied, daysInMonth, lastDueDate }
+  return { proRataAmount, daysOccupied, dailyRate, lastDueDate }
 }
 
 export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm }: Props) {
@@ -87,7 +88,6 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
   const [moveOutDate, setMoveOutDate]           = useState('')
   const [noticeReceivedDate, setNoticeReceivedDate] = useState(today)
   const [rentDueDay, setRentDueDay]             = useState<number>(tenancy?.rent_due_day ?? 1)
-  const [newAskingRent, setNewAskingRent]       = useState<number | null>(null)
   const [emailTenant, setEmailTenant]           = useState(true)
   const [emailCleaner, setEmailCleaner]         = useState(false)
   const [selectedCleanerId, setSelectedCleanerId] = useState('')
@@ -111,9 +111,9 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
         moveOutDate,
         lastRentAmount:     tenancy.rent_amount,
         proRataRent:        proRata.proRataAmount,
-        proRataCalculation: `${proRata.daysOccupied} days of ${proRata.daysInMonth} (rent due day: ${rentDueDay})`,
-        contactEmail: 'admin@capitalrooms.co.uk',
-        contactPhone: '+44 (0)20 XXXX XXXX',
+        proRataCalculation: `${proRata.daysOccupied} days × £${proRata.dailyRate.toFixed(2)}/day`,
+        contactEmail: 'management@capitalrooms.co.uk',
+        contactPhone: '0207 112 9163',
       })
     : null
 
@@ -134,7 +134,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
         checkoutEmailHtml: emailTenant ? checkoutEmailHtml || undefined : undefined,
         proRataAmount:  proRata?.proRataAmount ?? 0,
         proRataDays:    proRata?.daysOccupied ?? 0,
-        daysInMonth:    proRata?.daysInMonth ?? 30,
+        dailyRate:      proRata?.dailyRate ?? 0,
       })
       onClose()
     } catch (err) {
@@ -211,29 +211,12 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
           </div>
           {proRata && moveOutDate && (
             <p className="text-xs text-neutral-500 mt-xs">
-              Last rent period: {fmt(proRata.lastDueDate.toISOString().split('T')[0])} → {fmt(moveOutDate)}
-              {' '}= <strong>{proRata.daysOccupied} of {proRata.daysInMonth} days</strong>
-              {' '}→ £{proRata.proRataAmount.toFixed(2)}
+              Final rent period: {fmt(proRata.lastDueDate.toISOString().split('T')[0])} → {fmt(moveOutDate)}
+              {' '}= <strong>{proRata.daysOccupied} days</strong>
+              {' '}× £{proRata.dailyRate.toFixed(2)}/day (£{tenancy.rent_amount} × 12 ÷ 365)
+              {' '}= <strong>£{proRata.proRataAmount.toFixed(2)}</strong>
             </p>
           )}
-        </div>
-
-        {/* New asking rent */}
-        <div>
-          <label className="block text-sm font-semibold text-neutral-900 mb-xs">
-            New asking rent (optional)
-          </label>
-          <div className="flex items-center gap-sm">
-            <span className="text-neutral-600">£</span>
-            <input
-              type="number"
-              value={newAskingRent ?? ''}
-              onChange={e => setNewAskingRent(e.target.value ? Number(e.target.value) : null)}
-              placeholder="e.g. 850"
-              className="flex-1 rounded-lg border border-neutral-300 px-md py-sm text-sm"
-            />
-            <span className="text-neutral-600">/month</span>
-          </div>
         </div>
 
         {/* Notifications */}
@@ -345,8 +328,12 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
                 <td className="py-xs">{fmt(moveOutDate)}</td>
               </tr>
               <tr>
-                <td className="py-xs text-neutral-500">Days in rent period</td>
-                <td className="py-xs">{proRata.daysOccupied} of {proRata.daysInMonth}</td>
+                <td className="py-xs text-neutral-500">Daily rate</td>
+                <td className="py-xs">£{tenancy.rent_amount} × 12 ÷ 365 = £{proRata.dailyRate.toFixed(2)}/day</td>
+              </tr>
+              <tr>
+                <td className="py-xs text-neutral-500">Days in final period</td>
+                <td className="py-xs">{proRata.daysOccupied} days (inclusive)</td>
               </tr>
               <tr className="border-t border-neutral-200">
                 <td className="pt-md text-neutral-900 font-bold">Final rent due</td>
@@ -358,7 +345,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
           </table>
 
           <p className="text-xs text-neutral-400 mt-sm">
-            Formula: (£{tenancy.rent_amount} ÷ {proRata.daysInMonth} days) × {proRata.daysOccupied} days
+            £{tenancy.rent_amount} × 12 ÷ 365 × {proRata.daysOccupied} days
             = £{proRata.proRataAmount.toFixed(2)}
           </p>
         </div>
