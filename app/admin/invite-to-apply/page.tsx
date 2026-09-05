@@ -79,14 +79,19 @@ export default function InviteToApplyPage() {
       ? { manual: { name: manual.name, email: manual.email, phone: manual.phone, room_id: manual.room_id, property_id: manual.property_id }, method, mode }
       : { viewingId: selected.id, method, mode }
 
-    const res = await fetch('/api/lettings/invite-to-apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const data = await res.json()
-    setResult(data)
-    setSending(false)
+    try {
+      const res = await fetch('/api/lettings/invite-to-apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      setResult(data)
+    } catch (err) {
+      setResult({ emailError: 'Network error — please try again', smsError: null })
+    } finally {
+      setSending(false)
+    }
   }
 
   const copyLink = async () => {

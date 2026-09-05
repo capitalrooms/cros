@@ -270,13 +270,18 @@ export default function LettingsPage() {
     if (!inviteViewing) return
     setInviteSending(true)
     setInviteResult(null)
-    const res = await fetch('/api/lettings/invite-to-apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ viewingId: inviteViewing.id, method: inviteMethod }),
-    })
-    setInviteResult(await res.json())
-    setInviteSending(false)
+    try {
+      const res = await fetch('/api/lettings/invite-to-apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ viewingId: inviteViewing.id, method: inviteMethod }),
+      })
+      setInviteResult(await res.json())
+    } catch {
+      setInviteResult({ emailError: 'Network error — please try again' })
+    } finally {
+      setInviteSending(false)
+    }
   }
 
   const formatDate = (dateString: string | null) => {
