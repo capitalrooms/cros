@@ -342,7 +342,9 @@ export default function InviteToApplyPage() {
                   <div className="text-amber-700 text-sm font-medium">⚠ SMS: {result.smsError}</div>
                 )}
                 {!result.emailSent && !result.emailError && !result.smsSent && !result.smsError && !result.link && (
-                  <div className="text-neutral-500 text-sm">No result returned — try again or check network tab.</div>
+                  <div className="text-red-700 text-sm font-medium bg-red-50 border border-red-200 rounded-lg px-md py-sm">
+                    {result.error ? `Error: ${result.error}` : `Unexpected response: ${JSON.stringify(result)}`}
+                  </div>
                 )}
                 {result.link && (
                   <div className="pt-xs border-t border-neutral-200">
