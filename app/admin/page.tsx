@@ -15,6 +15,85 @@ import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
 import AdminAddAppointmentModal from '@/app/components/AdminAddAppointmentModal'
 import AdminNotificationBell from '@/app/components/AdminNotificationBell'
 
+// ── Dashboard tile groups ──────────────────────────────────────────────────────
+// Tiles within each group are listed alphabetically; the sort below enforces it
+// dynamically so any future addition lands in the right position automatically.
+interface DashTile { emoji: string; name: string; desc: string; href: string }
+interface DashGroup { id: string; emoji: string; name: string; summary: string; tiles: DashTile[] }
+
+const DASH_GROUPS: DashGroup[] = [
+  {
+    id: 'financials',
+    emoji: '💰',
+    name: 'Financials',
+    summary: 'Accounts, expenses, fees, and imported statements',
+    tiles: [
+      { emoji: '🏦', name: 'Agency Accounts',   desc: 'Rent ledger, landlord remittance, fee income, and arrears',             href: '/admin/accounts' },
+      { emoji: '⚡', name: 'AutoLedger',         desc: 'BCC statements@ to auto-import expenses from email',                    href: '/admin/autoledger' },
+      { emoji: '🏷️', name: 'Expense Review',    desc: 'Categorise unmatched landlord expense lines',                           href: '/admin/expense-review' },
+      { emoji: '💵', name: 'Fee Income',          desc: 'Monthly management fee dashboard with YoY comparison',                  href: '/admin/income' },
+      { emoji: '📥', name: 'Import Statements',  desc: 'Bulk import historical statements from accounting software',            href: '/admin/statements/import' },
+    ],
+  },
+  {
+    id: 'lettings',
+    emoji: '🔑',
+    name: 'Lettings Pipeline',
+    summary: 'Available rooms, viewings, applicants, and send invites',
+    tiles: [
+      { emoji: '📋', name: 'Applicants',        desc: 'Track applicants from invite through to tenant conversion',              href: '/admin/applicants' },
+      { emoji: '📨', name: 'Invite to Apply',   desc: 'Send an application link by email or SMS after a viewing',              href: '/admin/invite-to-apply' },
+      { emoji: '🔑', name: 'Lettings',          desc: 'Available properties & viewings',                                        href: '/admin/available-and-lettings' },
+    ],
+  },
+  {
+    id: 'compliance',
+    emoji: '✅',
+    name: 'Compliance & Safety',
+    summary: 'Fire door checks, tenant safety confirmations, SAR log',
+    tiles: [
+      { emoji: '✅', name: 'Compliance Logs',               desc: 'Fire door & smoke alarm checks',                             href: '/admin/compliance-logs' },
+      { emoji: '🔐', name: 'Suspected Activity Reports',    desc: 'Internal SAR log — MLR 2017 / POCA 2002',                    href: '/admin/sar' },
+      { emoji: '🧪', name: 'Tenant Safety Checks',          desc: 'Monitor fire door & smoke alarm confirmations',              href: '/admin/tenant-safety-checks' },
+    ],
+  },
+  {
+    id: 'comms',
+    emoji: '💬',
+    name: 'Communications',
+    summary: 'Message hub, templates, and quick-send to properties',
+    tiles: [
+      { emoji: '💬', name: 'Communications',     desc: 'Every message, filterable by type & property',                          href: '/admin/communications' },
+      { emoji: '✉️', name: 'Message Templates', desc: 'All automated messages — triggers, recipients, channels',               href: '/admin/message-templates' },
+      { emoji: '📢', name: 'Quick Notify',       desc: 'Send messages to properties & people instantly',                        href: '/admin/notify' },
+    ],
+  },
+  {
+    id: 'properties',
+    emoji: '🏢',
+    name: 'Properties & Units',
+    summary: 'Property info, all rooms, and maintenance tickets',
+    tiles: [
+      { emoji: '🏠', name: 'All Units',          desc: 'View & manage all rooms across every property',                         href: '/admin/active-rooms' },
+      { emoji: '🔧', name: 'Maintenance',        desc: 'All maintenance tickets',                                               href: '/admin/maintenance' },
+      { emoji: '🏢', name: 'Property Info',      desc: 'Details, floor plans, compliance',                                      href: '/admin/properties' },
+    ],
+  },
+  {
+    id: 'people',
+    emoji: '👥',
+    name: 'People & Growth',
+    summary: 'Tenant & staff records, new business pipeline',
+    tiles: [
+      { emoji: '🏗', name: 'New Business',       desc: 'Acquisition emails, valuations, and landlord onboarding',               href: '/admin/new-business' },
+      { emoji: '👥', name: 'People',             desc: 'Tenants, staff, contractors, landlords',                                href: '/admin/people' },
+    ],
+  },
+]
+
+// Sort tiles within every group alphabetically (so future additions land correctly)
+DASH_GROUPS.forEach(g => g.tiles.sort((a, b) => a.name.localeCompare(b.name)))
+
 // Compliance expiry dates that must never lapse.
 const CERT_CHECKS: { field: string; label: string }[] = [
   { field: 'gas_safe_cert_expiry',        label: 'Gas safety' },
@@ -42,6 +121,11 @@ export default function AdminDashboard() {
   const [commsLive, setCommsLive] = useState<boolean | null>(null)
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false)
   const [calendarExpanded, setCalendarExpanded] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+
+  function toggleGroup(id: string) {
+    setOpenGroups(prev => ({ ...prev, [id]: !prev[id] }))
+  }
 
   useEffect(() => {
     async function checkAuth() {
@@ -201,189 +285,65 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Dashboard Tiles — alphabetical order */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+          {/* ── Grouped accordion dashboard ──────────────────────────────── */}
+          <div className="space-y-sm">
 
-            {/* Agency Accounts */}
-            <Link href="/admin/accounts" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🏦</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Agency Accounts</h3>
-                <p className="text-xs text-neutral-600">Rent ledger, landlord remittance, fee income, and arrears</p>
+            {/* Standalone: AI File Upload — always visible, no group */}
+            <Link href="/admin/ai-upload" className="group block">
+              <div className="rounded-lg border border-neutral-200 bg-white px-lg py-md flex items-center gap-md transition-all hover:border-neutral-300 hover:shadow-sm">
+                <span className="text-2xl leading-none">📁</span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-neutral-900">AI File Upload</h3>
+                  <p className="text-xs text-neutral-500">AI extraction for documents & photos</p>
+                </div>
               </div>
             </Link>
 
-            {/* AI File Upload */}
-            <Link href="/admin/ai-upload" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">📁</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">AI File Upload</h3>
-                <p className="text-xs text-neutral-600">AI extraction for documents & photos</p>
-              </div>
-            </Link>
+            {/* Category accordion groups */}
+            {DASH_GROUPS.map(group => {
+              const isOpen = !!openGroups[group.id]
+              return (
+                <div key={group.id} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                  {/* Group header — click to toggle */}
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    className="w-full flex items-center gap-md px-lg py-md text-left hover:bg-neutral-50 transition-colors"
+                  >
+                    <span className="text-xl leading-none shrink-0">{group.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-sm">
+                        <h3 className="text-sm font-semibold text-neutral-900">{group.name}</h3>
+                        <span className="text-[11px] font-medium bg-neutral-100 text-neutral-500 px-xs py-0.5 rounded-full leading-none">
+                          {group.tiles.length}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-500 mt-0.5 truncate">{group.summary}</p>
+                    </div>
+                    <span className={`shrink-0 text-neutral-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                  </button>
 
-            {/* All Units */}
-            <Link href="/admin/active-rooms" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🏠</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">All Units</h3>
-                <p className="text-xs text-neutral-600">View & manage all rooms across every property</p>
-              </div>
-            </Link>
-
-            {/* AutoLedger */}
-            <Link href="/admin/autoledger" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">⚡</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">AutoLedger</h3>
-                <p className="text-xs text-neutral-600">BCC statements@ to auto-import expenses from email</p>
-              </div>
-            </Link>
-
-            {/* Communications */}
-            <Link href="/admin/communications" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">💬</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Communications</h3>
-                <p className="text-xs text-neutral-600">Every message, filterable by type & property</p>
-              </div>
-            </Link>
-
-            {/* Message Templates */}
-            <Link href="/admin/message-templates" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">✉️</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Message Templates</h3>
-                <p className="text-xs text-neutral-600">All 24 automated messages — triggers, recipients, channels</p>
-              </div>
-            </Link>
-
-            {/* Compliance Logs */}
-            <Link href="/admin/compliance-logs" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">✅</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Compliance Logs</h3>
-                <p className="text-xs text-neutral-600">Fire door & smoke alarm checks</p>
-              </div>
-            </Link>
-
-            {/* Expense Review */}
-            <Link href="/admin/expense-review" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🏷️</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Expense Review</h3>
-                <p className="text-xs text-neutral-600">Categorise unmatched landlord expense lines</p>
-              </div>
-            </Link>
-
-            {/* Fee Income */}
-            <Link href="/admin/income" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">💰</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Fee Income</h3>
-                <p className="text-xs text-neutral-600">Monthly management fee dashboard with YoY comparison</p>
-              </div>
-            </Link>
-
-            {/* Import Statements */}
-            <Link href="/admin/statements/import" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">📥</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Import Statements</h3>
-                <p className="text-xs text-neutral-600">Bulk import historical statements from accounting software</p>
-              </div>
-            </Link>
-
-            {/* Applicants */}
-            <Link href="/admin/applicants" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">📋</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Applicants</h3>
-                <p className="text-xs text-neutral-600">Track applicants from invite through to tenant conversion</p>
-              </div>
-            </Link>
-
-            {/* Invite to Apply */}
-            <Link href="/admin/invite-to-apply" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">📨</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Invite to Apply</h3>
-                <p className="text-xs text-neutral-600">Send an application link by email or SMS after a viewing</p>
-              </div>
-            </Link>
-
-            {/* Lettings */}
-            <Link href="/admin/available-and-lettings" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🔑</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Lettings</h3>
-                <p className="text-xs text-neutral-600">Available properties & viewings</p>
-              </div>
-            </Link>
-
-
-{/* Maintenance */}
-            <Link href="/admin/maintenance" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🔧</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Maintenance</h3>
-                <p className="text-xs text-neutral-600">All maintenance tickets</p>
-              </div>
-            </Link>
-
-            {/* New Business */}
-            <Link href="/admin/new-business" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🏗</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">New Business</h3>
-                <p className="text-xs text-neutral-600">Acquisition emails, valuations, and landlord onboarding</p>
-              </div>
-            </Link>
-
-            {/* People */}
-            <Link href="/admin/people" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">👥</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">People</h3>
-                <p className="text-xs text-neutral-600">Tenants, staff, contractors, landlords</p>
-              </div>
-            </Link>
-
-            {/* Property Info */}
-            <Link href="/admin/properties" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🏢</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Property Info</h3>
-                <p className="text-xs text-neutral-600">Details, floor plans, compliance</p>
-              </div>
-            </Link>
-
-            {/* Quick Notify */}
-            <Link href="/admin/notify" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">📢</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Quick Notify</h3>
-                <p className="text-xs text-neutral-600">Send messages to properties & people instantly</p>
-              </div>
-            </Link>
-
-            {/* Suspected Activity Reports */}
-            <Link href="/admin/sar" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🔐</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Suspected Activity Reports</h3>
-                <p className="text-xs text-neutral-600">Internal SAR log — MLR 2017 / POCA 2002</p>
-              </div>
-            </Link>
-
-            {/* Tenant Safety Checks */}
-            <Link href="/admin/tenant-safety-checks" className="group">
-              <div className="rounded-lg border border-neutral-200 bg-white p-lg transition-all hover:border-neutral-300 hover:shadow-sm">
-                <div className="text-2xl mb-md">🧪</div>
-                <h3 className="text-sm font-semibold text-neutral-900 mb-xs">Tenant Safety Checks</h3>
-                <p className="text-xs text-neutral-600">Monitor fire door & smoke alarm confirmations</p>
-              </div>
-            </Link>
+                  {/* Revealed tiles */}
+                  {isOpen && (
+                    <div className="border-t border-neutral-100 px-lg pb-lg pt-md grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md">
+                      {group.tiles.map(tile => (
+                        <Link key={tile.href} href={tile.href} className="group/tile block">
+                          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-md transition-all hover:border-neutral-300 hover:bg-white hover:shadow-sm">
+                            <div className="text-xl mb-xs">{tile.emoji}</div>
+                            <h4 className="text-sm font-semibold text-neutral-900 mb-xs">{tile.name}</h4>
+                            <p className="text-xs text-neutral-500 leading-snug">{tile.desc}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
 
           </div>
         </div>
