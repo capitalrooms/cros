@@ -1,14 +1,25 @@
 /**
- * ╔══════════════════════════════════════════════════════════════════╗
- * ║  Capital Rooms — THE single email wrapper                        ║
- * ║                                                                  ║
- * ║  Every outbound email must go through buildEmail() or wrapEmail().║
- * ║  Logo, header, footer come from this file only.                  ║
- * ║  Business details (address / email / phone) come from the        ║
- * ║  business_settings table — change once → updates every email.   ║
- * ║                                                                  ║
- * ║  DO NOT copy-paste header/footer HTML into route files.          ║
- * ╚══════════════════════════════════════════════════════════════════╝
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  Capital Rooms — THE single email wrapper                                ║
+ * ║                                                                          ║
+ * ║  ▸ EVERY outbound email must go through buildEmail() or wrapEmail().     ║
+ * ║  ▸ Logo, header, and footer are LOCKED — not editable per-template.      ║
+ * ║  ▸ Business details (address / email / phone / logo) come from the       ║
+ * ║    business_settings DB table — change once → every email updates.       ║
+ * ║  ▸ Two approved theme variants: 'dark' (Option E) and 'light'.           ║
+ * ║    Theme is admin-selected globally in /admin/settings.                  ║
+ * ║                                                                          ║
+ * ║  DO NOT:                                                                 ║
+ * ║    • Copy-paste header/footer HTML into route files                      ║
+ * ║    • Build a new <html> wrapper in a route file                          ║
+ * ║    • Call Resend directly — use lib/sendEmail.ts instead                 ║
+ * ║    • Add a per-template header/footer option in Message Templates        ║
+ * ║                                                                          ║
+ * ║  TO ADD A NEW EMAIL TYPE:                                                ║
+ * ║    1. Build the body HTML (just the inner content)                       ║
+ * ║    2. const html = await buildEmail(bodyHtml)                            ║
+ * ║    3. Call sendEmail(to, subject, bodyHtml) from lib/sendEmail.ts        ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -23,11 +34,16 @@ export interface BusinessSettings {
   postcode: string
   email: string
   phone: string
+  /** URL of logo for dark theme (white logo on black background) */
   logo_url: string
+  /** URL of logo for light theme (dark/black logo on white background) */
+  logo_url_light: string
+  /** 'dark' = Option E (white logo on black band) | 'light' = dark logo on white band */
+  email_theme: 'dark' | 'light'
 }
 
 // Hard-coded fallback — only used when DB is unreachable.
-// The live values live in business_settings table (migration 129).
+// Live values live in business_settings table (migrations 129 + 130).
 export const BUSINESS_DEFAULTS: BusinessSettings = {
   company_name: 'Capital Rooms',
   address_line1: 'Third Floor',
@@ -37,6 +53,8 @@ export const BUSINESS_DEFAULTS: BusinessSettings = {
   email: 'management@capitalrooms.co.uk',
   phone: '0207 112 9163',
   logo_url: 'https://cros-sigma.vercel.app/footer-logo.png',
+  logo_url_light: 'https://cros-sigma.vercel.app/logo.png',
+  email_theme: 'dark',
 }
 
 // Simple in-process cache — 5-minute TTL so changes propagate quickly.
@@ -69,6 +87,12 @@ export async function getBusinessSettings(): Promise<BusinessSettings> {
   return BUSINESS_DEFAULTS
 }
 
+/** Force a settings cache refresh (call after admin saves settings) */
+export function invalidateBusinessSettingsCache() {
+  _biz = null
+  _bizAt = 0
+}
+
 // ─── HTML helpers ─────────────────────────────────────────────────────────────
 
 /** Standard detail-row in a summary table */
@@ -86,28 +110,64 @@ export function ctaButton(label: string, href: string): string {
   </div>`
 }
 
-// Kept for routes that use the old operational-style yellow button
-export function operationalCtaButton(label: string, href: string): string {
-  return `<a href="${href}" style="display:inline-block;background:#0a0a0a;color:#FFE000;font-size:13px;font-weight:700;padding:12px 24px;text-decoration:none;letter-spacing:0.04em;text-transform:uppercase;">${label}</a>`
-}
-
 export const FROM = 'Capital Rooms <noreply@capitalrooms.co.uk>'
 export const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+
+// ─── Theme definitions ────────────────────────────────────────────────────────
+
+interface ThemeTokens {
+  headerBg: string
+  headerPad: string
+  logoHeight: number
+  footerBg: string
+  footerColor: string
+  footerLinkColor: string
+  footerLogoPad: string
+  footerLogoHeight: number
+}
+
+const DARK_THEME: ThemeTokens = {
+  headerBg: '#0a0a0a',
+  headerPad: '20px 0',
+  logoHeight: 80,
+  footerBg: '#0a0a0a',
+  footerColor: '#aaaaaa',
+  footerLinkColor: '#aaaaaa',
+  footerLogoPad: '24px 28px 20px',
+  footerLogoHeight: 44,
+}
+
+const LIGHT_THEME: ThemeTokens = {
+  headerBg: '#ffffff',
+  headerPad: '24px 0 16px',
+  logoHeight: 72,
+  footerBg: '#f5f5f4',
+  footerColor: '#78716c',
+  footerLinkColor: '#555552',
+  footerLogoPad: '20px 28px 18px',
+  footerLogoHeight: 40,
+}
 
 // ─── The wrapper ──────────────────────────────────────────────────────────────
 
 /**
- * Wrap HTML content in the Capital Rooms email shell.
+ * Wrap HTML body content in the Capital Rooms email shell.
  *
- * Header: footer-logo.png on black band (80 px).
- * Body:   white card.
- * Footer: smaller logo + address/email/phone on black band.
+ * Theme is controlled by biz.email_theme:
+ *   'dark'  → Option E — white logo on black band header/footer
+ *   'light' → dark logo on white/grey band header/footer
  *
- * Business details come from `biz` — pass the result of getBusinessSettings()
- * for live DB values, or omit for hardcoded defaults.
+ * Always call via buildEmail() so live DB settings are used.
+ * Do NOT call wrapEmail() directly in route files — use buildEmail() or sendEmail().
  */
 export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS): string {
+  const isDark = biz.email_theme !== 'light'
+  const t = isDark ? DARK_THEME : LIGHT_THEME
+  const logoUrl = isDark ? biz.logo_url : biz.logo_url_light
   const fullAddress = `${biz.address_line1}, ${biz.address_line2}, ${biz.city} ${biz.postcode}`
+
+  // Light theme needs a visible border between white header and white body
+  const headerBorder = isDark ? '' : 'border-bottom:1px solid #e7e5e4;'
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -122,11 +182,11 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 <table cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;">
 
   <!-- ░ HEADER ░ -->
+  <!-- height is LOCKED — the container clips any oversized image; width:auto preserves aspect ratio -->
   <tr>
-    <td style="background:#0a0a0a;text-align:center;padding:20px 0;line-height:0;mso-line-height-rule:exactly;">
-      <img src="${biz.logo_url}" alt="${biz.company_name}" height="80"
-           style="display:inline-block;height:80px;width:auto;border:0;outline:none;text-decoration:none;"
-           width="80" />
+    <td style="background:${t.headerBg};text-align:center;padding:${t.headerPad};line-height:0;mso-line-height-rule:exactly;overflow:hidden;${headerBorder}">
+      <img src="${logoUrl}" alt="${biz.company_name}" height="${t.logoHeight}"
+           style="display:inline-block;height:${t.logoHeight}px;max-height:${t.logoHeight}px;width:auto;max-width:580px;border:0;outline:none;text-decoration:none;" />
     </td>
   </tr>
 
@@ -139,11 +199,11 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 
   <!-- ░ FOOTER ░ -->
   <tr>
-    <td style="background:#0a0a0a;text-align:center;padding:24px 28px 20px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.9;letter-spacing:0.03em;color:#aaaaaa;">
-      <img src="${biz.logo_url}" alt="${biz.company_name}" height="44"
-           style="display:block;margin:0 auto 14px;height:44px;width:auto;border:0;" />${biz.company_name}<br>
+    <td style="background:${t.footerBg};text-align:center;padding:${t.footerLogoPad};font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.9;letter-spacing:0.03em;color:${t.footerColor};">
+      <img src="${logoUrl}" alt="${biz.company_name}" height="${t.footerLogoHeight}"
+           style="display:block;margin:0 auto 14px;height:${t.footerLogoHeight}px;max-height:${t.footerLogoHeight}px;width:auto;max-width:580px;border:0;" />${biz.company_name}<br>
       ${fullAddress}<br>
-      <a href="mailto:${biz.email}" style="color:#aaaaaa;text-decoration:none;">${biz.email}</a>
+      <a href="mailto:${biz.email}" style="color:${t.footerLinkColor};text-decoration:none;">${biz.email}</a>
       &nbsp;|&nbsp; ${biz.phone}
     </td>
   </tr>
@@ -156,8 +216,11 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 }
 
 /**
+ * ══ USE THIS IN EVERY ROUTE ══
+ *
  * Async convenience: fetches live business settings then wraps.
- * Use this in every route handler — it's already async so the await is free.
+ * The await is cheap (5-min cache); the result is always the correct
+ * branded wrapper with live address/logo/theme from the DB.
  *
  * @example
  *   const html = await buildEmail(`<h2>Hello</h2><p>…</p>`)

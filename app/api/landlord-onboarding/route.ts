@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { sendEmail } from '@/lib/sendEmail'
 
 const svc = () =>
   createClient(
@@ -8,20 +9,6 @@ const svc = () =>
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
-
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-
-async function sendEmail(to: string, subject: string, html: string) {
-  const r = await fetch(RESEND_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({ from: 'Capital Rooms <hello@capitalrooms.co.uk>', to, subject, html }),
-  })
-  if (!r.ok) throw new Error(await r.text())
-}
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cros-sigma.vercel.app'
 
@@ -66,7 +53,8 @@ export async function POST(req: NextRequest) {
     : 'Welcome to Capital Rooms — Getting Started'
 
   try {
-    await sendEmail(email.trim(), welcomeSubject, welcomePackHtml(full_name_or_name.trim(), formUrl))
+    const { ok, error: sendErr } = await sendEmail(email.trim(), welcomeSubject, welcomePackBodyHtml(full_name_or_name.trim(), formUrl))
+    if (!ok) throw new Error(sendErr ?? 'Email failed')
     emailSent = true
 
     // Advance to stage 2 and record sent time
@@ -83,84 +71,39 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ row, emailSent, emailError })
 }
 
-// ── Welcome pack HTML ──────────────────────────────────────────────────────────
+// ── Welcome pack body HTML (wrapper applied automatically by sendEmail) ────────
 
-function welcomePackHtml(name: string, formUrl: string) {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Welcome to Capital Rooms</title>
-</head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 16px">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+function welcomePackBodyHtml(name: string, formUrl: string): string {
+  return `
+<p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${name},</p>
 
-  <!-- Header -->
-  <tr>
-    <td style="background:#1a1a1a;padding:32px 40px">
-      <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:0.5px">Capital Rooms</p>
-      <p style="margin:6px 0 0;font-size:12px;color:#888;letter-spacing:0.2em;text-transform:uppercase">Specialist HMO Management · London</p>
-    </td>
-  </tr>
+<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
+  Thank you for your interest in Capital Rooms. We are delighted to have the opportunity to discuss our management services
+  for your property and look forward to building a long-term relationship with you.
+</p>
 
-  <!-- Body -->
-  <tr>
-    <td style="padding:40px 40px 32px">
-      <p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${name},</p>
+<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
+  As part of our onboarding process, we are required to verify your identity and confirm your ownership of the property
+  in accordance with our Anti-Money Laundering obligations. This is a standard requirement for all new landlord clients
+  and is completed once only.
+</p>
 
-      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
-        Thank you for your interest in Capital Rooms. We are delighted to have the opportunity to discuss our management services
-        for your property and look forward to building a long-term relationship with you.
-      </p>
+<p style="margin:0 0 24px;font-size:15px;color:#333;line-height:1.6">
+  Please use the link below to complete our secure landlord information form. The process takes approximately
+  10–15 minutes and can be completed at your convenience — no account or login is required.
+</p>
 
-      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
-        As part of our onboarding process, we are required to verify your identity and confirm your ownership of the property
-        in accordance with our Anti-Money Laundering obligations. This is a standard requirement for all new landlord clients
-        and is completed once only.
-      </p>
+<div style="margin:0 0 32px;">
+  <a href="${formUrl}" style="display:inline-block;background:#1a1a1a;color:#ffffff;font-size:14px;font-weight:600;padding:14px 28px;border-radius:6px;text-decoration:none;letter-spacing:0.3px;">
+    Complete Your Landlord Information Form →
+  </a>
+</div>
 
-      <p style="margin:0 0 24px;font-size:15px;color:#333;line-height:1.6">
-        Please use the link below to complete our secure landlord information form. The process takes approximately
-        10–15 minutes and can be completed at your convenience — no account or login is required.
-      </p>
+<p style="margin:0 0 8px;font-size:14px;color:#555;line-height:1.6">
+  If you have any questions at any stage, please do not hesitate to contact us directly at
+  <a href="mailto:management@capitalrooms.co.uk" style="color:#1a1a1a">management@capitalrooms.co.uk</a>.
+</p>
 
-      <!-- CTA -->
-      <table cellpadding="0" cellspacing="0" style="margin:0 0 32px">
-        <tr>
-          <td style="background:#1a1a1a;border-radius:6px;padding:14px 28px">
-            <a href="${formUrl}" style="color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:0.3px">
-              Complete Your Landlord Information Form →
-            </a>
-          </td>
-        </tr>
-      </table>
-
-      <p style="margin:0 0 8px;font-size:14px;color:#555;line-height:1.6">
-        If you have any questions at any stage, please do not hesitate to contact us directly at
-        <a href="mailto:hello@capitalrooms.co.uk" style="color:#1a1a1a">hello@capitalrooms.co.uk</a>.
-      </p>
-
-      <p style="margin:24px 0 0;font-size:15px;color:#333">Kind regards,</p>
-      <p style="margin:4px 0 0;font-size:15px;color:#333;font-weight:600">The Capital Rooms Team</p>
-    </td>
-  </tr>
-
-  <!-- Footer -->
-  <tr>
-    <td style="background:#f8f8f8;border-top:1px solid #eee;padding:24px 40px">
-      <p style="margin:0;font-size:11px;color:#999;line-height:1.6">
-        Capital Rooms Ltd · Member of The Property Ombudsman · ClientMoney Protect · Deposit Protection Service<br>
-        This email was sent because you have expressed interest in Capital Rooms management services.
-      </p>
-    </td>
-  </tr>
-
-</table>
-</td></tr>
-</table>
-</body>
-</html>`
+<p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>
+<p style="margin:0;font-size:15px;color:#333;font-weight:600">The Capital Rooms Team</p>`
 }

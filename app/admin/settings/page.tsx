@@ -15,10 +15,10 @@ interface Setting {
 
 export default function AdminSettingsPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState<string | null>(null)
+  const [loading, setLoading]   = useState(true)
+  const [saving, setSaving]     = useState<string | null>(null)
   const [settings, setSettings] = useState<Record<string, string>>({})
-  const [banner, setBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [banner, setBanner]     = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   useEffect(() => {
     async function init() {
@@ -98,7 +98,6 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="px-lg py-lg flex items-start gap-lg">
-            {/* Toggle */}
             <button
               onClick={() => toggle('comms_live', settings['comms_live'] ?? 'false')}
               disabled={saving === 'comms_live'}
@@ -117,38 +116,45 @@ export default function AdminSettingsPage() {
                 <p className="font-semibold text-neutral-900">
                   {commsLive ? '🟢 Notifications live' : '🔕 Notifications paused'}
                 </p>
-                {saving === 'comms_live' && (
-                  <span className="text-xs text-neutral-400">Saving…</span>
-                )}
+                {saving === 'comms_live' && <span className="text-xs text-neutral-400">Saving…</span>}
               </div>
               {commsLive ? (
                 <p className="text-xs text-neutral-500 mt-xs">
                   Tenants and landlords will receive push notifications, emails, and SMS as normal.
-                  Turn this off if you need to pause all outbound messaging.
                 </p>
               ) : (
                 <p className="text-xs text-amber-700 mt-xs">
-                  <strong>Safe mode:</strong> no messages are being sent to tenants or landlords.
-                  Staff notifications (contractors, cleaners, admin) are unaffected.
-                  Turn on when you are ready to go live.
+                  <strong>Safe mode:</strong> no messages being sent. Staff notifications unaffected.
                 </p>
               )}
             </div>
           </div>
+        </div>
 
-          <div className="px-lg py-md bg-neutral-50 border-t border-neutral-100">
-            <p className="text-xs text-neutral-400">
-              This DB toggle takes precedence over the <code className="font-mono">TENANT_COMMS_LIVE</code> environment variable.
-              The env var remains as a permanent fallback if this table is unavailable.
-            </p>
+        {/* ── Email Branding — moved ── */}
+        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
+          <div className="px-lg py-md border-b border-neutral-100">
+            <h2 className="font-bold text-neutral-900 text-base">Email Branding</h2>
+          </div>
+
+          <div className="px-lg py-lg flex items-center gap-lg">
+            <div className="text-2xl">🎨</div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-neutral-900">Moved to Message Templates</p>
+              <p className="text-xs text-neutral-500 mt-xs">
+                Logo, theme, and business contact details are now edited in the{' '}
+                <strong>Branding &amp; Contact Details</strong> tab — alongside all the other outbound email settings.
+              </p>
+            </div>
+            <a
+              href="/admin/message-templates"
+              className="shrink-0 rounded-xl bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-700 transition-colors"
+            >
+              Go to Message Templates →
+            </a>
           </div>
         </div>
 
-        {/* ── Future settings placeholder ── */}
-        <div className="bg-white rounded-2xl border border-neutral-200 px-lg py-lg">
-          <h2 className="font-bold text-neutral-900 text-base mb-xs">More settings</h2>
-          <p className="text-xs text-neutral-500">Additional system controls will appear here as the platform grows.</p>
-        </div>
       </main>
     </div>
   )
