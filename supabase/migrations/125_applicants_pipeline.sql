@@ -110,17 +110,25 @@ CREATE INDEX IF NOT EXISTS idx_applicants_converted     ON applicants(converted_
 ALTER TABLE applicants ENABLE ROW LEVEL SECURITY;
 
 -- Admins and lettings agents can see and manage all applicants
-CREATE POLICY IF NOT EXISTS "applicants_admin_all" ON applicants
-  FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM people
-      WHERE people.email = auth.jwt()->>'email'
-        AND people.role IN ('administrator', 'admin', 'lettings')
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'applicants_admin_all' AND tablename = 'applicants') THEN
+    CREATE POLICY "applicants_admin_all" ON applicants
+      FOR ALL
+      USING (
+        EXISTS (
+          SELECT 1 FROM people
+          WHERE people.email = auth.jwt()->>'email'
+            AND people.role IN ('administrator', 'admin', 'lettings')
+        )
+      );
+  END IF;
+END $$;
 
 -- Applicants can read their own record by email (for the /applicant/review page)
-CREATE POLICY IF NOT EXISTS "applicants_self_read" ON applicants
-  FOR SELECT
-  USING (email = auth.jwt()->>'email');
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'applicants_self_read' AND tablename = 'applicants') THEN
+    CREATE POLICY "applicants_self_read" ON applicants
+      FOR SELECT
+      USING (email = auth.jwt()->>'email');
+  END IF;
+END $$;

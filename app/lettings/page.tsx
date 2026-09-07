@@ -83,12 +83,6 @@ export default function LettingsPage() {
   const calendarRef = useRef<HTMLDivElement | null>(null)
   const [calendarJumpDate, setCalendarJumpDate] = useState<string | undefined>()
 
-  // Invite to Apply modal
-  const [inviteViewing, setInviteViewing] = useState<any | null>(null)
-  const [inviteMethod, setInviteMethod] = useState<'email' | 'sms' | 'both'>('email')
-  const [inviteSending, setInviteSending] = useState(false)
-  const [inviteResult, setInviteResult] = useState<any | null>(null)
-  const [inviteCopied, setInviteCopied] = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -266,24 +260,6 @@ export default function LettingsPage() {
     }
   }
 
-  const sendInvite = async () => {
-    if (!inviteViewing) return
-    setInviteSending(true)
-    setInviteResult(null)
-    try {
-      const res = await fetch('/api/lettings/invite-to-apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ viewingId: inviteViewing.id, method: inviteMethod }),
-      })
-      setInviteResult(await res.json())
-    } catch {
-      setInviteResult({ emailError: 'Network error — please try again' })
-    } finally {
-      setInviteSending(false)
-    }
-  }
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '—'
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -415,7 +391,7 @@ export default function LettingsPage() {
                         {v.visitor_email && <span className="text-xs bg-blue-50 text-blue-600 px-xs py-0.5 rounded">✉</span>}
                         {v.visitor_phone && <span className="text-xs bg-green-50 text-green-600 px-xs py-0.5 rounded">📱</span>}
                         <button
-                          onClick={() => { setInviteViewing(v); setInviteResult(null); setInviteMethod('email') }}
+                          onClick={() => router.push(`/admin/invite-to-apply?viewingId=${v.id}`)}
                           className="text-xs font-semibold bg-neutral-900 text-white px-sm py-xs rounded-lg hover:bg-neutral-700 transition-colors"
                         >
                           Invite
@@ -424,96 +400,6 @@ export default function LettingsPage() {
                     </div>
                   )
                 })}
-            </div>
-          </div>
-        )}
-
-        {/* Invite to Apply modal */}
-        {inviteViewing && (
-          <div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-lg pb-lg sm:p-lg"
-            onClick={() => { if (!inviteResult) setInviteViewing(null) }}
-          >
-            <div className="bg-white rounded-2xl p-lg w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
-              <div className="flex items-start justify-between mb-md">
-                <div>
-                  <h3 className="text-base font-bold text-neutral-900">Invite to Apply</h3>
-                  <p className="text-sm text-neutral-500">{inviteViewing.visitor_name} · {inviteViewing.rooms?.name || inviteViewing.properties?.name}</p>
-                </div>
-                <button onClick={() => { setInviteViewing(null); setInviteResult(null) }} className="text-neutral-400 hover:text-neutral-700 text-lg font-bold">✕</button>
-              </div>
-
-              {/* Method picker — hidden once result is in */}
-              {!inviteResult && (
-                <div className="grid grid-cols-3 gap-sm mb-md">
-                  {(['email', 'sms', 'both'] as const).map(m => (
-                    <button
-                      key={m}
-                      onClick={() => setInviteMethod(m)}
-                      className={`p-sm rounded-lg border-2 text-xs font-semibold transition-all ${inviteMethod === m ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:border-neutral-400'}`}
-                    >
-                      {m === 'email' ? '✉ Email' : m === 'sms' ? '📱 SMS' : '✉+📱 Both'}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* Contact preview */}
-              <div className="bg-neutral-50 rounded-lg p-sm mb-md text-xs space-y-xs text-neutral-600">
-                <div><span className="font-medium w-14 inline-block">Email</span>{inviteViewing.visitor_email || <span className="italic text-neutral-400">not recorded</span>}</div>
-                <div><span className="font-medium w-14 inline-block">Phone</span>{inviteViewing.visitor_phone || <span className="italic text-neutral-400">not recorded</span>}</div>
-              </div>
-
-              {!inviteResult && (
-                <button
-                  onClick={sendInvite}
-                  disabled={inviteSending}
-                  className="w-full bg-neutral-900 text-white py-sm rounded-xl font-semibold text-sm hover:bg-neutral-800 disabled:opacity-50 transition-colors mb-sm"
-                >
-                  {inviteSending ? 'Sending…' : 'Send Invitation'}
-                </button>
-              )}
-
-              {inviteResult && (
-                <div className="space-y-sm">
-                  {inviteResult.emailSent && (
-                    <div className="flex items-center gap-sm bg-green-50 border border-green-200 rounded-lg px-md py-sm text-green-700 text-sm font-semibold">
-                      <span>✓</span> Email sent to {inviteViewing.visitor_email}
-                    </div>
-                  )}
-                  {inviteResult.emailError && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-md py-sm text-amber-700 text-sm font-medium">⚠ Email: {inviteResult.emailError}</div>
-                  )}
-                  {inviteResult.smsSent && (
-                    <div className="flex items-center gap-sm bg-green-50 border border-green-200 rounded-lg px-md py-sm text-green-700 text-sm font-semibold">
-                      <span>✓</span> SMS sent to {inviteViewing.visitor_phone}
-                    </div>
-                  )}
-                  {inviteResult.smsError && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-md py-sm text-amber-700 text-sm font-medium">⚠ SMS: {inviteResult.smsError}</div>
-                  )}
-                  {inviteResult.link && (
-                    <div>
-                      <p className="text-xs text-neutral-500 mb-xs">Application link:</p>
-                      <div className="flex gap-sm">
-                        <p className="text-xs text-neutral-600 bg-neutral-50 border border-neutral-200 rounded px-sm py-xs flex-1 break-all">{inviteResult.link}</p>
-                        <button
-                          onClick={async () => { await navigator.clipboard.writeText(inviteResult.link); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000) }}
-                          className="shrink-0 text-xs font-medium bg-neutral-900 text-white px-sm py-xs rounded hover:bg-neutral-800"
-                        >
-                          {inviteCopied ? '✓' : 'Copy'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => { setInviteViewing(null); setInviteResult(null) }}
-                    className="w-full text-sm text-neutral-500 hover:text-neutral-700 py-xs text-center"
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}

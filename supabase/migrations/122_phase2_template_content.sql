@@ -17,6 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_notification_templates_slug
   ON notification_templates(slug)
   WHERE slug IS NOT NULL;
 
+
 -- 2. Assign slugs to all system message rows
 UPDATE notification_templates SET slug = 'maintenance-tenant-receipt'
   WHERE is_system_message = true AND name ILIKE '%Job Raised%Tenant Receipt%';

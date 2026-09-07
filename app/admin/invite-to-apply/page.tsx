@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
@@ -11,6 +12,9 @@ const supabase = createClient(
 )
 
 export default function InviteToApplyPage() {
+  const searchParams = useSearchParams()
+  const preselectedViewingId = searchParams.get('viewingId')
+
   const [viewings, setViewings] = useState<any[]>([])
   const [properties, setProperties] = useState<any[]>([])
   const [rooms, setRooms] = useState<any[]>([])
@@ -44,9 +48,15 @@ export default function InviteToApplyPage() {
         supabase.from('properties').select('id, name, address').order('name'),
         supabase.from('rooms').select('id, name, property_id, is_let_only, current_asking_rent').order('name'),
       ])
-      setViewings(viewingsRes.data || [])
+      const loadedViewings = viewingsRes.data || []
+      setViewings(loadedViewings)
       setProperties(propertiesRes.data || [])
       setRooms(roomsRes.data || [])
+      // Auto-select if navigated here with ?viewingId=
+      if (preselectedViewingId) {
+        const match = loadedViewings.find((v: any) => v.id === preselectedViewingId)
+        if (match) setSelected(match)
+      }
       setLoading(false)
     }
     load()
@@ -81,9 +91,13 @@ export default function InviteToApplyPage() {
       : { viewingId: selected.id, method, mode }
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const res = await fetch('/api/lettings/invite-to-apply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify(body),
       })
       const data = await res.json()
