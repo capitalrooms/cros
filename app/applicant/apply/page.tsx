@@ -21,7 +21,8 @@ export default function ApplicantForm() {
   const [success, setSuccess] = useState(false)
 
   // Personal info
-  const [fullName, setFullName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
@@ -148,7 +149,7 @@ export default function ApplicantForm() {
     setLoading(true)
 
     // Validate required fields
-    if (!fullName || !email || !profession || !bio) {
+    if (!firstName || !lastName || !email || !profession || !bio) {
       setError('Please fill in all required fields')
       setLoading(false)
       return
@@ -173,7 +174,7 @@ export default function ApplicantForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullName,
+          fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
           email,
           phone,
           dateOfBirth,
@@ -319,18 +320,33 @@ export default function ApplicantForm() {
             </h2>
 
             <div className="space-y-md">
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Your full name"
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-md">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                    First name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="First name"
+                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
+                    Last name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last name"
+                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                    required
+                  />
+                </div>
               </div>
 
               <div>
