@@ -91,7 +91,7 @@ const SLUG_VARS: Record<string, string[]> = {
   'landlord-onboarding-approved':    ['first_name'],
   'landlord-aml-reverification':     ['first_name'],
   'landlord-acquisition-pitch':      ['first_name'],
-  'checkout-tenant-notice':          ['move_out_date'],
+  'checkout-tenant-notice':          ['heading', 'tenant_name', 'move_out_date', 'pro_rata_amount'],
   'checkout-cleaner-headsup':        ['cleaner_name', 'room_name', 'property_address', 'move_out_date', 'clean_date'],
   'staff-calendar-invite':           ['title', 'when', 'location', 'description'],
 }
