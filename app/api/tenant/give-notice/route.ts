@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
-import { FROM } from '@/lib/emailTemplate'
+import { buildEmail, FROM } from '@/lib/emailWrapper'
 
 /** POST — tenant submits standard notice via portal
  *  Body: { tenancyId, personId, intendedMoveOutDate }
@@ -94,6 +94,14 @@ export async function POST(req: NextRequest) {
     const moveOutFormatted = new Date(intendedMoveOutDate).toLocaleDateString('en-GB', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     })
+    const notifyBody = `
+      <p style="margin:0 0 16px">A tenant has submitted notice via the portal.</p>
+      <ul style="margin:0 0 16px;padding-left:20px;line-height:1.8">
+        <li><strong>Room:</strong> ${roomName}, ${propertyAddress}</li>
+        <li><strong>Notice given:</strong> ${todayStr}</li>
+        <li><strong>Intended move-out:</strong> ${moveOutFormatted}</li>
+      </ul>
+      <p style="margin:0">Please review in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a> and send the checkout email once you have confirmed the pro-rata rent.</p>`
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
@@ -101,13 +109,7 @@ export async function POST(req: NextRequest) {
         from: FROM,
         to: adminEmail,
         subject: `Notice given — ${roomName}, ${propertyAddress}`,
-        html: `<p>A tenant has submitted notice via the portal.</p>
-          <ul>
-            <li><strong>Room:</strong> ${roomName}, ${propertyAddress}</li>
-            <li><strong>Notice given:</strong> ${todayStr}</li>
-            <li><strong>Intended move-out:</strong> ${moveOutFormatted}</li>
-          </ul>
-          <p>Please review in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a> and send the checkout email once you have confirmed the pro-rata rent.</p>`,
+        html: await buildEmail(notifyBody),
       }),
     }).catch(e => console.error('Admin notify failed:', e))
   }

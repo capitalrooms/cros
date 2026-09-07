@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
-import { FROM } from '@/lib/emailTemplate'
+import { buildEmail, FROM } from '@/lib/emailWrapper'
 
 /** POST — tenant requests to rescind their notice
  *  Body: { tenancyId, personId, note? }
@@ -56,6 +56,14 @@ export async function POST(req: NextRequest) {
     const moveOut = tenancy.end_date
       ? new Date(tenancy.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
       : '(unknown)'
+    const rescindBody = `
+      <p style="margin:0 0 16px">A tenant has requested to cancel/rescind their notice.</p>
+      <ul style="margin:0 0 16px;padding-left:20px;line-height:1.8">
+        <li><strong>Room:</strong> ${roomName}, ${address}</li>
+        <li><strong>Current move-out date:</strong> ${moveOut}</li>
+        ${note ? `<li><strong>Reason:</strong> ${note}</li>` : ''}
+      </ul>
+      <p style="margin:0">Please review and approve or reject in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a>.</p>`
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
@@ -63,13 +71,7 @@ export async function POST(req: NextRequest) {
         from: FROM,
         to: process.env.ADMIN_EMAIL || 'admin@capitalrooms.co.uk',
         subject: `Rescind notice request — ${roomName}, ${address}`,
-        html: `<p>A tenant has requested to cancel/rescind their notice.</p>
-          <ul>
-            <li><strong>Room:</strong> ${roomName}, ${address}</li>
-            <li><strong>Current move-out date:</strong> ${moveOut}</li>
-            ${note ? `<li><strong>Reason:</strong> ${note}</li>` : ''}
-          </ul>
-          <p>Please review and approve or reject in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a>.</p>`,
+        html: await buildEmail(rescindBody),
       }),
     }).catch(e => console.error('Admin rescind notify failed:', e))
   }

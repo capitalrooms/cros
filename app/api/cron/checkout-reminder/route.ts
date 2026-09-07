@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { FROM } from '@/lib/emailTemplate'
+import { buildEmail, FROM } from '@/lib/emailWrapper'
 
 const svc = () =>
   createServiceClient(
@@ -81,8 +81,8 @@ export async function GET(req: Request) {
       : `Reminder: your move-out is in 2 weeks — ${moveOutDate}`
 
     const html = tpl?.template_text
-      ? `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px;max-width:600px;margin:0 auto">${render(tpl.template_text, vars)}</body></html>`
-      : fallbackReminderHtml(vars)
+      ? await buildEmail(render(tpl.template_text, vars))
+      : await buildEmail(fallbackReminderBody(vars))
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -105,19 +105,19 @@ export async function GET(req: Request) {
   return NextResponse.json({ ok: true, sent, failed, targetDate })
 }
 
-function fallbackReminderHtml(vars: Record<string, string>) {
-  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;padding:32px;max-width:600px;margin:0 auto">
-    <h2 style="margin:0 0 18px">Moving out soon</h2>
-    <p>Hi ${vars.tenant_name},</p>
-    <p>Just a reminder that your move-out date is <strong>${vars.move_out_date}</strong> — two weeks from today.</p>
-    <h3>Checkout checklist</h3>
-    <ul>
+// Body-only fallback — shared wrapper applies the header/footer via buildEmail()
+function fallbackReminderBody(vars: Record<string, string>) {
+  return `
+    <h2 style="margin:0 0 18px;font-size:20px">Moving out soon</h2>
+    <p style="margin:0 0 12px">Hi ${vars.tenant_name},</p>
+    <p style="margin:0 0 12px">Just a reminder that your move-out date is <strong>${vars.move_out_date}</strong> — two weeks from today.</p>
+    <h3 style="margin:20px 0 8px;font-size:16px">Checkout checklist</h3>
+    <ul style="margin:0 0 16px;padding-left:20px;line-height:1.7">
       <li>Clear all personal belongings from your room and communal storage</li>
       <li>Leave the room clean and in the condition it was when you moved in</li>
       <li>Return all keys by midday on your move-out date</li>
       <li>Cancel any direct debits for rent</li>
       <li>Update your address with HMRC, banks, and subscriptions</li>
     </ul>
-    <p>Any questions? Call us on ${vars.contact_phone}.</p>
-  </body></html>`
+    <p style="margin:0">Any questions? Call us on ${vars.contact_phone}.</p>`
 }

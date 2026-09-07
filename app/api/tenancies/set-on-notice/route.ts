@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
-import { FROM } from '@/lib/emailTemplate'
+import { buildEmail, FROM } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
@@ -100,31 +100,51 @@ export async function POST(request: Request) {
 
     // 4. Send checkout email to tenant
     let tenantEmailSent = false
-    if (emailTenant && tenantEmail && checkoutEmailHtml) {
+    if (emailTenant && tenantEmail) {
       const tenantSubject = tenantCheckoutTpl?.subject_line
-        ? render(tenantCheckoutTpl.subject_line, { move_out_date: moveOutDate })
+        ? render(tenantCheckoutTpl.subject_line, { move_out_date: moveOutDate, tenant_name: tenantName || '' })
         : 'Your notice period has been recorded — Capital Rooms'
-      tenantEmailSent = await sendEmail(tenantEmail, tenantSubject, checkoutEmailHtml)
 
-      // Mark confirmation email sent
-      if (tenantEmailSent) {
-        await supabase
-          .from('tenancies')
-          .update({ checkout_confirmation_sent_at: new Date().toISOString() })
-          .eq('id', tenancyId)
+      // Prefer DB template body (enables admin to edit heading/content via WYSIWYG)
+      // Fallback to pre-built checkoutEmailHtml from frontend
+      let tenantHtml: string | null = null
+      if (tenantCheckoutTpl?.template_text) {
+        const moveOutFormatted = new Date(moveOutDate + 'T12:00:00').toLocaleDateString('en-GB', {
+          weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        })
+        const tplVars: Record<string, string> = {
+          heading: 'Sorry To See You Go!',
+          tenant_name: tenantName || '',
+          move_out_date: moveOutFormatted,
+          pro_rata_amount: proRataAmount != null ? `£${proRataAmount}` : '',
+        }
+        tenantHtml = await buildEmail(render(tenantCheckoutTpl.template_text, tplVars))
+      } else if (checkoutEmailHtml) {
+        // Already fully wrapped by buildCheckoutEmail() on the frontend
+        tenantHtml = checkoutEmailHtml
+      }
+
+      if (tenantHtml) {
+        tenantEmailSent = await sendEmail(tenantEmail, tenantSubject, tenantHtml)
+        // Mark confirmation email sent
+        if (tenantEmailSent) {
+          await supabase
+            .from('tenancies')
+            .update({ checkout_confirmation_sent_at: new Date().toISOString() })
+            .eq('id', tenancyId)
+        }
       }
     }
 
     // 5. Send cleaner notification
     let cleanerEmailSent = false
     if (emailCleaner && cleanerId && cleanerEmail) {
-      const cleanerEmailHtml = buildCleanerNotificationEmail({
+      const cleanerEmailHtml = await buildEmail(cleanerEmailBody({
         cleanerName: cleanerName || 'Cleaner',
         roomName: roomName || 'Room',
         propertyAddress: propertyAddress || '',
         moveOutDate,
-        urgency: 'standard',
-      })
+      }))
       const cleanerSubject = cleanerCheckoutTpl?.subject_line
         ? render(cleanerCheckoutTpl.subject_line, {
             room_name: roomName || 'Room',
@@ -172,33 +192,23 @@ export async function POST(request: Request) {
   }
 }
 
-// ── Cleaner notification email ────────────────────────────────────────────────
-function buildCleanerNotificationEmail(data: {
-  cleanerName: string; roomName: string; propertyAddress: string
-  moveOutDate: string; urgency: string
+// ── Cleaner notification email body (wrapper applied by buildEmail) ───────────
+function cleanerEmailBody(data: {
+  cleanerName: string; roomName: string; propertyAddress: string; moveOutDate: string
 }): string {
-  const moveOutFormatted = new Date(data.moveOutDate).toLocaleDateString('en-GB', {
-    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+  const moveOutFormatted = new Date(data.moveOutDate + 'T12:00:00').toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
-  return `<!DOCTYPE html><html><head><style>
-    body{font-family:Arial,sans-serif;color:#333}
-    .container{max-width:600px;margin:0 auto}
-    .header{background:#86284a;color:white;padding:20px}
-    .content{padding:20px}
-    .section{margin:20px 0;padding:15px;background:#f5f5f5;border-radius:4px}
-  </style></head><body><div class="container">
-    <div class="header"><h2>Cleaning Required — ${data.roomName}</h2></div>
-    <div class="content">
-      <p>Hi ${data.cleanerName},</p>
-      <p>A room will need cleaning after the current tenant moves out.</p>
-      <div class="section">
-        <h3>Details</h3>
-        <p><strong>Room:</strong> ${data.roomName}</p>
-        <p><strong>Property:</strong> ${data.propertyAddress}</p>
-        <p><strong>Tenant moves out:</strong> ${moveOutFormatted}</p>
-      </div>
-      <p>Please confirm your availability.</p>
-      <p>Best regards,<br/>Capital Rooms</p>
-    </div>
-  </div></body></html>`
+  return `
+    <p style="margin:0 0 16px">Hi ${data.cleanerName},</p>
+    <p style="margin:0 0 16px">A room will need cleaning after the current tenant moves out. Details below — please confirm your availability as soon as possible.</p>
+    <table style="width:100%;border-collapse:collapse;margin:0 0 20px">
+      <tr><td style="padding:10px 12px;border:1px solid #e5e7eb;font-weight:600;width:40%;background:#f9fafb">Room</td>
+          <td style="padding:10px 12px;border:1px solid #e5e7eb">${data.roomName}</td></tr>
+      <tr><td style="padding:10px 12px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Property</td>
+          <td style="padding:10px 12px;border:1px solid #e5e7eb">${data.propertyAddress}</td></tr>
+      <tr><td style="padding:10px 12px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Tenant moves out</td>
+          <td style="padding:10px 12px;border:1px solid #e5e7eb">${moveOutFormatted}</td></tr>
+    </table>
+    <p style="margin:0">Please reply to this email or contact us directly to confirm your availability.</p>`
 }
