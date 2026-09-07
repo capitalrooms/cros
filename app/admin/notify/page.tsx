@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
@@ -58,37 +57,29 @@ export default function QuickNotifyPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black">
-        <AppBar
-          left={<BackButton href="/admin" />}
-        />
+      <div className="min-h-screen bg-neutral-100">
+        <AppBar left={<BackButton href="/admin" />} />
         <main className="mx-auto max-w-4xl px-lg py-3xl">
-          <p className="text-neutral-400">Loading properties...</p>
+          <p className="text-neutral-500">Loading properties…</p>
         </main>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <AppBar
-        right={
-          <Link href="/admin" className="shrink-0 hover:opacity-80 text-white">
-            ← Dashboard
-          </Link>
-        }
-      />
+    <div className="min-h-screen bg-neutral-100 pb-3xl">
+      <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-3xl">
-        <div className="space-y-3xl">
+      <main className="mx-auto max-w-4xl px-lg py-2xl">
+        <div className="space-y-2xl">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-md">Quick Notify</h1>
-            <p className="text-sm text-neutral-400">Select a property to send messages to tenants, cleaners, or contractors</p>
+            <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Quick Notify</h1>
+            <p className="text-sm text-neutral-500">Select a property to send messages to tenants, cleaners, or contractors</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
             {properties.length === 0 ? (
-              <div className="col-span-full rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
+              <div className="col-span-full rounded-xl border border-neutral-200 bg-white p-lg text-center">
                 <p className="text-neutral-400">No properties found</p>
               </div>
             ) : (
@@ -96,9 +87,11 @@ export default function QuickNotifyPage() {
                 <button
                   key={property.id}
                   onClick={() => handlePropertySelect(property.id)}
-                  className="text-left rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:border-blue-600 hover:bg-neutral-900 transition-all"
+                  className="text-left rounded-xl border border-neutral-200 bg-white p-lg hover:border-neutral-300 hover:shadow-sm transition-all"
                 >
-                  <h3 className="text-lg font-semibold text-white mb-sm">📍 {property.address}</h3>
+                  <h3 className="text-base font-semibold text-neutral-900 mb-xs">
+                    📍 {property.name || property.address}
+                  </h3>
                   <p className="text-xs text-neutral-400">Click to send notifications</p>
                 </button>
               ))

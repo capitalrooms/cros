@@ -17,6 +17,11 @@ interface Template {
   category: string
 }
 
+interface Room {
+  id: string
+  name: string
+}
+
 interface Viewing {
   id: string
   room_id: string
@@ -36,6 +41,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
   const [notificationCategory, setNotificationCategory] = useState<NotificationCategory>('general')
   const [templates, setTemplates] = useState<Template[]>([])
   const [viewings, setViewings] = useState<Viewing[]>([])
+  const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +74,19 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
       loadViewings()
     }
   }, [notificationCategory])
+
+  // Load rooms once for the Specific Unit picker
+  useEffect(() => {
+    async function loadRooms() {
+      const { data } = await supabase
+        .from('rooms')
+        .select('id, name')
+        .eq('property_id', propertyId)
+        .order('name')
+      if (data) setRooms(data)
+    }
+    loadRooms()
+  }, [propertyId])
 
   // Load templates on mount
   const loadTemplates = async () => {
@@ -149,6 +168,12 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
 
     if (!subject || !message) {
       setError('Please fill in subject and message')
+      return
+    }
+
+    // Recipient validation
+    if (recipientType === 'room' && !roomId) {
+      setError('Please select a unit to notify')
       return
     }
 
@@ -451,7 +476,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
         {notificationCategory !== 'lettings' && (
           <div className="mb-lg pb-lg border-b border-neutral-700">
             <label className="text-sm font-semibold text-white mb-md block">Send to:</label>
-            <div className="grid grid-cols-2 gap-md">
+            <div className="grid grid-cols-2 gap-md mb-md">
               {[
                 { value: 'all_tenants' as RecipientType, label: 'All Tenants' },
                 { value: 'room' as RecipientType, label: 'Specific Unit' },
@@ -459,7 +484,10 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
               ].map(option => (
                 <button
                   key={option.value}
-                  onClick={() => setRecipientType(option.value)}
+                  onClick={() => {
+                    setRecipientType(option.value)
+                    if (option.value !== 'room') setRoomId('')
+                  }}
                   className={`px-md py-sm rounded-lg font-semibold text-sm transition ${
                     recipientType === option.value
                       ? 'bg-blue-600 text-white'
@@ -470,6 +498,27 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
                 </button>
               ))}
             </div>
+
+            {/* Room picker — only shown when Specific Unit is selected */}
+            {recipientType === 'room' && (
+              <div>
+                <label className="text-sm font-semibold text-white mb-sm block">Which unit?</label>
+                {rooms.length === 0 ? (
+                  <p className="text-xs text-neutral-400">No rooms found for this property.</p>
+                ) : (
+                  <select
+                    value={roomId}
+                    onChange={e => setRoomId(e.target.value)}
+                    className="w-full px-md py-sm border border-neutral-700 bg-neutral-800 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— Choose a unit —</option>
+                    {rooms.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
           </div>
         )}
 

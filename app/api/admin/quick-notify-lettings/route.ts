@@ -72,7 +72,16 @@ export async function POST(request: NextRequest) {
       finalMessage = finalMessage.replace(/{{time_period}}/g, period)
     }
 
-    const recipientIds = await activeTenantIds(service, property_id)
+    // For a single named viewing (single/running_late), target only the tenant
+    // in that specific room — they're the one whose space is being shown, and
+    // they're the one who may need to be out. Whole-house selectors
+    // (time_shift, period_notice, multiple_batch) always notify the full property.
+    const targetRoomId =
+      (selector_type === 'single' || selector_type === 'running_late')
+        ? (viewingData?.room_id ?? null)
+        : null
+
+    const recipientIds = await activeTenantIds(service, property_id, targetRoomId)
     if (recipientIds.length === 0) {
       return NextResponse.json({ success: true, message: 'No current tenants to notify' })
     }
