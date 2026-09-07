@@ -2,20 +2,22 @@
 -- Two steps: immediate notice confirmation + 2-week reminder.
 -- Wording is DRAFT — needs admin review before going live.
 -- Edit via Admin → Message Templates.
+-- Idempotent: uses IF NOT EXISTS checks instead of ON CONFLICT (slug).
 
-INSERT INTO notification_templates (
-  slug, group_name, is_hardcoded, is_system_message,
-  subject_line, template_text, channels, route_path, sort_order
-) VALUES
+DO $$ BEGIN
 
--- Step 1: sent immediately when notice is confirmed -------------------------
-(
-  'checkout-notice-confirmed',
-  'Move-Out / Checkout',
-  false,
-  true,
-  'Your notice has been received — {{move_out_date}} move-out confirmed',
-  '<h2 style="margin:0 0 18px;font-size:22px">Notice received</h2>
+-- ── Step 1: sent immediately when notice is confirmed ──────────────────────
+IF NOT EXISTS (SELECT 1 FROM notification_templates WHERE slug = 'checkout-notice-confirmed') THEN
+  INSERT INTO notification_templates (
+    slug, group_name, is_hardcoded, is_system_message,
+    subject_line, template_text, channels, route_path, sort_order
+  ) VALUES (
+    'checkout-notice-confirmed',
+    'Move-Out / Checkout',
+    false,
+    true,
+    'Your notice has been received — {{move_out_date}} move-out confirmed',
+    '<h2 style="margin:0 0 18px;font-size:22px">Notice received</h2>
 <p style="margin:0 0 16px;font-size:16px">Hi {{tenant_name}},</p>
 <p style="margin:0 0 16px;line-height:1.6">
   Thank you for letting us know. We have recorded your notice to leave on
@@ -37,11 +39,11 @@ INSERT INTO notification_templates (
   </tr>
   <tr>
     <td style="padding:8px 0;color:#78716c">Monthly rent</td>
-    <td style="padding:8px 0">£{{monthly_rent}}</td>
+    <td style="padding:8px 0">{{monthly_rent}}</td>
   </tr>
   <tr style="border-top:2px solid #e5e5e5">
     <td style="padding:10px 0;font-weight:700">Final rent due</td>
-    <td style="padding:10px 0;font-weight:700">£{{pro_rata_amount}} ({{pro_rata_days}} days of {{days_in_month}})</td>
+    <td style="padding:10px 0;font-weight:700">{{pro_rata_amount}} ({{pro_rata_days}} days of {{days_in_month}})</td>
   </tr>
 </table>
 
@@ -64,19 +66,24 @@ INSERT INTO notification_templates (
 </p>
 
 <p style="margin:0 0 8px;font-size:14px">Any questions? Reply to this email or call us on <strong>{{contact_phone}}</strong>.</p>',
-  ARRAY['email'],
-  '/api/tenancies/set-on-notice',
-  10
-),
+    ARRAY['email'],
+    '/api/tenancies/set-on-notice',
+    10
+  );
+END IF;
 
--- Step 2: sent 14 days before move-out ---------------------------------------
-(
-  'checkout-reminder-2weeks',
-  'Move-Out / Checkout',
-  false,
-  true,
-  'Reminder: your move-out is in 2 weeks — {{move_out_date}}',
-  '<h2 style="margin:0 0 18px;font-size:22px">Moving out soon</h2>
+-- ── Step 2: sent 14 days before move-out ───────────────────────────────────
+IF NOT EXISTS (SELECT 1 FROM notification_templates WHERE slug = 'checkout-reminder-2weeks') THEN
+  INSERT INTO notification_templates (
+    slug, group_name, is_hardcoded, is_system_message,
+    subject_line, template_text, channels, route_path, sort_order
+  ) VALUES (
+    'checkout-reminder-2weeks',
+    'Move-Out / Checkout',
+    false,
+    true,
+    'Reminder: your move-out is in 2 weeks — {{move_out_date}}',
+    '<h2 style="margin:0 0 18px;font-size:22px">Moving out soon</h2>
 <p style="margin:0 0 16px;font-size:16px">Hi {{tenant_name}},</p>
 <p style="margin:0 0 16px;line-height:1.6">
   Just a reminder that your move-out date is coming up on <strong>{{move_out_date}}</strong> — two weeks from today.
@@ -93,15 +100,10 @@ INSERT INTO notification_templates (
 </ul>
 
 <p style="margin:0 0 8px;font-size:14px">Any questions? Reply to this email or call us on <strong>{{contact_phone}}</strong>.</p>',
-  ARRAY['email'],
-  '/api/cron/checkout-reminder',
-  20
-)
+    ARRAY['email'],
+    '/api/cron/checkout-reminder',
+    20
+  );
+END IF;
 
-ON CONFLICT (slug) DO UPDATE SET
-  subject_line  = EXCLUDED.subject_line,
-  template_text = EXCLUDED.template_text,
-  group_name    = EXCLUDED.group_name,
-  channels      = EXCLUDED.channels,
-  route_path    = EXCLUDED.route_path,
-  sort_order    = EXCLUDED.sort_order;
+END $$;
