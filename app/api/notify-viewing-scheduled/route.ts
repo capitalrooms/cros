@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
         </table>
         ${viewing.feedback ? `<p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">Notes: ${viewing.feedback}</p>` : ''}
       `
-    await send(admin, adminSubject, emailHtml(adminBody))
+    await send(admin, adminSubject, await emailHtml(adminBody))
     sent.push(admin)
   }
 
@@ -182,10 +182,10 @@ export async function POST(request: NextRequest) {
 
   const tenantTpl = await getTemplate('appointment-viewing-tenants')
 
-  function buildTenantViewingEmail(tenantName: string, roomOrProperty: string): string {
+  async function buildTenantViewingEmail(tenantName: string, roomOrProperty: string): Promise<string> {
     const tenantVars = { ...viewingVars, tenant_name: tenantName, room_or_at_property: roomOrProperty }
-    if (tenantTpl) return emailHtml(render(tenantTpl.template_text, tenantVars))
-    return emailHtml(`
+    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, tenantVars))
+    return await emailHtml(`
       <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
       <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
       <p style="margin:0 0 20px;line-height:1.6">A viewing has been booked ${roomOrProperty}.</p>

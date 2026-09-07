@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { buildIcs } from '@/lib/ics'
-import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { buildEmail, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
@@ -41,14 +41,13 @@ export async function POST(request: NextRequest) {
   const icsBase64 = Buffer.from(ics, 'utf8').toString('base64')
 
   const when = `${new Date(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${time ? ` at ${time}` : ''}`
-  const html = `
-    <div style="font-family:system-ui,sans-serif;max-width:480px">
-      <h2 style="margin:0 0 8px">${title}</h2>
-      <p style="color:#444;margin:0 0 4px">${when}</p>
-      ${location ? `<p style="color:#666;margin:0 0 12px">📍 ${location}</p>` : ''}
-      ${description ? `<p style="color:#444">${description}</p>` : ''}
-      <p style="color:#888;font-size:13px;margin-top:16px">Open the attached invite to add this to your calendar.</p>
-    </div>`
+  const html = await buildEmail(`
+    <h2 style="margin:0 0 8px;color:#86284a;">${title}</h2>
+    <p style="color:#3f3f46;margin:0 0 4px;">${when}</p>
+    ${location ? `<p style="color:#78716c;margin:0 0 12px;">📍 ${location}</p>` : ''}
+    ${description ? `<p style="color:#3f3f46;">${description}</p>` : ''}
+    <p style="color:#a8a29e;font-size:13px;margin-top:16px;">Open the attached invite to add this to your calendar.</p>
+  `)
 
   const calTpl = await getTemplate('staff-calendar-invite')
   const calSubject = calTpl?.subject_line

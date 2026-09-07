@@ -145,7 +145,7 @@ export async function POST(request: Request) {
       emailHtml = render(tpl.template_text, tokenVars)
     } else if (data.requestDeposit) {
       subject = `THE SEARCH IS OVER! — ${roomName}${propAddress ? `, ${propAddress}` : ''}`
-      emailHtml = buildSearchIsOverEmail({
+      emailHtml = await buildSearchIsOverEmail({
         applicantName:   data.applicantName,
         roomName,
         propertyAddress: propAddress,
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
       })
     } else {
       subject = `Your application for ${roomName}${propAddress ? ` at ${propAddress}` : ''}`
-      emailHtml = buildOfferLetterEmail({
+      emailHtml = await buildOfferLetterEmail({
         applicantName:   data.applicantName,
         roomName,
         propertyAddress: propAddress,

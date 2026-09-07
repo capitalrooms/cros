@@ -125,7 +125,7 @@ export async function tryEmailFallback(
       const firstName = person.name?.split(' ')[0] ?? 'there'
       const loginUrl  = `${appUrl}/login?email=${encodeURIComponent(person.email)}`
 
-      const html = emailHtml(`
+      const html = await emailHtml(`
         <p style="margin:0 0 14px;font-size:15px;font-weight:700;">Dear ${firstName},</p>
         <p style="margin:0 0 10px;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">${content.title}</p>
         <p style="margin:0 0 24px;font-size:14px;line-height:1.7;">${content.body}</p>

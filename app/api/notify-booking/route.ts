@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     await send(
       admin,
       adminSubject,
-      emailHtml(`
+      await emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">Repair booked</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
 
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     await send(
       contractor.email,
       `Job confirmed — ${heading} — ${when}`,
-      emailHtml(`
+      await emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">Job confirmed</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
 
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
     await send(
       landlord.email,
       `Repair scheduled at ${property?.name ?? 'your property'}`,
-      emailHtml(`
+      await emailHtml(`
         <h2 style="margin:0 0 18px;font-size:22px">A repair has been scheduled</h2>
         <p style="margin:0 0 30px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
 

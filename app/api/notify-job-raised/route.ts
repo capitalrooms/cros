@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
           Your request has been submitted and is now waiting for our team to review and schedule.
           You'll get an email as soon as a time is arranged.
         </p>`
-    const success = await send(reporter.email, subject, emailHtml(body))
+    const success = await send(reporter.email, subject, await emailHtml(body))
     if (success) sent.push(reporter.email)
   }
 
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:20px">
           <strong>Action needed:</strong> Review and approve this request, then assign to a contractor.
         </p>`
-    await send(admin, subject, emailHtml(body))
+    await send(admin, subject, await emailHtml(body))
     sent.push(admin)
   }
 
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
           Please log in to the contractor portal to confirm you've received this job and book a date to attend.
         </p>`
-    await send(contractor.email, subject, emailHtml(body))
+    await send(contractor.email, subject, await emailHtml(body))
     sent.push(contractor.email)
 
     // SMS — send if contractor has a phone number and Twilio is configured
