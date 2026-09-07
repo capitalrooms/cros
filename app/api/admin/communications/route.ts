@@ -194,7 +194,22 @@ export async function GET() {
   }
 
   msgs.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
-  const capped = msgs.slice(0, CAP)
+
+  // Deduplicate Statement notifications: if the same title appears multiple times
+  // within a 5-minute window (e.g. from an old fan-out insert or a retried webhook),
+  // keep only the first occurrence (earliest id wins after sort).
+  const stmtSeen = new Set<string>()
+  const deduped = msgs.filter(m => {
+    if (m.type !== 'Statement') return true
+    // 5-min bucket = first 15 chars of ISO string "YYYY-MM-DDTHH:MM"
+    const bucket = String(m.date || '').slice(0, 15)
+    const key = `${m.message}|${bucket}`
+    if (stmtSeen.has(key)) return false
+    stmtSeen.add(key)
+    return true
+  })
+
+  const capped = deduped.slice(0, CAP)
 
   // Filter options: properties (with their rooms) for the drill-down.
   const propOptions = (properties as any[])

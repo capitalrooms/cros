@@ -590,22 +590,34 @@ Amounts as positive numbers only (no £ symbol). Respond with JSON array only.` 
     ? `${landlord.first_name} ${landlord.last_name}`
     : (landlord as any).full_name || landlord.email
 
-  // In-app bell notification
+  // In-app bell notification — ONE row per import event, not one per admin.
+  // We pick the primary real admin (a @capitalrooms.co.uk non-test account) as the
+  // recipient so the bell can filter by user_id if needed later.  The communications
+  // API already shows all Statement notifications to every admin regardless.
   try {
     if (inserted > 0) {
-      const { data: admins } = await supabase.from('people').select('id').in('role', ['administrator', 'admin'])
-      const adminIds = (admins || []).map((a: any) => a.id).filter(Boolean)
-      if (adminIds.length) {
-        await supabase.from('notifications').insert(
-          adminIds.map((id: string) => ({
-            user_id: id,
-            title: `📊 ${inserted} expense${inserted > 1 ? 's' : ''} imported — ${property!.name || property!.address}`,
-            body: `AutoLedger: statement from ${landlordName}.${duplicates ? ` ${duplicates} duplicate${duplicates > 1 ? 's' : ''} skipped.` : ''}`,
-            type: 'statement',
-            link: '/admin/expense-review',
-            read: false,
-          }))
-        )
+      const { data: admins } = await supabase
+        .from('people')
+        .select('id, email')
+        .in('role', ['administrator', 'admin'])
+
+      // Prefer the real primary admin; fall back to any real-domain account; last resort first row
+      const sorted = (admins || []).sort((a: any, b: any) => {
+        const aReal = (a.email || '').endsWith('@capitalrooms.co.uk') && !(a.email || '').includes('+test') ? 0 : 1
+        const bReal = (b.email || '').endsWith('@capitalrooms.co.uk') && !(b.email || '').includes('+test') ? 0 : 1
+        return aReal - bReal
+      })
+      const primaryAdmin = sorted[0]
+
+      if (primaryAdmin) {
+        await supabase.from('notifications').insert({
+          user_id: primaryAdmin.id,
+          title: `📊 ${inserted} expense${inserted > 1 ? 's' : ''} imported — ${property!.name || property!.address}`,
+          body: `AutoLedger: statement from ${landlordName}.${duplicates ? ` ${duplicates} duplicate${duplicates > 1 ? 's' : ''} skipped.` : ''}`,
+          type: 'statement',
+          link: '/admin/expense-review',
+          read: false,
+        })
       }
     }
   } catch (e) {
