@@ -144,7 +144,8 @@ export default function AdminDashboard() {
         }
 
         setUser(data.user)
-        setAdminName((data.assignment as any).name || data.user?.email?.split('@')[0] || '')
+        const p = data.assignment as any
+        setAdminName(p.first_name || p.name || data.user?.email?.split('@')[0] || '')
 
         // Is tenant/applicant messaging live? Drives the safe-mode banner.
         fetch('/api/comms-status').then((r) => r.json()).then((d) => setCommsLive(!!d.live)).catch(() => {})
@@ -200,6 +201,14 @@ export default function AdminDashboard() {
         right={
           <div className="flex items-center gap-md">
             <AdminNotificationBell />
+            <Link
+              href="/admin/profile"
+              className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm text-sm"
+              title="Edit your profile"
+            >
+              <span>👤</span>
+              <span className="hidden sm:inline">{adminName}</span>
+            </Link>
             <button
               onClick={handleSignOut}
               className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
