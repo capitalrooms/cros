@@ -18,6 +18,7 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import crypto from 'crypto'
 import { Resend } from 'resend'
+import { buildEmail } from '@/lib/emailWrapper'
 import {
   PROPERTY_WIDE_CATEGORIES,
   INCOME_CATEGORIES,
@@ -611,25 +612,24 @@ Amounts as positive numbers only (no £ symbol). Respond with JSON array only.` 
     console.warn('AutoLedger: in-app notify failed', e)
   }
 
-  // Email notification
+  // Email notification (shared wrapper applied via buildEmail)
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)
+    const notifyBody = `
+<h2 style="color:#111;margin:0 0 12px;">⚡ AutoLedger ran</h2>
+<p style="color:#555;margin:0 0 16px;">Statement from <strong>${landlordName}</strong> processed automatically.</p>
+<table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+  <tr><td style="padding:8px;color:#555">Property</td><td style="padding:8px;font-weight:bold">${property!.name || property!.address}</td></tr>
+  <tr><td style="padding:8px;color:#555">Items imported</td><td style="padding:8px;font-weight:bold;color:#16a34a">${inserted}</td></tr>
+  <tr><td style="padding:8px;color:#555">Duplicates skipped</td><td style="padding:8px">${duplicates}</td></tr>
+</table>
+${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" style="display:inline-block;background:#86284a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Review in CROS →</a>` : ''}`
+    const notifyHtml = await buildEmail(notifyBody)
     await resend.emails.send({
       from: 'Capital Rooms <noreply@capitalrooms.co.uk>',
       to: ['harry@capitalrooms.co.uk'],
       subject: `⚡ AutoLedger: ${inserted} expenses imported — ${property!.name || property!.address}`,
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px">
-          <h2 style="color:#111">⚡ AutoLedger ran</h2>
-          <p style="color:#555">Statement from <strong>${landlordName}</strong> processed automatically.</p>
-          <table style="width:100%;border-collapse:collapse;margin:16px 0">
-            <tr><td style="padding:8px;color:#555">Property</td><td style="padding:8px;font-weight:bold">${property!.name || property!.address}</td></tr>
-            <tr><td style="padding:8px;color:#555">Items imported</td><td style="padding:8px;font-weight:bold;color:#16a34a">${inserted}</td></tr>
-            <tr><td style="padding:8px;color:#555">Duplicates skipped</td><td style="padding:8px">${duplicates}</td></tr>
-          </table>
-          ${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" style="display:inline-block;background:#111;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Review in CROS →</a>` : ''}
-        </div>
-      `,
+      html: notifyHtml,
     })
   } catch (e) {
     console.warn('AutoLedger: email notify failed', e)

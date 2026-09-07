@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { buildEmail } from '@/lib/emailWrapper'
 
 const svc = () =>
   createClient(
@@ -59,7 +60,8 @@ export async function POST(req: NextRequest) {
     ? render(amlTpl.subject_line, { first_name: firstName })
     : 'Action Required: AML Re-verification — Capital Rooms'
 
-  // Send re-verification email
+  // Send re-verification email (shared wrapper applied via buildEmail)
+  const html = await amlRefreshHtml(landlord.name ?? landlord.email.split('@')[0], formUrl)
   const emailRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
       reply_to: 'management@capitalrooms.co.uk',
       to: landlord.email,
       subject: amlSubject,
-      html: amlRefreshHtml(landlord.name ?? landlord.email.split('@')[0], formUrl),
+      html,
     }),
   })
 
@@ -107,117 +109,68 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ records: data ?? [] })
 }
 
-// ── Email template ─────────────────────────────────────────────────────────────
+// ── Email template (body content only — wrapper applied via buildEmail) ──────────
 
-function amlRefreshHtml(name: string, formUrl: string) {
+async function amlRefreshHtml(name: string, formUrl: string): Promise<string> {
   const firstName = name.split(' ')[0]
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AML Re-verification — Capital Rooms</title>
-</head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;padding:40px 16px">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+  const body = `
+<p style="margin:0 0 6px;font-size:11px;color:#666;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;background:#fafaf9;border-bottom:1px solid #e8e8e8;padding:10px 0;">
+  🔒 Anti-Money Laundering · Periodic Re-verification
+</p>
 
-  <!-- Header -->
-  <tr>
-    <td style="background:#1a1a1a;padding:32px 40px">
-      <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:0.5px">Capital Rooms</p>
-      <p style="margin:6px 0 0;font-size:12px;color:#888;letter-spacing:0.2em;text-transform:uppercase">Specialist HMO Management · London</p>
-    </td>
-  </tr>
+<p style="margin:20px 0;font-size:15px;color:#333;line-height:1.6">Dear ${firstName},</p>
 
-  <!-- Compliance badge -->
-  <tr>
-    <td style="background:#fafaf9;border-bottom:1px solid #e8e8e8;padding:12px 40px">
-      <p style="margin:0;font-size:11px;color:#666;letter-spacing:0.08em;text-transform:uppercase;font-weight:600">
-        🔒 Anti-Money Laundering · Periodic Re-verification
-      </p>
-    </td>
-  </tr>
+<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
+  As part of our obligations under the <strong>Money Laundering, Terrorist Financing and Transfer of Funds
+  (Information on the Payer) Regulations 2017</strong> ("the Regulations"), we are required to periodically
+  refresh the Customer Due Diligence (CDD) records we hold for all landlord clients.
+</p>
 
-  <!-- Body -->
-  <tr>
-    <td style="padding:40px 40px 32px">
-      <p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${firstName},</p>
+<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
+  This is a standard regulatory requirement applicable to all letting and property management agents supervised
+  by HMRC under the Regulations. Periodic re-verification ensures that the information and documentation we hold
+  on file remains accurate, complete, and in compliance with our AML policy.
+</p>
 
-      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
-        As part of our obligations under the <strong>Money Laundering, Terrorist Financing and Transfer of Funds
-        (Information on the Payer) Regulations 2017</strong> ("the Regulations"), we are required to periodically
-        refresh the Customer Due Diligence (CDD) records we hold for all landlord clients.
-      </p>
+<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
+  We would be grateful if you could complete our updated landlord information form at your earliest convenience.
+  In most cases, where your circumstances have not changed since your last submission, the process takes only a
+  few minutes — a re-declaration of your existing details is all that is required.
+</p>
 
-      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
-        This is a standard regulatory requirement applicable to all letting and property management agents supervised
-        by HMRC under the Regulations. Periodic re-verification ensures that the information and documentation we hold
-        on file remains accurate, complete, and in compliance with our AML policy.
-      </p>
+<p style="margin:0 0 24px;font-size:15px;color:#333;line-height:1.6">
+  If your circumstances <em>have</em> changed (e.g. new address, change of ownership structure, additional
+  properties), please update the relevant sections accordingly and email any new supporting documents to
+  <a href="mailto:compliance@capitalrooms.co.uk" style="color:#1a1a1a">compliance@capitalrooms.co.uk</a>.
+</p>
 
-      <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
-        We would be grateful if you could complete our updated landlord information form at your earliest convenience.
-        In most cases, where your circumstances have not changed since your last submission, the process takes only a
-        few minutes — a re-declaration of your existing details is all that is required.
-      </p>
+<div style="margin:0 0 28px;">
+  <a href="${formUrl}" style="display:inline-block;background:#1a1a1a;color:#ffffff;font-size:14px;font-weight:600;padding:14px 28px;border-radius:6px;text-decoration:none;letter-spacing:0.3px;">
+    Complete AML Re-verification →
+  </a>
+</div>
 
-      <p style="margin:0 0 24px;font-size:15px;color:#333;line-height:1.6">
-        If your circumstances <em>have</em> changed (e.g. new address, change of ownership structure, additional
-        properties), please update the relevant sections accordingly and email any new supporting documents to
-        <a href="mailto:compliance@capitalrooms.co.uk" style="color:#1a1a1a">compliance@capitalrooms.co.uk</a>.
-      </p>
+<div style="background:#fef9ec;border:1px solid #f5e6b2;border-radius:6px;padding:16px 20px;margin:0 0 24px;">
+  <p style="margin:0;font-size:13px;color:#7a6020;line-height:1.6">
+    <strong>Please note:</strong> Failure to complete re-verification may result in Capital Rooms being
+    unable to continue processing rental income or acting on your behalf in accordance with our regulatory
+    obligations. We appreciate your prompt cooperation.
+  </p>
+</div>
 
-      <!-- CTA -->
-      <table cellpadding="0" cellspacing="0" style="margin:0 0 32px">
-        <tr>
-          <td style="background:#1a1a1a;border-radius:6px;padding:14px 28px">
-            <a href="${formUrl}" style="color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:0.3px">
-              Complete AML Re-verification →
-            </a>
-          </td>
-        </tr>
-      </table>
+<p style="margin:0 0 8px;font-size:14px;color:#555;line-height:1.6">
+  If you have any questions regarding this requirement, please contact our compliance team at
+  <a href="mailto:compliance@capitalrooms.co.uk" style="color:#1a1a1a">compliance@capitalrooms.co.uk</a>.
+</p>
 
-      <!-- Legal note -->
-      <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;width:100%">
-        <tr>
-          <td style="background:#fef9ec;border:1px solid #f5e6b2;border-radius:6px;padding:16px 20px">
-            <p style="margin:0;font-size:13px;color:#7a6020;line-height:1.6">
-              <strong>Please note:</strong> Failure to complete re-verification may result in Capital Rooms being
-              unable to continue processing rental income or acting on your behalf in accordance with our regulatory
-              obligations. We appreciate your prompt cooperation.
-            </p>
-          </td>
-        </tr>
-      </table>
+<p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>
+<p style="margin:0 0 24px;font-size:15px;color:#333;font-weight:600">The Capital Rooms Compliance Team</p>
 
-      <p style="margin:0 0 8px;font-size:14px;color:#555;line-height:1.6">
-        If you have any questions regarding this requirement, please contact our compliance team at
-        <a href="mailto:compliance@capitalrooms.co.uk" style="color:#1a1a1a">compliance@capitalrooms.co.uk</a>.
-      </p>
+<p style="margin:0;font-size:11px;color:#999;line-height:1.6;border-top:1px solid #eee;padding-top:16px;">
+  Capital Rooms Ltd · Supervised by HMRC under the Money Laundering Regulations 2017 ·
+  Member of The Property Ombudsman · ClientMoney Protect · Deposit Protection Service<br>
+  This communication is sent in accordance with our regulatory obligations and is not marketing material.
+</p>`
 
-      <p style="margin:24px 0 0;font-size:15px;color:#333">Kind regards,</p>
-      <p style="margin:4px 0 0;font-size:15px;color:#333;font-weight:600">The Capital Rooms Compliance Team</p>
-    </td>
-  </tr>
-
-  <!-- Footer -->
-  <tr>
-    <td style="background:#f8f8f8;border-top:1px solid #eee;padding:24px 40px">
-      <p style="margin:0;font-size:11px;color:#999;line-height:1.6">
-        Capital Rooms Ltd · Supervised by HMRC under the Money Laundering Regulations 2017 ·
-        Member of The Property Ombudsman · ClientMoney Protect · Deposit Protection Service<br>
-        This communication is sent in accordance with our regulatory obligations and is not marketing material.
-        Your personal data is processed in accordance with our Privacy Policy.
-      </p>
-    </td>
-  </tr>
-
-</table>
-</td></tr>
-</table>
-</body>
-</html>`
+  return buildEmail(body)
 }

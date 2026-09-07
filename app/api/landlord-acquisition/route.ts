@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'firstName and email are required' }, { status: 400 })
   }
 
-  const html = acquisitionEmailHtml({
+  const html = await acquisitionEmailHtml({
     firstName: firstName.trim(),
     greeting: greeting?.trim() || undefined,
     headshotUrl: headshotUrl?.trim() || undefined,
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
   const showLettingDiscount = p.get('showLettingDiscount') !== 'false'
   const discountedLettingFee = p.get('discountedLettingFee') || undefined
 
-  const html = acquisitionEmailHtml({
+  const html = await acquisitionEmailHtml({
     firstName, greeting, headshotUrl, igUrl, fbUrl,
     managementFee, lettingFee,
     showOfferBanner, showFreeManagement, freeManagementMonths, showLettingDiscount, discountedLettingFee,

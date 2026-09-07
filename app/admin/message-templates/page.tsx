@@ -8,6 +8,21 @@ import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { createClient } from '@/lib/supabase'
 
+// ── Branding types ─────────────────────────────────────────────────────────────
+
+interface BizSettings {
+  company_name: string
+  address_line1: string
+  address_line2: string
+  city: string
+  postcode: string
+  email: string
+  phone: string
+  logo_url: string
+  logo_url_light: string
+  email_theme: 'dark' | 'light'
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface MessageTemplate {
@@ -375,9 +390,19 @@ export default function MessageTemplatesPage() {
   const router = useRouter()
   const [loading, setLoading]       = useState(true)
   const [templates, setTemplates]   = useState<MessageTemplate[]>([])
-  const [activeGroup, setActiveGroup] = useState<Group | 'all'>('all')
+  const [activeGroup, setActiveGroup] = useState<Group | 'all' | 'branding'>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editingId, setEditingId]   = useState<string | null>(null)
+
+  // ── Branding state ───────────────────────────────────────────────────────────
+  const [biz, setBiz]           = useState<BizSettings | null>(null)
+  const [bizDraft, setBizDraft] = useState<Partial<BizSettings>>({})
+  const [bizSaving, setBizSaving]   = useState(false)
+  const [bizBanner, setBizBanner]   = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+  const [logoUploading, setLogoUploading] = useState<'dark' | 'light' | null>(null)
+  const [pendingPreview, setPendingPreview] = useState<{ dark?: string; light?: string }>({})
+  const darkLogoRef  = useRef<HTMLInputElement>(null)
+  const lightLogoRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function init() {
@@ -386,7 +411,7 @@ export default function MessageTemplatesPage() {
         router.push('/login')
         return
       }
-      await loadTemplates()
+      await Promise.all([loadTemplates(), loadBizSettings()])
       setLoading(false)
     }
     init()
@@ -404,6 +429,68 @@ export default function MessageTemplatesPage() {
       setTemplates(data as MessageTemplate[])
     }
   }
+
+  // ── Branding helpers ─────────────────────────────────────────────────────────
+
+  async function loadBizSettings() {
+    const res = await fetch('/api/admin/business-settings')
+    if (!res.ok) return
+    const json = await res.json()
+    setBiz(json.settings)
+    setBizDraft({})
+  }
+
+  function bizField(key: keyof BizSettings): string {
+    return String(bizDraft[key] ?? biz?.[key] ?? '')
+  }
+
+  function setBizField(key: keyof BizSettings, val: string) {
+    setBizDraft(prev => ({ ...prev, [key]: val }))
+  }
+
+  async function saveBizSettings() {
+    if (Object.keys(bizDraft).length === 0) return
+    setBizSaving(true)
+    setBizBanner(null)
+    try {
+      const res = await fetch('/api/admin/business-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bizDraft),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Save failed')
+      await loadBizSettings()
+      setBizBanner({ type: 'ok', text: '✅ Branding saved — next email will use the new settings.' })
+    } catch (e: any) {
+      setBizBanner({ type: 'err', text: e.message })
+    } finally {
+      setBizSaving(false)
+    }
+  }
+
+  async function uploadLogo(variant: 'dark' | 'light', file: File) {
+    const objectUrl = URL.createObjectURL(file)
+    setPendingPreview(prev => ({ ...prev, [variant]: objectUrl }))
+    setLogoUploading(variant)
+    setBizBanner(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('variant', variant)
+      const res = await fetch('/api/admin/upload-brand-logo', { method: 'POST', body: form })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Upload failed')
+      await loadBizSettings()
+      URL.revokeObjectURL(objectUrl)
+      setPendingPreview(prev => { const n = { ...prev }; delete n[variant]; return n })
+      setBizBanner({ type: 'ok', text: `✅ ${variant === 'dark' ? 'Dark' : 'Light'} logo updated.` })
+    } catch (e: any) {
+      setBizBanner({ type: 'err', text: e.message })
+    } finally {
+      setLogoUploading(null)
+    }
+  }
+
+  // ── Template save ─────────────────────────────────────────────────────────────
 
   async function handleSave(id: string, subject: string, body: string) {
     const supabase = createClient()
@@ -481,6 +568,18 @@ export default function MessageTemplatesPage() {
 
         {/* Group filter tabs */}
         <div className="mb-xl flex flex-wrap gap-xs border-b border-neutral-300 pb-0">
+          {/* Branding tab — first, before message groups */}
+          <button
+            onClick={() => setActiveGroup('branding')}
+            className={`px-md py-sm text-sm font-semibold transition whitespace-nowrap ${
+              activeGroup === 'branding'
+                ? 'border-b-2 border-blue-600 text-blue-700'
+                : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+          >
+            🎨 Branding &amp; Contact Details
+          </button>
+          <div className="w-px self-stretch bg-neutral-300 mx-xs" />
           <button
             onClick={() => setActiveGroup('all')}
             className={`px-md py-sm text-sm font-semibold transition ${
@@ -509,8 +608,168 @@ export default function MessageTemplatesPage() {
           ))}
         </div>
 
-        {/* Message list */}
-        <div className="space-y-2xl">
+        {/* ── Branding panel ────────────────────────────────────────────────── */}
+        {activeGroup === 'branding' && (
+          <div className="space-y-lg">
+
+            {bizBanner && (
+              <div className={`rounded-xl px-lg py-md text-sm font-semibold border ${
+                bizBanner.type === 'ok'
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {bizBanner.text}
+              </div>
+            )}
+
+            <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+              <div className="px-lg py-md border-b border-neutral-100">
+                <h2 className="font-bold text-neutral-900 text-base">Branding &amp; Contact Details</h2>
+                <p className="text-xs text-neutral-500 mt-xs">
+                  Logo, theme, and business details used in the <strong>locked</strong> header and footer of every outbound email.
+                  Body content per email type is edited in the message groups below.
+                  Changes here take effect on the next send — no redeploy needed.
+                </p>
+              </div>
+
+              <div className="px-lg py-lg space-y-md">
+
+                {/* Business details */}
+                <div className="grid grid-cols-2 gap-md">
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-xs">Company name</label>
+                    <input type="text" value={bizField('company_name')} onChange={e => setBizField('company_name', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-xs">Phone</label>
+                    <input type="tel" value={bizField('phone')} onChange={e => setBizField('phone', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-neutral-600 mb-xs">Reply-to email</label>
+                    <input type="email" value={bizField('email')} onChange={e => setBizField('email', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-xs">Address line 1</label>
+                    <input type="text" value={bizField('address_line1')} onChange={e => setBizField('address_line1', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-xs">Address line 2</label>
+                    <input type="text" value={bizField('address_line2')} onChange={e => setBizField('address_line2', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-xs">City</label>
+                    <input type="text" value={bizField('city')} onChange={e => setBizField('city', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-xs">Postcode</label>
+                    <input type="text" value={bizField('postcode')} onChange={e => setBizField('postcode', e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+
+                {/* Theme selector */}
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-600 mb-xs">Email header/footer theme</label>
+                  <div className="flex gap-md">
+                    {(['dark', 'light'] as const).map(t => (
+                      <button key={t} onClick={() => setBizField('email_theme', t)}
+                        className={`flex-1 rounded-xl border-2 p-md text-sm font-semibold transition-colors ${
+                          bizField('email_theme') === t
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:border-neutral-300'
+                        }`}>
+                        {t === 'dark' ? '⬛ Dark (Option E)' : '⬜ Light'}
+                        <p className="text-xs font-normal mt-xs text-neutral-500">
+                          {t === 'dark' ? 'White logo on black band — designer approved' : 'Dark logo on white band'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Logo uploads */}
+                <div className="border border-neutral-100 rounded-xl p-md bg-neutral-50">
+                  <div className="flex items-start justify-between mb-md">
+                    <p className="text-xs font-semibold text-neutral-700">Logo files</p>
+                    <p className="text-xs text-neutral-400 text-right leading-tight max-w-[200px]">
+                      Recommended: square PNG, transparent background,<br />at least 200 × 200 px
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-md">
+
+                    {/* Dark logo */}
+                    <div>
+                      <p className="text-xs text-neutral-500 mb-sm">⬛ Dark theme (white on black)</p>
+                      <div className="rounded-lg overflow-hidden mb-sm"
+                        style={{ background: '#0a0a0a', height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {(pendingPreview.dark || biz?.logo_url) ? (
+                          <img src={pendingPreview.dark ?? biz!.logo_url} alt="Dark logo preview"
+                            style={{ height: 80, maxHeight: 80, width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+                        ) : (
+                          <span className="text-xs text-neutral-600">No logo uploaded</span>
+                        )}
+                      </div>
+                      {logoUploading === 'dark' && <p className="text-xs text-blue-600 mb-xs">Uploading…</p>}
+                      <input ref={darkLogoRef} type="file" accept=".png,.jpg,.jpeg,.svg,.webp" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo('dark', f); e.target.value = '' }} />
+                      <button onClick={() => darkLogoRef.current?.click()} disabled={logoUploading !== null}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-sm py-sm text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition-colors">
+                        ↑ Replace dark logo
+                      </button>
+                      <p className="text-xs text-neutral-400 mt-xs">PNG with transparent background on dark</p>
+                    </div>
+
+                    {/* Light logo */}
+                    <div>
+                      <p className="text-xs text-neutral-500 mb-sm">⬜ Light theme (dark on white)</p>
+                      <div className="rounded-lg overflow-hidden border border-neutral-200 mb-sm"
+                        style={{ background: '#ffffff', height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {(pendingPreview.light || biz?.logo_url_light) ? (
+                          <img src={pendingPreview.light ?? biz!.logo_url_light} alt="Light logo preview"
+                            style={{ height: 72, maxHeight: 72, width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+                        ) : (
+                          <span className="text-xs text-neutral-400">No logo uploaded</span>
+                        )}
+                      </div>
+                      {logoUploading === 'light' && <p className="text-xs text-blue-600 mb-xs">Uploading…</p>}
+                      <input ref={lightLogoRef} type="file" accept=".png,.jpg,.jpeg,.svg,.webp" className="hidden"
+                        onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo('light', f); e.target.value = '' }} />
+                      <button onClick={() => lightLogoRef.current?.click()} disabled={logoUploading !== null}
+                        className="w-full rounded-lg border border-neutral-200 bg-white px-sm py-sm text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition-colors">
+                        ↑ Replace light logo
+                      </button>
+                      <p className="text-xs text-neutral-400 mt-xs">PNG with transparent background on white</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-md border-t border-neutral-200 pt-md">
+                    The preview above shows exactly how the logo will appear in the email header — fixed height, any aspect ratio displays correctly.
+                  </p>
+                </div>
+
+                {/* Save */}
+                <div className="flex justify-end pt-sm">
+                  <button onClick={saveBizSettings} disabled={Object.keys(bizDraft).length === 0 || bizSaving}
+                    className={`rounded-xl px-xl py-md text-sm font-bold transition-colors ${
+                      Object.keys(bizDraft).length > 0 && !bizSaving
+                        ? 'bg-neutral-900 text-white hover:bg-neutral-800'
+                        : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+                    }`}>
+                    {bizSaving ? 'Saving…' : 'Save branding'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Message list ──────────────────────────────────────────────────── */}
+        {activeGroup !== 'branding' && <div className="space-y-2xl">
           {visible.map(group => {
             const rows = grouped[group] ?? []
             if (rows.length === 0) return null
@@ -653,17 +912,19 @@ export default function MessageTemplatesPage() {
               </p>
             </div>
           )}
-        </div>
+        </div>}
 
-        {/* Legend */}
-        <div className="mt-2xl rounded-2xl bg-white border border-neutral-200 px-lg py-md">
-          <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-sm">Legend</p>
-          <div className="flex flex-wrap gap-lg text-xs text-neutral-600">
-            <span><strong className="text-emerald-700">✏️ Editable</strong> — subject + body stored in the database; edit here, live on next send</span>
-            <span><strong className="text-amber-700">⚙️ In code</strong> — message text hardcoded in the route file; read-only here</span>
-            <span><strong className="text-red-700">⚠️ Not wired</strong> — route exists but sending channel not yet connected</span>
+        {/* Legend — only shown when a message group tab is active */}
+        {activeGroup !== 'branding' && (
+          <div className="mt-2xl rounded-2xl bg-white border border-neutral-200 px-lg py-md">
+            <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-sm">Legend</p>
+            <div className="flex flex-wrap gap-lg text-xs text-neutral-600">
+              <span><strong className="text-emerald-700">✏️ Editable</strong> — subject + body stored in the database; edit here, live on next send</span>
+              <span><strong className="text-amber-700">⚙️ In code</strong> — message text hardcoded in the route file; read-only here</span>
+              <span><strong className="text-red-700">⚠️ Not wired</strong> — route exists but sending channel not yet connected</span>
+            </div>
           </div>
-        </div>
+        )}
 
       </main>
     </div>
