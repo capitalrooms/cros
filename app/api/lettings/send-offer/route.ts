@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase'
 import { buildOfferLetterEmail, buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { randomBytes } from 'crypto'
@@ -17,7 +17,7 @@ function buildRef(propertyCode: string | null, roomName: string | null) {
 }
 
 export async function POST(request: Request) {
-  const supabase = createClient()
+  const supabase = createServiceClient()
 
   try {
     const data = await request.json()
