@@ -62,7 +62,7 @@ export default function AdminNotificationBell() {
   const [dismissed, setDismissed] = useState<string[]>([])
   const [rewarding, setRewarding] = useState<string | null>(null)
   const [loading, setLoading]     = useState(false)
-  const [panelPos, setPanelPos]   = useState<{ top: number; right: number }>({ top: 0, right: 0 })
+  const [panelPos, setPanelPos]   = useState<{ top: number; right: number; maxWidth: number }>({ top: 0, right: 0, maxWidth: 384 })
   const [mounted, setMounted]     = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
 
@@ -106,13 +106,17 @@ export default function AdminNotificationBell() {
 
   function toggleOpen() {
     if (open) { setOpen(false); return }
-    // Calculate position from button
+    // Calculate position from button — clamp so the panel never clips on mobile
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
-      setPanelPos({
-        top:   rect.bottom + 8,
-        right: window.innerWidth - rect.right,
-      })
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const PANEL_W = Math.min(384, vw - 8)   // never wider than viewport - 8px
+      const rawRight = vw - rect.right          // pixels from right edge
+      // Clamp so the left edge stays ≥ 4px from the left of the screen
+      const clampedRight = Math.min(rawRight, vw - PANEL_W - 4)
+      const top = Math.min(rect.bottom + 8, vh - 120) // don't drop below fold
+      setPanelPos({ top, right: Math.max(clampedRight, 4), maxWidth: PANEL_W })
     }
     setOpen(true)
     fetchItems()
@@ -136,7 +140,7 @@ export default function AdminNotificationBell() {
   const panel = (
     <div
       id="bell-panel"
-      style={{ position: 'fixed', top: panelPos.top, right: panelPos.right, zIndex: 9999, width: 384 }}
+      style={{ position: 'fixed', top: panelPos.top, right: panelPos.right, zIndex: 9999, width: panelPos.maxWidth, maxWidth: panelPos.maxWidth }}
       className="rounded-xl border border-neutral-200 bg-white shadow-2xl overflow-hidden"
     >
       {/* Header */}
