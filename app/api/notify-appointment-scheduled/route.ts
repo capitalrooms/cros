@@ -111,10 +111,10 @@ export async function POST(request: NextRequest) {
   // Load tenant viewing template once — used for both room tenant and other tenants
   const tenantTpl = await getTemplate('appointment-viewing-tenants')
 
-  function buildViewingEmail(tenantName: string, roomOrAtProperty: string): string {
+  async function buildViewingEmail(tenantName: string, roomOrAtProperty: string): Promise<string> {
     const vars = { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: roomOrAtProperty }
-    if (tenantTpl) return emailHtml(render(tenantTpl.template_text, vars))
-    return emailHtml(`
+    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, vars))
+    return await emailHtml(`
       <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
       <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
       <p style="margin:0 0 20px;line-height:1.6">A viewing has been booked ${roomOrAtProperty}.</p>

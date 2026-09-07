@@ -1,0 +1,168 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  Capital Rooms — THE single email wrapper                        ║
+ * ║                                                                  ║
+ * ║  Every outbound email must go through buildEmail() or wrapEmail().║
+ * ║  Logo, header, footer come from this file only.                  ║
+ * ║  Business details (address / email / phone) come from the        ║
+ * ║  business_settings table — change once → updates every email.   ║
+ * ║                                                                  ║
+ * ║  DO NOT copy-paste header/footer HTML into route files.          ║
+ * ╚══════════════════════════════════════════════════════════════════╝
+ */
+
+import { createClient } from '@supabase/supabase-js'
+
+// ─── Business details type ────────────────────────────────────────────────────
+
+export interface BusinessSettings {
+  company_name: string
+  address_line1: string
+  address_line2: string
+  city: string
+  postcode: string
+  email: string
+  phone: string
+  logo_url: string
+}
+
+// Hard-coded fallback — only used when DB is unreachable.
+// The live values live in business_settings table (migration 129).
+export const BUSINESS_DEFAULTS: BusinessSettings = {
+  company_name: 'Capital Rooms',
+  address_line1: 'Third Floor',
+  address_line2: '86–90 Paul Street',
+  city: 'London',
+  postcode: 'EC2A 4NE',
+  email: 'management@capitalrooms.co.uk',
+  phone: '0207 112 9163',
+  logo_url: 'https://cros-sigma.vercel.app/footer-logo.png',
+}
+
+// Simple in-process cache — 5-minute TTL so changes propagate quickly.
+let _biz: BusinessSettings | null = null
+let _bizAt = 0
+const CACHE_MS = 5 * 60 * 1000
+
+export async function getBusinessSettings(): Promise<BusinessSettings> {
+  if (_biz && Date.now() - _bizAt < CACHE_MS) return _biz
+  try {
+    const supa = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const { data } = await supa
+      .from('business_settings')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (data) {
+      _biz = { ...BUSINESS_DEFAULTS, ...data }
+      _bizAt = Date.now()
+      return _biz
+    }
+  } catch {
+    // fall through to defaults
+  }
+  return BUSINESS_DEFAULTS
+}
+
+// ─── HTML helpers ─────────────────────────────────────────────────────────────
+
+/** Standard detail-row in a summary table */
+export function tableRow(label: string, value: string): string {
+  return `<tr>
+    <td style="padding:8px 0;color:#78716c;font-size:13px;width:130px;vertical-align:top;">${label}</td>
+    <td style="padding:8px 0;color:#1c1917;font-size:13px;font-weight:600;">${value}</td>
+  </tr>`
+}
+
+/** CTA button — crimson, rounded */
+export function ctaButton(label: string, href: string): string {
+  return `<div style="margin:24px 0;text-align:center;">
+    <a href="${href}" style="display:inline-block;background:#86284a;color:#ffffff;font-size:14px;font-weight:600;padding:14px 32px;border-radius:6px;text-decoration:none;">${label}</a>
+  </div>`
+}
+
+// Kept for routes that use the old operational-style yellow button
+export function operationalCtaButton(label: string, href: string): string {
+  return `<a href="${href}" style="display:inline-block;background:#0a0a0a;color:#FFE000;font-size:13px;font-weight:700;padding:12px 24px;text-decoration:none;letter-spacing:0.04em;text-transform:uppercase;">${label}</a>`
+}
+
+export const FROM = 'Capital Rooms <noreply@capitalrooms.co.uk>'
+export const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+
+// ─── The wrapper ──────────────────────────────────────────────────────────────
+
+/**
+ * Wrap HTML content in the Capital Rooms email shell.
+ *
+ * Header: footer-logo.png on black band (80 px).
+ * Body:   white card.
+ * Footer: smaller logo + address/email/phone on black band.
+ *
+ * Business details come from `biz` — pass the result of getBusinessSettings()
+ * for live DB values, or omit for hardcoded defaults.
+ */
+export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS): string {
+  const fullAddress = `${biz.address_line1}, ${biz.address_line2}, ${biz.city} ${biz.postcode}`
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+</head>
+<body style="margin:0;padding:0;background:#f5f5f4;-webkit-text-size-adjust:100%;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 0;">
+<tr><td align="center">
+<table cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;">
+
+  <!-- ░ HEADER ░ -->
+  <tr>
+    <td style="background:#0a0a0a;text-align:center;padding:20px 0;line-height:0;mso-line-height-rule:exactly;">
+      <img src="${biz.logo_url}" alt="${biz.company_name}" height="80"
+           style="display:inline-block;height:80px;width:auto;border:0;outline:none;text-decoration:none;"
+           width="80" />
+    </td>
+  </tr>
+
+  <!-- ░ BODY ░ -->
+  <tr>
+    <td style="background:#ffffff;padding:36px 40px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.75;color:#3f3f46;">
+      ${content}
+    </td>
+  </tr>
+
+  <!-- ░ FOOTER ░ -->
+  <tr>
+    <td style="background:#0a0a0a;text-align:center;padding:24px 28px 20px;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.9;letter-spacing:0.03em;color:#aaaaaa;">
+      <img src="${biz.logo_url}" alt="${biz.company_name}" height="44"
+           style="display:block;margin:0 auto 14px;height:44px;width:auto;border:0;" />${biz.company_name}<br>
+      ${fullAddress}<br>
+      <a href="mailto:${biz.email}" style="color:#aaaaaa;text-decoration:none;">${biz.email}</a>
+      &nbsp;|&nbsp; ${biz.phone}
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`
+}
+
+/**
+ * Async convenience: fetches live business settings then wraps.
+ * Use this in every route handler — it's already async so the await is free.
+ *
+ * @example
+ *   const html = await buildEmail(`<h2>Hello</h2><p>…</p>`)
+ */
+export async function buildEmail(content: string): Promise<string> {
+  const biz = await getBusinessSettings()
+  return wrapEmail(content, biz)
+}

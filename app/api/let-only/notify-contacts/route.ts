@@ -19,7 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { buildEmail, FROM } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
@@ -49,7 +49,7 @@ function buildEmailBody(params: {
   address: string
   sender_name: string
   contact_name: string
-}): { subject: string; html: string } {
+}): { subject: string; body: string } {
   const { event, viewing_date, viewing_time, room_name, address, sender_name, contact_name } = params
   const dateStr = formatDate(viewing_date)
   const timeStr = formatTime(viewing_time)
@@ -69,27 +69,20 @@ function buildEmailBody(params: {
     intro = `A viewing at your property${roomStr} that was scheduled for <strong>${dateStr} at ${timeStr}</strong> has been cancelled.`
   }
 
-  const html = `
-    <div style="font-family: system-ui, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; color: #1a1a1a;">
-      <p style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">Capital Rooms</p>
-      <hr style="border: none; border-top: 1px solid #e5e5e5; margin-bottom: 24px;" />
-      <p>Hi ${contact_name},</p>
-      <p>${intro}</p>
-      <p style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 16px 0;">
-        📍 <strong>${address}</strong><br/>
-        ${room_name ? `🚪 ${room_name}<br/>` : ''}
-        📅 ${dateStr}<br/>
-        🕐 ${timeStr}
-      </p>
-      <p>We will have a management set of keys for access — you do not need to be present. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.</p>
-      <p>If you have any questions, please contact ${sender_name} at Capital Rooms.</p>
-      <p style="margin-top: 24px; color: #777; font-size: 12px;">
-        Capital Rooms · You're receiving this because you're a contact at this property.
-      </p>
+  const body = `
+    <p>Hi ${contact_name},</p>
+    <p>${intro}</p>
+    <div style="background:#f5f5f4;border-radius:8px;padding:16px;margin:16px 0;">
+      📍 <strong>${address}</strong><br>
+      ${room_name ? `🚪 ${room_name}<br>` : ''}
+      📅 ${dateStr}<br>
+      🕐 ${timeStr}
     </div>
+    <p>We will have a management set of keys for access — you do not need to be present. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.</p>
+    <p>If you have any questions, please contact ${sender_name} at Capital Rooms.</p>
   `
 
-  return { subject, html }
+  return { subject, body }
 }
 
 export async function POST(req: NextRequest) {
@@ -165,16 +158,11 @@ export async function POST(req: NextRequest) {
           const vars = { event_subject: eventSubject, address, contact_name: contactName, event_intro: eventIntro, sender_name }
           subject = render(letOnlyTpl.subject_line, vars)
           const bodyText = render(letOnlyTpl.template_text, vars)
-          html = `<div style="font-family:system-ui,sans-serif;max-width:540px;margin:0 auto;padding:24px;color:#1a1a1a;">
-            <p style="font-size:18px;font-weight:bold;margin-bottom:8px;">Capital Rooms</p>
-            <hr style="border:none;border-top:1px solid #e5e5e5;margin-bottom:24px;"/>
-            <div style="white-space:pre-line">${bodyText}</div>
-            <p style="margin-top:24px;color:#777;font-size:12px;">Capital Rooms · You're receiving this because you're a contact at this property.</p>
-          </div>`
+          html = await buildEmail(`<div style="white-space:pre-line;">${bodyText}</div>`)
         } else {
           const result = buildEmailBody({ event, viewing_date, viewing_time, visitor_name, room_name, address, sender_name, contact_name: contactName })
           subject = result.subject
-          html = result.html
+          html = await buildEmail(result.body)
         }
 
         const res = await fetch('https://api.resend.com/emails', {
@@ -184,7 +172,7 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: FROM_EMAIL,
+            from: FROM,
             to: [contact.email],
             subject,
             html,

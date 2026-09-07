@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     await notifyAdmin(
       subject,
-      emailHtml(`
+      await emailHtml(`
         <h2 style="font-size:19px;color:#1c1917;font-weight:700;margin:0 0 8px;">Confirmed ✅</h2>
         <p style="font-size:15px;color:#1c1917;margin:0 0 20px;">${context}</p>
         <p style="font-size:14px;color:#78716c;margin:0 0 20px;">
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     await notifyAdmin(
       subject,
-      emailHtml(`
+      await emailHtml(`
         <h2 style="font-size:19px;color:#1c1917;font-weight:700;margin:0 0 8px;">Running late or issue ⚠️</h2>
         <p style="font-size:15px;color:#1c1917;margin:0 0 20px;">${context}</p>
         <p style="font-size:14px;color:#78716c;margin:0 0 20px;">
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
   // Pass to admin as a note — we can't auto-handle it
   await notifyAdmin(
     `SMS reply from ${from} — needs attention`,
-    emailHtml(`
+    await emailHtml(`
       <h2 style="font-size:19px;color:#1c1917;font-weight:700;margin:0 0 8px;">SMS reply — needs attention</h2>
       <p style="font-size:15px;color:#1c1917;margin:0 0 8px;">${context}</p>
       <p style="font-size:14px;color:#78716c;margin:0 0 4px;">From: <strong>${from}</strong></p>

@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         Open dashboard
       </a>`
 
-  const html = emailHtml(body)
+  const html = await emailHtml(body)
 
   const res = await fetch(RESEND_ENDPOINT, {
     method: 'POST',

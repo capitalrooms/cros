@@ -102,26 +102,27 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
     ? calcProRata(tenancy.rent_amount, rentDueDay, moveOutDate)
     : null
 
-  const checkoutEmailHtml = emailTenant && moveOutDate && proRata
-    ? buildCheckoutEmail({
-        tenantName:         displayName(tenancy.person) || 'Tenant',
-        tenantEmail:        tenancy.person?.email || '',
-        roomName:           tenancy.room?.name || 'Room',
-        propertyAddress:    tenancy.property?.address || '',
-        moveOutDate,
-        lastRentAmount:     tenancy.rent_amount,
-        proRataRent:        proRata.proRataAmount,
-        proRataCalculation: `${proRata.daysOccupied} days × £${proRata.dailyRate.toFixed(2)}/day`,
-        contactEmail: 'management@capitalrooms.co.uk',
-        contactPhone: '0207 112 9163',
-      })
-    : null
-
   const handleConfirm = async () => {
     if (!moveOutDate) { setError('Please select a move-out date'); return }
     setSending(true)
     setError(null)
     try {
+      // Build checkout email HTML (async, uses shared wrapper)
+      const checkoutEmailHtml = emailTenant && moveOutDate && proRata
+        ? await buildCheckoutEmail({
+            tenantName:         displayName(tenancy.person) || 'Tenant',
+            tenantEmail:        tenancy.person?.email || '',
+            roomName:           tenancy.room?.name || 'Room',
+            propertyAddress:    tenancy.property?.address || '',
+            moveOutDate,
+            lastRentAmount:     tenancy.rent_amount,
+            proRataRent:        proRata.proRataAmount,
+            proRataCalculation: `${proRata.daysOccupied} days × £${proRata.dailyRate.toFixed(2)}/day`,
+            contactEmail: 'management@capitalrooms.co.uk',
+            contactPhone: '0207 112 9163',
+          })
+        : null
+
       await onConfirm({
         moveOutDate,
         noticeReceivedDate,

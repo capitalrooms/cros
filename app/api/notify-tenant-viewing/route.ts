@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       const success = await send(
         tenancy.people.email,
         'Notice of scheduled viewing at your property',
-        emailHtml(`
+        await emailHtml(`
           <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
           <p style="margin:0 0 30px;font-size:16px;line-height:1.5">
             Please note that there will be a viewing scheduled in your room.
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
         const success = await send(
           tenancy.people.email,
           'Notice: Scheduled activity in your property',
-          emailHtml(`
+          await emailHtml(`
             <h2 style="margin:0 0 18px;font-size:22px">Property Notice</h2>
             <p style="margin:0 0 30px;font-size:16px;line-height:1.5">
               Please be advised that there is a scheduled viewing or maintenance activity
