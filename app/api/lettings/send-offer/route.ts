@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/auth'
 import { buildOfferLetterEmail, buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { randomBytes } from 'crypto'
@@ -17,6 +18,13 @@ function buildRef(propertyCode: string | null, roomName: string | null) {
 }
 
 export async function POST(request: Request) {
+  // Auth guard — service client bypasses RLS so we enforce permissions here
+  const user = await getCurrentUser()
+  const role = (user?.assignment as any)?.role || ''
+  if (!user || !['administrator', 'admin', 'lettings'].includes(role)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const supabase = createServiceClient()
 
   try {
