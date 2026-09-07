@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 
@@ -45,12 +46,12 @@ export default function InviteToApplyPage() {
           .select('id, visitor_name, visitor_email, visitor_phone, viewing_date, viewing_slot, room_id, property_id, rooms(name, is_let_only), properties(name, address)')
           .gte('viewing_date', since.toISOString().split('T')[0])
           .order('viewing_date', { ascending: false }),
-        supabase.from('properties').select('id, name, address').order('name'),
+        supabase.from('properties').select('id, name, address'),
         supabase.from('rooms').select('id, name, property_id, is_let_only, current_asking_rent').order('name'),
       ])
       const loadedViewings = viewingsRes.data || []
       setViewings(loadedViewings)
-      setProperties(propertiesRes.data || [])
+      setProperties(sortPropertiesNumerically(propertiesRes.data || []))
       setRooms(roomsRes.data || [])
       // Auto-select if navigated here with ?viewingId=
       if (preselectedViewingId) {
