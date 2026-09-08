@@ -59,6 +59,7 @@ const SCHEMA = {
     tenancy_start: { type: 'string' },
     tenancy_end: { type: 'string' },
     monthly_rent: { type: 'string' },
+    rent_due_day: { type: 'number' },
     // ── Purchase / invoice extraction (for the Purchases + Works Carried Out features)
     purchase_category: { type: 'string' },
     item_name: { type: 'string' },
@@ -71,6 +72,7 @@ const SCHEMA = {
     'policy_number', 'property_address', 'person_name', 'person_phone', 'person_email',
     'occupation', 'annual_income', 'previous_address', 'tenancy_start', 'tenancy_end', 'monthly_rent',
     'purchase_category', 'item_name', 'item_make_model', 'amount', 'work_description',
+    'rent_due_day',
   ],
 } as const
 
@@ -117,6 +119,7 @@ Field guidance:
 - person_name / person_email / person_phone = tenant, applicant, or named person on the document
 - occupation / annual_income / previous_address = from tenant references
 - tenancy_start / tenancy_end / monthly_rent = from tenancy agreements or deposit certificates
+- rent_due_day = day of month rent is due, as an integer 1–31 (e.g. 1 for "payable on the 1st of each month", 15 for "due on the 15th"). Only set for tenancy_agreement or deposit_certificate; leave 0 if not stated.
 
 Purchase & invoice fields (leave "" unless the document is a purchase_receipt or supplier_invoice):
 - amount = the total amount, digits only with no currency symbol (e.g. "349.99"). For a supplier_invoice, the invoiced total. For a purchase_receipt, the price paid.

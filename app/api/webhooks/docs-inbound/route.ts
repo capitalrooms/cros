@@ -110,6 +110,87 @@ export async function POST(req: NextRequest) {
       ai_error = e?.message || 'AI classification failed'
     }
 
+    // ── Tenancy agreement matching ───────────────────────────────────────────
+    // For tenancy agreements, try to match the person named in the document to
+    // an existing applicant (being onboarded) or an existing tenant (for whom
+    // we just want to update rent_due_day). Matching runs best-effort; a failed
+    // match still stores the document — admin reviews unmatched docs manually.
+    let matched_applicant_id: string | null = null
+    let matched_person_id: string | null = null
+    let match_confidence: number | null = null
+    let extracted_rent_due_day: number | null = null
+
+    if (ai_result?.doc_type === 'tenancy_agreement') {
+      const docEmail = (ai_result.person_email || '').trim().toLowerCase()
+      const docName  = (ai_result.person_name  || '').trim().toLowerCase()
+      const rawDay   = ai_result.rent_due_day
+      if (rawDay && Number.isInteger(rawDay) && rawDay >= 1 && rawDay <= 31) {
+        extracted_rent_due_day = rawDay
+      }
+
+      if (docEmail) {
+        // 1. Try applicants first (new tenant being onboarded)
+        const { data: matchedApplicant } = await supabase
+          .from('applicants')
+          .select('id, full_name, pipeline_stage')
+          .eq('email', docEmail)
+          .neq('pipeline_stage', 'converted')
+          .maybeSingle()
+
+        if (matchedApplicant) {
+          matched_applicant_id = matchedApplicant.id
+          match_confidence = 0.95
+        } else {
+          // 2. Try existing tenant
+          const { data: matchedPerson } = await supabase
+            .from('people')
+            .select('id')
+            .eq('email', docEmail)
+            .eq('role', 'tenant')
+            .maybeSingle()
+
+          if (matchedPerson) {
+            matched_person_id = matchedPerson.id
+            match_confidence = 0.95
+
+            // Auto-apply rent_due_day correction — this overwrites the default
+            // (or any previously imported value) with the real value from the doc.
+            // No admin confirmation needed: the doc IS the source of truth.
+            if (extracted_rent_due_day) {
+              const today = new Date().toISOString().slice(0, 10)
+              await supabase
+                .from('tenancies')
+                .update({ rent_due_day: extracted_rent_due_day })
+                .eq('person_id', matchedPerson.id)
+                .or(`end_date.is.null,end_date.gte.${today}`)
+            }
+          }
+        }
+      } else if (docName) {
+        // 3. Fuzzy name fallback — applicants only (existing tenants need email to be safe)
+        const { data: allApplicants } = await supabase
+          .from('applicants')
+          .select('id, full_name')
+          .neq('pipeline_stage', 'converted')
+
+        let bestId: string | null = null
+        let bestScore = 0
+        for (const a of allApplicants || []) {
+          const candidate = a.full_name.trim().toLowerCase()
+          // Simple overlap: count shared tokens
+          const docTokens = new Set(docName.split(/\s+/))
+          const candTokens = candidate.split(/\s+/)
+          const shared = candTokens.filter((t: string) => docTokens.has(t)).length
+          const score = shared / Math.max(docTokens.size, candTokens.length)
+          if (score > bestScore) { bestScore = score; bestId = a.id }
+        }
+        if (bestScore >= 0.67 && bestId) {
+          matched_applicant_id = bestId
+          match_confidence = Math.round(bestScore * 0.75 * 100) / 100 // cap at 0.75 for name-only
+        }
+      }
+    }
+
     // Insert into inbox_documents
     const { error: insErr } = await supabase.from('inbox_documents').insert({
       from_email: fromEmail || null,
@@ -120,6 +201,10 @@ export async function POST(req: NextRequest) {
       ai_result,
       ai_error,
       status: 'new',
+      matched_applicant_id,
+      matched_person_id,
+      match_confidence,
+      extracted_rent_due_day,
     })
 
     if (insErr) {
