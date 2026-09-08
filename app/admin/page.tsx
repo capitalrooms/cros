@@ -93,6 +93,8 @@ const DASH_GROUPS: DashGroup[] = [
 
 // Sort tiles within every group alphabetically (so future additions land correctly)
 DASH_GROUPS.forEach(g => g.tiles.sort((a, b) => a.name.localeCompare(b.name)))
+// Sort the groups themselves alphabetically
+DASH_GROUPS.sort((a, b) => a.name.localeCompare(b.name))
 
 // Compliance expiry dates that must never lapse.
 const CERT_CHECKS: { field: string; label: string }[] = [
@@ -201,14 +203,6 @@ export default function AdminDashboard() {
         right={
           <div className="flex items-center gap-md">
             <AdminNotificationBell />
-            <Link
-              href="/admin/profile"
-              className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm text-sm"
-              title="Edit your profile"
-            >
-              <span>👤</span>
-              <span className="hidden sm:inline">{adminName}</span>
-            </Link>
             <button
               onClick={handleSignOut}
               className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
@@ -354,6 +348,20 @@ export default function AdminDashboard() {
               )
             })}
 
+          </div>
+
+          {/* Profile / settings — gear icon, bottom-left, aligned with left edge of tiles */}
+          <div className="flex items-start">
+            <Link
+              href="/admin/profile"
+              title="Profile settings"
+              className="flex items-center justify-center w-9 h-9 rounded-full border border-neutral-300 bg-white hover:bg-neutral-50 hover:border-neutral-400 transition-colors text-neutral-500 hover:text-neutral-700"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 10a2 2 0 100-4 2 2 0 000 4z" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M13.2 8c0-.3 0-.6-.1-.9l1.4-1.1-1.2-2-1.7.7a5 5 0 00-1.6-.9L9.6 2H6.4l-.4 1.8a5 5 0 00-1.6.9L2.7 4l-1.2 2 1.4 1.1c0 .3-.1.6-.1.9s0 .6.1.9L1.5 10l1.2 2 1.7-.7c.5.4 1 .7 1.6.9l.4 1.8h3.2l.4-1.8c.6-.2 1.1-.5 1.6-.9l1.7.7 1.2-2-1.4-1.1c.1-.3.1-.6.1-.9z" stroke="currentColor" strokeWidth="1.4"/>
+              </svg>
+            </Link>
           </div>
         </div>
 

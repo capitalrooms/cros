@@ -483,7 +483,7 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
                       if (!window.confirm(`Mark ${tenantDisplayName(tenant)} as on notice?`)) return
                       const endDate = window.prompt('Enter notice end date (YYYY-MM-DD):', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
                       if (!endDate) return
-                      await supabase.from('tenancies').update({ status: 'on_notice', end_date: endDate }).eq('id', currentTenancy.id)
+                      await supabase.from('tenancies').update({ end_date: endDate, notice_received_date: new Date().toISOString().slice(0, 10) }).eq('id', currentTenancy.id)
                       window.location.reload()
                     }}
                     className="px-lg py-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition"

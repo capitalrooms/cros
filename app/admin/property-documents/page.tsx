@@ -92,7 +92,7 @@ export default function PropertyDocumentsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/admin" className="text-sm font-bold text-neutral-700">← Admin</Link>} />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">
         <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
