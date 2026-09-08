@@ -56,7 +56,6 @@ export async function POST(request: Request) {
 
     // 1. Update tenancy
     const tenancyUpdate: Record<string, unknown> = {
-      status: 'on_notice',
       end_date: moveOutDate,
     }
     if (noticeReceivedDate) tenancyUpdate.notice_received_date = noticeReceivedDate

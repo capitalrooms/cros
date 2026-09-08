@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const { data: tenancy, error: fetchErr } = await supabase
     .from('tenancies')
     .select(`
-      id, person_id, status, end_date,
+      id, person_id, notice_received_date, end_date,
       rooms(name),
       properties(id, address, notice_period_months)
     `)
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Already on notice
-  if (tenancy.status === 'on_notice') {
+  if (tenancy.notice_received_date) {
     return NextResponse.json({ error: 'Tenancy is already on notice' }, { status: 409 })
   }
 
@@ -64,7 +64,6 @@ export async function POST(req: NextRequest) {
   const { error: updateErr } = await supabase
     .from('tenancies')
     .update({
-      status: 'on_notice',
       notice_received_date: todayStr,
       end_date: intendedMoveOutDate,
     })

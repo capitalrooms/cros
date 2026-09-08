@@ -11,7 +11,6 @@ import Link from 'next/link'
 interface Tenancy {
   id: string
   person_id: string
-  status: string | null
   end_date: string | null
   notice_received_date: string | null
   rescind_requested_at: string | null
@@ -40,9 +39,9 @@ export default function RescindNoticePage() {
       const supabase = createClient()
       const { data: t } = await supabase
         .from('tenancies')
-        .select('id, person_id, status, end_date, notice_received_date, rescind_requested_at, rooms(name), properties(address)')
+        .select('id, person_id, end_date, notice_received_date, rescind_requested_at, rooms(name), properties(address)')
         .eq('person_id', pid)
-        .eq('status', 'on_notice')
+        .not('notice_received_date', 'is', null)
         .maybeSingle()
 
       setTenancy(t as Tenancy | null)

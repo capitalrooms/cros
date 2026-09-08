@@ -622,7 +622,7 @@ export default function TenantDashboard() {
             Let us know you&apos;re leaving and we&apos;ll walk you through what happens next.
           </p>
           <div className="mt-md grid gap-md">
-            {tenancy?.status === 'on_notice' ? (
+            {tenancy?.notice_received_date ? (
               <>
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-md">
                   <p className="text-sm font-semibold text-amber-900">Notice in progress</p>

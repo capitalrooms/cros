@@ -14,7 +14,6 @@ interface Tenancy {
   start_date: string
   end_date: string | null
   notice_received_date: string | null
-  status: string | null
   rent_amount: number | null
   rescind_requested_at: string | null
   rooms: { name: string } | null
@@ -43,10 +42,10 @@ export default function GiveNoticePage() {
       const supabase = createClient()
       const { data: t } = await supabase
         .from('tenancies')
-        .select('id, person_id, start_date, end_date, notice_received_date, status, rent_amount, rescind_requested_at, rooms(name), properties(name, address, notice_period_months)')
+        .select('id, person_id, start_date, end_date, notice_received_date, rent_amount, rescind_requested_at, rooms(name), properties(name, address, notice_period_months)')
         .eq('person_id', pid)
-        .is('end_date', null)
-        .not('status', 'eq', 'on_notice')
+        .is('notice_received_date', null)
+        .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
         .maybeSingle()
 
       setTenancy(t as Tenancy | null)
