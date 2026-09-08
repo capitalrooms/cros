@@ -30,13 +30,7 @@ interface Tenancy {
   room_id: string;
   start_date: string;
   end_date: string | null;
-  status: 'active' | 'on_notice' | 'available';
   rent_amount: number;
-  communication_preference: 'email' | 'text';
-  opt_in_maintenance: boolean;
-  opt_in_viewings: boolean;
-  opt_in_appointments: boolean;
-  opt_in_cleaning: boolean;
   person?: {
     id: string;
     name: string;
@@ -74,13 +68,7 @@ export default function TenanciesManagementPage() {
 
   const [newTenancy, setNewTenancy] = useState({
     start_date: new Date().toISOString().split('T')[0],
-    status: 'active' as 'active' | 'on_notice' | 'available',
     rent_amount: 0,
-    communication_preference: 'email' as 'email' | 'text',
-    opt_in_maintenance: true,
-    opt_in_viewings: true,
-    opt_in_appointments: true,
-    opt_in_cleaning: true,
   });
 
   useEffect(() => {
@@ -152,7 +140,7 @@ export default function TenanciesManagementPage() {
         await supabase
           .from('people')
           .update({
-            name: newTenant.name,
+            full_name: newTenant.name,
             phone: newTenant.phone,
           })
           .eq('id', personId);
@@ -162,7 +150,7 @@ export default function TenanciesManagementPage() {
           .from('people')
           .insert([
             {
-              name: newTenant.name,
+              full_name: newTenant.name,
               email: newTenant.email,
               phone: newTenant.phone,
               role: 'tenant',
@@ -183,13 +171,7 @@ export default function TenanciesManagementPage() {
             person_id: personId,
             room_id: selectedRoom,
             start_date: newTenancy.start_date,
-            status: newTenancy.status,
             rent_amount: newTenancy.rent_amount,
-            communication_preference: newTenancy.communication_preference,
-            opt_in_maintenance: newTenancy.opt_in_maintenance,
-            opt_in_viewings: newTenancy.opt_in_viewings,
-            opt_in_appointments: newTenancy.opt_in_appointments,
-            opt_in_cleaning: newTenancy.opt_in_cleaning,
           },
         ]);
 
@@ -203,13 +185,7 @@ export default function TenanciesManagementPage() {
       setNewTenant({ name: '', email: '', phone: '' });
       setNewTenancy({
         start_date: new Date().toISOString().split('T')[0],
-        status: 'active',
         rent_amount: 0,
-        communication_preference: 'email',
-        opt_in_maintenance: true,
-        opt_in_viewings: true,
-        opt_in_appointments: true,
-        opt_in_cleaning: true,
       });
       alert('✅ Tenancy created');
     } catch (err) {
@@ -385,28 +361,14 @@ export default function TenanciesManagementPage() {
                 <div>
                   <h3 className="font-semibold text-neutral-900 mb-md">3. Tenancy Details</h3>
                   <div className="space-y-md">
-                    <div className="grid grid-cols-2 gap-md">
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-700 mb-xs">Start Date</label>
-                        <input
-                          type="date"
-                          value={newTenancy.start_date}
-                          onChange={(e) => setNewTenancy({ ...newTenancy, start_date: e.target.value })}
-                          className="w-full rounded-xl border border-neutral-300 px-md py-md text-base"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-700 mb-xs">Status</label>
-                        <select
-                          value={newTenancy.status}
-                          onChange={(e) => setNewTenancy({ ...newTenancy, status: e.target.value as any })}
-                          className="w-full rounded-xl border border-neutral-300 px-md py-md text-base"
-                        >
-                          <option value="active">Active</option>
-                          <option value="on_notice">On Notice</option>
-                          <option value="available">Available</option>
-                        </select>
-                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-xs">Start Date</label>
+                      <input
+                        type="date"
+                        value={newTenancy.start_date}
+                        onChange={(e) => setNewTenancy({ ...newTenancy, start_date: e.target.value })}
+                        className="w-full rounded-xl border border-neutral-300 px-md py-md text-base"
+                      />
                     </div>
 
                     <div>
@@ -419,80 +381,6 @@ export default function TenanciesManagementPage() {
                         className="w-full rounded-xl border border-neutral-300 px-md py-md text-base"
                       />
                     </div>
-                  </div>
-                </div>
-
-                {/* Step 4: Communication Preference */}
-                <div>
-                  <h3 className="font-semibold text-neutral-900 mb-md">4. Communication Preference</h3>
-                  <div className="flex gap-md">
-                    <label className="flex items-center gap-sm">
-                      <input
-                        type="radio"
-                        name="communication"
-                        value="email"
-                        checked={newTenancy.communication_preference === 'email'}
-                        onChange={(e) =>
-                          setNewTenancy({ ...newTenancy, communication_preference: e.target.value as any })
-                        }
-                      />
-                      <span className="text-sm">📧 Email</span>
-                    </label>
-                    <label className="flex items-center gap-sm">
-                      <input
-                        type="radio"
-                        name="communication"
-                        value="text"
-                        checked={newTenancy.communication_preference === 'text'}
-                        onChange={(e) =>
-                          setNewTenancy({ ...newTenancy, communication_preference: e.target.value as any })
-                        }
-                      />
-                      <span className="text-sm">💬 Text</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Step 5: Opt-in Preferences */}
-                <div>
-                  <h3 className="font-semibold text-neutral-900 mb-md">5. Notification Opt-ins</h3>
-                  <div className="space-y-sm">
-                    <label className="flex items-center gap-sm">
-                      <input
-                        type="checkbox"
-                        checked={newTenancy.opt_in_maintenance}
-                        onChange={(e) =>
-                          setNewTenancy({ ...newTenancy, opt_in_maintenance: e.target.checked })
-                        }
-                      />
-                      <span className="text-sm">🔧 Maintenance updates</span>
-                    </label>
-                    <label className="flex items-center gap-sm">
-                      <input
-                        type="checkbox"
-                        checked={newTenancy.opt_in_viewings}
-                        onChange={(e) => setNewTenancy({ ...newTenancy, opt_in_viewings: e.target.checked })}
-                      />
-                      <span className="text-sm">👁️ Viewing notifications</span>
-                    </label>
-                    <label className="flex items-center gap-sm">
-                      <input
-                        type="checkbox"
-                        checked={newTenancy.opt_in_appointments}
-                        onChange={(e) =>
-                          setNewTenancy({ ...newTenancy, opt_in_appointments: e.target.checked })
-                        }
-                      />
-                      <span className="text-sm">📅 Appointment notifications</span>
-                    </label>
-                    <label className="flex items-center gap-sm">
-                      <input
-                        type="checkbox"
-                        checked={newTenancy.opt_in_cleaning}
-                        onChange={(e) => setNewTenancy({ ...newTenancy, opt_in_cleaning: e.target.checked })}
-                      />
-                      <span className="text-sm">🧹 Cleaning updates</span>
-                    </label>
                   </div>
                 </div>
 

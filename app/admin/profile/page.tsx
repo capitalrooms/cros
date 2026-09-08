@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
-import Link from 'next/link'
+import BackButton from '@/app/components/BackButton'
 
 const SALUTATIONS = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Mx']
 
@@ -95,7 +95,7 @@ export default function AdminProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar />
+        <AppBar left={<BackButton href="/admin" />} />
         <div className="flex items-center justify-center pt-32 text-neutral-400 text-sm">Loading…</div>
       </div>
     )
@@ -103,13 +103,7 @@ export default function AdminProfilePage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar
-        left={
-          <Link href="/admin" className="flex items-center gap-sm text-sm hover:opacity-80 transition-opacity">
-            ← Dashboard
-          </Link>
-        }
-      />
+      <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-lg px-lg py-2xl">
         <div className="mb-xl">

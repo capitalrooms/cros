@@ -24,7 +24,7 @@ interface Tenancy {
   rent_due_day: number | null
   rescind_requested_at: string | null
   checkout_confirmation_sent_at: string | null
-  status: 'active' | 'on_notice'
+  // status removed — live DB has no status column; use end_date + notice_received_date instead
   person?: {
     id: string
     name: string
@@ -82,8 +82,16 @@ export default function TenancyManagementPage() {
       .select('*, people(id, full_name, first_name, last_name, email, phone), rooms(id, name), properties(id, name, address)')
       .order('start_date', { ascending: false })
 
-    const active = (tenanciesData || []).filter((t: any) => t.status === 'active')
-    const onNotice = (tenanciesData || []).filter((t: any) => t.status === 'on_notice')
+    // Active = no notice given yet, tenancy not ended
+    // On notice = notice_received_date set, tenancy not yet ended
+    // (live tenancies table has no status column — use these date fields instead)
+    const today = new Date().toISOString().slice(0, 10)
+    const active = (tenanciesData || []).filter((t: any) =>
+      !t.notice_received_date && (!t.end_date || t.end_date >= today)
+    )
+    const onNotice = (tenanciesData || []).filter((t: any) =>
+      !!t.notice_received_date && (!t.end_date || t.end_date >= today)
+    )
 
     setActiveTenancies(active as any)
     setOnNoticeTenancies(onNotice as any)

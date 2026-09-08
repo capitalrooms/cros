@@ -590,11 +590,6 @@ export default function RoomDashboardPage({
         deposit_scheme_ref: newTenancyDepositRef.trim() || null,
         deposit_release_status: 'pending',
         lease_reference: newTenancyLeaseRef.trim() || null,
-        status: 'active',
-        opt_in_maintenance: true,
-        opt_in_viewings: false,
-        opt_in_appointments: true,
-        opt_in_cleaning: true,
       })
       if (te) throw te
 
