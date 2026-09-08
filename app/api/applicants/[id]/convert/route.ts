@@ -80,6 +80,49 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     personId = created.id
   }
 
+  // ── Create tenancy row ───────────────────────────────────────────────────────
+  // Only create if one doesn't already exist for this person + room (idempotent).
+  const roomId      = body.room_id      || applicant.room_id
+  const propertyId  = body.property_id  || applicant.property_id
+  const today       = new Date().toISOString().slice(0, 10)
+  const startDate   = body.start_date   || applicant.preferred_start_date || today
+  const rentAmount  = body.rent_amount  || applicant.rooms?.current_asking_rent || null
+  const rentDueDay  = body.rent_due_day || 1
+
+  let tenancyId: string | null = null
+  if (roomId && propertyId) {
+    const { data: existingTenancy } = await sb
+      .from('tenancies')
+      .select('id')
+      .eq('person_id', personId)
+      .eq('room_id', roomId)
+      .is('notice_received_date', null)
+      .maybeSingle()
+
+    if (!existingTenancy) {
+      const { data: newTenancy, error: tenancyErr } = await sb
+        .from('tenancies')
+        .insert({
+          person_id:    personId,
+          room_id:      roomId,
+          property_id:  propertyId,
+          start_date:   startDate,
+          rent_amount:  rentAmount,
+          rent_due_day: rentDueDay,
+        })
+        .select('id')
+        .single()
+
+      if (tenancyErr) {
+        console.warn('convert: tenancy insert failed', tenancyErr.message)
+      } else {
+        tenancyId = newTenancy?.id || null
+      }
+    } else {
+      tenancyId = existingTenancy.id
+    }
+  }
+
   // Mark applicant as converted
   await sb.from('applicants').update({
     pipeline_stage:       'converted',
@@ -91,6 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({
     success: true,
     personId,
+    tenancyId,
     message: `${applicant.full_name} converted to tenant`,
   })
 }

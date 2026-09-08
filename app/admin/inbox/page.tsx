@@ -24,8 +24,10 @@ export default function InboxPage() {
   const [properties, setProperties] = useState<any[]>([])
   const [people, setPeople] = useState<any[]>([])
   const [tenancies, setTenancies] = useState<any[]>([])
+  const [applicants, setApplicants] = useState<any[]>([])
   const [openId, setOpenId] = useState<string | null>(null)
   const [flash, setFlash] = useState('')
+  const [converting, setConverting] = useState<string | null>(null)
 
   useEffect(() => {
     async function init() {
@@ -41,9 +43,15 @@ export default function InboxPage() {
         .from('tenancies')
         .select('id, start_date, end_date, people(full_name, first_name, last_name), rooms(name), properties(name)')
         .order('start_date', { ascending: false })
+      const { data: apps } = await supabase
+        .from('applicants')
+        .select('id, full_name, email, room_id, property_id, pipeline_stage, rooms(name), properties(name)')
+        .neq('pipeline_stage', 'converted')
+        .order('full_name')
       setProperties(sortPropertiesNumerically(props || []))
       setPeople(ppl || [])
       setTenancies((tens as any) || [])
+      setApplicants(apps || [])
       await loadDocs()
       setLoading(false)
     }
@@ -79,6 +87,27 @@ export default function InboxPage() {
     await supabase.from('inbox_documents').update({ status: 'dismissed' }).eq('id', id)
     setOpenId(null)
     await loadDocs()
+  }
+
+  async function convertApplicant(applicantId: string, docId: string) {
+    setConverting(applicantId)
+    try {
+      const res = await fetch(`/api/applicants/${applicantId}/convert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+      const j = await res.json()
+      if (!res.ok) {
+        setFlash(`❌ Convert failed: ${j.error}`)
+      } else {
+        // Mark the inbox doc as filed now that the applicant is converted
+        const supabase = createClient()
+        await supabase.from('inbox_documents').update({ status: 'filed' }).eq('id', docId)
+        setFlash(`✅ ${j.message}`)
+        await loadDocs()
+        setOpenId(null)
+      }
+    } catch {
+      setFlash('❌ Network error')
+    }
+    setConverting(null)
   }
 
   if (loading) {
@@ -156,6 +185,80 @@ export default function InboxPage() {
                           The AI couldn&apos;t read this ({d.ai_error}). Pick the type and fill the details in yourself below.
                         </p>
                       )}
+
+                      {/* ── Tenancy agreement match banner ───────────────────────── */}
+                      {ai?.doc_type === 'tenancy_agreement' && (() => {
+                        const matchedApplicant = d.matched_applicant_id
+                          ? applicants.find((a: any) => a.id === d.matched_applicant_id)
+                          : null
+                        const matchedTenant = d.matched_person_id
+                          ? people.find((p: any) => p.id === d.matched_person_id)
+                          : null
+                        const confidence = d.match_confidence ? Math.round(d.match_confidence * 100) : null
+                        const rentDueDay = d.extracted_rent_due_day
+
+                        if (matchedTenant) {
+                          return (
+                            <div className="mb-md rounded-xl bg-green-50 border border-green-200 p-md">
+                              <p className="text-sm font-semibold text-green-900 mb-xs">✅ Matched to existing tenant</p>
+                              <p className="text-sm text-green-800">
+                                <strong>{matchedTenant.full_name}</strong> — matched by email
+                                {confidence ? ` (${confidence}% confidence)` : ''}
+                              </p>
+                              {rentDueDay ? (
+                                <p className="text-sm text-green-700 mt-xs">
+                                  Rent due day automatically updated to <strong>{rentDueDay}</strong> on their active tenancy.
+                                </p>
+                              ) : (
+                                <p className="text-sm text-green-700 mt-xs">No rent due day extracted from document.</p>
+                              )}
+                            </div>
+                          )
+                        }
+
+                        if (matchedApplicant) {
+                          return (
+                            <div className="mb-md rounded-xl bg-blue-50 border border-blue-200 p-md">
+                              <p className="text-sm font-semibold text-blue-900 mb-xs">📋 Matched to applicant</p>
+                              <p className="text-sm text-blue-800 mb-sm">
+                                <strong>{matchedApplicant.full_name}</strong>
+                                {matchedApplicant.rooms?.name ? ` · ${matchedApplicant.rooms.name}` : ''}
+                                {matchedApplicant.properties?.name ? `, ${matchedApplicant.properties.name}` : ''}
+                                {confidence ? ` (${confidence}% confidence)` : ''}
+                              </p>
+                              {rentDueDay && (
+                                <p className="text-sm text-blue-700 mb-sm">
+                                  Rent due day extracted: <strong>{rentDueDay}</strong> — will be set on conversion.
+                                </p>
+                              )}
+                              <button
+                                onClick={() => convertApplicant(matchedApplicant.id, d.id)}
+                                disabled={converting === matchedApplicant.id}
+                                className="rounded-lg bg-blue-700 px-md py-sm text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                              >
+                                {converting === matchedApplicant.id ? 'Converting…' : `Convert ${matchedApplicant.full_name} to tenant →`}
+                              </button>
+                            </div>
+                          )
+                        }
+
+                        // No match
+                        return (
+                          <div className="mb-md rounded-xl bg-amber-50 border border-amber-200 p-md">
+                            <p className="text-sm font-semibold text-amber-900 mb-xs">⚠️ Tenancy agreement — no match found</p>
+                            <p className="text-sm text-amber-800">
+                              Couldn&apos;t auto-match this to an applicant or existing tenant.
+                              {ai?.person_email ? ` (Document email: ${ai.person_email})` : ' (No email found in document.)'}
+                              {' '}Review and file manually below.
+                            </p>
+                            {rentDueDay && (
+                              <p className="text-sm text-amber-700 mt-xs">
+                                Rent due day extracted: <strong>{rentDueDay}</strong>
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })()}
                       {ai?.doc_type === 'purchase_receipt' ? (
                         <PurchaseReview
                           initial={ai}
