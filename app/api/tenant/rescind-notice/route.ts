@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   const { data: tenancy, error: fetchErr } = await supabase
     .from('tenancies')
-    .select('id, person_id, status, end_date, rooms(name), properties(address)')
+    .select('id, person_id, notice_received_date, end_date, rooms(name), properties(address)')
     .eq('id', tenancyId)
     .maybeSingle()
 
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  if (tenancy.status !== 'on_notice') {
+  if (!tenancy.notice_received_date) {
     return NextResponse.json({ error: 'Tenancy is not currently on notice' }, { status: 409 })
   }
 
@@ -103,7 +103,6 @@ export async function PATCH(req: NextRequest) {
     const { error } = await supabase
       .from('tenancies')
       .update({
-        status: 'active',
         end_date: null,
         notice_received_date: null,
         rescind_requested_at: null,

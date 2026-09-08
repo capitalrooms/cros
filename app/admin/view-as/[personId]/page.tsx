@@ -26,7 +26,7 @@ interface Tenancy {
   start_date: string
   end_date: string | null
   rent_amount: number | null
-  status: string | null
+  notice_received_date: string | null
   rooms: { name: string } | null
   properties: { name: string; address: string } | null
 }
@@ -83,7 +83,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
       if (p.role === 'tenant') {
         const { data: t } = await supabase
           .from('tenancies')
-          .select('id, room_id, property_id, start_date, end_date, rent_amount, status, rooms(name), properties(name, address)')
+          .select('id, room_id, property_id, start_date, end_date, rent_amount, notice_received_date, rooms(name), properties(name, address)')
           .eq('person_id', personId)
           .order('start_date', { ascending: false })
         setTenancies((t || []) as Tenancy[])
@@ -239,11 +239,11 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
                         </p>
                       </div>
                       <span className={`shrink-0 text-xs font-bold px-sm py-xs rounded-full ${
-                        t.status === 'active' ? 'bg-green-100 text-green-800' :
-                        t.status === 'on_notice' ? 'bg-amber-100 text-amber-800' :
+                        (t as any).notice_received_date ? 'bg-amber-100 text-amber-800' :
+                        !t.end_date || t.end_date >= new Date().toISOString().split('T')[0] ? 'bg-green-100 text-green-800' :
                         'bg-neutral-100 text-neutral-600'
                       }`}>
-                        {t.status || 'unknown'}
+                        {(t as any).notice_received_date ? 'on notice' : !t.end_date || t.end_date >= new Date().toISOString().split('T')[0] ? 'active' : 'ended'}
                       </span>
                     </div>
                     {!isReadOnly && (
