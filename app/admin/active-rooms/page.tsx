@@ -80,7 +80,7 @@ export default function AllUnitsPage() {
       supabase.from('properties').select('id, name, address, property_code, property_type'),
       supabase.from('rooms').select('id, name, unit_code, room_type, status, property_id'),
       // Current tenancies: rolling (no end_date) OR on-notice (future end_date)
-      supabase.from('tenancies').select('room_id, person_id, people!person_id(id, first_name, last_name, full_name, email)').or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`),
+      supabase.from('tenancies').select('room_id, person_id, people!person_id(id, first_name, last_name, full_name, email)').is('notice_received_date', null).or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`),
       // People with active push subscriptions
       supabase.from('push_subscriptions').select('person_id').not('person_id', 'is', null),
     ])
