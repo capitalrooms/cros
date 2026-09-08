@@ -60,7 +60,7 @@ export async function GET() {
     safe(s.from('people').select('id, full_name, first_name, last_name, email, role')),
     safe(s.from('rooms').select('id, name, property_id')),
     safe(s.from('properties').select('id, name, address')),
-    safe(s.from('tenancies').select('person_id, room_id, property_id, end_date')),
+    safe(s.from('tenancies').select('person_id, room_id, property_id, end_date, notice_received_date')),
   ])
   const personName = new Map<string, string>()
   const personRole = new Map<string, string>()
@@ -73,7 +73,7 @@ export async function GET() {
   const activeTenant = new Set<string>()
   const personTenancy = new Map<string, { propertyId: string; roomId: string | null }>()
   for (const t of tenancies as any[]) {
-    const active = !t.end_date || t.end_date >= today
+    const active = !t.notice_received_date && (!t.end_date || t.end_date >= today)
     if (active && t.person_id) {
       activeTenant.add(t.person_id)
       if (!personTenancy.has(t.person_id)) personTenancy.set(t.person_id, { propertyId: t.property_id, roomId: t.room_id })

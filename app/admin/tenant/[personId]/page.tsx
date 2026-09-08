@@ -724,13 +724,13 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
               {tenancies.map((t, i) => (
                 <div key={t.id} className="flex gap-lg">
                   <div className="flex flex-col items-center">
-                    <div className={`w-3 h-3 rounded-full mt-xs flex-shrink-0 ${!t.end_date ? 'bg-green-500' : 'bg-neutral-300'}`} />
+                    <div className={`w-3 h-3 rounded-full mt-xs flex-shrink-0 ${!(t as any).notice_received_date && (!t.end_date || t.end_date >= new Date().toISOString().slice(0,10)) ? 'bg-green-500' : 'bg-neutral-300'}`} />
                     {i < tenancies.length - 1 && <div className="w-px flex-1 bg-neutral-200 mt-sm" />}
                   </div>
                   <div className="pb-lg">
                     <p className="text-sm font-semibold text-neutral-900">{t.property?.address || '—'} — {t.room?.name || '—'}</p>
                     <p className="text-xs text-neutral-400 mt-xs">{fmt(t.start_date)} {t.end_date ? `→ ${fmt(t.end_date)}` : '→ present'}</p>
-                    {!t.end_date && <span className="mt-sm inline-block text-xs font-semibold px-sm py-xs rounded-full bg-green-100 text-green-800 border border-green-200">Active</span>}
+                    {!(t as any).notice_received_date && (!t.end_date || t.end_date >= new Date().toISOString().slice(0,10)) && <span className="mt-sm inline-block text-xs font-semibold px-sm py-xs rounded-full bg-green-100 text-green-800 border border-green-200">Active</span>}
                   </div>
                 </div>
               ))}

@@ -184,7 +184,7 @@ export default function PropertiesManagementPage() {
     const { data: roomsData, error: roomsErr } = await supabase
       .from('rooms')
       .select(
-        'id,name,internal_name,property_id,status,current_asking_rent,previous_rent,tenancies(person_id,end_date,people!person_id(id,full_name,first_name,last_name,email))'
+        'id,name,internal_name,property_id,status,current_asking_rent,previous_rent,tenancies(person_id,end_date,notice_received_date,people!person_id(id,full_name,first_name,last_name,email))'
       );
     if (roomsErr) console.error('rooms query error:', roomsErr);
 
@@ -193,9 +193,11 @@ export default function PropertiesManagementPage() {
     const roomsWithTenants = (roomsData || []).map((room: any) => {
       // Prefer an active tenancy; otherwise show an on-notice one (end_date in the
       // future) so a room mid-turnover still shows who's living there.
-      const activeTenancy = room.tenancies?.find((t: any) => !t.end_date);
+      const activeTenancy = room.tenancies?.find(
+        (t: any) => !t.notice_received_date && (!t.end_date || t.end_date >= today)
+      );
       const onNoticeTenancy = room.tenancies?.find(
-        (t: any) => t.end_date && t.end_date >= today
+        (t: any) => t.notice_received_date && (!t.end_date || t.end_date >= today)
       );
       const tenancy = activeTenancy || onNoticeTenancy;
       return {
@@ -1068,7 +1070,7 @@ export default function PropertiesManagementPage() {
                                       const visible = isExpanded ? tenancies : tenancies.slice(0, 2);
                                       const hidden = tenancies.length - 2;
                                       const renderRow = (t: TenancyRecord) => {
-                                        const isActive = !t.end_date || t.end_date >= today;
+                                        const isActive = !t.notice_received_date && (!t.end_date || t.end_date >= today);
                                         return (
                                           <tr
                                             key={t.id}

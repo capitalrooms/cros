@@ -9,6 +9,7 @@ interface Tenancy {
   person_id: string
   start_date: string
   end_date: string | null
+  notice_received_date: string | null
   person?: {
     id: string
     name: string
@@ -58,7 +59,7 @@ export default function RoomCommunicationsModal({
     // Get all tenancies for this room
     const { data: tenancyData } = await supabase
       .from('tenancies')
-      .select('*, person:people(id, name, email)')
+      .select('*, notice_received_date, person:people(id, name, email)')
       .eq('room_id', roomId)
       .order('start_date', { ascending: false })
 
@@ -81,8 +82,9 @@ export default function RoomCommunicationsModal({
     }
   }
 
-  const currentTenancy = tenancies.find(t => !t.end_date)
-  const previousTenancies = tenancies.filter(t => t.end_date)
+  const today = new Date().toISOString().slice(0, 10)
+  const currentTenancy = tenancies.find(t => !t.notice_received_date && (!t.end_date || t.end_date >= today))
+  const previousTenancies = tenancies.filter(t => t.notice_received_date || (t.end_date && t.end_date < today))
 
   const getTenantName = (personId: string) => {
     const tenancy = tenancies.find(t => t.person_id === personId)

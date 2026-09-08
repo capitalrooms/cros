@@ -46,6 +46,7 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
         room_id,
         start_date,
         end_date,
+        notice_received_date,
         person:person_id(id, email, role),
         room:room_id(id, name)
       `)
@@ -62,8 +63,9 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
     setLoading(false)
   }
 
-  const activeTenancies = tenancies.filter(t => !t.end_date || new Date(t.end_date) > new Date())
-  const pastTenancies = tenancies.filter(t => t.end_date && new Date(t.end_date) <= new Date())
+  const today = new Date().toISOString().slice(0, 10)
+  const activeTenancies = tenancies.filter(t => !(t as any).notice_received_date && (!t.end_date || t.end_date >= today))
+  const pastTenancies   = tenancies.filter(t => (t as any).notice_received_date || (t.end_date && t.end_date < today))
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {

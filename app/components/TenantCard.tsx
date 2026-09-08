@@ -126,7 +126,7 @@ export default function TenantCard({
     <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
 
       {/* Colour strip — green active / neutral ex */}
-      <div className={`h-1.5 w-full ${currentTenancy && !currentTenancy.end_date ? 'bg-green-500' : 'bg-neutral-200'}`} />
+      <div className={`h-1.5 w-full ${currentTenancy && !(currentTenancy as any).notice_received_date && (!currentTenancy.end_date || currentTenancy.end_date >= new Date().toISOString().slice(0,10)) ? 'bg-green-500' : 'bg-neutral-200'}`} />
 
       <div className="px-xl py-xl">
 

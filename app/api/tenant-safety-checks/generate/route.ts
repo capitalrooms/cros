@@ -20,11 +20,12 @@ export async function POST(request: NextRequest) {
         .in('id', tenancyIds);
       tenancies = data;
     } else {
-      // Get all active tenancies (where end_date is null or in future)
+      // Get all active tenancies (not on notice, and end_date not yet passed)
       const today = new Date().toISOString().split('T')[0];
       const { data } = await supabase
         .from('tenancies')
         .select('id, person_id, room_id, property_id')
+        .is('notice_received_date', null)
         .or(`end_date.is.null,end_date.gte.${today}`);
       tenancies = data;
     }
