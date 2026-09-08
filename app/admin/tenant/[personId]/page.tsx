@@ -277,7 +277,7 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
   async function handleApply() {
     if (!extractedData) return
     setApplying(true); setImportError(null)
-    const currentTenancy = tenancies.find(t => !t.end_date)
+    const currentTenancy = tenancies.find(t => !(t as any).notice_received_date)
     const appliedFields  = Object.entries(mergeSelections).filter(([, v]) => v).map(([k]) => k)
     const res  = await fetch('/api/reference-import/apply', {
       method: 'POST',
@@ -297,8 +297,8 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
   }
 
   /* ── Derived ── */
-  const currentTenancy    = tenancies.find(t => !t.end_date) ?? null
-  const previousTenancies = tenancies.filter(t => t.end_date)
+  const currentTenancy    = tenancies.find(t => !(t as any).notice_received_date) ?? null
+  const previousTenancies = tenancies.filter(t => (t as any).notice_received_date)
   const latestRef         = referenceHistory[0]
 
   /* ── Loading / not found ── */
