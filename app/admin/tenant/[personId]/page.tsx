@@ -493,6 +493,9 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
                   <a href={`/admin/properties/${currentTenancy.property_id}`} className="px-lg py-sm rounded-lg border border-neutral-200 text-neutral-700 text-sm font-semibold hover:bg-neutral-50 transition">
                     View property →
                   </a>
+                  <a href={`/admin/rent-increase/${currentTenancy.id}`} className="px-lg py-sm rounded-lg border border-blue-200 bg-blue-50 text-blue-800 text-sm font-semibold hover:bg-blue-100 transition">
+                    📈 Propose rent increase
+                  </a>
                 </div>
               </>
             )}
