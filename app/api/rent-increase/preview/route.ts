@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const { data: tenancy, error: tErr } = await sb
     .from('tenancies')
     .select(`
-      id, start_date, rent_amount, rent_due_day,
+      id, start_date, end_date, notice_received_date, rent_amount, rent_due_day,
       person:people!tenancies_person_id_fkey(id, full_name, first_name, last_name, email),
       room:rooms!tenancies_room_id_fkey(id, name),
       property:properties!tenancies_property_id_fkey(id, name, address, landlord_id,
@@ -66,6 +66,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Tenancy is missing person, room, or property data' }, { status: 422 })
   }
 
+  // ── Fixed-term block (Rule 0) ─────────────────────────────────────────────
+  // s.13 notices can only be served on assured PERIODIC tenancies.
+  // A tenancy with end_date in the future AND no notice_received_date was
+  // created as a fixed-term AST and is still within its original term.
+  // (If notice was served via "Mark on Notice", both end_date AND
+  // notice_received_date are always written together — so notice_received_date
+  // being null is the reliable signal that end_date came from tenancy creation.)
+  const today = new Date().toISOString().slice(0, 10)
+  const tenancyEndDate       = (tenancy as any).end_date as string | null
+  const noticeReceivedDate   = (tenancy as any).notice_received_date as string | null
+  if (tenancyEndDate && !noticeReceivedDate && tenancyEndDate > today) {
+    const fmtFixed = new Date(tenancyEndDate + 'T12:00:00').toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+    return NextResponse.json({
+      error:           'fixed_term_block',
+      fixedTermError:  `Section 13 notices cannot be served during the fixed term of an AST. This tenancy's fixed term does not expire until ${fmtFixed}. Once it becomes a periodic tenancy after that date, a Section 13 notice may be served.`,
+      fixedTermEndDate: tenancyEndDate,
+    }, { status: 422 })
+  }
+
   // ── Last Section 13 effective date ────────────────────────────────────────
   const { data: lastNotice } = await sb
     .from('rent_increase_notices')
@@ -77,7 +98,6 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   const lastS13Date = lastNotice?.effective_date || null
-  const today       = new Date().toISOString().slice(0, 10)
 
   // ── Validate effective date ───────────────────────────────────────────────
   const validation = validateEffectiveDate({

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const { data: tenancy, error: tErr } = await sb
     .from('tenancies')
     .select(`
-      id, start_date, rent_amount, rent_due_day, person_id, room_id, property_id,
+      id, start_date, end_date, notice_received_date, rent_amount, rent_due_day, person_id, room_id, property_id,
       person:people!tenancies_person_id_fkey(id, full_name, first_name, last_name, email),
       room:rooms!tenancies_room_id_fkey(id, name),
       property:properties!tenancies_property_id_fkey(id, name, address, landlord_id,
@@ -75,6 +75,18 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   const lastS13Date = lastNotice?.effective_date || null
+
+  // ── Fixed-term block (Rule 0) — server-side re-check ─────────────────────
+  const tenancyEndDate     = (tenancy as any).end_date     as string | null
+  const noticeReceivedDate = (tenancy as any).notice_received_date as string | null
+  if (tenancyEndDate && !noticeReceivedDate && tenancyEndDate > today) {
+    const fmtFixed = new Date(tenancyEndDate + 'T12:00:00').toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+    return NextResponse.json({
+      error: `Section 13 notices cannot be served during the fixed term of an AST. Fixed term ends ${fmtFixed}.`,
+    }, { status: 422 })
+  }
 
   // ── Validate (re-validate server-side even if preview already checked) ────
   const validation = validateEffectiveDate({

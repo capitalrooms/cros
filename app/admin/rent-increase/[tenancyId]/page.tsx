@@ -51,6 +51,8 @@ export default function RentIncreasePage() {
 
   // Validation / preview
   const [earliestDate, setEarliestDate]   = useState<string | null>(null)
+  const [fixedTermError, setFixedTermError] = useState<string | null>(null)
+  const [fixedTermEndDate, setFixedTermEndDate] = useState<string | null>(null)
   const [validationErrors, setValidErrors] = useState<string[]>([])
   const [previewing, setPreviewing]       = useState(false)
   const [coverB64, setCoverB64]           = useState<string | null>(null)
@@ -100,9 +102,14 @@ export default function RentIncreasePage() {
         }),
       })
       const j = await previewRes.json()
-      if (j.earliestValidDate) setEarliestDate(j.earliestValidDate)
-      if (j.validation?.earliestValidDate) setEarliestDate(j.validation.earliestValidDate)
-      setEffectiveDate(j.earliestValidDate || j.validation?.earliestValidDate || '')
+      if (j.error === 'fixed_term_block') {
+        setFixedTermError(j.fixedTermError)
+        setFixedTermEndDate(j.fixedTermEndDate)
+      } else {
+        if (j.earliestValidDate) setEarliestDate(j.earliestValidDate)
+        if (j.validation?.earliestValidDate) setEarliestDate(j.validation.earliestValidDate)
+        setEffectiveDate(j.earliestValidDate || j.validation?.earliestValidDate || '')
+      }
 
       setLoading(false)
     }
@@ -127,7 +134,10 @@ export default function RentIncreasePage() {
     const j = await res.json()
 
     if (!res.ok) {
-      if (j.validationErrors?.length) {
+      if (j.error === 'fixed_term_block') {
+        setFixedTermError(j.fixedTermError)
+        setFixedTermEndDate(j.fixedTermEndDate)
+      } else if (j.validationErrors?.length) {
         setValidErrors(j.validationErrors)
         if (j.earliestValidDate) setEarliestDate(j.earliestValidDate)
       } else {
@@ -227,6 +237,19 @@ export default function RentIncreasePage() {
             </div>
           )}
         </div>
+
+        {/* Fixed-term block */}
+        {fixedTermError && (
+          <div className="bg-red-50 border border-red-300 rounded-xl p-lg mb-xl">
+            <p className="text-sm font-bold text-red-900 mb-xs">⛔ Section 13 notice cannot be served</p>
+            <p className="text-sm text-red-800">{fixedTermError}</p>
+            {fixedTermEndDate && (
+              <p className="text-xs text-red-600 mt-sm font-semibold">
+                Fixed term ends: {fmtDate(fixedTermEndDate)}. Return to this screen after that date to serve notice.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Legal notice */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-md mb-xl">
@@ -338,6 +361,7 @@ export default function RentIncreasePage() {
           onClick={handlePreview}
           disabled={
             previewing ||
+            !!fixedTermError ||
             !proposedRent ||
             Number(proposedRent) <= currentRent ||
             !effectiveDate
