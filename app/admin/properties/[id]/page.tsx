@@ -53,10 +53,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   const [showQuickNotify, setShowQuickNotify] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
+  const [editingPostcode, setEditingPostcode] = useState(false);
   const [nameValue, setNameValue] = useState(property?.name || '');
   const [addressValue, setAddressValue] = useState(property?.address || '');
+  const [postcodeValue, setPostcodeValue] = useState(property?.postcode || '');
   const [savingName, setSavingName] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
+  const [savingPostcode, setSavingPostcode] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -98,6 +101,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       setProperty(prop);
       setNameValue(prop?.name || '');
       setAddressValue(prop?.address || '');
+      setPostcodeValue(prop?.postcode || '');
 
       // Get maintenance jobs for this property
       const { data: jobs } = await supabase
@@ -140,6 +144,23 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       setEditingAddress(false);
     }
     setSavingAddress(false);
+  }
+
+  async function handleSavePostcode() {
+    setSavingPostcode(true);
+    const supabase = createClient();
+    const cleaned = postcodeValue.replace(/\s+/g, '').toUpperCase();
+    const { error } = await supabase
+      .from('properties')
+      .update({ postcode: cleaned || null })
+      .eq('id', id);
+
+    if (!error) {
+      setProperty({ ...property, postcode: cleaned || null });
+      setPostcodeValue(cleaned);
+      setEditingPostcode(false);
+    }
+    setSavingPostcode(false);
   }
 
   const [codeValue, setCodeValue] = useState('');
@@ -270,6 +291,47 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                     onClick={() => {
                       setEditingAddress(false);
                       setAddressValue(property.address || '');
+                    }}
+                    className="text-neutral-400 hover:text-neutral-600 text-sm"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+
+              {/* Postcode */}
+              <div className="flex items-center gap-md group">
+                <span className="text-sm text-neutral-400 font-mono">
+                  {editingPostcode ? (
+                    <input
+                      type="text"
+                      value={postcodeValue}
+                      onChange={(e) => setPostcodeValue(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSavePostcode()}
+                      maxLength={8}
+                      placeholder="e.g. SW1A 2AA"
+                      className="w-32 px-sm py-xs border border-neutral-300 rounded font-mono text-sm uppercase"
+                      autoFocus
+                    />
+                  ) : (
+                    <span className={property.postcode ? 'text-neutral-500' : 'text-amber-500 italic'}>
+                      {property.postcode || 'No postcode set'}
+                    </span>
+                  )}
+                </span>
+                <button
+                  onClick={() => editingPostcode ? handleSavePostcode() : setEditingPostcode(true)}
+                  disabled={savingPostcode}
+                  className="opacity-0 group-hover:opacity-100 transition text-neutral-500 hover:text-neutral-900 p-sm text-xs"
+                  title={editingPostcode ? "Save postcode" : "Edit postcode"}
+                >
+                  {savingPostcode ? '…' : editingPostcode ? '✓' : '✏️'}
+                </button>
+                {editingPostcode && (
+                  <button
+                    onClick={() => {
+                      setEditingPostcode(false);
+                      setPostcodeValue(property.postcode || '');
                     }}
                     className="text-neutral-400 hover:text-neutral-600 text-sm"
                   >

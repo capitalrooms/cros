@@ -6,13 +6,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
-import { getCurrentUser } from '@/lib/auth'
 import {
   generateCoverLetter,
   generateForm4A,
   validateEffectiveDate,
   type RentIncreaseData,
 } from '@/lib/rent-increase/generatePDF'
+import { getDeemedServiceDate, getDeemedServiceDescription } from '@/lib/rent-increase/deemedServiceDate'
+import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 
 function serviceClient() {
   return createClient(
@@ -23,29 +24,48 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest) {
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  const user = await getCurrentUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const role = user.assignment?.role
-  if (!['administrator', 'admin'].includes(role)) {
-    // Lettings cannot send legally binding notices — admin only
+  // ── Auth (Bearer token — works in serverless, no singleton dependency) ────
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : ''
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const sb = serviceClient()
+  const { data: { user: authUser }, error: authErr } = await sb.auth.getUser(token)
+  if (authErr || !authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { data: callerPerson } = await sb
+    .from('people')
+    .select('role, id, full_name, job_title, direct_phone')
+    .eq('email', authUser.email || '')
+    .maybeSingle()
+  const role = (callerPerson as any)?.role as string | undefined
+  // Only administrators can send legally binding Section 13 notices
+  if (!role || !['administrator', 'admin'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden: only administrators can send rent increase notices' }, { status: 403 })
   }
 
+  const senderName        = (callerPerson as any)?.full_name    as string | null ?? null
+  const senderJobTitle    = (callerPerson as any)?.job_title    as string | null ?? null
+  const senderDirectPhone = (callerPerson as any)?.direct_phone as string | null ?? null
+
   const body = await req.json().catch(() => null)
-  if (!body?.tenancyId || !body?.proposedRent || !body?.effectiveDate) {
+  if (!body?.tenancyId || body?.proposedRent == null || !body?.effectiveDate) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  const { tenancyId, proposedRent, effectiveDate, tenantTitle: bodyTitle } = body
-  const sb  = serviceClient()
+  const { tenancyId, proposedRent, effectiveDate, tenantTitle: bodyTitle, lastS13Date: lastS13DateOverride } = body
   const today = new Date().toISOString().slice(0, 10)
+
+  // ── Deemed service date ───────────────────────────────────────────────────
+  const deemedServeDate = getDeemedServiceDate()
+  const deemedServeDescription = getDeemedServiceDescription()
 
   // ── Load tenancy data (same as preview route) ─────────────────────────────
   const { data: tenancy, error: tErr } = await sb
     .from('tenancies')
     .select(`
       id, start_date, end_date, notice_received_date, rent_amount, rent_due_day, person_id, room_id, property_id,
+      is_fixed_term, last_rent_change_date, previous_rent_amount,
       person:people!tenancies_person_id_fkey(id, full_name, first_name, last_name, email),
       room:rooms!tenancies_room_id_fkey(id, name),
       property:properties!tenancies_property_id_fkey(id, name, address, landlord_id,
@@ -74,13 +94,26 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle()
 
-  const lastS13Date = lastNotice?.effective_date || null
+  // Use admin-supplied override if present (empty string = "no prior history").
+  const lastS13Date = lastS13DateOverride !== undefined
+    ? (lastS13DateOverride || null)
+    : (lastNotice?.effective_date || null)
 
-  // ── Fixed-term block (Rule 0) — server-side re-check ─────────────────────
+  // ── Fixed-term block (Rule 0) — server-side re-check (same logic as preview) ─
   const tenancyEndDate     = (tenancy as any).end_date     as string | null
   const noticeReceivedDate = (tenancy as any).notice_received_date as string | null
-  if (tenancyEndDate && !noticeReceivedDate && tenancyEndDate > today) {
-    const fmtFixed = new Date(tenancyEndDate + 'T12:00:00').toLocaleDateString('en-GB', {
+  const isFixedTermField   = (tenancy as any).is_fixed_term as boolean | null
+  const msDuration = tenancyEndDate
+    ? new Date(tenancyEndDate + 'T00:00:00').getTime() - new Date(tenancy.start_date + 'T00:00:00').getTime()
+    : 0
+  const daysStartToEnd = Math.round(msDuration / (24 * 60 * 60 * 1000))
+  const isFixedTerm =
+    isFixedTermField === true ? true
+    : isFixedTermField === false ? false
+    : (tenancyEndDate && !noticeReceivedDate && tenancyEndDate > today && daysStartToEnd <= 548)
+
+  if (isFixedTerm) {
+    const fmtFixed = new Date(tenancyEndDate! + 'T12:00:00').toLocaleDateString('en-GB', {
       day: 'numeric', month: 'long', year: 'numeric',
     })
     return NextResponse.json({
@@ -89,11 +122,13 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Validate (re-validate server-side even if preview already checked) ────
+  const lastRentChangeDate = (tenancy as any).last_rent_change_date as string | null
   const validation = validateEffectiveDate({
-    proposedDate:          effectiveDate,
-    serveDate:             today,
-    tenancyStartDate:      tenancy.start_date,
-    lastS13EffectiveDate:  lastS13Date,
+    proposedDate:         effectiveDate,
+    serveDate:            deemedServeDate, // 2-month countdown from deemed date
+    tenancyStartDate:     tenancy.start_date,
+    lastS13EffectiveDate: lastS13Date,
+    lastRentChangeDate,
   })
   if (!validation.valid) {
     return NextResponse.json({
@@ -110,7 +145,10 @@ export async function POST(req: NextRequest) {
     : property.landlord_name || 'The Landlord'
 
   const pcodeMatch = property.address?.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}/i)
-  const pcodeArea  = pcodeMatch ? pcodeMatch[0].split(' ')[0].replace(/\d.*$/, '') : ''
+  // Keep the full district (e.g. "E15", not "E") — the old regex stripped digits
+  const pcodeArea  = pcodeMatch ? pcodeMatch[0].split(' ')[0] : ''
+
+  const bizSettings = await fetchPDFBizSettings()
 
   const data: RentIncreaseData = {
     tenantTitle:         bodyTitle || 'Mx',
@@ -124,9 +162,13 @@ export async function POST(req: NextRequest) {
     currentRent:         Number(tenancy.rent_amount || 0),
     proposedRent:        Number(proposedRent),
     effectiveDate,
-    noticeServedDate:    today,
+    noticeServedDate:    deemedServeDate, // legally deemed service date
     lastS13Date,
     marketAreaDescription: pcodeArea || undefined,
+    senderName:        senderName        || undefined,
+    senderJobTitle:    senderJobTitle    || undefined,
+    senderDirectPhone: senderDirectPhone || undefined,
+    bizSettings,
   }
 
   // ── Generate PDFs ─────────────────────────────────────────────────────────
@@ -151,11 +193,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Record in DB ──────────────────────────────────────────────────────────
-  const adminPerson = await sb
-    .from('people')
-    .select('id')
-    .eq('email', user.email || '')
-    .maybeSingle()
+  // callerPerson.id already fetched during auth above
+  const adminPersonId = (callerPerson as any)?.id || null
 
   const { data: notice, error: dbErr } = await sb
     .from('rent_increase_notices')
@@ -166,13 +205,13 @@ export async function POST(req: NextRequest) {
       room_id:                 tenancy.room_id,
       old_rent:                Number(tenancy.rent_amount || 0),
       proposed_rent:           Number(proposedRent),
-      notice_served_date:      today,
+      notice_served_date:      deemedServeDate,
       effective_date:          effectiveDate,
       last_s13_effective_date: lastS13Date,
       cover_letter_path:       upCover.error ? null : coverPath,
       form4a_path:             upForm.error  ? null : form4aPath,
       outcome:                 'pending',
-      created_by:              adminPerson?.data?.id || null,
+      created_by:              adminPersonId,
     })
     .select('id')
     .single()

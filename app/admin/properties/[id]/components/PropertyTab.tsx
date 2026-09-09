@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import FloorPlanMap from './FloorPlanMap'
+import HouseInfoEditor from './HouseInfoEditor'
+import PostcodeLookupWidget, { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
 
 interface PropertyTabProps {
   property: any
@@ -34,6 +36,8 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   // Landlord picker
   const [landlords, setLandlords] = useState<any[]>([])
   const [selectedLandlordId, setSelectedLandlordId] = useState<string | null>(property.landlord_id || null)
+  // Postcode lookup result — merged into the save patch when the admin accepts the modal
+  const [lookupResult, setLookupResult] = useState<PostcodeLookupResult | null>(null)
 
   const [formData, setFormData] = useState({
     name: property.name || '',
@@ -134,25 +138,37 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
 
   async function handleSave() {
     setSaving(true)
+    const patch: Record<string, any> = {
+      name: formData.name.trim() || null,
+      address: formData.address.trim() || null,
+      landlord_id: selectedLandlordId || null,
+      council_tax_band: formData.council_tax_band || null,
+      bills_included: formData.bills_included,
+      notice_period_months: parseInt(formData.notice_period_months),
+      bedrooms: parseInt(formData.bedrooms),
+      bathrooms: parseInt(formData.bathrooms),
+      total_area: formData.total_area ? parseFloat(formData.total_area) : null,
+      description: formData.description || null,
+      property_type: formData.property_type,
+      key_safe_code: formData.key_safe_code.trim() || null,
+      management_fee_pct: formData.management_fee_pct ? parseFloat(formData.management_fee_pct) : 12,
+      license_date: formData.license_date || null,
+      license_expiry: formData.license_expiry || null,
+    }
+    // Merge any fields accepted from the postcode lookup modal
+    if (lookupResult) {
+      if (lookupResult.council_name)       patch.council_name       = lookupResult.council_name
+      if (lookupResult.council_email)      patch.council_email      = lookupResult.council_email
+      if (lookupResult.council_phone)      patch.council_phone      = lookupResult.council_phone
+      if (lookupResult.council_website)    patch.council_website    = lookupResult.council_website
+      if (lookupResult.bin_collection_day) patch.bin_collection_day = lookupResult.bin_collection_day
+      if (lookupResult.council_tax_band)   patch.council_tax_band   = lookupResult.council_tax_band
+      if (lookupResult.lat != null)        patch.lat                = lookupResult.lat
+      if (lookupResult.lng != null)        patch.lng                = lookupResult.lng
+    }
     const { error: err } = await supabase
       .from('properties')
-      .update({
-        name: formData.name.trim() || null,
-        address: formData.address.trim() || null,
-        landlord_id: selectedLandlordId || null,
-        council_tax_band: formData.council_tax_band || null,
-        bills_included: formData.bills_included,
-        notice_period_months: parseInt(formData.notice_period_months),
-        bedrooms: parseInt(formData.bedrooms),
-        bathrooms: parseInt(formData.bathrooms),
-        total_area: formData.total_area ? parseFloat(formData.total_area) : null,
-        description: formData.description || null,
-        property_type: formData.property_type,
-        key_safe_code: formData.key_safe_code.trim() || null,
-        management_fee_pct: formData.management_fee_pct ? parseFloat(formData.management_fee_pct) : 12,
-        license_date: formData.license_date || null,
-        license_expiry: formData.license_expiry || null,
-      })
+      .update(patch)
       .eq('id', property.id)
 
     if (err) {
@@ -160,25 +176,10 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       console.error(err)
     } else {
       // Update local display copy AND bubble up to parent so it survives tab switches
-      const updates = {
-        name: formData.name.trim() || null,
-        address: formData.address.trim() || null,
-        landlord_id: selectedLandlordId || null,
-        council_tax_band: formData.council_tax_band || null,
-        bills_included: formData.bills_included,
-        notice_period_months: parseInt(formData.notice_period_months),
-        bedrooms: parseInt(formData.bedrooms),
-        bathrooms: parseInt(formData.bathrooms),
-        total_area: formData.total_area ? parseFloat(formData.total_area) : null,
-        description: formData.description || null,
-        property_type: formData.property_type,
-        key_safe_code: formData.key_safe_code.trim() || null,
-        management_fee_pct: formData.management_fee_pct ? parseFloat(formData.management_fee_pct) : 12,
-        license_date: formData.license_date || null,
-        license_expiry: formData.license_expiry || null,
-      }
-      setDisplayed(prev => ({ ...prev, ...updates }))
-      onUpdate?.(updates)
+      // `patch` already has the complete set of fields (including any lookup results)
+      setDisplayed(prev => ({ ...prev, ...patch }))
+      onUpdate?.(patch)
+      setLookupResult(null)
       setSuccess('Saved')
       setIsEditing(false)
       setTimeout(() => setSuccess(null), 2000)
@@ -418,13 +419,18 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Full Address</label>
-                <input
-                  type="text"
+                <PostcodeLookupWidget
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(v) => setFormData({ ...formData, address: v })}
+                  onResult={(data) => setLookupResult(data)}
                   placeholder="e.g. 71 Alloa Road, London, SE8 5AH"
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  inputClassName="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {lookupResult && (
+                  <p className="text-xs text-blue-600 mt-xs">
+                    ✓ Lookup accepted — council & lat/lng will save with this form
+                  </p>
+                )}
               </div>
             </div>
             {/* Row 1: council tax, HMO license dates, bills */}
@@ -804,6 +810,9 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
           <p className="text-sm text-neutral-400 mt-lg">No photos uploaded yet</p>
         )}
       </div>
+
+      {/* ── House Info editor ──────────────────────────────────── */}
+      <HouseInfoEditor propertyId={property.id} initialItems={property.house_info?.items || []} />
 
       {floorPlanResult && (
         <FloorPlanMap

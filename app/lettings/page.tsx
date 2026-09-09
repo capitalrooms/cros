@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser, signOut } from '@/lib/auth'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import { displayName } from '@/lib/people'
 import RoleGreeting from '@/app/components/RoleGreeting'
@@ -14,6 +14,7 @@ import LettingsDiaryView from '@/app/components/LettingsDiaryView'
 import UpcomingList, { UpcomingItem } from '@/app/components/UpcomingList'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import RoomDetailTags from '@/app/components/RoomDetailTags'
+import ViewAsBanner from '@/app/components/ViewAsBanner'
 
 interface AvailableRoom {
   id: string
@@ -68,9 +69,11 @@ function defaultNotifyMsg(propertyName: string, date: string, time: string) {
 
 export default function LettingsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
+  const [viewingAs, setViewingAs] = useState<{ id: string; name: string; role: string } | null>(null)
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([])
   const [viewings, setViewings] = useState<any[]>([])
   const [bookingRooms, setBookingRooms] = useState<BookingRoom[]>([])
@@ -97,6 +100,23 @@ export default function LettingsPage() {
         router.push('/login')
         return
       }
+
+      // View-as impersonation — admin only
+      const asParam = searchParams.get('as')
+      const isAdmin = ['administrator', 'admin'].includes(role || '')
+      if (asParam && isAdmin) {
+        const { data: target } = await supabase
+          .from('people')
+          .select('id, full_name, first_name, last_name, role')
+          .eq('id', asParam)
+          .maybeSingle()
+        if (!target || target.role !== 'lettings') {
+          router.push('/admin/people')
+          return
+        }
+        setViewingAs({ id: asParam, name: (target.full_name || `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'Lettings User'), role: target.role })
+      }
+
       // Friendly greeting name + person id for created_by on let-only listings
       if (data.user?.email) {
         const { data: person } = await supabase
@@ -285,6 +305,14 @@ export default function LettingsPage() {
           </div>
         }
       />
+
+      {viewingAs && (
+        <ViewAsBanner
+          name={viewingAs.name}
+          role={viewingAs.role}
+          personId={viewingAs.id}
+        />
+      )}
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
         {/* Greeting — shared across every role dashboard */}

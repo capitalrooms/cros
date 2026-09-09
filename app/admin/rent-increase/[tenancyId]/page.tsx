@@ -48,6 +48,8 @@ export default function RentIncreasePage() {
   const [proposedRent, setProposedRent]   = useState('')
   const [effectiveDate, setEffectiveDate] = useState('')
   const [tenantTitle, setTenantTitle]     = useState('Ms')
+  // Field 4.3 — date of last Section 13 increase; pre-filled from system, overridable
+  const [lastS13Date, setLastS13Date]     = useState('')
 
   // Validation / preview
   const [earliestDate, setEarliestDate]   = useState<string | null>(null)
@@ -65,6 +67,9 @@ export default function RentIncreasePage() {
   const [sendError, setSendError]         = useState<string | null>(null)
   const [sendWarning, setSendWarning]     = useState<string | null>(null)
 
+  // Auth token (needed for API calls — singleton client loses session in serverless)
+  const [authToken, setAuthToken]         = useState<string>('')
+
   // ── Load tenancy data ────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -75,6 +80,13 @@ export default function RentIncreasePage() {
       }
 
       const sb = createClient()
+
+      // Get Bearer token for API calls — API routes are serverless and cannot
+      // rely on the singleton client's session; passing the token explicitly works.
+      const { data: { session } } = await sb.auth.getSession()
+      const token = session?.access_token || ''
+      setAuthToken(token)
+
       const { data } = await sb
         .from('tenancies')
         .select(`
@@ -89,16 +101,19 @@ export default function RentIncreasePage() {
       if (!data) { router.push('/admin/tenancy-management'); return }
       setTenancy(data as unknown as TenancyInfo)
 
-      // Pre-fetch earliest valid date for display
+      // Pre-fetch earliest valid date for display (probe call — any valid rent, invalid date)
       const today = new Date().toISOString().slice(0, 10)
+      const probRent = Math.max(Number((data as any).rent_amount) || 0, 1)
       const previewRes = await fetch('/api/rent-increase/preview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           tenancyId,
-          proposedRent: (data as any).rent_amount || 0,
-          // Pass an obviously invalid date just to get earliestValidDate back
-          effectiveDate: today,
+          proposedRent: probRent, // non-zero so the body check passes
+          effectiveDate: today,   // intentionally invalid → API returns earliestValidDate
         }),
       })
       const j = await previewRes.json()
@@ -109,6 +124,8 @@ export default function RentIncreasePage() {
         if (j.earliestValidDate) setEarliestDate(j.earliestValidDate)
         if (j.validation?.earliestValidDate) setEarliestDate(j.validation.earliestValidDate)
         setEffectiveDate(j.earliestValidDate || j.validation?.earliestValidDate || '')
+        // Pre-fill field 4.3 from system data; empty string = no prior notices on record
+        if (j.lastS13Date) setLastS13Date(j.lastS13Date)
       }
 
       setLoading(false)
@@ -128,8 +145,11 @@ export default function RentIncreasePage() {
 
     const res = await fetch('/api/rent-increase/preview', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenancyId, proposedRent: Number(proposedRent), effectiveDate, tenantTitle }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ tenancyId, proposedRent: Number(proposedRent), effectiveDate, tenantTitle, lastS13Date }),
     })
     const j = await res.json()
 
@@ -151,7 +171,7 @@ export default function RentIncreasePage() {
     setForm4aB64(j.form4A)
     setStep('preview')
     setPreviewing(false)
-  }, [tenancyId, proposedRent, effectiveDate, tenantTitle])
+  }, [tenancyId, proposedRent, effectiveDate, tenantTitle, authToken, lastS13Date])
 
   // ── Send ─────────────────────────────────────────────────────────────────
 
@@ -167,8 +187,11 @@ export default function RentIncreasePage() {
 
     const res = await fetch('/api/rent-increase/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenancyId, proposedRent: Number(proposedRent), effectiveDate, tenantTitle }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({ tenancyId, proposedRent: Number(proposedRent), effectiveDate, tenantTitle, lastS13Date }),
     })
     const j = await res.json()
 
@@ -328,6 +351,25 @@ export default function RentIncreasePage() {
                 Earliest legal date: {fmtDate(earliestDate)}
               </p>
             )}
+          </div>
+
+          {/* Field 4.3 — date of last Section 13 increase */}
+          <div>
+            <label className="block text-sm font-semibold text-neutral-700 mb-xs">
+              Date of last Section 13 rent increase{' '}
+              <span className="text-neutral-400 font-normal">(Form 4A, field 4.3)</span>
+            </label>
+            <input
+              type="date"
+              value={lastS13Date}
+              onChange={e => setLastS13Date(e.target.value)}
+              className="w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900"
+            />
+            <p className="text-xs text-neutral-400 mt-xs">
+              {lastS13Date
+                ? `Pre-filled from notice records — correct if the system value is wrong.`
+                : 'No previous Section 13 notices found in the system — leave blank if this is the first.'}
+            </p>
           </div>
         </div>
 

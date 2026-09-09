@@ -206,7 +206,7 @@ export default function AIUploadPage() {
       <main className="mx-auto max-w-2xl px-lg py-lg">
         <div className="flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">AI File Upload</h1>
+            <h1 className="text-3xl font-bold text-neutral-900">⚡ AI File Scanner</h1>
             <p className="mt-sm text-sm text-neutral-600">
               Drop in certificates, tenancy agreements, contact sheets, utility bills, invoices and receipts — plus property photos. The AI reads documents, tells you what they are, and files once you confirm. For photos, you&apos;ll confirm which property they belong to (and assign rooms now or later on the property&apos;s Photos tab).
             </p>
@@ -241,7 +241,7 @@ export default function AIUploadPage() {
               onChange={(e) => handleFiles(e.target.files)}
               disabled={busy}
             />
-            <p className="text-4xl">{busy ? '⏳' : '📄'}</p>
+            <p className="text-4xl">{busy ? '⚡' : '⚡'}</p>
             {busy ? (
               <>
                 <p className="font-bold text-neutral-900">{busyLabel}</p>

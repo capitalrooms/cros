@@ -4,15 +4,16 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
 
-import { LOGO_B64, FOOTER_STRIP_B64 } from './letterhead'
+import {
+  loadPDFLetterheadAssets,
+  PAGE_W as _PW, PAGE_H as _PH, MARGIN as _M, FOOTER_BAND_H as _FBH,
+  LOGO_W as _LW, LOGO_H as _LH, GREY_BAND as _GB, BLACK as _BK, GREY as _GR,
+  drawPDFFooter, drawPDFSignOff,
+  type PDFBizSettings, type PDFSender,
+} from '@/lib/pdfLetterhead'
 import { ValuationData } from './ValuationDocument'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function b64ToBuffer(dataUri: string): Buffer {
-  const base64 = dataUri.replace(/^data:[^;]+;base64,/, '')
-  return Buffer.from(base64, 'base64')
-}
 
 function fmt(n: number, sym = '£') { return `${sym}${n.toLocaleString('en-GB')} pcm` }
 function fmtCost(n: number, sym = '£') { return `${sym}${n.toLocaleString('en-GB')}` }
@@ -42,25 +43,20 @@ function refurbTierLabel(t?: string) {
   }[t ?? ''] ?? '')
 }
 
-// ── Colour / size constants ────────────────────────────────────────────────────
+// ── Colour / size constants — sourced from lib/pdfLetterhead ─────────────────
 
-const PAGE_W = 595.28   // A4 points
-const PAGE_H = 841.89
-const MARGIN = 52
-const COL_W = PAGE_W - MARGIN * 2
-
-const BLACK     = '#1a1a1a'
-const GREY      = '#555555'
-const LIGHT     = '#f8f8f8'
-const BORDER    = '#e0e0e0'
-const GREY_BAND = '#939598'   // footer band colour
-
-// Header logo dimensions — rendered top-right, matching the letterhead
-const LOGO_W = 90   // pt — logo is ~square (910×849), so height ≈ same
-const LOGO_H = (849 / 910) * LOGO_W
-
-// Footer band
-const FOOTER_BAND_H = 58
+const PAGE_W     = _PW
+const PAGE_H     = _PH
+const MARGIN     = _M
+const COL_W      = PAGE_W - MARGIN * 2
+const BLACK      = _BK
+const GREY       = _GR
+const LIGHT      = '#f8f8f8'
+const BORDER     = '#e0e0e0'
+const GREY_BAND  = _GB
+const LOGO_W     = _LW
+const LOGO_H     = _LH
+const FOOTER_BAND_H = _FBH
 
 // ── Drawing utilities ──────────────────────────────────────────────────────────
 
@@ -74,14 +70,16 @@ function tableRow(
   cols: { text: string; x: number; w: number; align?: 'left' | 'right' }[],
   rowH: number,
   bg?: string,
-  bold = false
+  bold = false,
+  fontReg = 'Helvetica',
+  fontBold = 'Helvetica-Bold',
 ) {
   if (bg) {
     doc.save().fillColor(bg).rect(MARGIN, y, COL_W, rowH).fill().restore()
   }
   doc.save()
     .fillColor(bg === BLACK ? '#fff' : BLACK)
-    .font(bold || bg === BLACK ? 'Helvetica-Bold' : 'Helvetica')
+    .font(bold || bg === BLACK ? fontBold : fontReg)
     .fontSize(8)
   for (const col of cols) {
     doc.text(col.text, col.x, y + 5, { width: col.w, align: col.align ?? 'left', lineBreak: false })
@@ -107,66 +105,49 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    const logoImg = b64ToBuffer(LOGO_B64)
-    const footerImg = b64ToBuffer(FOOTER_STRIP_B64)
+    const { logoImg, footerImg, penImg, fontReg, fontBold } = loadPDFLetterheadAssets()
 
     const sym = data.currency ?? '£'
     const disclaimer = data.disclaimer ??
       'This valuation has been prepared by Capital Rooms based on current market conditions and comparable rental evidence at the time of writing. Figures stated are estimates and subject to change. This document does not constitute a formal valuation report or legal advice. Capital Rooms accepts no liability for decisions made solely on the basis of this document.'
 
-    // ─ WATERMARK ───────────────────────────────────────────────────────────────
-    // Large faint logo centred in lower half of page, matching the real letterhead
-    const wmW = 360
-    const wmH = (849 / 910) * wmW
-    const wmX = (PAGE_W - wmW) / 2
-    const wmY = PAGE_H * 0.42  // lower half of page
-
-    doc.save()
-    try {
-      // pdfkit ≥0.13 supports opacity via fillOpacity + strokeOpacity but not directly on images.
-      // We piggyback on the fillOpacity approach by setting the graphics state before rendering.
-      ;(doc as any).fillOpacity(0.05)
-      doc.image(logoImg, wmX, wmY, { width: wmW, height: wmH })
-    } catch (_) {
-      // Older pdfkit — skip watermark gracefully
-    }
-    doc.restore()
-
     // ─ HEADER: LOGO TOP-RIGHT ─────────────────────────────────────────────────
     const logoX = PAGE_W - MARGIN - LOGO_W
     doc.image(logoImg, logoX, MARGIN, { width: LOGO_W, height: LOGO_H })
 
-    // Content starts below logo height
-    let y = MARGIN + LOGO_H + 28
+    // ─ RECIPIENT ADDRESS — top-left, parallel to logo ─────────────────────────
+    // Reference letterhead: address block starts at same Y as logo, left margin.
+    let y = MARGIN
 
-    // ─ DATE + RECIPIENT ────────────────────────────────────────────────────────
-
-    doc.save().font('Helvetica').fontSize(9).fillColor(GREY)
-      .text(formatDate(data.letterDate), MARGIN, y)
-      .restore()
-    y += 20
-
-    doc.save().font('Helvetica-Bold').fontSize(9.5).fillColor(BLACK)
+    doc.save().font(fontBold).fontSize(9.5).fillColor(BLACK)
       .text(data.recipientName, MARGIN, y)
       .restore()
     y += 14
 
     if (data.recipientAddress?.length > 0) {
-      doc.save().font('Helvetica').fontSize(9).fillColor('#333')
+      doc.save().font(fontReg).fontSize(9).fillColor('#333')
       for (const line of data.recipientAddress) {
         doc.text(line, MARGIN, y)
         y += 13
       }
       doc.restore()
     }
-    y += 12
+
+    // Ensure we clear the logo before placing the date
+    y = Math.max(y + 20, MARGIN + LOGO_H + 20)
+
+    // ─ DATE ───────────────────────────────────────────────────────────────────
+    doc.save().font(fontReg).fontSize(9).fillColor(GREY)
+      .text(formatDate(data.letterDate), MARGIN, y)
+      .restore()
+    y += 28   // generous gap between date and subject heading
 
     // ─ SUBJECT LINE ───────────────────────────────────────────────────────────
 
     const subjectLine = `${typeName(data.type)} — ${data.propertyAddress}${data.propertyRef ? ` (Ref: ${data.propertyRef})` : ''}`
-    doc.save().font('Helvetica').fontSize(9).fillColor(BLACK)
+    doc.save().font(fontReg).fontSize(9).fillColor(BLACK)
       .text('Re: ', MARGIN, y, { continued: true })
-      .font('Helvetica-Bold')
+      .font(fontBold)
       .text(subjectLine)
       .restore()
     y += 24
@@ -179,7 +160,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
 
     function drawPara(text: string) {
       const height = doc.heightOfString(text, { width: COL_W, align: 'justify' })
-      doc.save().font('Helvetica').fontSize(9.5).fillColor(BLACK)
+      doc.save().font(fontReg).fontSize(9.5).fillColor(BLACK)
         .text(text, MARGIN, y, { width: COL_W, align: 'justify', lineGap: 3 })
         .restore()
       y += height + 12
@@ -187,7 +168,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
 
     function sectionHeading(text: string) {
       y += 6
-      doc.save().font('Helvetica-Bold').fontSize(10).fillColor(BLACK)
+      doc.save().font(fontBold).fontSize(10).fillColor(BLACK)
         .text(text, MARGIN, y)
         .restore()
       y += 16
@@ -217,7 +198,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
           { text: 'Low', x: col2X, w: priceW, align: 'right' },
           { text: 'High', x: col3X, w: priceW, align: 'right' },
         ],
-        ROW_H, BLACK, true
+        ROW_H, BLACK, true, fontReg, fontBold
       )
       y += ROW_H
 
@@ -233,10 +214,10 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
             { text: fmt(r.low, sym), x: col2X, w: priceW, align: 'right' },
             { text: fmt(r.high, sym), x: col3X, w: priceW, align: 'right' },
           ],
-          ROW_H, bg
+          ROW_H, bg, false, fontReg, fontBold
         )
         if (r.notes) {
-          doc.save().font('Helvetica').fontSize(7).fillColor('#888')
+          doc.save().font(fontReg).fontSize(7).fillColor('#888')
             .text(r.notes, colRoomX + 4, y + ROW_H - 8, { width: colRoomW - 8, lineBreak: false })
             .restore()
         }
@@ -248,7 +229,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
 
       // Totals row
       doc.save().fillColor('#f2f2f2').rect(MARGIN, y, COL_W, ROW_H).fill().restore()
-      doc.save().font('Helvetica-Bold').fontSize(8).fillColor(BLACK)
+      doc.save().font(fontBold).fontSize(8).fillColor(BLACK)
         .text('Combined monthly income', colRoomX + 4, y + 7, { width: colRoomW - 8, lineBreak: false })
         .text(fmt(totalLow, sym),  col2X, y + 7, { width: priceW, align: 'right', lineBreak: false })
         .text(fmt(totalHigh, sym), col3X, y + 7, { width: priceW, align: 'right', lineBreak: false })
@@ -279,7 +260,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
           { text: 'Works', x: descX, w: descW },
           { text: 'Est. Cost', x: costX, w: costW, align: 'right' },
         ],
-        ROW_H, BLACK, true
+        ROW_H, BLACK, true, fontReg, fontBold
       )
       y += ROW_H
 
@@ -293,7 +274,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
             { text: item.description, x: descX, w: descW },
             { text: fmtCost(item.estimatedCost, sym), x: costX, w: costW, align: 'right' },
           ],
-          ROW_H, bg
+          ROW_H, bg, false, fontReg, fontBold
         )
         drawHRule(doc, MARGIN, y + ROW_H, COL_W, '#ececec')
         y += ROW_H
@@ -301,7 +282,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
       }
 
       doc.save().fillColor('#f2f2f2').rect(MARGIN, y, COL_W, ROW_H).fill().restore()
-      doc.save().font('Helvetica-Bold').fontSize(8).fillColor(BLACK)
+      doc.save().font(fontBold).fontSize(8).fillColor(BLACK)
         .text('Total estimated refurbishment cost', catX + 4, y + 5, { width: catW + descW - 8, lineBreak: false })
         .text(fmtCost(total, sym), costX, y + 5, { width: costW, align: 'right', lineBreak: false })
         .restore()
@@ -325,9 +306,9 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
       let ry = y + 8
       for (const [lbl, val] of rows) {
         if (val != null) {
-          doc.save().font('Helvetica').fontSize(9).fillColor(GREY)
+          doc.save().font(fontReg).fontSize(9).fillColor(GREY)
             .text(lbl, MARGIN + 12, ry, { width: COL_W * 0.6, lineBreak: false })
-            .font('Helvetica-Bold').fillColor(BLACK)
+            .font(fontBold).fillColor(BLACK)
             .text(fmt(val, sym), MARGIN + COL_W * 0.6, ry, { width: COL_W * 0.4 - 12, align: 'right', lineBreak: false })
             .restore()
           ry += 16
@@ -356,9 +337,9 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
         .restore()
       let ry = y + 8
       for (const [lbl, val] of validRows) {
-        doc.save().font('Helvetica').fontSize(9).fillColor(GREY)
+        doc.save().font(fontReg).fontSize(9).fillColor(GREY)
           .text(lbl, MARGIN + 12, ry, { width: COL_W * 0.65, lineBreak: false })
-          .font('Helvetica-Bold').fillColor(BLACK)
+          .font(fontBold).fillColor(BLACK)
           .text(val!, MARGIN + COL_W * 0.65, ry, { width: COL_W * 0.35 - 12, align: 'right', lineBreak: false })
           .restore()
         ry += 18
@@ -373,18 +354,12 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
     drawPara(data.closingParagraph)
 
     if (data.preparedBy) {
-      doc.save().font('Helvetica').fontSize(9.5).fillColor(BLACK)
-        .text('Yours sincerely,', MARGIN, y)
-        .restore()
-      y += 40   // signature gap
-      doc.save().font('Helvetica-Bold').fontSize(9.5).fillColor(BLACK)
-        .text(data.preparedBy, MARGIN, y)
-        .restore()
-      y += 14
-      doc.save().font('Helvetica').fontSize(9).fillColor(GREY)
-        .text('Capital Rooms', MARGIN, y)
-        .restore()
-      y += 22
+      const sender: PDFSender = {
+        name:        data.preparedBy,
+        jobTitle:    data.senderJobTitle,
+        directPhone: data.senderDirectPhone,
+      }
+      y = drawPDFSignOff(doc, y, sender, penImg, fontReg, fontBold)
     }
 
     // ─ DISCLAIMER ─────────────────────────────────────────────────────────────
@@ -392,29 +367,12 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
     y += 6
     drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
     y += 8
-    doc.save().font('Helvetica').fontSize(6.5).fillColor('#999')
+    doc.save().font(fontReg).fontSize(6.5).fillColor('#999')
       .text(disclaimer, MARGIN, y, { width: COL_W, align: 'left', lineGap: 2 })
       .restore()
 
-    // ─ FOOTER BAND ────────────────────────────────────────────────────────────
-    // Grey band full page width. Top portion: contact details text.
-    // Bottom portion: accreditation strip image.
-
-    const footerBandY = PAGE_H - FOOTER_BAND_H
-    doc.save().fillColor(GREY_BAND).rect(0, footerBandY, PAGE_W, FOOTER_BAND_H).fill().restore()
-
-    // Contact line
-    doc.save().font('Helvetica').fontSize(6.5).fillColor('#fff')
-      .text(
-        '  Capital Rooms, Hoxton Mix, 66 Paul Street, London, EC2A 4NA     info@capitalrooms.co.uk     0207-112-9163',
-        0, footerBandY + 7,
-        { width: PAGE_W, align: 'center', lineBreak: false }
-      )
-      .restore()
-
-    // Accreditation strip image (white-on-transparent — sits on grey band)
-    const stripH = FOOTER_BAND_H - 22
-    doc.image(footerImg, 0, footerBandY + 20, { width: PAGE_W, height: stripH })
+    // ─ FOOTER BAND — shared component (lib/pdfLetterhead) ────────────────────
+    drawPDFFooter(doc, footerImg, data.bizSettings, fontReg)
 
     doc.end()
   })

@@ -29,6 +29,14 @@ const actions = [
     badge: null,
     disabled: false,
   },
+  {
+    href: '/admin/new-business/management-agreement',
+    emoji: '📋',
+    title: 'Management Agreement',
+    desc: 'Generate a fully populated management agreement on Capital Rooms letterhead. Choose HMO or single let, set the fee structure, and download as a signed-ready PDF.',
+    badge: null,
+    disabled: false,
+  },
 ]
 
 export default function NewBusinessPage() {

@@ -206,6 +206,12 @@ export default function DocReview({
   // Explicit visibility control - default to admin-only (false) for safety
   const [visibleToTenants, setVisibleToTenants] = useState(false)
 
+  // House info extraction — offered when doc type overlaps with property facts
+  const [houseInfoPreview, setHouseInfoPreview] = useState<Array<{ icon: string; label: string; value: string; sensitive: boolean; selected: boolean }> | null>(null)
+  const [houseInfoExtracting, setHouseInfoExtracting] = useState(false)
+  const [houseInfoError, setHouseInfoError] = useState('')
+  const [houseInfoSaved, setHouseInfoSaved] = useState(false)
+
   useEffect(() => {
     setFields(initial)
     // If a property was pre-selected (e.g. scan from property card), keep it;
@@ -233,6 +239,43 @@ export default function DocReview({
 
   const set = (k: keyof AIResult, v: string) => setFields((f) => ({ ...f, [k]: v }))
   const type = fields.doc_type
+
+  // Doc types where we offer house info extraction
+  const HOUSE_INFO_TYPES = new Set(['emergency_contacts', 'wifi_details', 'waste_schedule', 'house_rules', 'safety_info', 'utility_bill'])
+
+  async function extractHouseInfo() {
+    if (!file) return
+    setHouseInfoExtracting(true)
+    setHouseInfoError('')
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      const res = await fetch('/api/admin/house-info-extract', { method: 'POST', body })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Extraction failed')
+      if (!json.items?.length) throw new Error('No fields could be extracted')
+      setHouseInfoPreview(json.items.map((it: any) => ({ ...it, selected: true })))
+    } catch (err: any) {
+      setHouseInfoError(err.message || 'Extraction failed')
+    } finally {
+      setHouseInfoExtracting(false)
+    }
+  }
+
+  async function saveHouseInfo() {
+    if (!targetProperty || !houseInfoPreview) return
+    const toAdd = houseInfoPreview.filter(it => it.selected).map(({ selected, ...it }) => it)
+    if (!toAdd.length) return
+    const supabase = (await import('@/lib/supabase')).createClient()
+    // Fetch current house_info and merge
+    const { data: prop } = await supabase.from('properties').select('house_info').eq('id', targetProperty).maybeSingle()
+    const existing: any[] = (prop as any)?.house_info?.items || []
+    const merged = [...existing, ...toAdd]
+    await supabase.from('properties').update({ house_info: { items: merged } }).eq('id', targetProperty)
+    setHouseInfoPreview(null)
+    setHouseInfoSaved(true)
+  }
+
   const isCompliance = COMPLIANCE_TYPES.includes(type)
   const isPropInfo = PROP_INFO_TYPES.includes(type)
   const isTenancy = TENANCY_TYPES.includes(type)
@@ -569,6 +612,66 @@ export default function DocReview({
           </div>
         )}
       </div>
+
+      {/* House Info extraction — shown for relevant doc types when a property is selected */}
+      {HOUSE_INFO_TYPES.has(type) && targetProperty && file && !houseInfoSaved && (
+        <div className="mx-lg mb-md rounded-xl border border-neutral-200 bg-neutral-50 p-md">
+          {!houseInfoPreview ? (
+            <div className="flex items-center justify-between gap-md">
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">🏠 Populate House Info?</p>
+                <p className="text-xs text-neutral-500 mt-xs">
+                  Extract WiFi details, bin day, heating instructions etc. directly into the property's House Info card — visible to tenants on their dashboard.
+                </p>
+                {houseInfoError && <p className="text-xs text-red-600 mt-xs">{houseInfoError}</p>}
+              </div>
+              <button
+                onClick={extractHouseInfo}
+                disabled={houseInfoExtracting}
+                className="shrink-0 rounded-lg border border-neutral-300 bg-white px-md py-sm text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                {houseInfoExtracting ? '⚡ Reading…' : '⚡ Extract fields'}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between gap-md mb-sm">
+                <p className="text-sm font-bold text-neutral-900">⚡ {houseInfoPreview.length} fields extracted</p>
+                <div className="flex gap-sm">
+                  <button onClick={() => setHouseInfoPreview(null)} className="text-xs text-neutral-500 hover:text-neutral-900">Cancel</button>
+                  <button
+                    onClick={saveHouseInfo}
+                    className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white hover:bg-neutral-700"
+                  >
+                    Add to House Info
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-xs max-h-52 overflow-y-auto">
+                {houseInfoPreview.map((it, idx) => (
+                  <label key={idx} className="flex items-center gap-sm cursor-pointer hover:bg-neutral-100 rounded-lg px-sm py-xs">
+                    <input type="checkbox" checked={it.selected}
+                      onChange={e => setHouseInfoPreview(prev => prev!.map((p, i) => i === idx ? { ...p, selected: e.target.checked } : p))}
+                      className="shrink-0" />
+                    <span className="text-base shrink-0">{it.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-neutral-700">{it.label}</span>
+                      <span className="text-xs text-neutral-500 ml-xs truncate">
+                        {it.sensitive ? '•••••• (sensitive)' : it.value}
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {houseInfoSaved && (
+        <div className="mx-lg mb-md rounded-xl border border-green-200 bg-green-50 px-md py-sm text-sm font-semibold text-green-800">
+          ✅ House Info updated — tenants will see these fields on their dashboard.
+        </div>
+      )}
 
       {/* Error + actions */}
       {error && (
