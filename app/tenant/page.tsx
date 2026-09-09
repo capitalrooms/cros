@@ -465,7 +465,7 @@ export default function TenantDashboard() {
           {accessRequests.length === 0 && nextVisit && (
             <div className="mt-lg rounded-2xl bg-white p-lg text-neutral-900 shadow-lg">
               <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                {nextIsMyRoom ? 'Visiting your room' : 'Coming to your house'}
+                {nextIsMyRoom ? 'Next visit to your room' : 'Next visit to the house'}
               </p>
               <p className="mt-sm text-3xl font-bold leading-tight">
                 {dayLabel(nextVisit.booked_date)}
@@ -712,7 +712,7 @@ export default function TenantDashboard() {
             <ActionCard
               href="/tenant/safety-checks"
               title="Safety Checks"
-              description="Fire door & smoke alarm checks"
+              description="Log that your fire door opens and closes properly, and your smoke alarm has a green light"
               primary
             />
           </div>
@@ -882,7 +882,7 @@ function ActionCard({
       </p>
       {primary && (
         <p className="mt-md rounded-xl bg-neutral-900 py-md text-center text-sm font-bold text-white">
-          Report now
+          Log now
         </p>
       )}
     </div>

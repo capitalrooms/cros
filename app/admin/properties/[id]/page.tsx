@@ -98,6 +98,21 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         (prop as any).featured_photo = featuredPhoto;
       }
 
+      // Resolve landlord name from people table (properties only stores landlord_id FK)
+      if (prop?.landlord_id) {
+        const { data: landlordPerson } = await supabase
+          .from('people')
+          .select('full_name, first_name, last_name')
+          .eq('id', prop.landlord_id)
+          .single();
+        if (landlordPerson && prop) {
+          (prop as any).landlord_name =
+            landlordPerson.full_name ||
+            [landlordPerson.first_name, landlordPerson.last_name].filter(Boolean).join(' ') ||
+            null;
+        }
+      }
+
       setProperty(prop);
       setNameValue(prop?.name || '');
       setAddressValue(prop?.address || '');
