@@ -326,7 +326,7 @@ export default function TenantSafetyChecksPage() {
                 disabled={submitting}
                 className="flex-1 rounded-lg bg-neutral-900 px-lg py-md text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
               >
-                {submitting ? 'Submitting…' : 'Submit response'}
+                {submitting ? 'Saving…' : 'Save log'}
               </button>
             </div>
           </div>

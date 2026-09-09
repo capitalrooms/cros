@@ -122,7 +122,7 @@ export default function PropertyInfoPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/tenant" className="text-sm font-bold text-white hover:text-white/80">← Home</Link>} />
+      <AppBar left={<BackButton href="/tenant" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         {/* Property header */}
