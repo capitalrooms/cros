@@ -11,6 +11,7 @@ import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import RoomDetailTags from '@/app/components/RoomDetailTags'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
 import DarkHeroHeader from '@/app/components/DarkHeroHeader'
+import SendOfferForm from '@/components/SendOfferForm'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -546,6 +547,11 @@ export default function LettingsPage() {
                 🔑 Let-only rooms are landlord-managed — Capital Rooms runs viewings only.
               </p>
             )}
+
+            {/* Send offer letter */}
+            <div id="send-offer" className="mt-xl scroll-mt-lg">
+              <SendOfferForm />
+            </div>
           </div>
         )}
 
