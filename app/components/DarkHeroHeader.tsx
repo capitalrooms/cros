@@ -1,13 +1,15 @@
 /**
  * DarkHeroHeader
  *
- * Reusable dark-background hero section for role dashboards that don't use
- * the standard AppBar (lettings, and any future role that adopts this style).
+ * Reusable dark-background hero section for role dashboards.
+ * Matches AppBar exactly for the top bar (logo centred, actions right),
+ * then extends downward with an eyebrow label, large heading, and a
+ * children slot for stat tiles or anything else.
  *
- * Safe-area handling mirrors AppBar exactly:
- *  • outer wrapper absorbs env(safe-area-inset-top) so the dark bg fills
- *    behind the phone status bar
- *  • inner wrapper adds the visual content padding (pt-md / px-lg / pb-xl)
+ * Safe-area handling mirrors AppBar:
+ *  • outer wrapper absorbs env(safe-area-inset-top/left/right) so the dark
+ *    background fills correctly behind the phone status bar
+ *  • inner wrapper adds visual content padding
  *
  * Usage:
  *   <DarkHeroHeader
@@ -18,14 +20,20 @@
  *     (stat tiles or any other content)
  *   </DarkHeroHeader>
  */
+import Link from 'next/link'
+import Logo from '@/components/Logo'
+
 export default function DarkHeroHeader({
   eyebrow,
   heading,
+  topLeft,
   topRight,
   children,
 }: {
   eyebrow: string
   heading: string
+  /** Optional left slot — e.g. a back button. Empty keeps the logo centred. */
+  topLeft?: React.ReactNode
   topRight?: React.ReactNode
   children?: React.ReactNode
 }) {
@@ -38,20 +46,34 @@ export default function DarkHeroHeader({
         paddingRight: 'env(safe-area-inset-right)',
       }}
     >
-      <div className="px-lg pt-md pb-xl">
-        {/* Top bar — brand name + action */}
-        <div className="flex items-center justify-between mb-xl">
-          <span className="text-sm font-black tracking-[0.15em] uppercase text-white/40 select-none">
-            Capital Rooms
-          </span>
-          {topRight && (
-            <div className="text-sm font-medium text-white/50">
-              {topRight}
-            </div>
-          )}
+      {/* ── Top bar — identical layout to AppBar ── */}
+      <div
+        className="py-md grid items-center gap-md px-lg"
+        style={{ gridTemplateColumns: '1fr auto 1fr', minHeight: 52 }}
+      >
+        {/* Left */}
+        <div className="justify-self-start min-w-0 flex items-center">
+          {topLeft ?? <span />}
         </div>
 
-        {/* Eyebrow + heading */}
+        {/* Centre — logo */}
+        <div className="justify-self-center">
+          <Link href="/home" aria-label="Home" className="block hover:opacity-80 transition-opacity">
+            <Logo variant="emblem" height={30} invert priority />
+          </Link>
+        </div>
+
+        {/* Right — actions */}
+        <div
+          className="min-w-0 flex items-center gap-md text-sm font-semibold text-white overflow-x-auto"
+          style={{ justifyContent: 'flex-end' }}
+        >
+          {topRight}
+        </div>
+      </div>
+
+      {/* ── Hero content — eyebrow, heading, slot ── */}
+      <div className="px-lg pt-sm pb-xl">
         <p className="text-xs font-bold uppercase tracking-widest text-white/40 mb-xs">
           {eyebrow}
         </p>
@@ -62,7 +84,6 @@ export default function DarkHeroHeader({
           {heading}
         </h1>
 
-        {/* Slot for stat tiles, search bar, etc. */}
         {children}
       </div>
     </div>
