@@ -404,7 +404,10 @@ export default function LettingsPage() {
       </DarkHeroHeader>
 
       {/* ── Tab strip ──────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-neutral-200 sticky top-0 z-20 px-lg pt-md pb-0">
+      <div
+        className="bg-white border-b border-neutral-200 sticky z-40 px-lg pt-md pb-0"
+        style={{ top: 'calc(env(safe-area-inset-top) + 52px)' }}
+      >
         <div className="flex gap-xs">
           {(['viewings', 'available', 'leads', 'let'] as Tab[]).map(tab => (
             <button
