@@ -382,7 +382,7 @@ export default function LettingsPage() {
       )}
 
       {/* ── Dark hero header ────────────────────────────────────────────────── */}
-      <div className="bg-neutral-950 text-white px-lg pt-lg pb-xl">
+      <div className="bg-neutral-950 text-white px-lg pb-xl" style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
 
         {/* Top bar */}
         <div className="flex items-center justify-between mb-xl">
