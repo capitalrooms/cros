@@ -6,7 +6,10 @@ import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
-import CouncilInfoModal from './components/CouncilInfoModal'
+// CouncilInfoModal is now managed inside PostcodeLookupWidget
+import PostcodeLookupWidget from '@/components/admin/PostcodeLookupWidget'
+import type { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
+import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
 
 type LetType = 'hmo' | 'single_let' | null
 
@@ -17,12 +20,10 @@ export default function NewPropertyPage() {
 
   // Step 1: Address
   const [address, setAddress] = useState('')
+  const [postcode, setPostcode] = useState('')
   const [propertyCode, setPropertyCode] = useState('')
   const [councilTaxBand, setCouncilTaxBand] = useState('')
-  const [councilLookupLoading, setCouncilLookupLoading] = useState(false)
-  const [councilInfo, setCouncilInfo] = useState<any>(null)
-  const [showCouncilModal, setShowCouncilModal] = useState(false)
-  const [pendingCouncilInfo, setPendingCouncilInfo] = useState<any>(null)
+  const [councilInfo, setCouncilInfo] = useState<PostcodeLookupResult | null>(null)
 
   // Step 2: The fork
   const [letType, setLetType] = useState<LetType>(null)
@@ -66,39 +67,11 @@ export default function NewPropertyPage() {
   const handleAddressChange = (value: string) => {
     setAddress(value)
     setPropertyCode(generatePropertyCode(value))
-    if (value.length > 10) lookupCouncilInfo(value)
+    // Postcode lookup is triggered automatically by PostcodeLookupWidget (autoLookup mode)
   }
 
-  const lookupCouncilInfo = async (addressValue: string) => {
-    setCouncilLookupLoading(true)
-    try {
-      const response = await fetch('/api/lookup/council-info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: addressValue })
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setPendingCouncilInfo(data.data)
-        setShowCouncilModal(true)
-      }
-    } catch (err) {
-      console.error('Council lookup error:', err)
-    } finally {
-      setCouncilLookupLoading(false)
-    }
-  }
-
-  const handleAcceptCouncilInfo = (data: any) => {
+  const handleAcceptCouncilInfo = (data: PostcodeLookupResult) => {
     setCouncilInfo(data)
-    setShowCouncilModal(false)
-    setPendingCouncilInfo(null)
-  }
-
-  const handleRejectCouncilInfo = () => {
-    setCouncilInfo(null)
-    setShowCouncilModal(false)
-    setPendingCouncilInfo(null)
   }
 
   // Load existing landlords once
@@ -202,6 +175,11 @@ export default function NewPropertyPage() {
         .insert({
           name: address,
           address,
+          postcode: postcode || (() => {
+            // Fallback: extract from address text if not set from lookup
+            const m = address.match(/\b([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})\b/i)
+            return m ? m[1].replace(/\s+/g, '').toUpperCase() : null
+          })(),
           property_code: propertyCode,
           property_type: letType,
           landlord_id: selectedLandlord?.id || null,
@@ -279,14 +257,28 @@ export default function NewPropertyPage() {
               </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-              <div>
-                <label className={labelClass}>Full Address *</label>
-                <input
-                  type="text"
+              <div className="space-y-sm">
+                {/* Postcode-first address search — populates full address below */}
+                <PostcodeAddressLookup
+                  label="Find by postcode"
+                  placeholder="Full address"
+                  onSelect={val => { if (val) handleAddressChange(val) }}
+                  onSelectParsed={parsed => {
+                    if (parsed.postcode) setPostcode(parsed.postcode.replace(/\s+/g, '').toUpperCase())
+                    if (parsed.full) handleAddressChange(parsed.full)
+                  }}
+                  className="[&_label]:text-neutral-300 [&_label]:text-xs [&_input]:bg-neutral-800 [&_input]:border-neutral-600 [&_input]:text-white [&_input]:placeholder-neutral-500 [&_textarea]:bg-neutral-800 [&_textarea]:border-neutral-600 [&_textarea]:text-white"
+                />
+                <label className={labelClass}>Full Address (or edit after lookup) *</label>
+                {/* Shared PostcodeLookupWidget — same component as the audit page */}
+                <PostcodeLookupWidget
                   value={address}
-                  onChange={(e) => handleAddressChange(e.target.value)}
+                  onChange={handleAddressChange}
+                  onResult={handleAcceptCouncilInfo}
+                  autoLookup
                   placeholder="e.g., 451 St Davids Square, London, E14 3WQ"
-                  className={inputClass}
+                  inputClassName={inputClass}
+                  buttonClassName=""
                 />
               </div>
               <div>
@@ -668,12 +660,7 @@ export default function NewPropertyPage() {
         </div>
       </main>
 
-      <CouncilInfoModal
-        councilInfo={pendingCouncilInfo}
-        onAccept={handleAcceptCouncilInfo}
-        onReject={handleRejectCouncilInfo}
-        loading={councilLookupLoading}
-      />
+      {/* CouncilInfoModal is now rendered inside PostcodeLookupWidget — nothing here */}
     </div>
   )
 }

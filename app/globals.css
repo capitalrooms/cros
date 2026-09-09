@@ -22,8 +22,12 @@ body {
   color-scheme: light;
   background-color: rgb(250, 250, 249);
   color: rgb(28, 25, 23);
-  font-family: var(--font-dm-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI',
+  font-family: var(--font-baloo-2), -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'Roboto', 'Helvetica Neue', sans-serif;
+  /* Baloo 2 has aggressive built-in line-height — reset to a tight value so
+     compact UI rows (nav, table cells, small labels) don't unexpectedly grow.
+     Individual elements that need more breathing room set their own line-height. */
+  line-height: 1.3;
 }
 
 /* Default: form controls use dark text on their usual light background,

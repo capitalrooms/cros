@@ -7,7 +7,13 @@
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
-import { LOGO_B64, FOOTER_STRIP_B64 } from '@/lib/valuations/letterhead'
+import {
+  loadPDFLetterheadAssets,
+  PAGE_W as _PW, PAGE_H as _PH, MARGIN as _M, FOOTER_BAND_H as _FBH,
+  LOGO_W as _LW, LOGO_H as _LH, GREY_BAND as _GB,
+  drawPDFFooter, drawPDFSignOff, drawPDFSalutation, PDF_BIZ_DEFAULTS,
+  type PDFBizSettings, type PDFSender,
+} from '@/lib/pdfLetterhead'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -34,36 +40,34 @@ export interface RentIncreaseData {
 
   // Cover letter customisation
   marketAreaDescription?: string    // e.g. "SE16" — for "similar rooms in SE16"
+
+  // Sender (for cover letter sign-off) — fetched from people table by the API route
+  senderName?:        string | null  // full name of the generating admin/lettings user
+  senderJobTitle?:    string | null  // from people.job_title
+  senderDirectPhone?: string | null  // from people.direct_phone
+
+  // Business details for footer — fetched by API route before calling generator
+  bizSettings?:       PDFBizSettings
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const PAGE_W  = 595.28
-const PAGE_H  = 841.89
-const MARGIN  = 52
-const COL_W   = PAGE_W - MARGIN * 2
+// ── Constants — sourced from lib/pdfLetterhead ────────────────────────────────
 
-const BLACK      = '#1a1a1a'
-const GREY       = '#555555'
-const LIGHT      = '#f8f8f8'
-const BORDER     = '#e0e0e0'
-const GREY_BAND  = '#939598'
-
-const LOGO_W = 90
-const LOGO_H = (849 / 910) * LOGO_W
-const FOOTER_BAND_H = 58
-
-const CR_ADDRESS_LINE1 = 'Third Floor, 86-90 Paul Street'
-const CR_ADDRESS_LINE2 = 'London, EC2A 4NE'
-const CR_EMAIL         = 'management@capitalrooms.co.uk'
-const CR_PHONE         = '0207 112 9163'
-const CR_FULL_ADDRESS  = `Capital Rooms, ${CR_ADDRESS_LINE1}, ${CR_ADDRESS_LINE2}`
+const PAGE_W        = _PW
+const PAGE_H        = _PH
+const MARGIN        = _M
+const COL_W         = PAGE_W - MARGIN * 2
+const BLACK         = '#1a1a1a'
+const GREY          = '#555555'
+const LIGHT         = '#f8f8f8'
+const BORDER        = '#e0e0e0'
+const GREY_BAND     = _GB
+const LOGO_W        = _LW
+const LOGO_H        = _LH
+const FOOTER_BAND_H = _FBH
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function b64(dataUri: string): Buffer {
-  return Buffer.from(dataUri.replace(/^data:[^;]+;base64,/, ''), 'base64')
-}
 
 function fmtMoney(n: number): string {
   return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -103,12 +107,15 @@ function postcode(address: string): string {
 // ── Document factory ───────────────────────────────────────────────────────────
 
 function makeDoc(title: string) {
-  const logoImg   = b64(LOGO_B64)
-  const footerImg = b64(FOOTER_STRIP_B64)
+  const { logoImg, footerImg, penImg, fontReg, fontBold } = loadPDFLetterheadAssets()
 
   const doc = new PDFDocument({
     size: 'A4',
-    margins: { top: MARGIN, bottom: FOOTER_BAND_H + 20, left: MARGIN, right: MARGIN },
+    // bottom: 2 (not FOOTER_BAND_H+20) — the footer is drawn at absolute coordinates
+    // so it doesn't go through PDFKit's text-flow pagination.  A large bottom margin
+    // caused drawFooter()'s doc.text() call (at PAGE_H − FOOTER_BAND_H + 7 ≈ 791)
+    // to exceed the auto-pagination trigger and silently add a blank trailing page.
+    margins: { top: MARGIN, bottom: 2, left: MARGIN, right: MARGIN },
     info: { Title: title, Author: 'Capital Rooms' },
   })
   const chunks: Buffer[] = []
@@ -118,6 +125,9 @@ function makeDoc(title: string) {
     doc,
     logoImg,
     footerImg,
+    penImg,
+    fontReg,
+    fontBold,
     finish: (): Promise<Buffer> => new Promise((res, rej) => {
       doc.on('end', () => res(Buffer.concat(chunks)))
       doc.on('error', rej)
@@ -127,41 +137,34 @@ function makeDoc(title: string) {
 }
 
 function drawLetterhead(doc: PDFKit.PDFDocument, logoImg: Buffer, y: number): number {
-  // Faint watermark
-  const wmW = 340
-  const wmH = (849 / 910) * wmW
-  try {
-    ;(doc as any).fillOpacity(0.05)
-    doc.image(logoImg, (PAGE_W - wmW) / 2, PAGE_H * 0.44, { width: wmW, height: wmH })
-  } catch { /* older pdfkit */ }
-  doc.restore?.()
-  ;(doc as any).fillOpacity(1)
-
-  // Logo top-right
+  // Logo top-right — no watermark (it obscures the clean white page)
   doc.image(logoImg, PAGE_W - MARGIN - LOGO_W, MARGIN, { width: LOGO_W, height: LOGO_H })
-  return MARGIN + LOGO_H + 24
+  // Return MARGIN so the recipient address starts parallel to the logo (top-left)
+  return MARGIN
 }
 
-function drawFooter(doc: PDFKit.PDFDocument, footerImg: Buffer) {
-  const y = PAGE_H - FOOTER_BAND_H
-  doc.save().fillColor(GREY_BAND).rect(0, y, PAGE_W, FOOTER_BAND_H).fill().restore()
-  doc.save().font('Helvetica').fontSize(6.5).fillColor('#fff')
-    .text(
-      `  ${CR_FULL_ADDRESS}     ${CR_EMAIL}     ${CR_PHONE}`,
-      0, y + 7, { width: PAGE_W, align: 'center', lineBreak: false }
-    ).restore()
-  doc.image(footerImg, 0, y + 20, { width: PAGE_W, height: FOOTER_BAND_H - 22 })
+function drawFooter(
+  doc:       PDFKit.PDFDocument,
+  footerImg: Buffer,
+  biz:       PDFBizSettings = PDF_BIZ_DEFAULTS,
+  fontReg:   string = 'Helvetica',
+) {
+  drawPDFFooter(doc, footerImg, biz, fontReg)
 }
 
 function rule(doc: PDFKit.PDFDocument, x: number, y: number, w: number, col = BORDER) {
   doc.save().strokeColor(col).lineWidth(0.5).moveTo(x, y).lineTo(x + w, y).stroke().restore()
 }
 
-function para(doc: PDFKit.PDFDocument, text: string, y: number, opts?: { size?: number; align?: 'left'|'justify'|'right' }): number {
+function para(doc: PDFKit.PDFDocument, text: string, y: number, opts?: { size?: number; align?: 'left'|'justify'|'right'; fontPath?: string }): number {
   const size  = opts?.size  ?? 9.5
   const align = opts?.align ?? 'justify'
-  const h = doc.heightOfString(text, { width: COL_W, align })
-  doc.save().font('Helvetica').fontSize(size).fillColor(BLACK)
+  const font  = opts?.fontPath ?? 'Helvetica'
+  // Set font before measuring so heightOfString uses the right metrics.
+  // Include lineGap: 3 to match the actual text() call, avoiding under-estimate.
+  doc.font(font).fontSize(size)
+  const h = doc.heightOfString(text, { width: COL_W, align, lineGap: 3 })
+  doc.save().font(font).fontSize(size).fillColor(BLACK)
     .text(text, MARGIN, y, { width: COL_W, align, lineGap: 3 })
     .restore()
   return y + h + 12
@@ -170,7 +173,7 @@ function para(doc: PDFKit.PDFDocument, text: string, y: number, opts?: { size?: 
 // ── DOCUMENT 1: Cover Letter ───────────────────────────────────────────────────
 
 export async function generateCoverLetter(d: RentIncreaseData): Promise<Buffer> {
-  const { doc, logoImg, footerImg, finish } = makeDoc(
+  const { doc, logoImg, footerImg, penImg, fontReg, fontBold, finish } = makeDoc(
     `Section 13 Cover Letter — ${d.tenantFullName}`
   )
 
@@ -182,7 +185,7 @@ export async function generateCoverLetter(d: RentIncreaseData): Promise<Buffer> 
     d.roomName,
     ...d.propertyAddress.split(',').map(s => s.trim()),
   ]
-  doc.save().font('Helvetica').fontSize(9.5).fillColor(BLACK)
+  doc.save().font(fontReg).fontSize(9.5).fillColor(BLACK)
   for (const line of addrLines) {
     doc.text(line, MARGIN, y); y += 13
   }
@@ -190,81 +193,95 @@ export async function generateCoverLetter(d: RentIncreaseData): Promise<Buffer> 
   y += 12
 
   // Date
-  doc.save().font('Helvetica').fontSize(9.5).fillColor(BLACK)
+  doc.save().font(fontReg).fontSize(9.5).fillColor(BLACK)
     .text(ordinalDate(d.noticeServedDate), MARGIN, y).restore()
   y += 26
 
-  // Subject — underlined bold
+  // Subject line + thin rule — identical spacing to valuation letter
   const subject = 'Cover Letter to Accompany Section 13 Rent Increase Notice'
-  doc.save().font('Helvetica-Bold').fontSize(9.5).fillColor(BLACK)
-    .text(subject, MARGIN, y, { underline: true }).restore()
-  y += 22
+  doc.save().font(fontReg).fontSize(9).fillColor(BLACK)
+    .text('Re: ', MARGIN, y, { continued: true })
+    .font(fontBold)
+    .text(subject)
+    .restore()
+  y += 24
 
-  // Salutation
-  doc.save().font('Helvetica').fontSize(9.5).fillColor(BLACK)
-    .text(`Dear ${d.tenantFirstName},`).restore()
-  y += 18
+  // Thin rule under Re: line
+  rule(doc, MARGIN, y, COL_W, '#d0d0d0')
+  y += 12
+
+  // Salutation — shared helper ensures correct spacing on all letters
+  y = drawPDFSalutation(doc, y, d.tenantFirstName, fontReg)
 
   // Body paragraphs
   const area    = d.marketAreaDescription || postcode(d.propertyAddress) || 'the local area'
   const pcgStr  = pct(d.currentRent, d.proposedRent)
   const effDate = ordinalDate(d.effectiveDate)
 
-  y = para(doc, 'I hope this letter finds you well.', y)
+  y = para(doc, 'I hope this letter finds you well.', y, { fontPath: fontReg })
 
   y = para(doc,
     `We are writing to inform you of a change to your rent, effective from ${effDate}. ` +
     `This adjustment represents an increase of ${pcgStr}, which has been carefully considered to ` +
     `keep rents here closer to current market levels while remaining fair and competitive.`,
-    y
+    y, { fontPath: fontReg }
   )
 
   y = para(doc,
     `Even with this adjustment, your rent will remain competitive compared to similar rooms in ${area}.`,
-    y
+    y, { fontPath: fontReg }
   )
 
   y = para(doc,
     `We are required by law to give you formal notice of this change under Section 13 of the Housing Act 1988. ` +
     `You will find the official Form 4A notice enclosed. This sets out the full details of the proposed new rent and the date it takes effect.`,
-    y
+    y, { fontPath: fontReg }
   )
 
   y = para(doc,
     `If you are happy with the new rent, please update your standing order to ${fmtMoney(d.proposedRent)} per month before ${effDate} and ` +
     `let us know so we can record your acceptance.`,
-    y
+    y, { fontPath: fontReg }
   )
 
   y = para(doc,
     `If you have any questions or concerns, please do get in touch — we are happy to discuss the increase and explain how we arrived at the proposed figure. ` +
     `If after speaking with us you would prefer to agree a different (lower) amount, we can do so in writing.`,
-    y
+    y, { fontPath: fontReg }
   )
 
   y = para(doc,
     `You also have the right to refer this notice to the First-tier Tribunal before ${effDate} if you believe the proposed rent exceeds the open market rate for a comparable property. ` +
     `Free advice is available from a citizens' advice bureau, housing advice centre, law centre, or solicitor.`,
-    y
+    y, { fontPath: fontReg }
   )
 
-  y = para(doc, 'Thank you for your understanding. We greatly value you as a tenant.', y)
+  y = para(doc, 'Thank you for your understanding. We greatly value you as a tenant.', y, { fontPath: fontReg })
 
   y += 6
-  doc.save().font('Helvetica').fontSize(9.5).fillColor(BLACK).text('Best regards,', MARGIN, y).restore()
-  y += 34
-  doc.save().font('Helvetica-Bold').fontSize(9.5).fillColor(BLACK).text('Harry', MARGIN, y).restore()
-  y += 14
-  doc.save().font('Helvetica').fontSize(9.5).fillColor(BLACK).text('Capital Rooms', MARGIN, y).restore()
+  // Dynamic sign-off — uses sender fields from the generating admin's profile.
+  // Falls back to "Capital Rooms" if no sender info was supplied.
+  if (d.senderName) {
+    const sender: PDFSender = {
+      name:        d.senderName,
+      jobTitle:    d.senderJobTitle,
+      directPhone: d.senderDirectPhone,
+    }
+    y = drawPDFSignOff(doc, y, sender, penImg, fontReg, fontBold)
+  } else {
+    doc.save().font(fontReg).fontSize(9.5).fillColor(BLACK).text('Yours sincerely,', MARGIN, y).restore()
+    y += 40
+    doc.save().font(fontReg).fontSize(9.5).fillColor(BLACK).text('Capital Rooms', MARGIN, y).restore()
+  }
 
-  drawFooter(doc, footerImg)
+  drawFooter(doc, footerImg, d.bizSettings, fontReg)
   return finish()
 }
 
 // ── DOCUMENT 2: Form 4A (statutory notice) ─────────────────────────────────────
 
 export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
-  const { doc, logoImg, footerImg, finish } = makeDoc(
+  const { doc, logoImg, footerImg, fontReg, fontBold, finish } = makeDoc(
     `Form 4A — Section 13 Notice — ${d.tenantFullName}`
   )
 
@@ -272,21 +289,21 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   let y = MARGIN
 
   // Logo top-right (no full watermark on statutory form — keep it clean)
-  doc.image(b64(LOGO_B64), PAGE_W - MARGIN - LOGO_W, MARGIN, { width: LOGO_W, height: LOGO_H })
+  if (logoImg.length) doc.image(logoImg, PAGE_W - MARGIN - LOGO_W, MARGIN, { width: LOGO_W, height: LOGO_H })
   y = MARGIN + LOGO_H + 18
 
   // ─ HEADING ──────────────────────────────────────────────────────────────────
-  doc.save().font('Helvetica-Bold').fontSize(14).fillColor(BLACK)
+  doc.save().font(fontBold).fontSize(14).fillColor(BLACK)
     .text('FORM 4A', MARGIN, y, { width: COL_W, align: 'center' })
     .restore()
   y += 20
 
-  doc.save().font('Helvetica-Bold').fontSize(10).fillColor(BLACK)
+  doc.save().font(fontBold).fontSize(10).fillColor(BLACK)
     .text("Landlord's Notice proposing a new rent under an Assured Periodic Tenancy", MARGIN, y, { width: COL_W, align: 'center' })
     .restore()
   y += 14
 
-  doc.save().font('Helvetica').fontSize(8).fillColor(GREY)
+  doc.save().font(fontReg).fontSize(8).fillColor(GREY)
     .text('Housing Act 1988 section 13(2), as amended by the Regulatory Reform (Assured Periodic Tenancies) (Rent Increases) Order 2003 and the Renters\' Rights Act 2025', MARGIN, y, { width: COL_W, align: 'center', lineGap: 2 })
     .restore()
   y += 26
@@ -294,7 +311,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   rule(doc, MARGIN, y, COL_W, '#999')
   y += 10
 
-  doc.save().font('Helvetica').fontSize(8).fillColor(GREY)
+  doc.save().font(fontReg).fontSize(8).fillColor(GREY)
     .text('The notes on page 2 of this form give guidance to both landlords and tenants about this notice.', MARGIN, y, { width: COL_W })
     .restore()
   y += 18
@@ -307,10 +324,10 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
     const FW = COL_W - LW - indent
     const labelX = MARGIN + indent
     const fieldX = MARGIN + LW + indent
-    doc.save().font('Helvetica-Bold').fontSize(8.5).fillColor(BLACK)
+    doc.save().font(fontBold).fontSize(8.5).fillColor(BLACK)
       .text(label, labelX, y, { width: LW, lineBreak: false })
       .restore()
-    doc.save().font('Helvetica').fontSize(8.5).fillColor(BLACK)
+    doc.save().font(fontReg).fontSize(8.5).fillColor(BLACK)
       .text(value, fieldX, y, { width: FW })
       .restore()
     const h = Math.max(doc.heightOfString(value, { width: FW }), 11)
@@ -318,7 +335,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   }
 
   // Section 1 — Tenant
-  doc.save().font('Helvetica-Bold').fontSize(9).fillColor(BLACK)
+  doc.save().font(fontBold).fontSize(9).fillColor(BLACK)
     .text('Section 1 — Tenant details', MARGIN, y).restore()
   y += 14
 
@@ -328,23 +345,24 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   y += 6
 
   // Section 2 — Landlord
-  doc.save().font('Helvetica-Bold').fontSize(9).fillColor(BLACK)
+  doc.save().font(fontBold).fontSize(9).fillColor(BLACK)
     .text('Section 2 — Landlord details', MARGIN, y).restore()
   y += 14
 
   labelField('2.1  From:', d.landlordName)
-  labelField('2.2  Service address:', `${CR_ADDRESS_LINE1}, ${CR_ADDRESS_LINE2}`)
-  labelField('2.3  Contact:', `${CR_EMAIL}    ${CR_PHONE}`)
+  const biz = d.bizSettings ?? PDF_BIZ_DEFAULTS
+  labelField('2.2  Service address:', `${biz.address_line1}, ${biz.city} ${biz.postcode}`)
+  labelField('2.3  Contact:', `${biz.email}    ${biz.phone}`)
   y += 6
 
   // Section 3 — Agent
-  doc.save().font('Helvetica-Bold').fontSize(9).fillColor(BLACK)
+  doc.save().font(fontBold).fontSize(9).fillColor(BLACK)
     .text('Section 3 — Managing Agent', MARGIN, y).restore()
   y += 14
 
-  labelField('3.1  Agent:', 'Capital Rooms')
-  labelField('3.2  Address:', `${CR_ADDRESS_LINE1}, ${CR_ADDRESS_LINE2}`)
-  labelField('3.3  Contact:', `${CR_EMAIL}    ${CR_PHONE}`)
+  labelField('3.1  Agent:', biz.company_name)
+  labelField('3.2  Address:', `${biz.address_line1}, ${biz.city} ${biz.postcode}`)
+  labelField('3.3  Contact:', `${biz.email}    ${biz.phone}`)
   y += 8
 
   rule(doc, MARGIN, y, COL_W)
@@ -352,7 +370,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
 
   // ─ SECTION 4: RENT ──────────────────────────────────────────────────────────
 
-  doc.save().font('Helvetica-Bold').fontSize(9).fillColor(BLACK)
+  doc.save().font(fontBold).fontSize(9).fillColor(BLACK)
     .text('Section 4 — The rent', MARGIN, y).restore()
   y += 14
 
@@ -378,7 +396,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   y += 8
 
   // 4.7 — Charges table
-  doc.save().font('Helvetica-Bold').fontSize(8.5).fillColor(BLACK)
+  doc.save().font(fontBold).fontSize(8.5).fillColor(BLACK)
     .text('4.7  Charges included in rent:', MARGIN, y).restore()
   y += 14
 
@@ -400,7 +418,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
 
   // Header row
   doc.save().fillColor('#1a1a1a').rect(MARGIN, y, COL_W, 18).fill().restore()
-  doc.save().font('Helvetica-Bold').fontSize(7.5).fillColor('#fff')
+  doc.save().font(fontBold).fontSize(7.5).fillColor('#fff')
     .text('Charge', c0x, y + 5, { width: cW0, lineBreak: false })
     .text('In existing rent', c1x, y + 5, { width: cW1, align: 'center', lineBreak: false })
     .text('In proposed new rent', c2x, y + 5, { width: cW2, align: 'center', lineBreak: false })
@@ -410,7 +428,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   for (let i = 0; i < CHARGES.length; i++) {
     const bg = i % 2 === 1 ? LIGHT : undefined
     if (bg) doc.save().fillColor(bg).rect(MARGIN, y, COL_W, 16).fill().restore()
-    doc.save().font('Helvetica').fontSize(7.5).fillColor(BLACK)
+    doc.save().font(fontReg).fontSize(7.5).fillColor(BLACK)
       .text(CHARGES[i], c0x, y + 4, { width: cW0, lineBreak: false })
       .text('Included', c1x, y + 4, { width: cW1, align: 'center', lineBreak: false })
       .text('Included', c2x, y + 4, { width: cW2, align: 'center', lineBreak: false })
@@ -431,13 +449,13 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   rule(doc, MARGIN, y, COL_W, '#bbb')
   y += 10
 
-  doc.save().font('Helvetica').fontSize(8.5).fillColor(BLACK)
+  doc.save().font(fontReg).fontSize(8.5).fillColor(BLACK)
     .text('Signed: …………………………………………………………', MARGIN, y,   { continued: true })
     .text('  Landlord\'s Agent', { lineBreak: false })
     .restore()
   y += 20
 
-  doc.save().font('Helvetica').fontSize(8.5).fillColor(BLACK)
+  doc.save().font(fontReg).fontSize(8.5).fillColor(BLACK)
     .text(`Date: ${ordinalDate(d.noticeServedDate)}`, MARGIN, y)
     .restore()
   y += 30
@@ -448,25 +466,43 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   doc.addPage()
   y = MARGIN
 
+  // Stop adding content this many points before the footer band begins.
+  // When the next item would push y past SAFE_BOTTOM we flush a footer and add a
+  // fresh page.  This avoids PDFKit auto-pagination (which resets the cursor to
+  // the new page top while the local `y` variable keeps climbing, producing blank
+  // pages for every subsequent draw call).
+  const SAFE_BOTTOM = PAGE_H - FOOTER_BAND_H - 18
+
+  function guidePageBreak() {
+    drawFooter(doc, footerImg)
+    doc.addPage()
+    y = MARGIN
+  }
+
   function guidanceHeading(text: string) {
-    doc.save().font('Helvetica-Bold').fontSize(9).fillColor(BLACK).text(text, MARGIN, y).restore()
-    y += 14
+    if (y + 22 > SAFE_BOTTOM) guidePageBreak()
+    doc.font(fontBold).fontSize(9).fillColor(BLACK).text(text, MARGIN, y)
+    y = doc.y + 4
   }
 
   function guidanceNote(num: number, text: string) {
-    const numStr = `${num}`
     const indent = 20
-    doc.save().font('Helvetica-Bold').fontSize(7.5).fillColor(BLACK)
-      .text(numStr, MARGIN, y, { width: indent - 4, lineBreak: false }).restore()
-    const h = doc.heightOfString(text, { width: COL_W - indent, align: 'left' })
-    doc.save().font('Helvetica').fontSize(7.5).fillColor(BLACK)
-      .text(text, MARGIN + indent, y, { width: COL_W - indent, lineGap: 2 }).restore()
-    y += Math.max(h, 10) + 6
+    // Measure with the correct font + lineGap so the height estimate matches
+    // what doc.text() actually renders, preventing y from under-advancing.
+    doc.font(fontReg).fontSize(7.5)
+    const h = doc.heightOfString(text, { width: COL_W - indent, lineGap: 2 })
+    if (y + Math.max(h, 10) + 10 > SAFE_BOTTOM) guidePageBreak()
+
+    doc.font(fontBold).fontSize(7.5).fillColor(BLACK)
+      .text(`${num}`, MARGIN, y, { width: indent - 4, lineBreak: false })
+    doc.font(fontReg).fontSize(7.5).fillColor(BLACK)
+      .text(text, MARGIN + indent, y, { width: COL_W - indent, lineGap: 2 })
+    y = doc.y + 6
   }
 
-  doc.save().font('Helvetica-Bold').fontSize(11).fillColor(BLACK)
-    .text('Guidance notes — please read carefully', MARGIN, y, { width: COL_W }).restore()
-  y += 20
+  doc.font(fontBold).fontSize(11).fillColor(BLACK)
+    .text('Guidance notes — please read carefully', MARGIN, y, { width: COL_W })
+  y = doc.y + 6
 
   guidanceHeading('Guidance for tenants')
   guidanceNote(1, 'This notice proposes that you should pay a new rent from the date in Section 4.6. If you are in any doubt, seek advice from a citizens\' advice bureau, housing advice centre, law centre, or solicitor.')
@@ -476,6 +512,7 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
   guidanceNote(5, 'The tribunal will consider your application and determine a market rent. It will take into account the condition and facilities of the property. The tribunal may set a rent that is higher, lower, or the same as the proposed new rent.')
   guidanceNote(6, 'You and the landlord/agent may also negotiate a lower rent in writing at any point after this notice is served. Any agreed figure must be lower than the amount in Section 4.5 and must be confirmed in writing.')
 
+  if (y + 24 > SAFE_BOTTOM) guidePageBreak()
   y += 4
   rule(doc, MARGIN, y, COL_W)
   y += 10
@@ -494,17 +531,19 @@ export async function generateForm4A(d: RentIncreaseData): Promise<Buffer> {
     'Start of period: the proposed new rent must start at the beginning of a period of the tenancy — i.e. on the same day of the month as the tenancy began (Mooney v Whiteland [2023] EWCA Civ 67). This may differ from the day on which rent is actually paid.',
   ]
   for (const req of reqs) {
-    doc.save().font('Helvetica').fontSize(7.5).fillColor(BLACK)
+    doc.font(fontReg).fontSize(7.5)
+    const rh = doc.heightOfString(req, { width: COL_W - 32, lineGap: 2 })
+    if (y + rh + 12 > SAFE_BOTTOM) guidePageBreak()
+    doc.font(fontReg).fontSize(7.5).fillColor(BLACK)
       .text(`—  ${req}`, MARGIN + 16, y, { width: COL_W - 16, lineGap: 2 })
-      .restore()
-    y += doc.heightOfString(req, { width: COL_W - 32 }) + 8
+    y = doc.y + 6
   }
 
   guidanceNote(11, 'For periodic tenancies with a rental period of less than one month (e.g. weekly), the 53-week rule may apply — see the NRLA completion notes for details. This form is unlikely to apply to such tenancies in Capital Rooms\' portfolio.')
   guidanceNote(12, 'Section 4.7: enter the amount of each fixed charge payable by the tenant that is included in the rent. If the tenant pays bills directly, enter "Nil". If no charges are included, enter "Nil" in all boxes.')
   guidanceNote(13, 'The notice must be signed by the landlord, a joint landlord acting on behalf of all, or the landlord\'s authorised agent. If the landlord is a company, the signatory should state their position within the company.')
 
-  drawFooter(doc, b64(FOOTER_STRIP_B64))
+  drawFooter(doc, footerImg)
   return finish()
 }
 
@@ -522,23 +561,32 @@ export interface ValidationResult {
  * Rules (Housing Act 1988 s.13(2), post-Renters' Rights Act 2025):
  *   1. At least 2 calendar months from serveDate
  *   2. At least 52 weeks (364 days) from tenancyStartDate AND lastS13EffectiveDate
+ *      (and from lastRentChangeDate if no formal s.13 history exists)
  *   3. Day-of-month must equal day(tenancyStartDate) — start of rental period
  */
 export function validateEffectiveDate(opts: {
-  proposedDate:       string        // ISO date — what admin entered
-  serveDate:          string        // ISO date — today / date of service
-  tenancyStartDate:   string        // ISO date
-  lastS13EffectiveDate: string | null  // ISO date or null
+  proposedDate:         string          // ISO date — what admin entered
+  serveDate:            string          // ISO date — today / date of service
+  tenancyStartDate:     string          // ISO date
+  lastS13EffectiveDate: string | null   // ISO date or null — from rent_increase_notices table
+  lastRentChangeDate?:  string | null   // ISO date or null — from tenancies.last_rent_change_date
 }): ValidationResult {
-  const { proposedDate, serveDate, tenancyStartDate, lastS13EffectiveDate } = opts
+  const { proposedDate, serveDate, tenancyStartDate, lastS13EffectiveDate, lastRentChangeDate } = opts
   const errors: string[] = []
 
-  const proposed   = new Date(proposedDate   + 'T00:00:00')
-  const served     = new Date(serveDate       + 'T00:00:00')
+  const proposed   = new Date(proposedDate    + 'T00:00:00')
+  const served     = new Date(serveDate        + 'T00:00:00')
   const started    = new Date(tenancyStartDate + 'T00:00:00')
   const lastS13    = lastS13EffectiveDate ? new Date(lastS13EffectiveDate + 'T00:00:00') : null
 
-  const periodDay  = started.getDate()   // day of month that each period starts
+  // lastRentChangeDate: only used as a 52-week anchor when there is NO formal
+  // s.13 history — i.e. rent was raised informally before the Renters' Rights Act.
+  // Once there is a s.13 record, lastS13EffectiveDate governs the 52-week gap instead.
+  const lastChange = (!lastS13 && lastRentChangeDate)
+    ? new Date(lastRentChangeDate + 'T00:00:00')
+    : null
+
+  const periodDay = started.getDate()   // day of month that each period starts
 
   // ── Rule 1: 2-month minimum notice ──
   const twoMonthsLater = new Date(served)
@@ -567,6 +615,15 @@ export function validateEffectiveDate(opts: {
       )
     }
   }
+  if (lastChange) {
+    const earliest52FromChange = new Date(lastChange.getTime() + ms52w)
+    if (proposed < earliest52FromChange) {
+      errors.push(
+        `The new rent cannot start until at least 52 weeks after the last recorded rent change (${lastRentChangeDate}). ` +
+        `Earliest: ${earliest52FromChange.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`
+      )
+    }
+  }
 
   // ── Rule 3: Must be start of a rental period ──
   if (proposed.getDate() !== periodDay) {
@@ -577,11 +634,15 @@ export function validateEffectiveDate(opts: {
   }
 
   // ── Compute earliest valid date ──
-  // Start from the later of (served + 2 months) and (tenancyStart + 52 weeks) and (lastS13 + 52 weeks)
+  // Take the latest of: (served + 2 months), (start + 52w), (lastS13 + 52w), (lastChange + 52w)
   let earliest = twoMonthsLater
   if (earliest52FromStart > earliest) earliest = earliest52FromStart
   if (lastS13) {
     const e = new Date(lastS13.getTime() + ms52w)
+    if (e > earliest) earliest = e
+  }
+  if (lastChange) {
+    const e = new Date(lastChange.getTime() + ms52w)
     if (e > earliest) earliest = e
   }
   // Round up to next occurrence of periodDay

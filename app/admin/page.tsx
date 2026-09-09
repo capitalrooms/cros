@@ -55,6 +55,7 @@ const DASH_GROUPS: DashGroup[] = [
       { emoji: '✅', name: 'Compliance Logs',               desc: 'Fire door & smoke alarm checks',                             href: '/admin/compliance-logs' },
       { emoji: '🔐', name: 'Suspected Activity Reports',    desc: 'Internal SAR log — MLR 2017 / POCA 2002',                    href: '/admin/sar' },
       { emoji: '🧪', name: 'Tenant Safety Checks',          desc: 'Monitor fire door & smoke alarm confirmations',              href: '/admin/tenant-safety-checks' },
+      { emoji: '📖', name: 'Tenant Guides',                 desc: 'Edit guide content, visibility, acknowledgment, and images',  href: '/admin/guides' },
     ],
   },
   {
@@ -75,6 +76,7 @@ const DASH_GROUPS: DashGroup[] = [
     summary: 'Property info, all rooms, and maintenance tickets',
     tiles: [
       { emoji: '🏠', name: 'All Units',          desc: 'View & manage all rooms across every property',                         href: '/admin/active-rooms' },
+      { emoji: '📍', name: 'Address Audit',      desc: 'Review & confirm property postcodes — track which are verified',         href: '/admin/properties/audit' },
       { emoji: '🔧', name: 'Maintenance',        desc: 'All maintenance tickets',                                               href: '/admin/maintenance' },
       { emoji: '🏢', name: 'Property Info',      desc: 'Details, floor plans, compliance',                                      href: '/admin/properties' },
     ],
@@ -291,12 +293,12 @@ export default function AdminDashboard() {
           {/* ── Grouped accordion dashboard ──────────────────────────────── */}
           <div className="space-y-sm">
 
-            {/* Standalone: AI File Upload — always visible, no group */}
+            {/* Standalone: AI File Scanner — always visible, no group */}
             <Link href="/admin/ai-upload" className="group block">
               <div className="rounded-lg border border-neutral-200 bg-white px-lg py-md flex items-center gap-md transition-all hover:border-neutral-300 hover:shadow-sm">
-                <span className="text-2xl leading-none">📁</span>
+                <span className="text-2xl leading-none">⚡</span>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-neutral-900">AI File Upload</h3>
+                  <h3 className="text-sm font-semibold text-neutral-900">AI File Scanner</h3>
                   <p className="text-xs text-neutral-500">AI extraction for documents & photos</p>
                 </div>
               </div>

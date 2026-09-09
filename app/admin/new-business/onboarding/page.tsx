@@ -394,9 +394,36 @@ export default function OnboardingPage() {
                 )}
 
                 {selected.stage === 4 && (
-                  <button onClick={() => advanceStage(selected.id, 5)} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
-                    {advancing ? '…' : '✍️ Mark agreement sent (Adobe Sign)'}
-                  </button>
+                  <>
+                    {/* Generate Agreement button — opens form pre-filled with this landlord's data */}
+                    {(() => {
+                      const fd = selected.form_data ?? {}
+                      const name = [fd.first_name, fd.last_name].filter(Boolean).join(' ') || selected.name || ''
+                      const address = fd.property_address || ''
+                      const entity  = selected.entity_type === 'company' ? 'company' : 'individual'
+                      const company = fd.company_name || ''
+                      const reg     = fd.company_reg || ''
+                      const qs = new URLSearchParams({
+                        onboardingId: selected.id,
+                        ...(name    && { name }),
+                        ...(address && { address }),
+                        ...(entity  && { entity }),
+                        ...(company && { company }),
+                        ...(reg     && { reg }),
+                      })
+                      return (
+                        <a
+                          href={`/admin/new-business/management-agreement?${qs.toString()}`}
+                          className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition flex items-center justify-center gap-sm"
+                        >
+                          📋 Generate Management Agreement
+                        </a>
+                      )
+                    })()}
+                    <button onClick={() => advanceStage(selected.id, 5)} disabled={advancing} className="w-full rounded-xl border border-neutral-200 py-sm text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition disabled:opacity-40">
+                      {advancing ? '…' : '✍️ Mark agreement sent (Adobe Sign)'}
+                    </button>
+                  </>
                 )}
 
                 {selected.stage === 5 && (

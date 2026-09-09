@@ -39,6 +39,12 @@ export type ValuationData = {
   grossYieldSingleLet?: number
   investmentNotes?: string
   preparedBy?: string
+  /** Job title of the sender — from people.job_title */
+  senderJobTitle?: string | null
+  /** Direct phone of the sender — from people.direct_phone */
+  senderDirectPhone?: string | null
   letterDate?: string
   disclaimer?: string
+  /** Business settings for footer — fetched by the API route before calling the generator */
+  bizSettings?: import('@/lib/pdfLetterhead').PDFBizSettings
 }

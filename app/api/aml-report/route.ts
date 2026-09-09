@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateAMLReport } from '@/lib/aml/generateAMLReport'
+import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 
 function svc() {
   return createClient(
@@ -59,6 +60,8 @@ export async function GET(req: NextRequest) {
     stage:       r.stage,
   }))
 
+  const bizSettings = await fetchPDFBizSettings()
+
   const buffer = await generateAMLReport({
     landlord: {
       name:       landlord.name ?? landlord.email,
@@ -69,6 +72,7 @@ export async function GET(req: NextRequest) {
     records: amlRecords,
     generatedBy,
     generatedAt: new Date().toISOString(),
+    bizSettings,
   })
 
   const safeName = (landlord.name ?? 'Landlord').replace(/[^a-zA-Z0-9 ]+/g, '').trim().replace(/ +/g, '-')

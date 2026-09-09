@@ -5,7 +5,13 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
 
-import { LOGO_B64, FOOTER_STRIP_B64 } from '@/lib/valuations/letterhead'
+import {
+  loadPDFLetterheadAssets,
+  drawPDFFooter,
+  PDF_BIZ_DEFAULTS, type PDFBizSettings,
+  PAGE_W, PAGE_H, MARGIN, COL_W, FOOTER_BAND_H, LOGO_W, LOGO_H,
+  BLACK, GREY, GREY_BAND,
+} from '@/lib/pdfLetterhead'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -32,27 +38,20 @@ export interface AmlReportData {
   records: AmlReportRecord[]
   generatedBy?: string
   generatedAt?: string
+  /** Business settings for footer — fetched by the API route */
+  bizSettings?: PDFBizSettings
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const PAGE_W = 595.28
-const PAGE_H = 841.89
-const MARGIN = 52
-const COL_W  = PAGE_W - MARGIN * 2
+// NOTE: PAGE_W, PAGE_H, MARGIN, COL_W, FOOTER_BAND_H, LOGO_W, LOGO_H,
+//       BLACK, GREY, GREY_BAND all come from @/lib/pdfLetterhead above.
 
-const BLACK     = '#1a1a1a'
-const GREY      = '#555555'
-const LIGHT     = '#f8f8f8'
-const BORDER    = '#e0e0e0'
-const GREY_BAND = '#939598'
-const GREEN     = '#1a6b3c'
-const AMBER     = '#7a5800'
-const RED_C     = '#7a1a1a'
-
-const LOGO_W = 90
-const LOGO_H = (849 / 910) * LOGO_W
-const FOOTER_BAND_H = 58
+const LIGHT  = '#f8f8f8'
+const BORDER = '#e0e0e0'
+const GREEN  = '#1a6b3c'
+const AMBER  = '#7a5800'
+const RED_C  = '#7a1a1a'
 
 // ── Firm-level compliance constants (from Capital Rooms policy documents) ──────
 const MLRO_NAME       = 'Harry Buchanan'
@@ -68,10 +67,6 @@ const POLICY_DOCS     = [
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function b64ToBuffer(dataUri: string): Buffer {
-  return Buffer.from(dataUri.replace(/^data:[^;]+;base64,/, ''), 'base64')
-}
 
 function fmtDate(iso?: string | null) {
   if (!iso) return '—'
@@ -114,42 +109,35 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
     doc.on('end',  () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
-    const logoImg   = b64ToBuffer(LOGO_B64)
-    const footerImg = b64ToBuffer(FOOTER_STRIP_B64)
+    const { logoImg, footerImg, fontReg, fontBold } = loadPDFLetterheadAssets()
     const generatedAt = data.generatedAt ?? new Date().toISOString()
 
-    // ─ WATERMARK ──────────────────────────────────────────────────────────────
-    const wmW = 360; const wmH = (849 / 910) * wmW
-    doc.save()
-    try {
-      ;(doc as any).fillOpacity(0.05)
-      doc.image(logoImg, (PAGE_W - wmW) / 2, PAGE_H * 0.42, { width: wmW, height: wmH })
-    } catch (_) { /* pdfkit without opacity */ }
-    doc.restore()
-
-    // ─ HEADER: LOGO TOP-RIGHT ─────────────────────────────────────────────────
+    // ─ HEADER: LOGO TOP-RIGHT (no watermark) ──────────────────────────────────
     doc.image(logoImg, PAGE_W - MARGIN - LOGO_W, MARGIN, { width: LOGO_W, height: LOGO_H })
 
-    let y = MARGIN + LOGO_H + 24
+    // Title starts at top-left, parallel to logo — gives breathing room throughout
+    let y = MARGIN
 
     // ─ DOCUMENT TITLE ─────────────────────────────────────────────────────────
-    doc.save().font('Helvetica').fontSize(7).fillColor(GREY)
+    doc.save().font(fontReg).fontSize(7).fillColor(GREY)
       .text('CONFIDENTIAL — ANTI-MONEY LAUNDERING COMPLIANCE RECORD', MARGIN, y, { letterSpacing: 0.8 })
       .restore()
-    y += 14
+    y += 16
 
-    doc.save().font('Helvetica-Bold').fontSize(16).fillColor(BLACK)
+    doc.save().font(fontBold).fontSize(16).fillColor(BLACK)
       .text('AML Compliance Record', MARGIN, y)
       .restore()
-    y += 20
+    y += 24
 
-    doc.save().font('Helvetica').fontSize(8.5).fillColor(GREY)
+    doc.save().font(fontReg).fontSize(8.5).fillColor(GREY)
       .text(`Generated: ${fmtDate(generatedAt)}     ·     Prepared by: ${data.generatedBy ?? MLRO_NAME}, ${FIRM_NAME}`, MARGIN, y)
       .restore()
-    y += 6
+    y += 8
 
-    drawHRule(doc, MARGIN, y + 6, COL_W, '#c0c0c0')
-    y += 20
+    // Ensure we don't overlap the logo before drawing the rule
+    y = Math.max(y, MARGIN + LOGO_H + 10)
+    drawHRule(doc, MARGIN, y, COL_W, '#c0c0c0')
+    y += 22
 
     // ─ REGULATORY BASIS BOX ───────────────────────────────────────────────────
     const regText =
@@ -163,18 +151,18 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
     doc.save().fillColor('#f4f4f4').rect(MARGIN, y, COL_W, regH + 16).fill()
       .strokeColor(BORDER).lineWidth(0.5).rect(MARGIN, y, COL_W, regH + 16).stroke()
       .restore()
-    doc.save().font('Helvetica').fontSize(8).fillColor('#444')
+    doc.save().font(fontReg).fontSize(8).fillColor('#444')
       .text(regText, MARGIN + 12, y + 8, { width: COL_W - 24, align: 'justify', lineGap: 2 })
       .restore()
-    y += regH + 22
+    y += regH + 30
 
     // ─ FIRM COMPLIANCE FRAMEWORK ──────────────────────────────────────────────
-    doc.save().font('Helvetica-Bold').fontSize(10).fillColor(BLACK)
+    doc.save().font(fontBold).fontSize(10).fillColor(BLACK)
       .text('Firm Compliance Framework', MARGIN, y)
       .restore()
-    y += 12
+    y += 14
     drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
-    y += 10
+    y += 14
 
     // Two-column: MLRO left, policies right
     const halfW = (COL_W - 16) / 2
@@ -190,35 +178,35 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
 
     let mlroY = y
     for (const [lbl, val] of mlroLines) {
-      doc.save().font('Helvetica').fontSize(8).fillColor(GREY)
+      doc.save().font(fontReg).fontSize(8).fillColor(GREY)
         .text(lbl, MARGIN, mlroY, { width: 80, lineBreak: false })
-        .font('Helvetica-Bold').fillColor(BLACK)
+        .font(fontBold).fillColor(BLACK)
         .text(val, MARGIN + 85, mlroY, { width: halfW - 85, lineBreak: false })
         .restore()
       mlroY += 15
     }
 
     // Policy docs box (right column)
-    doc.save().font('Helvetica-Bold').fontSize(8).fillColor(BLACK)
+    doc.save().font(fontBold).fontSize(8).fillColor(BLACK)
       .text('Policy Documents on File', rightX, y)
       .restore()
     let policyY = y + 14
     for (const p of POLICY_DOCS) {
-      doc.save().font('Helvetica').fontSize(8).fillColor(BLACK)
+      doc.save().font(fontReg).fontSize(8).fillColor(BLACK)
         .text('·  ' + p, rightX, policyY, { width: halfW, lineBreak: false })
         .restore()
       policyY += 13
     }
 
-    y = Math.max(mlroY, policyY) + 14
+    y = Math.max(mlroY, policyY) + 22
 
     // ─ CLIENT DETAILS ─────────────────────────────────────────────────────────
-    doc.save().font('Helvetica-Bold').fontSize(10).fillColor(BLACK)
+    doc.save().font(fontBold).fontSize(10).fillColor(BLACK)
       .text('Client Details', MARGIN, y)
       .restore()
-    y += 12
+    y += 14
     drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
-    y += 10
+    y += 14
 
     const riskLevel = data.landlord.riskLevel ?? 'low'
     const detailRows: [string, string, string?][] = [
@@ -237,22 +225,22 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
 
     for (const [lbl, val, colourKey] of detailRows) {
       const colour = colourKey ? riskColour(colourKey) : BLACK
-      doc.save().font('Helvetica').fontSize(9).fillColor(GREY)
+      doc.save().font(fontReg).fontSize(9).fillColor(GREY)
         .text(lbl, MARGIN, y, { width: 145, lineBreak: false })
-        .font('Helvetica-Bold').fillColor(colour)
+        .font(fontBold).fillColor(colour)
         .text(val, MARGIN + 150, y, { width: COL_W - 150, lineBreak: false })
         .restore()
-      y += 15
+      y += 16
     }
-    y += 8
+    y += 18
 
     // ─ CDD VERIFICATION HISTORY TABLE ─────────────────────────────────────────
-    doc.save().font('Helvetica-Bold').fontSize(10).fillColor(BLACK)
+    doc.save().font(fontBold).fontSize(10).fillColor(BLACK)
       .text('CDD Verification History', MARGIN, y)
       .restore()
-    y += 12
+    y += 14
     drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
-    y += 8
+    y += 12
 
     const ROW_H = 22
     const col1W = COL_W * 0.22
@@ -268,7 +256,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
 
     // Header row
     doc.save().fillColor(BLACK).rect(MARGIN, y, COL_W, ROW_H).fill().restore()
-    doc.save().font('Helvetica-Bold').fontSize(7.5).fillColor('#fff')
+    doc.save().font(fontBold).fontSize(7.5).fillColor('#fff')
       .text('Type',       col1X + 4, y + 7, { width: col1W - 8, lineBreak: false })
       .text('Requested',  col2X + 4, y + 7, { width: col2W - 8, lineBreak: false })
       .text('Completed',  col3X + 4, y + 7, { width: col3W - 8, lineBreak: false })
@@ -278,7 +266,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
     y += ROW_H
 
     if (data.records.length === 0) {
-      doc.save().font('Helvetica').fontSize(8.5).fillColor(GREY)
+      doc.save().font(fontReg).fontSize(8.5).fillColor(GREY)
         .text('No verification records on file.', MARGIN + 4, y + 8)
         .restore()
       y += ROW_H
@@ -287,7 +275,7 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
         const bg = i % 2 === 1 ? LIGHT : undefined
         if (bg) doc.save().fillColor(bg).rect(MARGIN, y, COL_W, ROW_H).fill().restore()
         const { text: statusText, colour: statusColour } = stageLabel(r.stage)
-        doc.save().font('Helvetica').fontSize(8).fillColor(BLACK)
+        doc.save().font(fontReg).fontSize(8).fillColor(BLACK)
           .text(r.type === 'refresh' ? 'Re-verification' : 'Initial verification',
             col1X + 4, y + 7, { width: col1W - 8, lineBreak: false })
           .text(fmtDate(r.requestedAt),  col2X + 4, y + 7, { width: col2W - 8, lineBreak: false })
@@ -295,24 +283,24 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
           .text(r.entityType ? (r.entityType === 'individual' ? 'Individual' : 'Company') : '—',
             col4X + 4, y + 7, { width: col4W - 8, lineBreak: false })
           .restore()
-        doc.save().font('Helvetica-Bold').fontSize(8).fillColor(statusColour)
+        doc.save().font(fontBold).fontSize(8).fillColor(statusColour)
           .text(statusText, col5X + 4, y + 7, { width: col5W - 8, lineBreak: false })
           .restore()
         drawHRule(doc, MARGIN, y + ROW_H, COL_W, '#ebebeb')
         y += ROW_H
       })
     }
-    y += 16
+    y += 24
 
     // ─ DOCUMENTS COLLECTED ────────────────────────────────────────────────────
     const completedCount = data.records.filter(r => r.stage >= 3).length
     if (completedCount > 0) {
-      doc.save().font('Helvetica-Bold').fontSize(10).fillColor(BLACK)
+      doc.save().font(fontBold).fontSize(10).fillColor(BLACK)
         .text('Documents & Information Collected', MARGIN, y)
         .restore()
-      y += 12
+      y += 14
       drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
-      y += 10
+      y += 14
 
       const docItems = [
         'Proof of identity: passport, UK driving licence, or national identity card',
@@ -326,31 +314,31 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
       ]
 
       for (const item of docItems) {
-        doc.save().font('Helvetica').fontSize(8.5).fillColor(BLACK)
+        doc.save().font(fontReg).fontSize(8.5).fillColor(BLACK)
           .text('✓  ' + item, MARGIN, y, { width: COL_W, lineGap: 1.5 })
           .restore()
-        y += 13
+        y += 15
       }
-      y += 8
+      y += 16
     }
 
     // ─ DATA RETENTION NOTICE ──────────────────────────────────────────────────
     drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
-    y += 8
+    y += 12
 
     const retentionText =
       `Data retention: In accordance with Regulation 40(3) of the Money Laundering Regulations 2017, all CDD records and supporting evidence ` +
       `are retained for a minimum of five years from the end of the business relationship, or five years from the date of any occasional transaction, ` +
       `whichever is later. Records are held securely and are accessible only to authorised personnel of ${FIRM_NAME}.`
 
-    doc.save().font('Helvetica').fontSize(7.5).fillColor(GREY)
+    doc.save().font(fontReg).fontSize(7.5).fillColor(GREY)
       .text(retentionText, MARGIN, y, { width: COL_W, align: 'justify', lineGap: 1.5 })
       .restore()
-    y += doc.heightOfString(retentionText, { width: COL_W }) + 14
+    y += doc.heightOfString(retentionText, { width: COL_W }) + 20
 
     // ─ MLRO SIGN-OFF ──────────────────────────────────────────────────────────
     drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
-    y += 10
+    y += 14
 
     const signOffRows: [string, string][] = [
       ['Prepared by',   `${data.generatedBy ?? MLRO_NAME}`],
@@ -360,25 +348,16 @@ export async function generateAMLReport(data: AmlReportData): Promise<Buffer> {
       ['Date',          fmtDate(generatedAt)],
     ]
     for (const [lbl, val] of signOffRows) {
-      doc.save().font('Helvetica').fontSize(8.5).fillColor(GREY)
+      doc.save().font(fontReg).fontSize(8.5).fillColor(GREY)
         .text(lbl, MARGIN, y, { width: 130, lineBreak: false })
-        .font('Helvetica-Bold').fillColor(BLACK)
+        .font(fontBold).fillColor(BLACK)
         .text(val, MARGIN + 135, y, { width: COL_W - 135, lineBreak: false })
         .restore()
-      y += 14
+      y += 16
     }
 
     // ─ FOOTER BAND ────────────────────────────────────────────────────────────
-    const footerBandY = PAGE_H - FOOTER_BAND_H
-    doc.save().fillColor(GREY_BAND).rect(0, footerBandY, PAGE_W, FOOTER_BAND_H).fill().restore()
-    doc.save().font('Helvetica').fontSize(6.5).fillColor('#fff')
-      .text(
-        `  ${FIRM_NAME}, Hoxton Mix, 66 Paul Street, London, EC2A 4NA     info@capitalrooms.co.uk     0207-112-9163`,
-        0, footerBandY + 7,
-        { width: PAGE_W, align: 'center', lineBreak: false }
-      )
-      .restore()
-    doc.image(footerImg, 0, footerBandY + 20, { width: PAGE_W, height: FOOTER_BAND_H - 22 })
+    drawPDFFooter(doc, footerImg, data.bizSettings ?? PDF_BIZ_DEFAULTS, fontReg)
 
     doc.end()
   })

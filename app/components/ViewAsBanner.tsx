@@ -13,6 +13,7 @@ const ROLE_EMOJI: Record<string, string> = {
   contractor: '👷',
   cleaner:    '🧹',
   landlord:   '🤝',
+  lettings:   '📋',
 }
 
 export default function ViewAsBanner({ name, role, personId }: Props) {

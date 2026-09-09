@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateValuationPDF } from '@/lib/valuations/generatePDF'
 import { ValuationData } from '@/lib/valuations/ValuationDocument'
+import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 
 function serviceClient() {
   return createClient(
@@ -22,45 +23,56 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'recipientName and propertyAddress are required' }, { status: 400 })
     }
 
-    const buffer = await generateValuationPDF(data)
+    // ── Resolve sender + biz settings (single pass — reuse for log) ──────────
+    const supabase = serviceClient()
+    let senderJobTitle:    string | null = null
+    let senderDirectPhone: string | null = null
+    let generatedById:     string | null = null
+
+    const authHeader = req.headers.get('authorization') ?? ''
+    if (authHeader.startsWith('Bearer ')) {
+      const { data: { user } } = await supabase.auth.getUser(authHeader.slice(7))
+      if (user?.email) {
+        const { data: person } = await supabase
+          .from('people')
+          .select('id, job_title, direct_phone')
+          .eq('email', user.email)
+          .maybeSingle()
+        senderJobTitle    = (person as any)?.job_title    ?? null
+        senderDirectPhone = (person as any)?.direct_phone ?? null
+        generatedById     = (person as any)?.id           ?? null
+      }
+    }
+
+    const bizSettings = await fetchPDFBizSettings()
+
+    const buffer = await generateValuationPDF({
+      ...data,
+      senderJobTitle,
+      senderDirectPhone,
+      bizSettings,
+    })
 
     const filename = `Capital-Rooms-Valuation_${data.propertyAddress.replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)}_${new Date().toISOString().slice(0, 10)}.pdf`
 
     // ── Save log record + upload PDF to storage (best-effort, never blocks response) ──
     try {
-      const supabase = serviceClient()
-      const logId = crypto.randomUUID()
+      const logId       = crypto.randomUUID()
       const storagePath = `valuations/${logId}.pdf`
 
-      // Upload PDF to storage bucket "valuations"
       await supabase.storage
         .from('valuations')
         .upload(storagePath, buffer, { contentType: 'application/pdf', upsert: false })
 
-      // Resolve the generating admin's people.id from the JWT if present
-      let generatedBy: string | null = null
-      const authHeader = req.headers.get('authorization') ?? ''
-      if (authHeader.startsWith('Bearer ')) {
-        const { data: { user } } = await supabase.auth.getUser(authHeader.slice(7))
-        if (user?.email) {
-          const { data: person } = await supabase
-            .from('people')
-            .select('id')
-            .eq('email', user.email)
-            .maybeSingle()
-          generatedBy = person?.id ?? null
-        }
-      }
-
       await supabase.from('valuations_log').insert({
-        id: logId,
-        type: data.type,
+        id:               logId,
+        type:             data.type,
         property_address: data.propertyAddress,
-        recipient_name: data.recipientName,
-        letter_date: data.letterDate ?? new Date().toISOString().slice(0, 10),
-        generated_by: generatedBy,
+        recipient_name:   data.recipientName,
+        letter_date:      data.letterDate ?? new Date().toISOString().slice(0, 10),
+        generated_by:     generatedById,
         pdf_storage_path: storagePath,
-        room_count: data.rooms?.length ?? 0,
+        room_count:       data.rooms?.length ?? 0,
       })
     } catch (logErr) {
       // Log errors should never block the PDF response
@@ -70,9 +82,9 @@ export async function POST(req: NextRequest) {
     return new NextResponse(buffer, {
       status: 200,
       headers: {
-        'Content-Type': 'application/pdf',
+        'Content-Type':        'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': String(buffer.length),
+        'Content-Length':      String(buffer.length),
       },
     })
   } catch (err) {

@@ -87,8 +87,13 @@ export default function TenantDashboard() {
   const [upcoming, setUpcoming] = useState<any[]>([])
   const [notes, setNotes] = useState<PropertyNote[]>([])
   const [compliance, setCompliance] = useState<any>(null)
+  const [houseInfo, setHouseInfo] = useState<Array<{ icon: string; label: string; value: string; sensitive?: boolean }>>([])
+  const [revealed, setRevealed] = useState<Set<number>>(new Set())
   const [messages, setMessages] = useState<any[]>([])
   const [viewingAs, setViewingAs] = useState<{ id: string; name: string; role: string } | null>(null)
+  const [guides, setGuides] = useState<Array<{ id: string; slug: string; title: string; emoji: string; acknowledged: boolean; acknowledgment_required: boolean }>>([])
+  const [guidesLoaded, setGuidesLoaded] = useState(false)
+  const [noticesSummary, setNoticesSummary] = useState<{ count: number; taskCount: number; latest: Array<{ notice_type: string; ai_text: string | null; raw_text: string }> } | null>(null)
 
   const searchParams = useSearchParams()
 
@@ -241,13 +246,14 @@ export default function TenantDashboard() {
         }
       }
 
-      // Property safety certificates — shown to the tenant as reassurance.
+      // Property safety certificates + house info (wifi, bin day, etc.)
       const { data: prop } = await supabase
         .from('properties')
-        .select('gas_safe_cert_expiry, electrical_cert_expiry')
+        .select('gas_safe_cert_expiry, electrical_cert_expiry, house_info')
         .eq('id', active.property_id)
         .maybeSingle()
       setCompliance(prop || null)
+      setHouseInfo((prop as any)?.house_info?.items || [])
 
       // Notifications sent to this tenant (Quick Notify, cleaner/lettings alerts).
       // In normal mode, RLS scopes this to the logged-in tenant automatically.
@@ -293,6 +299,40 @@ export default function TenantDashboard() {
     await signOut()
     router.push('/login')
   }
+
+  // Load guides + notice board summary after tenancy is known
+  useEffect(() => {
+    if (!personId) return
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const headers: Record<string, string> = {}
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      return fetch('/api/tenant/guides', { headers })
+    })
+      .then(r => r.json())
+      .then(d => { if (d.guides) setGuides(d.guides) })
+      .catch(() => {})
+      .finally(() => setGuidesLoaded(true))
+
+    // Load notice board summary (active count + latest 2 previews)
+    fetch('/api/tenant/notices')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d?.notices) return
+        const active = (d.notices as any[]).filter((n: any) => n.status === 'active')
+        const taskCount = active.filter((n: any) => n.notice_type === 'task').length
+        setNoticesSummary({
+          count: active.length,
+          taskCount,
+          latest: active.slice(0, 2).map((n: any) => ({
+            notice_type: n.notice_type,
+            ai_text: n.ai_text,
+            raw_text: n.raw_text,
+          })),
+        })
+      })
+      .catch(() => {})
+  }, [personId])
 
   async function markMessagesRead() {
     const unread = messages.filter((m) => !m.read).map((m) => m.id)
@@ -458,6 +498,84 @@ export default function TenantDashboard() {
           <EnableNotifications />
         </div>
 
+        {/* ── House Info ── always visible if admin has filled it in ── */}
+        {houseInfo.length > 0 && (
+          <section className="mt-3xl">
+            <h2 className="text-xl font-bold text-neutral-900">House Info</h2>
+            <p className="mt-xs text-sm text-neutral-500">Quick-reference facts about your property.</p>
+            <div className="mt-md divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+              {houseInfo.map((item, idx) => {
+                const isRevealed = revealed.has(idx)
+                return (
+                  <div key={idx} className="flex items-center gap-md px-lg py-md">
+                    <span className="text-xl shrink-0">{item.icon || '📌'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{item.label}</p>
+                      {item.sensitive && !isRevealed ? (
+                        <button
+                          onClick={() => setRevealed(prev => new Set([...prev, idx]))}
+                          className="mt-xs text-sm font-semibold text-blue-600 hover:text-blue-800"
+                        >
+                          Tap to reveal
+                        </button>
+                      ) : (
+                        <p className="mt-xs text-sm font-semibold text-neutral-900 break-words whitespace-pre-line">{item.value || '—'}</p>
+                      )}
+                    </div>
+                    {item.sensitive && isRevealed && (
+                      <button
+                        onClick={() => setRevealed(prev => { const s = new Set(prev); s.delete(idx); return s })}
+                        className="shrink-0 text-xs text-neutral-400 hover:text-neutral-700"
+                      >
+                        Hide
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Notice Board tile ── always shown if property is set; links to /tenant/notices ── */}
+        <section className="mt-3xl">
+          <Link href="/tenant/notices" className="block rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-400 transition-colors">
+            {/* Accent stripe */}
+            <div className="h-1 bg-gradient-to-r from-blue-400 to-amber-400 w-full" />
+            <div className="px-lg py-md flex items-start justify-between gap-md">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-sm mb-xs">
+                  <span className="text-lg">📋</span>
+                  <h2 className="text-base font-bold text-neutral-900">Notice Board</h2>
+                  {noticesSummary && noticesSummary.taskCount > 0 && (
+                    <span className="rounded-full bg-amber-400 px-sm py-0.5 text-xs font-extrabold text-neutral-900">
+                      {noticesSummary.taskCount} task{noticesSummary.taskCount !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                {noticesSummary && noticesSummary.latest.length > 0 ? (
+                  <div className="space-y-xs">
+                    {noticesSummary.latest.map((n, i) => (
+                      <p key={i} className="text-sm text-neutral-600 truncate">
+                        <span className="font-medium">{n.notice_type === 'task' ? '✅' : '📢'}</span>{' '}
+                        {(n.ai_text || n.raw_text).slice(0, 70)}{(n.ai_text || n.raw_text).length > 70 ? '…' : ''}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-400">Shared updates and tasks for your house</p>
+                )}
+              </div>
+              <div className="shrink-0 flex flex-col items-end gap-xs">
+                <span className="text-neutral-400 text-lg">›</span>
+                {noticesSummary && noticesSummary.count > 0 && (
+                  <span className="text-xs text-neutral-400">{noticesSummary.count} active</span>
+                )}
+              </div>
+            </div>
+          </Link>
+        </section>
+
         {messages.length > 0 && (
           <section className="mt-3xl">
             <div className="flex items-center justify-between">
@@ -567,9 +685,21 @@ export default function TenantDashboard() {
               title="Electrical safety (EICR)"
               expiry={compliance?.electrical_cert_expiry}
             />
-            <GuideCard title="Preventing damp &amp; mould" emoji="🪟" />
-            <GuideCard title="Fire safety in your home" emoji="🔥" />
-            <GuideCard title="Using the fire blanket" emoji="🧯" />
+            {/* Live guides from DB — fully admin-configurable */}
+            {guides.map(guide => (
+              <GuideCard
+                key={guide.id}
+                title={guide.title}
+                emoji={guide.emoji}
+                slug={guide.slug}
+                acknowledged={guide.acknowledged}
+                acknowledgmentRequired={guide.acknowledgment_required}
+              />
+            ))}
+            {/* Skeleton placeholders while loading */}
+            {!guidesLoaded && [0, 1, 2].map(i => (
+              <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-lg animate-pulse h-[90px]" />
+            ))}
           </div>
         </section>
 
@@ -781,22 +911,37 @@ function SafetyCard({ title, expiry }: { title: string; expiry?: string | null }
   )
 }
 
-const GUIDE_TIPS: Record<string, string> = {
-  'Preventing damp & mould':
-    'Wipe condensation off windows, keep trickle vents open, and ventilate when drying washing indoors.',
-  'Fire safety in your home':
-    'Keep escape routes clear, never wedge fire doors open, and test your smoke alarms monthly.',
-  'Using the fire blanket':
-    'Kept by the kitchen. Pull the tabs, hold it in front of you, and smother the flames — never move a burning pan.',
-}
+// Guide tips removed — guides now load from DB via /api/tenant/guides
 
-function GuideCard({ title, emoji }: { title: string; emoji: string }) {
+function GuideCard({
+  title, emoji, slug, acknowledged, acknowledgmentRequired,
+}: {
+  title: string
+  emoji: string
+  slug: string
+  acknowledged?: boolean
+  acknowledgmentRequired?: boolean
+}) {
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
-      <p className="text-2xl">{emoji}</p>
-      <p className="mt-sm text-sm font-bold text-neutral-900">{title}</p>
-      <p className="mt-xs text-xs text-neutral-600">{GUIDE_TIPS[title]}</p>
-    </div>
+    <a
+      href={`/tenant/guides/${slug}`}
+      className="flex items-start gap-sm rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-400 transition-colors active:bg-neutral-50"
+    >
+      <p className="text-2xl flex-shrink-0">{emoji}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-neutral-900 leading-snug">{title}</p>
+        {acknowledgmentRequired && (
+          <p className="mt-xs text-xs">
+            {acknowledged
+              ? <span className="text-green-600">✓ Read & confirmed</span>
+              : <span className="text-amber-600">Confirmation required</span>}
+          </p>
+        )}
+        {!acknowledgmentRequired && (
+          <p className="mt-xs text-xs text-neutral-500">Tap to open →</p>
+        )}
+      </div>
+    </a>
   )
 }
 

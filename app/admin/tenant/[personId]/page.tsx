@@ -463,6 +463,35 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
                     <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Start date</p><p className="font-semibold text-neutral-900">{fmt(currentTenancy.start_date)}</p></div>
                     <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">End date</p><p className="font-semibold text-neutral-900">{currentTenancy.end_date ? fmt(currentTenancy.end_date) : 'Rolling'}</p></div>
                     {currentTenancy.lease_reference && <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Lease ref</p><p className="font-semibold text-neutral-900">{currentTenancy.lease_reference}</p></div>}
+                    {/* Rent history — last change + next eligible increase */}
+                    {(() => {
+                      const lrc = (currentTenancy as any).last_rent_change_date as string | null
+                      const prevRent = (currentTenancy as any).previous_rent_amount as number | null
+                      const anchor = lrc || currentTenancy.start_date
+                      const nextFrom = new Date(anchor + 'T00:00:00')
+                      nextFrom.setDate(nextFrom.getDate() + 364)
+                      const nextFromStr = nextFrom.toISOString().slice(0, 10)
+                      const today = new Date().toISOString().slice(0, 10)
+                      const eligible = nextFromStr <= today
+                      return (
+                        <>
+                          {lrc && (
+                            <div>
+                              <p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Last rent change</p>
+                              <p className="font-semibold text-neutral-900">{fmt(lrc)}</p>
+                              {prevRent && <p className="text-xs text-neutral-400">was £{Number(prevRent).toLocaleString()}</p>}
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Next increase eligible</p>
+                            <p className={`font-semibold ${eligible ? 'text-green-700' : 'text-amber-700'}`}>
+                              {eligible ? '✓ Now eligible' : fmt(nextFromStr)}
+                            </p>
+                            <p className="text-xs text-neutral-400">52w from {lrc ? 'last change' : 'tenancy start'}</p>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
 

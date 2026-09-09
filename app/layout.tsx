@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { DM_Sans } from 'next/font/google'
+import { Baloo_2 } from 'next/font/google'
 import './globals.css'
 import './globals-fonts.css'
 import ServiceWorkerRegister from './components/ServiceWorkerRegister'
@@ -7,10 +7,10 @@ import Footer from './components/Footer'
 
 export const dynamic = 'force-dynamic'
 
-const dmSans = DM_Sans({
+const baloo2 = Baloo_2({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-dm-sans',
+  variable: '--font-baloo-2',
 })
 
 export const metadata: Metadata = {
@@ -43,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={dmSans.variable}>
+    <html lang="en" className={baloo2.variable}>
       <body className="flex flex-col min-h-screen">
         <div className="flex-1">
           {children}
