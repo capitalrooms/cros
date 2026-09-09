@@ -10,6 +10,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import RoomDetailTags from '@/app/components/RoomDetailTags'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
+import DarkHeroHeader from '@/app/components/DarkHeroHeader'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -382,32 +383,24 @@ export default function LettingsPage() {
       )}
 
       {/* ── Dark hero header ────────────────────────────────────────────────── */}
-      <div className="bg-neutral-950 text-white px-lg pb-xl" style={{ paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
-
-        {/* Top bar */}
-        <div className="flex items-center justify-between mb-xl">
-          <span className="text-sm font-black tracking-[0.15em] uppercase text-white/40 select-none">Capital Rooms</span>
+      <DarkHeroHeader
+        eyebrow="Lettings"
+        heading="Diary & Leads"
+        topRight={
           <button
             onClick={async () => { await signOut(); router.push('/login') }}
-            className="text-sm font-medium text-white/50 hover:text-white transition-colors"
+            className="hover:text-white transition-colors"
           >
             Sign out
           </button>
-        </div>
-
-        {/* Eyebrow + heading */}
-        <p className="text-xs font-bold uppercase tracking-widest text-white/40 mb-xs">Lettings</p>
-        <h1 className="text-3xl font-black tracking-tight mb-xl" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>
-          Diary &amp; Leads
-        </h1>
-
-        {/* Stat tiles */}
+        }
+      >
         <div className="grid grid-cols-3 gap-sm">
           <StatTile value={thisWeekCount} label="This week" />
           <StatTile value={pendingCount} label="Pending" valueColor="text-amber-400" />
           <StatTile value={availableRooms.length} label="Available" valueColor="text-green-400" />
         </div>
-      </div>
+      </DarkHeroHeader>
 
       {/* ── Tab strip ──────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-neutral-200 sticky top-0 z-20 px-lg pt-md pb-0">
