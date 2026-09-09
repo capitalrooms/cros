@@ -43,6 +43,17 @@ interface AvailableRoom {
   has_lounge?: boolean | null
 }
 
+interface LetRoom {
+  id: string
+  name: string
+  property_id: string
+  property_name: string
+  property_address: string
+  current_asking_rent: number | null
+  tenant_name: string | null
+  tenant_email: string | null
+}
+
 interface BookingRoom {
   id: string
   name: string
@@ -143,6 +154,7 @@ export default function LettingsPage() {
 
   const [viewings, setViewings] = useState<Viewing[]>([])
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([])
+  const [letRooms, setLetRooms] = useState<LetRoom[]>([])
   const [bookingRooms, setBookingRooms] = useState<BookingRoom[]>([])
 
   const [activeTab, setActiveTab] = useState<Tab>('viewings')
@@ -216,6 +228,31 @@ export default function LettingsPage() {
       })
 
     setAvailableRooms([...managed, ...letOnly])
+
+    // Currently let rooms (occupied, with tenant info via people table)
+    const { data: letData } = await supabase
+      .from('rooms')
+      .select('id, name, property_id, current_asking_rent, properties(name, address), people(full_name, first_name, last_name, email)')
+      .eq('status', 'occupied')
+      .order('name', { ascending: true })
+
+    const letMapped: LetRoom[] = (letData || []).map((room: any) => {
+      const tenant = Array.isArray(room.people) ? room.people[0] : room.people
+      const tName = tenant
+        ? tenant.full_name || [tenant.first_name, tenant.last_name].filter(Boolean).join(' ') || null
+        : null
+      return {
+        id: room.id,
+        name: room.name,
+        property_id: room.property_id,
+        property_name: room.properties?.name || 'Unknown',
+        property_address: room.properties?.address || '',
+        current_asking_rent: room.current_asking_rent,
+        tenant_name: tName,
+        tenant_email: tenant?.email || null,
+      }
+    })
+    setLetRooms(letMapped)
   }, [supabase])
 
   useEffect(() => {
@@ -532,13 +569,45 @@ export default function LettingsPage() {
 
         {/* ── LET ──────────────────────────────────────────────────────────── */}
         {activeTab === 'let' && (
-          <div className="pt-xl">
-            <PlaceholderTab
-              emoji="🔏"
-              title="Let"
-              body="This section will show recently-let rooms and let-only managed listings. Coming soon."
-              note="If you'd like this to show something different — e.g. a history of completed lets or the let-only property register — let us know and we'll build it to fit."
-            />
+          <div className="pt-lg">
+            <div className="flex items-center justify-between mb-lg">
+              <h2 className="text-base font-bold text-neutral-900">
+                {letRooms.length} room{letRooms.length !== 1 ? 's' : ''} currently let
+              </h2>
+            </div>
+
+            {letRooms.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
+                <p className="text-sm text-neutral-400">No rooms currently showing as occupied</p>
+              </div>
+            ) : (
+              <div className="space-y-sm">
+                {letRooms.map(room => (
+                  <Link
+                    key={room.id}
+                    href={`/admin/properties/${room.property_id}`}
+                    className="block rounded-2xl bg-white border border-neutral-200 p-lg hover:border-neutral-900 transition-colors shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-md">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-neutral-900">{room.name}</p>
+                        <p className="text-sm text-neutral-500 mt-xs truncate">{room.property_address || room.property_name}</p>
+                        {room.tenant_name && (
+                          <p className="text-xs text-neutral-400 mt-sm">👤 {room.tenant_name}</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-base font-black text-neutral-900">
+                          {room.current_asking_rent ? `£${room.current_asking_rent.toLocaleString()}` : '—'}
+                        </p>
+                        <p className="text-xs text-neutral-400">pcm</p>
+                        <span className="mt-xs inline-block rounded-full bg-green-100 px-sm py-0.5 text-xs font-bold text-green-700">Let</span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
