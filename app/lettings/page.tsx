@@ -615,22 +615,53 @@ export default function LettingsPage() {
 
       </main>
 
-      {/* ── Settings footer ────────────────────────────────────────────────── */}
-      <div className="border-t border-neutral-200 bg-white">
-        <div className="mx-auto max-w-2xl px-lg py-lg flex items-center justify-between">
+      {/* ── Footer dock ─────────────────────────────────────────────────────── */}
+      <div
+        className="bg-neutral-950 border-t border-neutral-800"
+        style={{
+          paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
+        <div className="mx-auto max-w-2xl px-lg pt-md flex items-center justify-around">
+
+          {/* Settings / Profile */}
           <Link
             href="/lettings/profile"
-            className="flex items-center gap-sm text-sm font-semibold text-neutral-500 hover:text-neutral-900 transition-colors"
+            className="group flex flex-col items-center gap-xs py-sm px-xl rounded-xl hover:bg-white/5 transition-colors"
           >
-            <span className="text-lg">⚙️</span>
-            Settings
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-white/50 group-hover:text-white transition-colors">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+            </svg>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/70 transition-colors">
+              Profile
+            </span>
           </Link>
+
+          {/* Divider */}
+          <div className="w-px h-8 bg-neutral-800" />
+
+          {/* Agency diary */}
           <Link
             href="/admin/agency-diary"
-            className="text-sm font-semibold text-neutral-500 hover:text-neutral-900 transition-colors"
+            className="group flex flex-col items-center gap-xs py-sm px-xl rounded-xl hover:bg-white/5 transition-colors"
           >
-            Agency diary →
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-white/50 group-hover:text-white transition-colors">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+              <line x1="8" y1="14" x2="8" y2="14" strokeWidth="2" strokeLinecap="round" />
+              <line x1="12" y1="14" x2="12" y2="14" strokeWidth="2" strokeLinecap="round" />
+              <line x1="16" y1="14" x2="16" y2="14" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/70 transition-colors">
+              Agency diary
+            </span>
           </Link>
+
         </div>
       </div>
 
