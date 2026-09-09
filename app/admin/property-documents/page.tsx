@@ -217,7 +217,7 @@ export default function PropertyDocumentsPage() {
             <h3 className="font-semibold text-neutral-900 mb-md">📌 Tips</h3>
             <ul className="space-y-sm text-sm text-neutral-600">
               <li>✓ Upload floor plans, emergency contact sheets, and house rules</li>
-              <li>✓ Tenants will see these organized by category in their app</li>
+              <li>✓ Tenants will see these organised by category in their app</li>
               <li>✓ Supported formats: PDF, PNG, JPG, GIF</li>
               <li>✓ Use clear, readable files (scanned documents work well)</li>
             </ul>

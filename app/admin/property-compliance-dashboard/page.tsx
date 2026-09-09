@@ -241,7 +241,7 @@ export default function PropertyComplianceDashboard() {
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Property Compliance Dashboard</h1>
             <p className="text-sm text-neutral-600 mt-xs">
-              Fire door & smoke alarm checks organized by property and month
+              Fire door & smoke alarm checks organised by property and month
             </p>
           </div>
           <Link

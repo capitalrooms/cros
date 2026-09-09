@@ -146,7 +146,7 @@ export default function SendOfferForm() {
         📧 Send Offer Letter
       </h2>
       <p className="text-sm text-white/60 mb-lg">
-        Send a personalized application link to an applicant
+        Send a personalised application link to an applicant
       </p>
 
       {error && (
@@ -292,7 +292,7 @@ export default function SendOfferForm() {
       </form>
 
       <p className="text-xs text-white/50 mt-lg">
-        💡 The applicant will receive an email with a personalized link to complete their application.
+        💡 The applicant will receive an email with a personalised link to complete their application.
         The link expires in 30 days.
       </p>
     </div>

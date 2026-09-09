@@ -1,20 +1,32 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { useRouter, useSearchParams } from 'next/navigation'
-import AppBar from '@/components/AppBar'
 import { displayName } from '@/lib/people'
-import RoleGreeting from '@/app/components/RoleGreeting'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-import SendOfferForm from '@/components/SendOfferForm'
-import LettingsDiaryView from '@/app/components/LettingsDiaryView'
-import UpcomingList, { UpcomingItem } from '@/app/components/UpcomingList'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import RoomDetailTags from '@/app/components/RoomDetailTags'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Viewing {
+  id: string
+  viewing_date: string
+  viewing_slot: string | null
+  duration_minutes: number | null
+  visitor_name: string | null
+  visitor_email: string | null
+  visitor_phone: string | null
+  viewing_status: string | null
+  property_id: string | null
+  room_id: string | null
+  properties: { name: string } | null
+  rooms: { name: string; current_asking_rent: number | null } | null
+}
 
 interface AvailableRoom {
   id: string
@@ -38,6 +50,8 @@ interface BookingRoom {
   properties: { id: string; name: string } | null
 }
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const DURATION_OPTIONS = [
   { label: '15 min', value: 15 },
   { label: '30 min', value: 30 },
@@ -60,112 +74,114 @@ const blankViewingForm = (date = '', time = '') => ({
   notifyMessage: '',
 })
 
+function todayISO() {
+  return new Date().toISOString().split('T')[0]
+}
+
+function isoToDate(iso: string) {
+  return new Date(iso + 'T00:00:00')
+}
+
+function addDays(iso: string, days: number) {
+  const d = isoToDate(iso)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
+}
+
+function formatDayHeading(iso: string) {
+  const d = isoToDate(iso)
+  const today = todayISO()
+  const tomorrow = addDays(today, 1)
+  if (iso === today) return `Today · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
+  if (iso === tomorrow) return `Tomorrow · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
+}
+
+function formatShortDate(iso: string | null) {
+  if (!iso) return '—'
+  return isoToDate(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function formatTime(slot: string | null) {
+  if (!slot) return '—'
+  return slot.slice(0, 5)
+}
+
 function defaultNotifyMsg(propertyName: string, date: string, time: string) {
-  const d = date ? new Date(date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : ''
+  const d = date ? isoToDate(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : ''
   const t = time ? ` at ${time}` : ''
   const prop = propertyName || 'the property'
   return `🔑 A viewing has been arranged at ${prop} on ${d}${t}. We will have a management set of keys for access. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.`
 }
 
+/** Monday of the ISO week containing `iso` */
+function weekStart(iso: string) {
+  const d = isoToDate(iso)
+  const day = d.getDay() // 0=Sun
+  const diff = (day === 0 ? -6 : 1 - day)
+  d.setDate(d.getDate() + diff)
+  return d.toISOString().split('T')[0]
+}
+
+function weekEnd(iso: string) {
+  return addDays(weekStart(iso), 6)
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+type Tab = 'viewings' | 'available' | 'leads' | 'let'
+
 export default function LettingsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
+
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
   const [viewingAs, setViewingAs] = useState<{ id: string; name: string; role: string } | null>(null)
-  const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([])
-  const [viewings, setViewings] = useState<any[]>([])
-  const [bookingRooms, setBookingRooms] = useState<BookingRoom[]>([])
-  const [showAddLetOnly, setShowAddLetOnly] = useState(false)
   const [personId, setPersonId] = useState<string | undefined>()
+
+  const [viewings, setViewings] = useState<Viewing[]>([])
+  const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([])
+  const [bookingRooms, setBookingRooms] = useState<BookingRoom[]>([])
+
+  const [activeTab, setActiveTab] = useState<Tab>('viewings')
+  const [selectedDay, setSelectedDay] = useState(todayISO())
+
+  const [showAddLetOnly, setShowAddLetOnly] = useState(false)
   const [addingViewing, setAddingViewing] = useState(false)
   const [viewingForm, setViewingForm] = useState(blankViewingForm())
   const [savingViewing, setSavingViewing] = useState(false)
-  const [viewingBanner, setViewingBanner] = useState('')
-  const calendarRef = useRef<HTMLDivElement | null>(null)
-  const [calendarJumpDate, setCalendarJumpDate] = useState<string | undefined>()
+  const [banner, setBanner] = useState('')
 
+  // ── Data loading ────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    async function init() {
-      const data = await getCurrentUser()
-      if (!data) {
-        router.push('/login')
-        return
-      }
-      // Role guard — only lettings agents and admins may access this page
-      const role = data.assignment?.role
-      if (!['lettings', 'administrator', 'admin'].includes(role)) {
-        router.push('/login')
-        return
-      }
-
-      // View-as impersonation — admin only
-      const asParam = searchParams.get('as')
-      const isAdmin = ['administrator', 'admin'].includes(role || '')
-      if (asParam && isAdmin) {
-        const { data: target } = await supabase
-          .from('people')
-          .select('id, full_name, first_name, last_name, role')
-          .eq('id', asParam)
-          .maybeSingle()
-        if (!target || target.role !== 'lettings') {
-          router.push('/admin/people')
-          return
-        }
-        setViewingAs({ id: asParam, name: (target.full_name || `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'Lettings User'), role: target.role })
-      }
-
-      // Friendly greeting name + person id for created_by on let-only listings
-      if (data.user?.email) {
-        const { data: person } = await supabase
-          .from('people')
-          .select('id, full_name, first_name, last_name')
-          .eq('email', data.user.email)
-          .maybeSingle()
-        setName(displayName(person) || data.user.email.split('@')[0] || '')
-        setPersonId(person?.id)
-      }
-      await loadData()
-
-      // Load rooms for the inline booking modal
-      const { data: roomsData } = await supabase
-        .from('rooms')
-        .select('id, name, property_id, properties(id, name)')
-        .order('name')
-      setBookingRooms((roomsData as any) || [])
-
-      setLoading(false)
-    }
-    init()
-  }, [router])
-
-  async function loadData() {
-    // Load upcoming viewings for the calendar
-    const today = new Date().toISOString().split('T')[0]
+  const loadData = useCallback(async () => {
+    // Fetch all future viewings (we filter by day client-side)
     const { data: viewingsData } = await supabase
       .from('viewings')
-      .select('id, viewing_date, viewing_slot, duration_minutes, visitor_name, property_id, room_id, properties(name), rooms(name)')
-      .gte('viewing_date', today)
+      .select('id, viewing_date, viewing_slot, duration_minutes, visitor_name, visitor_email, visitor_phone, viewing_status, property_id, room_id, properties(name), rooms(name, current_asking_rent)')
+      .gte('viewing_date', todayISO())
       .order('viewing_date', { ascending: true })
-      .limit(50)
-    setViewings(viewingsData || [])
+      .order('viewing_slot', { ascending: true })
+      .limit(200)
+    setViewings((viewingsData as Viewing[]) || [])
 
+    // Managed available rooms
     const { data: availableData } = await supabase
       .from('rooms')
-      .select('id, name, property_id, current_asking_rent, available_date, marketing_status, days_on_market, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address)')
+      .select('id, name, property_id, current_asking_rent, available_date, days_on_market, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address)')
       .eq('status', 'available')
       .order('available_date', { ascending: true })
 
-    // Let-only rooms from active listings
+    // Let-only available rooms
     const { data: letOnlyData } = await supabase
       .from('let_only_rooms')
       .select('id, room_name, monthly_rent, available_date, has_ensuite, has_shared_bathroom, has_lounge, let_only_listings(id, address, postcode, is_active)')
       .eq('status', 'available')
       .order('available_date', { ascending: true })
 
-    const managed = (availableData || []).map((room: any) => ({
+    const managed: AvailableRoom[] = (availableData || []).map((room: any) => ({
       id: room.id,
       name: room.name,
       property_id: room.property_id,
@@ -179,7 +195,7 @@ export default function LettingsPage() {
       has_lounge: room.has_lounge,
     }))
 
-    const letOnly = (letOnlyData || [])
+    const letOnly: AvailableRoom[] = (letOnlyData || [])
       .filter((r: any) => r.let_only_listings?.is_active)
       .map((r: any) => {
         const listing = r.let_only_listings
@@ -200,15 +216,73 @@ export default function LettingsPage() {
       })
 
     setAvailableRooms([...managed, ...letOnly])
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    async function init() {
+      const data = await getCurrentUser()
+      if (!data) { router.push('/login'); return }
+
+      const role = data.assignment?.role
+      if (!['lettings', 'administrator', 'admin'].includes(role)) { router.push('/login'); return }
+
+      // View-as impersonation — admin only
+      const asParam = searchParams.get('as')
+      const isAdmin = ['administrator', 'admin'].includes(role || '')
+      if (asParam && isAdmin) {
+        const { data: target } = await supabase
+          .from('people')
+          .select('id, full_name, first_name, last_name, role')
+          .eq('id', asParam)
+          .maybeSingle()
+        if (!target || target.role !== 'lettings') { router.push('/admin/people'); return }
+        setViewingAs({
+          id: asParam,
+          name: target.full_name || `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'Lettings User',
+          role: target.role,
+        })
+      }
+
+      if (data.user?.email) {
+        const { data: person } = await supabase
+          .from('people')
+          .select('id, full_name, first_name, last_name')
+          .eq('email', data.user.email)
+          .maybeSingle()
+        setName(displayName(person) || data.user.email.split('@')[0] || '')
+        setPersonId(person?.id)
+      }
+
+      await loadData()
+
+      const { data: roomsData } = await supabase
+        .from('rooms')
+        .select('id, name, property_id, properties(id, name)')
+        .order('name')
+      setBookingRooms((roomsData as any) || [])
+
+      setLoading(false)
+    }
+    init()
+  }, [router, loadData])
+
+  // ── Computed stats ──────────────────────────────────────────────────────────
+
+  const wStart = weekStart(todayISO())
+  const wEnd = weekEnd(todayISO())
+  const thisWeekCount = viewings.filter(v => v.viewing_date >= wStart && v.viewing_date <= wEnd).length
+  const pendingCount = viewings.filter(v => v.viewing_status !== 'confirmed' && v.viewing_status !== 'completed').length
+  const dayViewings = viewings.filter(v => v.viewing_date === selectedDay)
+
+  // ── Book viewing ─────────────────────────────────────────────────────────────
 
   async function handleCreateViewing() {
     if (!viewingForm.viewing_date || !viewingForm.room_id) {
-      setViewingBanner('A date and room are required')
+      setBanner('A date and room are required')
       return
     }
     if (!viewingForm.visitor_name.trim()) {
-      setViewingBanner('Visitor name is required — needed for the invite-to-apply flow')
+      setBanner('Visitor name is required')
       return
     }
     setSavingViewing(true)
@@ -228,7 +302,6 @@ export default function LettingsPage() {
       })
       if (error) throw new Error(error.message)
 
-      // Notify tenants if requested (push + in-app for managed tenants)
       if (viewingForm.notifyTenants && room?.property_id) {
         const msg = viewingForm.notifyMessage ||
           defaultNotifyMsg(room.properties?.name || '', viewingForm.viewing_date, viewingForm.viewing_slot)
@@ -241,533 +314,589 @@ export default function LettingsPage() {
             message: msg,
             notification_type: 'viewing',
           }),
-        }).catch(() => {/* best-effort */})
-      }
-
-      // Also email let-only contacts if this room is part of a let-only listing
-      if (viewingForm.notifyTenants && viewingForm.room_id) {
-        const { data: letOnlyRoom } = await supabase
-          .from('let_only_rooms')
-          .select('let_only_listings(id, is_active)')
-          .eq('room_id', viewingForm.room_id)
-          .maybeSingle()
-        const listing = (letOnlyRoom as any)?.let_only_listings
-        if (listing?.is_active) {
-          await fetch('/api/let-only/notify-contacts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              listing_id: listing.id,
-              event: 'booked',
-              viewing_date: viewingForm.viewing_date,
-              viewing_time: viewingForm.viewing_slot || '09:00',
-              room_name: room?.name,
-              sender_name: name,
-            }),
-          }).catch(() => {/* best-effort */})
-        }
+        }).catch(() => {})
       }
 
       setAddingViewing(false)
       setViewingForm(blankViewingForm())
+      // Jump to the booked day
+      setSelectedDay(viewingForm.viewing_date)
+      setActiveTab('viewings')
       await loadData()
-      setViewingBanner(viewingForm.notifyTenants ? '✅ Viewing booked & tenants notified' : '✅ Viewing booked')
-      setTimeout(() => setViewingBanner(''), 4000)
+      setBanner(viewingForm.notifyTenants ? '✅ Viewing booked & tenants notified' : '✅ Viewing booked')
+      setTimeout(() => setBanner(''), 4000)
     } catch (err) {
-      setViewingBanner(err instanceof Error ? err.message : 'Failed to book viewing')
+      setBanner(err instanceof Error ? err.message : 'Failed to book viewing')
     } finally {
       setSavingViewing(false)
     }
   }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '—'
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  }
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) return <GenericPageSkeleton />
 
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar
-        right={
-          <div className="flex items-center gap-md">
-            <a href="/lettings/profile" className="shrink-0 transition-colors hover:opacity-80 flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10" title="Profile settings">
-              <span className="text-lg leading-none">⚙️</span>
-            </a>
-            <button onClick={async () => { await signOut(); router.push('/login') }} className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm">
-              <span>👋</span> Sign out
-            </button>
-          </div>
-        }
-      />
+    <div className="min-h-screen bg-neutral-100" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>
 
+      {/* ── View-as banner ─────────────────────────────────────────────────── */}
       {viewingAs && (
-        <ViewAsBanner
-          name={viewingAs.name}
-          role={viewingAs.role}
-          personId={viewingAs.id}
-        />
+        <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
       )}
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
-        {/* Greeting — shared across every role dashboard */}
-        <RoleGreeting role="Lettings Dashboard" name={name} subtitle="Ready to let some properties!" />
+      {/* ── Dark hero header ────────────────────────────────────────────────── */}
+      <div className="bg-neutral-950 text-white px-lg pt-lg pb-xl">
 
-        {/* Success / error banner */}
-        {viewingBanner && (
-          <div className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">
-            {viewingBanner}
-          </div>
-        )}
-
-        {/* Lettings Diary — single-day view with week strip */}
-        <div ref={calendarRef}>
-          <LettingsDiaryView
-            jumpToDate={calendarJumpDate}
-            appointments={viewings.map((v: any) => {
-              const roomLabel = v.rooms?.name
-              const propLabel = v.properties?.name || ''
-              const primaryTitle = roomLabel ? `${roomLabel} — ${propLabel}` : (propLabel || '🔑 Viewing')
-              return {
-                id: v.id,
-                viewing_date: v.viewing_date,
-                start_time: v.viewing_slot ? v.viewing_slot.slice(0, 5) : undefined,
-                duration_minutes: v.duration_minutes ?? 60,
-                title: primaryTitle,
-                room_name: 'Viewing',
-                property_name: propLabel,
-                property_id: v.property_id || '',
-              }
-            })}
-            onSlotTap={(date, time) => {
-              setViewingForm(blankViewingForm(date, time))
-              setAddingViewing(true)
-            }}
-            onAppointmentReschedule={async (id, newDate, newTime, notifyOpts) => {
-              await supabase
-                .from('viewings')
-                .update({ viewing_date: newDate, viewing_slot: newTime })
-                .eq('id', id)
-              if (notifyOpts?.notify && notifyOpts.propertyId && notifyOpts.message) {
-                await fetch('/api/cleaner/quick-notify', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    property_id: notifyOpts.propertyId,
-                    subject: 'Viewing rescheduled',
-                    message: notifyOpts.message,
-                    notification_type: 'viewing',
-                  }),
-                })
-              }
-              setViewings(prev => prev.map((v: any) =>
-                v.id === id ? { ...v, viewing_date: newDate, viewing_slot: newTime } : v
-              ))
-            }}
-          />
+        {/* Top bar */}
+        <div className="flex items-center justify-between mb-xl">
+          <span className="text-sm font-black tracking-[0.15em] uppercase text-white/40 select-none">Capital Rooms</span>
+          <button
+            onClick={async () => { await signOut(); router.push('/login') }}
+            className="text-sm font-medium text-white/50 hover:text-white transition-colors"
+          >
+            Sign out
+          </button>
         </div>
 
-        {/* All upcoming viewings */}
-        <UpcomingList
-          title="All upcoming viewings"
-          emptyMessage="No viewings booked yet — tap a slot in the calendar above to add one."
-          items={[...viewings]
-            .filter(v => v.viewing_date)
-            .sort((a: any, b: any) => a.viewing_date.localeCompare(b.viewing_date))
-            .map((v: any): UpcomingItem => ({
-              id: v.id,
-              date: v.viewing_date,
-              time: v.viewing_slot ? String(v.viewing_slot).slice(0, 5) : undefined,
-              label: v.properties?.name || 'Property',
-              sublabel: v.visitor_name ? `👤 ${v.visitor_name}` : undefined,
-              badge: v.viewing_status || undefined,
-              badgeColor: v.viewing_status === 'completed' ? 'bg-green-100 text-green-700'
-                : v.viewing_status === 'scheduled' ? 'bg-blue-100 text-blue-700'
-                : 'bg-neutral-100 text-neutral-600',
-            }))}
-          onItemClick={(item) => {
-            setCalendarJumpDate(item.date)
-            calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          }}
-        />
+        {/* Eyebrow + heading */}
+        <p className="text-xs font-bold uppercase tracking-widest text-white/40 mb-xs">Lettings</p>
+        <h1 className="text-3xl font-black tracking-tight mb-xl" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>
+          Diary &amp; Leads
+        </h1>
 
-        {/* Invite to Apply — per-viewing quick-send strip */}
-        {viewings.length > 0 && (
-          <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
-            <h2 className="text-base font-semibold text-neutral-900 mb-md">📨 Invite to Apply</h2>
-            <div className="space-y-sm">
-              {[...viewings]
-                .filter(v => v.viewing_date)
-                .sort((a: any, b: any) => b.viewing_date.localeCompare(a.viewing_date))
-                .slice(0, 8)
-                .map((v: any) => {
-                  const room = v.rooms?.name || v.properties?.name || 'Viewing'
-                  return (
-                    <div key={v.id} className="flex items-center justify-between gap-md py-sm border-b border-neutral-100 last:border-0">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-neutral-900 truncate">
-                          {v.visitor_name || 'Unknown'} — {room}
-                        </p>
-                        <p className="text-xs text-neutral-400">{v.viewing_date}{v.viewing_slot ? ` · ${String(v.viewing_slot).slice(0,5)}` : ''}</p>
-                      </div>
-                      <div className="flex items-center gap-xs shrink-0">
-                        {v.visitor_email && <span className="text-xs bg-blue-50 text-blue-600 px-xs py-0.5 rounded">✉</span>}
-                        {v.visitor_phone && <span className="text-xs bg-green-50 text-green-600 px-xs py-0.5 rounded">📱</span>}
+        {/* Stat tiles */}
+        <div className="grid grid-cols-3 gap-sm">
+          <StatTile value={thisWeekCount} label="This week" />
+          <StatTile value={pendingCount} label="Pending" valueColor="text-amber-400" />
+          <StatTile value={availableRooms.length} label="Available" valueColor="text-green-400" />
+        </div>
+      </div>
+
+      {/* ── Tab strip ──────────────────────────────────────────────────────── */}
+      <div className="bg-white border-b border-neutral-200 sticky top-0 z-20 px-lg pt-md pb-0">
+        <div className="flex gap-xs">
+          {(['viewings', 'available', 'leads', 'let'] as Tab[]).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-lg py-sm rounded-full text-sm font-bold capitalize transition-all mb-sm ${
+                activeTab === tab
+                  ? 'bg-neutral-950 text-white'
+                  : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Global banner ──────────────────────────────────────────────────── */}
+      {banner && (
+        <div className="mx-lg mt-md rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">
+          {banner}
+        </div>
+      )}
+
+      {/* ── Tab content ────────────────────────────────────────────────────── */}
+      <main className="mx-auto max-w-2xl px-lg pb-3xl">
+
+        {/* ── VIEWINGS ─────────────────────────────────────────────────────── */}
+        {activeTab === 'viewings' && (
+          <div className="pt-lg">
+            {/* Day navigation */}
+            <div className="flex items-center justify-between mb-lg">
+              <button
+                onClick={() => setSelectedDay(d => addDays(d, -1))}
+                className="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-700 hover:bg-neutral-50 active:scale-95 transition-all shadow-sm text-lg"
+                aria-label="Previous day"
+              >
+                ‹
+              </button>
+              <h2 className="text-base font-bold text-neutral-900">{formatDayHeading(selectedDay)}</h2>
+              <button
+                onClick={() => setSelectedDay(d => addDays(d, 1))}
+                className="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-700 hover:bg-neutral-50 active:scale-95 transition-all shadow-sm text-lg"
+                aria-label="Next day"
+              >
+                ›
+              </button>
+            </div>
+
+            {/* Viewing cards */}
+            {dayViewings.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
+                <p className="text-sm font-medium text-neutral-400">No viewings on this day</p>
+                <button
+                  onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
+                  className="mt-md inline-flex items-center gap-xs rounded-full bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
+                >
+                  + Book a viewing
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-md">
+                {dayViewings.map(v => (
+                  <ViewingCard key={v.id} viewing={v} />
+                ))}
+              </div>
+            )}
+
+            {/* Add viewing CTA (when there are already viewings) */}
+            {dayViewings.length > 0 && (
+              <button
+                onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
+                className="mt-lg w-full rounded-2xl border-2 border-dashed border-neutral-300 bg-white py-md text-sm font-bold text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all"
+              >
+                + Add another viewing
+              </button>
+            )}
+
+            {/* Invite to Apply strip — compact, below the day cards */}
+            {viewings.length > 0 && (
+              <div className="mt-xl rounded-2xl bg-white border border-neutral-200 overflow-hidden">
+                <div className="px-lg py-md border-b border-neutral-100">
+                  <h3 className="text-sm font-bold text-neutral-900">📨 Invite to Apply</h3>
+                </div>
+                <div className="divide-y divide-neutral-100">
+                  {viewings
+                    .filter(v => v.visitor_name)
+                    .slice(0, 6)
+                    .map(v => (
+                      <div key={v.id} className="flex items-center justify-between gap-md px-lg py-sm">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-neutral-900 truncate">{v.visitor_name}</p>
+                          <p className="text-xs text-neutral-400">
+                            {v.rooms?.name || v.properties?.name || ''} · {v.viewing_date}
+                          </p>
+                        </div>
                         <button
                           onClick={() => router.push(`/admin/invite-to-apply?viewingId=${v.id}`)}
-                          className="text-xs font-semibold bg-neutral-900 text-white px-sm py-xs rounded-lg hover:bg-neutral-700 transition-colors"
+                          className="shrink-0 rounded-full bg-neutral-900 px-md py-xs text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
                         >
                           Invite
                         </button>
                       </div>
-                    </div>
-                  )
-                })}
-            </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Primary action heroes — bold black cards, blue accent on the standout */}
-        <div className="grid gap-md sm:grid-cols-2">
-          <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg text-white flex flex-col">
-            <p className="text-xs font-bold uppercase tracking-widest text-white/50">Your schedule</p>
-            <h2 className="mt-xs text-xl font-bold">📅 Diary</h2>
-            <p className="mt-xs text-sm text-white/60 flex-1">
-              See your viewings by day, book new ones, and check what&apos;s coming up.
-            </p>
-            <div className="mt-md flex flex-col gap-sm">
-              <Link
-                href="/lettings/viewings"
-                className="rounded-xl bg-blue-600 px-lg py-md text-center text-sm font-bold text-white hover:bg-blue-700"
+        {/* ── AVAILABLE ────────────────────────────────────────────────────── */}
+        {activeTab === 'available' && (
+          <div className="pt-lg">
+            <div className="flex items-center justify-between mb-lg">
+              <h2 className="text-base font-bold text-neutral-900">
+                {availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} to let
+              </h2>
+              <button
+                onClick={() => setShowAddLetOnly(true)}
+                className="rounded-full bg-neutral-900 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
               >
-                Open diary
-              </Link>
-              <Link
-                href="/admin/agency-diary"
-                className="rounded-xl border border-white/25 px-lg py-md text-center text-sm font-bold text-white hover:bg-white/10"
-              >
-                See all property visits
-              </Link>
+                + Let-only room
+              </button>
             </div>
-          </section>
 
-          <section className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg text-white flex flex-col">
-            <p className="text-xs font-bold uppercase tracking-widest text-white/50">Available now</p>
-            <h2 className="mt-xs text-xl font-bold">🚪 {availableRooms.length} room{availableRooms.length === 1 ? '' : 's'} to let</h2>
-            <p className="mt-xs text-sm text-white/60 flex-1">
-              Rooms currently on the market across your properties. Send an offer to an applicant below.
-            </p>
-          </section>
-        </div>
-
-        {/* Available rooms */}
-        <section className="mt-3xl">
-          <div className="flex items-center justify-between mb-lg">
-            <h2 className="text-xl font-bold text-neutral-900">Available Rooms</h2>
-            <button
-              onClick={() => setShowAddLetOnly(true)}
-              className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 transition-colors"
-            >
-              + Add let-only room
-            </button>
-          </div>
-
-          {availableRooms.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-              <p className="text-sm text-neutral-500">No available rooms right now.</p>
-            </div>
-          ) : (
-            <>
-              <div className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 overflow-x-auto">
-                <table className="w-full text-white">
-                  <thead>
-                    <tr className="border-b border-neutral-700 text-left">
-                      <th className="px-lg py-md text-xs font-bold uppercase tracking-wide text-white/60">Property &amp; Room</th>
-                      <th className="px-lg py-md text-xs font-bold uppercase tracking-wide text-white/60">Features</th>
-                      <th className="px-lg py-md text-xs font-bold uppercase tracking-wide text-white/60">Available</th>
-                      <th className="px-lg py-md text-xs font-bold uppercase tracking-wide text-white/60">Rent (£pcm)</th>
-                      <th className="px-lg py-md text-center text-xs font-bold uppercase tracking-wide text-white/60">Days on market</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {availableRooms.map((room) => (
-                      <tr
-                        key={room.id}
-                        className={`border-b border-neutral-800 last:border-0 ${
-                          room.is_let_only ? 'opacity-75 hover:opacity-90' : 'hover:bg-neutral-800/60'
-                        }`}
-                      >
-                        <td className="px-lg py-md text-sm">
-                          <p className="font-semibold">{room.name}</p>
-                          <p className="text-xs text-white/50">{room.property_address || room.property_name}</p>
-                          {room.is_let_only && (
-                            <Link
-                              href={`/admin/let-only/${room.property_id}`}
-                              className="mt-xs inline-block rounded-full bg-purple-900/60 px-sm py-0.5 text-xs font-semibold text-purple-300 hover:bg-purple-800/60 transition-colors"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              🔑 Let-only →
-                            </Link>
-                          )}
-                        </td>
-                        <td className="px-lg py-md text-sm">
-                          <RoomDetailTags
-                            has_ensuite={room.has_ensuite}
-                            has_shared_bathroom={room.has_shared_bathroom}
-                            has_lounge={room.has_lounge}
-                          />
-                        </td>
-                        <td className="px-lg py-md text-sm text-white/70">{formatDate(room.available_date)}</td>
-                        <td className="px-lg py-md text-sm font-semibold">
-                          £{room.current_asking_rent?.toLocaleString() || '—'}
-                        </td>
-                        <td className="px-lg py-md text-sm text-center text-white/70">
-                          {room.days_on_market ?? '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {availableRooms.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
+                <p className="text-sm text-neutral-400">No available rooms right now</p>
               </div>
-              {availableRooms.some(r => r.is_let_only) && (
-                <p className="mt-sm text-xs text-neutral-400">
-                  🔑 Let-only rooms are landlord-marketed — Capital Rooms runs viewings only.
-                </p>
-              )}
-            </>
-          )}
-        </section>
+            ) : (
+              <div className="space-y-sm">
+                {availableRooms.map(room => (
+                  <AvailableRoomCard key={room.id} room={room} />
+                ))}
+              </div>
+            )}
 
-        {/* Send Offer — dark hero form (restyled inside the component) */}
-        <div id="send-offer" className="mt-3xl scroll-mt-lg">
-          <SendOfferForm />
-        </div>
+            {availableRooms.some(r => r.is_let_only) && (
+              <p className="mt-md text-xs text-neutral-400">
+                🔑 Let-only rooms are landlord-managed — Capital Rooms runs viewings only.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ── LEADS ────────────────────────────────────────────────────────── */}
+        {activeTab === 'leads' && (
+          <div className="pt-xl">
+            <PlaceholderTab
+              emoji="👤"
+              title="Leads"
+              body="Track enquiries and prospects here. This section is coming soon — it will connect to applicant records and let you manage incoming interest in available rooms."
+            />
+          </div>
+        )}
+
+        {/* ── LET ──────────────────────────────────────────────────────────── */}
+        {activeTab === 'let' && (
+          <div className="pt-xl">
+            <PlaceholderTab
+              emoji="🔏"
+              title="Let"
+              body="This section will show recently-let rooms and let-only managed listings. Coming soon."
+              note="If you'd like this to show something different — e.g. a history of completed lets or the let-only property register — let us know and we'll build it to fit."
+            />
+          </div>
+        )}
+
       </main>
+
+      {/* ── Settings footer ────────────────────────────────────────────────── */}
+      <div className="border-t border-neutral-200 bg-white">
+        <div className="mx-auto max-w-2xl px-lg py-lg flex items-center justify-between">
+          <Link
+            href="/lettings/profile"
+            className="flex items-center gap-sm text-sm font-semibold text-neutral-500 hover:text-neutral-900 transition-colors"
+          >
+            <span className="text-lg">⚙️</span>
+            Settings
+          </Link>
+          <Link
+            href="/admin/agency-diary"
+            className="text-sm font-semibold text-neutral-500 hover:text-neutral-900 transition-colors"
+          >
+            Agency diary →
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Modals ─────────────────────────────────────────────────────────── */}
 
       {showAddLetOnly && (
         <AddLetOnlyModal
           createdByPersonId={personId}
           onClose={() => setShowAddLetOnly(false)}
-          onSave={async () => {
-            setShowAddLetOnly(false)
-            await loadData()
-          }}
+          onSave={async () => { setShowAddLetOnly(false); await loadData() }}
         />
       )}
 
-      {/* ── Inline book viewing modal ── */}
       {addingViewing && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-lg"
-          onClick={() => !savingViewing && setAddingViewing(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-lg">
-              <h2 className="text-xl font-bold text-neutral-900">Book a viewing</h2>
-              <button
-                onClick={() => !savingViewing && setAddingViewing(false)}
-                className="text-2xl leading-none text-neutral-400 hover:text-neutral-900"
-              >×</button>
-            </div>
+        <BookViewingModal
+          form={viewingForm}
+          setForm={setViewingForm}
+          bookingRooms={bookingRooms}
+          saving={savingViewing}
+          banner={banner}
+          onClose={() => { if (!savingViewing) { setAddingViewing(false); setBanner('') } }}
+          onSave={handleCreateViewing}
+        />
+      )}
+    </div>
+  )
+}
 
-            {viewingBanner && (
-              <div className="mb-md rounded-xl border border-red-200 bg-red-50 px-md py-sm text-sm text-red-800">
-                {viewingBanner}
-              </div>
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatTile({ value, label, valueColor = 'text-white' }: { value: number; label: string; valueColor?: string }) {
+  return (
+    <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-md text-center">
+      <p className={`text-3xl font-black tabular-nums ${valueColor}`}>{value}</p>
+      <p className="text-xs font-medium text-white/40 mt-xs">{label}</p>
+    </div>
+  )
+}
+
+function ViewingCard({ viewing }: { viewing: Viewing }) {
+  const confirmed = viewing.viewing_status === 'confirmed'
+  const rent = viewing.rooms?.current_asking_rent
+  const propName = viewing.properties?.name || ''
+  const roomName = viewing.rooms?.name || ''
+  const address = [roomName, propName].filter(Boolean).join(' · ')
+
+  return (
+    <div className="rounded-2xl overflow-hidden border border-neutral-200 bg-white shadow-sm">
+      {/* Dark time/status band */}
+      <div className="flex items-center justify-between bg-neutral-950 px-lg py-md">
+        <span className="text-sm font-bold text-white tabular-nums">
+          {viewing.viewing_slot ? formatTime(viewing.viewing_slot) : 'Time TBC'}
+        </span>
+        <span className={`text-xs font-bold ${confirmed ? 'text-green-400' : 'text-amber-400'}`}>
+          {confirmed ? 'Confirmed' : 'Unconfirmed'}
+        </span>
+      </div>
+      {/* Card body */}
+      <div className="px-lg py-md">
+        <p className="text-base font-bold text-neutral-900">{viewing.visitor_name || 'Visitor name unknown'}</p>
+        {address && <p className="text-sm text-neutral-500 mt-xs">{address}{rent ? ` · £${rent.toLocaleString()}/mo` : ''}</p>}
+        {/* Contact chips */}
+        {(viewing.visitor_email || viewing.visitor_phone) && (
+          <div className="mt-md flex flex-wrap gap-sm">
+            {viewing.visitor_email && (
+              <a
+                href={`mailto:${viewing.visitor_email}`}
+                className="inline-flex items-center gap-xs rounded-full bg-neutral-100 px-md py-xs text-xs font-medium text-neutral-700 hover:bg-neutral-200 transition-colors"
+              >
+                <span>✉</span> {viewing.visitor_email}
+              </a>
             )}
-
-            <div className="space-y-md">
-              {/* Room */}
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">
-                  Room <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={viewingForm.room_id}
-                  onChange={(e) => {
-                    const room = bookingRooms.find(r => r.id === e.target.value)
-                    setViewingForm(f => ({
-                      ...f,
-                      room_id: e.target.value,
-                      notifyMessage: defaultNotifyMsg(room?.properties?.name || '', f.viewing_date, f.viewing_slot),
-                    }))
-                  }}
-                  className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                >
-                  <option value="">Select a room…</option>
-                  {bookingRooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.properties?.name ? `${r.properties.name} — ${r.name}` : r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Date + Time */}
-              <div className="grid grid-cols-2 gap-md">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">
-                    Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={viewingForm.viewing_date}
-                    onChange={(e) => setViewingForm(f => ({
-                      ...f,
-                      viewing_date: e.target.value,
-                      notifyMessage: defaultNotifyMsg(
-                        bookingRooms.find(r => r.id === f.room_id)?.properties?.name || '',
-                        e.target.value,
-                        f.viewing_slot,
-                      ),
-                    }))}
-                    className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">Time</label>
-                  <input
-                    type="time"
-                    value={viewingForm.viewing_slot}
-                    onChange={(e) => setViewingForm(f => ({
-                      ...f,
-                      viewing_slot: e.target.value,
-                      notifyMessage: defaultNotifyMsg(
-                        bookingRooms.find(r => r.id === f.room_id)?.properties?.name || '',
-                        f.viewing_date,
-                        e.target.value,
-                      ),
-                    }))}
-                    className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
-                  />
-                </div>
-              </div>
-
-              {/* Duration */}
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">
-                  Duration
-                </label>
-                <div className="flex flex-wrap gap-sm">
-                  {DURATION_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setViewingForm(f => ({ ...f, duration_minutes: opt.value }))}
-                      className={`rounded-lg border px-md py-sm text-xs font-semibold transition-colors ${
-                        viewingForm.duration_minutes === opt.value
-                          ? 'border-neutral-900 bg-neutral-900 text-white'
-                          : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-xs text-xs text-neutral-500">
-                  {viewingForm.duration_minutes === 15 && 'Good for back-to-back viewings in the same hour'}
-                  {viewingForm.duration_minutes === 30 && 'Standard short viewing'}
-                  {viewingForm.duration_minutes === 60 && 'Standard full viewing'}
-                  {viewingForm.duration_minutes === 90 && 'Detailed viewing with questions'}
-                </p>
-              </div>
-
-              {/* Visitor details */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">Visitor name <span className="text-red-500 normal-case">*</span></label>
-                  <input
-                    type="text"
-                    value={viewingForm.visitor_name}
-                    onChange={(e) => setViewingForm(f => ({ ...f, visitor_name: e.target.value }))}
-                    placeholder="Jane Smith"
-                    required
-                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">Email</label>
-                  <input
-                    type="email"
-                    value={viewingForm.visitor_email}
-                    onChange={(e) => setViewingForm(f => ({ ...f, visitor_email: e.target.value }))}
-                    placeholder="jane@example.com"
-                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-xs uppercase tracking-wide">Phone</label>
-                  <input
-                    type="tel"
-                    value={viewingForm.visitor_phone}
-                    onChange={(e) => setViewingForm(f => ({ ...f, visitor_phone: e.target.value }))}
-                    placeholder="07700 000000"
-                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
-                  />
-                </div>
-              </div>
-
-              {/* Notify tenants */}
-              <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-md space-y-sm">
-                <div className="flex items-center gap-sm">
-                  <input
-                    type="checkbox"
-                    id="notify-tenants"
-                    checked={viewingForm.notifyTenants}
-                    onChange={(e) => setViewingForm(f => ({ ...f, notifyTenants: e.target.checked }))}
-                    className="rounded"
-                  />
-                  <label htmlFor="notify-tenants" className="text-sm font-bold text-blue-900">
-                    Notify tenants at this property
-                  </label>
-                </div>
-                {viewingForm.notifyTenants && (
-                  <div className="space-y-xs">
-                    <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide">📨 Message preview</p>
-                    <textarea
-                      value={viewingForm.notifyMessage || defaultNotifyMsg(
-                        bookingRooms.find(r => r.id === viewingForm.room_id)?.properties?.name || '',
-                        viewingForm.viewing_date,
-                        viewingForm.viewing_slot,
-                      )}
-                      onChange={(e) => setViewingForm(f => ({ ...f, notifyMessage: e.target.value }))}
-                      rows={3}
-                      className="w-full rounded-lg border border-blue-300 bg-white px-sm py-sm text-xs text-neutral-800"
-                    />
-                    <p className="text-xs text-blue-700">
-                      Sent via push notification + in-app message to all current tenants at the property.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-lg flex gap-md">
-              <button
-                onClick={handleCreateViewing}
-                disabled={savingViewing || !viewingForm.room_id || !viewingForm.viewing_date}
-                className="flex-1 rounded-xl bg-neutral-900 py-md text-sm font-bold text-white disabled:opacity-40 hover:bg-neutral-700 transition-colors"
+            {viewing.visitor_phone && (
+              <a
+                href={`tel:${viewing.visitor_phone.replace(/\s+/g, '')}`}
+                className="inline-flex items-center gap-xs rounded-full bg-neutral-100 px-md py-xs text-xs font-medium text-neutral-700 hover:bg-neutral-200 transition-colors"
               >
-                {savingViewing ? 'Booking…' : viewingForm.notifyTenants ? 'Book & Notify' : 'Book viewing'}
-              </button>
-              <button
-                onClick={() => !savingViewing && setAddingViewing(false)}
-                className="rounded-xl border border-neutral-300 px-lg py-md text-sm font-semibold text-neutral-700"
-              >
-                Cancel
-              </button>
-            </div>
+                <span>📞</span> {viewing.visitor_phone}
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AvailableRoomCard({ room }: { room: AvailableRoom }) {
+  const href = room.is_let_only
+    ? `/admin/let-only/${room.property_id}`
+    : `/admin/properties/${room.property_id}`
+
+  return (
+    <Link
+      href={href}
+      className="block rounded-2xl bg-white border border-neutral-200 p-lg hover:border-neutral-900 transition-colors group shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-md">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-sm flex-wrap">
+            <p className="font-bold text-neutral-900">{room.name}</p>
+            {room.is_let_only && (
+              <span className="rounded-full bg-purple-100 px-sm py-0.5 text-xs font-bold text-purple-700">
+                Let-only
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-neutral-500 mt-xs truncate">{room.property_address || room.property_name}</p>
+          <div className="mt-sm">
+            <RoomDetailTags
+              has_ensuite={room.has_ensuite}
+              has_shared_bathroom={room.has_shared_bathroom}
+              has_lounge={room.has_lounge}
+            />
           </div>
         </div>
+        <div className="text-right shrink-0">
+          <p className="text-base font-black text-neutral-900">
+            {room.current_asking_rent ? `£${room.current_asking_rent.toLocaleString()}` : '—'}
+          </p>
+          <p className="text-xs text-neutral-400">pcm</p>
+          {room.days_on_market != null && (
+            <p className={`text-xs font-semibold mt-xs ${room.days_on_market > 28 ? 'text-red-500' : room.days_on_market > 14 ? 'text-amber-500' : 'text-neutral-400'}`}>
+              {room.days_on_market}d on market
+            </p>
+          )}
+          {room.available_date && (
+            <p className="text-xs text-neutral-400 mt-xs">{formatShortDate(room.available_date)}</p>
+          )}
+        </div>
+      </div>
+      <span className="sr-only">View details →</span>
+    </Link>
+  )
+}
+
+function PlaceholderTab({ emoji, title, body, note }: { emoji: string; title: string; body: string; note?: string }) {
+  return (
+    <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white p-2xl text-center">
+      <p className="text-4xl mb-md">{emoji}</p>
+      <h2 className="text-lg font-bold text-neutral-900 mb-sm">{title}</h2>
+      <p className="text-sm text-neutral-500 max-w-xs mx-auto">{body}</p>
+      {note && (
+        <p className="mt-md text-xs text-neutral-400 max-w-xs mx-auto">{note}</p>
       )}
+    </div>
+  )
+}
+
+// ─── Book viewing modal ───────────────────────────────────────────────────────
+
+interface BookViewingModalProps {
+  form: ReturnType<typeof blankViewingForm>
+  setForm: React.Dispatch<React.SetStateAction<ReturnType<typeof blankViewingForm>>>
+  bookingRooms: BookingRoom[]
+  saving: boolean
+  banner: string
+  onClose: () => void
+  onSave: () => void
+}
+
+function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose, onSave }: BookViewingModalProps) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-lg"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-lg">
+          <h2 className="text-xl font-bold text-neutral-900">Book a viewing</h2>
+          <button onClick={onClose} className="text-2xl leading-none text-neutral-400 hover:text-neutral-900">×</button>
+        </div>
+
+        {banner && (
+          <div className="mb-md rounded-xl border border-red-200 bg-red-50 px-md py-sm text-sm text-red-800">{banner}</div>
+        )}
+
+        <div className="space-y-md">
+          {/* Room */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">
+              Room <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={form.room_id}
+              onChange={e => {
+                const room = bookingRooms.find(r => r.id === e.target.value)
+                setForm(f => ({
+                  ...f,
+                  room_id: e.target.value,
+                  notifyMessage: defaultNotifyMsg(room?.properties?.name || '', f.viewing_date, f.viewing_slot),
+                }))
+              }}
+              className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
+            >
+              <option value="">Select a room…</option>
+              {bookingRooms.map(r => (
+                <option key={r.id} value={r.id}>
+                  {r.properties?.name ? `${r.properties.name} — ${r.name}` : r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date + Time */}
+          <div className="grid grid-cols-2 gap-md">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">
+                Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={form.viewing_date}
+                onChange={e => setForm(f => ({
+                  ...f,
+                  viewing_date: e.target.value,
+                  notifyMessage: defaultNotifyMsg(bookingRooms.find(r => r.id === f.room_id)?.properties?.name || '', e.target.value, f.viewing_slot),
+                }))}
+                className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">Time</label>
+              <input
+                type="time"
+                value={form.viewing_slot}
+                onChange={e => setForm(f => ({
+                  ...f,
+                  viewing_slot: e.target.value,
+                  notifyMessage: defaultNotifyMsg(bookingRooms.find(r => r.id === f.room_id)?.properties?.name || '', f.viewing_date, e.target.value),
+                }))}
+                className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
+              />
+            </div>
+          </div>
+
+          {/* Duration */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">Duration</label>
+            <div className="flex flex-wrap gap-sm">
+              {DURATION_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, duration_minutes: opt.value }))}
+                  className={`rounded-lg border px-md py-sm text-xs font-semibold transition-colors ${
+                    form.duration_minutes === opt.value
+                      ? 'border-neutral-900 bg-neutral-900 text-white'
+                      : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Visitor */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">Visitor name <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                value={form.visitor_name}
+                onChange={e => setForm(f => ({ ...f, visitor_name: e.target.value }))}
+                placeholder="Jane Smith"
+                className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">Email</label>
+              <input
+                type="email"
+                value={form.visitor_email}
+                onChange={e => setForm(f => ({ ...f, visitor_email: e.target.value }))}
+                placeholder="jane@example.com"
+                className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">Phone</label>
+              <input
+                type="tel"
+                value={form.visitor_phone}
+                onChange={e => setForm(f => ({ ...f, visitor_phone: e.target.value }))}
+                placeholder="07700 000000"
+                className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
+              />
+            </div>
+          </div>
+
+          {/* Notify tenants */}
+          <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-md space-y-sm">
+            <div className="flex items-center gap-sm">
+              <input
+                type="checkbox"
+                id="notify-tenants"
+                checked={form.notifyTenants}
+                onChange={e => setForm(f => ({ ...f, notifyTenants: e.target.checked }))}
+                className="rounded"
+              />
+              <label htmlFor="notify-tenants" className="text-sm font-bold text-blue-900">
+                Notify tenants at this property
+              </label>
+            </div>
+            {form.notifyTenants && (
+              <textarea
+                rows={3}
+                value={form.notifyMessage}
+                onChange={e => setForm(f => ({ ...f, notifyMessage: e.target.value }))}
+                className="w-full rounded-lg border border-blue-300 bg-white px-md py-sm text-sm text-neutral-900"
+              />
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-md pt-sm">
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="flex-1 rounded-xl border border-neutral-300 py-md text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="flex-1 rounded-xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Booking…' : 'Book viewing'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
