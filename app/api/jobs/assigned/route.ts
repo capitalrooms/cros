@@ -1,10 +1,11 @@
-import { createClient } from '@/lib/supabase'
+import { createClient, createServiceClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
-    const { data: user } = await supabase.auth.getUser()
+    // Auth check via browser client (reads session cookie)
+    const authClient = createClient()
+    const { data: user } = await authClient.auth.getUser()
 
     if (!user.user) {
       return NextResponse.json(
@@ -12,6 +13,9 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    // Service client bypasses RLS — safe because we've verified auth above
+    const supabase = createServiceClient()
 
     // Get cleaner's person record
     const { data: cleaner } = await supabase
@@ -30,7 +34,7 @@ export async function GET(request: NextRequest) {
     // Get assigned jobs for this cleaner
     const { data, error } = await supabase
       .from('assigned_jobs')
-      .select('*, properties(name, address), rooms(name), people(email)')
+      .select('*, properties(name, address), rooms(name)')
       .eq('cleaner_id', cleaner.id)
       .in('status', ['pending', 'accepted'])
       .order('task_type', { ascending: false })

@@ -464,12 +464,20 @@ export default function MaintenanceDashboard() {
             <h1 className="text-3xl font-bold text-neutral-900">Maintenance Jobs</h1>
             <p className="mt-sm text-sm text-neutral-600">Approve, assign, and batch repairs across all properties</p>
           </div>
-          <Link
-            href="/admin/maintenance/new"
-            className="shrink-0 rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-800"
-          >
-            + Create job
-          </Link>
+          <div className="flex gap-sm shrink-0">
+            <Link
+              href="/admin/maintenance/job-sheet"
+              className="rounded-xl bg-blue-600 px-lg py-md text-sm font-bold text-white hover:bg-blue-700"
+            >
+              📋 Job sheet
+            </Link>
+            <Link
+              href="/admin/maintenance/new"
+              className="rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-800"
+            >
+              + Single job
+            </Link>
+          </div>
         </div>
 
         {error && (

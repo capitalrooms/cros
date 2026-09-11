@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Component, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { signOut } from '@/lib/auth'
@@ -10,10 +10,40 @@ import AppBar from '@/components/AppBar'
 import RoleGreeting from '@/app/components/RoleGreeting'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import { AdminDashboardSkeleton } from '@/app/components/SkeletonLoading'
-import TodayAppointmentsMap from '@/app/components/TodayAppointmentsMap'
 import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
 import AdminAddAppointmentModal from '@/app/components/AdminAddAppointmentModal'
 import AdminNotificationBell from '@/app/components/AdminNotificationBell'
+
+// ── Error boundary — catches any render crash and shows a readable message ────
+class AdminErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-xl">
+          <div className="max-w-md w-full rounded-2xl border border-red-200 bg-white p-xl">
+            <p className="text-lg font-bold text-red-700 mb-md">Admin dashboard failed to load</p>
+            <p className="text-sm text-neutral-600 mb-lg">Please screenshot this and send it to the developer:</p>
+            <pre className="text-xs bg-neutral-100 rounded-lg p-md overflow-auto text-neutral-800 whitespace-pre-wrap break-all">
+              {this.state.error?.message || String(this.state.error)}
+            </pre>
+            <button
+              onClick={() => window.location.href = '/admin'}
+              className="mt-lg w-full rounded-xl bg-neutral-900 py-md text-sm font-semibold text-white"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 // ── Dashboard tile groups ──────────────────────────────────────────────────────
 // Tiles within each group are listed alphabetically; the sort below enforces it
@@ -76,9 +106,10 @@ const DASH_GROUPS: DashGroup[] = [
     summary: 'Property info, all rooms, and maintenance tickets',
     tiles: [
       { emoji: '🏠', name: 'All Units',          desc: 'View & manage all rooms across every property',                         href: '/admin/active-rooms' },
-      { emoji: '📍', name: 'Address Audit',      desc: 'Review & confirm property postcodes — track which are verified',         href: '/admin/properties/audit' },
+      { emoji: '🧹', name: 'Cleaner Jobs',       desc: 'Move-out clean assignments — pending, accepted & declined',             href: '/admin/cleaner-jobs' },
       { emoji: '🔧', name: 'Maintenance',        desc: 'All maintenance tickets',                                               href: '/admin/maintenance' },
       { emoji: '🏢', name: 'Property Info',      desc: 'Details, floor plans, compliance',                                      href: '/admin/properties' },
+      { emoji: '📋', name: 'Property Tasks',     desc: 'Internal to-dos, cert deadlines, and task-to-ticket conversions',       href: '/admin/property-tasks' },
     ],
   },
   {
@@ -116,14 +147,25 @@ interface CertAlert {
   days: number
 }
 
-export default function AdminDashboard() {
+interface KpiData {
+  properties:     number
+  availableRooms: number
+  openTasks:      number
+  openJobs:       number
+  viewingsWeek:   number
+}
+
+function AdminDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [adminName, setAdminName] = useState('')
   const [loading, setLoading] = useState(true)
   const [alerts, setAlerts] = useState<CertAlert[]>([])
+  const [kpi, setKpi] = useState<KpiData>({ properties: 0, availableRooms: 0, openTasks: 0, openJobs: 0, viewingsWeek: 0 })
   const [commsLive, setCommsLive] = useState<boolean | null>(null)
   const [showAddAppointmentModal, setShowAddAppointmentModal] = useState(false)
+  const [calendarSlotDate, setCalendarSlotDate] = useState('')
+  const [calendarSlotTime, setCalendarSlotTime] = useState('')
   const [calendarExpanded, setCalendarExpanded] = useState(false)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
@@ -154,18 +196,34 @@ export default function AdminDashboard() {
         // Is tenant/applicant messaging live? Drives the safe-mode banner.
         fetch('/api/comms-status').then((r) => r.json()).then((d) => setCommsLive(!!d.live)).catch(() => {})
 
-        // Compliance deadlines for the alert banner — anything within 14 days or overdue.
+        // Load KPI data + compliance alerts in parallel
         try {
           const supabase = createClient()
-          const { data: props } = await supabase
-            .from('properties')
-            .select(
-              'id, name, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry, fire_detection_expiry, emergency_lighting_expiry, pat_test_expiry, fire_risk_assessment_expiry'
-            )
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
+          const today = new Date(); today.setHours(0,0,0,0)
+
+          // Week bounds for viewings
+          const weekStart = today.toISOString().split('T')[0]
+          const weekEnd = new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0]
+
+          const [propsRes, roomsRes, tasksRes, jobsRes, viewingsRes] = await Promise.all([
+            supabase.from('properties').select('id, name, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry, fire_detection_expiry, emergency_lighting_expiry, pat_test_expiry, fire_risk_assessment_expiry', { count: 'exact' }),
+            supabase.from('rooms').select('id', { count: 'exact' }).eq('status', 'available'),
+            supabase.from('property_tasks').select('id', { count: 'exact' }).eq('status', 'open'),
+            supabase.from('maintenance_tickets').select('id', { count: 'exact' }).not('status', 'in', '("completed","closed","cancelled")'),
+            supabase.from('viewings').select('id', { count: 'exact' }).gte('viewing_date', weekStart).lte('viewing_date', weekEnd),
+          ])
+
+          setKpi({
+            properties:     propsRes.count     ?? 0,
+            availableRooms: roomsRes.count      ?? 0,
+            openTasks:      tasksRes.count      ?? 0,
+            openJobs:       jobsRes.count       ?? 0,
+            viewingsWeek:   viewingsRes.count   ?? 0,
+          })
+
+          // Compliance alerts — anything within 14 days or overdue
           const list: CertAlert[] = []
-          for (const p of props || []) {
+          for (const p of propsRes.data || []) {
             for (const c of CERT_CHECKS) {
               const raw = (p as any)[c.field]
               if (!raw) continue
@@ -222,6 +280,24 @@ export default function AdminDashboard() {
 
           <EnableNotifications />
 
+          {/* ── KPI strip ─────────────────────────────────────────────── */}
+          <div className="grid grid-cols-5 gap-sm">
+            {[
+              { label: 'Properties',      value: kpi.properties,     color: 'text-white',          href: '/admin/properties' },
+              { label: 'Available rooms', value: kpi.availableRooms, color: 'text-green-400',       href: '/admin/available-and-lettings' },
+              { label: 'Open tasks',      value: kpi.openTasks,      color: 'text-violet-400',      href: '/admin/property-tasks' },
+              { label: 'Open jobs',       value: kpi.openJobs,       color: 'text-amber-400',       href: '/admin/maintenance' },
+              { label: 'Viewings / week', value: kpi.viewingsWeek,   color: 'text-blue-400',        href: '/admin/available-and-lettings' },
+            ].map(k => (
+              <Link key={k.label} href={k.href} className="block">
+                <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-md hover:border-neutral-700 transition-colors cursor-pointer">
+                  <p className={`text-3xl font-black tabular-nums ${k.color}`}>{k.value}</p>
+                  <p className="text-xs font-medium text-white/40 mt-xs">{k.label}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+
           {/* 3-Day Calendar with Toggle */}
           <div className="flex items-center justify-between gap-lg mb-lg">
             <button
@@ -247,8 +323,11 @@ export default function AdminDashboard() {
             <ThreeDayCalendar
               appointments={[]}
               role="admin"
-              onAppointmentClick={(appt) => {
-                router.push(`/admin/appointments`)
+              onAppointmentClick={() => router.push('/admin/appointments')}
+              onSlotTap={(date, time) => {
+                setCalendarSlotDate(date)
+                setCalendarSlotTime(time)
+                setShowAddAppointmentModal(true)
               }}
             />
           )}
@@ -263,32 +342,51 @@ export default function AdminDashboard() {
 
           {/* Compliance Alerts */}
           {alerts.length > 0 && (
-            <div className="rounded-lg border border-neutral-300 bg-white p-lg">
-              <div className="flex items-center justify-between gap-lg mb-lg">
-                <h3 className="font-semibold text-neutral-900">
+            <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-lg">
+              <div className="flex items-center justify-between gap-lg mb-md">
+                <h3 className="font-semibold text-white">
                   ⚠️ {alerts.length} compliance deadline{alerts.length > 1 ? 's' : ''} need attention
                 </h3>
                 <Link
-                  href="/admin/properties"
-                  className="text-sm font-semibold text-neutral-600 hover:text-neutral-900 underline"
+                  href="/admin/property-tasks"
+                  className="text-sm font-semibold text-red-400 hover:text-red-300 underline whitespace-nowrap"
                 >
-                  Review →
+                  View all & book →
                 </Link>
               </div>
-              <ul className="space-y-xs text-sm text-neutral-700">
-                {alerts.slice(0, 8).map((a, i) => (
-                  <li key={i}>
-                    <span className="font-medium">{a.property}</span> — {a.label}{' '}
-                    {a.days < 0
-                      ? `expired ${Math.abs(a.days)} day${Math.abs(a.days) !== 1 ? 's' : ''} ago`
-                      : a.days === 0
-                      ? 'expires today'
-                      : `expires in ${a.days} day${a.days !== 1 ? 's' : ''}`}
+              <ul className="space-y-xs text-sm text-neutral-400">
+                {alerts.slice(0, 6).map((a, i) => (
+                  <li key={i} className="flex items-center gap-sm">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${a.days < 0 ? 'bg-red-500' : 'bg-amber-400'}`} />
+                    <span className="font-medium text-neutral-200">{a.property}</span> — {a.label}
+                    <span className={`font-bold ml-auto pl-sm ${a.days < 0 ? 'text-red-400' : 'text-amber-400'}`}>
+                      {a.days < 0
+                        ? `${Math.abs(a.days)}d overdue`
+                        : a.days === 0 ? 'today'
+                        : `${a.days}d`}
+                    </span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
+
+          {/* Property Tasks quick-access */}
+          <Link href="/admin/property-tasks" className="block group">
+            <div className="rounded-xl border border-violet-200 bg-violet-50 px-lg py-md flex items-center gap-md hover:border-violet-300 hover:bg-violet-100 transition-colors">
+              <span className="text-2xl leading-none">📋</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-sm">
+                  <h3 className="text-sm font-semibold text-violet-900">Property Tasks</h3>
+                  {kpi.openTasks > 0 && (
+                    <span className="text-xs font-bold bg-violet-200 text-violet-800 px-xs py-0.5 rounded-full">{kpi.openTasks} open</span>
+                  )}
+                </div>
+                <p className="text-xs text-violet-600 mt-0.5">Internal to-dos, cert deadlines, task → ticket conversion</p>
+              </div>
+              <span className="text-violet-400 group-hover:text-violet-600 transition-colors">→</span>
+            </div>
+          </Link>
 
           {/* ── Grouped accordion dashboard ──────────────────────────────── */}
           <div className="space-y-sm">
@@ -370,7 +468,9 @@ export default function AdminDashboard() {
         {/* Add Appointment Modal */}
         <AdminAddAppointmentModal
           isOpen={showAddAppointmentModal}
-          onClose={() => setShowAddAppointmentModal(false)}
+          initialDate={calendarSlotDate || undefined}
+          initialTime={calendarSlotTime || undefined}
+          onClose={() => { setShowAddAppointmentModal(false); setCalendarSlotDate(''); setCalendarSlotTime('') }}
           onSuccess={() => {
             // Refresh appointments if needed
             setShowAddAppointmentModal(false)
@@ -378,5 +478,14 @@ export default function AdminDashboard() {
         />
       </main>
     </div>
+  )
+}
+
+// Wrap with error boundary so any iOS crash shows a readable message
+export default function AdminDashboardWithBoundary() {
+  return (
+    <AdminErrorBoundary>
+      <AdminDashboard />
+    </AdminErrorBoundary>
   )
 }

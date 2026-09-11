@@ -35,14 +35,18 @@ export async function POST(request: NextRequest) {
 
   const ctype = request.headers.get('content-type') || ''
   let fromEmail = ''
+  let toEmail = ''
   let subject = ''
+  let noteBody = ''
   const attachments: Attachment[] = []
 
   try {
     if (ctype.includes('application/json')) {
       const body = await request.json()
       fromEmail = body.From || body.from || body.sender || ''
-      subject = body.Subject || body.subject || ''
+      toEmail   = body.To   || body.to   || ''
+      subject   = body.Subject || body.subject || ''
+      noteBody  = body.TextBody || body.text || body.stripped_text || ''
       const list = body.Attachments || body.attachments || []
       for (const a of list) {
         const b64 = a.Content || a.content || a.data
@@ -52,10 +56,12 @@ export async function POST(request: NextRequest) {
         attachments.push({ name, mime, bytes: Buffer.from(b64, 'base64') })
       }
     } else {
-      // multipart/form-data (SendGrid Inbound Parse, Mailgun, etc.)
+      // multipart/form-data (SendGrid Inbound Parse, Mailgun, Resend, etc.)
       const form = await request.formData()
       fromEmail = String(form.get('from') || form.get('sender') || form.get('From') || '')
-      subject = String(form.get('subject') || form.get('Subject') || '')
+      toEmail   = String(form.get('to')   || form.get('To')     || '')
+      subject   = String(form.get('subject') || form.get('Subject') || '')
+      noteBody  = String(form.get('text') || form.get('body-plain') || form.get('TextBody') || '')
       for (const [, value] of form.entries()) {
         if (value instanceof Blob && (value as any).name) {
           const file = value as File
@@ -76,6 +82,25 @@ export async function POST(request: NextRequest) {
   if (!fromEmail || !validateEmail(fromEmail)) {
     await logAudit({ userId: 'webhook_inbound_email', action: 'security_invalid_input', details: `Invalid fromEmail: ${fromEmail}`, ipAddress: getClientIp(request.headers) })
     return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
+  }
+
+  // ── Notes path: emails sent to notes@ are saved as staff notes, not documents ──
+  if (toEmail.toLowerCase().includes('notes@')) {
+    const supabase = db()
+    const body = (noteBody || subject || '').trim()
+    if (body) {
+      await supabase.from('inbox_documents').insert({
+        from_email: fromEmail,
+        subject: subject || '(no subject)',
+        filename: 'note.txt',
+        storage_path: null,
+        mime: 'text/plain',
+        ai_result: { type: 'note', body, to: toEmail },
+        ai_error: null,
+        status: 'note',
+      })
+    }
+    return NextResponse.json({ ok: true, type: 'note', saved: !!body })
   }
 
   const usable = attachments.filter((a) => ALLOWED_MIME.includes(a.mime))

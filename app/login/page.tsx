@@ -159,7 +159,7 @@ function LoginForm() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-black px-lg">
+    <div className="relative flex flex-col items-center justify-center overflow-hidden bg-black px-lg" style={{ height: '100dvh' }}>
       <div className="relative w-full max-w-sm">
 
         {/* Logo */}

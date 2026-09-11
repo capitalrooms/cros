@@ -65,6 +65,12 @@ interface CleanerOption {
   phone?: string
 }
 
+interface ContractorOption {
+  id: string
+  name: string
+  email?: string
+}
+
 type View = 'list' | 'room'
 
 /* ─── Helpers ────────────────────────────────────────────── */
@@ -122,6 +128,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   // Mark on notice modal
   const [onNoticeForRoom, setOnNoticeForRoom] = useState<RoomRow | null>(null)
   const [cleaners, setCleaners] = useState<CleanerOption[]>([])
+  const [contractors, setContractors] = useState<ContractorOption[]>([])
 
   // Add / edit modals
   const [isAddingRoom, setIsAddingRoom] = useState(false)
@@ -202,23 +209,28 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     setLoading(false)
   }
 
-  async function loadCleaners() {
-    const { data } = await supabase
-      .from('people')
-      .select('id, first_name, last_name, full_name, email, phone')
-      .eq('role', 'cleaner')
-      .order('first_name')
-    setCleaners((data || []).map((p: any) => ({
+  async function loadCleanersAndContractors() {
+    const supabase2 = createClient()
+    const [{ data: cleanerData }, { data: contractorData }] = await Promise.all([
+      supabase2.from('people').select('id, first_name, last_name, full_name, email, phone').eq('role', 'cleaner').order('first_name'),
+      supabase2.from('people').select('id, first_name, last_name, full_name, email').eq('role', 'contractor').order('first_name'),
+    ])
+    setCleaners((cleanerData || []).map((p: any) => ({
       id: p.id,
       name: p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
       email: p.email,
       phone: p.phone,
     })))
+    setContractors((contractorData || []).map((p: any) => ({
+      id: p.id,
+      name: p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
+      email: p.email,
+    })))
   }
 
   function openOnNotice(room: RoomRow, e: React.MouseEvent) {
     e.stopPropagation() // don't also open the room drill-down
-    loadCleaners()
+    loadCleanersAndContractors()
     setOnNoticeForRoom(room)
   }
 
@@ -242,6 +254,9 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
         cleanerEmail: cleaner?.email,
         cleanerName: cleaner?.name,
         notesForLettings: noticeData.notesForLettings,
+        pendingJobs: noticeData.pendingJobs ?? [],
+        jobContractorId: noticeData.jobContractorId,
+        propertyId,
         roomName: onNoticeForRoom.name,
         propertyAddress: propertyAddress || '',
       }),
@@ -436,6 +451,14 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                               Mark on notice
                             </button>
                           )}
+                          {room.currentTenant && room.status === 'on_notice' && (
+                            <button
+                              onClick={(e) => openOnNotice(room, e)}
+                              className="text-xs font-semibold text-neutral-600 bg-white border border-neutral-300 rounded-lg px-sm py-xs hover:bg-neutral-50 transition-colors whitespace-nowrap"
+                            >
+                              ✏️ Edit notice
+                            </button>
+                          )}
                           {statusPill(room)}
                         </div>
                       </td>
@@ -535,6 +558,14 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                             className="px-lg py-sm text-sm font-semibold border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition"
                           >
                             Mark on notice
+                          </button>
+                        )}
+                        {selectedRoom.status === 'on_notice' && (
+                          <button
+                            onClick={(e) => openOnNotice(selectedRoom, e)}
+                            className="px-lg py-sm text-sm font-semibold border border-neutral-300 text-neutral-700 bg-white rounded-lg hover:bg-neutral-50 transition"
+                          >
+                            ✏️ Edit notice
                           </button>
                         )}
                       </div>
@@ -656,6 +687,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
             rent_amount: onNoticeForRoom.tenancyInfo?.rent_amount || 0,
           }}
           cleaners={cleaners}
+          contractors={contractors}
           onClose={() => setOnNoticeForRoom(null)}
           onConfirm={handleConfirmOnNotice}
         />

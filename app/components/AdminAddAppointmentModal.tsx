@@ -7,6 +7,8 @@ interface AdminAddAppointmentModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
+  initialDate?: string
+  initialTime?: string
 }
 
 const APPOINTMENT_TYPES = [
@@ -84,11 +86,19 @@ export default function AdminAddAppointmentModal({
   isOpen,
   onClose,
   onSuccess,
+  initialDate,
+  initialTime,
 }: AdminAddAppointmentModalProps) {
   const [step, setStep] = useState<'type' | 'details'>('type')
   const [selectedType, setSelectedType] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [time, setTime] = useState('10:00')
+  const [date, setDate] = useState(initialDate || new Date().toISOString().split('T')[0])
+  const [time, setTime] = useState(initialTime || '10:00')
+
+  // Sync when pre-filled values arrive (slot tap from calendar)
+  useEffect(() => {
+    if (initialDate) setDate(initialDate)
+    if (initialTime) setTime(initialTime)
+  }, [initialDate, initialTime])
   const [property, setProperty] = useState('')
   const [notes, setNotes] = useState('')
   const [notifyTenants, setNotifyTenants] = useState(true)

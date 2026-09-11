@@ -11,7 +11,10 @@ import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import RoomDetailTags from '@/app/components/RoomDetailTags'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
 import DarkHeroHeader from '@/app/components/DarkHeroHeader'
+import StatTile from '@/app/components/StatTile'
 import SendOfferForm from '@/components/SendOfferForm'
+import MultiDayDiaryGrid, { type DiaryJob } from '@/app/components/MultiDayDiaryGrid'
+import DesktopRightRail from '@/app/components/DesktopRightRail'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -140,6 +143,28 @@ function weekEnd(iso: string) {
   return addDays(weekStart(iso), 6)
 }
 
+const DAY_LABELS  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function buildWeekDays(offset = 0): string[] {
+  const base = new Date()
+  base.setHours(0, 0, 0, 0)
+  const dow = base.getDay()
+  const mondayShift = dow === 0 ? -6 : 1 - dow
+  base.setDate(base.getDate() + mondayShift + offset * 7)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base)
+    d.setDate(base.getDate() + i)
+    return d.toISOString().slice(0, 10)
+  })
+}
+
+function isoToDateParts(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return { day: DAY_LABELS[date.getDay()], date: d, month: MONTH_SHORT[m - 1] }
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 type Tab = 'viewings' | 'available' | 'leads' | 'let'
@@ -161,12 +186,41 @@ export default function LettingsPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('viewings')
   const [selectedDay, setSelectedDay] = useState(todayISO())
+  const [weekOffset, setWeekOffset] = useState(0)
 
   const [showAddLetOnly, setShowAddLetOnly] = useState(false)
   const [addingViewing, setAddingViewing] = useState(false)
   const [viewingForm, setViewingForm] = useState(blankViewingForm())
   const [savingViewing, setSavingViewing] = useState(false)
   const [banner, setBanner] = useState('')
+
+  const [showSettings, setShowSettings] = useState(false)
+
+  const DEFAULT_NOTIF_PREFS = {
+    viewing_booked: true,
+    viewing_confirmed: true,
+    new_application: true,
+    deposit_confirmed: true,
+    running_late: true,
+    offer_sent: false,
+  }
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>(DEFAULT_NOTIF_PREFS)
+
+  // Hydrate notification preferences from localStorage after mount (safe for SSR)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('lettings_notif_prefs')
+      if (stored) setNotifPrefs(JSON.parse(stored))
+    } catch {}
+  }, [])
+
+  function toggleNotif(key: string) {
+    setNotifPrefs(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      try { localStorage.setItem('lettings_notif_prefs', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -297,8 +351,20 @@ export default function LettingsPage() {
       const { data: roomsData } = await supabase
         .from('rooms')
         .select('id, name, property_id, properties(id, name)')
-        .order('name')
-      setBookingRooms((roomsData as any) || [])
+      // Sort: extract leading house number numerically, then alphabetically by address, then room number
+      const sortedRooms = ((roomsData as any) || []).sort((a: any, b: any) => {
+        const pa = a.properties?.name || ''
+        const pb = b.properties?.name || ''
+        const na = parseInt(pa.match(/^\d+/)?.[0] ?? '9999', 10)
+        const nb = parseInt(pb.match(/^\d+/)?.[0] ?? '9999', 10)
+        if (na !== nb) return na - nb
+        if (pa !== pb) return pa.localeCompare(pb)
+        const ra = parseInt(a.name?.match(/\d+/)?.[0] ?? '9999', 10)
+        const rb = parseInt(b.name?.match(/\d+/)?.[0] ?? '9999', 10)
+        if (ra !== rb) return ra - rb
+        return (a.name || '').localeCompare(b.name || '')
+      })
+      setBookingRooms(sortedRooms)
 
       setLoading(false)
     }
@@ -375,6 +441,23 @@ export default function LettingsPage() {
 
   if (loading) return <GenericPageSkeleton />
 
+  // ── Lettings diary jobs (for desktop grid) ───────────────────────────────
+  const lettingsDiaryJobs: DiaryJob[] = viewings
+    .filter(v => v.viewing_date)
+    .map(v => ({
+      id: v.id,
+      date: v.viewing_date,
+      time: v.viewing_slot ? String(v.viewing_slot).slice(0, 5) : null,
+      label: v.properties?.name ?? (v.rooms?.name ?? 'Unknown'),
+      sublabel: v.visitor_name ? `${v.visitor_name}${v.rooms?.name ? ` · ${v.rooms.name}` : ''}` : (v.rooms?.name ?? ''),
+      isOverdue: new Date(v.viewing_date + 'T00:00:00') < new Date(new Date().toDateString()),
+    }))
+
+  const viewingCountByDay: Record<string, number> = {}
+  for (const v of viewings) {
+    if (v.viewing_date) viewingCountByDay[v.viewing_date] = (viewingCountByDay[v.viewing_date] || 0) + 1
+  }
+
   return (
     <div className="min-h-screen bg-neutral-100" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>
 
@@ -382,6 +465,182 @@ export default function LettingsPage() {
       {viewingAs && (
         <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
       )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          DESKTOP LAYOUT (lg+) — 3-column vision spec
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <div
+        className="hidden lg:grid lg:min-h-screen"
+        style={{ gridTemplateColumns: '220px 1fr 300px', background: '#F6F3EC', fontFamily: 'Inter,system-ui,sans-serif' }}
+      >
+        {/* Sidebar */}
+        <nav style={{ background: '#181614', color: '#F6F3EC', padding: '22px 16px', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
+          <div style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontWeight: 800, fontSize: 15, letterSpacing: '0.02em' }}>
+            CAPITAL ROOMS
+            <span style={{ display: 'block', fontSize: 9, fontWeight: 500, letterSpacing: '0.14em', opacity: 0.5, marginTop: 2, textTransform: 'uppercase' }}>Lettings</span>
+          </div>
+          <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+            {(['viewings', 'available', 'let'] as Tab[]).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+                  color: activeTab === tab ? '#F6F3EC' : 'rgba(246,243,236,0.6)',
+                  background: activeTab === tab ? 'rgba(246,243,236,0.1)' : 'transparent',
+                  border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'available' && availableRooms.length > 0 && (
+                  <span style={{ background: '#4B6358', color: 'white', fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '1px 6px' }}>{availableRooms.length}</span>
+                )}
+                {tab === 'viewings' && pendingCount > 0 && (
+                  <span style={{ background: '#C97A3D', color: 'white', fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '1px 6px' }}>{pendingCount}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div style={{ borderTop: '1px solid rgba(246,243,236,0.15)', paddingTop: 14, fontSize: 12, color: 'rgba(246,243,236,0.55)', display: 'flex', justifyContent: 'space-between' }}>
+            <button onClick={async () => { await signOut(); router.push('/login') }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>Sign out</button>
+          </div>
+        </nav>
+
+        {/* Main */}
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
+          {/* Dark hero */}
+          <div style={{ background: '#181614', color: '#F6F3EC', padding: '26px 32px 22px' }}>
+            <h1 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, margin: '0 0 3px', fontWeight: 800 }}>Diary &amp; Leads</h1>
+            <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,243,236,0.6)' }}>
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 20 }}>
+              {[
+                { num: thisWeekCount,         label: 'This week',  color: undefined },
+                { num: pendingCount,           label: 'Pending',    color: pendingCount > 0 ? '#E8836B' : undefined },
+                { num: availableRooms.length,  label: 'Available',  color: availableRooms.length > 0 ? '#6EAF8B' : undefined },
+              ].map(({ num, label, color }) => (
+                <div key={label} style={{ background: 'rgba(246,243,236,0.07)', borderRadius: 14, padding: '14px 16px' }}>
+                  <div style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, fontWeight: 700, color: color ?? '#F6F3EC' }}>{num}</div>
+                  <div style={{ fontSize: 11, color: 'rgba(246,243,236,0.55)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Body */}
+          <main style={{ flex: 1, overflowY: 'auto', padding: '24px 32px 40px' }}>
+            {activeTab === 'viewings' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: '#181614' }}>Viewings Diary</h2>
+                  <button
+                    onClick={() => { setViewingForm(blankViewingForm(todayISO())); setAddingViewing(true) }}
+                    style={{ background: '#4B6358', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >+ Book viewing</button>
+                </div>
+                <MultiDayDiaryGrid
+                  jobs={lettingsDiaryJobs}
+                  startHour={9}
+                  endHour={20}
+                  todayISO={todayISO()}
+                />
+              </div>
+            )}
+            {activeTab === 'available' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: '#181614' }}>{availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} to let</h2>
+                  <button onClick={() => setShowAddLetOnly(true)} style={{ background: '#181614', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Let-only room</button>
+                </div>
+                {availableRooms.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center"><p className="text-sm text-neutral-400">No available rooms</p></div>
+                ) : (
+                  <div className="space-y-sm">{availableRooms.map(room => <AvailableRoomCard key={room.id} room={room} />)}</div>
+                )}
+              </div>
+            )}
+            {activeTab === 'let' && (
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: '0 0 16px', color: '#181614' }}>{letRooms.length} room{letRooms.length !== 1 ? 's' : ''} let</h2>
+                {letRooms.length === 0 ? (
+                  <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center"><p className="text-sm text-neutral-400">No rooms currently let</p></div>
+                ) : (
+                  <div className="space-y-sm">
+                    {letRooms.map(room => (
+                      <Link key={room.id} href={`/admin/properties/${room.property_id}`} className="block rounded-2xl bg-white border border-neutral-200 p-lg hover:border-neutral-900 transition-colors shadow-sm">
+                        <div className="flex items-start justify-between gap-md">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-neutral-900">{room.name}</p>
+                            <p className="text-sm text-neutral-500 mt-xs truncate">{room.property_address || room.property_name}</p>
+                            {room.tenant_name && <p className="text-xs text-neutral-400 mt-sm">👤 {room.tenant_name}</p>}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-base font-black text-neutral-900">{room.current_asking_rent ? `£${room.current_asking_rent.toLocaleString()}` : '—'}</p>
+                            <p className="text-xs text-neutral-400">pcm</p>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+        </div>
+
+        {/* Right rail */}
+        {(() => {
+          const today = todayISO()
+          const upcomingViewings = viewings
+            .filter(v => v.viewing_date >= today && v.viewing_status === 'scheduled')
+            .sort((a, b) => a.viewing_date.localeCompare(b.viewing_date))
+          const railAlerts = [
+            ...(pendingCount > 0 ? [{ title: `${pendingCount} pending viewing${pendingCount !== 1 ? 's' : ''}`, body: 'Awaiting confirmation', variant: 'amber' as const, onClick: () => setActiveTab('viewings') }] : []),
+            ...(availableRooms.length > 0 ? [{ title: `${availableRooms.length} room${availableRooms.length !== 1 ? 's' : ''} available`, body: 'Ready to let', variant: 'sage' as const, onClick: () => setActiveTab('available') }] : []),
+            ...(thisWeekCount > 0 ? [{ title: `${thisWeekCount} viewing${thisWeekCount !== 1 ? 's' : ''} this week`, body: 'Tap to view diary', variant: 'default' as const, onClick: () => setActiveTab('viewings') }] : []),
+          ]
+          return (
+            <DesktopRightRail
+              dateCounts={viewingCountByDay}
+              todayISO={today}
+              alerts={railAlerts}
+              alertsHeading="Viewings"
+            >
+              {upcomingViewings.length > 0 && (
+                <div style={{ marginTop: 18 }}>
+                  <h3 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', margin: '0 0 8px', fontWeight: 700 }}>
+                    Coming Up
+                  </h3>
+                  {upcomingViewings.slice(0, 5).map((v: any) => {
+                    const viewDate = new Date(v.viewing_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+                    return (
+                      <div key={v.id} style={{ background: '#FFFFFF', border: '1px solid #E7E1D4', borderRadius: 12, padding: '10px 12px', marginBottom: 7 }}>
+                        <div style={{ fontWeight: 700, fontSize: 12, color: '#181614', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {v.visitor_name || 'Viewing'}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: '#59544C', marginTop: 2 }}>
+                          {v.rooms?.name || ''}{v.rooms?.name ? ' · ' : ''}
+                          {v.rooms?.properties?.name || v.property_name || ''}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: '#59544C', marginTop: 2 }}>
+                          📅 {viewDate}{v.viewing_slot ? ` · ${String(v.viewing_slot).slice(0, 5)}` : ''}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </DesktopRightRail>
+          )
+        })()}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          MOBILE LAYOUT — unchanged
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="lg:hidden">
 
       {/* ── Dark hero header ────────────────────────────────────────────────── */}
       <DarkHeroHeader
@@ -438,83 +697,129 @@ export default function LettingsPage() {
         {/* ── VIEWINGS ─────────────────────────────────────────────────────── */}
         {activeTab === 'viewings' && (
           <div className="pt-lg">
+
             {/* Day navigation */}
-            <div className="flex items-center justify-between mb-lg">
+            <div className="flex items-center justify-between mb-md">
               <button
-                onClick={() => setSelectedDay(d => addDays(d, -1))}
-                className="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-700 hover:bg-neutral-50 active:scale-95 transition-all shadow-sm text-lg"
-                aria-label="Previous day"
-              >
-                ‹
-              </button>
-              <h2 className="text-base font-bold text-neutral-900">{formatDayHeading(selectedDay)}</h2>
+                onClick={() => {
+                  const d = new Date(selectedDay + 'T00:00:00')
+                  d.setDate(d.getDate() - 1)
+                  setSelectedDay(d.toISOString().split('T')[0])
+                }}
+                className="px-md py-sm rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 text-sm font-semibold transition-colors"
+              >‹ Prev</button>
+              <div className="text-center">
+                <p className="text-sm font-bold text-neutral-900">{formatDayHeading(selectedDay)}</p>
+                {selectedDay !== todayISO() && (
+                  <button
+                    onClick={() => setSelectedDay(todayISO())}
+                    className="text-xs text-blue-600 underline mt-0.5"
+                  >Today</button>
+                )}
+              </div>
               <button
-                onClick={() => setSelectedDay(d => addDays(d, 1))}
-                className="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-700 hover:bg-neutral-50 active:scale-95 transition-all shadow-sm text-lg"
-                aria-label="Next day"
-              >
-                ›
-              </button>
+                onClick={() => {
+                  const d = new Date(selectedDay + 'T00:00:00')
+                  d.setDate(d.getDate() + 1)
+                  setSelectedDay(d.toISOString().split('T')[0])
+                }}
+                className="px-md py-sm rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 text-sm font-semibold transition-colors"
+              >Next ›</button>
             </div>
 
-            {/* Viewing cards */}
-            {dayViewings.length === 0 ? (
-              <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
-                <p className="text-sm font-medium text-neutral-400">No viewings on this day</p>
-                <button
-                  onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
-                  className="mt-md inline-flex items-center gap-xs rounded-full bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
-                >
-                  + Book a viewing
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-md">
-                {dayViewings.map(v => (
-                  <ViewingCard key={v.id} viewing={v} />
-                ))}
-              </div>
-            )}
+            {/* Always-present add button */}
+            <button
+              onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
+              className="w-full mb-lg rounded-2xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
+            >+ Book viewing</button>
 
-            {/* Add viewing CTA (when there are already viewings) */}
-            {dayViewings.length > 0 && (
-              <button
-                onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
-                className="mt-lg w-full rounded-2xl border-2 border-dashed border-neutral-300 bg-white py-md text-sm font-bold text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all"
-              >
-                + Add another viewing
-              </button>
-            )}
-
-            {/* Invite to Apply strip — compact, below the day cards */}
-            {viewings.length > 0 && (
-              <div className="mt-xl rounded-2xl bg-white border border-neutral-200 overflow-hidden">
-                <div className="px-lg py-md border-b border-neutral-100">
-                  <h3 className="text-sm font-bold text-neutral-900">📨 Invite to Apply</h3>
-                </div>
-                <div className="divide-y divide-neutral-100">
-                  {viewings
-                    .filter(v => v.visitor_name)
-                    .slice(0, 6)
-                    .map(v => (
-                      <div key={v.id} className="flex items-center justify-between gap-md px-lg py-sm">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-neutral-900 truncate">{v.visitor_name}</p>
-                          <p className="text-xs text-neutral-400">
-                            {v.rooms?.name || v.properties?.name || ''} · {v.viewing_date}
-                          </p>
+            {/* 15-minute time grid: 9am – 8pm */}
+            {(() => {
+              const START_H = 9, END_H = 20
+              // Build slot → viewing lookup using first 5 chars of viewing_slot ("HH:MM")
+              const slotMap: Record<string, typeof dayViewings> = {}
+              for (const v of dayViewings) {
+                const key = (v.viewing_slot ?? '').slice(0, 5) // "09:00"
+                if (!slotMap[key]) slotMap[key] = []
+                slotMap[key].push(v)
+              }
+              const rows: { h: number; m: number }[] = []
+              for (let h = START_H; h < END_H; h++) {
+                for (const m of [0, 15, 30, 45]) rows.push({ h, m })
+              }
+              const fmtHour = (h: number) => h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`
+              return (
+                <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+                  {rows.map(({ h, m }, i) => {
+                    const key = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`
+                    const slotViewings = slotMap[key] ?? []
+                    const isHourStart = m === 0
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          display: 'flex',
+                          minHeight: 44,
+                          borderTop: isHourStart
+                            ? '1px solid #e5e7eb'   // hour line — neutral-200
+                            : '1px solid #f3f4f6',  // 15-min line — neutral-100
+                        }}
+                      >
+                        {/* Time label — only at :00 */}
+                        <div style={{
+                          width: 44,
+                          flexShrink: 0,
+                          paddingTop: 6,
+                          paddingRight: 8,
+                          textAlign: 'right',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          color: isHourStart ? '#6b7280' : 'transparent',
+                          borderRight: '1px solid #e5e7eb',
+                          userSelect: 'none',
+                        }}>
+                          {isHourStart ? fmtHour(h) : '·'}
                         </div>
-                        <button
-                          onClick={() => router.push(`/admin/invite-to-apply?viewingId=${v.id}`)}
-                          className="shrink-0 rounded-full bg-neutral-900 px-md py-xs text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
+                        {/* Slot content */}
+                        <div
+                          style={{ flex: 1, padding: slotViewings.length ? '4px 8px' : '0 8px', cursor: slotViewings.length === 0 ? 'pointer' : undefined }}
+                          onClick={() => {
+                            if (slotViewings.length === 0) {
+                              setViewingForm(f => ({
+                                ...blankViewingForm(selectedDay),
+                                viewing_date: selectedDay,
+                                viewing_slot: key + ':00',
+                              }))
+                              setAddingViewing(true)
+                            }
+                          }}
                         >
-                          Invite
-                        </button>
+                          {slotViewings.map(v => (
+                            <div
+                              key={v.id}
+                              style={{
+                                background: '#DCE6DE',
+                                borderLeft: '3px solid #4B6358',
+                                borderRadius: 7,
+                                padding: '5px 8px',
+                                marginBottom: 3,
+                              }}
+                            >
+                              <p style={{ fontSize: 12, fontWeight: 700, color: '#1f2937', margin: 0, lineHeight: 1.3 }}>
+                                {v.visitor_name || 'Viewing'}
+                              </p>
+                              <p style={{ fontSize: 11, color: '#4B6358', margin: 0, lineHeight: 1.3 }}>
+                                {v.rooms?.name || v.properties?.name || ''}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )
+                  })}
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
         )}
 
@@ -613,57 +918,96 @@ export default function LettingsPage() {
           </div>
         )}
 
-      </main>
+        {/* ── Quick-access tiles ────────────────────────────────────────────── */}
+        <div className="mt-2xl mb-xl grid grid-cols-2 gap-md">
 
-      {/* ── Footer dock ─────────────────────────────────────────────────────── */}
-      <div
-        className="bg-neutral-950 border-t border-neutral-800"
-        style={{
-          paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
-        }}
-      >
-        <div className="mx-auto max-w-2xl px-lg pt-md flex items-center justify-around">
-
-          {/* Settings / Profile */}
-          <Link
-            href="/lettings/profile"
-            className="group flex flex-col items-center gap-xs py-sm px-xl rounded-xl hover:bg-white/5 transition-colors"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-white/50 group-hover:text-white transition-colors">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-            </svg>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/70 transition-colors">
-              Profile
-            </span>
-          </Link>
-
-          {/* Divider */}
-          <div className="w-px h-8 bg-neutral-800" />
-
-          {/* Agency diary */}
+          {/* Diary View tile */}
           <Link
             href="/admin/agency-diary"
-            className="group flex flex-col items-center gap-xs py-sm px-xl rounded-xl hover:bg-white/5 transition-colors"
+            className="flex flex-col items-start gap-sm rounded-2xl bg-neutral-950 p-lg hover:bg-neutral-900 active:scale-[0.97] transition-all"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-white/50 group-hover:text-white transition-colors">
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-              <line x1="8" y1="14" x2="8" y2="14" strokeWidth="2" strokeLinecap="round" />
-              <line x1="12" y1="14" x2="12" y2="14" strokeWidth="2" strokeLinecap="round" />
-              <line x1="16" y1="14" x2="16" y2="14" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/70 transition-colors">
-              Agency diary
-            </span>
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/10">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+                <circle cx="8" cy="16" r="1" fill="currentColor" />
+                <circle cx="12" cy="16" r="1" fill="currentColor" />
+                <circle cx="16" cy="16" r="1" fill="currentColor" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Diary View</p>
+              <p className="text-xs text-white/40 mt-0.5">Full agency calendar</p>
+            </div>
           </Link>
 
+          {/* Settings tile */}
+          <button
+            onClick={() => setShowSettings(s => !s)}
+            className="flex flex-col items-start gap-sm rounded-2xl bg-neutral-950 p-lg hover:bg-neutral-900 active:scale-[0.97] transition-all text-left"
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/10">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="8" y1="12" x2="20" y2="12" />
+                  <line x1="12" y1="18" x2="20" y2="18" />
+                  <circle cx="4" cy="12" r="2" fill="currentColor" />
+                  <circle cx="8" cy="18" r="2" fill="currentColor" />
+                </svg>
+              </div>
+              <svg
+                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                className={`text-white/40 transition-transform ${showSettings ? 'rotate-180' : ''}`}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Settings</p>
+              <p className="text-xs text-white/40 mt-0.5">Notification preferences</p>
+            </div>
+          </button>
         </div>
-      </div>
+
+        {/* Notification preferences panel (expands below tiles) */}
+        {showSettings && (
+          <div className="mb-2xl rounded-2xl bg-neutral-950 border border-neutral-800 overflow-hidden">
+            <div className="px-lg py-md border-b border-neutral-800">
+              <p className="text-xs font-bold uppercase tracking-widest text-white/40">Notification preferences</p>
+              <p className="text-sm text-white/60 mt-xs">Choose which push notifications you receive</p>
+            </div>
+            <div className="divide-y divide-neutral-800">
+              {[
+                { key: 'viewing_booked', label: 'New viewing booked', desc: 'When an applicant books a viewing' },
+                { key: 'viewing_confirmed', label: 'Viewing confirmed', desc: 'When a viewer confirms their attendance' },
+                { key: 'new_application', label: 'New application', desc: 'When someone applies for a room' },
+                { key: 'deposit_confirmed', label: 'Deposit confirmed', desc: 'When an applicant pays their deposit' },
+                { key: 'running_late', label: 'Running late alerts', desc: 'Alerts sent for time-sensitive viewings' },
+                { key: 'offer_sent', label: 'Offer letter sent', desc: 'Confirmation when an offer is dispatched' },
+              ].map(({ key, label, desc }) => (
+                <button
+                  key={key}
+                  onClick={() => toggleNotif(key)}
+                  className="w-full flex items-center justify-between gap-md px-lg py-md hover:bg-white/5 transition-colors text-left"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">{label}</p>
+                    <p className="text-xs text-white/40 mt-0.5">{desc}</p>
+                  </div>
+                  {/* Toggle pill */}
+                  <div className={`relative shrink-0 w-12 h-6 rounded-full transition-colors ${notifPrefs[key] ? 'bg-green-500' : 'bg-neutral-700'}`}>
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${notifPrefs[key] ? 'translate-x-6' : 'translate-x-0'}`} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </main>
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
 
@@ -686,20 +1030,14 @@ export default function LettingsPage() {
           onSave={handleCreateViewing}
         />
       )}
+      </div>
     </div>
   )
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatTile({ value, label, valueColor = 'text-white' }: { value: number; label: string; valueColor?: string }) {
-  return (
-    <div className="rounded-2xl bg-neutral-900 border border-neutral-800 p-md text-center">
-      <p className={`text-3xl font-black tabular-nums ${valueColor}`}>{value}</p>
-      <p className="text-xs font-medium text-white/40 mt-xs">{label}</p>
-    </div>
-  )
-}
+// StatTile imported from @/app/components/StatTile
 
 function ViewingCard({ viewing }: { viewing: Viewing }) {
   const confirmed = viewing.viewing_status === 'confirmed'

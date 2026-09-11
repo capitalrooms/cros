@@ -1,18 +1,20 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
-import AppBar from '@/components/AppBar'
 import { displayName } from '@/lib/people'
-import RoleGreeting from '@/app/components/RoleGreeting'
-import BackButton from '@/app/components/BackButton'
+import DarkHeroHeader from '@/app/components/DarkHeroHeader'
+import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
+import ViewAsBanner from '@/app/components/ViewAsBanner'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
-import UpcomingList, { UpcomingItem } from '@/app/components/UpcomingList'
+import MultiDayDiaryGrid, { DiaryJob } from '@/app/components/MultiDayDiaryGrid'
+import DesktopRightRail from '@/app/components/DesktopRightRail'
 import { isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+
 interface ComplianceLog {
   id: string
   check_type: 'fire_door' | 'smoke_alarm'
@@ -33,201 +35,212 @@ const sixMonthsAgo = () => {
   return d.toISOString().split('T')[0]
 }
 
-export default function CleanerDashboard() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [me, setMe] = useState<any>(null)
-  const [personId, setPersonId] = useState<string>('')
-  const [cleanerName, setCleanerName] = useState<string>('')
-  const [properties, setProperties] = useState<any[]>([])
-  const [cleans, setCleans] = useState<any[]>([])
-  const [complianceLogs, setComplianceLogs] = useState<ComplianceLog[]>([])
-  const [error, setError] = useState('')
+function todayISO() {
+  return new Date().toISOString().split('T')[0]
+}
 
-  const [propertyId, setPropertyId] = useState('')
-  const [cleanDate, setCleanDate] = useState(new Date().toISOString().split('T')[0])
-  const [cleanTime, setCleanTime] = useState('10:00')
-  const [booking, setBooking] = useState(false)
+const DAY_LABELS  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function buildWeekDays(offset = 0): string[] {
+  const base = new Date()
+  base.setHours(0, 0, 0, 0)
+  const dow = base.getDay()
+  const mondayShift = dow === 0 ? -6 : 1 - dow
+  base.setDate(base.getDate() + mondayShift + offset * 7)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(base)
+    d.setDate(base.getDate() + i)
+    return d.toISOString().slice(0, 10)
+  })
+}
+
+function isoToDateParts(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  return { day: DAY_LABELS[date.getDay()], date: d, month: MONTH_SHORT[m - 1] }
+}
+
+type Tab = 'today' | 'upcoming' | 'done' | 'compliance'
+
+// ── Clean card — lettings-style white card ─────────────────────────────────
+function CleanCard({ c, onClick }: { c: any; onClick: () => void }) {
+  const overdue = isDatePast(c.clean_date)
+  const today   = isDateToday(c.clean_date)
+  return (
+    <button
+      onClick={onClick}
+      className="w-full rounded-2xl border border-neutral-200 bg-white p-md shadow-sm text-left hover:shadow-md transition-shadow flex items-center justify-between gap-md"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-neutral-900 truncate">{c.properties?.name}</p>
+        <p className="text-sm text-neutral-500">
+          {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
+        </p>
+        {c.properties?.clean_frequency_weeks && (
+          <p className="text-xs text-neutral-400 mt-xs">
+            {c.properties.clean_frequency_weeks === 1 ? 'Weekly' : `Every ${c.properties.clean_frequency_weeks} weeks`}
+          </p>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-sm">
+        {overdue && (
+          <span className="rounded-full bg-red-100 text-red-700 text-xs font-bold px-sm py-xs">
+            {Math.abs(getDaysUntil(c.clean_date))}d overdue
+          </span>
+        )}
+        {today && !overdue && (
+          <span className="rounded-full bg-blue-100 text-blue-700 text-xs font-bold px-sm py-xs">Today</span>
+        )}
+        {!today && !overdue && (
+          <span className="text-xs text-neutral-400 font-semibold">
+            in {getDaysUntil(c.clean_date)}d
+          </span>
+        )}
+        <span className="text-neutral-400 text-sm">›</span>
+      </div>
+    </button>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function CleanerDashboard() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const [loading, setLoading]         = useState(true)
+  const [me, setMe]                   = useState<any>(null)
+  const [personId, setPersonId]       = useState<string>('')
+  const [cleanerName, setCleanerName] = useState<string>('')
+  const [viewingAs, setViewingAs]     = useState<{ id: string; name: string; role: string } | null>(null)
+  const [properties, setProperties]   = useState<any[]>([])
+  const [cleans, setCleans]           = useState<any[]>([])
+  const [complianceLogs, setComplianceLogs] = useState<ComplianceLog[]>([])
+  const [error, setError]             = useState('')
+
+  // booking form state (used by modal)
+  const [propertyId, setPropertyId]   = useState('')
+  const [cleanDate, setCleanDate]     = useState(new Date().toISOString().split('T')[0])
+  const [cleanTime, setCleanTime]     = useState('10:00')
+  const [booking, setBooking]         = useState(false)
   const [bookedNotice, setBookedNotice] = useState('')
+
+  // compliance modal
   const [showAddComplianceModal, setShowAddComplianceModal] = useState(false)
-  const [savingCompliance, setSavingCompliance] = useState(false)
+  const [savingCompliance, setSavingCompliance]             = useState(false)
   const [complianceForm, setComplianceForm] = useState({ check_type: 'fire_door' as const, date: new Date().toISOString().split('T')[0], notes: '' })
-  const [roomsNeedingCleaning, setRoomsNeedingCleaning] = useState<any[]>([])
-  const [cleansDisplayLimit, setCleansDisplayLimit] = useState(20)
-  const [totalCleansCount, setTotalCleansCount] = useState(0)
+  const [compliancePropertyId, setCompliancePropertyId]    = useState('')
+
+  // log past clean modal
   const [showLogPastCleanModal, setShowLogPastCleanModal] = useState(false)
   const [pastCleanForm, setPastCleanForm] = useState({ propertyId: '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
   const [savingPastClean, setSavingPastClean] = useState(false)
-  const [assignedJobs, setAssignedJobs] = useState<any[]>([])
+
+  // book clean modal
+  const [showBookCleanModal, setShowBookCleanModal] = useState(false)
+
+  // assigned jobs
+  const [assignedJobs, setAssignedJobs]           = useState<any[]>([])
   const [showAcceptJobModal, setShowAcceptJobModal] = useState<string | null>(null)
   const [acceptJobForm, setAcceptJobForm] = useState({ cleanDate: new Date().toISOString().split('T')[0], cleanTime: '10:00' })
   const [acceptingJob, setAcceptingJob] = useState(false)
-  const [compliancePropertyId, setCompliancePropertyId] = useState('')
-  const [showQuickNotifyModal, setShowQuickNotifyModal] = useState(false)
-  const [quickNotifyProperty, setQuickNotifyProperty] = useState<{ id: string; name: string } | null>(null)
-  const bookingRef = useRef<HTMLElement | null>(null)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    overdue: false,
-  })
+  const [decliningJob, setDecliningJob] = useState<string | null>(null)
+  const [showDeclineModal, setShowDeclineModal] = useState<string | null>(null)
+  const [declineReason, setDeclineReason] = useState('')
 
+  // quick notify
+  const [showQuickNotifyModal, setShowQuickNotifyModal]   = useState(false)
+  const [quickNotifyProperty, setQuickNotifyProperty]     = useState<{ id: string; name: string } | null>(null)
+
+  // pagination
+  const [cleansDisplayLimit, setCleansDisplayLimit] = useState(20)
+
+  // UI
+  const [activeTab, setActiveTab] = useState<Tab>('today')
+  const [showFabMenu, setShowFabMenu] = useState(false)
+  const [selectedDay, setSelectedDay] = useState(todayISO())
+  const [weekOffset, setWeekOffset] = useState(0)
+
+  // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
       try {
-        const data = await getCurrentUser()
-        if (!data || data.assignment?.role !== 'cleaner') {
-          router.push('/login')
-          return
-        }
-        setMe(data.assignment)
-        const supabase = createClient()
+        const data    = await getCurrentUser()
+        const asParam = searchParams.get('as')
+        const isAdmin = ['administrator', 'admin'].includes(data?.assignment?.role || '')
 
-        // Fetch cleaner's person record by email (the correct way to get person_id)
-        const userEmail = data.user?.email
-        try {
+        const supabase = createClient()
+        let targetPersonId: string
+
+        if (asParam && isAdmin) {
+          // Admin viewing as a cleaner
+          const { data: target } = await supabase
+            .from('people')
+            .select('id, full_name, first_name, last_name, role')
+            .eq('id', asParam)
+            .single()
+          if (!target || target.role !== 'cleaner') { router.push('/admin/people'); return }
+          setViewingAs({ id: asParam, name: displayName(target), role: target.role })
+          setCleanerName(displayName(target))
+          targetPersonId = asParam
+        } else {
+          if (!data || data.assignment?.role !== 'cleaner') { router.push('/login'); return }
+          setMe(data.assignment)
+
           const { data: personData } = await supabase
             .from('people')
             .select('id, full_name, first_name, last_name')
-            .eq('email', userEmail)
+            .eq('email', data.user?.email)
             .single()
 
-          if (personData?.id) {
-            setPersonId(personData.id)
-            // Load cleans for this cleaner
-            await loadCleans(personData.id, cleansDisplayLimit)
-          }
-          if (personData) {
-            setCleanerName(displayName(personData))
-          }
-        } catch (err) {
-          console.error('Error loading person data:', err)
+          if (!personData?.id) { router.push('/login'); return }
+          setCleanerName(displayName(personData))
+          targetPersonId = personData.id
         }
 
-        try {
-          const { data: props } = await supabase
-            .from('properties')
-            .select('id, name, address, clean_frequency_weeks')
-            .order('name')
-          setProperties(sortPropertiesNumerically(props || []))
-          if (props?.[0]) {
-            setPropertyId(props[0].id)
-            await loadComplianceLogs(props[0].id)
-          }
-        } catch (err) {
-          console.error('Error loading properties:', err)
+        setPersonId(targetPersonId)
+        await loadCleans(targetPersonId, cleansDisplayLimit)
+
+        const { data: props } = await supabase
+          .from('properties')
+          .select('id, name, address, clean_frequency_weeks')
+          .order('name')
+        setProperties(sortPropertiesNumerically(props || []))
+        if (props?.[0]) {
+          setPropertyId(props[0].id)
+          setCompliancePropertyId(props[0].id)
+          await loadComplianceLogs(props[0].id)
         }
 
-        try {
-          await loadAssignedJobs()
-        } catch (err) {
-          console.error('Error loading assigned jobs:', err)
-        }
-
+        await loadAssignedJobs()
         setLoading(false)
       } catch (err) {
-        console.error('Fatal error in cleaner dashboard init:', err)
+        console.error('Cleaner dashboard init error:', err)
         setLoading(false)
       }
     }
     init()
-  }, [router])
+  }, [router, searchParams])
 
-  async function loadCleans(cleanerId: string, limit: number = 20) {
+  // ── Data loaders ──────────────────────────────────────────────────────────
+  async function loadCleans(cleanerId: string, limit = 20) {
     const supabase = createClient()
-
-    // Get total count of cleans
-    const { count } = await supabase
-      .from('cleans')
-      .select('*', { count: 'exact', head: true })
-      .eq('cleaner_id', cleanerId)
-
     const { data } = await supabase
       .from('cleans')
       .select('*, properties(id, name, address, clean_frequency_weeks)')
       .eq('cleaner_id', cleanerId)
       .order('clean_date', { ascending: false })
       .limit(limit)
-
     setCleans(data || [])
-    setTotalCleansCount(count || 0)
-  }
-
-  async function loadMoreCleans() {
-    const newLimit = cleansDisplayLimit + 20
-    setCleansDisplayLimit(newLimit)
-    await loadCleans(personId, newLimit)
-  }
-
-  async function logPastClean() {
-    if (!pastCleanForm.propertyId || !pastCleanForm.cleanDate) {
-      setError('Please fill in property and date')
-      return
-    }
-
-    setSavingPastClean(true)
-    try {
-      const supabase = createClient()
-      const { error: err } = await supabase.from('cleans').insert({
-        property_id: pastCleanForm.propertyId,
-        cleaner_id: personId,
-        clean_date: pastCleanForm.cleanDate,
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        notes: pastCleanForm.notes || null,
-      })
-
-      if (err) throw err
-
-      setPastCleanForm({ propertyId: '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
-      setShowLogPastCleanModal(false)
-      await loadCleans(personId, cleansDisplayLimit)
-      setError('')
-    } catch (err) {
-      setError('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
-    } finally {
-      setSavingPastClean(false)
-    }
   }
 
   async function loadAssignedJobs() {
     try {
-      const response = await fetch('/api/jobs/assigned')
-      if (!response.ok) return
-
-      const data = await response.json()
+      const res = await fetch('/api/jobs/assigned')
+      if (!res.ok) return
+      const data = await res.json()
       setAssignedJobs(data.jobs || [])
-    } catch (err) {
-      console.error('Failed to load assigned jobs:', err)
-    }
-  }
-
-  async function acceptJob(jobId: string) {
-    if (!acceptJobForm.cleanDate) {
-      setError('Please select a date')
-      return
-    }
-
-    setAcceptingJob(true)
-    try {
-      const response = await fetch(`/api/jobs/${jobId}/accept`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clean_date: acceptJobForm.cleanDate,
-          clean_time: acceptJobForm.cleanTime,
-        }),
-      })
-
-      if (!response.ok) throw new Error('Failed to accept job')
-
-      setShowAcceptJobModal(null)
-      await loadAssignedJobs()
-      await loadCleans(personId, cleansDisplayLimit)
-      setError('')
-    } catch (err) {
-      setError('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
-    } finally {
-      setAcceptingJob(false)
-    }
+    } catch {}
   }
 
   async function loadComplianceLogs(propId: string) {
@@ -242,50 +255,10 @@ export default function CleanerDashboard() {
     setComplianceLogs((data || []) as any)
   }
 
-  function handlePropertyChange(newPropertyId: string) {
-    setPropertyId(newPropertyId)
-    loadComplianceLogs(newPropertyId)
-  }
-
-  async function handleAddComplianceLog() {
-    if (!compliancePropertyId || !complianceForm.date || !personId) {
-      alert('Please fill in all required fields')
-      return
-    }
-
-    setSavingCompliance(true)
-    try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('compliance_logs')
-        .insert({
-          property_id: compliancePropertyId,
-          check_type: complianceForm.check_type,
-          checked_by: personId,
-          checked_by_role: 'cleaner',
-          checked_date: complianceForm.date,
-          notes: complianceForm.notes || null,
-        })
-
-      if (error) throw error
-
-      setComplianceForm({ check_type: 'fire_door', date: new Date().toISOString().split('T')[0], notes: '' })
-      setShowAddComplianceModal(false)
-      await loadComplianceLogs(compliancePropertyId)
-      alert('✅ Check logged')
-    } catch (err) {
-      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
-    } finally {
-      setSavingCompliance(false)
-    }
-  }
-
-  /** Book a clean. Short notice is normal here — no lead-time rules. */
+  // ── Actions ───────────────────────────────────────────────────────────────
   async function bookClean() {
     if (!propertyId || !cleanDate || booking) return
-    setError('')
-    setBookedNotice('')
-    setBooking(true)
+    setError(''); setBookedNotice(''); setBooking(true)
     const supabase = createClient()
     const { error: err } = await supabase.from('cleans').insert({
       property_id: propertyId,
@@ -293,711 +266,915 @@ export default function CleanerDashboard() {
       clean_date: cleanDate,
       clean_time: cleanTime || null,
     })
-    if (err) {
-      setBooking(false)
-      return setError(err.message)
-    }
+    if (err) { setBooking(false); return setError(err.message) }
     await loadCleans(personId)
     setBooking(false)
     const propName = properties.find((p) => p.id === propertyId)?.name || 'the property'
     const when = new Date(cleanDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
-    setBookedNotice(`✅ Clean booked for ${propName} on ${when}${cleanTime ? ` at ${cleanTime}` : ''}. It's in Upcoming cleans below.`)
+    setBookedNotice(`✅ Clean booked for ${propName} on ${when}${cleanTime ? ` at ${cleanTime}` : ''}.`)
+    setShowBookCleanModal(false)
   }
 
-  /** last completed clean date + frequency weeks → next-due date */
-  function nextDue(c: any): string | null {
-    const weeks = c.properties?.clean_frequency_weeks
-    const base = c.completed_at || c.clean_date
-    if (!weeks || !base) return null
-    const d = new Date(base)
-    d.setDate(d.getDate() + weeks * 7)
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  async function logPastClean() {
+    if (!pastCleanForm.propertyId || !pastCleanForm.cleanDate) { setError('Please fill in property and date'); return }
+    setSavingPastClean(true)
+    try {
+      const supabase = createClient()
+      const { error: err } = await supabase.from('cleans').insert({
+        property_id: pastCleanForm.propertyId,
+        cleaner_id: personId,
+        clean_date: pastCleanForm.cleanDate,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        notes: pastCleanForm.notes || null,
+      })
+      if (err) throw err
+      setPastCleanForm({ propertyId: '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
+      setShowLogPastCleanModal(false)
+      await loadCleans(personId, cleansDisplayLimit)
+    } catch (err) {
+      setError('Error: ' + (err instanceof Error ? err.message : 'Unknown'))
+    } finally { setSavingPastClean(false) }
   }
 
-  function freqLabel(weeks: number | null | undefined): string | null {
-    if (weeks == null) return null
-    return weeks === 1 ? 'Weekly' : weeks === 2 ? 'Every 2 weeks' : `Every ${weeks} weeks`
+  async function declineJob(jobId: string) {
+    setDecliningJob(jobId)
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/decline`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: declineReason }),
+      })
+      if (!res.ok) throw new Error('Failed to decline job')
+      setShowDeclineModal(null)
+      setDeclineReason('')
+      await loadAssignedJobs()
+    } catch (err) {
+      setError('Error: ' + (err instanceof Error ? err.message : 'Unknown'))
+    } finally { setDecliningJob(null) }
   }
 
+  async function acceptJob(jobId: string) {
+    if (!acceptJobForm.cleanDate) { setError('Please select a date'); return }
+    setAcceptingJob(true)
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/accept`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clean_date: acceptJobForm.cleanDate, clean_time: acceptJobForm.cleanTime }),
+      })
+      if (!res.ok) throw new Error('Failed to accept job')
+      setShowAcceptJobModal(null)
+      await loadAssignedJobs()
+      await loadCleans(personId, cleansDisplayLimit)
+    } catch (err) {
+      setError('Error: ' + (err instanceof Error ? err.message : 'Unknown'))
+    } finally { setAcceptingJob(false) }
+  }
+
+  async function handleAddComplianceLog() {
+    if (!compliancePropertyId || !complianceForm.date || !personId) { alert('Please fill in all fields'); return }
+    setSavingCompliance(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('compliance_logs').insert({
+        property_id: compliancePropertyId,
+        check_type: complianceForm.check_type,
+        checked_by: personId,
+        checked_by_role: 'cleaner',
+        checked_date: complianceForm.date,
+        notes: complianceForm.notes || null,
+      })
+      if (error) throw error
+      setComplianceForm({ check_type: 'fire_door', date: new Date().toISOString().split('T')[0], notes: '' })
+      setShowAddComplianceModal(false)
+      await loadComplianceLogs(compliancePropertyId)
+      alert('✅ Check logged')
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown'))
+    } finally { setSavingCompliance(false) }
+  }
+
+  // ── Loading state ─────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton />} />
-        <p className="p-xl text-sm text-neutral-400">Loading…</p>
+        <div className="bg-neutral-950 pb-xl">
+          <div style={{ height: 'calc(env(safe-area-inset-top) + 52px)' }} />
+          <div className="px-lg pt-lg">
+            <div className="h-2.5 w-14 rounded-full bg-white/20 mb-sm" />
+            <div className="h-7 w-44 rounded-xl bg-white/20 mb-xl" />
+            <div className="grid grid-cols-3 gap-sm">
+              {[0, 1, 2].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
-  // Filter scheduled cleans by status AND date
-  const scheduledCleans = cleans.filter((c) => c.status !== 'completed')
-  const overdueCleans = scheduledCleans.filter((c) => c.clean_date && isDatePast(c.clean_date))
-  const todayCleans = scheduledCleans.filter((c) => c.clean_date && isDateToday(c.clean_date))
-  const upcomingCleans = scheduledCleans.filter((c) => c.clean_date && isDateFuture(c.clean_date))
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const scheduledCleans = cleans.filter(c => c.status !== 'completed')
+  const overdueCleans   = scheduledCleans.filter(c => c.clean_date && isDatePast(c.clean_date))
+  const todayCleans     = scheduledCleans.filter(c => c.clean_date && isDateToday(c.clean_date))
+  const upcomingCleans  = scheduledCleans.filter(c => c.clean_date && isDateFuture(c.clean_date))
+  const doneCleans      = cleans.filter(c => c.status === 'completed')
 
-  const scheduled = scheduledCleans // Keep for backward compatibility
-  const done = cleans.filter((c) => c.status === 'completed')
+  const dayCleans   = scheduledCleans.filter(c => c.clean_date === selectedDay)
+  const isViewingToday = selectedDay === todayISO()
 
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
-  }
+  const firstName = cleanerName.split(' ')[0] || me?.email?.split('@')[0] || 'there'
 
-  // Initialize expandedSections with overdue status on first render
-  if (expandedSections.overdue === false && overdueCleans.length > 0) {
-    setExpandedSections({ overdue: true })
-  }
+  // ── Desktop computed ─────────────────────────────────────────────────────
+  const diaryJobs: DiaryJob[] = scheduledCleans.map((c: any) => ({
+    id: c.id,
+    date: c.clean_date,
+    time: c.clean_time ?? null,
+    label: c.properties?.name ?? 'Clean',
+    isOverdue: c.clean_date ? isDatePast(c.clean_date) : false,
+    href: `/cleaner/clean/${c.id}`,
+  }))
+  const dateCounts: Record<string, number> = {}
+  scheduledCleans.forEach((c: any) => {
+    if (c.clean_date) dateCounts[c.clean_date] = (dateCounts[c.clean_date] || 0) + 1
+  })
+  // Also show assigned-job due dates on the calendar
+  assignedJobs.forEach((j: any) => {
+    if (j.due_date) dateCounts[j.due_date] = (dateCounts[j.due_date] || 0) + 1
+  })
+  const railAlerts = [
+    ...(overdueCleans.length > 0 ? [{ title: `${overdueCleans.length} overdue clean${overdueCleans.length !== 1 ? 's' : ''}`, body: 'Tap to reschedule', variant: 'red' as const, onClick: () => setActiveTab('today') }] : []),
+    ...(assignedJobs.length > 0 ? [{ title: `${assignedJobs.length} job${assignedJobs.length !== 1 ? 's' : ''} need accepting`, body: 'Tap to view & accept', variant: 'amber' as const, onClick: () => setActiveTab('today') }] : []),
+    ...(todayCleans.length > 0 ? [{ title: `${todayCleans.length} clean${todayCleans.length !== 1 ? 's' : ''} today`, variant: 'sage' as const, onClick: () => setActiveTab('today') }] : []),
+    ...(upcomingCleans.length > 0 ? [{ title: `${upcomingCleans.length} upcoming`, variant: 'default' as const, onClick: () => setActiveTab('upcoming') }] : []),
+  ]
+  // Next few scheduled cleans for the "Coming Up" rail section
+  const comingUpCleans = upcomingCleans.slice(0, 4)
 
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'today',      label: `Today${todayCleans.length + overdueCleans.length > 0 ? ` (${todayCleans.length + overdueCleans.length})` : ''}` },
+    { key: 'upcoming',   label: 'Upcoming' },
+    { key: 'done',       label: 'Done' },
+    { key: 'compliance', label: 'Compliance' },
+  ]
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar
-        right={
+    <div style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>
+
+      {/* Dismiss FAB menu on backdrop click */}
+      {showFabMenu && (
+        <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
+      )}
+
+      {/* ── View-as banner ────────────────────────────────────────────────── */}
+      {viewingAs && (
+        <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
+      )}
+
+      {/* ── DESKTOP 3-column shell (lg+) ──────────────────────────────────── */}
+      <div className="hidden lg:grid lg:min-h-screen" style={{ gridTemplateColumns: '220px 1fr 300px', background: '#F6F3EC' }}>
+
+        {/* Left sidebar */}
+        <aside style={{ background: '#181614', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
+          <div style={{ padding: '28px 20px 20px' }}>
+            <div style={{ fontWeight: 800, fontSize: '12px', letterSpacing: '0.14em', color: '#F6F3EC', textTransform: 'uppercase' }}>Capital Rooms</div>
+            <div style={{ fontSize: '11px', color: '#4B6358', fontWeight: 700, marginTop: 2 }}>Cleaner</div>
+          </div>
+          <div style={{ padding: '0 20px 20px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#F6F3EC' }}>Hi {firstName} 👋</div>
+          </div>
+          <nav style={{ flex: 1, padding: '0 10px' }}>
+            {TABS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '9px 12px', borderRadius: 10, marginBottom: 3,
+                  fontSize: '13px', fontWeight: 600,
+                  background: activeTab === key ? '#4B6358' : 'transparent',
+                  color: activeTab === key ? '#F6F3EC' : '#9ca3af',
+                  border: 'none', cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div style={{ padding: '20px' }}>
+            <button
+              onClick={async () => { await signOut(); router.push('/login') }}
+              style={{ fontSize: '12px', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              Sign out
+            </button>
+          </div>
+        </aside>
+
+        {/* Main */}
+        <main style={{ overflowY: 'auto' }}>
+          {/* Dark stats header */}
+          <div style={{ background: '#181614', padding: '28px 28px 20px' }}>
+            <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#F6F3EC', marginBottom: 16 }}>Cleans</h1>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {([
+                { value: overdueCleans.length, label: 'Overdue', color: overdueCleans.length > 0 ? '#f87171' : '#F6F3EC' },
+                { value: todayCleans.length,   label: 'Today',   color: '#60a5fa' },
+                { value: upcomingCleans.length, label: 'Upcoming', color: '#F6F3EC' },
+              ] as { value: number; label: string; color: string }[]).map(({ value, label, color }) => (
+                <div key={label} style={{ background: '#1f2937', borderRadius: 14, padding: '14px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '26px', fontWeight: 800, color }}>{value}</div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: 3 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Diary */}
+          <div style={{ padding: '20px 28px' }}>
+            <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Diary</p>
+            <MultiDayDiaryGrid jobs={diaryJobs} startHour={8} endHour={19} />
+          </div>
+
+          {/* Tab-specific content */}
+          <div style={{ padding: '4px 28px 40px' }}>
+            {activeTab === 'today' && (
+              <div>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Today</p>
+                {dayCleans.length === 0
+                  ? <p style={{ fontSize: '14px', color: '#9ca3af' }}>No cleans scheduled for today.</p>
+                  : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {dayCleans.map((c: any) => (
+                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid #E7E1D4' }}>
+                          <div style={{ fontWeight: 700, color: '#181614', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
+                          {c.clean_time && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: 2 }}>{c.clean_time}</div>}
+                        </a>
+                      ))}
+                    </div>
+                }
+              </div>
+            )}
+            {activeTab === 'upcoming' && (
+              <div>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Upcoming</p>
+                {upcomingCleans.length === 0
+                  ? <p style={{ fontSize: '14px', color: '#9ca3af' }}>No upcoming cleans.</p>
+                  : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {upcomingCleans.map((c: any) => (
+                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid #E7E1D4' }}>
+                          <div style={{ fontWeight: 700, color: '#181614', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: 2 }}>{formatDateUK(c.clean_date)}</div>
+                        </a>
+                      ))}
+                    </div>
+                }
+              </div>
+            )}
+            {activeTab === 'done' && (
+              <div>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Done</p>
+                {doneCleans.length === 0
+                  ? <p style={{ fontSize: '14px', color: '#9ca3af' }}>No completed cleans yet.</p>
+                  : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {doneCleans.map((c: any) => (
+                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid #E7E1D4' }}>
+                          <div style={{ fontWeight: 700, color: '#181614', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
+                          <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: 2 }}>{formatDateUK(c.clean_date)} · Completed</div>
+                        </a>
+                      ))}
+                    </div>
+                }
+              </div>
+            )}
+            {activeTab === 'compliance' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Compliance</p>
+                  <button
+                    onClick={() => setShowAddComplianceModal(true)}
+                    style={{ fontSize: '12px', fontWeight: 700, color: '#4B6358', background: '#DCE6DE', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
+                  >
+                    + Log Check
+                  </button>
+                </div>
+                {complianceLogs.length === 0
+                  ? <p style={{ fontSize: '14px', color: '#9ca3af' }}>No compliance checks logged recently.</p>
+                  : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {complianceLogs.slice(0, 10).map((log) => (
+                        <div key={log.id} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', border: '1px solid #E7E1D4' }}>
+                          <div style={{ fontWeight: 700, color: '#181614', fontSize: '14px' }}>{log.check_type === 'fire_door' ? '🚪 Fire Door' : '🔊 Smoke Alarm'}</div>
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: 2 }}>{formatDateUK(log.checked_date)}{log.notes ? ` · ${log.notes}` : ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                }
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* Right rail */}
+        <DesktopRightRail dateCounts={dateCounts} alerts={railAlerts} alertsHeading="Your Cleans">
+          {comingUpCleans.length > 0 && (
+            <div style={{ marginTop: 18 }}>
+              <h3 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', margin: '0 0 8px', fontWeight: 700 }}>
+                Coming Up
+              </h3>
+              {comingUpCleans.map((c: any) => (
+                <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ textDecoration: 'none' }}>
+                  <div style={{ background: '#FFFFFF', border: '1px solid #E7E1D4', borderRadius: 12, padding: '10px 12px', marginBottom: 7, cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#F6F3EC' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#FFFFFF' }}
+                  >
+                    <div style={{ fontWeight: 700, fontSize: 12, color: '#181614', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.properties?.name || 'Clean'}</div>
+                    <div style={{ fontSize: 10.5, color: '#59544C', marginTop: 2 }}>
+                      📅 {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </DesktopRightRail>
+      </div>
+
+      {/* ── MOBILE (< lg) ─────────────────────────────────────────────────── */}
+      <div className="lg:hidden min-h-screen bg-neutral-100">
+
+      {/* ── Dark hero ──────────────────────────────────────────────────────── */}
+      <DarkHeroHeader
+        eyebrow="Cleaner"
+        heading={`Hi ${firstName} 👋`}
+        topRight={
           <div className="flex items-center gap-md">
-            <a href="/cleaner/profile" className="shrink-0 transition-colors hover:opacity-80 flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10" title="Profile settings">
+            <a
+              href="/cleaner/profile"
+              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 transition-colors"
+              title="Profile"
+            >
               <span className="text-lg leading-none">⚙️</span>
             </a>
-            <button onClick={async () => { await signOut(); router.push('/login') }} className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm">
-              <span>👋</span> Sign out
+            <button
+              onClick={async () => { await signOut(); router.push('/login') }}
+              className="hover:text-white/70 transition-colors"
+            >
+              Sign out
             </button>
           </div>
         }
-      />
-
-      <main className="mx-auto max-w-6xl px-lg py-lg">
-        {/* Greeting */}
-        {me && (
-          <RoleGreeting
-            role="Cleaner Dashboard"
-            name={cleanerName || me?.email?.split('@')[0]}
-            subtitle="Ready to get some work done"
+      >
+        <div className="grid grid-cols-3 gap-sm mb-lg">
+          <StatTile
+            value={overdueCleans.length}
+            label="Overdue"
+            valueColor={overdueCleans.length > 0 ? 'text-red-400' : 'text-white'}
           />
-        )}
-
-        {/* Notifications */}
-        <div className="mb-lg">
-          <EnableNotifications />
-        </div>
-        {error && (
-          <div className="mb-md rounded-xl border border-neutral-900 bg-white p-md text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Upcoming cleans — pill list */}
-        <UpcomingList
-          title="All upcoming cleans"
-          emptyMessage="No cleans booked yet — use the booking form below."
-          items={[...scheduledCleans]
-            .filter(c => c.clean_date)
-            .sort((a, b) => a.clean_date.localeCompare(b.clean_date))
-            .map((c): UpcomingItem => ({
-              id: c.id,
-              date: c.clean_date,
-              time: c.clean_time ? String(c.clean_time).slice(0, 5) : undefined,
-              label: c.properties?.name || 'Property',
-              sublabel: c.properties?.address || undefined,
-              badge: isDatePast(c.clean_date) ? 'Overdue' : isDateToday(c.clean_date) ? 'Today' : undefined,
-              badgeColor: isDatePast(c.clean_date) ? 'bg-red-100 text-red-700' : isDateToday(c.clean_date) ? 'bg-blue-100 text-blue-700' : undefined,
-            }))}
-          onItemClick={(item) => router.push(`/cleaner/clean/${item.id}`)}
-        />
-
-        <section ref={bookingRef} className="rounded-2xl border-2 border-neutral-950 bg-neutral-900 p-lg">
-          <h2 className="text-xl font-bold text-white">Book a clean</h2>
-          <div className="mt-md grid gap-md sm:grid-cols-3">
-            {/* min-w-0 on each grid cell lets the column shrink to the tile
-                width. Without it, the native date/time controls keep their
-                intrinsic min-content width and push out past the tile edges. */}
-            <div className="min-w-0">
-              <label className="block text-xs font-medium text-neutral-200">Property</label>
-              <select
-                value={propertyId}
-                onChange={(e) => handlePropertyChange(e.target.value)}
-                className="mt-xs w-full min-w-0 rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
-              >
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="min-w-0">
-              <label className="block text-xs font-medium text-neutral-200">Date</label>
-              <input
-                type="date"
-                value={cleanDate}
-                onChange={(e) => setCleanDate(e.target.value)}
-                className="mt-xs w-full min-w-0 rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
-              />
-            </div>
-            <div className="min-w-0">
-              <label className="block text-xs font-medium text-neutral-200">Time</label>
-              <input
-                type="time"
-                value={cleanTime}
-                onChange={(e) => setCleanTime(e.target.value)}
-                className="mt-xs w-full min-w-0 rounded-xl border border-neutral-600 bg-neutral-900 px-md py-md text-sm text-white"
-              />
-            </div>
-          </div>
-          <div className="mt-md flex gap-md">
-            <button
-              onClick={bookClean}
-              disabled={booking}
-              className="flex-1 rounded-xl bg-slate-600 py-md text-sm font-bold text-white disabled:opacity-40 hover:bg-slate-700"
-            >
-              {booking ? 'Booking…' : 'Book this clean'}
-            </button>
-            <button
-              onClick={() => {
-                setPastCleanForm({ propertyId: propertyId || '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
-                setShowLogPastCleanModal(true)
-              }}
-              className="flex-1 rounded-xl bg-slate-600 py-md text-sm font-bold text-white hover:bg-slate-700"
-            >
-              📝 Log Past Clean
-            </button>
-          </div>
-          {bookedNotice && (
-            <div className="mt-md rounded-xl border border-green-300 bg-green-50 p-md text-sm font-semibold text-green-800">
-              {bookedNotice}
-            </div>
-          )}
-        </section>
-
-        {/* Assigned Jobs Section */}
-        {assignedJobs.length > 0 && (
-          <section className="mt-3xl">
-            <h2 className="text-xl font-bold">📌 Assigned Jobs</h2>
-            <div className="mt-md space-y-sm">
-              {assignedJobs.map((job) => (
-                <div
-                  key={job.id}
-                  className={`rounded-2xl border-2 p-md ${
-                    job.task_type === 'asap'
-                      ? 'border-red-500 bg-red-900'
-                      : job.task_type === 'urgent'
-                      ? 'border-orange-500 bg-orange-900'
-                      : 'border-blue-500 bg-blue-900'
-                  } text-white`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-bold">
-                        {job.properties?.name} - {job.rooms?.name}
-                      </p>
-                      {job.notes && (
-                        <p className="text-sm text-neutral-200 mt-xs">{job.notes}</p>
-                      )}
-                      <p className="text-xs text-neutral-300 mt-xs">
-                        {job.task_type === 'asap' ? '🚨 ASAP' : job.task_type === 'urgent' ? '⚠️ Urgent' : '📌 Normal'}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setAcceptJobForm({
-                          cleanDate: new Date().toISOString().split('T')[0],
-                          cleanTime: '10:00',
-                        })
-                        setShowAcceptJobModal(job.id)
-                      }}
-                      className="shrink-0 ml-md rounded-lg bg-white px-md py-sm text-xs font-bold text-neutral-900 hover:bg-neutral-100"
-                    >
-                      Accept & Book
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Stats Grid */}
-        <div className="mt-3xl grid gap-md sm:grid-cols-4">
-          {/* OVERDUE */}
-          {overdueCleans.length > 0 && (
-            <button
-              onClick={() => document.getElementById('overdue-section')?.scrollIntoView({ behavior: 'smooth' })}
-              className="rounded-2xl border-2 bg-red-50 border-red-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
-            >
-              <p className="text-xs font-bold uppercase tracking-wide text-red-600">⚠️ Overdue</p>
-              <p className="mt-xs text-3xl font-bold text-red-600">{overdueCleans.length}</p>
-              <p className="text-xs text-red-600 mt-xs">action needed</p>
-            </button>
-          )}
-
-          {/* TODAY */}
-          {todayCleans.length > 0 && (
-            <button
-              onClick={() => document.getElementById('today-section')?.scrollIntoView({ behavior: 'smooth' })}
-              className="rounded-2xl border-2 bg-blue-50 border-blue-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
-            >
-              <p className="text-xs font-bold uppercase tracking-wide text-blue-600">📍 Today</p>
-              <p className="mt-xs text-3xl font-bold text-blue-600">{todayCleans.length}</p>
-              <p className="text-xs text-blue-600 mt-xs">scheduled for now</p>
-            </button>
-          )}
-
-          {/* UPCOMING */}
-          <button
-            onClick={() => document.getElementById('upcoming-section')?.scrollIntoView({ behavior: 'smooth' })}
-            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
-          >
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">📅 Upcoming</p>
-            <p className="mt-xs text-3xl font-bold text-neutral-900">{upcomingCleans.length}</p>
-            <p className="text-xs text-neutral-600 mt-xs">scheduled ahead</p>
-          </button>
-
-          {/* COMPLETED */}
-          <button
-            onClick={() => document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' })}
-            className="rounded-2xl border-2 bg-white border-neutral-300 p-lg text-left hover:shadow-md transition-shadow cursor-pointer"
-          >
-            <p className="text-xs font-bold uppercase tracking-wide text-neutral-600">✅ Completed</p>
-            <p className="mt-xs text-3xl font-bold text-neutral-900">
-              {done.length > 0 && <span className="mr-sm">✓</span>}
-              {done.length}
-            </p>
-            <p className="text-xs text-neutral-600 mt-xs">this month</p>
-          </button>
+          <StatTile value={todayCleans.length} label="Today" valueColor="text-blue-400" />
+          <StatTile value={upcomingCleans.length} label="Upcoming" />
         </div>
 
-        {/* OVERDUE section - Red warning with collapse */}
-        {overdueCleans.length > 0 && (
-          <section className="mb-3xl mt-3xl" id="overdue-section">
-            <button
-              onClick={() => toggleSection('overdue')}
-              className="w-full flex items-center justify-between mb-md p-md rounded-lg border-2 border-red-300 bg-red-50 text-left hover:bg-red-100 transition-colors"
-            >
-              <div className="flex items-center gap-md">
-                <span className="text-lg">{expandedSections.overdue ? '▼' : '▶'}</span>
-                <div>
-                  <h2 className="font-bold text-red-600">⚠️ Overdue</h2>
-                  <p className="text-xs text-red-600">{overdueCleans.length} clean{overdueCleans.length !== 1 ? 's' : ''} need attention</p>
-                </div>
-              </div>
-            </button>
-
-            {expandedSections.overdue && (
-              <>
-                <div className="rounded-lg border-2 border-red-300 bg-red-50 p-md mb-lg mt-md">
-                  <p className="text-sm text-red-700">
-                    These cleans were scheduled for past dates. Please contact admin to reschedule or mark complete.
-                  </p>
-                </div>
-                <div className="space-y-md">
-                  {overdueCleans.map((c) => (
+        {/* Week tile strip */}
+        {(() => {
+          const weekDays = buildWeekDays(weekOffset)
+          return (
+            <div className="flex items-center gap-xs">
+              <button
+                onClick={() => setWeekOffset(o => o - 1)}
+                className="shrink-0 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-lg leading-none"
+                aria-label="Previous week"
+              >‹</button>
+              <div className="flex gap-xs flex-1 justify-between">
+                {weekDays.map(iso => {
+                  const { day, date, month } = isoToDateParts(iso)
+                  const isToday    = iso === todayISO()
+                  const isSelected = iso === selectedDay
+                  const count = scheduledCleans.filter(c => c.clean_date === iso).length
+                  return (
                     <button
-                      key={c.id}
-                      onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                      className="w-full flex items-center justify-between gap-md rounded-2xl border-2 border-red-300 bg-red-50 p-md text-left hover:shadow-md text-red-900"
+                      key={iso}
+                      onClick={() => { setSelectedDay(iso); setActiveTab('today') }}
+                      className={`flex-1 flex flex-col items-center rounded-xl px-xs py-sm transition-colors min-w-0 ${
+                        isSelected ? 'bg-white text-neutral-900' :
+                        isToday    ? 'bg-white/15 text-white border border-white/30' :
+                        'bg-neutral-800/60 text-neutral-400 border border-neutral-700'
+                      }`}
                     >
-                      <div className="min-w-0">
-                        <p className="truncate font-bold text-red-900">{c.properties?.name}</p>
-                        <p className="text-sm text-red-700">
-                          {new Date(c.clean_date).toLocaleDateString('en-GB', {
-                            weekday: 'short',
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                          {c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-center">
-                        <span className="inline-block rounded-lg bg-red-600 px-md py-sm text-xs font-bold text-white">
-                          {Math.abs(getDaysUntil(c.clean_date || ''))} days overdue
+                      <span className="text-[10px] font-semibold opacity-70">{day.slice(0,1)}</span>
+                      <span className="text-base font-bold leading-none my-xs">{date}</span>
+                      {count > 0 ? (
+                        <span className={`text-[10px] font-bold rounded-full px-xs ${isSelected ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-900'}`}>
+                          {count}
                         </span>
-                      </div>
+                      ) : (
+                        <span className="text-[10px] opacity-40">{month}</span>
+                      )}
                     </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </section>
-        )}
+                  )
+                })}
+              </div>
+              <button
+                onClick={() => setWeekOffset(o => o + 1)}
+                className="shrink-0 w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-colors text-lg leading-none"
+                aria-label="Next week"
+              >›</button>
+            </div>
+          )
+        })()}
+      </DarkHeroHeader>
 
-        {/* TODAY section - Blue, high priority */}
-        {todayCleans.length > 0 && (
-          <section className="mb-3xl" id="today-section">
-            <div className="flex items-center justify-between mb-md">
-              <h2 className="text-xl font-bold text-blue-600">📍 Today</h2>
-              <span className="text-sm text-blue-600 font-semibold">{todayCleans.length} scheduled</span>
-            </div>
-            <div className="space-y-md">
-              {todayCleans.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                  className="w-full flex items-center justify-between gap-md rounded-2xl border-2 border-blue-300 bg-blue-50 p-md text-left hover:shadow-md text-blue-900"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-bold text-blue-900">{c.properties?.name}</p>
-                    <p className="text-sm text-blue-700">
-                      {c.clean_time ? `Today at ${String(c.clean_time).slice(0, 5)}` : 'Today'}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-lg bg-blue-600 px-md py-sm text-xs font-bold text-white">
-                    {c.arrived_at ? 'On site' : 'Ready'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* UPCOMING section */}
-        {upcomingCleans.length > 0 && (
-          <section className="mb-3xl" id="upcoming-section">
-            <div className="flex items-center justify-between mb-md">
-              <h2 className="text-xl font-bold">📅 Upcoming</h2>
-              <span className="text-sm text-neutral-600 font-semibold">{upcomingCleans.length} scheduled</span>
-            </div>
-            <div className="space-y-md">
-              {upcomingCleans.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                  className="w-full flex items-center justify-between gap-md rounded-2xl border border-neutral-800 bg-neutral-900 p-md text-left hover:border-white text-white"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-bold text-white">{c.properties?.name}</p>
-                    <p className="text-sm text-neutral-400">
-                      {new Date(c.clean_date).toLocaleDateString('en-GB', {
-                        weekday: 'short',
-                        day: 'numeric',
-                        month: 'short',
-                      })}
-                      {c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs font-bold text-neutral-400">
-                    in {getDaysUntil(c.clean_date || '')} day{getDaysUntil(c.clean_date || '') !== 1 ? 's' : ''}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {scheduled.length === 0 && done.length === 0 && (
-          <p className="mt-3xl rounded-2xl border border-dashed border-neutral-700 bg-neutral-900 p-xl text-center text-sm text-neutral-400">
-            Nothing booked yet
-          </p>
-        )}
-
-        {done.length > 0 && (
-          <section className="mt-3xl">
-            <h2 className="text-xl font-bold">Completed</h2>
-            <div className="mt-md space-y-sm">
-              {done.map((c) => {
-                const due = nextDue(c)
-                const freq = freqLabel(c.properties?.clean_frequency_weeks)
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => router.push(`/cleaner/clean/${c.id}`)}
-                    className="flex w-full items-center justify-between gap-md rounded-2xl border border-neutral-800 bg-neutral-900 p-md text-left hover:border-white text-white"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-bold text-white">{c.properties?.name}</p>
-                      <p className="text-sm text-neutral-400">
-                        {new Date(c.clean_date).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
-                        {c.special_jobs?.length ? ` · ${c.special_jobs.length} extra jobs` : ''}
-                      </p>
-                      {(freq || due) && (
-                        <p className="mt-xs text-xs font-semibold text-neutral-300">
-                          {freq ? freq : ''}
-                          {freq && due ? ' · ' : ''}
-                          {due ? `next due ${due}` : ''}
-                        </p>
-                      )}
-                    </div>
-                    <span className="shrink-0 rounded-lg bg-green-100 px-md py-sm text-xs font-bold text-green-800">
-                      Completed
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Compliance Logs Section */}
-        <section className="mt-3xl">
-          <div className="flex items-center justify-between mb-md">
-            <div>
-              <h2 className="text-xl font-bold">Compliance Checks</h2>
-              <p className="text-sm text-neutral-600 mt-xs">
-                {properties.find((p) => p.id === propertyId)?.name || 'All properties'} · Last 6 months
-              </p>
-            </div>
+      {/* ── Tab strip — exact lettings pattern ─────────────────────────────── */}
+      <div
+        className="bg-white border-b border-neutral-200 sticky z-40 px-lg pt-md pb-0"
+        style={{ top: 'calc(env(safe-area-inset-top) + 52px)' }}
+      >
+        <div className="flex gap-xs overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {TABS.map(({ key, label }) => (
             <button
-              onClick={() => {
-                setCompliancePropertyId(propertyId)
-                setShowAddComplianceModal(true)
-              }}
-              className="rounded-lg bg-slate-600 px-md py-sm text-xs font-bold text-white hover:bg-blue-600"
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`px-lg py-sm rounded-full text-sm font-bold whitespace-nowrap transition-all mb-sm ${
+                activeTab === key
+                  ? 'bg-neutral-950 text-white'
+                  : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
+              }`}
             >
-              + Add Check
+              {label}
             </button>
-          </div>
+          ))}
+        </div>
+      </div>
 
-          {complianceLogs.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-400">
-              No compliance checks logged for this property yet
-            </p>
-          ) : (
-            <div className="space-y-sm">
-              {complianceLogs.map((log) => (
-                <div key={log.id} className="rounded-lg border border-neutral-800 bg-neutral-900 p-md">
-                  <div className="flex items-start justify-between gap-md">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-white">
-                        {checkTypeLabels[log.check_type]}
-                      </p>
-                      <p className="text-sm text-neutral-400 mt-xs">
-                        {new Date(log.checked_date).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                        {' · '}
-                        {displayName(log.people) || 'Unknown'} ({log.checked_by_role})
-                      </p>
-                      {log.notes && (
-                        <p className="text-sm text-neutral-300 mt-md whitespace-pre-wrap">
-                          {log.notes}
-                        </p>
-                      )}
+      {/* ── Global notices ─────────────────────────────────────────────────── */}
+      {bookedNotice && (
+        <div className="mx-lg mt-md rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">
+          {bookedNotice}
+        </div>
+      )}
+      {error && (
+        <div className="mx-lg mt-md rounded-xl border border-red-200 bg-red-50 px-lg py-sm text-sm font-semibold text-red-800">
+          {error}
+        </div>
+      )}
+
+      {/* ── Tab content ────────────────────────────────────────────────────── */}
+      <main className="mx-auto max-w-2xl px-lg pb-3xl">
+
+        {/* Notifications prompt — shown once at top of first tab */}
+        {activeTab === 'today' && (
+          <div className="pt-lg pb-sm">
+            <EnableNotifications />
+          </div>
+        )}
+
+        {/* ── TODAY ──────────────────────────────────────────────────────── */}
+        {activeTab === 'today' && (
+          <div className="space-y-md pt-sm">
+
+            {isViewingToday ? (
+              <>
+                {/* Assigned jobs that need accepting */}
+                {assignedJobs.length > 0 && (
+                  <div>
+                    <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-wide mb-sm">
+                      📌 Assigned — need booking
+                    </h2>
+                    <div className="space-y-sm">
+                      {assignedJobs.map(job => (
+                        <div
+                          key={job.id}
+                          className="rounded-2xl border border-amber-200 bg-amber-50 p-md flex items-start justify-between gap-md"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-neutral-900 truncate">
+                              {job.properties?.name}{job.rooms?.name ? ` · ${job.rooms.name}` : ''}
+                            </p>
+                            {job.notes && <p className="text-sm text-neutral-600 mt-xs">{job.notes}</p>}
+                            <p className="text-xs text-amber-700 font-semibold mt-xs">
+                              {job.task_type === 'asap' ? '🚨 ASAP' : job.task_type === 'urgent' ? '⚠️ Urgent' : '📌 Normal'}
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-xs shrink-0">
+                            <button
+                              onClick={() => { setAcceptJobForm({ cleanDate: new Date().toISOString().split('T')[0], cleanTime: '10:00' }); setShowAcceptJobModal(job.id) }}
+                              className="rounded-full bg-neutral-950 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => { setDeclineReason(''); setShowDeclineModal(job.id) }}
+                              className="rounded-full border border-red-300 bg-red-50 px-md py-sm text-xs font-bold text-red-700 hover:bg-red-100 transition-colors"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Add Compliance Check Modal */}
-        {showAddComplianceModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
-              <h2 className="text-xl font-bold text-neutral-900 mb-md">Log Compliance Check</h2>
-
-              <div className="space-y-md">
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Property *</label>
-                  <select
-                    value={compliancePropertyId}
-                    onChange={(e) => setCompliancePropertyId(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-                  >
-                    <option value="">Select a property</option>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Check Type</label>
-                  <div className="flex gap-sm">
-                    {(['fire_door', 'smoke_alarm'] as const).map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => setComplianceForm({ ...complianceForm, check_type: type })}
-                        className={`flex-1 rounded-lg border px-md py-sm text-xs font-semibold transition-colors ${
-                          complianceForm.check_type === type
-                            ? 'border-slate-600 bg-slate-600 text-white'
-                            : 'border-neutral-300 text-neutral-700'
-                        }`}
-                      >
-                        {checkTypeLabels[type]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Date Checked</label>
-                  <input
-                    type="date"
-                    value={complianceForm.date}
-                    onChange={(e) => setComplianceForm({ ...complianceForm, date: e.target.value })}
-                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Notes (Optional)</label>
-                  <textarea
-                    placeholder="e.g., All tests passed, battery good"
-                    value={complianceForm.notes}
-                    onChange={(e) => setComplianceForm({ ...complianceForm, notes: e.target.value })}
-                    rows={2}
-                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-                  />
-                </div>
-
-                <div className="flex gap-sm pt-md">
-                  <button
-                    onClick={handleAddComplianceLog}
-                    disabled={savingCompliance}
-                    className="flex-1 rounded-lg bg-slate-600 py-sm font-bold text-white disabled:opacity-50 hover:bg-slate-700"
-                  >
-                    {savingCompliance ? 'Saving…' : 'Log Check'}
-                  </button>
-                  <button
-                    onClick={() => setShowAddComplianceModal(false)}
-                    className="flex-1 rounded-lg border border-neutral-300 py-sm font-semibold"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Log Past Clean Modal */}
-        {showLogPastCleanModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
-              <h2 className="text-xl font-bold text-neutral-900 mb-md">📝 Log Past Clean</h2>
-
-              <div className="space-y-md">
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Property *</label>
-                  <select
-                    value={pastCleanForm.propertyId}
-                    onChange={(e) => setPastCleanForm({ ...pastCleanForm, propertyId: e.target.value })}
-                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-                  >
-                    <option value="">Select property</option>
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Date Cleaned *</label>
-                  <input
-                    type="date"
-                    value={pastCleanForm.cleanDate}
-                    onChange={(e) => setPastCleanForm({ ...pastCleanForm, cleanDate: e.target.value })}
-                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Notes (Optional)</label>
-                  <textarea
-                    placeholder="e.g., Emergency clean, extra rooms, etc."
-                    value={pastCleanForm.notes}
-                    onChange={(e) => setPastCleanForm({ ...pastCleanForm, notes: e.target.value })}
-                    rows={2}
-                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-                  />
-                </div>
-
-                <div className="flex gap-sm pt-md">
-                  <button
-                    onClick={logPastClean}
-                    disabled={savingPastClean}
-                    className="flex-1 rounded-lg bg-slate-600 py-sm font-bold text-white disabled:opacity-50 hover:bg-slate-700"
-                  >
-                    {savingPastClean ? 'Saving…' : 'Log Clean'}
-                  </button>
-                  <button
-                    onClick={() => setShowLogPastCleanModal(false)}
-                    className="flex-1 rounded-lg border border-neutral-300 py-sm font-semibold"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Accept Job Modal */}
-        {showAcceptJobModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-            <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
-              <h2 className="text-xl font-bold text-neutral-900 mb-md">Accept & Book Clean</h2>
-
-              <div className="space-y-md">
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Date *</label>
-                  <input
-                    type="date"
-                    value={acceptJobForm.cleanDate}
-                    onChange={(e) => setAcceptJobForm({ ...acceptJobForm, cleanDate: e.target.value })}
-                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-bold text-neutral-900 mb-md">Time (Optional)</label>
-                  <input
-                    type="time"
-                    value={acceptJobForm.cleanTime}
-                    onChange={(e) => setAcceptJobForm({ ...acceptJobForm, cleanTime: e.target.value })}
-                    className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
-                  />
-                </div>
-
-                {error && (
-                  <div className="rounded-lg bg-red-50 p-md text-sm font-semibold text-red-800">
-                    {error}
                   </div>
                 )}
 
-                <div className="flex gap-sm pt-md">
-                  <button
-                    onClick={() => acceptJob(showAcceptJobModal)}
-                    disabled={acceptingJob}
-                    className="flex-1 rounded-lg bg-slate-600 py-sm font-bold text-white disabled:opacity-50 hover:bg-slate-700"
-                  >
-                    {acceptingJob ? 'Accepting...' : 'Accept & Book'}
-                  </button>
-                  <button
-                    onClick={() => setShowAcceptJobModal(null)}
-                    className="flex-1 rounded-lg border border-neutral-300 py-sm font-semibold"
-                  >
-                    Cancel
-                  </button>
-                </div>
+                {/* Overdue */}
+                {overdueCleans.length > 0 && (
+                  <div>
+                    <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">
+                      ⚠️ Overdue
+                    </h2>
+                    <div className="space-y-sm">
+                      {overdueCleans.map(c => (
+                        <CleanCard key={c.id} c={c} onClick={() => router.push(`/cleaner/clean/${c.id}`)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Today's cleans */}
+                {todayCleans.length > 0 && (
+                  <div>
+                    <h2 className="text-sm font-bold text-blue-600 uppercase tracking-wide mb-sm">
+                      📍 Today
+                    </h2>
+                    <div className="space-y-sm">
+                      {todayCleans.map(c => (
+                        <CleanCard key={c.id} c={c} onClick={() => router.push(`/cleaner/clean/${c.id}`)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {overdueCleans.length === 0 && todayCleans.length === 0 && assignedJobs.length === 0 && (
+                  <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center mt-lg">
+                    <p className="text-sm font-medium text-neutral-400">All clear — nothing for today</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Viewing another day */
+              <div>
+                <h2 className="text-sm font-bold text-neutral-700 mb-md">
+                  {new Date(selectedDay + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+                </h2>
+                {dayCleans.length > 0 ? (
+                  <div className="space-y-sm">
+                    {dayCleans.map(c => (
+                      <CleanCard key={c.id} c={c} onClick={() => router.push(`/cleaner/clean/${c.id}`)} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center mt-lg">
+                    <p className="text-sm font-medium text-neutral-400">Nothing scheduled for this day</p>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
         )}
 
-        {showQuickNotifyModal && quickNotifyProperty && (
-          <StaffQuickNotifyModal
-            role="cleaner"
-            propertyId={quickNotifyProperty.id}
-            propertyName={quickNotifyProperty.name}
-            onClose={() => {
-              setShowQuickNotifyModal(false)
-              setQuickNotifyProperty(null)
-            }}
-            onSuccess={() => {
-              setShowQuickNotifyModal(false)
-              setQuickNotifyProperty(null)
-            }}
-          />
+        {/* ── UPCOMING ───────────────────────────────────────────────────── */}
+        {activeTab === 'upcoming' && (
+          <div className="pt-lg">
+            {upcomingCleans.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
+                <p className="text-sm font-medium text-neutral-400">No cleans scheduled yet</p>
+                <button
+                  onClick={() => setShowBookCleanModal(true)}
+                  className="mt-md inline-flex items-center gap-xs rounded-full bg-neutral-950 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
+                >
+                  + Book a clean
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-sm">
+                {[...upcomingCleans]
+                  .sort((a, b) => a.clean_date.localeCompare(b.clean_date))
+                  .map(c => (
+                    <CleanCard key={c.id} c={c} onClick={() => router.push(`/cleaner/clean/${c.id}`)} />
+                  ))}
+              </div>
+            )}
+          </div>
         )}
+
+        {/* ── DONE ───────────────────────────────────────────────────────── */}
+        {activeTab === 'done' && (
+          <div className="pt-lg">
+            {doneCleans.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
+                <p className="text-sm font-medium text-neutral-400">No completed cleans yet</p>
+              </div>
+            ) : (
+              <div className="space-y-sm">
+                {doneCleans.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => router.push(`/cleaner/clean/${c.id}`)}
+                    className="w-full rounded-2xl border border-neutral-200 bg-white p-md shadow-sm text-left hover:shadow-md transition-shadow flex items-center justify-between gap-md"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-neutral-900 truncate">{c.properties?.name}</p>
+                      <p className="text-sm text-neutral-500">
+                        {formatDateUK(c.clean_date)}
+                        {c.special_jobs?.length ? ` · ${c.special_jobs.length} extra job${c.special_jobs.length !== 1 ? 's' : ''}` : ''}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-green-100 text-green-700 text-xs font-bold px-sm py-xs">
+                      Done ✓
+                    </span>
+                  </button>
+                ))}
+                {doneCleans.length >= cleansDisplayLimit && (
+                  <button
+                    onClick={() => { const next = cleansDisplayLimit + 20; setCleansDisplayLimit(next); loadCleans(personId, next) }}
+                    className="w-full rounded-2xl border border-neutral-200 bg-white py-md text-sm font-bold text-neutral-500 hover:bg-neutral-50 transition-colors"
+                  >
+                    Load more
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── COMPLIANCE ─────────────────────────────────────────────────── */}
+        {activeTab === 'compliance' && (
+          <div className="pt-lg">
+            <div className="flex items-center justify-between mb-md">
+              <div>
+                <h2 className="text-base font-bold text-neutral-900">Compliance Checks</h2>
+                <p className="text-xs text-neutral-500 mt-xs">
+                  {properties.find(p => p.id === compliancePropertyId)?.name || 'All properties'} · Last 6 months
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddComplianceModal(true)}
+                className="rounded-full bg-neutral-950 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
+              >
+                + Add Check
+              </button>
+            </div>
+
+            {/* Property selector */}
+            <div className="mb-md">
+              <select
+                value={compliancePropertyId}
+                onChange={e => { setCompliancePropertyId(e.target.value); loadComplianceLogs(e.target.value) }}
+                className="w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900"
+              >
+                {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+
+            {complianceLogs.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
+                <p className="text-sm font-medium text-neutral-400">No compliance checks logged yet</p>
+              </div>
+            ) : (
+              <div className="space-y-sm">
+                {complianceLogs.map(log => (
+                  <div key={log.id} className="rounded-2xl border border-neutral-200 bg-white p-md shadow-sm">
+                    <div className="flex items-start justify-between gap-md">
+                      <div className="min-w-0">
+                        <p className="font-bold text-neutral-900">{checkTypeLabels[log.check_type]}</p>
+                        <p className="text-sm text-neutral-500 mt-xs">
+                          {new Date(log.checked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {' · '}
+                          {displayName(log.people as any) || 'Unknown'} ({log.checked_by_role})
+                        </p>
+                        {log.notes && <p className="text-sm text-neutral-600 mt-sm whitespace-pre-wrap">{log.notes}</p>}
+                      </div>
+                      <span className="shrink-0 rounded-full bg-green-100 text-green-700 text-xs font-bold px-sm py-xs">✓ Logged</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
+
+      {/* ── FAB ────────────────────────────────────────────────────────────── */}
+      <div
+        className="fixed z-30 right-lg"
+        style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom) + 16px))' }}
+      >
+        {showFabMenu && (
+          <div className="mb-sm flex flex-col gap-sm items-end">
+            <button
+              onClick={() => { setShowFabMenu(false); setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
+              className="rounded-full bg-neutral-950 text-white px-lg py-sm text-sm font-bold shadow-lg whitespace-nowrap hover:bg-neutral-700 transition-colors"
+            >
+              🧹 Book a clean
+            </button>
+            <button
+              onClick={() => { setShowFabMenu(false); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toISOString().split('T')[0], notes: '' }); setShowLogPastCleanModal(true) }}
+              className="rounded-full bg-neutral-950 text-white px-lg py-sm text-sm font-bold shadow-lg whitespace-nowrap hover:bg-neutral-700 transition-colors"
+            >
+              📝 Log past clean
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() => setShowFabMenu(v => !v)}
+          className="w-14 h-14 rounded-full bg-neutral-950 text-white text-2xl font-bold shadow-xl flex items-center justify-center hover:bg-neutral-700 transition-colors"
+          aria-label="Book"
+        >
+          {showFabMenu ? '×' : '＋'}
+        </button>
+      </div>
+
+      </div>{/* end lg:hidden */}
+
+      {/* ── Book clean modal ───────────────────────────────────────────────── */}
+      {showBookCleanModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0">
+          <div className="w-full max-w-md rounded-t-3xl bg-white p-lg" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">🧹 Book a Clean</h2>
+            <div className="space-y-md">
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Property</label>
+                <select value={propertyId} onChange={e => setPropertyId(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm">
+                  {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-sm">
+                <div>
+                  <label className="block text-sm font-bold text-neutral-900 mb-sm">Date</label>
+                  <input type="date" value={cleanDate} onChange={e => setCleanDate(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-neutral-900 mb-sm">Time</label>
+                  <input type="time" value={cleanTime} onChange={e => setCleanTime(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+                </div>
+              </div>
+              <div className="flex gap-sm pt-sm">
+                <button onClick={bookClean} disabled={booking} className="flex-1 rounded-xl bg-neutral-950 py-sm font-bold text-white disabled:opacity-50 hover:bg-neutral-700 transition-colors">
+                  {booking ? 'Booking…' : 'Book Clean'}
+                </button>
+                <button onClick={() => setShowBookCleanModal(false)} className="flex-1 rounded-xl border border-neutral-300 py-sm font-semibold text-neutral-700">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Log past clean modal ───────────────────────────────────────────── */}
+      {showLogPastCleanModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-t-3xl bg-white p-lg" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">📝 Log Past Clean</h2>
+            <div className="space-y-md">
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Property</label>
+                <select value={pastCleanForm.propertyId} onChange={e => setPastCleanForm({ ...pastCleanForm, propertyId: e.target.value })} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm">
+                  <option value="">Select property</option>
+                  {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Date Cleaned</label>
+                <input type="date" value={pastCleanForm.cleanDate} onChange={e => setPastCleanForm({ ...pastCleanForm, cleanDate: e.target.value })} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Notes (optional)</label>
+                <textarea rows={2} value={pastCleanForm.notes} onChange={e => setPastCleanForm({ ...pastCleanForm, notes: e.target.value })} placeholder="e.g. Emergency clean, extra rooms" className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm resize-none" />
+              </div>
+              <div className="flex gap-sm">
+                <button onClick={logPastClean} disabled={savingPastClean} className="flex-1 rounded-xl bg-neutral-950 py-sm font-bold text-white disabled:opacity-50 hover:bg-neutral-700 transition-colors">
+                  {savingPastClean ? 'Saving…' : 'Log Clean'}
+                </button>
+                <button onClick={() => setShowLogPastCleanModal(false)} className="flex-1 rounded-xl border border-neutral-300 py-sm font-semibold text-neutral-700">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add compliance check modal ─────────────────────────────────────── */}
+      {showAddComplianceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">Log Compliance Check</h2>
+            <div className="space-y-md">
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Property</label>
+                <select value={compliancePropertyId} onChange={e => setCompliancePropertyId(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm">
+                  <option value="">Select a property</option>
+                  {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Check Type</label>
+                <div className="flex gap-sm">
+                  {(['fire_door', 'smoke_alarm'] as const).map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setComplianceForm({ ...complianceForm, check_type: type })}
+                      className={`flex-1 rounded-xl border px-md py-sm text-xs font-semibold transition-colors ${complianceForm.check_type === type ? 'border-neutral-950 bg-neutral-950 text-white' : 'border-neutral-300 text-neutral-700'}`}
+                    >
+                      {checkTypeLabels[type]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Date Checked</label>
+                <input type="date" value={complianceForm.date} onChange={e => setComplianceForm({ ...complianceForm, date: e.target.value })} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Notes (optional)</label>
+                <textarea rows={2} value={complianceForm.notes} onChange={e => setComplianceForm({ ...complianceForm, notes: e.target.value })} placeholder="e.g. All tests passed" className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm resize-none" />
+              </div>
+              <div className="flex gap-sm pt-sm">
+                <button onClick={handleAddComplianceLog} disabled={savingCompliance} className="flex-1 rounded-xl bg-neutral-950 py-sm font-bold text-white disabled:opacity-50">
+                  {savingCompliance ? 'Saving…' : 'Log Check'}
+                </button>
+                <button onClick={() => setShowAddComplianceModal(false)} className="flex-1 rounded-xl border border-neutral-300 py-sm font-semibold text-neutral-700">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Accept job modal ───────────────────────────────────────────────── */}
+      {showAcceptJobModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
+          <div className="w-full max-w-md rounded-3xl bg-white p-lg">
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">Accept & Book Clean</h2>
+            <div className="space-y-md">
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Date</label>
+                <input type="date" value={acceptJobForm.cleanDate} onChange={e => setAcceptJobForm({ ...acceptJobForm, cleanDate: e.target.value })} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Time (optional)</label>
+                <input type="time" value={acceptJobForm.cleanTime} onChange={e => setAcceptJobForm({ ...acceptJobForm, cleanTime: e.target.value })} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              </div>
+              {error && <div className="rounded-xl bg-red-50 p-md text-sm text-red-800 font-semibold">{error}</div>}
+              <div className="flex gap-sm">
+                <button onClick={() => acceptJob(showAcceptJobModal!)} disabled={acceptingJob} className="flex-1 rounded-xl bg-neutral-950 py-sm font-bold text-white disabled:opacity-50">
+                  {acceptingJob ? 'Accepting…' : 'Accept & Book'}
+                </button>
+                <button onClick={() => setShowAcceptJobModal(null)} className="flex-1 rounded-xl border border-neutral-300 py-sm font-semibold text-neutral-700">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Decline job modal ─────────────────────────────────────────────── */}
+      {showDeclineModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
+          <div className="w-full max-w-md rounded-3xl bg-white p-lg">
+            <h2 className="text-xl font-bold text-neutral-900 mb-xs">Decline this job?</h2>
+            <p className="text-sm text-neutral-500 mb-md">Admin will be notified and the job will be reassigned to another cleaner.</p>
+            <div className="space-y-md">
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Reason (optional)</label>
+                <textarea
+                  rows={3}
+                  value={declineReason}
+                  onChange={e => setDeclineReason(e.target.value)}
+                  placeholder="e.g. Unavailable that week, already fully booked…"
+                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm resize-none"
+                />
+              </div>
+              <div className="flex gap-sm">
+                <button
+                  onClick={() => declineJob(showDeclineModal!)}
+                  disabled={!!decliningJob}
+                  className="flex-1 rounded-xl bg-red-600 py-sm font-bold text-white disabled:opacity-50 hover:bg-red-700 transition-colors"
+                >
+                  {decliningJob ? 'Declining…' : 'Yes, decline'}
+                </button>
+                <button onClick={() => setShowDeclineModal(null)} className="flex-1 rounded-xl border border-neutral-300 py-sm font-semibold text-neutral-700">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick notify modal ─────────────────────────────────────────────── */}
+      {showQuickNotifyModal && quickNotifyProperty && (
+        <StaffQuickNotifyModal
+          role="cleaner"
+          propertyId={quickNotifyProperty.id}
+          propertyName={quickNotifyProperty.name}
+          onClose={() => { setShowQuickNotifyModal(false); setQuickNotifyProperty(null) }}
+          onSuccess={() => { setShowQuickNotifyModal(false); setQuickNotifyProperty(null) }}
+        />
+      )}
+
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import Link from 'next/link'
 
 interface Props {
   allowedRoles: string[]   // roles allowed to view this page
@@ -167,6 +168,24 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
             </button>
           </div>
         </div>
+
+        {/* ── Install the app ─────────────────────────────────────────────── */}
+        <Link
+          href="/install"
+          className="mt-xl flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md hover:bg-neutral-50 transition group"
+        >
+          <div className="flex items-center gap-md">
+            <span className="text-2xl">📲</span>
+            <div>
+              <p className="text-sm font-bold text-neutral-900">Install the app</p>
+              <p className="text-xs text-neutral-500 mt-xs">
+                Add to Home Screen to unlock push notifications, Share Sheet and more
+              </p>
+            </div>
+          </div>
+          <span className="text-neutral-400 group-hover:text-neutral-700 transition text-lg shrink-0">›</span>
+        </Link>
+
       </main>
     </div>
   )

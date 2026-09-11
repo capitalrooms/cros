@@ -198,11 +198,12 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
         </div>
 
         {/* Direct dashboard link — the real pixel-perfect screen for this person */}
-        {(['tenant', 'contractor', 'landlord', 'lettings'] as const).includes(person.role as any) && (() => {
+        {(['tenant', 'contractor', 'landlord', 'lettings', 'cleaner'] as const).includes(person.role as any) && (() => {
           const dashboardUrl =
             person.role === 'tenant' ? `/tenant?as=${personId}` :
             person.role === 'contractor' ? `/contractor?as=${personId}` :
             person.role === 'lettings' ? `/lettings?as=${personId}` :
+            person.role === 'cleaner' ? `/cleaner?as=${personId}` :
             `/landlord?as=${personId}`
           return (
             <div className="mb-lg rounded-2xl bg-neutral-900 text-white p-lg">
