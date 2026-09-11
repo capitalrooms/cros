@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { TIME_SLOTS, earliestBookableDate, slotLabel } from '@/lib/booking'
@@ -36,6 +36,21 @@ interface Job {
   return_visit_notes?: string | null
   duration_estimate_label?: string | null
   duration_estimate_minutes?: number | null
+  // Quote fields
+  quote_requested?: boolean
+  quote_amount?: number | null
+  quote_notes?: string | null
+  quote_site_visit?: boolean
+  quote_visit_date?: string | null
+  quote_submitted_at?: string | null
+}
+
+interface PropertyTask {
+  id: string
+  description: string
+  notes?: string | null   // area label stored here
+  status: string
+  completed_at?: string | null
 }
 
 /** Metres between two lat/lng points. */
@@ -51,9 +66,10 @@ function metresBetween(aLat: number, aLng: number, bLat: number, bLng: number) {
 }
 
 export default function JobDetailPage() {
-  const router = useRouter()
-  const params = useParams()
-  const jobId = params.jobId as string
+  const router       = useRouter()
+  const params       = useParams()
+  const searchParams = useSearchParams()
+  const jobId        = params.jobId as string
 
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
@@ -66,6 +82,9 @@ export default function JobDetailPage() {
   const [completionMessage, setCompletionMessage] = useState<string | null>(null)
   const [accessLog, setAccessLog] = useState<string[]>([])
   const [showQuickNotify, setShowQuickNotify] = useState(false)
+  // Reschedule flow (upcoming + past visits)
+  const [showReschedule, setShowReschedule] = useState(false)
+  const [reReason, setReReason] = useState('Moving to another day')
   // Need-to-return flow
   const [showReturnFlow, setShowReturnFlow] = useState(false)
   const [returnReason, setReturnReason] = useState('')
@@ -77,13 +96,29 @@ export default function JobDetailPage() {
   const [durationLabel, setDurationLabel] = useState<string | null>(null)
   const [loadingEstimate, setLoadingEstimate] = useState(false)
 
+  // Tasks checklist
+  const [tasks, setTasks]   = useState<PropertyTask[]>([])
+  const [tickingTask, setTickingTask] = useState<string | null>(null)
+
+  // Quote submission
+  const [quoteAmount, setQuoteAmount]       = useState('')
+  const [quoteNotes, setQuoteNotes]         = useState('')
+  const [quoteSiteVisit, setQuoteSiteVisit] = useState(false)
+  const [quoteVisitDate, setQuoteVisitDate] = useState('')
+  const [submittingQuote, setSubmittingQuote] = useState(false)
+
   const beforeInput = useRef<HTMLInputElement>(null)
   const afterInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function init() {
-      const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'contractor') {
+      const data    = await getCurrentUser()
+      const asParam = searchParams.get('as')
+      const isAdmin = ['administrator', 'admin'].includes(data?.assignment?.role || '')
+
+      if (asParam && isAdmin) {
+        // Admin viewing as contractor — allowed, just load the job
+      } else if (!data || data.assignment?.role !== 'contractor') {
         router.push('/login')
         return
       }
@@ -98,6 +133,20 @@ export default function JobDetailPage() {
         setNotes((jobData as any).notes || '')
         setBookDate((jobData as any).booked_date || '')
         setBookSlot((jobData as any).booked_slot || '')
+
+        // Fetch linked property_tasks (if this is a multi-task job sheet)
+        const { data: tasksData } = await supabase
+          .from('property_tasks')
+          .select('id, description, notes, status, completed_at')
+          .eq('ticket_id', jobId)
+          .order('created_at', { ascending: true })
+        if (tasksData && tasksData.length > 0) setTasks(tasksData)
+
+        // Pre-fill quote fields if already submitted
+        if ((jobData as any).quote_amount) setQuoteAmount(String((jobData as any).quote_amount))
+        if ((jobData as any).quote_notes) setQuoteNotes((jobData as any).quote_notes)
+        if ((jobData as any).quote_site_visit) setQuoteSiteVisit(true)
+        if ((jobData as any).quote_visit_date) setQuoteVisitDate((jobData as any).quote_visit_date)
 
         // Show cached estimate immediately, then fetch/generate if missing
         if ((jobData as any).duration_estimate_label) {
@@ -119,7 +168,7 @@ export default function JobDetailPage() {
       setLoading(false)
     }
     init()
-  }, [jobId, router])
+  }, [jobId, router, searchParams])
 
   async function patch(fields: Record<string, any>) {
     const supabase = createClient()
@@ -144,6 +193,28 @@ export default function JobDetailPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ propertyId: job.property_id, title: 'Capital Rooms', body, url: '/tenant' }),
     }).catch(() => {})
+  }
+
+  async function handleReschedule() {
+    if (!job || !bookDate || !bookSlot) return
+    setBusy('reschedule')
+    try {
+      await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
+      const when = new Date(bookDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+      const isSameDay = reReason === 'Running late — same day'
+      notify('/api/notify-booking')
+      pushTenants(
+        isSameDay
+          ? `Your contractor is running late — they're still coming today (${slotLabel(bookSlot)}).`
+          : `The repair visit at your property has moved to ${when}, ${slotLabel(bookSlot)}.`
+      )
+      setShowReschedule(false)
+      alert('✅ Rescheduled — the tenants have been notified.')
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    } finally {
+      setBusy('')
+    }
   }
 
   async function handleBook() {
@@ -183,7 +254,7 @@ export default function JobDetailPage() {
         await patch({ arrived_at: new Date().toISOString() })
         notify('/api/notify-booking')
         pushTenants('Your contractor has arrived at the property.')
-        alert('✅ Marked as arrived — the tenants have been told you’re here.')
+        alert(`✅ Marked as arrived — the tenants have been told you're here.`)
       } catch (err) {
         alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
       } finally {
@@ -265,7 +336,7 @@ export default function JobDetailPage() {
       return
     }
     if (job.admin_note) {
-      if (!window.confirm(`Before you finish — did you sort this?\n\n”${job.admin_note}”`)) return
+      if (!window.confirm(`Before you finish — did you sort this?\n\n"${job.admin_note}"`)) return
     }
     setBusy('complete')
     try {
@@ -343,6 +414,60 @@ export default function JobDetailPage() {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setSavingNotes(false)
+    }
+  }
+
+  async function handleTickTask(taskId: string, currentStatus: string) {
+    const nowDone = currentStatus !== 'completed'
+    setTickingTask(taskId)
+    try {
+      const supabase = createClient()
+      await supabase
+        .from('property_tasks')
+        .update({ status: nowDone ? 'completed' : 'converted', completed_at: nowDone ? new Date().toISOString() : null })
+        .eq('id', taskId)
+      setTasks(ts => ts.map(t => t.id === taskId ? { ...t, status: nowDone ? 'completed' : 'converted', completed_at: nowDone ? new Date().toISOString() : null } : t))
+    } catch {
+      alert('Could not update task. Please try again.')
+    } finally {
+      setTickingTask(null)
+    }
+  }
+
+  async function handleSubmitQuote() {
+    if (!job) return
+    if (!quoteAmount && !quoteSiteVisit) {
+      alert('Enter a price, or tick "I need to visit first".')
+      return
+    }
+    if (quoteSiteVisit && !quoteVisitDate) {
+      alert('Pick a date for your site visit.')
+      return
+    }
+    setSubmittingQuote(true)
+    try {
+      const supabase = createClient()
+      await supabase.from('maintenance_tickets').update({
+        quote_amount:       quoteAmount ? parseFloat(quoteAmount) : null,
+        quote_notes:        quoteNotes.trim() || null,
+        quote_site_visit:   quoteSiteVisit,
+        quote_visit_date:   quoteSiteVisit ? quoteVisitDate : null,
+        quote_submitted_at: new Date().toISOString(),
+      }).eq('id', jobId)
+      setJob(j => j ? { ...j,
+        quote_amount: quoteAmount ? parseFloat(quoteAmount) : null,
+        quote_notes: quoteNotes.trim() || null,
+        quote_site_visit: quoteSiteVisit,
+        quote_visit_date: quoteSiteVisit ? quoteVisitDate : null,
+        quote_submitted_at: new Date().toISOString(),
+      } : j)
+      alert(quoteSiteVisit
+        ? '✅ Site visit request sent — the office will confirm the date.'
+        : '✅ Quote submitted — the office will review it.')
+    } catch {
+      alert('Error submitting quote. Please try again.')
+    } finally {
+      setSubmittingQuote(false)
     }
   }
 
@@ -435,6 +560,106 @@ export default function JobDetailPage() {
           </div>
         )}
 
+        {/* ── Quote request section ─────────────────────────────────── */}
+        {job.quote_requested && (
+          <div className={`mb-lg rounded-2xl border-2 p-lg ${
+            job.quote_submitted_at
+              ? 'border-green-300 bg-green-50'
+              : 'border-blue-300 bg-blue-50'
+          }`}>
+            {job.quote_submitted_at ? (
+              <>
+                <p className="text-xs font-bold uppercase tracking-wide text-green-700 mb-sm">✓ Quote submitted</p>
+                {job.quote_site_visit ? (
+                  <p className="text-sm text-green-900 font-semibold">
+                    Site visit requested{job.quote_visit_date
+                      ? ` for ${new Date(job.quote_visit_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
+                      : ''}
+                  </p>
+                ) : (
+                  <p className="text-sm text-green-900 font-semibold">
+                    Price: £{Number(job.quote_amount || 0).toFixed(2)}
+                    {job.quote_notes ? ` · ${job.quote_notes}` : ''}
+                  </p>
+                )}
+                <button
+                  onClick={() => setJob(j => j ? { ...j, quote_submitted_at: null } : j)}
+                  className="mt-sm text-xs text-green-600 underline"
+                >
+                  Edit quote
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-bold uppercase tracking-wide text-blue-800 mb-xs">📋 Quote requested</p>
+                <p className="text-sm text-blue-900 mb-md">
+                  The office has requested a quote for this job. Review the details, then either submit a price or flag that you need to visit first.
+                </p>
+
+                <label className="flex items-center gap-sm text-sm font-semibold text-blue-900 cursor-pointer mb-md">
+                  <input
+                    type="checkbox"
+                    checked={quoteSiteVisit}
+                    onChange={e => setQuoteSiteVisit(e.target.checked)}
+                    className="rounded"
+                  />
+                  I need to visit first before I can quote
+                </label>
+
+                {quoteSiteVisit ? (
+                  <div className="mb-md">
+                    <label className="block text-xs font-semibold text-blue-800 mb-xs">Proposed visit date</label>
+                    <input
+                      type="date"
+                      value={quoteVisitDate}
+                      min={new Date().toISOString().slice(0, 10)}
+                      onChange={e => setQuoteVisitDate(e.target.value)}
+                      className="w-full rounded-xl border border-blue-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-blue-700 mt-xs">The office will confirm this date with you.</p>
+                  </div>
+                ) : (
+                  <div className="mb-md">
+                    <label className="block text-xs font-semibold text-blue-800 mb-xs">Your price (£)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={quoteAmount}
+                      onChange={e => setQuoteAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full rounded-xl border border-blue-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                <div className="mb-md">
+                  <label className="block text-xs font-semibold text-blue-800 mb-xs">Notes <span className="font-normal text-blue-600">(optional)</span></label>
+                  <textarea
+                    value={quoteNotes}
+                    onChange={e => setQuoteNotes(e.target.value)}
+                    rows={2}
+                    placeholder="Anything the office should know about the quote…"
+                    className="w-full rounded-xl border border-blue-300 bg-white px-md py-sm text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <button
+                  onClick={handleSubmitQuote}
+                  disabled={submittingQuote}
+                  className="w-full rounded-xl bg-blue-700 text-white font-bold py-md hover:bg-blue-800 disabled:opacity-40 text-sm"
+                >
+                  {submittingQuote
+                    ? 'Sending…'
+                    : quoteSiteVisit
+                    ? '📍 Request site visit'
+                    : '💬 Submit quote'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Key safe code — only shown after job is booked */}
         {isBooked && job.properties?.key_safe_code && (
           <div className="mb-lg rounded-2xl border-2 border-neutral-800 bg-neutral-900 text-white p-lg flex items-center justify-between gap-lg">
@@ -453,6 +678,60 @@ export default function JobDetailPage() {
               <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
                 <h3 className="font-bold text-neutral-900 mb-md">Details</h3>
                 <p className="text-sm text-neutral-700 whitespace-pre-wrap">{job.description}</p>
+              </div>
+            )}
+
+            {/* ── Task checklist (multi-task job sheet) ─────────────────── */}
+            {tasks.length > 0 && (
+              <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg">
+                <div className="flex items-center justify-between mb-md">
+                  <h3 className="font-bold text-neutral-900">Tasks</h3>
+                  <span className="text-xs text-neutral-400">
+                    {tasks.filter(t => t.status === 'completed').length}/{tasks.length} done
+                  </span>
+                </div>
+                <div className="space-y-sm">
+                  {tasks.map(task => {
+                    const done = task.status === 'completed'
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => handleTickTask(task.id, task.status)}
+                        disabled={tickingTask === task.id}
+                        className={`w-full text-left flex items-start gap-md p-md rounded-xl border-2 transition-all ${
+                          done
+                            ? 'border-green-200 bg-green-50'
+                            : 'border-neutral-200 bg-neutral-50 hover:border-neutral-400'
+                        }`}
+                      >
+                        <span className={`shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center text-xs font-bold ${
+                          done ? 'border-green-500 bg-green-500 text-white' : 'border-neutral-400 bg-white'
+                        }`}>
+                          {done ? '✓' : ''}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          {task.notes && (
+                            <p className="text-xs font-bold text-neutral-400 uppercase tracking-wide mb-0.5">{task.notes}</p>
+                          )}
+                          <p className={`text-sm font-semibold ${done ? 'text-green-800 line-through' : 'text-neutral-900'}`}>
+                            {task.description}
+                          </p>
+                          {done && task.completed_at && (
+                            <p className="text-xs text-green-600 mt-0.5">
+                              Done {new Date(task.completed_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+                {tasks.every(t => t.status === 'completed') && (
+                  <div className="mt-md rounded-xl bg-green-50 border border-green-200 px-md py-sm text-center">
+                    <p className="text-sm font-bold text-green-800">All tasks done 🎉</p>
+                    <p className="text-xs text-green-600">Add your after photo and mark the job complete below.</p>
+                  </div>
+                )}
               </div>
             )}
 
@@ -569,15 +848,77 @@ export default function JobDetailPage() {
                 </div>
               ) : (
                 /* Step 2: arrive (upcoming visit) */
-                <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg text-center">
-                  <h3 className="font-bold text-neutral-900">On your way?</h3>
-                  <p className="mt-xs text-sm text-neutral-500">
-                    Tap this when you get there — we’ll check your location and let the tenants know you've arrived.
-                  </p>
-                  <button onClick={handleArrive} disabled={busy === 'arrive'}
-                    className="mt-md w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40">
-                    {busy === 'arrive' ? 'Checking location…' : '📍 I\'ve arrived'}
-                  </button>
+                <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg space-y-md">
+                  <div>
+                    <h3 className="font-bold text-neutral-900 text-center">On your way?</h3>
+                    <p className="mt-xs text-sm text-neutral-500 text-center">
+                      Tap when you arrive — {"we'll"} check your location and let the tenants know.
+                    </p>
+                    <button onClick={handleArrive} disabled={busy === 'arrive'}
+                      className="mt-md w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40">
+                      {busy === 'arrive' ? 'Checking location…' : '📍 I\'ve arrived'}
+                    </button>
+                  </div>
+
+                  {/* Reschedule / running late */}
+                  {!showReschedule ? (
+                    <button
+                      onClick={() => { setShowReschedule(true); setBookDate(job.booked_date || ''); setBookSlot(job.booked_slot || '') }}
+                      className="w-full rounded-lg border border-neutral-300 py-md text-sm font-bold text-neutral-700 hover:bg-neutral-50"
+                    >
+                      🗓 Running late / Reschedule
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md space-y-md">
+                      <p className="text-sm font-bold text-neutral-900">Move this visit</p>
+                      <div className="grid gap-md sm:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-700 mb-xs">New date</label>
+                          <input
+                            type="date"
+                            value={bookDate}
+                            onChange={(e) => setBookDate(e.target.value)}
+                            className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-neutral-700 mb-xs">Time slot</label>
+                          <select
+                            value={bookSlot}
+                            onChange={(e) => setBookSlot(e.target.value)}
+                            className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                          >
+                            <option value="">Select slot…</option>
+                            {TIME_SLOTS.map((s) => (<option key={s.value} value={s.value}>{s.label}</option>))}
+                          </select>
+                        </div>
+                      </div>
+                      <select
+                        value={reReason}
+                        onChange={(e) => setReReason(e.target.value)}
+                        className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
+                      >
+                        {['Running late — same day', 'Moving to another day', 'Access problem', 'Family emergency', 'Other'].map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                      <div className="flex gap-md">
+                        <button
+                          onClick={handleReschedule}
+                          disabled={busy === 'reschedule' || !bookDate || !bookSlot}
+                          className="flex-1 rounded-lg bg-neutral-900 py-md text-sm font-bold text-white disabled:opacity-40"
+                        >
+                          {busy === 'reschedule' ? 'Updating…' : 'Update & notify tenants'}
+                        </button>
+                        <button
+                          onClick={() => setShowReschedule(false)}
+                          className="rounded-lg border border-neutral-300 px-lg py-md text-sm font-bold text-neutral-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             ) : (

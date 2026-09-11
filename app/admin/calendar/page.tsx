@@ -59,6 +59,23 @@ export default function CalendarPage() {
         .eq('viewing_status', 'scheduled')
         .order('viewing_date', { ascending: true });
 
+      // Fetch booked cleans (cleaner role) — join properties for name
+      const { data: cleansData } = await supabase
+        .from('cleans')
+        .select('id, clean_date, clean_time, status, property_id, cleaner_id, properties(name)')
+        .neq('status', 'completed')
+        .not('clean_date', 'is', null)
+        .order('clean_date', { ascending: true });
+
+      // Fetch assigned cleaner jobs that have a due_date set
+      // (due_date column added by migration 142; jobs without it won't show on calendar yet)
+      const { data: assignedJobsData } = await supabase
+        .from('assigned_jobs')
+        .select('id, due_date, task_type, status, notes, property_id, room_id, cleaner_id, properties(name), rooms(name)')
+        .in('status', ['pending', 'accepted'])
+        .not('due_date', 'is', null)
+        .order('due_date', { ascending: true });
+
       // Transform and merge data
       const allItems: Ticket[] = [];
 
@@ -94,6 +111,42 @@ export default function CalendarPage() {
             rooms: v.rooms,
             location: null,
             type: 'viewing' as const,
+          }))
+        );
+      }
+
+      // Add booked cleans
+      if (cleansData) {
+        allItems.push(
+          ...cleansData.map((c: any) => ({
+            id: c.id,
+            title: `Clean — ${c.properties?.name || 'property'}`,
+            booked_date: c.clean_date,
+            booked_slot: c.clean_time || null,
+            status: c.status || 'scheduled',
+            priority: 'medium',
+            properties: c.properties,
+            rooms: null,
+            location: null,
+            type: 'cleaner' as const,
+          }))
+        );
+      }
+
+      // Add assigned cleaner jobs with due_date (move-out clean deadlines)
+      if (assignedJobsData) {
+        allItems.push(
+          ...assignedJobsData.map((j: any) => ({
+            id: j.id,
+            title: `Move-out clean${j.rooms?.name ? ` · ${j.rooms.name}` : ''} — ${j.properties?.name || 'property'}`,
+            booked_date: j.due_date,
+            booked_slot: null,
+            status: j.status,
+            priority: j.task_type === 'asap' ? 'high' : j.task_type === 'urgent' ? 'medium' : 'low',
+            properties: j.properties,
+            rooms: j.rooms,
+            location: null,
+            type: 'cleaner' as const,
           }))
         );
       }
@@ -145,7 +198,7 @@ export default function CalendarPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        left={<BackButton href="/admin/maintenance" />}
+        left={<BackButton href="/admin" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">
@@ -210,14 +263,16 @@ export default function CalendarPage() {
                             {dayTickets.length} appt{dayTickets.length !== 1 ? 's' : ''}
                           </p>
                           <div className="mt-xs flex flex-wrap gap-0.5">
-                            {dayTickets.slice(0, 3).map((_t, i) => (
-                              <div
-                                key={i}
-                                className={`h-1.5 w-1.5 rounded-full ${
-                                  isToday ? 'bg-white' : 'bg-neutral-900'
-                                }`}
-                              />
-                            ))}
+                            {dayTickets.slice(0, 3).map((t, i) => {
+                              const dotColor = isToday ? 'bg-white' :
+                                t.type === 'viewing'  ? 'bg-purple-500' :
+                                t.type === 'cleaner'  ? 'bg-green-500' :
+                                t.type === 'maintenance' ? 'bg-blue-500' :
+                                'bg-neutral-900';
+                              return (
+                                <div key={i} className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
+                              );
+                            })}
                           </div>
                         </div>
                       )}

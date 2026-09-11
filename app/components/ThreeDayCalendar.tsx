@@ -407,11 +407,11 @@ export default function ThreeDayCalendar({
 
   const getAppointmentColor = (appt: CalendarAppointment, dateStr: string): string => {
     const daysUntil = getDaysUntil(dateStr)
-    if (daysUntil < 0) return 'bg-red-900 text-white'
+    if (daysUntil < 0) return 'bg-red-100 text-red-800 border border-red-200'
     if (daysUntil === 0) return 'bg-blue-600 text-white'
-    if (appt.priority === 'urgent' || appt.priority === 'high') return 'bg-orange-600 text-white'
+    if (appt.priority === 'urgent' || appt.priority === 'high') return 'bg-orange-500 text-white'
     if (appt.status === 'confirmed' || appt.status === 'completed') return 'bg-green-600 text-white'
-    return 'bg-neutral-700 text-white'
+    return 'bg-neutral-800 text-white'
   }
 
   const handlePrevWeek = () => {
@@ -492,17 +492,17 @@ export default function ThreeDayCalendar({
 
   return (
     <>
-      <section className="mb-8 rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden">
+      <section className="mb-8 rounded-xl border border-neutral-200 bg-white overflow-hidden">
         {/* Header */}
-        <div className="border-b border-neutral-800 bg-neutral-950 px-4 py-3">
+        <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-white">Your week</h2>
+            <h2 className="text-base font-semibold text-neutral-900">Your week</h2>
             <div className="flex items-center gap-3">
               {onSlotTap && expanded && (
-                <span className="text-xs text-neutral-500">Tap a slot to book</span>
+                <span className="text-xs text-neutral-400">Tap a slot to book</span>
               )}
               {onAppointmentReschedule && expanded && !onSlotTap && (
-                <span className="text-xs text-neutral-500">Drag or tap to move</span>
+                <span className="text-xs text-neutral-400">Drag or tap to move</span>
               )}
               <span className="text-xs text-neutral-400">
                 {formatDateUK(dates[0])} – {formatDateUK(dates[2])}
@@ -511,8 +511,13 @@ export default function ThreeDayCalendar({
           </div>
         </div>
 
-        {/* Day tabs */}
-        <div className="grid grid-cols-3 border-b border-neutral-800">
+        {/* Day tabs — when expanded, add 60px spacer so columns align with the time grid */}
+        <div className={`border-b border-neutral-200 ${expanded ? 'grid grid-cols-[60px_1fr_1fr_1fr]' : 'grid grid-cols-3'}`}>
+          {expanded && (
+            <div className="border-r border-neutral-200 px-2 py-3 flex items-end pb-2">
+              <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wide">Time</span>
+            </div>
+          )}
           {dates.map((date, idx) => {
             const isToday = date === getTodayGMT()
             const parts = formatDateUK(date).split(' ')
@@ -521,14 +526,14 @@ export default function ThreeDayCalendar({
               <button
                 key={date}
                 onClick={() => setExpanded(true)}
-                className={`border-r border-neutral-800 px-3 py-3 text-center text-xs font-semibold transition-colors ${
-                  isToday ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                className={`border-r border-neutral-200 px-3 py-3 text-center text-xs font-semibold transition-colors ${
+                  isToday ? 'bg-blue-600 text-white' : 'bg-white text-neutral-900 hover:bg-neutral-50'
                 } ${idx === 2 ? 'border-r-0' : ''}`}
               >
                 <div>{parts[0]}</div>
-                <div className="text-xs font-normal text-neutral-300">{parts[1]}</div>
+                <div className={`text-xs font-normal ${isToday ? 'text-blue-100' : 'text-neutral-500'}`}>{parts[1]}</div>
                 {count > 0 ? (
-                  <div className="mt-1 inline-block rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">{count}</div>
+                  <div className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${isToday ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-700'}`}>{count}</div>
                 ) : (
                   <div className="mt-1 h-4" />
                 )}
@@ -542,10 +547,10 @@ export default function ThreeDayCalendar({
           <div className="px-4 py-3 space-y-2">
             {totalThisWindow === 0 ? (
               <div className="flex items-center justify-between">
-                <p className="text-sm text-neutral-500">Nothing booked this window</p>
+                <p className="text-sm text-neutral-400">Nothing booked this window</p>
                 <button
                   onClick={() => setExpanded(true)}
-                  className="rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
+                  className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-100 transition-colors"
                 >
                   Open ↓
                 </button>
@@ -562,11 +567,11 @@ export default function ThreeDayCalendar({
                         key={appt.id}
                         onClick={() => handleApptClick(appt)}
                         onTouchStart={(e) => handleApptTouchStart(e, appt)}
-                        className="w-full flex items-center justify-between rounded-xl bg-neutral-800 px-3 py-2.5 text-left hover:bg-neutral-700 transition-colors"
+                        className="w-full flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-left hover:bg-neutral-100 transition-colors"
                       >
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-white truncate">{label}</div>
-                          <div className="text-xs text-neutral-400">
+                          <div className="text-sm font-semibold text-neutral-900 truncate">{label}</div>
+                          <div className="text-xs text-neutral-500">
                             {isToday ? 'Today' : formatDateUK(dates[dayIdx])}{timeStr ? ` · ${timeStr}` : ''}
                           </div>
                         </div>
@@ -579,7 +584,7 @@ export default function ThreeDayCalendar({
                 )}
                 <button
                   onClick={() => setExpanded(true)}
-                  className="w-full rounded-lg border border-neutral-700 bg-neutral-800/50 py-1.5 text-xs font-semibold text-neutral-400 hover:bg-neutral-700 transition-colors"
+                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 py-1.5 text-xs font-semibold text-neutral-500 hover:bg-neutral-100 transition-colors"
                 >
                   Open full calendar ↓
                 </button>
@@ -593,24 +598,15 @@ export default function ThreeDayCalendar({
           <>
             <div className="overflow-x-auto">
               <div className="inline-block min-w-full">
-                <div className="grid grid-cols-[60px_1fr_1fr_1fr] border-b border-neutral-800">
-                  <div className="px-2 py-2 text-xs font-semibold text-neutral-500">Time</div>
-                  {dates.map((_, idx) => (
-                    <div key={idx} className={`border-r border-neutral-800 px-2 py-2 text-xs font-semibold text-neutral-500 text-center ${idx === 2 ? 'border-r-0' : ''}`}>
-                      {formatDateUK(dates[idx]).split(' ').join('\n')}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-[60px_1fr_1fr_1fr] bg-neutral-900">
+                <div className="grid grid-cols-[60px_1fr_1fr_1fr] bg-white">
                   {timeSlots.map((time, timeIdx) => (
                     <div key={time} className="contents">
                       {timeIdx % 2 === 0 ? (
-                        <div className="border-r border-b border-neutral-800 px-2 py-2 text-xs text-neutral-500 font-semibold h-12">
+                        <div className="border-r border-b border-neutral-100 px-2 py-2 text-xs text-neutral-400 font-semibold h-12">
                           {time}
                         </div>
                       ) : (
-                        <div className="border-r border-b border-neutral-800 h-12" />
+                        <div className="border-r border-b border-neutral-100 h-12" />
                       )}
 
                       {dates.map((date, dayIdx) => {
@@ -627,6 +623,7 @@ export default function ThreeDayCalendar({
                             })
                           : []
                         const hasApptHere = cellAppts.length > 0
+                        const isToday = date === getTodayGMT()
                         const slotClickable = !hasApptHere && !!onSlotTap && timeIdx % 2 === 0
                         return (
                         <div
@@ -634,11 +631,11 @@ export default function ThreeDayCalendar({
                           data-slot-date={date}
                           data-slot-time={time}
                           onClick={slotClickable ? () => onSlotTap!(date, time) : undefined}
-                          className={`border-r border-b border-neutral-800 relative h-12 ${dayIdx === 2 ? 'border-r-0' : ''} ${slotClickable ? 'cursor-pointer group hover:bg-neutral-800/60' : ''}`}
+                          className={`border-r border-b border-neutral-100 relative h-12 ${dayIdx === 2 ? 'border-r-0' : ''} ${isToday ? 'bg-blue-50/30' : ''} ${slotClickable ? 'cursor-pointer group hover:bg-neutral-50' : ''}`}
                         >
                           {/* + hint on hover for bookable slots */}
                           {slotClickable && (
-                            <span className="absolute inset-0 flex items-center justify-center text-xs text-neutral-600 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none select-none">
+                            <span className="absolute inset-0 flex items-center justify-center text-xs text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none select-none">
                               +
                             </span>
                           )}
@@ -687,14 +684,14 @@ export default function ThreeDayCalendar({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 border-t border-neutral-800 p-4">
-              <button onClick={handlePrevWeek} className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-800">
+            <div className="grid grid-cols-3 gap-2 border-t border-neutral-200 p-4">
+              <button onClick={handlePrevWeek} className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">
                 ← Prev
               </button>
-              <button onClick={() => setExpanded(false)} className="rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-semibold text-neutral-400 hover:bg-neutral-700">
+              <button onClick={() => setExpanded(false)} className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-semibold text-neutral-500 hover:bg-neutral-100">
                 Collapse ↑
               </button>
-              <button onClick={handleNextWeek} className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-800">
+              <button onClick={handleNextWeek} className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">
                 Next →
               </button>
             </div>

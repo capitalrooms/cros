@@ -45,15 +45,20 @@ interface LineItem {
   statement_id: string | null
 }
 
-type Period = 'latest' | '3m' | '6m' | '12m' | 'all'
+type Period = 'latest' | '3m' | '6m' | '12m' | 'all' | 'custom'
 
 const PERIODS: { id: Period; label: string }[] = [
-  { id: 'latest', label: 'Last statement' },
+  { id: 'latest', label: 'Latest' },
   { id: '3m',     label: '3 months' },
   { id: '6m',     label: '6 months' },
   { id: '12m',    label: '12 months' },
   { id: 'all',    label: 'All time' },
+  { id: 'custom', label: 'Custom' },
 ]
+
+// ISO month string helpers (YYYY-MM)
+const toMonthStr = (d: Date) => d.toISOString().slice(0, 7)
+const thisMonth  = () => toMonthStr(new Date())
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,10 +78,23 @@ function issuedLabel(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function applyPeriod(statements: Statement[], period: Period): Statement[] {
+function applyPeriod(
+  statements: Statement[],
+  period: Period,
+  customFrom?: string,
+  customTo?: string,
+): Statement[] {
   if (period === 'latest') return statements.slice(0, 1)
   if (period === 'all') return statements
   if (statements.length === 0) return []
+  if (period === 'custom') {
+    const from = customFrom ? `${customFrom}-01` : '0000-01-01'
+    const to   = customTo   ? `${customTo}-31`   : '9999-12-31'
+    return statements.filter(s => {
+      const d = s.statement_date.split('T')[0]
+      return d >= from && d <= to
+    })
+  }
   const months = period === '3m' ? 3 : period === '6m' ? 6 : 12
   // Anchor from the most recent statement, not today — so historical data
   // (statements older than N months from the current date) still appears.
@@ -94,6 +112,8 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
   const [statements, setStatements] = useState<Statement[]>([])
   const [lineItemsByStatement, setLineItemsByStatement] = useState<Record<string, LineItem[]>>({})
   const [period, setPeriod]       = useState<Period>('latest')
+  const [customFrom, setCustomFrom] = useState<string>(thisMonth())
+  const [customTo,   setCustomTo]   = useState<string>(thisMonth())
   const [expanded, setExpanded]   = useState<string | null>(null)
   const [expandedCat, setExpandedCat] = useState<string | null>(null)
   const [expandedExpKey, setExpandedExpKey] = useState<string | null>(null)
@@ -134,7 +154,7 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  const visible = applyPeriod(statements, period)
+  const visible = applyPeriod(statements, period, customFrom, customTo)
   const latestStmt = statements[0]
 
   const totals = visible.reduce(
@@ -349,30 +369,53 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
       {/* Header: last statement totals by default, period selector to change view */}
       {statements.length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-md flex-wrap gap-sm">
-            <p className="text-sm font-semibold text-neutral-700">
+          <div className="flex items-start justify-between mb-md flex-wrap gap-sm">
+            <p className="text-sm font-semibold text-neutral-700 mt-xs">
               {headerLabel}
               {visible.length > 1 && (
                 <span className="ml-sm text-xs font-normal text-neutral-400">
-                  ({visible.length} statements)
+                  ({visible.length} statement{visible.length !== 1 ? 's' : ''})
                 </span>
               )}
             </p>
-            {/* Period pills */}
-            <div className="flex items-center gap-xs flex-wrap">
-              {PERIODS.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setPeriod(p.id)}
-                  className={`text-xs px-sm py-xs rounded-full font-medium transition-colors ${
-                    period === p.id
-                      ? 'bg-neutral-900 text-white'
-                      : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
+            <div className="flex flex-col items-end gap-sm">
+              {/* Period pills */}
+              <div className="flex items-center gap-xs flex-wrap justify-end">
+                {PERIODS.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setPeriod(p.id)}
+                    className={`text-xs px-sm py-xs rounded-full font-medium transition-colors ${
+                      period === p.id
+                        ? 'bg-neutral-900 text-white'
+                        : 'text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              {/* Custom date range inputs */}
+              {period === 'custom' && (
+                <div className="flex items-center gap-sm flex-wrap justify-end">
+                  <input
+                    type="month"
+                    value={customFrom}
+                    max={customTo}
+                    onChange={e => setCustomFrom(e.target.value)}
+                    className="rounded-lg border border-neutral-300 px-sm py-xs text-xs text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                  <span className="text-xs text-neutral-400">to</span>
+                  <input
+                    type="month"
+                    value={customTo}
+                    min={customFrom}
+                    max={thisMonth()}
+                    onChange={e => setCustomTo(e.target.value)}
+                    className="rounded-lg border border-neutral-300 px-sm py-xs text-xs text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  />
+                </div>
+              )}
             </div>
           </div>
 

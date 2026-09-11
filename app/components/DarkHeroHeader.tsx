@@ -4,15 +4,16 @@
  * Reusable dark-background hero section for role dashboards.
  *
  * Scroll behaviour — two layers:
- *  1. Sticky logo bar  — stays pinned at the top (z-50), matching AppBar.
- *     Safe-area inset applied here so the dark bg fills behind the status bar.
+ *  1. Fixed logo bar   — position:fixed (not sticky) so it never moves during
+ *     iOS rubber-band / overscroll. A spacer div compensates for the bar being
+ *     taken out of document flow. Safe-area inset fills dark bg behind status bar.
  *  2. Scrollable hero  — eyebrow label, large heading, stat tiles (children).
  *     Scrolls away as the user moves down the page.
  *
  * Tab strips below this header should use:
  *   className="sticky z-40"
  *   style={{ top: 'calc(env(safe-area-inset-top) + 52px)' }}
- * …so they snap to sit immediately under the logo bar.
+ * …so they snap to sit immediately under the fixed logo bar.
  *
  * Usage:
  *   <DarkHeroHeader
@@ -43,11 +44,13 @@ export default function DarkHeroHeader({
   return (
     <div className="bg-neutral-950 text-white">
 
-      {/* ── STICKY logo bar ─────────────────────────────────────────────── */}
-      {/* Mirrors AppBar exactly: safe-area padding on the outer wrapper,   */}
-      {/* content padding inside. z-50 so it stays above everything.        */}
+      {/* ── FIXED logo bar ──────────────────────────────────────────────── */}
+      {/* Uses position:fixed (not sticky) so it never moves during iOS     */}
+      {/* rubber-band / overscroll — sticky travels with the page on bounce */}
+      {/* and clashes with the tab strip when it snaps back.                */}
+      {/* left-0 right-0 makes it span full width without a width:100%      */}
       <div
-        className="sticky top-0 z-50 bg-neutral-950 border-b border-neutral-800"
+        className="fixed top-0 left-0 right-0 z-50 bg-neutral-950 border-b border-neutral-800"
         style={{
           paddingTop: 'env(safe-area-inset-top)',
           paddingLeft: 'env(safe-area-inset-left)',
@@ -79,6 +82,10 @@ export default function DarkHeroHeader({
           </div>
         </div>
       </div>
+
+      {/* ── Spacer — offsets the fixed bar from document flow ────────────── */}
+      {/* Height must match the fixed bar: safe-area-inset-top + 52px.      */}
+      <div style={{ height: 'calc(env(safe-area-inset-top) + 52px)' }} />
 
       {/* ── Scrollable hero ──────────────────────────────────────────────── */}
       {/* Eyebrow label, large heading, and slot for stat tiles / search.   */}

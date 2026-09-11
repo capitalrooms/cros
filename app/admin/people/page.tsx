@@ -305,7 +305,7 @@ export default function PeopleManagement() {
     )
   }
 
-  const staffPeople = people.filter((p) => p.role === 'contractor' || p.role === 'cleaner')
+  const staffPeople = people.filter((p) => p.role === 'contractor' || p.role === 'cleaner' || p.role === 'lettings')
   const adminPeople = people.filter((p) => p.role === 'administrator')
 
   return (
@@ -596,12 +596,19 @@ export default function PeopleManagement() {
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-neutral-900">{displayName(person) || person.email}</p>
-                      <p className="text-xs text-neutral-500 mt-xs">{person.role === 'contractor' ? '👷 Contractor' : '🧹 Cleaner'}</p>
+                      <p className="text-xs text-neutral-500 mt-xs">
+                        {person.role === 'contractor' ? '👷 Contractor' : person.role === 'cleaner' ? '🧹 Cleaner' : '🔑 Lettings'}
+                      </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-sm">
                       <NotifyBadge on={notifyOn.has(person.id)} />
                       <Link
-                        href={person.role === 'contractor' ? `/contractor?as=${person.id}` : `/admin/view-as/${person.id}`}
+                        href={
+                          person.role === 'contractor' ? `/contractor?as=${person.id}` :
+                          person.role === 'cleaner'    ? `/cleaner?as=${person.id}` :
+                          person.role === 'lettings'   ? `/lettings?as=${person.id}` :
+                          `/admin/view-as/${person.id}`
+                        }
                         onClick={e => e.stopPropagation()}
                         title={`View ${person.role} dashboard as this person`}
                         className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors"

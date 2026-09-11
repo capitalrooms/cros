@@ -53,15 +53,10 @@ Recipients: ${recipient_type === 'all_tenants' ? 'All tenants' : recipient_type 
 Write professional, friendly communications that inform and respect the recipient.`
 
     const message = await client.messages.create({
-      model: 'claude-opus-4-1-20250805',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      system: systemPrompt
+      messages: [{ role: 'user', content: prompt }],
+      system: systemPrompt,
     })
 
     const responseText = message.content[0].type === 'text' ? message.content[0].text : ''
@@ -79,7 +74,8 @@ Write professional, friendly communications that inform and respect the recipien
       message: messageBody || ''
     })
   } catch (error) {
-    console.error('AI compose error:', error)
-    return NextResponse.json({ error: 'Failed to generate message' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('AI compose error:', msg)
+    return NextResponse.json({ error: 'Failed to generate message', detail: msg }, { status: 500 })
   }
 }

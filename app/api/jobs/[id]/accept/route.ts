@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase'
+import { createClient, createServiceClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function PUT(
@@ -15,8 +15,9 @@ export async function PUT(
       )
     }
 
-    const supabase = createClient()
-    const { data: user } = await supabase.auth.getUser()
+    // Auth check via browser client
+    const authClient = createClient()
+    const { data: user } = await authClient.auth.getUser()
 
     if (!user.user) {
       return NextResponse.json(
@@ -24,6 +25,9 @@ export async function PUT(
         { status: 401 }
       )
     }
+
+    // Service client bypasses RLS — safe because we've verified auth above
+    const supabase = createServiceClient()
 
     // Get the assigned job
     const { data: job, error: jobError } = await supabase

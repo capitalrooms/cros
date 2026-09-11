@@ -61,9 +61,10 @@ export default function AppointmentsPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [weekStart, setWeekStart] = useState(() => {
     const d = new Date()
-    const day = d.getDay()
-    const diff = d.getDate() - day
-    return new Date(d.setDate(diff))
+    // Start on Sunday (or Monday if day===0 wrap) in local time — midnight local
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() - d.getDay())
+    return d
   })
 
   // Form state for creating appointment
@@ -80,6 +81,9 @@ export default function AppointmentsPage() {
   const [notifyTenants, setNotifyTenants] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Postcode filter for property picker
+  const [postcodeFilter, setPostcodeFilter] = useState('')
 
   // Dragging state
   const [draggedAppt, setDraggedAppt] = useState<Appointment | null>(null)
@@ -154,7 +158,9 @@ export default function AppointmentsPage() {
   }
 
   const days = getDays()
-  const dateStr = (d: Date) => d.toISOString().split('T')[0]
+  // Use local date (not UTC) to avoid timezone drift when comparing against appointment_date strings
+  const dateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const timeSlotPosition = (time: string) => {
     const [h, m] = time.split(':').map(Number)
     const totalMinutes = h * 60 + m
@@ -293,123 +299,152 @@ export default function AppointmentsPage() {
           </button>
         </div>
 
-        {/* Create appointment form */}
-        {!showCreateForm ? (
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="mb-3xl px-lg py-md bg-neutral-900 text-white font-bold rounded-lg hover:bg-neutral-800"
-          >
-            + Book Appointment
-          </button>
-        ) : (
-          <div className="mb-3xl p-lg bg-white rounded-2xl border-2 border-neutral-200">
-            <h2 className="text-xl font-bold mb-lg">Book Appointment</h2>
-            {error && <div className="mb-md p-md bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">{error}</div>}
+        {/* + Book Appointment button */}
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="mb-3xl px-lg py-md bg-neutral-900 text-white font-bold rounded-lg hover:bg-neutral-800"
+        >
+          + Book Appointment
+        </button>
 
-            <div className="grid grid-cols-2 gap-md mb-md">
-              <select
-                value={selectedProperty}
-                onChange={(e) => setSelectedProperty(e.target.value)}
-                className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              >
-                <option value="">Select property…</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+        {/* Modal overlay */}
+        {showCreateForm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-lg" onClick={() => setShowCreateForm(false)}>
+            <div className="absolute inset-0 bg-black/50" />
+            <div
+              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-xl max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-lg">
+                <h2 className="text-xl font-bold">Book Appointment</h2>
+                <button onClick={() => setShowCreateForm(false)} className="text-neutral-400 hover:text-neutral-700 text-2xl leading-none">×</button>
+              </div>
 
-              <select
-                value={appointmentType}
-                onChange={(e) => setAppointmentType(e.target.value as AppointmentType)}
-                className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              >
-                {Object.entries(APPOINTMENT_TYPES).map(([key, val]) => (
-                  <option key={key} value={key}>{val.icon} {val.label}</option>
-                ))}
-              </select>
+              {error && <div className="mb-md p-md bg-red-50 border border-red-200 text-red-800 rounded-lg text-sm">{error}</div>}
 
-              <input
-                type="date"
-                value={appointmentDate}
-                onChange={(e) => setAppointmentDate(e.target.value)}
-                className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              />
-              <input
-                type="time"
-                value={appointmentTime}
-                onChange={(e) => setAppointmentTime(e.target.value)}
-                className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              />
-
-              <select
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              >
-                <option value={15}>15 minutes</option>
-                <option value={30}>30 minutes</option>
-                <option value={60}>1 hour</option>
-                <option value={90}>1.5 hours</option>
-                <option value={120}>2 hours</option>
-                <option value={180}>3 hours</option>
-              </select>
-
-              <input
-                type="text"
-                placeholder="Visitor name"
-                value={visitorName}
-                onChange={(e) => setVisitorName(e.target.value)}
-                className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              />
-
-              <input
-                type="text"
-                placeholder="Company (optional)"
-                value={visitorCompany}
-                onChange={(e) => setVisitorCompany(e.target.value)}
-                className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              />
-
-              <input
-                type="tel"
-                placeholder="Phone (optional)"
-                value={visitorPhone}
-                onChange={(e) => setVisitorPhone(e.target.value)}
-                className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              />
-
-              <textarea
-                placeholder="Notes for tenants (optional)"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
-              />
-
-              <label className="col-span-2 flex items-center gap-sm text-sm">
+              <div className="grid grid-cols-2 gap-md mb-md">
+                {/* Postcode / name filter */}
                 <input
-                  type="checkbox"
-                  checked={notifyTenants}
-                  onChange={(e) => setNotifyTenants(e.target.checked)}
+                  type="text"
+                  placeholder="Filter by postcode or name…"
+                  value={postcodeFilter}
+                  onChange={(e) => setPostcodeFilter(e.target.value)}
+                  className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
                 />
-                Notify tenants
-              </label>
-            </div>
+                <select
+                  value={selectedProperty}
+                  onChange={(e) => setSelectedProperty(e.target.value)}
+                  className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                  size={postcodeFilter ? Math.min(5, properties.filter(p =>
+                    p.name.toLowerCase().includes(postcodeFilter.toLowerCase()) ||
+                    p.address.toLowerCase().includes(postcodeFilter.toLowerCase())
+                  ).length + 1) : undefined}
+                >
+                  <option value="">Select property…</option>
+                  {properties
+                    .filter(p =>
+                      !postcodeFilter ||
+                      p.name.toLowerCase().includes(postcodeFilter.toLowerCase()) ||
+                      p.address.toLowerCase().includes(postcodeFilter.toLowerCase())
+                    )
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>{p.name} — {p.address}</option>
+                    ))}
+                </select>
 
-            <div className="flex gap-md">
-              <button
-                onClick={handleCreateAppointment}
-                disabled={saving}
-                className="flex-1 px-lg py-md bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
-                {saving ? 'Booking…' : 'Book'}
-              </button>
-              <button
-                onClick={() => setShowCreateForm(false)}
-                className="px-lg py-md border border-neutral-300 rounded-lg hover:bg-neutral-50"
-              >
-                Cancel
-              </button>
+                <select
+                  value={appointmentType}
+                  onChange={(e) => setAppointmentType(e.target.value as AppointmentType)}
+                  className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                >
+                  {Object.entries(APPOINTMENT_TYPES).map(([key, val]) => (
+                    <option key={key} value={key}>{val.icon} {val.label}</option>
+                  ))}
+                </select>
+
+                <input
+                  type="date"
+                  value={appointmentDate}
+                  onChange={(e) => setAppointmentDate(e.target.value)}
+                  className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                />
+                <input
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(e) => setAppointmentTime(e.target.value)}
+                  className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                />
+
+                <select
+                  value={durationMinutes}
+                  onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                  className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                >
+                  <option value={15}>15 minutes</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={60}>1 hour</option>
+                  <option value={90}>1.5 hours</option>
+                  <option value={120}>2 hours</option>
+                  <option value={180}>3 hours</option>
+                </select>
+
+                <input
+                  type="text"
+                  placeholder="Visitor name"
+                  value={visitorName}
+                  onChange={(e) => setVisitorName(e.target.value)}
+                  className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                />
+
+                <input
+                  type="text"
+                  placeholder="Company (optional)"
+                  value={visitorCompany}
+                  onChange={(e) => setVisitorCompany(e.target.value)}
+                  className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                />
+
+                <input
+                  type="tel"
+                  placeholder="Phone (optional)"
+                  value={visitorPhone}
+                  onChange={(e) => setVisitorPhone(e.target.value)}
+                  className="border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                />
+
+                <textarea
+                  placeholder="Notes for tenants (optional)"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
+                />
+
+                <label className="col-span-2 flex items-center gap-sm text-sm">
+                  <input
+                    type="checkbox"
+                    checked={notifyTenants}
+                    onChange={(e) => setNotifyTenants(e.target.checked)}
+                  />
+                  Notify tenants
+                </label>
+              </div>
+
+              <div className="flex gap-md">
+                <button
+                  onClick={handleCreateAppointment}
+                  disabled={saving}
+                  className="flex-1 px-lg py-md bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {saving ? 'Booking…' : 'Book'}
+                </button>
+                <button
+                  onClick={() => setShowCreateForm(false)}
+                  className="px-lg py-md border border-neutral-300 rounded-lg hover:bg-neutral-50"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -420,12 +455,15 @@ export default function AppointmentsPage() {
             {/* Header: Day names */}
             <div className="flex">
               <div className="w-20 border-r border-neutral-200 bg-neutral-50 sticky left-0 z-10"></div>
-              {days.map((d, i) => (
-                <div key={i} className="flex-1 border-r border-neutral-200 bg-neutral-50 p-md text-center text-sm font-bold">
-                  <div>{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]}</div>
-                  <div className="text-xs text-neutral-600">{d.getDate()}</div>
-                </div>
-              ))}
+              {days.map((d, i) => {
+                const isToday = dateStr(d) === dateStr(new Date())
+                return (
+                  <div key={i} className={`flex-1 border-r border-neutral-200 p-md text-center text-sm font-bold select-none ${isToday ? 'bg-blue-50' : 'bg-neutral-50'}`}>
+                    <div className={isToday ? 'text-blue-700' : ''}>{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]}</div>
+                    <div className={`text-xs ${isToday ? 'text-blue-600 font-black' : 'text-neutral-600'}`}>{d.getDate()}</div>
+                  </div>
+                )
+              })}
             </div>
 
             {/* Time grid */}
@@ -438,7 +476,21 @@ export default function AppointmentsPage() {
 
                 {/* Day columns */}
                 {days.map((d, dayIdx) => (
-                  <div key={dayIdx} className="flex-1 border-r border-neutral-200 relative" style={{ minHeight: '4rem' }}>
+                  <div
+                    key={dayIdx}
+                    className="flex-1 border-r border-neutral-200 relative cursor-pointer hover:bg-blue-50/40 transition-colors"
+                    style={{ minHeight: '4rem' }}
+                    title={`Book at ${String(hour).padStart(2,'0')}:00 on ${dateStr(d)}`}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(d, `${String(hour).padStart(2,'0')}:00`, e)}
+                    onClick={(e) => {
+                      // Only trigger if clicking the empty cell, not an appointment card
+                      if ((e.target as HTMLElement).closest('[draggable]')) return
+                      setAppointmentDate(dateStr(d))
+                      setAppointmentTime(`${String(hour).padStart(2, '0')}:00`)
+                      setShowCreateForm(true)
+                    }}
+                  >
                     {/* Appointment for this slot */}
                     {appointments
                       .filter((a) => a.appointment_date === dateStr(d) && Math.floor(parseInt(a.appointment_time.split(':')[0])) === hour)

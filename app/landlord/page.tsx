@@ -53,6 +53,7 @@ export default function LandlordDashboard() {
   const [prefs, setPrefs]               = useState<Record<string, boolean>>({})
   const [showNotifPrefs, setShowNotifPrefs] = useState(false)
   const [viewingAs, setViewingAs]       = useState<{ id: string; name: string; role: string } | null>(null)
+  const [portfolioPeriod, setPortfolioPeriod] = useState<'3m' | '6m' | '12m' | 'all'>('12m')
 
   const searchParams = useSearchParams()
 
@@ -90,10 +91,10 @@ export default function LandlordDashboard() {
 
       const supabase = createClient()
 
-      // Load statements (minimal columns — just enough for the property dropdown)
+      // Load statements — full financial columns for both portfolio summary and property picker
       const { data: statementsData } = await supabase
         .from('landlord_statements')
-        .select('id, property_id, statement_date, properties(name, address)')
+        .select('id, property_id, statement_date, gross_rent, management_fees, property_charges, net_to_landlord, paid_date, properties(name, address)')
         .eq('landlord_id', pid!)
         .order('statement_date', { ascending: false })
 
@@ -143,6 +144,27 @@ export default function LandlordDashboard() {
     ).values()
   )
 
+  // Portfolio summary — totals across all properties for the selected period
+  const portfolioCutoff = (() => {
+    if (portfolioPeriod === 'all') return null
+    const d = new Date()
+    d.setMonth(d.getMonth() - (portfolioPeriod === '3m' ? 3 : portfolioPeriod === '6m' ? 6 : 12))
+    return d.toISOString().split('T')[0]
+  })()
+  const portfolioStmts = portfolioCutoff
+    ? statements.filter(s => s.statement_date >= portfolioCutoff)
+    : statements
+  const portfolioTotals = portfolioStmts.reduce(
+    (acc, s) => ({
+      gross:   acc.gross   + parseFloat(String(s.gross_rent          || 0)),
+      fees:    acc.fees    + parseFloat(String(s.management_fees     || 0)),
+      charges: acc.charges + parseFloat(String(s.property_charges    || 0)),
+      net:     acc.net     + parseFloat(String(s.net_to_landlord     || 0)),
+    }),
+    { gross: 0, fees: 0, charges: 0, net: 0 }
+  )
+  const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
@@ -177,6 +199,50 @@ export default function LandlordDashboard() {
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <RoleGreeting role="Landlord Dashboard" name={name} subtitle="Financial summaries for your properties." />
+
+        {/* Portfolio summary */}
+        {statements.length > 0 && (
+          <div className="mb-2xl">
+            <div className="flex items-center justify-between mb-md flex-wrap gap-sm">
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                Portfolio total{properties.length > 1 ? ` · ${properties.length} properties` : ''}
+              </p>
+              <div className="flex items-center gap-xs">
+                {(['3m', '6m', '12m', 'all'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPortfolioPeriod(p)}
+                    className={`text-xs px-sm py-xs rounded-full font-medium transition-colors ${
+                      portfolioPeriod === p
+                        ? 'bg-neutral-900 text-white'
+                        : 'text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100'
+                    }`}
+                  >
+                    {p === 'all' ? 'All time' : p}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-md">
+              {[
+                { label: 'Gross rent',  value: portfolioTotals.gross,   colour: 'text-neutral-900' },
+                { label: 'Mgmt fees',   value: portfolioTotals.fees,    colour: 'text-red-600' },
+                { label: 'Expenses',    value: portfolioTotals.charges, colour: 'text-red-600' },
+                { label: 'Net income',  value: portfolioTotals.net,     colour: 'text-green-700' },
+              ].map(m => (
+                <div key={m.label} className="rounded-2xl bg-white border border-neutral-200 px-md py-md shadow-sm">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400">{m.label}</p>
+                  <p className={`text-xl font-black mt-xs tabular-nums ${m.colour}`}>{gbp(m.value)}</p>
+                </div>
+              ))}
+            </div>
+            {portfolioCutoff && (
+              <p className="text-xs text-neutral-400 mt-sm text-right">
+                {portfolioStmts.length} statement{portfolioStmts.length !== 1 ? 's' : ''} from {new Date(portfolioCutoff).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })} onwards
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Property Selector */}
         {properties.length > 0 && (

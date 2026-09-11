@@ -20,10 +20,17 @@ interface Cleaner {
   phone?: string
 }
 
+interface Contractor {
+  id: string
+  name: string
+  email?: string
+}
+
 export interface OnNoticeData {
   moveOutDate: string
   noticeReceivedDate: string
   rentDueDay: number
+  newAskingRent?: string
   emailTenant: boolean
   emailCleaner: boolean
   cleanerId?: string
@@ -32,11 +39,14 @@ export interface OnNoticeData {
   proRataAmount: number
   proRataDays: number
   dailyRate: number
+  pendingJobs?: string[]
+  jobContractorId?: string
 }
 
 interface Props {
   tenancy: Tenancy | null
   cleaners: Cleaner[]
+  contractors?: Contractor[]
   onClose: () => void
   onConfirm: (data: OnNoticeData) => Promise<void>
 }
@@ -44,15 +54,16 @@ interface Props {
 // ─── Pro-rata calculation ───────────────────────────────────────────────────
 // Calculates from the last rent-due date (based on rent_due_day) up to and
 // including the move-out date. Formula: rent × 12 / 365 × days.
-// This gives a consistent daily rate regardless of how many days are in the
-// calendar month (e.g. 1 Aug → 31 Aug = 31 days = 31 × daily rate).
+// Special case: if the final period covers a complete calendar month (e.g. rent
+// due on the 1st and tenant leaves on the last day of that month), charge the
+// full monthly rent rather than the daily-rate approximation.
 function calcProRata(
   monthlyRent: number,
   rentDueDay: number,
   moveOutDate: string
-): { proRataAmount: number; daysOccupied: number; dailyRate: number; lastDueDate: Date } {
+): { proRataAmount: number; daysOccupied: number; dailyRate: number; lastDueDate: Date; isFullMonth: boolean } {
   if (!monthlyRent || monthlyRent <= 0 || !moveOutDate) {
-    return { proRataAmount: 0, daysOccupied: 0, dailyRate: 0, lastDueDate: new Date() }
+    return { proRataAmount: 0, daysOccupied: 0, dailyRate: 0, lastDueDate: new Date(), isFullMonth: false }
   }
 
   const moveOut = new Date(moveOutDate + 'T12:00:00')
@@ -75,13 +86,22 @@ function calcProRata(
   const daysOccupied = Math.round(
     (moveOut.getTime() - lastDueDate.getTime()) / (1000 * 60 * 60 * 24)
   ) + 1
-  const dailyRate = monthlyRent * 12 / 365
-  const proRataAmount = Math.max(0, dailyRate * daysOccupied)
 
-  return { proRataAmount, daysOccupied, dailyRate, lastDueDate }
+  // Full-month check: last due date is the Nth of month M, and move-out is the
+  // last day of that same month M → charge the full monthly rent
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate()
+  const isFullMonth =
+    lastDueDate.getFullYear() === moveOut.getFullYear() &&
+    lastDueDate.getMonth()    === moveOut.getMonth()    &&
+    moveOut.getDate()         === lastDayOfMonth
+
+  const dailyRate = monthlyRent * 12 / 365
+  const proRataAmount = isFullMonth ? monthlyRent : Math.max(0, dailyRate * daysOccupied)
+
+  return { proRataAmount, daysOccupied, dailyRate, lastDueDate, isFullMonth }
 }
 
-export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm }: Props) {
+export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], onClose, onConfirm }: Props) {
   const today = new Date().toISOString().split('T')[0]
 
   const [step, setStep] = useState<'details' | 'confirm-rent' | 'preview' | 'sending'>('details')
@@ -92,8 +112,14 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
   const [emailCleaner, setEmailCleaner]         = useState(false)
   const [selectedCleanerId, setSelectedCleanerId] = useState('')
   const [notesForLettings, setNotesForLettings] = useState('')
+  const [newAskingRent, setNewAskingRent]       = useState('')
+  const [pendingJobs, setPendingJobs]           = useState<string[]>([])
+  const [jobInput, setJobInput]                 = useState('')
+  const [jobContractorId, setJobContractorId]   = useState('')
   const [proRataConfirmed, setProRataConfirmed] = useState(false)
-  const [sending, setSending] = useState(false)
+  const [sending, setSending]                   = useState(false)
+  const [buildingPreview, setBuildingPreview]   = useState(false)
+  const [checkoutEmailHtml, setCheckoutEmailHtml] = useState<string | null>(null)
   const [error, setError]     = useState<string | null>(null)
 
   if (!tenancy) return null
@@ -102,27 +128,38 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
     ? calcProRata(tenancy.rent_amount, rentDueDay, moveOutDate)
     : null
 
+  // Build the checkout email preview and advance to the preview step
+  const handleBuildPreview = async () => {
+    if (!proRata || !moveOutDate) return
+    setBuildingPreview(true)
+    setError(null)
+    try {
+      const html = await buildCheckoutEmail({
+        tenantName:         displayName(tenancy.person) || 'Tenant',
+        tenantEmail:        tenancy.person?.email || '',
+        roomName:           tenancy.room?.name || 'Room',
+        propertyAddress:    tenancy.property?.address || '',
+        moveOutDate,
+        lastRentAmount:     tenancy.rent_amount,
+        proRataRent:        proRata.proRataAmount,
+        proRataCalculation: `${proRata.daysOccupied} days × £${proRata.dailyRate.toFixed(2)}/day`,
+        contactEmail: 'management@capitalrooms.co.uk',
+        contactPhone: '0207 112 9163',
+      })
+      setCheckoutEmailHtml(html)
+      setStep('preview')
+    } catch (err) {
+      setError('Could not build email preview: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    } finally {
+      setBuildingPreview(false)
+    }
+  }
+
   const handleConfirm = async () => {
     if (!moveOutDate) { setError('Please select a move-out date'); return }
     setSending(true)
     setError(null)
     try {
-      // Build checkout email HTML (async, uses shared wrapper)
-      const checkoutEmailHtml = emailTenant && moveOutDate && proRata
-        ? await buildCheckoutEmail({
-            tenantName:         displayName(tenancy.person) || 'Tenant',
-            tenantEmail:        tenancy.person?.email || '',
-            roomName:           tenancy.room?.name || 'Room',
-            propertyAddress:    tenancy.property?.address || '',
-            moveOutDate,
-            lastRentAmount:     tenancy.rent_amount,
-            proRataRent:        proRata.proRataAmount,
-            proRataCalculation: `${proRata.daysOccupied} days × £${proRata.dailyRate.toFixed(2)}/day`,
-            contactEmail: 'management@capitalrooms.co.uk',
-            contactPhone: '0207 112 9163',
-          })
-        : null
-
       await onConfirm({
         moveOutDate,
         noticeReceivedDate,
@@ -136,6 +173,8 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
         proRataAmount:  proRata?.proRataAmount ?? 0,
         proRataDays:    proRata?.daysOccupied ?? 0,
         dailyRate:      proRata?.dailyRate ?? 0,
+        pendingJobs:    pendingJobs.filter(Boolean),
+        jobContractorId: jobContractorId || undefined,
       })
       onClose()
     } catch (err) {
@@ -162,10 +201,10 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
           <p className="text-sm text-neutral-700"><strong>Rent:</strong> £{tenancy.rent_amount}/month</p>
         </div>
 
-        {/* Notice received date */}
+        {/* Notice received date — optional */}
         <div>
           <label className="block text-sm font-semibold text-neutral-900 mb-xs">
-            When was notice given? *
+            When was notice given? <span className="font-normal text-neutral-400 text-xs">(optional)</span>
           </label>
           <input
             type="date"
@@ -175,7 +214,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
             className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm"
           />
           <p className="text-xs text-neutral-400 mt-xs">
-            Today if they just told you; back-date if notice was given earlier (by phone, etc.)
+            Leave as today, or back-date if notice was given earlier (by phone, etc.)
           </p>
         </div>
 
@@ -213,9 +252,13 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
           {proRata && moveOutDate && (
             <p className="text-xs text-neutral-500 mt-xs">
               Final rent period: {fmt(proRata.lastDueDate.toISOString().split('T')[0])} → {fmt(moveOutDate)}
-              {' '}= <strong>{proRata.daysOccupied} days</strong>
-              {' '}× £{proRata.dailyRate.toFixed(2)}/day (£{tenancy.rent_amount} × 12 ÷ 365)
-              {' '}= <strong>£{proRata.proRataAmount.toFixed(2)}</strong>
+              {proRata.isFullMonth ? (
+                <> = <strong>full calendar month</strong> = <strong>£{proRata.proRataAmount.toFixed(2)}</strong></>
+              ) : (
+                <> = <strong>{proRata.daysOccupied} days</strong>
+                {' '}× £{proRata.dailyRate.toFixed(2)}/day (£{tenancy.rent_amount} × 12 ÷ 365)
+                {' '}= <strong>£{proRata.proRataAmount.toFixed(2)}</strong></>
+              )}
             </p>
           )}
         </div>
@@ -257,6 +300,28 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
           )}
         </div>
 
+        {/* New asking rent for remarketing */}
+        <div>
+          <label className="block text-sm font-semibold text-neutral-900 mb-xs">
+            New asking rent for remarketing <span className="font-normal text-neutral-400 text-xs">(optional)</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-md top-1/2 -translate-y-1/2 text-neutral-500 text-sm font-semibold">£</span>
+            <input
+              type="number"
+              min={0}
+              step={5}
+              value={newAskingRent}
+              onChange={e => setNewAskingRent(e.target.value)}
+              placeholder={tenancy.rent_amount ? tenancy.rent_amount.toString() : '0'}
+              className="w-full rounded-lg border border-neutral-300 pl-7 pr-md py-sm text-sm"
+            />
+          </div>
+          <p className="text-xs text-neutral-400 mt-xs">
+            Leave blank to keep the current rent of £{tenancy.rent_amount}/month
+          </p>
+        </div>
+
         {/* Notes */}
         <div>
           <label className="block text-sm font-semibold text-neutral-900 mb-xs">
@@ -269,6 +334,75 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
             placeholder="e.g. room needs repainting, tenant mentioned damp in corner…"
             className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm resize-none"
           />
+        </div>
+
+        {/* Jobs to raise */}
+        <div>
+          <label className="block text-sm font-semibold text-neutral-900 mb-xs">
+            Jobs to raise for contractor <span className="font-normal text-neutral-400 text-xs">(optional)</span>
+          </label>
+          {contractors.length > 0 && (
+            <select
+              value={jobContractorId}
+              onChange={e => setJobContractorId(e.target.value)}
+              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm mb-sm"
+            >
+              <option value="">— Select contractor (optional) —</option>
+              {contractors.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
+          {/* Quick suggestion chips */}
+          <div className="flex flex-wrap gap-xs mb-sm">
+            {['Repaint walls','Replace ceiling light','Fix drawers','Fix carpet','Replace mattress','Touch up skirting'].map(s => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => { if (!pendingJobs.includes(s)) setPendingJobs(j => [...j, s]) }}
+                disabled={pendingJobs.includes(s)}
+                className="rounded-full border border-neutral-300 px-sm py-xs text-xs text-neutral-600 hover:border-neutral-900 hover:text-neutral-900 disabled:opacity-40 disabled:cursor-default transition-colors"
+              >{s}</button>
+            ))}
+          </div>
+          {/* Free-text add */}
+          <div className="flex gap-xs">
+            <input
+              type="text"
+              value={jobInput}
+              onChange={e => setJobInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && jobInput.trim()) {
+                  e.preventDefault()
+                  setPendingJobs(j => [...j, jobInput.trim()])
+                  setJobInput('')
+                }
+              }}
+              placeholder="Describe a job and press Enter…"
+              className="flex-1 rounded-lg border border-neutral-300 px-md py-sm text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => { if (jobInput.trim()) { setPendingJobs(j => [...j, jobInput.trim()]); setJobInput('') } }}
+              className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-40"
+              disabled={!jobInput.trim()}
+            >Add</button>
+          </div>
+          {/* Listed jobs */}
+          {pendingJobs.length > 0 && (
+            <ul className="mt-sm space-y-xs">
+              {pendingJobs.map((j, i) => (
+                <li key={i} className="flex items-center justify-between gap-sm rounded-lg bg-amber-50 border border-amber-200 px-md py-xs text-sm text-neutral-800">
+                  <span>🔧 {j}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingJobs(jobs => jobs.filter((_, idx) => idx !== i))}
+                    className="text-neutral-400 hover:text-red-600 text-lg leading-none"
+                  >×</button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -328,14 +462,23 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
                 <td className="py-xs text-neutral-500">Move-out date</td>
                 <td className="py-xs">{fmt(moveOutDate)}</td>
               </tr>
-              <tr>
-                <td className="py-xs text-neutral-500">Daily rate</td>
-                <td className="py-xs">£{tenancy.rent_amount} × 12 ÷ 365 = £{proRata.dailyRate.toFixed(2)}/day</td>
-              </tr>
-              <tr>
-                <td className="py-xs text-neutral-500">Days in final period</td>
-                <td className="py-xs">{proRata.daysOccupied} days (inclusive)</td>
-              </tr>
+              {proRata.isFullMonth ? (
+                <tr>
+                  <td className="py-xs text-neutral-500">Calculation</td>
+                  <td className="py-xs text-green-700 font-semibold">Full calendar month — no pro-rata needed</td>
+                </tr>
+              ) : (
+                <>
+                  <tr>
+                    <td className="py-xs text-neutral-500">Daily rate</td>
+                    <td className="py-xs">£{tenancy.rent_amount} × 12 ÷ 365 = £{proRata.dailyRate.toFixed(2)}/day</td>
+                  </tr>
+                  <tr>
+                    <td className="py-xs text-neutral-500">Days in final period</td>
+                    <td className="py-xs">{proRata.daysOccupied} days (inclusive)</td>
+                  </tr>
+                </>
+              )}
               <tr className="border-t border-neutral-200">
                 <td className="pt-md text-neutral-900 font-bold">Final rent due</td>
                 <td className="pt-md text-neutral-900 font-bold text-lg">
@@ -346,8 +489,10 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
           </table>
 
           <p className="text-xs text-neutral-400 mt-sm">
-            £{tenancy.rent_amount} × 12 ÷ 365 × {proRata.daysOccupied} days
-            = £{proRata.proRataAmount.toFixed(2)}
+            {proRata.isFullMonth
+              ? `Full month — £${proRata.proRataAmount.toFixed(2)}`
+              : `£${tenancy.rent_amount} × 12 ÷ 365 × ${proRata.daysOccupied} days = £${proRata.proRataAmount.toFixed(2)}`
+            }
           </p>
         </div>
 
@@ -367,11 +512,11 @@ export default function SetOnNoticeModal({ tenancy, cleaners, onClose, onConfirm
 
         <div className="flex gap-md">
           <button
-            onClick={() => setStep('preview')}
-            disabled={!proRataConfirmed}
+            onClick={handleBuildPreview}
+            disabled={!proRataConfirmed || buildingPreview}
             className="flex-1 rounded-lg bg-blue-600 px-lg py-md text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Preview email →
+            {buildingPreview ? 'Building preview…' : 'Preview email →'}
           </button>
           <button onClick={() => setStep('details')} className="rounded-lg border border-neutral-300 px-lg py-md text-sm font-semibold hover:bg-neutral-50">
             Back

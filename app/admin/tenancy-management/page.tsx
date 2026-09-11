@@ -49,6 +49,12 @@ interface Cleaner {
   phone?: string
 }
 
+interface Contractor {
+  id: string
+  name: string
+  email?: string
+}
+
 export default function TenancyManagementPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -56,6 +62,7 @@ export default function TenancyManagementPage() {
   const [activeTenancies, setActiveTenancies] = useState<Tenancy[]>([])
   const [onNoticeTenancies, setOnNoticeTenancies] = useState<Tenancy[]>([])
   const [cleaners, setCleaners] = useState<Cleaner[]>([])
+  const [contractors, setContractors] = useState<Contractor[]>([])
   const [selectedTenancy, setSelectedTenancy] = useState<Tenancy | null>(null)
   const [showNoticeModal, setShowNoticeModal] = useState(false)
   const [savingNotice, setSavingNotice] = useState(false)
@@ -102,8 +109,15 @@ export default function TenancyManagementPage() {
       .select('id, full_name, first_name, last_name, email, phone')
       .eq('role', 'cleaner')
       .order('full_name')
-
     setCleaners(cleanersData as any)
+
+    // Fetch contractors
+    const { data: contractorsData } = await supabase
+      .from('people')
+      .select('id, full_name, first_name, last_name, email')
+      .eq('role', 'contractor')
+      .order('full_name')
+    setContractors(contractorsData as any)
   }
 
   const handleSetOnNotice = async (tenancy: Tenancy) => {
@@ -169,6 +183,9 @@ export default function TenancyManagementPage() {
           cleanerEmail: cleaner?.email,
           cleanerName: cleaner?.name,
           notesForLettings: noticeData.notesForLettings,
+          pendingJobs: noticeData.pendingJobs ?? [],
+          jobContractorId: noticeData.jobContractorId,
+          propertyId: selectedTenancy.property_id,
           roomName: selectedTenancy.room?.name,
           propertyAddress: selectedTenancy.property?.address,
           proRataAmount: noticeData.proRataAmount,
@@ -223,9 +240,17 @@ export default function TenancyManagementPage() {
       <AppBar left={<BackButton href="/admin" />} />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
-        <div className="mb-2xl">
-          <h1 className="text-3xl font-bold text-neutral-900">👥 Tenancy Management</h1>
-          <p className="mt-sm text-sm text-neutral-600 mb-lg">View active tenancies and mark move-outs</p>
+        <div className="mb-2xl flex items-start justify-between gap-md">
+          <div>
+            <h1 className="text-3xl font-bold text-neutral-900">👥 Tenancy Management</h1>
+            <p className="mt-sm text-sm text-neutral-600">View active tenancies and mark move-outs</p>
+          </div>
+          <Link
+            href="/admin/cleaner-jobs"
+            className="shrink-0 rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 flex items-center gap-xs"
+          >
+            🧹 Cleaner jobs
+          </Link>
         </div>
 
         {message && (
@@ -361,6 +386,15 @@ export default function TenancyManagementPage() {
                           </div>
                         )}
                       </div>
+                      {/* Edit notice button */}
+                      <div className="shrink-0">
+                        <button
+                          onClick={() => handleSetOnNotice(tenancy)}
+                          className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+                        >
+                          ✏️ Edit notice
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )
@@ -378,6 +412,7 @@ export default function TenancyManagementPage() {
             rent_due_day: selectedTenancy.rent_due_day ?? 1,
           }}
           cleaners={cleaners}
+          contractors={contractors}
           onClose={() => {
             setShowNoticeModal(false)
             setSelectedTenancy(null)

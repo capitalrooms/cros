@@ -11,6 +11,16 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Dark initial background so the login screen never flashes white before
+     React renders, and so that any iOS overscroll bounce above the dark hero
+     shows the same dark rather than a white gap. */
+  background-color: #0a0a0a;
+  /* Prevent iOS rubber-band overscroll from revealing the body/html background
+     at the top or bottom of the page — the canonical fix for the "white strip
+     appears when dragging past the footer" bug on PWAs. Internal scroll
+     containers (diary strip, modal sheets) are unaffected because this only
+     applies to the root document, not overflow:auto children. */
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -20,7 +30,11 @@ body {
      flip body text white in dark mode — that flipped inherited colour made white
      text on white inputs, so typed text was invisible on dark-mode phones. */
   color-scheme: light;
-  background-color: rgb(250, 250, 249);
+  /* Dark body background eliminates the white-flash-before-React-renders on the
+     login screen. Every page wraps its content in an explicit bg-* class so the
+     body colour is only ever visible for <50ms at boot — and matching the dark
+     hero means that brief moment looks intentional, not broken. */
+  background-color: #0a0a0a;
   color: rgb(28, 25, 23);
   font-family: var(--font-baloo-2), -apple-system, BlinkMacSystemFont, 'Segoe UI',
     'Roboto', 'Helvetica Neue', sans-serif;

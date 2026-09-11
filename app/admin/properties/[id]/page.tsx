@@ -21,9 +21,16 @@ import PropertyTabComponent from './components/PropertyTab'
 import HousematesTab from './components/HousematesTab'
 import ExtendedDetailsTab from './components/ExtendedDetailsTab'
 import FinancialsTab from './components/FinancialsTab'
+import TasksTab from './components/TasksTab'
 import BackButton from '@/app/components/BackButton'
 
-type TabType = 'units' | 'property' | 'people' | 'housemates' | 'maintenance' | 'purchases' | 'photos' | 'lettings' | 'communications' | 'compliance' | 'documents' | 'extended' | 'financials'
+type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'lettings' | 'compliance' | 'documents'
+
+// Sub-tab types for merged tabs
+type PeopleSubTab = 'tenants' | 'housemates'
+type MaintenanceSubTab = 'jobs' | 'purchases' | 'tasks'
+type ComplianceSubTab = 'compliance' | 'communications'
+type DocumentsSubTab = 'documents' | 'photos' | 'financials'
 
 interface Ticket {
   id: string;
@@ -47,9 +54,22 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   const [property, setProperty] = useState<any>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const initialTab = (searchParams.get('tab') as TabType) || 'property';
+  // Backwards-compat: old URL ?tab=property → details, old sub-tabs → their merged parent
+  const rawTab = searchParams.get('tab') || 'details'
+  const legacyMap: Record<string, TabType> = {
+    property: 'details', extended: 'details',
+    housemates: 'people',
+    purchases: 'maintenance', tasks: 'maintenance',
+    communications: 'compliance',
+    photos: 'documents', financials: 'documents',
+  }
+  const initialTab: TabType = (legacyMap[rawTab] as TabType) || (rawTab as TabType) || 'details'
   const initialRoomId = searchParams.get('room') || undefined;
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [peopleSubTab, setPeopleSubTab] = useState<PeopleSubTab>('tenants')
+  const [maintenanceSubTab, setMaintenanceSubTab] = useState<MaintenanceSubTab>('jobs')
+  const [complianceSubTab, setComplianceSubTab] = useState<ComplianceSubTab>('compliance')
+  const [documentsSubTab, setDocumentsSubTab] = useState<DocumentsSubTab>('documents')
   const [showQuickNotify, setShowQuickNotify] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editingAddress, setEditingAddress] = useState(false);
@@ -213,19 +233,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const tabs: Array<{ id: TabType; label: string; icon: string }> = [
-    { id: 'property', label: 'Property Info', icon: '🏠' },
-    { id: 'extended', label: 'Extended Details', icon: '📊' },
-    { id: 'units', label: 'Units', icon: '📋' },
-    { id: 'photos', label: 'Photos', icon: '📷' },
-    { id: 'lettings', label: 'Lettings', icon: '🔑' },
-    { id: 'people', label: 'People', icon: '👥' },
-    { id: 'housemates', label: 'Housemates', icon: '🙋' },
+    { id: 'details',     label: 'Details',     icon: '🏠' },
+    { id: 'units',       label: 'Units',       icon: '🛏️' },
+    { id: 'people',      label: 'People',      icon: '👥' },
     { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
-    { id: 'purchases', label: 'Purchases', icon: '🛒' },
-    { id: 'communications', label: 'Communications', icon: '💬' },
-    { id: 'compliance', label: 'Compliance', icon: '✅' },
-    { id: 'documents', label: 'Documents', icon: '📁' },
-    { id: 'financials', label: 'Financials', icon: '💷' },
+    { id: 'lettings',    label: 'Lettings',    icon: '🔑' },
+    { id: 'compliance',  label: 'Compliance',  icon: '✅' },
+    { id: 'documents',   label: 'Documents',   icon: '📁' },
   ]
 
   return (
@@ -470,51 +484,130 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               <span className="mr-xs">{tab.icon}</span> {tab.label}
             </button>
           ))}
-          {/* Scroll Indicator */}
-          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-neutral-950 to-transparent pointer-events-none flex items-center justify-end pr-md">
-            <span className="text-neutral-500 text-lg">›</span>
-          </div>
         </div>
 
         {/* Tab Content */}
-        <div className="rounded-b-xl border border-t-0 border-neutral-200 bg-white p-lg shadow-sm">
-          {/* Property Tab */}
-          {activeTab === 'property' && <PropertyTabComponent property={property} onUpdate={(updates) => setProperty((p: any) => ({ ...p, ...updates }))} />}
+        <div className="rounded-b-xl border border-t-0 border-neutral-200 bg-white shadow-sm">
 
-          {/* Extended Details Tab */}
-          {activeTab === 'extended' && <ExtendedDetailsTab propertyId={id} propertyType={property.property_type} />}
-
-          {/* Units Tab */}
-          {activeTab === 'units' && <UnitsTab propertyId={id} bedrooms={property.bedrooms} initialRoomId={initialRoomId} propertyName={property.name} propertyAddress={property.address} />}
-
-          {/* People Tab */}
-          {activeTab === 'people' && <PeopleTab propertyId={id} />}
-
-          {activeTab === 'housemates' && <HousematesTab propertyId={id} />}
-
-          {/* Maintenance Tab */}
-          {activeTab === 'maintenance' && <MaintenanceTab propertyId={id} tickets={tickets} />}
-
-          {activeTab === 'photos' && <PhotosTab propertyId={id} />}
-
-          {activeTab === 'purchases' && <PurchasesTab propertyId={id} />}
-
-          {/* Lettings Tab */}
-          {activeTab === 'lettings' && (
-            <LettingsTab propertyId={id} rooms={property.rooms || []} propertyName={property.name} propertyAddress={property.address} />
+          {/* ── Details (Property Info + Extended) ───────────────────────── */}
+          {activeTab === 'details' && (
+            <div className="p-lg space-y-2xl">
+              <PropertyTabComponent property={property} onUpdate={(updates) => setProperty((p: any) => ({ ...p, ...updates }))} />
+              <div className="border-t border-neutral-200 pt-2xl">
+                <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-lg">Extended Details</p>
+                <ExtendedDetailsTab propertyId={id} propertyType={property.property_type} />
+              </div>
+            </div>
           )}
 
-          {/* Communications Tab */}
-          {activeTab === 'communications' && <CommunicationsTab propertyId={id} />}
+          {/* ── Units ────────────────────────────────────────────────────── */}
+          {activeTab === 'units' && (
+            <div className="p-lg">
+              <UnitsTab propertyId={id} bedrooms={property.bedrooms} initialRoomId={initialRoomId} propertyName={property.name} propertyAddress={property.address} />
+            </div>
+          )}
 
-          {/* Compliance Tab */}
-          {activeTab === 'compliance' && <ComplianceTab property={property} />}
+          {/* ── People (Tenants + Housemates) ────────────────────────────── */}
+          {activeTab === 'people' && (
+            <div>
+              <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
+                {([['tenants', '👥 Tenants'], ['housemates', '🙋 Housemates']] as [PeopleSubTab, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setPeopleSubTab(key)}
+                    className={`px-md py-sm rounded-t-lg text-sm font-semibold transition-colors border-b-2 ${
+                      peopleSubTab === key
+                        ? 'text-neutral-900 border-neutral-900'
+                        : 'text-neutral-400 border-transparent hover:text-neutral-600'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
+              <div className="p-lg">
+                {peopleSubTab === 'tenants' && <PeopleTab propertyId={id} />}
+                {peopleSubTab === 'housemates' && <HousematesTab propertyId={id} />}
+              </div>
+            </div>
+          )}
 
-          {/* Documents Tab */}
-          {activeTab === 'documents' && <DocumentsTab propertyId={id} />}
+          {/* ── Maintenance (Jobs + Purchases + Tasks) ───────────────────── */}
+          {activeTab === 'maintenance' && (
+            <div>
+              <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
+                {([['jobs', '🔧 Jobs'], ['purchases', '🛒 Purchases'], ['tasks', '📋 Tasks']] as [MaintenanceSubTab, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setMaintenanceSubTab(key)}
+                    className={`px-md py-sm rounded-t-lg text-sm font-semibold transition-colors border-b-2 ${
+                      maintenanceSubTab === key
+                        ? 'text-neutral-900 border-neutral-900'
+                        : 'text-neutral-400 border-transparent hover:text-neutral-600'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
+              <div className="p-lg">
+                {maintenanceSubTab === 'jobs' && <MaintenanceTab propertyId={id} tickets={tickets} />}
+                {maintenanceSubTab === 'purchases' && <PurchasesTab propertyId={id} />}
+                {maintenanceSubTab === 'tasks' && <TasksTab propertyId={id} />}
+              </div>
+            </div>
+          )}
 
-          {/* Financials Tab */}
-          {activeTab === 'financials' && <FinancialsTab propertyId={id} />}
+          {/* ── Lettings ─────────────────────────────────────────────────── */}
+          {activeTab === 'lettings' && (
+            <div className="p-lg">
+              <LettingsTab propertyId={id} rooms={property.rooms || []} propertyName={property.name} propertyAddress={property.address} />
+            </div>
+          )}
+
+          {/* ── Compliance (Compliance + Communications) ─────────────────── */}
+          {activeTab === 'compliance' && (
+            <div>
+              <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
+                {([['compliance', '✅ Compliance'], ['communications', '💬 Communications']] as [ComplianceSubTab, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setComplianceSubTab(key)}
+                    className={`px-md py-sm rounded-t-lg text-sm font-semibold transition-colors border-b-2 ${
+                      complianceSubTab === key
+                        ? 'text-neutral-900 border-neutral-900'
+                        : 'text-neutral-400 border-transparent hover:text-neutral-600'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
+              <div className="p-lg">
+                {complianceSubTab === 'compliance' && <ComplianceTab property={property} />}
+                {complianceSubTab === 'communications' && <CommunicationsTab propertyId={id} />}
+              </div>
+            </div>
+          )}
+
+          {/* ── Documents (Documents + Photos + Financials) ──────────────── */}
+          {activeTab === 'documents' && (
+            <div>
+              <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
+                {([['documents', '📁 Documents'], ['photos', '📷 Photos'], ['financials', '💷 Financials']] as [DocumentsSubTab, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setDocumentsSubTab(key)}
+                    className={`px-md py-sm rounded-t-lg text-sm font-semibold transition-colors border-b-2 ${
+                      documentsSubTab === key
+                        ? 'text-neutral-900 border-neutral-900'
+                        : 'text-neutral-400 border-transparent hover:text-neutral-600'
+                    }`}
+                  >{label}</button>
+                ))}
+              </div>
+              <div className="p-lg">
+                {documentsSubTab === 'documents' && <DocumentsTab propertyId={id} />}
+                {documentsSubTab === 'photos' && <PhotosTab propertyId={id} />}
+                {documentsSubTab === 'financials' && <FinancialsTab propertyId={id} />}
+              </div>
+            </div>
+          )}
+
         </div>
       </main>
 
