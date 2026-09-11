@@ -94,6 +94,7 @@ export default function TenantDashboard() {
   const [guides, setGuides] = useState<Array<{ id: string; slug: string; title: string; emoji: string; acknowledged: boolean; acknowledgment_required: boolean }>>([])
   const [guidesLoaded, setGuidesLoaded] = useState(false)
   const [noticesSummary, setNoticesSummary] = useState<{ count: number; taskCount: number; latest: Array<{ notice_type: string; ai_text: string | null; raw_text: string }> } | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const searchParams = useSearchParams()
 
@@ -268,6 +269,7 @@ export default function TenantDashboard() {
         ? await notifBuilder.eq('person_id', effectiveId)
         : await notifBuilder
       setMessages(notifs || [])
+      setUnreadCount((notifs || []).filter((n: any) => !n.read).length)
 
       setPersonId(effectiveId ?? null)
       setRoomId(active.room_id ?? null)
@@ -380,11 +382,27 @@ export default function TenantDashboard() {
           <p className="pt-lg text-xs font-medium uppercase tracking-widest text-white/40">
             Your tenancy
           </p>
-          <p className="mt-xs text-xl font-bold leading-tight">
-            {tenancy?.rooms?.name ? `${tenancy.rooms.name}, ` : ''}
-            {tenancy?.properties?.name ?? 'No active tenancy'}
-          </p>
-          <p className="text-sm text-white/50">{tenancy?.properties?.address}</p>
+          <div className="flex items-start justify-between gap-md mt-xs">
+            <div className="flex-1 min-w-0">
+              <p className="text-xl font-bold leading-tight">
+                {tenancy?.rooms?.name ? `${tenancy.rooms.name}, ` : ''}
+                {tenancy?.properties?.name ?? 'No active tenancy'}
+              </p>
+              <p className="text-sm text-white/50">{tenancy?.properties?.address}</p>
+            </div>
+            <Link
+              href="/tenant/inbox"
+              className="relative mt-1 shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              aria-label="Inbox"
+            >
+              <span className="text-lg leading-none">🔔</span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-extrabold text-white leading-none">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Link>
+          </div>
 
           {tenancy && (
             <div className="mt-lg grid grid-cols-3 gap-md border-t border-white/15 pt-lg">

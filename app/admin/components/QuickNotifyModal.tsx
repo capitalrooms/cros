@@ -33,7 +33,7 @@ interface Viewing {
 }
 
 type RecipientType = 'all_tenants' | 'room' | 'individual' | 'cleaners' | 'contractors'
-type NotificationCategory = 'general' | 'lettings' | 'maintenance' | 'compliance'
+type NotificationCategory = 'general' | 'lettings' | 'maintenance' | 'compliance' | 'noticeboard'
 type ViewingSelector = 'single' | 'running_late' | 'time_shift' | 'period_notice' | 'multiple_batch'
 
 export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: QuickNotifyModalProps) {
@@ -166,7 +166,9 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
     const subject = activeTab === 'templates' && selectedTemplate ? selectedTemplate.subject_line : customSubject
     const message = activeTab === 'ai' ? aiDraftMessage : customMessage
 
-    if (!subject || !message) {
+    if (notificationCategory === 'noticeboard') {
+      if (!message) { setError('Please write a notice'); return }
+    } else if (!subject || !message) {
       setError('Please fill in subject and message')
       return
     }
@@ -232,6 +234,23 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
 
         if (!response.ok) {
           throw new Error('Failed to send lettings notification')
+        }
+      } else if (notificationCategory === 'noticeboard') {
+        // Post to communal notice board — appears directly on /tenant/notices for all tenants at the property
+        const response = await fetch('/api/tenant/notices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            property_id: propertyId,
+            notice_type: 'info',
+            subtype: 'General update',
+            raw_text: message,
+            ai_text: null,
+          })
+        })
+        if (!response.ok) {
+          const json = await response.json().catch(() => ({}))
+          throw new Error(json.error || 'Failed to post notice')
         }
       } else {
         // Standard notification send
@@ -306,7 +325,8 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
               { value: 'general' as NotificationCategory, label: 'General' },
               { value: 'lettings' as NotificationCategory, label: '📅 Lettings' },
               { value: 'maintenance' as NotificationCategory, label: '🔧 Maintenance' },
-              { value: 'compliance' as NotificationCategory, label: '✓ Compliance' }
+              { value: 'compliance' as NotificationCategory, label: '✓ Compliance' },
+              { value: 'noticeboard' as NotificationCategory, label: '📋 Notice Board' },
             ].map(option => (
               <button
                 key={option.value}
@@ -472,8 +492,26 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
           </div>
         )}
 
-        {/* Recipient Selection (Non-Lettings) */}
-        {notificationCategory !== 'lettings' && (
+        {/* Notice Board mode — simplified compose, no recipient/template/AI tabs needed */}
+        {notificationCategory === 'noticeboard' && (
+          <div className="mb-lg pb-lg border-b border-neutral-700">
+            <p className="text-sm text-neutral-300 mb-md">
+              This will appear on the <strong className="text-white">Notice Board</strong> for all tenants at this property — visible as a house-wide info notice.
+            </p>
+            <label className="text-sm font-semibold text-white mb-sm block">Notice</label>
+            <textarea
+              value={customMessage}
+              onChange={e => setCustomMessage(e.target.value)}
+              placeholder="e.g. Reminder to keep the kitchen clean — the cleaners come Friday."
+              rows={5}
+              className="w-full px-md py-sm border border-neutral-700 bg-neutral-800 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-neutral-500 mt-sm">Tenants can see who posted this (your name).</p>
+          </div>
+        )}
+
+        {/* Recipient Selection (Non-Lettings, Non-Noticeboard) */}
+        {notificationCategory !== 'lettings' && notificationCategory !== 'noticeboard' && (
           <div className="mb-lg pb-lg border-b border-neutral-700">
             <label className="text-sm font-semibold text-white mb-md block">Send to:</label>
             <div className="grid grid-cols-2 gap-md mb-md">
@@ -522,8 +560,8 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
           </div>
         )}
 
-        {/* Tab Navigation */}
-        <div className="flex gap-md mb-lg border-b border-neutral-700">
+        {/* Tab Navigation — hidden for notice board mode */}
+        <div className={`flex gap-md mb-lg border-b border-neutral-700 ${notificationCategory === 'noticeboard' ? 'hidden' : ''}`}>
           {[
             { id: 'templates' as const, label: '📋 Templates' },
             { id: 'custom' as const, label: '✏️ Compose' },
@@ -543,8 +581,8 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
           ))}
         </div>
 
-        {/* Tab Content */}
-        <div className="space-y-lg">
+        {/* Tab Content — hidden for notice board mode (uses its own compose above) */}
+        <div className={`space-y-lg ${notificationCategory === 'noticeboard' ? 'hidden' : ''}`}>
           {/* Templates Tab */}
           {activeTab === 'templates' && (
             <div className="space-y-md">
@@ -669,7 +707,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
             disabled={sending}
             className="flex-1 px-lg py-md bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition"
           >
-            {sending ? 'Sending...' : '📤 Send Notification'}
+            {sending ? 'Posting...' : notificationCategory === 'noticeboard' ? '📋 Post to Notice Board' : '📤 Send Notification'}
           </button>
         </div>
       </div>

@@ -40,8 +40,8 @@ export async function insertNotifications(
     type: content.type || 'admin',
     link: content.link ?? null,
     read: false,
-    property_id: meta?.propertyId ?? null,
-    room_id: meta?.roomId ?? null,
+    // property_id / room_id are NOT columns on the notifications table (migration 016).
+    // Do not insert them — the insert will hard-error with "column does not exist".
   }))
 
   const { error } = await service.from('notifications').insert(rows)
@@ -58,9 +58,30 @@ export async function activeTenantIds(
   roomId?: string | null
 ): Promise<string[]> {
   const today = new Date().toISOString().split('T')[0]
-  let q = service.from('tenancies').select('person_id').eq('property_id', propertyId)
-  if (roomId) q = q.eq('room_id', roomId)
-  const { data } = await q.or(`end_date.is.null,end_date.gte.${today}`)
+
+  if (roomId) {
+    // Direct query by room — no property join needed
+    const { data } = await service
+      .from('tenancies')
+      .select('person_id')
+      .eq('room_id', roomId)
+      .or(`end_date.is.null,end_date.gte.${today}`)
+    return [...new Set((data || []).map((t: any) => t.person_id).filter(Boolean))]
+  }
+
+  // tenancies has room_id but NOT property_id, so get room IDs first
+  const { data: rooms } = await service
+    .from('rooms')
+    .select('id')
+    .eq('property_id', propertyId)
+  const roomIds = (rooms || []).map((r: any) => r.id)
+  if (roomIds.length === 0) return []
+
+  const { data } = await service
+    .from('tenancies')
+    .select('person_id')
+    .in('room_id', roomIds)
+    .or(`end_date.is.null,end_date.gte.${today}`)
   return [...new Set((data || []).map((t: any) => t.person_id).filter(Boolean))]
 }
 

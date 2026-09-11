@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       title: subject,
       body: message,
       type: 'admin',
-      link: '/tenant',
+      link: '/tenant/inbox',
     }, { propertyId: property_id, roomId: room_id || null })
     if (error) {
       console.error('Notification insert error:', error)
