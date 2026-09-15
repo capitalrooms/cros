@@ -49,6 +49,9 @@ interface Props {
   contractors?: Contractor[]
   onClose: () => void
   onConfirm: (data: OnNoticeData) => Promise<void>
+  /** Pre-fill dates when editing an existing on-notice record */
+  initialMoveOutDate?: string
+  initialNoticeReceivedDate?: string
 }
 
 // ─── Pro-rata calculation ───────────────────────────────────────────────────
@@ -101,12 +104,12 @@ function calcProRata(
   return { proRataAmount, daysOccupied, dailyRate, lastDueDate, isFullMonth }
 }
 
-export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], onClose, onConfirm }: Props) {
+export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], onClose, onConfirm, initialMoveOutDate, initialNoticeReceivedDate }: Props) {
   const today = new Date().toISOString().split('T')[0]
 
   const [step, setStep] = useState<'details' | 'confirm-rent' | 'preview' | 'sending'>('details')
-  const [moveOutDate, setMoveOutDate]           = useState('')
-  const [noticeReceivedDate, setNoticeReceivedDate] = useState(today)
+  const [moveOutDate, setMoveOutDate]           = useState(initialMoveOutDate ?? '')
+  const [noticeReceivedDate, setNoticeReceivedDate] = useState(initialNoticeReceivedDate ?? today)
   const [rentDueDay, setRentDueDay]             = useState<number>(tenancy?.rent_due_day ?? 1)
   const [emailTenant, setEmailTenant]           = useState(true)
   const [emailCleaner, setEmailCleaner]         = useState(false)

@@ -53,7 +53,12 @@ export async function POST(req: NextRequest) {
     : 'Welcome to Capital Rooms — Getting Started'
 
   try {
-    const { ok, error: sendErr } = await sendEmail(email.trim(), welcomeSubject, welcomePackBodyHtml(full_name_or_name.trim(), formUrl))
+    const { ok, error: sendErr } = await sendEmail(
+      email.trim(),
+      welcomeSubject,
+      welcomePackBodyHtml(full_name_or_name.trim(), formUrl),
+      { replyTo: 'harry@capitalrooms.co.uk' }
+    )
     if (!ok) throw new Error(sendErr ?? 'Email failed')
     emailSent = true
 
@@ -74,36 +79,88 @@ export async function POST(req: NextRequest) {
 // ── Welcome pack body HTML (wrapper applied automatically by sendEmail) ────────
 
 function welcomePackBodyHtml(name: string, formUrl: string): string {
+  const firstName = name.split(' ')[0]
   return `
 <p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${name},</p>
 
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
-  Thank you for your interest in Capital Rooms. We are delighted to have the opportunity to discuss our management services
-  for your property and look forward to building a long-term relationship with you.
+  Thank you for choosing Capital Rooms. We are looking forward to managing your property. This email contains
+  everything you need to get started, including your terms of engagement — please read it in full.
 </p>
 
-<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
-  As part of our onboarding process, we are required to verify your identity and confirm your ownership of the property
-  in accordance with our Anti-Money Laundering obligations. This is a standard requirement for all new landlord clients
-  and is completed once only.
-</p>
+<!-- Management Agreement -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
+  <tr>
+    <td style="background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px;">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;">📋 Your Management Agreement</p>
+      <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.6">
+        Our management agreement sets out the full scope of our services, your fees, and our mutual obligations.
+        Please take the time to read it before completing the information below.
+      </p>
+      <p style="margin:0;font-size:13px;color:#555;line-height:1.6">
+        <strong>Management fee:</strong> 10% of rent collected (HMO) or 8% (single let)<br>
+        <strong>Let fee:</strong> £300 per room / £500 for single let<br>
+        <strong>Maintenance float:</strong> Held to authorise urgent works under £500<br>
+        <strong>Notice period:</strong> 2 months written notice by either party
+      </p>
+    </td>
+  </tr>
+</table>
 
-<p style="margin:0 0 24px;font-size:15px;color:#333;line-height:1.6">
-  Please use the link below to complete our secure landlord information form. The process takes approximately
-  10–15 minutes and can be completed at your convenience — no account or login is required.
-</p>
+<!-- What to do next -->
+<p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#1a1a1a;">What happens next</p>
 
-<div style="margin:0 0 32px;">
-  <a href="${formUrl}" style="display:inline-block;background:#1a1a1a;color:#ffffff;font-size:14px;font-weight:600;padding:14px 28px;border-radius:6px;text-decoration:none;letter-spacing:0.3px;">
-    Complete Your Landlord Information Form →
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
+  <tr>
+    <td style="padding:0 0 16px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td width="36" valign="top" style="padding-top:2px;">
+            <div style="width:26px;height:26px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:26px;font-size:12px;font-weight:700;color:#fff;">1</div>
+          </td>
+          <td style="padding-left:12px;">
+            <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#1a1a1a;">Complete your landlord information</p>
+            <p style="margin:0;font-size:13px;color:#555;line-height:1.5;">
+              Our secure online form collects your identity, property ownership, and banking details for our Anti-Money Laundering compliance.
+              You can save your progress at any time and return to it later — no login required.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td width="36" valign="top" style="padding-top:2px;">
+            <div style="width:26px;height:26px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:26px;font-size:12px;font-weight:700;color:#fff;">2</div>
+          </td>
+          <td style="padding-left:12px;">
+            <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#1a1a1a;">Sign the management agreement</p>
+            <p style="margin:0;font-size:13px;color:#555;line-height:1.5;">
+              Once your information is verified (usually 1–2 working days) we will send the finalised management agreement
+              for your electronic signature via Adobe Sign.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+<div style="margin:0 0 32px;text-align:center;">
+  <a href="${formUrl}" style="display:inline-block;background:#1a1a1a;color:#ffffff;font-size:14px;font-weight:600;padding:16px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
+    Start your landlord information form →
   </a>
+  <p style="margin:10px 0 0;font-size:12px;color:#999;">You can save and return at any time — the link stays active.</p>
 </div>
 
 <p style="margin:0 0 8px;font-size:14px;color:#555;line-height:1.6">
-  If you have any questions at any stage, please do not hesitate to contact us directly at
-  <a href="mailto:management@capitalrooms.co.uk" style="color:#1a1a1a">management@capitalrooms.co.uk</a>.
+  If you have any questions at any point, simply reply to this email and I will come back to you directly.
 </p>
 
 <p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>
-<p style="margin:0;font-size:15px;color:#333;font-weight:600">The Capital Rooms Team</p>`
+<p style="margin:0;font-size:15px;color:#333;font-weight:600">Harry</p>
+<p style="margin:2px 0 0;font-size:13px;color:#888">Capital Rooms &nbsp;·&nbsp; <a href="mailto:harry@capitalrooms.co.uk" style="color:#555;">harry@capitalrooms.co.uk</a></p>`
 }

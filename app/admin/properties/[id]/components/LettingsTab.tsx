@@ -45,6 +45,12 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
   const [calOffer, setCalOffer] = useState<{ title: string; date: string; time: string | null; location: string } | null>(null)
   const [calResult, setCalResult] = useState<string | null>(null)
 
+  // Inline rent editing
+  const [editingRentId, setEditingRentId] = useState<string | null>(null)
+  const [rentDraft,     setRentDraft]     = useState('')
+  const [savingRent,    setSavingRent]    = useState(false)
+  const [rentBanner,    setRentBanner]    = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
     visitor_name: '',
     visitor_email: '',
@@ -124,6 +130,18 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       for (const r of list) drafts[r.id] = (r as any).marketing_description || ''
       setAdvertDrafts(drafts)
     }
+  }
+
+  async function saveRent(roomId: string) {
+    const value = parseFloat(rentDraft.replace(/[^0-9.]/g, ''))
+    if (!value || value <= 0) return
+    setSavingRent(true)
+    await supabase.from('rooms').update({ current_asking_rent: value }).eq('id', roomId)
+    setRoomList(prev => prev.map(r => r.id === roomId ? { ...r, current_asking_rent: value } : r))
+    setEditingRentId(null)
+    setRentBanner('✓ Rent updated. Remember to update your listings on Rightmove, Zoopla and SpareRoom.')
+    setTimeout(() => setRentBanner(null), 8000)
+    setSavingRent(false)
   }
 
   async function generateAdvert(room: any, format: 'listing' | 'group') {
@@ -743,6 +761,9 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
               {advertBanner && (
                 <span className="text-xs text-green-400 font-semibold">{advertBanner}</span>
               )}
+              {rentBanner && (
+                <span className="text-xs text-amber-400 font-semibold">{rentBanner}</span>
+              )}
             </div>
             <div className="space-y-md">
               {marketingRooms.map(room => (
@@ -751,7 +772,33 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                     <div>
                       <p className="font-semibold text-white">{room.name}</p>
                       <div className="flex flex-wrap gap-md mt-xs text-xs text-neutral-400">
-                        {room.current_asking_rent && <span>£{Number(room.current_asking_rent).toLocaleString()} pcm</span>}
+                        {editingRentId === room.id ? (
+                          <span className="flex items-center gap-xs">
+                            <span className="text-neutral-400">£</span>
+                            <input
+                              autoFocus
+                              type="number"
+                              value={rentDraft}
+                              onChange={e => setRentDraft(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') saveRent(room.id); if (e.key === 'Escape') setEditingRentId(null) }}
+                              className="w-20 bg-neutral-800 text-white border border-neutral-600 rounded px-xs py-0.5 text-xs focus:outline-none focus:border-blue-400"
+                            />
+                            <span className="text-neutral-400">pcm</span>
+                            <button onClick={() => saveRent(room.id)} disabled={savingRent} className="text-green-400 hover:text-green-300 text-xs font-bold">
+                              {savingRent ? '…' : '✓'}
+                            </button>
+                            <button onClick={() => setEditingRentId(null)} className="text-neutral-500 hover:text-neutral-300 text-xs">✕</button>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingRentId(room.id); setRentDraft(String(room.current_asking_rent || '')) }}
+                            className="hover:text-white transition-colors group flex items-center gap-xs"
+                            title="Click to edit marketed rent"
+                          >
+                            {room.current_asking_rent ? `£${Number(room.current_asking_rent).toLocaleString()} pcm` : 'Set rent'}
+                            <span className="opacity-0 group-hover:opacity-60 text-xs">✏️</span>
+                          </button>
+                        )}
                         {room.available_date && (
                           <span>Available {new Date(room.available_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         )}

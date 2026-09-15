@@ -7,6 +7,14 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 
 const SALUTATIONS = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Mx']
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = atob(base64)
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
+}
 
 export default function AdminProfilePage() {
   const router = useRouter()
@@ -22,12 +30,19 @@ export default function AdminProfilePage() {
   const [lastName, setLastName]       = useState('')
   const [email, setEmail]             = useState('')
   const [role, setRole]               = useState('')
+  const [personId, setPersonId]       = useState('')
 
   // PDF sign-off fields
   const [jobTitle, setJobTitle]       = useState('')
   const [directPhone, setDirectPhone] = useState('')
 
-  const [token, setToken]             = useState<string | null>(null)
+  // No longer stored in state — fetched fresh on every save to avoid stale token issues
+
+  // Push notification state
+  const [pushSupported, setPushSupported]   = useState(false)
+  const [pushStatus, setPushStatus]         = useState<'checking' | 'denied' | 'subscribed' | 'unsubscribed'>('checking')
+  const [pushLoading, setPushLoading]       = useState(false)
+  const [pushMsg, setPushMsg]               = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -38,25 +53,62 @@ export default function AdminProfilePage() {
           router.push('/login'); return
         }
 
-        const { createClient } = await import('@/lib/supabase')
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        const tok = session?.access_token ?? null
-        setToken(tok)
+        // getUserAssignment does select(*) so assignment has all fields
+        const p = user.assignment as any
+        if (!p) throw new Error('Could not load profile')
 
-        const res = await fetch('/api/admin/profile', {
-          headers: tok ? { Authorization: `Bearer ${tok}` } : {},
-        })
-        if (!res.ok) throw new Error('Could not load profile')
-        const json = await res.json()
-        const p = json.person
         setSalutation(p.salutation || '')
         setFirstName(p.first_name || '')
         setLastName(p.last_name || '')
-        setEmail(p.email || '')
+        setEmail(p.email || user.user.email || '')
         setRole(p.role || '')
+        setPersonId(p.id || '')
         setJobTitle(p.job_title || '')
         setDirectPhone(p.direct_phone || '')
+
+        // Check push support & current subscription status
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          setPushSupported(true)
+          const perm = Notification.permission
+          if (perm === 'denied') {
+            setPushStatus('denied')
+          } else {
+            try {
+              const reg = await navigator.serviceWorker.ready
+              const sub = await reg.pushManager.getSubscription()
+              if (sub) {
+                setPushStatus('subscribed')
+                // Re-sync to DB in case a previous save failed
+                const { createClient: getClient } = await import('@/lib/supabase')
+                const sbClient = getClient()
+                const { data: { session } } = await sbClient.auth.getSession()
+                const tok = session?.access_token
+                if (tok) {
+                  const j = sub.toJSON()
+                  fetch('/api/push/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+                    body: JSON.stringify({
+                      endpoint: j.endpoint,
+                      p256dh: (j.keys as any)?.p256dh,
+                      auth: (j.keys as any)?.auth,
+                      personId: personId || undefined,
+                      email: p.email || undefined,
+                      role: p.role || 'administrator',
+                    }),
+                  }).catch(() => {})
+                }
+              } else {
+                setPushStatus('unsubscribed')
+              }
+            } catch {
+              setPushStatus('unsubscribed')
+            }
+          }
+        } else {
+          setPushSupported(false)
+          setPushStatus('unsubscribed')
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load profile')
       } finally {
@@ -73,30 +125,102 @@ export default function AdminProfilePage() {
     if (!firstName.trim()) { setError('First name is required'); return }
     setSaving(true)
     try {
-      const res = await fetch('/api/admin/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          firstName:   firstName.trim(),
-          lastName:    lastName.trim(),
-          salutation,
-          jobTitle:    jobTitle.trim(),
-          directPhone: directPhone.trim(),
-        }),
-      })
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}))
-        throw new Error(j.error || 'Save failed')
-      }
+      // Save directly via Supabase client — no Bearer token needed
+      const { createClient } = await import('@/lib/supabase')
+      const supabase = createClient()
+
+      const firstTrimmed = firstName.trim()
+      const lastTrimmed  = lastName.trim()
+      const { error: dbErr } = await supabase
+        .from('people')
+        .update({
+          first_name:   firstTrimmed || null,
+          last_name:    lastTrimmed  || null,
+          full_name:    [firstTrimmed, lastTrimmed].filter(Boolean).join(' ') || firstTrimmed,
+          salutation:   salutation || null,
+          job_title:    jobTitle.trim()    || null,
+          direct_phone: directPhone.trim() || null,
+          updated_at:   new Date().toISOString(),
+        })
+        .eq('email', email)
+
+      if (dbErr) throw new Error(dbErr.message || 'Save failed')
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err: any) {
       setError(err.message || 'Save failed')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function enablePush() {
+    setPushLoading(true)
+    setPushMsg(null)
+    try {
+      const perm = await Notification.requestPermission()
+      if (perm !== 'granted') {
+        setPushStatus('denied')
+        setPushMsg('Notifications blocked. Enable them in your browser settings.')
+        return
+      }
+      const { createClient: getClient } = await import('@/lib/supabase')
+      const sbClient = getClient()
+      const { data: { session } } = await sbClient.auth.getSession()
+      const tok = session?.access_token
+
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      })
+      const j = sub.toJSON()
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
+        },
+        body: JSON.stringify({
+          endpoint: j.endpoint,
+          p256dh: (j.keys as any)?.p256dh,
+          auth: (j.keys as any)?.auth,
+          personId: personId || undefined,
+          email: email || undefined,
+          role: role || 'administrator',
+        }),
+      })
+      if (!res.ok) throw new Error('Could not save subscription')
+      setPushStatus('subscribed')
+      setPushMsg('✅ Push notifications enabled on this device!')
+    } catch (e: any) {
+      setPushMsg(e.message || 'Failed to enable push')
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
+  async function disablePush() {
+    setPushLoading(true)
+    setPushMsg(null)
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await sub.unsubscribe()
+        // Also remove from DB
+        await fetch('/api/push/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        }).catch(() => {})
+      }
+      setPushStatus('unsubscribed')
+      setPushMsg('Push notifications disabled on this device.')
+    } catch (e: any) {
+      setPushMsg(e.message || 'Failed to disable push')
+    } finally {
+      setPushLoading(false)
     }
   }
 
@@ -234,6 +358,65 @@ export default function AdminProfilePage() {
               <p className="text-sm text-neutral-900 capitalize">{role}</p>
             </div>
             <p className="text-xs text-neutral-400">To change your email or password, use the Supabase dashboard.</p>
+          </div>
+
+          {/* ── Push Notifications ────────────────────────────────────────── */}
+          <div className="bg-white rounded-xl border border-neutral-200 p-lg space-y-md">
+            <div>
+              <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide">Push Notifications</h2>
+              <p className="text-xs text-neutral-400 mt-xs">
+                Receive instant alerts on this device — new maintenance tickets, messages, and more.
+              </p>
+            </div>
+
+            {!pushSupported ? (
+              <div className="space-y-sm">
+                <p className="text-sm font-medium text-neutral-700">Not available in browser tabs</p>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Push notifications require the app to be installed on your home screen. Open this site in <strong>Safari</strong>, tap the <strong>Share button ⬆</strong>, then <strong>"Add to Home Screen"</strong>. Once installed as an app, this toggle will work.
+                </p>
+              </div>
+            ) : pushStatus === 'denied' ? (
+              <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-md py-sm">
+                Notifications are blocked by your browser. Go to <strong>Settings → Notifications</strong> for this site and allow them, then refresh.
+              </p>
+            ) : (
+              <div className="flex items-center justify-between gap-md">
+                <div className="flex items-center gap-sm">
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${pushStatus === 'subscribed' ? 'bg-green-500' : 'bg-neutral-300'}`} />
+                  <span className="text-sm text-neutral-700">
+                    {pushStatus === 'checking' ? 'Checking…' : pushStatus === 'subscribed' ? 'Enabled on this device' : 'Not enabled on this device'}
+                  </span>
+                </div>
+                {pushStatus !== 'checking' && (
+                  pushStatus === 'subscribed' ? (
+                    <button
+                      type="button"
+                      onClick={disablePush}
+                      disabled={pushLoading}
+                      className="text-xs text-neutral-500 hover:text-red-600 transition-colors disabled:opacity-40 underline underline-offset-2"
+                    >
+                      {pushLoading ? 'Disabling…' : 'Disable'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={enablePush}
+                      disabled={pushLoading}
+                      className="rounded-lg bg-neutral-900 px-md py-sm text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-40 transition-colors"
+                    >
+                      {pushLoading ? 'Enabling…' : 'Enable push'}
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+
+            {pushMsg && (
+              <p className={`text-xs rounded-lg px-md py-sm border ${pushMsg.startsWith('✅') ? 'bg-green-50 border-green-100 text-green-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                {pushMsg}
+              </p>
+            )}
           </div>
 
           {/* ── Feedback ──────────────────────────────────────────────────── */}

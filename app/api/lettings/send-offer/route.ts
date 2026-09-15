@@ -30,8 +30,67 @@ export async function POST(request: Request) {
   try {
     const data = await request.json()
 
-    if (!data.roomId || !data.propertyId || !data.applicantEmail) {
-      return Response.json({ error: 'Missing required fields: roomId, propertyId, applicantEmail' }, { status: 400 })
+    if (!data.applicantEmail) {
+      return Response.json({ error: 'Missing required field: applicantEmail' }, { status: 400 })
+    }
+
+    // ── Custom / unlisted property mode ──────────────────────────────────────
+    if (data.customMode) {
+      const monthly = data.advertisedRent || 0
+      const weekly  = weeklyRent(monthly)
+      const roomName    = data.customRoomDesc || 'Room'
+      const propAddress = data.customAddress  || ''
+      const firstName   = data.applicantName ? data.applicantName.split(' ')[0] : 'there'
+      const moveInDisplay = data.moveInDate || 'To be confirmed'
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+      const applicationUrl = `${appUrl}/applicant/apply?email=${encodeURIComponent(data.applicantEmail)}`
+
+      const templateSlug = data.requestDeposit ? 'applicant-offer-deposit' : 'applicant-offer-letter'
+      const tpl = await getTemplate(templateSlug)
+      let subject: string; let emailHtml: string
+
+      if (tpl) {
+        const tokenVars = {
+          first_name: firstName, room_name: roomName, property_address: propAddress,
+          property_address_with_at: propAddress ? ` at ${propAddress}` : '',
+          monthly_rent: String(monthly.toLocaleString()), weekly_rent: String(weekly.toLocaleString()),
+          payment_ref: 'RESERVE', apply_url: applicationUrl, reserve_url: applicationUrl,
+        }
+        subject   = render(tpl.subject_line, tokenVars)
+        emailHtml = render(tpl.template_text, tokenVars)
+      } else if (data.requestDeposit) {
+        subject = `THE SEARCH IS OVER! — ${roomName}${propAddress ? `, ${propAddress}` : ''}`
+        emailHtml = await buildSearchIsOverEmail({
+          applicantName: data.applicantName, roomName, propertyAddress: propAddress,
+          propertyCity: 'London', advertisedRent: monthly, moveInDate: moveInDisplay,
+          applicationUrl, holdingDeposit: weekly,
+        })
+      } else {
+        subject = `Your application for ${roomName}${propAddress ? ` at ${propAddress}` : ''}`
+        emailHtml = await buildOfferLetterEmail({
+          applicantName: data.applicantName, roomName, propertyAddress: propAddress,
+          propertyCity: 'London', advertisedRent: monthly, moveInDate: moveInDisplay,
+          applicationUrl, holdingDeposit: weekly,
+        })
+      }
+
+      const apiKey = process.env.RESEND_API_KEY
+      if (!apiKey) return Response.json({ error: 'Email service not configured' }, { status: 500 })
+      const emailRes = await fetch(RESEND_ENDPOINT, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: FROM, to: [data.applicantEmail], subject, html: emailHtml }),
+      })
+      if (!emailRes.ok) {
+        const err = await emailRes.json().catch(() => ({}))
+        return Response.json({ error: `Email failed: ${(err as any)?.message || emailRes.statusText}` }, { status: 502 })
+      }
+      return Response.json({ success: true, message: `Offer sent to ${data.applicantEmail}` }, { status: 201 })
+    }
+
+    // ── Standard mode — room must be in the system ────────────────────────────
+    if (!data.roomId || !data.propertyId) {
+      return Response.json({ error: 'Missing required fields: roomId, propertyId' }, { status: 400 })
     }
 
     const { data: roomData } = await supabase

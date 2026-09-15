@@ -1,18 +1,24 @@
-import { createClient, createServiceClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    // Auth check via browser client (reads session cookie)
-    const authClient = createClient()
-    const { data: user } = await authClient.auth.getUser()
+    // Bearer token auth (cookie-based auth is broken in this Next.js version)
+    const authHeader = request.headers.get('Authorization') || ''
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    if (!user.user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
-    }
+    const sb = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const { data: { user }, error: authErr } = await sb.auth.getUser(token)
+    if (authErr || !user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Service client bypasses RLS — safe because we've verified auth above
     const supabase = createServiceClient()
@@ -21,7 +27,7 @@ export async function GET(request: NextRequest) {
     const { data: cleaner } = await supabase
       .from('people')
       .select('id')
-      .eq('email', user.user.email)
+      .eq('email', user.email)
       .single()
 
     if (!cleaner) {

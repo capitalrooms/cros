@@ -13,6 +13,7 @@ import { AdminDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import ThreeDayCalendar from '@/app/components/ThreeDayCalendar'
 import AdminAddAppointmentModal from '@/app/components/AdminAddAppointmentModal'
 import AdminNotificationBell from '@/app/components/AdminNotificationBell'
+import SignOutButton from '@/app/components/SignOutButton'
 
 // ── Error boundary — catches any render crash and shows a readable message ────
 class AdminErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -105,8 +106,9 @@ const DASH_GROUPS: DashGroup[] = [
     name: 'Properties & Units',
     summary: 'Property info, all rooms, and maintenance tickets',
     tiles: [
+      { emoji: '⚡', name: 'AI File Scanner',     desc: 'AI extraction for documents & photos',                                 href: '/admin/ai-upload' },
       { emoji: '🏠', name: 'All Units',          desc: 'View & manage all rooms across every property',                         href: '/admin/active-rooms' },
-      { emoji: '🧹', name: 'Cleaner Jobs',       desc: 'Move-out clean assignments — pending, accepted & declined',             href: '/admin/cleaner-jobs' },
+      { emoji: '🧹', name: 'Cleaning',            desc: 'Move-out clean assignments — pending, accepted, completed & declined', href: '/admin/cleaner-jobs' },
       { emoji: '🔧', name: 'Maintenance',        desc: 'All maintenance tickets',                                               href: '/admin/maintenance' },
       { emoji: '🏢', name: 'Property Info',      desc: 'Details, floor plans, compliance',                                      href: '/admin/properties' },
       { emoji: '📋', name: 'Property Tasks',     desc: 'Internal to-dos, cert deadlines, and task-to-ticket conversions',       href: '/admin/property-tasks' },
@@ -115,10 +117,9 @@ const DASH_GROUPS: DashGroup[] = [
   {
     id: 'people',
     emoji: '👥',
-    name: 'People & Growth',
-    summary: 'Tenant & staff records, new business pipeline',
+    name: 'Contacts',
+    summary: 'Tenants, staff, contractors, and landlords',
     tiles: [
-      { emoji: '🏗', name: 'New Business',       desc: 'Acquisition emails, valuations, and landlord onboarding',               href: '/admin/new-business' },
       { emoji: '👥', name: 'People',             desc: 'Tenants, staff, contractors, landlords',                                href: '/admin/people' },
     ],
   },
@@ -263,12 +264,7 @@ function AdminDashboard() {
         right={
           <div className="flex items-center gap-md">
             <AdminNotificationBell />
-            <button
-              onClick={handleSignOut}
-              className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
-            >
-              <span>👋</span> Sign out
-            </button>
+            <SignOutButton onSignOut={handleSignOut} />
           </div>
         }
       />
@@ -281,18 +277,18 @@ function AdminDashboard() {
           <EnableNotifications />
 
           {/* ── KPI strip ─────────────────────────────────────────────── */}
-          <div className="grid grid-cols-5 gap-sm">
+          <div className="flex gap-sm overflow-x-auto pb-1 -mx-lg px-lg sm:mx-0 sm:px-0 sm:grid sm:grid-cols-5">
             {[
-              { label: 'Properties',      value: kpi.properties,     color: 'text-white',          href: '/admin/properties' },
-              { label: 'Available rooms', value: kpi.availableRooms, color: 'text-green-400',       href: '/admin/available-and-lettings' },
-              { label: 'Open tasks',      value: kpi.openTasks,      color: 'text-violet-400',      href: '/admin/property-tasks' },
-              { label: 'Open jobs',       value: kpi.openJobs,       color: 'text-amber-400',       href: '/admin/maintenance' },
-              { label: 'Viewings / week', value: kpi.viewingsWeek,   color: 'text-blue-400',        href: '/admin/available-and-lettings' },
+              { label: 'Properties',      value: kpi.properties,     bad: false,                              href: '/admin/active-rooms' },
+              { label: 'Available rooms', value: kpi.availableRooms, bad: kpi.availableRooms === 0,           href: '/admin/available-and-lettings' },
+              { label: 'Open tasks',      value: kpi.openTasks,      bad: kpi.openTasks > 0,                  href: '/admin/property-tasks' },
+              { label: 'Open jobs',       value: kpi.openJobs,       bad: kpi.openJobs > 0,                   href: '/admin/maintenance' },
+              { label: 'Viewings / week', value: kpi.viewingsWeek,   bad: false,                              href: '/admin/available-and-lettings' },
             ].map(k => (
-              <Link key={k.label} href={k.href} className="block">
-                <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-md hover:border-neutral-700 transition-colors cursor-pointer">
-                  <p className={`text-3xl font-black tabular-nums ${k.color}`}>{k.value}</p>
-                  <p className="text-xs font-medium text-white/40 mt-xs">{k.label}</p>
+              <Link key={k.label} href={k.href} className="block shrink-0 sm:shrink w-[calc(20vw-12px)] min-w-[72px] sm:w-auto">
+                <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-md hover:border-neutral-700 transition-colors cursor-pointer h-full">
+                  <p className={`text-3xl font-black tabular-nums ${k.bad ? 'text-red-400' : 'text-white'}`}>{k.value}</p>
+                  <p className="text-xs font-medium text-white/40 mt-xs leading-tight">{k.label}</p>
                 </div>
               </Link>
             ))}
@@ -371,36 +367,49 @@ function AdminDashboard() {
             </div>
           )}
 
-          {/* Property Tasks quick-access */}
-          <Link href="/admin/property-tasks" className="block group">
-            <div className="rounded-xl border border-violet-200 bg-violet-50 px-lg py-md flex items-center gap-md hover:border-violet-300 hover:bg-violet-100 transition-colors">
-              <span className="text-2xl leading-none">📋</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-sm">
-                  <h3 className="text-sm font-semibold text-violet-900">Property Tasks</h3>
-                  {kpi.openTasks > 0 && (
-                    <span className="text-xs font-bold bg-violet-200 text-violet-800 px-xs py-0.5 rounded-full">{kpi.openTasks} open</span>
-                  )}
+          {/* Quick-access standalone tiles */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-sm">
+            <Link href="/admin/property-tasks" className="block group">
+              <div className="rounded-xl border border-violet-200 bg-violet-50 px-lg py-md flex items-center gap-md hover:border-violet-300 hover:bg-violet-100 transition-colors h-full">
+                <span className="text-2xl leading-none">📋</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-sm">
+                    <h3 className="text-sm font-semibold text-violet-900">Property Tasks</h3>
+                    {kpi.openTasks > 0 && (
+                      <span className="text-xs font-bold bg-violet-200 text-violet-800 px-xs py-0.5 rounded-full">{kpi.openTasks} open</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-violet-600 mt-0.5">To-dos, cert deadlines, task → ticket</p>
                 </div>
-                <p className="text-xs text-violet-600 mt-0.5">Internal to-dos, cert deadlines, task → ticket conversion</p>
+                <span className="text-violet-400 group-hover:text-violet-600 transition-colors shrink-0">→</span>
               </div>
-              <span className="text-violet-400 group-hover:text-violet-600 transition-colors">→</span>
-            </div>
-          </Link>
+            </Link>
+
+            <Link href="/admin/new-business" className="block group">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-lg py-md flex items-center gap-md hover:border-emerald-300 hover:bg-emerald-100 transition-colors h-full">
+                <span className="text-2xl leading-none">🏗</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-emerald-900">New Business</h3>
+                  <p className="text-xs text-emerald-600 mt-0.5">Valuations, welcome packs, onboarding</p>
+                </div>
+                <span className="text-emerald-400 group-hover:text-emerald-600 transition-colors shrink-0">→</span>
+              </div>
+            </Link>
+
+            <Link href="/admin/planner" className="block group">
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-lg py-md flex items-center gap-md hover:border-blue-300 hover:bg-blue-100 transition-colors h-full">
+                <span className="text-2xl leading-none">🗓</span>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-blue-900">Planner</h3>
+                  <p className="text-xs text-blue-600 mt-0.5">Schedule, diary, and upcoming work</p>
+                </div>
+                <span className="text-blue-400 group-hover:text-blue-600 transition-colors shrink-0">→</span>
+              </div>
+            </Link>
+          </div>
 
           {/* ── Grouped accordion dashboard ──────────────────────────────── */}
           <div className="space-y-sm">
-
-            {/* Standalone: AI File Scanner — always visible, no group */}
-            <Link href="/admin/ai-upload" className="group block">
-              <div className="rounded-lg border border-neutral-200 bg-white px-lg py-md flex items-center gap-md transition-all hover:border-neutral-300 hover:shadow-sm">
-                <span className="text-2xl leading-none">⚡</span>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-neutral-900">AI File Scanner</h3>
-                  <p className="text-xs text-neutral-500">AI extraction for documents & photos</p>
-                </div>
-              </div>
-            </Link>
 
             {/* Category accordion groups */}
             {DASH_GROUPS.map(group => {

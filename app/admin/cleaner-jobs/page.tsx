@@ -30,7 +30,7 @@ interface Cleaner {
   email?: string
 }
 
-type StatusFilter = 'all' | 'pending' | 'accepted' | 'declined'
+type StatusFilter = 'all' | 'pending' | 'accepted' | 'completed' | 'declined'
 
 const TASK_TYPE_LABELS: Record<string, { label: string; bg: string; text: string }> = {
   asap:    { label: '🚨 ASAP',   bg: 'bg-red-100',   text: 'text-red-800' },
@@ -183,10 +183,11 @@ export default function CleanerJobsPage() {
         {/* Status filter tabs */}
         <div className="mb-lg flex gap-xs flex-wrap">
           {([
-            { key: 'all',      label: `All (${jobs.length})` },
-            { key: 'pending',  label: `Pending (${pendingCount})` },
-            { key: 'accepted', label: `Accepted (${jobs.filter(j => j.status === 'accepted').length})` },
-            { key: 'declined', label: `Declined (${declinedCount})` },
+            { key: 'all',       label: `All (${jobs.length})` },
+            { key: 'pending',   label: `Pending (${pendingCount})` },
+            { key: 'accepted',  label: `Accepted (${jobs.filter(j => j.status === 'accepted').length})` },
+            { key: 'completed', label: `Completed (${jobs.filter(j => j.status === 'completed').length})` },
+            { key: 'declined',  label: `Declined (${declinedCount})` },
           ] as { key: StatusFilter; label: string }[]).map(({ key, label }) => (
             <button
               key={key}

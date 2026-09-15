@@ -13,6 +13,15 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = atob(base64)
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
+}
+
 interface Props {
   allowedRoles: string[]   // roles allowed to view this page
   backHref: string         // where the back button goes
@@ -26,12 +35,19 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
   const [saving, setSaving]   = useState(false)
   const [saved, setSaved]     = useState(false)
   const [error, setError]     = useState<string | null>(null)
+  const [userRole, setUserRole] = useState('')
 
   const [form, setForm] = useState({
     first_name: '',
     last_name:  '',
     phone:      '',
   })
+
+  // Push notification state
+  const [pushSupported, setPushSupported] = useState(false)
+  const [pushStatus, setPushStatus]       = useState<'checking' | 'denied' | 'subscribed' | 'unsubscribed'>('checking')
+  const [pushLoading, setPushLoading]     = useState(false)
+  const [pushMsg, setPushMsg]             = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -43,6 +59,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
       if (!user || (!isAdmin && !allowedRoles.includes(role))) {
         router.push('/login'); return
       }
+      setUserRole(role)
 
       const { data: p } = await supabase
         .from('people')
@@ -57,10 +74,96 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
         last_name:  p.last_name  || '',
         phone:      p.phone      || '',
       })
+      // Check push support & re-sync existing subscription to DB if needed
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        setPushSupported(true)
+        if (Notification.permission === 'denied') {
+          setPushStatus('denied')
+        } else {
+          try {
+            const reg = await navigator.serviceWorker.ready
+            const sub = await reg.pushManager.getSubscription()
+            if (sub) {
+              setPushStatus('subscribed')
+              // Re-sync to DB silently in case a previous save failed
+              const { createClient: getClient } = await import('@/lib/supabase')
+              const sbClient = getClient()
+              const { data: { session } } = await sbClient.auth.getSession()
+              const tok = session?.access_token
+              if (tok && p) {
+                const j = sub.toJSON()
+                fetch('/api/push/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+                  body: JSON.stringify({
+                    endpoint: j.endpoint,
+                    p256dh: (j.keys as any)?.p256dh,
+                    auth: (j.keys as any)?.auth,
+                    personId: p.id || undefined,
+                    email: p.email || undefined,
+                    role: role,
+                  }),
+                }).catch(() => {})
+              }
+            } else {
+              setPushStatus('unsubscribed')
+            }
+          } catch { setPushStatus('unsubscribed') }
+        }
+      } else {
+        setPushSupported(false)
+        setPushStatus('unsubscribed')
+      }
+
       setLoading(false)
     }
     init()
   }, [])
+
+  async function enablePush() {
+    if (!person) return
+    setPushLoading(true); setPushMsg(null)
+    try {
+      const perm = await Notification.requestPermission()
+      if (perm !== 'granted') { setPushStatus('denied'); setPushMsg('Notifications blocked — enable them in your browser/phone settings.'); return }
+
+      const { createClient: getClient } = await import('@/lib/supabase')
+      const sbClient = getClient()
+      const { data: { session } } = await sbClient.auth.getSession()
+      const tok = session?.access_token
+
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) })
+      const j = sub.toJSON()
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
+        },
+        body: JSON.stringify({ endpoint: j.endpoint, p256dh: (j.keys as any)?.p256dh, auth: (j.keys as any)?.auth, personId: person.id, email: person.email, role: userRole }),
+      })
+      if (!res.ok) throw new Error('Could not save subscription')
+      setPushStatus('subscribed')
+      setPushMsg('✅ Push notifications enabled on this device!')
+    } catch (e: any) { setPushMsg(e.message || 'Failed to enable push') }
+    finally { setPushLoading(false) }
+  }
+
+  async function disablePush() {
+    setPushLoading(true); setPushMsg(null)
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        await sub.unsubscribe()
+        await fetch('/api/push/subscribe', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {})
+      }
+      setPushStatus('unsubscribed')
+      setPushMsg('Push notifications disabled on this device.')
+    } catch (e: any) { setPushMsg(e.message || 'Failed to disable') }
+    finally { setPushLoading(false) }
+  }
 
   async function handleSave() {
     if (!person) return
@@ -166,6 +269,68 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
               className="w-full py-sm rounded-xl bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40 transition">
               {saving ? 'Saving…' : 'Save changes'}
             </button>
+          </div>
+        </div>
+
+        {/* ── Push Notifications ──────────────────────────────────────────── */}
+        <div className="mt-xl rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+          <div className="px-lg py-md border-b border-neutral-100">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Push Notifications</p>
+          </div>
+          <div className="px-lg py-lg space-y-md">
+            {!pushSupported ? (
+              <div className="space-y-sm">
+                <p className="text-sm font-medium text-neutral-700">Not available in browser tabs</p>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Push notifications require the app to be installed on your home screen. Open this site in <strong>Safari</strong>, tap the <strong>Share button ⬆</strong>, then <strong>"Add to Home Screen"</strong>. Once installed, this toggle will work.
+                </p>
+                <Link href="/install" className="inline-flex items-center gap-xs text-xs font-semibold text-neutral-900 underline underline-offset-2">
+                  📲 Installation guide
+                </Link>
+              </div>
+            ) : pushStatus === 'denied' ? (
+              <p className="text-xs text-red-700">Notifications are blocked. Go to your phone's <strong>Settings → Notifications</strong> for this app and allow them, then refresh.</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-md">
+                  <div className="flex items-center gap-sm">
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${pushStatus === 'subscribed' ? 'bg-green-500' : 'bg-neutral-300'}`} />
+                    <span className="text-sm text-neutral-700">
+                      {pushStatus === 'checking' ? 'Checking…' : pushStatus === 'subscribed' ? 'Enabled on this device' : 'Not enabled on this device'}
+                    </span>
+                  </div>
+                  {pushStatus !== 'checking' && (
+                    pushStatus === 'subscribed' ? (
+                      <button type="button" onClick={disablePush} disabled={pushLoading}
+                        className="text-xs text-neutral-500 hover:text-red-600 transition-colors disabled:opacity-40 underline underline-offset-2">
+                        {pushLoading ? 'Disabling…' : 'Disable'}
+                      </button>
+                    ) : (
+                      <button type="button" onClick={enablePush} disabled={pushLoading}
+                        className="rounded-lg bg-neutral-900 px-md py-sm text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-40 transition-colors">
+                        {pushLoading ? 'Enabling…' : 'Enable push'}
+                      </button>
+                    )
+                  )}
+                </div>
+
+                {/* Tenant warning when disabling */}
+                {userRole === 'tenant' && pushStatus === 'subscribed' && (
+                  <div className="flex items-start gap-sm rounded-lg bg-amber-50 border border-amber-200 px-md py-sm">
+                    <span className="text-amber-500 text-base shrink-0 mt-px">⚠️</span>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      <strong>Heads up:</strong> Disabling notifications means you won't receive alerts when contractors need access to your property or room, or if there are important updates about your tenancy.
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {pushMsg && (
+              <p className={`text-xs rounded-lg px-md py-sm border ${pushMsg.startsWith('✅') ? 'bg-green-50 border-green-100 text-green-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                {pushMsg}
+              </p>
+            )}
           </div>
         </div>
 

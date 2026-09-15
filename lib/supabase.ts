@@ -12,7 +12,14 @@ let supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null
 
 export function createClient() {
   if (!supabaseInstance) {
-    supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey)
+    supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,      // store session in localStorage so PWA survives restarts
+        autoRefreshToken: true,    // silently refresh access tokens before they expire
+        detectSessionInUrl: true,  // pick up magic-link / OAuth callbacks
+        storageKey: 'cros-auth',   // stable key so reinstalling the PWA keeps the session
+      },
+    })
   }
   return supabaseInstance
 }
@@ -38,12 +45,18 @@ export async function createServerClient() {
   })
 
   // Extract session from cookies if available
-  const sessionCookie = cookieStore.get('sb-' + supabaseUrl.split('.')[0] + '-auth-token')
+  // Cookie name is sb-{project-ref}-auth-token, e.g. sb-fihjzzxxhprxgjuefgtb-auth-token
+  const projectRef = supabaseUrl.replace(/^https?:\/\//, '').split('.')[0]
+  const cookieName = `sb-${projectRef}-auth-token`
+  const sessionCookie = cookieStore.get(cookieName)
   if (sessionCookie?.value) {
-    const session = JSON.parse(sessionCookie.value)
-    if (session?.access_token) {
-      // Set the auth header for this specific request
-      supabase.auth.setSession(session)
+    try {
+      const session = JSON.parse(sessionCookie.value)
+      if (session?.access_token) {
+        supabase.auth.setSession(session)
+      }
+    } catch {
+      // Ignore parse errors
     }
   }
 

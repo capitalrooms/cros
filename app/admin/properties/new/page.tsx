@@ -10,6 +10,7 @@ import Link from 'next/link'
 import PostcodeLookupWidget from '@/components/admin/PostcodeLookupWidget'
 import type { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
 import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
+import AddressInput, { type AddressValue, emptyAddress, toAddressString } from '@/app/components/AddressInput'
 
 type LetType = 'hmo' | 'single_let' | null
 
@@ -19,8 +20,9 @@ export default function NewPropertyPage() {
   const [error, setError] = useState<string | null>(null)
 
   // Step 1: Address
-  const [address, setAddress] = useState('')
-  const [postcode, setPostcode] = useState('')
+  const [addrValue, setAddrValue] = useState<AddressValue>(emptyAddress())
+  const address = toAddressString(addrValue)
+  const postcode = addrValue.postcode
   const [propertyCode, setPropertyCode] = useState('')
   const [councilTaxBand, setCouncilTaxBand] = useState('')
   const [councilInfo, setCouncilInfo] = useState<PostcodeLookupResult | null>(null)
@@ -64,10 +66,12 @@ export default function NewPropertyPage() {
     return `${number}${letters}`.toUpperCase()
   }
 
-  const handleAddressChange = (value: string) => {
-    setAddress(value)
-    setPropertyCode(generatePropertyCode(value))
-    // Postcode lookup is triggered automatically by PostcodeLookupWidget (autoLookup mode)
+  const handleAddrChange = (val: AddressValue) => {
+    setAddrValue(val)
+    const full = toAddressString(val)
+    if (!propertyCode || propertyCode === generatePropertyCode(toAddressString(addrValue))) {
+      setPropertyCode(generatePropertyCode(full))
+    }
   }
 
   const handleAcceptCouncilInfo = (data: PostcodeLookupResult) => {
@@ -156,8 +160,8 @@ export default function NewPropertyPage() {
   ]
 
   const isComplete = letType === 'single_let'
-    ? address.trim() && propertyCode && !!selectedLandlord
-    : address.trim() && propertyCode && !!selectedLandlord &&
+    ? addrValue.line1.trim() && addrValue.postcode.trim() && propertyCode && !!selectedLandlord
+    : addrValue.line1.trim() && addrValue.postcode.trim() && propertyCode && !!selectedLandlord &&
       numRooms !== '' && roomTypes.every(t => t)
 
   const handleCreate = async () => {
@@ -170,16 +174,32 @@ export default function NewPropertyPage() {
     try {
       const supabase = createClient()
 
+      // Geocode the postcode to get lat/lng for the weather/ventilation card
+      const resolvedPostcode = postcode || null
+      let lat: number | null = null
+      let lng: number | null = null
+      if (resolvedPostcode) {
+        try {
+          const geo = await fetch(
+            `https://api.postcodes.io/postcodes/${encodeURIComponent(resolvedPostcode.replace(/\s+/g, ''))}`
+          ).then(r => r.json())
+          if (geo.result) {
+            lat = geo.result.latitude
+            lng = geo.result.longitude
+          }
+        } catch {
+          // Non-fatal — property still creates without lat/lng
+        }
+      }
+
       const { data: property, error: propErr } = await supabase
         .from('properties')
         .insert({
           name: address,
           address,
-          postcode: postcode || (() => {
-            // Fallback: extract from address text if not set from lookup
-            const m = address.match(/\b([A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})\b/i)
-            return m ? m[1].replace(/\s+/g, '').toUpperCase() : null
-          })(),
+          postcode: resolvedPostcode,
+          lat,
+          lng,
           property_code: propertyCode,
           property_type: letType,
           landlord_id: selectedLandlord?.id || null,
@@ -233,7 +253,7 @@ export default function NewPropertyPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin/properties" />} />
+      <AppBar left={<BackButton href="/admin/active-rooms" />} />
 
       <main className="mx-auto max-w-4xl px-md">
         <div className="pt-md mb-md">
@@ -258,27 +278,13 @@ export default function NewPropertyPage() {
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
               <div className="space-y-sm">
-                {/* Postcode-first address search — populates full address below */}
-                <PostcodeAddressLookup
-                  label="Find by postcode"
-                  placeholder="Full address"
-                  onSelect={val => { if (val) handleAddressChange(val) }}
-                  onSelectParsed={parsed => {
-                    if (parsed.postcode) setPostcode(parsed.postcode.replace(/\s+/g, '').toUpperCase())
-                    if (parsed.full) handleAddressChange(parsed.full)
-                  }}
-                  className="[&_label]:text-neutral-300 [&_label]:text-xs [&_input]:bg-neutral-800 [&_input]:border-neutral-600 [&_input]:text-white [&_input]:placeholder-neutral-500 [&_textarea]:bg-neutral-800 [&_textarea]:border-neutral-600 [&_textarea]:text-white"
-                />
-                <label className={labelClass}>Full Address (or edit after lookup) *</label>
-                {/* Shared PostcodeLookupWidget — same component as the audit page */}
-                <PostcodeLookupWidget
-                  value={address}
-                  onChange={handleAddressChange}
-                  onResult={handleAcceptCouncilInfo}
-                  autoLookup
-                  placeholder="e.g., 451 St Davids Square, London, E14 3WQ"
-                  inputClassName={inputClass}
-                  buttonClassName=""
+                <AddressInput
+                  value={addrValue}
+                  onChange={handleAddrChange}
+                  label="Property Address"
+                  required
+                  inputClass="w-full rounded-xl border border-neutral-600 bg-neutral-800 px-3 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  labelClass="block text-xs font-semibold text-neutral-300 uppercase tracking-wide mb-1"
                 />
               </div>
               <div>
@@ -295,9 +301,8 @@ export default function NewPropertyPage() {
                 </div>
               </div>
               {/* EPC / council tax quick lookup */}
-              {address.length > 10 && (() => {
-                const pcMatch = address.match(/([A-Z]{1,2}[0-9]{1,2}\s?[0-9][A-Z]{2})/i)
-                const pc = pcMatch ? pcMatch[1].replace(/\s/g, '').toUpperCase() : ''
+              {addrValue.line1.trim().length > 3 && (() => {
+                const pc = addrValue.postcode.replace(/\s/g, '').toUpperCase()
                 const epcUrl = pc
                   ? `https://find-energy-certificate.service.gov.uk/find-a-certificate/search-by-postcode?postcode=${pc}`
                   : 'https://find-energy-certificate.service.gov.uk'
@@ -343,7 +348,7 @@ export default function NewPropertyPage() {
           </div>
 
           {/* Section 2: THE FORK — only show once address is entered */}
-          {address.trim().length > 5 && (
+          {addrValue.line1.trim().length > 3 && (
             <div className={sectionClass}>
               <h2 className="text-xs font-bold text-white mb-md uppercase tracking-wider">2️⃣ What type of letting is this?</h2>
               <div className="grid grid-cols-2 gap-md">
@@ -652,7 +657,7 @@ export default function NewPropertyPage() {
           )}
 
           <Link
-            href="/admin/properties"
+            href="/admin/active-rooms"
             className="block w-full px-md py-xs border border-neutral-700 text-neutral-900 bg-white rounded font-semibold text-sm hover:bg-neutral-50 transition text-center"
           >
             Cancel

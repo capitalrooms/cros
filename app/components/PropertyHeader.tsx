@@ -20,6 +20,7 @@
  */
 
 import Link from 'next/link'
+import { blockAddress, inlineAddress } from '@/lib/formatAddress'
 
 export interface PropertyHeaderProps {
   id: string
@@ -49,8 +50,10 @@ export default function PropertyHeader({
   rightSlot,
 }: PropertyHeaderProps) {
   const isHmo = propertyType !== 'single_let'
-  const displayName = address && address !== name ? address : name
-  const subName    = address && address !== name ? name : null
+  // For compact/inline use: single line. For card/block: formatted multi-line.
+  const displayInline = inlineAddress(address && address !== name ? address : name)
+  const displayBlock  = blockAddress(address && address !== name ? address : name)
+  const subName       = address && address !== name ? name : null
 
   const badge = (
     <span
@@ -81,7 +84,7 @@ export default function PropertyHeader({
                   {propertyCode}
                 </span>
               )}
-              <span className="font-bold text-white truncate">{displayName}</span>
+              <span className="font-bold text-white truncate">{displayInline}</span>
               {subName && (
                 <span className="text-xs text-neutral-400 truncate">{subName}</span>
               )}
@@ -89,14 +92,11 @@ export default function PropertyHeader({
           ) : (
             /* Card format with bigger name and metadata row */
             <>
-              <h2 className="text-xl font-bold text-white group-hover:underline">
-                {displayName}
+              <h2 className="text-xl font-bold text-white whitespace-pre-line leading-snug">
+                {displayBlock}
               </h2>
               {subName && (
                 <p className="text-sm text-neutral-300 mt-xs">{subName}</p>
-              )}
-              {address && address !== name && address !== displayName && (
-                <p className="text-sm text-neutral-300 mt-xs">{address}</p>
               )}
               {(bedrooms != null || roomCount != null || occupiedCount != null) && (
                 <div className="flex flex-wrap gap-sm mt-md text-xs text-neutral-400">

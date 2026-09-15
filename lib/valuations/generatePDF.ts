@@ -111,9 +111,15 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
     const disclaimer = data.disclaimer ??
       'This valuation has been prepared by Capital Rooms based on current market conditions and comparable rental evidence at the time of writing. Figures stated are estimates and subject to change. This document does not constitute a formal valuation report or legal advice. Capital Rooms accepts no liability for decisions made solely on the basis of this document.'
 
-    // ─ HEADER: LOGO TOP-RIGHT ─────────────────────────────────────────────────
-    const logoX = PAGE_W - MARGIN - LOGO_W
-    doc.image(logoImg, logoX, MARGIN, { width: LOGO_W, height: LOGO_H })
+    // ── Logo + footer on every page ───────────────────────────────────────────
+    function drawPageDecor() {
+      const logoX = PAGE_W - MARGIN - LOGO_W
+      if (logoImg.length) doc.image(logoImg, logoX, MARGIN, { width: LOGO_W, height: LOGO_H })
+      drawPDFFooter(doc, footerImg, data.bizSettings, fontReg)
+    }
+
+    drawPageDecor()
+    doc.on('pageAdded', () => { drawPageDecor() })
 
     // ─ RECIPIENT ADDRESS — top-left, parallel to logo ─────────────────────────
     // Reference letterhead: address block starts at same Y as logo, left margin.
@@ -158,8 +164,16 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
 
     // ─ OPENING PARA ───────────────────────────────────────────────────────────
 
+    function ensureSpace(needed: number) {
+      if (y + needed > PAGE_H - FOOTER_BAND_H - 24) {
+        doc.addPage()
+        y = MARGIN + LOGO_H + 12
+      }
+    }
+
     function drawPara(text: string) {
       const height = doc.heightOfString(text, { width: COL_W, align: 'justify' })
+      ensureSpace(height + 12)
       doc.save().font(fontReg).fontSize(9.5).fillColor(BLACK)
         .text(text, MARGIN, y, { width: COL_W, align: 'justify', lineGap: 3 })
         .restore()
@@ -167,6 +181,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
     }
 
     function sectionHeading(text: string) {
+      ensureSpace(30)
       y += 6
       doc.save().font(fontBold).fontSize(10).fillColor(BLACK)
         .text(text, MARGIN, y)
@@ -206,6 +221,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
       let totalHigh = 0
 
       for (let i = 0; i < rows.length; i++) {
+        ensureSpace(ROW_H + 4)
         const r = rows[i]
         const bg = i % 2 === 1 ? LIGHT : undefined
         tableRow(doc, y,
@@ -238,6 +254,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
     }
 
     if (showRooms) {
+      ensureSpace(60)
       sectionHeading(roomHeading)
       drawRoomTable(data.rooms)
     }
@@ -266,6 +283,7 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
 
       let total = 0
       for (let i = 0; i < data.refurbItems.length; i++) {
+        ensureSpace(ROW_H + 4)
         const item = data.refurbItems[i]
         const bg = i % 2 === 1 ? LIGHT : undefined
         tableRow(doc, y,
@@ -364,15 +382,13 @@ export async function generateValuationPDF(data: ValuationData): Promise<Buffer>
 
     // ─ DISCLAIMER ─────────────────────────────────────────────────────────────
 
+    ensureSpace(50)
     y += 6
     drawHRule(doc, MARGIN, y, COL_W, '#d0d0d0')
     y += 8
     doc.save().font(fontReg).fontSize(6.5).fillColor('#999')
       .text(disclaimer, MARGIN, y, { width: COL_W, align: 'left', lineGap: 2 })
       .restore()
-
-    // ─ FOOTER BAND — shared component (lib/pdfLetterhead) ────────────────────
-    drawPDFFooter(doc, footerImg, data.bizSettings, fontReg)
 
     doc.end()
   })

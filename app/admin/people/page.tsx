@@ -82,7 +82,16 @@ export default function PeopleManagement() {
 
   // Add Person form
   const [showAddPerson, setShowAddPerson] = useState(false)
-  const [formData, setFormData] = useState({ email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', last_name: '' })
+  const [formData, setFormData] = useState({
+    email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', last_name: '', phone: '',
+    // Extended details
+    date_of_birth: '', nationality: '', occupation: '', employer_name: '', annual_income: '',
+    previous_address: '', how_heard: '',
+    emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relationship: '',
+    guarantor_name: '', guarantor_email: '', guarantor_phone: '',
+    notes: '',
+  })
+  const [showExtendedDetails, setShowExtendedDetails] = useState(false)
 
   // Edit Person modal
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
@@ -203,6 +212,11 @@ export default function PeopleManagement() {
           email: formData.email,
           ...nameFields(formData.first_name, formData.last_name),
           salutation: formData.salutation || null,
+          phone: formData.phone || null,
+          date_of_birth: formData.date_of_birth || null,
+          nationality: formData.nationality || null,
+          occupation: formData.occupation || null,
+          annual_income: formData.annual_income || null,
           role: formData.role,
           property_id: formData.property_id || null,
         },
@@ -211,7 +225,15 @@ export default function PeopleManagement() {
       if (err) throw err
 
       setSuccess(`User ${formData.email} added successfully`)
-      setFormData({ email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', last_name: '' })
+      setFormData({
+        email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', last_name: '', phone: '',
+        date_of_birth: '', nationality: '', occupation: '', employer_name: '', annual_income: '',
+        previous_address: '', how_heard: '',
+        emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relationship: '',
+        guarantor_name: '', guarantor_email: '', guarantor_phone: '',
+        notes: '',
+      })
+      setShowExtendedDetails(false)
       setShowAddPerson(false)
 
       // Refresh
@@ -379,64 +401,191 @@ export default function PeopleManagement() {
             </div>
 
             {showAddPerson && (
-              <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
-                <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Tenant</h3>
-                <form onSubmit={handleAddPerson} className="space-y-md">
-                  <div className="grid grid-cols-[100px_1fr_1fr] gap-md">
-                    <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Salutation</label>
-                      <select
-                        value={formData.salutation}
-                        onChange={(e) => setFormData({ ...formData, salutation: e.target.value })}
-                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm bg-white"
-                      >
-                        <option value="">—</option>
-                        {['Mr','Mrs','Ms','Miss','Dr','Prof','Rev','Mx'].map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">First Name</label>
-                      <input
-                        type="text"
-                        value={formData.first_name}
-                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
-                        placeholder="Jane"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Last Name</label>
-                      <input
-                        type="text"
-                        value={formData.last_name}
-                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
-                        placeholder="Doe"
-                      />
-                    </div>
-                  </div>
+              <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+                {/* Form header */}
+                <div className="px-xl py-lg border-b border-neutral-100 bg-neutral-50">
+                  <h3 className="text-base font-bold text-neutral-900">Register new tenant</h3>
+                  <p className="text-xs text-neutral-400 mt-0.5">Core fields required · extended details can be added now or filled in later</p>
+                </div>
+
+                <form onSubmit={handleAddPerson} className="px-xl py-lg space-y-xl">
+
+                  {/* ── CORE DETAILS ── */}
                   <div>
-                    <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
-                      placeholder="tenant@example.com"
-                    />
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Identity</p>
+                    <div className="grid grid-cols-[110px_1fr_1fr] gap-md mb-md">
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-xs">Salutation</label>
+                        <select value={formData.salutation} onChange={e => setFormData({ ...formData, salutation: e.target.value })}
+                          className="w-full rounded-lg border border-neutral-300 px-sm py-sm text-sm bg-white">
+                          <option value="">—</option>
+                          {['Mr','Mrs','Ms','Miss','Dr','Prof','Rev','Mx'].map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-xs">First name <span className="text-red-500">*</span></label>
+                        <input type="text" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })}
+                          className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="Jane" required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-xs">Last name <span className="text-red-500">*</span></label>
+                        <input type="text" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })}
+                          className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="Doe" required />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-md">
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-xs">Email <span className="text-red-500">*</span></label>
+                        <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })}
+                          className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="jane@example.com" required />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-xs">Mobile phone <span className="text-red-500">*</span></label>
+                        <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                          className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="07700 900000" required />
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-md">
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-green-600 px-lg py-sm text-sm font-semibold text-white hover:bg-green-700"
-                    >
+
+                  {/* ── EXTENDED DETAILS toggle ── */}
+                  <div>
+                    <button type="button" onClick={() => setShowExtendedDetails(v => !v)}
+                      className="flex items-center gap-sm text-sm font-semibold text-blue-600 hover:text-blue-800 transition">
+                      <span className={`transition-transform ${showExtendedDetails ? 'rotate-90' : ''}`}>▶</span>
+                      {showExtendedDetails ? 'Hide extended details' : 'Add extended details'}
+                      <span className="text-xs font-normal text-neutral-400 ml-xs">— date of birth, employment, address, emergency contact, guarantor, notes</span>
+                    </button>
+
+                    {showExtendedDetails && (
+                      <div className="mt-lg space-y-xl">
+
+                        {/* Personal */}
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Personal details</p>
+                          <div className="grid grid-cols-2 gap-md">
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Date of birth</label>
+                              <input type="date" value={formData.date_of_birth} onChange={e => setFormData({ ...formData, date_of_birth: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Nationality</label>
+                              <input type="text" value={formData.nationality} onChange={e => setFormData({ ...formData, nationality: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="e.g. British" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Employment */}
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Employment</p>
+                          <div className="grid grid-cols-2 gap-md mb-md">
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Occupation / job title</label>
+                              <input type="text" value={formData.occupation} onChange={e => setFormData({ ...formData, occupation: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="e.g. Software Engineer" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Employer name</label>
+                              <input type="text" value={formData.employer_name} onChange={e => setFormData({ ...formData, employer_name: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="e.g. Acme Ltd" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-neutral-600 mb-xs">Annual income (£)</label>
+                            <input type="number" value={formData.annual_income} onChange={e => setFormData({ ...formData, annual_income: e.target.value })}
+                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="e.g. 32000" />
+                            <p className="text-[11px] text-neutral-400 mt-xs">Used for affordability checks. Rule of thumb: annual income ≥ 30× monthly rent.</p>
+                          </div>
+                        </div>
+
+                        {/* Current / previous address */}
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Current / previous address</p>
+                          <textarea value={formData.previous_address} onChange={e => setFormData({ ...formData, previous_address: e.target.value })}
+                            rows={3} placeholder="Address line 1&#10;Address line 2&#10;Postcode"
+                            className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm resize-none" />
+                        </div>
+
+                        {/* How heard */}
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Source</p>
+                          <div>
+                            <label className="block text-xs font-semibold text-neutral-600 mb-xs">How did they hear about us?</label>
+                            <select value={formData.how_heard} onChange={e => setFormData({ ...formData, how_heard: e.target.value })}
+                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm bg-white">
+                              <option value="">— Select —</option>
+                              {['Rightmove','Zoopla','SpareRoom','OpenRent','Referral / word of mouth','Social media','Direct inquiry','Viewing event','Other'].map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Emergency contact */}
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Emergency contact</p>
+                          <div className="grid grid-cols-3 gap-md">
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Full name</label>
+                              <input type="text" value={formData.emergency_contact_name} onChange={e => setFormData({ ...formData, emergency_contact_name: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="Jane Smith" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Phone</label>
+                              <input type="tel" value={formData.emergency_contact_phone} onChange={e => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="07700 000000" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Relationship</label>
+                              <input type="text" value={formData.emergency_contact_relationship} onChange={e => setFormData({ ...formData, emergency_contact_relationship: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="e.g. Parent" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Guarantor */}
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Guarantor <span className="normal-case font-normal text-neutral-400">(if applicable)</span></p>
+                          <div className="grid grid-cols-3 gap-md">
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Full name</label>
+                              <input type="text" value={formData.guarantor_name} onChange={e => setFormData({ ...formData, guarantor_name: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="John Doe" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Email</label>
+                              <input type="email" value={formData.guarantor_email} onChange={e => setFormData({ ...formData, guarantor_email: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="guarantor@example.com" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Phone</label>
+                              <input type="tel" value={formData.guarantor_phone} onChange={e => setFormData({ ...formData, guarantor_phone: e.target.value })}
+                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="07700 000000" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Notes */}
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Notes</p>
+                          <textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                            rows={3} placeholder="Any additional notes about this tenant…"
+                            className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm resize-none" />
+                        </div>
+
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-md pt-sm border-t border-neutral-100">
+                    <button type="submit"
+                      className="rounded-lg bg-green-600 px-xl py-sm text-sm font-semibold text-white hover:bg-green-700 transition">
                       Add Tenant
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddPerson(false)}
-                      className="rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold hover:bg-neutral-50"
-                    >
+                    <button type="button" onClick={() => { setShowAddPerson(false); setShowExtendedDetails(false) }}
+                      className="rounded-lg border border-neutral-300 px-xl py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition">
                       Cancel
                     </button>
                   </div>

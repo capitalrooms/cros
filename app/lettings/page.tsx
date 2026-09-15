@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { displayName } from '@/lib/people'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import RoomDetailTags from '@/app/components/RoomDetailTags'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
 import DarkHeroHeader from '@/app/components/DarkHeroHeader'
@@ -188,7 +187,6 @@ export default function LettingsPage() {
   const [selectedDay, setSelectedDay] = useState(todayISO())
   const [weekOffset, setWeekOffset] = useState(0)
 
-  const [showAddLetOnly, setShowAddLetOnly] = useState(false)
   const [addingViewing, setAddingViewing] = useState(false)
   const [viewingForm, setViewingForm] = useState(blankViewingForm())
   const [savingViewing, setSavingViewing] = useState(false)
@@ -235,21 +233,14 @@ export default function LettingsPage() {
       .limit(200)
     setViewings((viewingsData as Viewing[]) || [])
 
-    // Managed available rooms
+    // All available rooms — both managed and let-only properties (unified via properties table)
     const { data: availableData } = await supabase
       .from('rooms')
-      .select('id, name, property_id, current_asking_rent, available_date, days_on_market, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address)')
+      .select('id, name, property_id, current_asking_rent, available_date, days_on_market, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address, letting_type)')
       .eq('status', 'available')
       .order('available_date', { ascending: true })
 
-    // Let-only available rooms
-    const { data: letOnlyData } = await supabase
-      .from('let_only_rooms')
-      .select('id, room_name, monthly_rent, available_date, has_ensuite, has_shared_bathroom, has_lounge, let_only_listings(id, address, postcode, is_active)')
-      .eq('status', 'available')
-      .order('available_date', { ascending: true })
-
-    const managed: AvailableRoom[] = (availableData || []).map((room: any) => ({
+    const allAvailable: AvailableRoom[] = (availableData || []).map((room: any) => ({
       id: room.id,
       name: room.name,
       property_id: room.property_id,
@@ -258,32 +249,13 @@ export default function LettingsPage() {
       current_asking_rent: room.current_asking_rent,
       available_date: room.available_date,
       days_on_market: room.days_on_market,
+      is_let_only: room.properties?.letting_type === 'let_only',
       has_ensuite: room.has_ensuite,
       has_shared_bathroom: room.has_shared_bathroom,
       has_lounge: room.has_lounge,
     }))
 
-    const letOnly: AvailableRoom[] = (letOnlyData || [])
-      .filter((r: any) => r.let_only_listings?.is_active)
-      .map((r: any) => {
-        const listing = r.let_only_listings
-        return {
-          id: r.id,
-          name: r.room_name,
-          property_id: listing.id,
-          property_name: listing.address,
-          property_address: listing.postcode ? `${listing.address}, ${listing.postcode}` : listing.address,
-          current_asking_rent: r.monthly_rent,
-          available_date: r.available_date,
-          days_on_market: null,
-          is_let_only: true,
-          has_ensuite: r.has_ensuite,
-          has_shared_bathroom: r.has_shared_bathroom,
-          has_lounge: r.has_lounge,
-        }
-      })
-
-    setAvailableRooms([...managed, ...letOnly])
+    setAvailableRooms(allAvailable)
 
     // Currently let rooms (occupied, with tenant info via people table)
     const { data: letData } = await supabase
@@ -410,7 +382,7 @@ export default function LettingsPage() {
       if (viewingForm.notifyTenants && room?.property_id) {
         const msg = viewingForm.notifyMessage ||
           defaultNotifyMsg(room.properties?.name || '', viewingForm.viewing_date, viewingForm.viewing_slot)
-        await fetch('/api/cleaner/quick-notify', {
+        await fetch('/api/admin/quick-notify-lettings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -552,7 +524,7 @@ export default function LettingsPage() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: '#181614' }}>{availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} to let</h2>
-                  <button onClick={() => setShowAddLetOnly(true)} style={{ background: '#181614', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>+ Let-only room</button>
+                  <a href="/admin/let-only-properties" style={{ background: '#181614', color: 'white', textDecoration: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-block' }}>+ Let-only property</a>
                 </div>
                 {availableRooms.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center"><p className="text-sm text-neutral-400">No available rooms</p></div>
@@ -649,9 +621,10 @@ export default function LettingsPage() {
         topRight={
           <button
             onClick={async () => { await signOut(); router.push('/login') }}
-            className="hover:text-white transition-colors"
+            className="flex items-center gap-xs text-sm font-medium text-white/60 hover:text-white transition-colors px-sm py-xs rounded-lg hover:bg-white/10"
           >
-            Sign out
+            <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true"><path d="M3 1.5h5.5a.5.5 0 0 1 .5.5v2h1V2A1.5 1.5 0 0 0 8.5.5H3A1.5 1.5 0 0 0 1.5 2v11A1.5 1.5 0 0 0 3 14.5h5.5A1.5 1.5 0 0 0 10 13v-2H9v2a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V2A.5.5 0 0 1 3 1.5z" fill="currentColor"/><path d="M6 7.5a.5.5 0 0 1 .5-.5H13a.5.5 0 0 1 0 1H6.5A.5.5 0 0 1 6 7.5zm5.146-2.646a.5.5 0 0 1 .708.708L9.707 7.5l2.147 2.146a.5.5 0 0 1-.708.708l-2.5-2.5a.5.5 0 0 1 0-.708l2.5-2.5z" fill="currentColor"/></svg>
+            Log out
           </button>
         }
       >
@@ -830,12 +803,12 @@ export default function LettingsPage() {
               <h2 className="text-base font-bold text-neutral-900">
                 {availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} to let
               </h2>
-              <button
-                onClick={() => setShowAddLetOnly(true)}
+              <a
+                href="/admin/let-only-properties"
                 className="rounded-full bg-neutral-900 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
               >
-                + Let-only room
-              </button>
+                + Let-only property
+              </a>
             </div>
 
             {availableRooms.length === 0 ? (
@@ -848,12 +821,6 @@ export default function LettingsPage() {
                   <AvailableRoomCard key={room.id} room={room} />
                 ))}
               </div>
-            )}
-
-            {availableRooms.some(r => r.is_let_only) && (
-              <p className="mt-md text-xs text-neutral-400">
-                🔑 Let-only rooms are landlord-managed — Capital Rooms runs viewings only.
-              </p>
             )}
 
             {/* Send offer letter */}
@@ -1011,14 +978,6 @@ export default function LettingsPage() {
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
 
-      {showAddLetOnly && (
-        <AddLetOnlyModal
-          createdByPersonId={personId}
-          onClose={() => setShowAddLetOnly(false)}
-          onSave={async () => { setShowAddLetOnly(false); await loadData() }}
-        />
-      )}
-
       {addingViewing && (
         <BookViewingModal
           form={viewingForm}
@@ -1089,7 +1048,7 @@ function ViewingCard({ viewing }: { viewing: Viewing }) {
 
 function AvailableRoomCard({ room }: { room: AvailableRoom }) {
   const href = room.is_let_only
-    ? `/admin/let-only/${room.property_id}`
+    ? `/admin/let-only-properties`
     : `/admin/properties/${room.property_id}`
 
   return (

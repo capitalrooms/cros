@@ -10,7 +10,6 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import SendOfferForm from '@/components/SendOfferForm'
 import Link from 'next/link'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
-import RoomDetailTags from '@/app/components/RoomDetailTags'
 
 interface AvailableRoom {
   id: string
@@ -23,6 +22,7 @@ interface AvailableRoom {
   marketing_status: string
   days_on_market: number | null
   status: 'available' | 'on_notice'
+  room_type?: string | null
   // let-only extras
   is_let_only?: boolean
   let_only_listing_id?: string
@@ -67,16 +67,16 @@ export default function LettingsPage() {
     // Managed available rooms
     const { data: availableData } = await supabase
       .from('rooms')
-      .select('id, name, property_id, current_asking_rent, available_date, marketing_status, days_on_market, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address)')
+      .select('id, name, room_type, property_id, current_asking_rent, available_date, marketing_status, days_on_market, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address)')
       .eq('status', 'available')
       .order('available_date', { ascending: true })
 
-    // On-notice tenancies
+    // On-notice rooms — query rooms directly (tenancies.status column not in prod DB)
     const { data: onNoticeData } = await supabase
-      .from('tenancies')
-      .select('id, end_date, rooms(id, name, property_id, current_asking_rent, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address))')
+      .from('rooms')
+      .select('id, name, room_type, property_id, current_asking_rent, has_ensuite, has_shared_bathroom, has_lounge, properties(name, address), tenancies(id, end_date, notice_received_date)')
       .eq('status', 'on_notice')
-      .order('end_date', { ascending: true })
+      .order('id', { ascending: true })
 
     // Let-only rooms (active listings only)
     const { data: letOnlyData } = await supabase
@@ -88,6 +88,7 @@ export default function LettingsPage() {
     const availableTransformed = (availableData || []).map((room: any) => ({
       id: room.id,
       name: room.name,
+      room_type: room.room_type,
       property_id: room.property_id,
       property_name: room.properties?.name || 'Unknown',
       property_address: room.properties?.address || '',
@@ -102,22 +103,27 @@ export default function LettingsPage() {
     }))
 
     const onNoticeTransformed = (onNoticeData || [])
-      .filter((t: any) => t.rooms)
-      .map((t: any) => ({
-        id: t.rooms.id,
-        name: t.rooms.name,
-        property_id: t.rooms.property_id,
-        property_name: t.rooms.properties?.name || 'Unknown',
-        property_address: t.rooms.properties?.address || '',
-        current_asking_rent: t.rooms.current_asking_rent,
-        available_date: t.end_date,
-        marketing_status: 'on_notice',
-        days_on_market: null,
-        status: 'on_notice' as const,
-        has_ensuite: t.rooms.has_ensuite,
-        has_shared_bathroom: t.rooms.has_shared_bathroom,
-        has_lounge: t.rooms.has_lounge,
-      }))
+      .map((room: any) => {
+        // Pick the most recent active tenancy for the move-out date
+        const tenancies: any[] = Array.isArray(room.tenancies) ? room.tenancies : (room.tenancies ? [room.tenancies] : [])
+        const latestTenancy = tenancies.sort((a: any, b: any) => (b.end_date || '').localeCompare(a.end_date || ''))[0]
+        return {
+          id: room.id,
+          name: room.name,
+          room_type: room.room_type,
+          property_id: room.property_id,
+          property_name: room.properties?.name || 'Unknown',
+          property_address: room.properties?.address || '',
+          current_asking_rent: room.current_asking_rent,
+          available_date: latestTenancy?.end_date ?? null,
+          marketing_status: 'on_notice',
+          days_on_market: null,
+          status: 'on_notice' as const,
+          has_ensuite: room.has_ensuite,
+          has_shared_bathroom: room.has_shared_bathroom,
+          has_lounge: room.has_lounge,
+        }
+      })
 
     const letOnlyTransformed = (letOnlyData || [])
       .filter((r: any) => r.let_only_listings?.is_active)
@@ -193,7 +199,7 @@ export default function LettingsPage() {
                 <thead>
                   <tr className="border-b border-neutral-200 bg-neutral-50">
                     <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Property &amp; Room</th>
-                    <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Features</th>
+                    <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Room Type</th>
                     <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Available</th>
                     <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Rent (£pcm)</th>
                     <th className="px-lg py-md text-center text-sm font-semibold text-neutral-900">Days on market</th>
@@ -238,12 +244,8 @@ export default function LettingsPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-lg py-md text-sm">
-                        <RoomDetailTags
-                          has_ensuite={room.has_ensuite}
-                          has_shared_bathroom={room.has_shared_bathroom}
-                          has_lounge={room.has_lounge}
-                        />
+                      <td className="px-lg py-md text-sm text-neutral-700">
+                        {room.room_type || <span className="text-neutral-400 italic">—</span>}
                       </td>
                       <td className="px-lg py-md text-sm text-neutral-600">{formatDate(room.available_date)}</td>
                       <td className="px-lg py-md text-sm font-medium text-neutral-900">

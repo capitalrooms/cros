@@ -63,19 +63,40 @@ export async function GET(req: NextRequest) {
 
   const sb = serviceClient()
 
+  // Get property type + fire door setting for guide filtering
+  let propertyType: string | null = null
+  let showFireDoorGuide = false
+  if (tenancy?.property_id) {
+    const { data: prop } = await sb
+      .from('properties')
+      .select('property_type, show_fire_door_guide')
+      .eq('id', tenancy.property_id)
+      .maybeSingle()
+    propertyType = prop?.property_type ?? null
+    showFireDoorGuide = prop?.show_fire_door_guide ?? false
+  }
+  const isHmo = propertyType !== 'single_let'
+
   const { data: guides, error } = await sb
     .from('tenant_guides')
-    .select('id, slug, title, emoji, sort_order, visibility, trigger_stage, acknowledgment_required, hero_image_url')
+    .select('id, slug, title, emoji, sort_order, visibility, trigger_stage, acknowledgment_required, hero_image_url, property_type_filter')
     .eq('is_published', true)
     .order('sort_order')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Filter stage-triggered guides by tenant's current stage
+  // Filter stage-triggered guides by tenant's current stage + property type
   const visible = (guides || []).filter(g => {
-    if (g.visibility === 'essential') return true
-    if (g.visibility === 'stage-triggered') return g.trigger_stage === tenancyStage
-    return false
+    // Stage filter
+    if (g.visibility === 'stage-triggered') {
+      if (g.trigger_stage !== tenancyStage) return false
+    }
+    // Property type filter
+    const ptf = (g as any).property_type_filter || 'all'
+    if (ptf === 'hmo' && !isHmo) return false
+    if (ptf === 'single_let' && isHmo) return false
+    if (ptf === 'fire_door' && !showFireDoorGuide) return false
+    return true
   })
 
   // Fetch acknowledgments for this tenancy

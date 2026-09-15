@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import SignOutButton from '@/app/components/SignOutButton'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
@@ -136,12 +137,7 @@ export default function StatementDetail() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
         right={
-          <button
-            onClick={handleSignOut}
-            className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
-          >
-            <span>👋</span> Sign out
-          </button>
+          <SignOutButton onSignOut={handleSignOut} />
         }
       />
 

@@ -6,6 +6,7 @@ import { validateUUID } from '@/lib/validation'
 import twilio from 'twilio'
 import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { sendServerPush } from '@/lib/serverPush'
 
 async function sendSms(to: string, body: string) {
   const sid = process.env.TWILIO_ACCOUNT_SID
@@ -217,6 +218,21 @@ export async function POST(request: NextRequest) {
       }
     }
   }
+
+  // Push notification to admin — fire-and-forget, never blocks the response
+  // Targets administrator role only; tenants are NOT affected
+  const pushBody = [
+    ticket.category ? ticket.category.charAt(0).toUpperCase() + ticket.category.slice(1).replace(/-/g, ' ') : 'General',
+    property?.name || property?.address || '',
+    room?.name || ticket.location || '',
+  ].filter(Boolean).join(' — ')
+  sendServerPush({
+    role: 'administrator',
+    title: '🔧 New maintenance ticket',
+    body: pushBody || ticket.title || 'A new ticket has been raised',
+    url: '/admin/maintenance',
+    tag: `ticket-${ticketId}`,
+  })
 
   return NextResponse.json({ sent })
 }

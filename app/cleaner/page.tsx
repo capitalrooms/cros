@@ -236,7 +236,11 @@ export default function CleanerDashboard() {
 
   async function loadAssignedJobs() {
     try {
-      const res = await fetch('/api/jobs/assigned')
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const h: Record<string, string> = {}
+      if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`
+      const res = await fetch('/api/jobs/assigned', { headers: h })
       if (!res.ok) return
       const data = await res.json()
       setAssignedJobs(data.jobs || [])
@@ -300,9 +304,13 @@ export default function CleanerDashboard() {
   async function declineJob(jobId: string) {
     setDecliningJob(jobId)
     try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const h: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`
       const res = await fetch(`/api/jobs/${jobId}/decline`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: h,
         body: JSON.stringify({ reason: declineReason }),
       })
       if (!res.ok) throw new Error('Failed to decline job')
@@ -318,9 +326,13 @@ export default function CleanerDashboard() {
     if (!acceptJobForm.cleanDate) { setError('Please select a date'); return }
     setAcceptingJob(true)
     try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const h: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`
       const res = await fetch(`/api/jobs/${jobId}/accept`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: h,
         body: JSON.stringify({ clean_date: acceptJobForm.cleanDate, clean_time: acceptJobForm.cleanTime }),
       })
       if (!res.ok) throw new Error('Failed to accept job')
@@ -465,9 +477,10 @@ export default function CleanerDashboard() {
           <div style={{ padding: '20px' }}>
             <button
               onClick={async () => { await signOut(); router.push('/login') }}
-              style={{ fontSize: '12px', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}
+              style={{ fontSize: '12px', color: '#9ca3af', background: 'none', border: '1px solid #374151', borderRadius: '6px', cursor: 'pointer', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
             >
-              Sign out
+              <svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M3 1.5h5.5a.5.5 0 0 1 .5.5v2h1V2A1.5 1.5 0 0 0 8.5.5H3A1.5 1.5 0 0 0 1.5 2v11A1.5 1.5 0 0 0 3 14.5h5.5A1.5 1.5 0 0 0 10 13v-2H9v2a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V2A.5.5 0 0 1 3 1.5z" fill="currentColor"/><path d="M6 7.5a.5.5 0 0 1 .5-.5H13a.5.5 0 0 1 0 1H6.5A.5.5 0 0 1 6 7.5zm5.146-2.646a.5.5 0 0 1 .708.708L9.707 7.5l2.147 2.146a.5.5 0 0 1-.708.708l-2.5-2.5a.5.5 0 0 1 0-.708l2.5-2.5z" fill="currentColor"/></svg>
+              Log out
             </button>
           </div>
         </aside>

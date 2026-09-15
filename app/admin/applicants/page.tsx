@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import NameInput, { type NameValue, emptyName, toFullName } from '@/app/components/NameInput'
 
 const STAGES = [
   { key: 'invited',            label: 'Invited',            color: 'bg-neutral-100 text-neutral-600',  dot: 'bg-neutral-400' },
@@ -22,7 +23,8 @@ type Stage = typeof STAGES[number]['key']
 
 interface Applicant {
   id: string
-  full_name: string
+  full_name: string   // kept for API compat — built from name fields
+  name: NameValue
   email: string
   phone: string | null
   pipeline_stage: Stage
@@ -57,7 +59,7 @@ export default function ApplicantsPage() {
 
   // Add applicant form
   const [showAdd, setShowAdd] = useState(false)
-  const [addForm, setAddForm] = useState({ full_name: '', email: '', phone: '', property_id: '', room_id: '' })
+  const [addForm, setAddForm] = useState({ full_name: '', name: emptyName(), email: '', phone: '', property_id: '', room_id: '' })
   const [addError, setAddError] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [filteredAddRooms, setFilteredAddRooms] = useState<any[]>([])
@@ -189,7 +191,8 @@ export default function ApplicantsPage() {
   }
 
   async function handleAdd() {
-    if (!addForm.full_name.trim() || !addForm.email.trim() || !addForm.room_id) {
+    const fullName = toFullName(addForm.name) || addForm.full_name
+    if (!fullName.trim() || !addForm.email.trim() || !addForm.room_id) {
       setAddError('Name, email, and room are required')
       return
     }
@@ -200,7 +203,10 @@ export default function ApplicantsPage() {
       const { data, error: err } = await sb
         .from('applicants')
         .insert({
-          full_name:      addForm.full_name.trim(),
+          full_name:      fullName.trim(),
+          first_name:     addForm.name.first_name,
+          last_name:      addForm.name.last_name,
+          salutation:     addForm.name.salutation,
           email:          addForm.email.trim().toLowerCase(),
           phone:          addForm.phone.trim() || null,
           room_id:        addForm.room_id,
@@ -212,7 +218,7 @@ export default function ApplicantsPage() {
       if (err || !data) { setAddError(err?.message || 'Failed to add applicant'); return }
       setApplicants(prev => [data as Applicant, ...prev])
       setNotes(prev => ({ ...prev, [data.id]: '' }))
-      setAddForm({ full_name: '', email: '', phone: '', property_id: '', room_id: '' })
+      setAddForm({ full_name: '', name: emptyName(), email: '', phone: '', property_id: '', room_id: '' })
       setShowAdd(false)
     } finally {
       setAddSaving(false)
@@ -267,9 +273,12 @@ export default function ApplicantsPage() {
           <div className="mb-xl rounded-2xl border-2 border-neutral-900 bg-white p-lg">
             <h2 className="text-base font-bold text-neutral-900 mb-md">Add Applicant Directly</h2>
             <div className="grid gap-md sm:grid-cols-2">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-600 mb-xs uppercase tracking-wide">Full name *</label>
-                <input type="text" value={addForm.full_name} onChange={e => setAddForm(f => ({ ...f, full_name: e.target.value }))} placeholder="Jane Smith" className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              <div className="sm:col-span-2">
+                <NameInput
+                  value={addForm.name}
+                  onChange={n => setAddForm(f => ({ ...f, name: n, full_name: toFullName(n) }))}
+                  required
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-neutral-600 mb-xs uppercase tracking-wide">Email *</label>

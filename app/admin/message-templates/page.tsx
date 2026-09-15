@@ -390,7 +390,13 @@ export default function MessageTemplatesPage() {
   const router = useRouter()
   const [loading, setLoading]       = useState(true)
   const [templates, setTemplates]   = useState<MessageTemplate[]>([])
-  const [activeGroup, setActiveGroup] = useState<Group | 'all' | 'branding'>('all')
+  const [activeGroup, setActiveGroup] = useState<Group | 'all' | 'branding' | 'onboarding'>('all')
+  const [onboardingSteps, setOnboardingSteps]   = useState<Array<{ id: string; role: string; sort_order: number; screen: string; title: string; body: string; active: boolean }>>([])
+  const [onboardingLoading, setOnboardingLoading] = useState(false)
+  const [onboardingEditing, setOnboardingEditing] = useState<string | null>(null)
+  const [onboardingDraft, setOnboardingDraft]   = useState<Record<string, { title?: string; body?: string; active?: boolean }>>({})
+  const [onboardingSaving, setOnboardingSaving] = useState<string | null>(null)
+  const [onboardingBanner, setOnboardingBanner] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editingId, setEditingId]   = useState<string | null>(null)
 
@@ -411,7 +417,7 @@ export default function MessageTemplatesPage() {
         router.push('/login')
         return
       }
-      await Promise.all([loadTemplates(), loadBizSettings()])
+      await Promise.all([loadTemplates(), loadBizSettings(), loadOnboardingSteps()])
       setLoading(false)
     }
     init()
@@ -438,6 +444,49 @@ export default function MessageTemplatesPage() {
     const json = await res.json()
     setBiz(json.settings)
     setBizDraft({})
+  }
+
+  // ── Onboarding helpers ───────────────────────────────────────────────────────
+
+  async function loadOnboardingSteps() {
+    setOnboardingLoading(true)
+    try {
+      const res = await fetch('/api/onboarding-steps?role=tenant')
+      if (!res.ok) return
+      const json = await res.json()
+      setOnboardingSteps(json.steps ?? [])
+    } finally {
+      setOnboardingLoading(false)
+    }
+  }
+
+  async function saveOnboardingStep(id: string) {
+    const draft = onboardingDraft[id]
+    if (!draft) return
+    setOnboardingSaving(id)
+    setOnboardingBanner(null)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) throw new Error('Not authenticated')
+
+      const res = await fetch('/api/onboarding-steps', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, ...draft }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Save failed')
+
+      setOnboardingSteps(prev => prev.map(s => s.id === id ? { ...s, ...draft } : s))
+      setOnboardingDraft(prev => { const n = { ...prev }; delete n[id]; return n })
+      setOnboardingEditing(null)
+      setOnboardingBanner({ type: 'ok', text: '✅ Slide saved — changes will appear for new tenants immediately.' })
+    } catch (e: any) {
+      setOnboardingBanner({ type: 'err', text: e.message })
+    } finally {
+      setOnboardingSaving(null)
+    }
   }
 
   function bizField(key: keyof BizSettings): string {
@@ -570,6 +619,16 @@ export default function MessageTemplatesPage() {
         <div className="mb-xl flex flex-wrap gap-xs border-b border-neutral-300 pb-0">
           {/* Branding tab — first, before message groups */}
           <button
+            onClick={() => { setActiveGroup('onboarding'); if (!onboardingSteps.length) loadOnboardingSteps() }}
+            className={`px-md py-sm text-sm font-semibold transition whitespace-nowrap ${
+              activeGroup === 'onboarding'
+                ? 'border-b-2 border-blue-600 text-blue-700'
+                : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+          >
+            📱 Onboarding Slides
+          </button>
+          <button
             onClick={() => setActiveGroup('branding')}
             className={`px-md py-sm text-sm font-semibold transition whitespace-nowrap ${
               activeGroup === 'branding'
@@ -607,6 +666,134 @@ export default function MessageTemplatesPage() {
             </button>
           ))}
         </div>
+
+        {/* ── Onboarding panel ──────────────────────────────────────────────── */}
+        {activeGroup === 'onboarding' && (
+          <div className="space-y-lg">
+
+            {onboardingBanner && (
+              <div className={`rounded-xl px-lg py-md text-sm font-semibold border ${
+                onboardingBanner.type === 'ok'
+                  ? 'bg-green-50 border-green-200 text-green-800'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {onboardingBanner.text}
+              </div>
+            )}
+
+            <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+              <div className="px-lg py-md border-b border-neutral-100">
+                <h2 className="font-bold text-neutral-900 text-base">📱 Tenant Onboarding Slides</h2>
+                <p className="text-xs text-neutral-500 mt-xs">
+                  Shown once on first login. Edit the <strong>title</strong> and <strong>body text</strong> here — the slide design is fixed.
+                  Toggle <strong>Active</strong> to hide a slide without deleting it.
+                </p>
+              </div>
+
+              {onboardingLoading ? (
+                <div className="px-lg py-xl text-sm text-neutral-500">Loading slides…</div>
+              ) : onboardingSteps.length === 0 ? (
+                <div className="px-lg py-xl text-sm text-neutral-500">
+                  No slides found. Run migration <code>156_onboarding_steps.sql</code> in the Supabase console.
+                </div>
+              ) : (
+                <div className="divide-y divide-neutral-100">
+                  {onboardingSteps.map((step, idx) => {
+                    const isEditing  = onboardingEditing === step.id
+                    const draft      = onboardingDraft[step.id] ?? {}
+                    const title      = draft.title  ?? step.title
+                    const body       = draft.body   ?? step.body
+                    const active     = draft.active ?? step.active
+                    const isDirty    = Object.keys(draft).length > 0
+
+                    return (
+                      <div key={step.id} className="px-lg py-md">
+                        <div className="flex items-start gap-md">
+                          {/* Step number */}
+                          <div className="w-6 h-6 rounded-full bg-neutral-100 flex items-center justify-center flex-shrink-0 mt-xs">
+                            <span className="text-xs font-bold text-neutral-500">{idx + 1}</span>
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            {/* Screen label */}
+                            <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-xs">{step.screen}</p>
+
+                            {isEditing ? (
+                              <div className="space-y-sm">
+                                <div>
+                                  <label className="block text-xs font-semibold text-neutral-600 mb-xs">Title</label>
+                                  <input
+                                    type="text"
+                                    value={title}
+                                    onChange={e => setOnboardingDraft(p => ({ ...p, [step.id]: { ...p[step.id], title: e.target.value } }))}
+                                    className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-neutral-600 mb-xs">Body</label>
+                                  <textarea
+                                    value={body}
+                                    rows={3}
+                                    onChange={e => setOnboardingDraft(p => ({ ...p, [step.id]: { ...p[step.id], body: e.target.value } }))}
+                                    className="w-full rounded-lg border border-neutral-200 px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-md">
+                                  <label className="flex items-center gap-sm cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={active}
+                                      onChange={e => setOnboardingDraft(p => ({ ...p, [step.id]: { ...p[step.id], active: e.target.checked } }))}
+                                      className="rounded"
+                                    />
+                                    <span className="text-xs font-semibold text-neutral-700">Active</span>
+                                  </label>
+                                  <div className="flex gap-sm ml-auto">
+                                    <button
+                                      onClick={() => { setOnboardingEditing(null); setOnboardingDraft(p => { const n = {...p}; delete n[step.id]; return n }) }}
+                                      className="rounded-lg border border-neutral-200 px-md py-xs text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={() => saveOnboardingStep(step.id)}
+                                      disabled={!isDirty || onboardingSaving === step.id}
+                                      className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-40"
+                                    >
+                                      {onboardingSaving === step.id ? 'Saving…' : 'Save'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="text-sm font-bold text-neutral-900">{step.title}</p>
+                                <p className="text-sm text-neutral-600 mt-xs leading-relaxed">{step.body}</p>
+                                {!step.active && (
+                                  <span className="mt-xs inline-block rounded-full bg-neutral-100 px-sm py-0.5 text-xs font-semibold text-neutral-500">Hidden</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {!isEditing && (
+                            <button
+                              onClick={() => setOnboardingEditing(step.id)}
+                              className="flex-shrink-0 rounded-lg border border-neutral-200 px-md py-xs text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
 
         {/* ── Branding panel ────────────────────────────────────────────────── */}
         {activeGroup === 'branding' && (
@@ -769,7 +956,7 @@ export default function MessageTemplatesPage() {
         )}
 
         {/* ── Message list ──────────────────────────────────────────────────── */}
-        {activeGroup !== 'branding' && <div className="space-y-2xl">
+        {activeGroup !== 'branding' && activeGroup !== 'onboarding' && <div className="space-y-2xl">
           {visible.map(group => {
             const rows = grouped[group] ?? []
             if (rows.length === 0) return null

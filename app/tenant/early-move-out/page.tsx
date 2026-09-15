@@ -140,7 +140,7 @@ export default function EarlyMoveOutPage() {
   if (done) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" />} />  {/* done → go home, not back into form */}
         <main className="mx-auto max-w-lg px-lg py-3xl text-center">
           <div className="text-5xl mb-lg">✅</div>
           <h1 className="text-2xl font-bold text-neutral-900 mb-sm">Request received</h1>
@@ -162,7 +162,7 @@ export default function EarlyMoveOutPage() {
   if (!tenancy) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant/give-notice" />} />
         <main className="mx-auto max-w-lg px-lg py-3xl text-center">
           <p className="text-neutral-500 text-sm">No active tenancy found. Please contact us if you think this is a mistake.</p>
         </main>
@@ -196,7 +196,7 @@ export default function EarlyMoveOutPage() {
   if (existing) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant/give-notice" />} />
         <main className="mx-auto max-w-lg px-lg py-lg">
           <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Early move-out</h1>
           <p className="text-sm text-neutral-500 mb-xl">You already have a request in progress.</p>
@@ -263,7 +263,7 @@ export default function EarlyMoveOutPage() {
   // ── New request form ──────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant/give-notice" />} />
       <main className="mx-auto max-w-lg px-lg py-lg">
         <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Early move-out</h1>
         <p className="text-sm text-neutral-500 mb-xl">

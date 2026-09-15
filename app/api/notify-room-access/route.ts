@@ -87,7 +87,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'no_tenants_in_room' })
   }
 
-  // In-app notification
+  // In-app notification — link directly to the visit detail page
+  const visitLink = `/tenant/visit/${ticket.id}`
   const { count } = await insertNotifications(
     service,
     recipientIds,
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
       title: notifyTitle,
       body: notifyBody,
       type: 'maintenance',
-      link: '/tenant',
+      link: visitLink,
     },
     { propertyId: ticket.property_id, roomId: ticket.room_id }
   )
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
         roomId: ticket.room_id,
         title: 'Capital Rooms',
         body: notifyBody,
-        url: '/tenant',
+        url: visitLink,
       }),
     }).catch(() => {})
   } catch { /* best-effort */ }
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
     title: notifyTitle,
     body: notifyBody,
     type: 'maintenance',
-    link: '/tenant',
+    link: visitLink,
   })
 
   return NextResponse.json({ ok: true, notified: count, recipientIds })

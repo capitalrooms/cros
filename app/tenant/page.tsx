@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -8,10 +8,12 @@ import { getActiveTenancy } from '@/lib/tenancy'
 import { formatBooking, slotLabel } from '@/lib/booking'
 import { displayName } from '@/lib/people'
 import AppBar from '@/components/AppBar'
+import SignOutButton from '@/app/components/SignOutButton'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import InstallPrompt from '@/app/components/InstallPrompt'
 import { TenantDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
+import TenantOnboarding from '@/app/components/TenantOnboarding'
 import Link from 'next/link'
 
 interface Tenancy {
@@ -41,21 +43,13 @@ function dayLabel(iso: string) {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
   if (iso === todayISO()) return 'Today'
   if (iso === tomorrow) return 'Tomorrow'
-  return new Date(iso).toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  })
+  return new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
-/** A live "the contractor is on it" line for a visit the tenant can see, or null. */
 function liveStatus(item: any): string | null {
   if (item?.status === 'in_progress') return '🔨 Work underway'
   if (item?.arrived_at)
-    return `✓ Arrived ${new Date(item.arrived_at).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`
+    return `✓ Arrived ${new Date(item.arrived_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
   return null
 }
 
@@ -76,6 +70,99 @@ function daysUntil(date: Date | null) {
   return Math.round((date.getTime() - midnight.getTime()) / 86400000)
 }
 
+function condensationRisk(temp: number, humidity: number): { level: 'high' | 'medium' | 'low'; text: string } {
+  // Cold + very damp — highest condensation risk
+  if (temp < 10 && humidity > 75) {
+    return { level: 'high', text: `${temp}°C · ${humidity}% humidity outside — cold, damp conditions increase condensation risk. Open a window for 10 minutes to air your room today.` }
+  }
+  // Very high humidity regardless of temperature — air is saturated
+  if (humidity > 80) {
+    return { level: 'high', text: `${temp}°C · ${humidity}% humidity outside — very damp air outside. Open windows to ventilate and reduce moisture build-up, especially after cooking or showering.` }
+  }
+  // Mild cold + damp
+  if (temp < 15 && humidity > 65) {
+    return { level: 'medium', text: `${temp}°C · ${humidity}% humidity outside — mild condensation risk. Airing your room briefly when you can helps keep moisture down.` }
+  }
+  // Moderately humid
+  if (humidity > 65) {
+    return { level: 'medium', text: `${temp}°C · ${humidity}% humidity outside — air is quite damp. Keep windows ajar when cooking or showering where possible.` }
+  }
+  return { level: 'low', text: `${temp}°C · ${humidity}% humidity outside — conditions are fine. Keep windows ajar when cooking or showering where possible.` }
+}
+
+// ── Accordion ────────────────────────────────────────────────────────────────
+function Accordion({ id, title, open, onToggle, children, badge }: {
+  id: string; title: string; open: boolean; onToggle: () => void; children: React.ReactNode; badge?: React.ReactNode
+}) {
+  const bodyRef = useRef<HTMLDivElement>(null)
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-md px-lg py-md text-left hover:bg-neutral-50 transition-colors"
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-sm font-semibold text-neutral-900">{title}{badge}</span>
+        <span className={`text-neutral-400 text-lg leading-none transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>›</span>
+      </button>
+      <div
+        ref={bodyRef}
+        className="overflow-hidden transition-all duration-300"
+        style={{ maxHeight: open ? '2000px' : '0px' }}
+      >
+        <div className="border-t border-neutral-100 px-lg pb-lg pt-md">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Report sheet ─────────────────────────────────────────────────────────────
+function ReportSheet({ isHmo, onClose }: { isHmo: boolean; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{ background: 'rgba(0,0,0,0.45)' }}
+    >
+      <div className="w-full max-w-lg rounded-t-3xl bg-white px-lg pb-2xl pt-md animate-in slide-in-from-bottom duration-200">
+        <div className="mx-auto mb-md h-1 w-10 rounded-full bg-neutral-200" />
+        <h2 className="text-xl font-bold text-neutral-900 mb-xs">What's this about?</h2>
+        <p className="text-sm text-neutral-500 mb-lg">Pick the closest match.</p>
+        <Link
+          href="/tenant/maintenance-choose"
+          onClick={onClose}
+          className="flex items-start gap-md rounded-2xl border-2 border-neutral-200 p-md hover:border-neutral-400 transition-colors mb-md"
+        >
+          <span className="text-2xl mt-xs">🔧</span>
+          <div>
+            <p className="font-bold text-neutral-900">Maintenance issue</p>
+            <p className="text-sm text-neutral-500">Something broken, not working, or needs fixing</p>
+          </div>
+        </Link>
+        {isHmo && (
+          <Link
+            href="/tenant/housemate-concern"
+            onClick={onClose}
+            className="flex items-start gap-md rounded-2xl border-2 border-neutral-200 p-md hover:border-neutral-400 transition-colors mb-lg"
+          >
+            <span className="text-2xl mt-xs">🏠</span>
+            <div>
+              <p className="font-bold text-neutral-900">Trouble with a housemate</p>
+              <p className="text-sm text-neutral-500">Having a difficult time with someone you live with</p>
+            </div>
+          </Link>
+        )}
+        <button onClick={onClose} className="w-full py-md text-sm text-neutral-500 hover:text-neutral-800">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function TenantDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -88,6 +175,7 @@ export default function TenantDashboard() {
   const [notes, setNotes] = useState<PropertyNote[]>([])
   const [compliance, setCompliance] = useState<any>(null)
   const [houseInfo, setHouseInfo] = useState<Array<{ icon: string; label: string; value: string; sensitive?: boolean }>>([])
+  const [heatingSchedule, setHeatingSchedule] = useState<{ on?: string; off?: string; note?: string } | null>(null)
   const [revealed, setRevealed] = useState<Set<number>>(new Set())
   const [messages, setMessages] = useState<any[]>([])
   const [viewingAs, setViewingAs] = useState<{ id: string; name: string; role: string } | null>(null)
@@ -95,8 +183,24 @@ export default function TenantDashboard() {
   const [guidesLoaded, setGuidesLoaded] = useState(false)
   const [noticesSummary, setNoticesSummary] = useState<{ count: number; taskCount: number; latest: Array<{ notice_type: string; ai_text: string | null; raw_text: string }> } | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [isHmo, setIsHmo] = useState(true)
+  const [propLat, setPropLat] = useState<number | null>(null)
+  const [propLng, setPropLng] = useState<number | null>(null)
+  const [weather, setWeather] = useState<{ temp: number; humidity: number } | null>(null)
+  const [showReportSheet, setShowReportSheet] = useState(false)
+  const [showOnboarding, setShowOnboarding]   = useState(false)
+  const [houseInfoOpen, setHouseInfoOpen] = useState(false)
+  const [acc, setAcc] = useState<Set<string>>(new Set())
 
   const searchParams = useSearchParams()
+
+  function toggleAcc(id: string) {
+    setAcc(prev => {
+      const n = new Set(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+  }
 
   useEffect(() => {
     async function checkAuth() {
@@ -104,32 +208,39 @@ export default function TenantDashboard() {
       const asParam = searchParams.get('as')
       const isAdmin = ['administrator', 'admin'].includes(data?.assignment?.role || '')
 
-      // ── Impersonation: admin visiting /tenant?as=[personId] ──────────────
       let effectiveId: string
-      if (asParam && isAdmin) {
+      // Restore viewingAs from sessionStorage if admin navigated back from a sub-page
+      const storedAs = (() => { try { return sessionStorage.getItem('cros-view-as') } catch { return null } })()
+      const resolvedAs = asParam || (isAdmin ? storedAs : null)
+
+      if (resolvedAs && isAdmin) {
         const supabase = createClient()
         const { data: target } = await supabase
           .from('people')
           .select('id, first_name, last_name, full_name, email, role')
-          .eq('id', asParam)
+          .eq('id', resolvedAs)
           .single()
         if (!target || target.role !== 'tenant') { router.push('/admin/people'); return }
         setUser(data!.user)
-        setViewingAs({ id: asParam, name: displayName(target), role: target.role })
-        effectiveId = asParam
+        setViewingAs({ id: resolvedAs, name: displayName(target), role: target.role })
+        effectiveId = resolvedAs
+        // Persist so sub-page back-navigations don't lose the context
+        try { sessionStorage.setItem('cros-view-as', resolvedAs) } catch { /* noop */ }
       } else if (!data || data.assignment?.role !== 'tenant') {
+        // Clear any stale viewingAs from a previous admin session
+        try { sessionStorage.removeItem('cros-view-as') } catch { /* noop */ }
         router.push('/login')
         return
       } else {
         setUser(data.user)
         effectiveId = (data.assignment as any)?.id
+        // Show onboarding if not yet seen on this device
+        try {
+          if (!localStorage.getItem('cros-onboarded-tenant')) setShowOnboarding(true)
+        } catch { /* private mode — skip */ }
       }
 
       const supabase = createClient()
-
-      // Single source of truth: the ACTIVE tenancy. Once its end_date passes,
-      // this returns null and every query below is skipped — so a former tenant
-      // stops receiving anything automatically, with no admin action needed.
       const active = await getActiveTenancy(effectiveId)
       setTenancy(active as any)
 
@@ -151,8 +262,6 @@ export default function TenantDashboard() {
         setAccessRequests(reqs || [])
       }
 
-      // Property-wide queries use the active tenancy's property_id, which is the
-      // ground truth regardless of whether this is a real or impersonated session.
       const propId = (active as any).property_id
       if (propId) {
         const { data: up } = await supabase
@@ -163,9 +272,6 @@ export default function TenantDashboard() {
           .neq('status', 'completed')
           .order('booked_date')
 
-        // Communal cleans booked by the cleaner are property-wide visits too, so
-        // they belong alongside repairs under "at your property". They carry no
-        // room, so the room/property split places them correctly on their own.
         const { data: cleansData } = await supabase
           .from('cleans')
           .select('id, clean_date, clean_time, status')
@@ -185,9 +291,6 @@ export default function TenantDashboard() {
           rooms: null,
         }))
 
-        // Viewings raised by lettings/admin. The whole house should know a viewing
-        // is happening; only the tenant whose own room it is sees it as theirs.
-        // We don't name the room to other tenants — a viewing outs the leaver.
         const { data: viewingsData } = await supabase
           .from('viewings')
           .select('id, viewing_date, viewing_slot, room_id, viewing_status, rooms(name, property_id)')
@@ -197,7 +300,6 @@ export default function TenantDashboard() {
         const viewingItems = (viewingsData || [])
           .filter((v: any) => v.rooms?.property_id === propId)
           .map((v: any) => {
-            // viewing_slot may be a 3-hour code ("12-15") or a 15-min time ("10:30").
             const time = v.viewing_slot ? slotLabel(v.viewing_slot) || v.viewing_slot : ''
             return {
               id: `viewing-${v.id}`,
@@ -211,11 +313,6 @@ export default function TenantDashboard() {
             }
           })
 
-        // Property appointments (inspections, gas safety, landlord visits…) the
-        // admin booked and chose to notify tenants about. These belong in the
-        // tenant's "what's coming up" just like a repair or clean.
-        // NB: the live property_appointments table has no room_id column, so
-        // these are treated as property-wide (they land under "at your property").
         const { data: apptData } = await supabase
           .from('property_appointments')
           .select('id, appointment_type, appointment_date, appointment_time, visitor_name, notify_tenants')
@@ -239,7 +336,6 @@ export default function TenantDashboard() {
         )
         setUpcoming(merged)
 
-        // Fetch property notes
         const res = await fetch(`/api/property-notes?propertyId=${propId}`)
         if (res.ok) {
           const { notes: propertyNotes } = await res.json()
@@ -247,25 +343,28 @@ export default function TenantDashboard() {
         }
       }
 
-      // Property safety certificates + house info (wifi, bin day, etc.)
       const { data: prop } = await supabase
         .from('properties')
-        .select('gas_safe_cert_expiry, electrical_cert_expiry, house_info')
+        .select('gas_safe_cert_expiry, electrical_cert_expiry, house_info, lat, lng, property_type, heating_schedule')
         .eq('id', active.property_id)
         .maybeSingle()
       setCompliance(prop || null)
       setHouseInfo((prop as any)?.house_info?.items || [])
+      if ((prop as any)?.heating_schedule) setHeatingSchedule((prop as any).heating_schedule)
+      // HMO = default if no property_type set; single_let explicitly opts out
+      setIsHmo(!(prop?.property_type === 'single_let'))
+      if (prop?.lat && prop?.lng) {
+        setPropLat(prop.lat)
+        setPropLng(prop.lng)
+      }
 
-      // Notifications sent to this tenant (Quick Notify, cleaner/lettings alerts).
-      // In normal mode, RLS scopes this to the logged-in tenant automatically.
-      // In view-as mode we add an explicit person_id filter so the admin sees
-      // the target tenant's messages, not their own (empty) inbox.
       const notifBuilder = supabase
         .from('notifications')
         .select('id, title, body, type, link, read, created_at')
         .order('created_at', { ascending: false })
         .limit(20)
-      const { data: notifs } = asParam && isAdmin
+      const asParam2 = searchParams.get('as')
+      const { data: notifs } = asParam2 && isAdmin
         ? await notifBuilder.eq('person_id', effectiveId)
         : await notifBuilder
       setMessages(notifs || [])
@@ -278,29 +377,23 @@ export default function TenantDashboard() {
     checkAuth()
   }, [router, searchParams])
 
-  async function respondToAccess(ticketId: string, approved: boolean) {
-    const supabase = createClient()
-    if (approved) {
-      await supabase
-        .from('maintenance_tickets')
-        .update({
-          short_notice_tenant_approved_at: new Date().toISOString(),
-          short_notice_tenant_approved_by: personId,
-        })
-        .eq('id', ticketId)
-    } else {
-      await supabase
-        .from('maintenance_tickets')
-        .update({ booked_date: null, booked_slot: null, short_notice: false })
-        .eq('id', ticketId)
-    }
-    setAccessRequests((prev) => prev.filter((r) => r.id !== ticketId))
-  }
-
-  async function handleSignOut() {
-    await signOut()
-    router.push('/login')
-  }
+  // Fetch weather once we have lat/lng
+  useEffect(() => {
+    if (!propLat || !propLng) return
+    fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${propLat}&longitude=${propLng}&current=temperature_2m,relative_humidity_2m&timezone=auto`
+    )
+      .then(r => r.json())
+      .then(d => {
+        if (d?.current) {
+          setWeather({
+            temp: Math.round(d.current.temperature_2m),
+            humidity: Math.round(d.current.relative_humidity_2m),
+          })
+        }
+      })
+      .catch(() => {})
+  }, [propLat, propLng])
 
   // Load guides + notice board summary after tenancy is known
   useEffect(() => {
@@ -316,8 +409,11 @@ export default function TenantDashboard() {
       .catch(() => {})
       .finally(() => setGuidesLoaded(true))
 
-    // Load notice board summary (active count + latest 2 previews)
-    fetch('/api/tenant/notices')
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const h: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`
+      return fetch('/api/tenant/notices', { headers: h })
+    })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d?.notices) return
@@ -344,47 +440,70 @@ export default function TenantDashboard() {
     await supabase.from('notifications').update({ read: true }).in('id', unread)
   }
 
-  if (loading) {
-    return <TenantDashboardSkeleton />
+  async function respondToAccess(ticketId: string, approved: boolean) {
+    const supabase = createClient()
+    if (approved) {
+      await supabase
+        .from('maintenance_tickets')
+        .update({
+          short_notice_tenant_approved_at: new Date().toISOString(),
+          short_notice_tenant_approved_by: personId,
+        })
+        .eq('id', ticketId)
+    } else {
+      await supabase
+        .from('maintenance_tickets')
+        .update({ booked_date: null, booked_slot: null, short_notice: false })
+        .eq('id', ticketId)
+    }
+    setAccessRequests((prev) => prev.filter((r) => r.id !== ticketId))
   }
+
+  async function handleSignOut() {
+    await signOut()
+    router.push('/login')
+  }
+
+  if (loading) return <TenantDashboardSkeleton />
 
   const rentDate = nextRentDate(tenancy?.rent_due_day ?? null)
   const rentIn = daysUntil(rentDate)
-
-  const inMyRoom = upcoming.filter((u) => u.room_id === roomId)
-  const atProperty = upcoming.filter((u) => u.room_id !== roomId)
   const nextVisit = upcoming[0]
   const nextIsMyRoom = nextVisit?.room_id === roomId
+  const visibleNotes = notes.filter((n) => !n.room_id || n.room_id === roomId)
+
+  // Build the next-visit description line for the tenancy card
+  function visitLine(): string | null {
+    if (accessRequests.length > 0) return null // shown as separate card
+    if (!nextVisit) return null
+    const who = String(nextVisit.category ?? '').replace(/-/g, ' ')
+    const where = nextIsMyRoom ? 'your room' : 'the house'
+    const when = dayLabel(nextVisit.booked_date)
+    const slot = slotLabel(nextVisit.booked_slot)
+    return `${who} visiting ${where} — ${when}${slot ? ` · ${slot}` : ''}`
+  }
+
+  const vLine = visitLine()
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      {viewingAs && (
-        <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
-      )}
+      {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
       <InstallPrompt />
       <AppBar
-        right={
-          <button
-            onClick={handleSignOut}
-            className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
-          >
-            <span>👋</span> Sign out
-          </button>
-        }
+        right={<SignOutButton onSignOut={handleSignOut} />}
       />
 
-      <main className="mx-auto max-w-6xl px-lg pb-2xl">
-        {/* Dark band butts against the app bar (no light gap between them) */}
+      <main className="mx-auto max-w-lg px-lg pb-2xl">
+
+        {/* ── Dark tenancy pill ─────────────────────────────────────────── */}
         <section
           className="-mb-3xl bg-neutral-900 pb-3xl text-white"
           style={{ marginInline: '-16px', paddingInline: '16px' }}
         >
-          <p className="pt-lg text-xs font-medium uppercase tracking-widest text-white/40">
-            Your tenancy
-          </p>
-          <div className="flex items-start justify-between gap-md mt-xs">
+          <div className="flex items-start justify-between gap-md pt-lg">
             <div className="flex-1 min-w-0">
-              <p className="text-xl font-bold leading-tight">
+              <p className="text-xs font-medium uppercase tracking-widest text-white/40">Your tenancy</p>
+              <p className="mt-xs text-xl font-bold leading-tight">
                 {tenancy?.rooms?.name ? `${tenancy.rooms.name}, ` : ''}
                 {tenancy?.properties?.name ?? 'No active tenancy'}
               </p>
@@ -408,163 +527,126 @@ export default function TenantDashboard() {
             <div className="mt-lg grid grid-cols-3 gap-md border-t border-white/15 pt-lg">
               <Stat
                 label="Rent"
-                value={
-                  tenancy.rent_amount != null
-                    ? `£${Number(tenancy.rent_amount).toLocaleString('en-GB')}`
-                    : '—'
-                }
+                value={tenancy.rent_amount != null ? `£${Number(tenancy.rent_amount).toLocaleString('en-GB')}` : '—'}
                 sub="per month"
               />
               <Stat
                 label="Next due"
-                value={
-                  rentDate
-                    ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-                    : '—'
-                }
+                value={rentDate ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
                 sub={rentIn === 0 ? 'today' : rentIn != null ? `in ${rentIn} days` : ''}
               />
               <Stat
                 label="Started"
-                value={
-                  tenancy.start_date
-                    ? new Date(tenancy.start_date).toLocaleDateString('en-GB', {
-                        month: 'short',
-                        year: 'numeric',
-                      })
-                    : '—'
-                }
+                value={tenancy.start_date ? new Date(tenancy.start_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '—'}
                 sub="contract"
               />
             </div>
           )}
 
-          {/*
-            Access approval is the loudest thing on this screen. Someone entering
-            your bedroom is a big deal and it happens rarely — it must not read
-            like another row in a list.
-          */}
-          {accessRequests.map((req) => (
-            <div key={req.id} className="mt-lg rounded-2xl bg-white p-lg text-neutral-900 shadow-lg">
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                Your approval needed
-              </p>
-              <p className="mt-sm text-3xl font-bold leading-tight">
-                {dayLabel(req.booked_date)}
-              </p>
-              <p className="text-xl font-semibold text-neutral-700">{slotLabel(req.booked_slot)}</p>
+          {/* Single merged next-visit line — no repeated empty states */}
+          <p className="mt-lg border-t border-white/15 pt-md text-sm text-white/50">
+            {vLine ?? 'Nothing booked at your property right now.'}
+          </p>
 
+          {/* ── Short-notice access requests (loud — needs approval) ──── */}
+          {accessRequests.map((req) => (
+            <Link
+              key={req.id}
+              href={`/tenant/visit/${req.id}`}
+              className="mt-lg block rounded-2xl bg-white p-lg text-neutral-900 shadow-lg hover:shadow-xl transition-shadow"
+            >
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-600">⚠️ Your approval needed</p>
+              <p className="mt-sm text-3xl font-bold leading-tight">{dayLabel(req.booked_date)}</p>
+              <p className="text-xl font-semibold text-neutral-700">{slotLabel(req.booked_slot)}</p>
               <p className="mt-lg border-t border-neutral-200 pt-md text-sm">
                 Someone needs to come into <strong>your room</strong> for{' '}
                 {String(req.category ?? '').replace(/-/g, ' ')} work.
               </p>
-              <p className="mt-xs text-sm text-neutral-500">
-                This is less than 24 hours away, so we need your approval before anyone enters.
-              </p>
-
-              <div className="mt-lg flex gap-sm">
-                <button
-                  onClick={() => respondToAccess(req.id, true)}
-                  className="flex-1 rounded-xl bg-neutral-900 py-md text-sm font-bold text-white active:scale-[0.99]"
-                >
-                  I approve access
-                </button>
-                <button
-                  onClick={() => respondToAccess(req.id, false)}
-                  className="flex-1 rounded-xl border border-neutral-300 py-md text-sm font-semibold"
-                >
-                  Not suitable
-                </button>
+              <p className="mt-xs text-sm text-neutral-500">Tap to view details and approve or decline.</p>
+              <div className="mt-md">
+                <span className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white">View & respond →</span>
               </div>
-            </div>
+            </Link>
           ))}
 
-          {/* Next visit, given the same weight as the contractor's next job */}
-          {accessRequests.length === 0 && nextVisit && (
-            <div className="mt-lg rounded-2xl bg-white p-lg text-neutral-900 shadow-lg">
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                {nextIsMyRoom ? 'Next visit to your room' : 'Next visit to the house'}
-              </p>
-              <p className="mt-sm text-3xl font-bold leading-tight">
-                {dayLabel(nextVisit.booked_date)}
-              </p>
-              <p className="text-xl font-semibold text-neutral-700">
-                {slotLabel(nextVisit.booked_slot)}
-              </p>
-              <p className="mt-lg border-t border-neutral-200 pt-md text-sm text-neutral-600">
-                {String(nextVisit.category ?? '').replace(/-/g, ' ')} —{' '}
-                {nextVisit.rooms?.name ?? nextVisit.location}
-              </p>
-              {liveStatus(nextVisit) && (
-                <p className="mt-md inline-block rounded-full bg-green-100 px-md py-xs text-sm font-bold text-green-800">
-                  {liveStatus(nextVisit)}
-                </p>
-              )}
-            </div>
-          )}
+          {/* ── Normal visit — purely informational, no approval framing ── */}
+          {accessRequests.length === 0 && nextVisit && (() => {
+            const isMaintenanceTicket = !String(nextVisit.id).startsWith('clean-') &&
+              !String(nextVisit.id).startsWith('viewing-') &&
+              !String(nextVisit.id).startsWith('appt-')
+            const isClean = String(nextVisit.id).startsWith('clean-')
+            const rawCleanId = isClean ? String(nextVisit.id).replace('clean-', '') : null
 
-          {accessRequests.length === 0 && !nextVisit && (
-            <p className="mt-lg rounded-2xl border border-white/15 p-lg text-sm text-white/50">
-              Nothing booked at your property right now.
-            </p>
-          )}
+            const inner = (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
+                  {nextIsMyRoom ? 'Next visit to your room' : 'Next visit to the house'}
+                </p>
+                <p className="mt-xs text-2xl font-bold leading-tight">{dayLabel(nextVisit.booked_date)}</p>
+                {slotLabel(nextVisit.booked_slot) && (
+                  <p className="text-base font-semibold text-neutral-600">{slotLabel(nextVisit.booked_slot)}</p>
+                )}
+                <p className="mt-md text-sm text-neutral-600">
+                  {String(nextVisit.category ?? '').replace(/-/g, ' ')}
+                  {nextVisit.rooms?.name ? ` — ${nextVisit.rooms.name}` : ''}
+                </p>
+                {liveStatus(nextVisit) && (
+                  <p className="mt-sm inline-block rounded-full bg-green-100 px-md py-xs text-sm font-bold text-green-800">{liveStatus(nextVisit)}</p>
+                )}
+                {(isMaintenanceTicket || isClean) && (
+                  <p className="mt-sm text-xs text-neutral-400">
+                    {isMaintenanceTicket ? 'Tap to add something for this visit →' : 'Tap to request cleaning extras →'}
+                  </p>
+                )}
+              </>
+            )
+
+            const cls = 'mt-lg block rounded-2xl bg-white p-md text-neutral-900 shadow-md'
+            if (isMaintenanceTicket)
+              return <Link href={`/tenant/visit/${nextVisit.id}`} className={cls}>{inner}</Link>
+            if (isClean)
+              return <Link href={`/tenant/cleaner-extras/${rawCleanId}`} className={cls}>{inner}</Link>
+            return <div className={cls}>{inner}</div>
+          })()}
         </section>
 
-        {/* Sits below the dark hero, which pulls the next element up by -mb-3xl;
-            the extra pt clears that overlap so the button isn't cramped against it. */}
-        <div className="mt-3xl pt-lg">
+        {/* ── Below dark band ───────────────────────────────────────────── */}
+        <div className="mt-3xl pt-lg space-y-md">
           <EnableNotifications />
-        </div>
 
-        {/* ── House Info ── always visible if admin has filled it in ── */}
-        {houseInfo.length > 0 && (
-          <section className="mt-3xl">
-            <h2 className="text-xl font-bold text-neutral-900">House Info</h2>
-            <p className="mt-xs text-sm text-neutral-500">Quick-reference facts about your property.</p>
-            <div className="mt-md divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-              {houseInfo.map((item, idx) => {
-                const isRevealed = revealed.has(idx)
-                return (
-                  <div key={idx} className="flex items-center gap-md px-lg py-md">
-                    <span className="text-xl shrink-0">{item.icon || '📌'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{item.label}</p>
-                      {item.sensitive && !isRevealed ? (
-                        <button
-                          onClick={() => setRevealed(prev => new Set([...prev, idx]))}
-                          className="mt-xs text-sm font-semibold text-blue-600 hover:text-blue-800"
-                        >
-                          Tap to reveal
-                        </button>
-                      ) : (
-                        <p className="mt-xs text-sm font-semibold text-neutral-900 break-words whitespace-pre-line">{item.value || '—'}</p>
-                      )}
-                    </div>
-                    {item.sensitive && isRevealed && (
-                      <button
-                        onClick={() => setRevealed(prev => { const s = new Set(prev); s.delete(idx); return s })}
-                        className="shrink-0 text-xs text-neutral-400 hover:text-neutral-700"
-                      >
-                        Hide
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
+          {/* Humidity today — sits at top like a weather widget */}
+          {weather && (
+            <div className={`rounded-2xl border p-md ${
+              condensationRisk(weather.temp, weather.humidity).level === 'high'
+                ? 'border-amber-300 bg-amber-50'
+                : condensationRisk(weather.temp, weather.humidity).level === 'medium'
+                ? 'border-yellow-200 bg-yellow-50'
+                : 'border-neutral-200 bg-white'
+            }`}>
+              <div className="flex items-start gap-sm">
+                <span className="text-xl mt-0.5">💧</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-neutral-900 text-sm">Humidity today</p>
+                  <p className="text-sm text-neutral-600 mt-xs leading-snug">
+                    {condensationRisk(weather.temp, weather.humidity).text}
+                  </p>
+                  <p className="text-xs text-neutral-400 mt-sm">Live local reading powered by Open-Meteo.</p>
+                </div>
+              </div>
             </div>
-          </section>
-        )}
+          )}
 
-        {/* ── Notice Board tile ── always shown if property is set; links to /tenant/notices ── */}
-        <section className="mt-3xl">
-          <Link href="/tenant/notices" className="block rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-400 transition-colors">
-            {/* Accent stripe */}
-            <div className="h-1 bg-gradient-to-r from-blue-400 to-amber-400 w-full" />
-            <div className="px-lg py-md flex items-start justify-between gap-md">
+          {/* Notice Board */}
+          <Link
+            href="/tenant/notices"
+            className="block rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-400 transition-colors"
+          >
+            <div className="h-0.5 bg-gradient-to-r from-blue-400 to-amber-400 w-full" />
+            <div className="px-lg py-md flex items-center justify-between gap-md">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-sm mb-xs">
-                  <span className="text-lg">📋</span>
-                  <h2 className="text-base font-bold text-neutral-900">Notice Board</h2>
+                  <span className="text-base">📋</span>
+                  <p className="font-bold text-neutral-900">Notice Board</p>
                   {noticesSummary && noticesSummary.taskCount > 0 && (
                     <span className="rounded-full bg-amber-400 px-sm py-0.5 text-xs font-extrabold text-neutral-900">
                       {noticesSummary.taskCount} task{noticesSummary.taskCount !== 1 ? 's' : ''}
@@ -575,7 +657,7 @@ export default function TenantDashboard() {
                   <div className="space-y-xs">
                     {noticesSummary.latest.map((n, i) => (
                       <p key={i} className="text-sm text-neutral-600 truncate">
-                        <span className="font-medium">{n.notice_type === 'task' ? '✅' : '📢'}</span>{' '}
+                        <span className="font-medium">{n.notice_type === 'task' ? '✅' : n.notice_type === 'house_reminder' ? '🏠' : '📢'}</span>{' '}
                         {(n.ai_text || n.raw_text).slice(0, 70)}{(n.ai_text || n.raw_text).length > 70 ? '…' : ''}
                       </p>
                     ))}
@@ -584,7 +666,7 @@ export default function TenantDashboard() {
                   <p className="text-sm text-neutral-400">Shared updates and tasks for your house</p>
                 )}
               </div>
-              <div className="shrink-0 flex flex-col items-end gap-xs">
+              <div className="flex flex-col items-end gap-xs">
                 <span className="text-neutral-400 text-lg">›</span>
                 {noticesSummary && noticesSummary.count > 0 && (
                   <span className="text-xs text-neutral-400">{noticesSummary.count} active</span>
@@ -592,242 +674,308 @@ export default function TenantDashboard() {
               </div>
             </div>
           </Link>
-        </section>
 
-        {messages.length > 0 && (
-          <section className="mt-3xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-neutral-900">
-                Messages
-                {messages.some((m) => !m.read) && (
-                  <span className="ml-sm rounded-full bg-blue-600 px-sm py-0.5 text-xs font-bold text-white align-middle">
-                    {messages.filter((m) => !m.read).length} new
-                  </span>
-                )}
-              </h2>
-              {messages.some((m) => !m.read) && (
-                <button onClick={markMessagesRead} className="text-sm font-semibold text-neutral-500 hover:text-neutral-900">
-                  Mark all read
-                </button>
-              )}
-            </div>
-            <div className="mt-md space-y-md">
-              {messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={`rounded-2xl border p-lg ${
-                    m.read ? 'border-neutral-200 bg-white' : 'border-blue-300 bg-blue-50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-md">
-                    <p className="font-bold text-neutral-900">{m.title}</p>
-                    {!m.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />}
-                  </div>
-                  {m.body && <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{m.body}</p>}
-                  <p className="mt-md text-xs text-neutral-400">
-                    {new Date(m.created_at).toLocaleDateString('en-GB', {
-                      weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                    })}
-                  </p>
+          {/* House Info accordion */}
+          {houseInfo.length > 0 && (
+            <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+              <button
+                onClick={() => setHouseInfoOpen(v => !v)}
+                className="flex w-full items-start justify-between gap-md px-lg py-md text-left hover:bg-neutral-50 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-neutral-900">{houseInfo[0]?.icon} {houseInfo[0]?.label}</p>
+                  {houseInfo[1] && (
+                    <p className="text-sm text-neutral-500 mt-xs truncate">{houseInfo[1]?.icon} {houseInfo[1]?.label}</p>
+                  )}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section className="mt-3xl pt-md">
-          <h2 className="text-xl font-bold text-neutral-900">What&apos;s coming up</h2>
-          <div className="mt-md grid gap-md md:grid-cols-2">
-            <UpcomingPanel
-              title="Visits to your room"
-              items={inMyRoom}
-              emptyText="No visits scheduled for your room"
-            />
-            <UpcomingPanel
-              title="At your property"
-              items={atProperty}
-              emptyText="Nothing booked at the property"
-            />
-          </div>
-        </section>
-
-        <section className="mt-3xl">
-          <h2 className="text-xl font-bold text-neutral-900">Meet your housemates</h2>
-          <p className="mt-xs text-sm text-neutral-500">
-            Say hello and see who else lives here.
-          </p>
-          <div className="mt-md grid gap-md sm:grid-cols-2">
-            <ActionCard
-              href="/tenant/housemates"
-              title="Meet your housemates"
-              description="See who you share the house with"
-            />
-            <ActionCard
-              href="/tenant/icebreaker"
-              title="Your profile"
-              description="A few light questions about you"
-            />
-          </div>
-        </section>
-
-        <section className="mt-3xl">
-          <h2 className="text-xl font-bold text-neutral-900">Property notes</h2>
-          {(() => {
-            // House-wide notes reach everyone; a room-specific note only its own room.
-            const visibleNotes = notes.filter((n) => !n.room_id || n.room_id === roomId)
-            return visibleNotes.length === 0 ? (
-              <p className="mt-md text-sm text-neutral-400">
-                No notes yet. Cleaners, agents, and admins can post updates here.
-              </p>
-            ) : (
-              <div className="mt-md space-y-md">
-                {visibleNotes.map((note) => (
-                  <PropertyNoteCard key={note.id} note={note} isForMyRoom={!!note.room_id} />
-                ))}
+                <span className={`mt-1 text-neutral-400 text-lg leading-none transition-transform duration-200 ${houseInfoOpen ? 'rotate-180' : ''}`}>›</span>
+              </button>
+              <div
+                className="overflow-hidden transition-all duration-300"
+                style={{ maxHeight: houseInfoOpen ? '2000px' : '0px' }}
+              >
+                <div className="border-t border-neutral-100 px-lg pb-lg pt-md space-y-md">
+                  {/* Heating schedule — shown first if set */}
+                  {heatingSchedule?.on && (
+                    <div className="flex items-start gap-md pb-md border-b border-neutral-100 mb-xs">
+                      <span className="text-xl shrink-0">🌡️</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Heating</p>
+                        <p className="mt-xs text-sm font-semibold text-neutral-900">
+                          On {heatingSchedule.on} · Off {heatingSchedule.off}
+                        </p>
+                        {heatingSchedule.note && (
+                          <p className="mt-xs text-sm text-neutral-600">{heatingSchedule.note}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {houseInfo.map((item, idx) => {
+                    const isRevealed = revealed.has(idx)
+                    return (
+                      <div key={idx} className="flex items-center gap-md">
+                        <span className="text-xl shrink-0">{item.icon || '📌'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{item.label}</p>
+                          {item.sensitive && !isRevealed ? (
+                            <button onClick={() => setRevealed(prev => new Set([...prev, idx]))} className="mt-xs text-sm font-semibold text-blue-600 hover:text-blue-800">
+                              Tap to reveal
+                            </button>
+                          ) : (
+                            <p className="mt-xs text-sm font-semibold text-neutral-900 break-words whitespace-pre-line">{item.value || '—'}</p>
+                          )}
+                        </div>
+                        {item.sensitive && isRevealed && (
+                          <button onClick={() => setRevealed(prev => { const s = new Set(prev); s.delete(idx); return s })} className="shrink-0 text-xs text-neutral-400 hover:text-neutral-700">
+                            Hide
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-            )
-          })()}
-        </section>
+            </div>
+          )}
 
-        <section className="mt-3xl">
-          <h2 className="text-xl font-bold text-neutral-900">Guides &amp; Property Safety</h2>
-          <p className="mt-xs text-sm text-neutral-500">
-            Your home&apos;s safety certificates and a few handy guides.
-          </p>
-          <div className="mt-md grid gap-md sm:grid-cols-2 lg:grid-cols-3">
-            <SafetyCard
-              title="Gas safety certificate"
-              expiry={compliance?.gas_safe_cert_expiry}
-            />
-            <SafetyCard
-              title="Electrical safety (EICR)"
-              expiry={compliance?.electrical_cert_expiry}
-            />
-            {/* Live guides from DB — fully admin-configurable */}
-            {guides.map(guide => (
-              <GuideCard
-                key={guide.id}
-                title={guide.title}
-                emoji={guide.emoji}
-                slug={guide.slug}
-                acknowledged={guide.acknowledged}
-                acknowledgmentRequired={guide.acknowledgment_required}
-              />
-            ))}
-            {/* Skeleton placeholders while loading */}
-            {!guidesLoaded && [0, 1, 2].map(i => (
-              <div key={i} className="rounded-2xl border border-neutral-200 bg-white p-lg animate-pulse h-[90px]" />
-            ))}
-          </div>
-        </section>
+          {/* Report an issue — moved to bottom now screen has more content above */}
+          <button
+            onClick={() => setShowReportSheet(true)}
+            className="w-full rounded-2xl bg-neutral-800 py-md text-center text-base font-bold text-white hover:bg-neutral-700 transition-colors active:scale-[0.98]"
+          >
+            ⚠️ Report an issue
+          </button>
 
-        <section className="mt-3xl">
-          <h2 className="text-xl font-bold text-neutral-900">Safety Checks</h2>
-          <p className="mt-xs text-sm text-neutral-500">
-            Monthly checks on fire doors and smoke alarms help keep your home safe.
-          </p>
-          <div className="mt-md">
-            <ActionCard
-              href="/tenant/safety-checks"
-              title="Safety Checks"
-              description="Log that your fire door opens and closes properly, and your smoke alarm has a green light"
-              primary
-            />
-          </div>
-        </section>
+          {/* ── Everything else ─ collapsed accordions ─────────────────── */}
+          <div>
+            <p className="mb-md text-xs font-bold uppercase tracking-widest text-neutral-400">Everything else</p>
+            <div className="space-y-sm">
 
-        <section className="mt-3xl">
-          <h2 className="text-xl font-bold text-neutral-900">Property Information</h2>
-          <p className="mt-xs text-sm text-neutral-500">
-            Evacuation plans, emergency contacts, and house information
-          </p>
-          <div className="mt-md">
-            <ActionCard
-              href="/tenant/property-info"
-              title="Property Documents"
-              description="Safety plans, emergency contacts, utilities"
-            />
-          </div>
-        </section>
+              {/* Messages history */}
+              <Accordion
+                id="messages"
+                title="Messages"
+                open={acc.has('messages')}
+                onToggle={() => toggleAcc('messages')}
+                badge={
+                  messages.some(m => !m.read)
+                    ? <span className="ml-xs rounded-full bg-blue-600 px-sm py-0.5 text-xs font-bold text-white">{messages.filter(m => !m.read).length} new</span>
+                    : undefined
+                }
+              >
+                {messages.length === 0 ? (
+                  <p className="text-sm text-neutral-400">No messages yet.</p>
+                ) : (
+                  <div className="space-y-sm">
+                    {messages.some(m => !m.read) && (
+                      <button onClick={markMessagesRead} className="text-xs font-semibold text-neutral-500 hover:text-neutral-900 mb-xs">
+                        Mark all read
+                      </button>
+                    )}
+                    {messages.map((m) => (
+                      <div
+                        key={m.id}
+                        className={`rounded-xl border p-md ${m.read ? 'border-neutral-100 bg-neutral-50' : 'border-blue-200 bg-blue-50'}`}
+                      >
+                        <div className="flex items-start justify-between gap-sm">
+                          <p className="text-sm font-bold text-neutral-900">{m.title}</p>
+                          {!m.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />}
+                        </div>
+                        {m.body && <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{m.body}</p>}
+                        <p className="mt-sm text-xs text-neutral-400">
+                          {new Date(m.created_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        {m.link && (
+                          <Link href={m.link} className="mt-sm inline-block text-xs font-semibold text-blue-600 hover:underline">
+                            View →
+                          </Link>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Accordion>
 
-        <section className="mt-3xl">
-          <h2 className="text-xl font-bold text-neutral-900">Important Notices</h2>
-          <p className="mt-xs text-sm text-neutral-500">
-            Messages from your landlord that may need your acknowledgment
-          </p>
-          <div className="mt-md">
-            <ActionCard
-              href="/tenant/acknowledgment-notes"
-              title="Important Notices"
-              description="Messages requiring your acknowledgment"
-            />
-          </div>
-        </section>
-
-        <section className="mt-3xl">
-          <h2 className="text-xl font-bold text-neutral-900">Moving out?</h2>
-          <p className="mt-xs text-sm text-neutral-500">
-            Let us know you&apos;re leaving and we&apos;ll walk you through what happens next.
-          </p>
-          <div className="mt-md grid gap-md">
-            {tenancy?.notice_received_date ? (
-              <>
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-md">
-                  <p className="text-sm font-semibold text-amber-900">Notice in progress</p>
-                  <p className="mt-xs text-xs text-amber-700">
-                    You&apos;ve given notice to leave
-                    {tenancy.end_date
-                      ? ` on ${new Date(tenancy.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
-                      : ''}
-                    . Your team will send checkout details shortly.
-                  </p>
+              {/* Guides & safety checks */}
+              <Accordion
+                id="guides"
+                title="Guides & safety"
+                open={acc.has('guides')}
+                onToggle={() => toggleAcc('guides')}
+                badge={
+                  guides.some(g => g.acknowledgment_required && !g.acknowledged)
+                    ? <span className="ml-xs rounded-full bg-amber-500 px-sm py-0.5 text-xs font-bold text-white">Action needed</span>
+                    : undefined
+                }
+              >
+                <div className="space-y-sm">
+                  {/* Safety certs */}
+                  <div className="flex gap-sm">
+                    <SafetyBadge title="Gas safety" expiry={compliance?.gas_safe_cert_expiry} />
+                    <SafetyBadge title="EICR" expiry={compliance?.electrical_cert_expiry} />
+                  </div>
+                  {/* Guide cards */}
+                  {!guidesLoaded && (
+                    <div className="space-y-sm">
+                      {[1, 2].map(i => <div key={i} className="h-14 rounded-xl bg-neutral-100 animate-pulse" />)}
+                    </div>
+                  )}
+                  {guides.map(guide => (
+                    <a
+                      key={guide.id}
+                      href={`/tenant/guides/${guide.slug}`}
+                      className="flex items-start gap-sm rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors"
+                    >
+                      <span className="text-xl flex-shrink-0">{guide.emoji}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-neutral-900 leading-snug">{guide.title}</p>
+                        {guide.acknowledgment_required && (
+                          <p className="mt-xs text-xs">
+                            {guide.acknowledged
+                              ? <span className="text-green-600">✓ Read & confirmed</span>
+                              : <span className="text-amber-600">Confirmation required</span>}
+                          </p>
+                        )}
+                      </div>
+                    </a>
+                  ))}
+                  <Link href="/tenant/safety-checks" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">🔥</span>
+                      <p className="text-sm font-bold text-neutral-900">Monthly safety checks</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
                 </div>
-                <ActionCard
-                  href="/tenant/rescind-notice"
-                  title="Changed your mind?"
-                  description="Request to cancel your notice — our team will review it"
-                />
-              </>
-            ) : (
-              <ActionCard
-                href="/tenant/give-notice"
-                title="Give notice to leave"
-                description="Standard 2-month notice — tell us your intended move-out date"
-                primary
-              />
-            )}
-            <ActionCard
-              href="/tenant/early-move-out"
-              title="Request early move-out"
-              description="Need to leave sooner than 2 months? Submit a request"
-            />
-          </div>
-        </section>
+              </Accordion>
 
-        <section className="mt-3xl">
-          <h2 className="text-xl font-bold text-neutral-900">Anything wrong?</h2>
-          <p className="mt-xs text-sm text-neutral-500">
-            Report something that needs fixing, or check on what you&apos;ve already reported.
-          </p>
-          <div className="mt-md grid gap-md sm:grid-cols-2">
-            <ActionCard
-              href="/tenant/maintenance-choose"
-              title="Report an issue"
-              description="Something broken or not working"
-              primary
-            />
-            <ActionCard
-              href="/tenant/requests"
-              title="My requests"
-              description="Track what you've reported"
-            />
+              {/* Property info & housemates */}
+              <Accordion
+                id="property"
+                title="Property info & housemates"
+                open={acc.has('property')}
+                onToggle={() => toggleAcc('property')}
+              >
+                <div className="space-y-sm">
+                  <Link href="/tenant/property-info" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">📄</span>
+                      <p className="text-sm font-bold text-neutral-900">Property documents</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
+                  <Link href="/tenant/acknowledgment-notes" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">📩</span>
+                      <p className="text-sm font-bold text-neutral-900">Important notices</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
+                  <Link href="/tenant/housemates" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">👥</span>
+                      <p className="text-sm font-bold text-neutral-900">Meet your housemates</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
+                  <Link href="/tenant/profile" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">👤</span>
+                      <p className="text-sm font-bold text-neutral-900">Your profile</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
+                  <Link href="/tenant/icebreaker" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">😊</span>
+                      <p className="text-sm font-bold text-neutral-900">Housemate profile</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
+                  {/* House contributions */}
+                  <Link href="/tenant/contributions" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">🎉</span>
+                      <p className="text-sm font-bold text-neutral-900">House contributions</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
+                  {/* My maintenance requests */}
+                  <Link href="/tenant/requests" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">🔧</span>
+                      <p className="text-sm font-bold text-neutral-900">My maintenance requests</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
+                  {/* Property notes */}
+                  {visibleNotes.length > 0 && (
+                    <div className="mt-sm space-y-sm">
+                      <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Property notes</p>
+                      {visibleNotes.map((note) => (
+                        <PropertyNoteCard key={note.id} note={note} isForMyRoom={!!note.room_id} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Accordion>
+
+              {/* Moving out */}
+              <Accordion
+                id="moving"
+                title="Moving out?"
+                open={acc.has('moving')}
+                onToggle={() => toggleAcc('moving')}
+              >
+                <div className="space-y-sm">
+                  <p className="text-sm text-neutral-600">Standard notice is 2 months. Need to leave sooner? Submit a date and Capital Rooms will review it.</p>
+                  {tenancy?.notice_received_date ? (
+                    <>
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-md">
+                        <p className="text-sm font-semibold text-amber-900">Notice in progress</p>
+                        <p className="mt-xs text-xs text-amber-700">
+                          You've given notice to leave{tenancy.end_date ? ` on ${new Date(tenancy.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}. Your team will send checkout details shortly.
+                        </p>
+                      </div>
+                      <Link href="/tenant/rescind-notice" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                        <p className="text-sm font-bold text-neutral-900">Changed your mind?</p>
+                        <span className="text-neutral-400">›</span>
+                      </Link>
+                    </>
+                  ) : (
+                    <Link href="/tenant/give-notice" className="flex items-center justify-between rounded-xl border border-neutral-900 bg-neutral-900 p-md hover:bg-neutral-800 transition-colors">
+                      <p className="text-sm font-bold text-white">Give notice (2 months)</p>
+                      <span className="text-white/60">›</span>
+                    </Link>
+                  )}
+                  <Link href="/tenant/early-move-out" className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white p-md hover:border-neutral-400 transition-colors">
+                    <p className="text-sm font-bold text-neutral-900">Request an earlier date</p>
+                    <span className="text-neutral-400">›</span>
+                  </Link>
+                </div>
+              </Accordion>
+
+            </div>
           </div>
-          <p className="mt-lg text-xs text-neutral-400">{user?.email}</p>
-        </section>
+
+          <p className="mt-lg text-center text-xs text-neutral-400">{user?.email}</p>
+        </div>
       </main>
+
+      {/* Report sheet */}
+      {showReportSheet && (
+        <ReportSheet isHmo={isHmo} onClose={() => setShowReportSheet(false)} />
+      )}
+
+      {/* Tenant onboarding — shown once on first login */}
+      {showOnboarding && (
+        <TenantOnboarding onComplete={() => setShowOnboarding(false)} />
+      )}
     </div>
   )
 }
+
+// ── Helper components ─────────────────────────────────────────────────────────
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -839,166 +987,32 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   )
 }
 
-function UpcomingPanel({
-  title,
-  items,
-  emptyText,
-}: {
-  title: string
-  items: any[]
-  emptyText: string
-}) {
-  return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-neutral-500">{title}</h3>
-      {items.length === 0 ? (
-        <p className="mt-md text-sm text-neutral-400">{emptyText}</p>
-      ) : (
-        <ul className="mt-md space-y-md">
-          {items.map((item) => (
-            <li key={item.id} className="border-l-2 border-neutral-900 pl-md">
-              <p className="text-sm font-bold text-neutral-900">
-                {formatBooking(item.booked_date, item.booked_slot)}
-              </p>
-              <p className="text-sm text-neutral-500">
-                {String(item.category ?? '').replace(/-/g, ' ')} —{' '}
-                {item.rooms?.name ?? item.location}
-              </p>
-              {liveStatus(item) && (
-                <p className="mt-xs text-xs font-bold text-green-700">{liveStatus(item)}</p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function ActionCard({
-  href,
-  title,
-  description,
-  primary,
-}: {
-  href?: string
-  title: string
-  description: string
-  primary?: boolean
-}) {
-  const body = (
-    <div
-      className={`h-full rounded-2xl border p-lg transition-all ${
-        href
-          ? 'cursor-pointer border-neutral-900 border-2 bg-white hover:shadow-md'
-          : 'border-neutral-200 bg-white/50'
-      }`}
-    >
-      <h3 className={`font-bold ${href ? 'text-neutral-900' : 'text-neutral-400'}`}>{title}</h3>
-      <p className={`mt-xs text-sm ${href ? 'text-neutral-600' : 'text-neutral-400'}`}>
-        {href ? description : 'Coming soon'}
-      </p>
-      {primary && (
-        <p className="mt-md rounded-xl bg-neutral-900 py-md text-center text-sm font-bold text-white">
-          Log now
-        </p>
-      )}
-    </div>
-  )
-  return href ? <Link href={href}>{body}</Link> : body
-}
-
-function SafetyCard({ title, expiry }: { title: string; expiry?: string | null }) {
-  // Reassurance, not alarm: while a renewal is pending we still show the cert as
-  // on file rather than flashing "out of date" at the tenant.
+function SafetyBadge({ title, expiry }: { title: string; expiry?: string | null }) {
   const inDate = !!expiry && new Date(expiry) >= new Date()
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
-      <p className="text-sm font-bold text-neutral-900">{title}</p>
-      {inDate ? (
-        <p className="mt-sm text-sm font-semibold text-green-700">
-          ✓ In date · valid to{' '}
-          {new Date(expiry!).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
-        </p>
-      ) : (
-        <p className="mt-sm text-sm text-neutral-500">
-          On file with your agent{expiry ? ' · renewal in progress' : ''}
-        </p>
-      )}
+    <div className={`flex-1 rounded-xl border p-sm text-center ${inDate ? 'border-green-200 bg-green-50' : 'border-neutral-100 bg-neutral-50'}`}>
+      <p className="text-xs font-bold text-neutral-700">{title}</p>
+      <p className={`text-xs mt-xs ${inDate ? 'text-green-700' : 'text-neutral-400'}`}>
+        {inDate ? `✓ valid to ${new Date(expiry!).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}` : 'On file'}
+      </p>
     </div>
-  )
-}
-
-// Guide tips removed — guides now load from DB via /api/tenant/guides
-
-function GuideCard({
-  title, emoji, slug, acknowledged, acknowledgmentRequired,
-}: {
-  title: string
-  emoji: string
-  slug: string
-  acknowledged?: boolean
-  acknowledgmentRequired?: boolean
-}) {
-  return (
-    <a
-      href={`/tenant/guides/${slug}`}
-      className="flex items-start gap-sm rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-400 transition-colors active:bg-neutral-50"
-    >
-      <p className="text-2xl flex-shrink-0">{emoji}</p>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-neutral-900 leading-snug">{title}</p>
-        {acknowledgmentRequired && (
-          <p className="mt-xs text-xs">
-            {acknowledged
-              ? <span className="text-green-600">✓ Read & confirmed</span>
-              : <span className="text-amber-600">Confirmation required</span>}
-          </p>
-        )}
-        {!acknowledgmentRequired && (
-          <p className="mt-xs text-xs text-neutral-500">Tap to open →</p>
-        )}
-      </div>
-    </a>
   )
 }
 
 function PropertyNoteCard({ note, isForMyRoom }: { note: PropertyNote; isForMyRoom?: boolean }) {
-  const typeColors = {
-    cleaner: 'bg-green-50 border-green-200',
-    agent: 'bg-blue-50 border-blue-200',
-    admin: 'bg-purple-50 border-purple-200',
-  }
-
-  const typeLabels = {
-    cleaner: '🧹 Cleaner Note',
-    agent: '🏠 Agent Note',
-    admin: '⚙️ Admin Update',
-  }
-
-  const createdDate = new Date(note.created_at).toLocaleDateString('en-GB', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-
+  const typeColors = { cleaner: 'bg-green-50 border-green-100', agent: 'bg-blue-50 border-blue-100', admin: 'bg-purple-50 border-purple-100' }
+  const typeLabels = { cleaner: '🧹 Cleaner note', agent: '🏠 Agent note', admin: '⚙️ Admin update' }
   return (
-    <div className={`rounded-xl border p-lg ${typeColors[note.note_type]}`}>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600">
-            {typeLabels[note.note_type]}
-            {isForMyRoom && <span className="ml-sm text-neutral-500">· Your room</span>}
-          </p>
-          <p className="mt-xs text-sm font-bold text-neutral-900">{note.title}</p>
-          <p className="mt-md text-sm text-neutral-700 whitespace-pre-wrap">{note.content}</p>
-          <p className="mt-md text-xs text-neutral-500">
-            {note.people.name || 'Unknown'} • {createdDate}
-          </p>
-        </div>
-      </div>
+    <div className={`rounded-xl border p-md ${typeColors[note.note_type]}`}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        {typeLabels[note.note_type]}
+        {isForMyRoom && <span className="ml-sm text-neutral-400">· Your room</span>}
+      </p>
+      <p className="mt-xs text-sm font-bold text-neutral-900">{note.title}</p>
+      <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{note.content}</p>
+      <p className="mt-sm text-xs text-neutral-400">
+        {(note.people as any)?.name || 'Unknown'} · {new Date(note.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+      </p>
     </div>
   )
 }

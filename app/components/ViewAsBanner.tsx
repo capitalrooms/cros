@@ -2,6 +2,10 @@
 
 import Link from 'next/link'
 
+function clearViewAs() {
+  try { sessionStorage.removeItem('cros-view-as') } catch { /* noop */ }
+}
+
 interface Props {
   name: string
   role: string
@@ -38,6 +42,7 @@ export default function ViewAsBanner({ name, role, personId }: Props) {
         </Link>
         <Link
           href="/admin/people"
+          onClick={clearViewAs}
           className="text-xs font-bold text-amber-900 bg-amber-200 hover:bg-amber-300 px-md py-xs rounded-lg transition-colors"
         >
           ✕ Exit

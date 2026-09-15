@@ -53,7 +53,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // Send approval email when advancing to stage 4
   if (body.stage === 4 && data?.email) {
     try {
-      await sendEmail(data.email, 'Capital Rooms — Verification Complete', approvalEmailBody(data.name))
+      await sendEmail(
+        data.email,
+        'Capital Rooms — Verification Complete',
+        approvalEmailBody(data.full_name ?? data.name),
+        { replyTo: 'harry@capitalrooms.co.uk' }
+      )
     } catch {
       // Non-fatal — row is already updated
     }
