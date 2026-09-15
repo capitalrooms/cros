@@ -15,6 +15,7 @@ export default function ApplicantForm() {
   const router = useRouter()
   const roomId = searchParams.get('roomId')
   const propertyId = searchParams.get('propertyId')
+  const token = searchParams.get('token')
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -196,6 +197,12 @@ export default function ApplicantForm() {
           previousAddresses: previousAddresses.filter((a) => a.address.trim()),
           roomId,
           propertyId,
+          token,
+          isStudent,
+          university: isStudent ? university : null,
+          courseStudied: isStudent ? courseStudied : null,
+          studyYear: isStudent ? studyYear : null,
+          guarantorConfirmed: isStudent ? guarantorConfirmed : false,
         }),
       })
 

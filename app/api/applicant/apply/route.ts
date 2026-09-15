@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase'
+import { createServiceClient } from '@/lib/supabase'
 
 export async function POST(request: Request) {
-  const supabase = createClient()
+  const supabase = createServiceClient()
 
   try {
     const data = await request.json()
@@ -12,6 +12,30 @@ export async function POST(request: Request) {
         { error: 'Missing required fields: fullName, email, roomId' },
         { status: 400 }
       )
+    }
+
+    // Validate the offer token if provided
+    if (data.token) {
+      const { data: offer, error: offerError } = await supabase
+        .from('offers')
+        .select('id, token_expires_at')
+        .eq('application_token', data.token)
+        .eq('room_id', data.roomId)
+        .single()
+
+      if (offerError || !offer) {
+        return Response.json(
+          { error: 'Invalid or expired application link' },
+          { status: 403 }
+        )
+      }
+
+      if (new Date(offer.token_expires_at) < new Date()) {
+        return Response.json(
+          { error: 'This application link has expired. Please contact your letting agent.' },
+          { status: 403 }
+        )
+      }
     }
 
     // Insert applicant record
@@ -42,6 +66,11 @@ export async function POST(request: Request) {
         previous_addresses: data.previousAddresses || [],
         room_id: data.roomId,
         property_id: data.propertyId,
+        is_student: data.isStudent || false,
+        university: data.university || null,
+        course_studied: data.courseStudied || null,
+        study_year: data.studyYear || null,
+        guarantor_confirmed: data.guarantorConfirmed || false,
       })
       .select()
 

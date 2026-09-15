@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 
 export default function ReviewPage() {
   const searchParams = useSearchParams()
-  const supabase = createClient()
   const applicantId = searchParams.get('applicantId')
 
   const [loading, setLoading] = useState(true)
@@ -21,13 +19,10 @@ export default function ReviewPage() {
         return
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('applicants')
-        .select('*')
-        .eq('id', applicantId)
-        .single()
+      const response = await fetch(`/api/applicant/status?id=${applicantId}`)
+      const data = await response.json()
 
-      if (fetchError || !data) {
+      if (!response.ok || !data) {
         setError('Could not find your application')
         setLoading(false)
         return
@@ -38,7 +33,7 @@ export default function ReviewPage() {
     }
 
     loadApplicant()
-  }, [applicantId, supabase])
+  }, [applicantId])
 
   if (loading) {
     return (
@@ -81,7 +76,7 @@ export default function ReviewPage() {
           <div className="grid grid-cols-2 gap-lg text-sm">
             <div>
               <div className="text-neutral-600 font-medium mb-xs">Name</div>
-              <div className="text-neutral-900">{applicant.name}</div>
+              <div className="text-neutral-900">{applicant.full_name}</div>
             </div>
             <div>
               <div className="text-neutral-600 font-medium mb-xs">Email</div>
