@@ -162,12 +162,15 @@ export async function POST(request: NextRequest) {
     propertyId   = viewing.property_id
   }
 
-  const payRef     = buildRef(propCode, roomLabel)
-  const applyUrl   = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}` : `${APP_URL}/applicant/apply`
-  const reserveUrl = roomId && propertyId ? `${APP_URL}/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}` : `${APP_URL}/applicant/reserve`
-  const isReserve  = mode === 'reserve'
+  const payRef      = buildRef(propCode, roomLabel)
+  const applyUrl    = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}` : `${APP_URL}/applicant/apply`
+  const fastUrl     = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}&fasttrack=1` : `${APP_URL}/applicant/apply?fasttrack=1`
+  const reserveUrl  = roomId && propertyId ? `${APP_URL}/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}` : `${APP_URL}/applicant/reserve`
+  const isReserve   = mode === 'reserve'
+  const isFastTrack = mode === 'fasttrack'
+  const sendUrl     = isReserve ? reserveUrl : isFastTrack ? fastUrl : applyUrl
 
-  const result: Record<string, any> = { link: isReserve ? reserveUrl : applyUrl }
+  const result: Record<string, any> = { link: sendUrl }
 
   // ── Create / update applicants row (upsert on email + room_id) ─────────────
   // This is best-effort — don't fail the invite if it errors (table may not exist yet)
@@ -244,6 +247,9 @@ export async function POST(request: NextRequest) {
       } else if (isReserve && monthly && weekly) {
         subject = `THE SEARCH IS OVER! — ${roomLabel}${propAddress ? `, ${propAddress}` : ''}`
         html    = await reserveEmailHtml({ firstName, roomName: roomLabel, propAddress, monthly, weekly, payRef, reserveUrl })
+      } else if (isFastTrack) {
+        subject = `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
+        html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl: fastUrl })
       } else {
         subject = `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
         html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl })
@@ -276,7 +282,7 @@ export async function POST(request: NextRequest) {
     } else {
       const body = isReserve
         ? `Hi ${firstName}, your room at ${propAddress || roomLabel} is ready to reserve — pay the holding deposit (£${weekly ?? '?'}) to secure it: ${reserveUrl} — Capital Rooms`
-        : `Hi ${firstName}, thanks for viewing ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}. Apply in under 5 mins: ${applyUrl} — Capital Rooms`
+        : `Hi ${firstName}, thanks for viewing ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}. Apply in under 5 mins: ${isFastTrack ? fastUrl : applyUrl} — Capital Rooms`
 
       const twilioRes = await fetch(
         `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,

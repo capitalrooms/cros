@@ -15,6 +15,7 @@ export default function ApplicantForm() {
   const router = useRouter()
   const roomId = searchParams.get('roomId')
   const propertyId = searchParams.get('propertyId')
+  const fastTrack = searchParams.get('fasttrack') === '1'
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -211,9 +212,13 @@ export default function ApplicantForm() {
       setSuccess(true)
       setLoading(false)
 
-      // Redirect to next step after 2 seconds
+      // Fast-track: go straight to reserve page. Standard: show review first.
       setTimeout(() => {
-        router.push(`/applicant/review?applicantId=${result.applicantId}`)
+        if (fastTrack && roomId && propertyId) {
+          router.push(`/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}`)
+        } else {
+          router.push(`/applicant/review?applicantId=${result.applicantId}`)
+        }
       }, 2000)
     } catch (err) {
       setError('An error occurred. Please try again.')
@@ -240,11 +245,12 @@ export default function ApplicantForm() {
       <div className="min-h-screen bg-neutral-100 flex items-center justify-center px-lg">
         <div className="bg-white rounded-lg p-lg border border-green-300 max-w-md text-center">
           <h1 className="text-lg font-bold text-green-700 mb-sm">
-            ✓ Application Submitted
+            ✓ Details submitted
           </h1>
           <p className="text-sm text-neutral-600">
-            Thank you! We've received your application. Redirecting to the next
-            step...
+            {fastTrack
+              ? 'Taking you to secure the room now…'
+              : "Thank you! We've received your details. Redirecting you now…"}
           </p>
         </div>
       </div>
