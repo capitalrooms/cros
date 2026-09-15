@@ -1,185 +1,304 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
+import { ReactNode } from 'react'
 
-const DASHBOARD = { emoji: '⚡', label: 'Dashboard', href: '/admin', exact: true }
+// ─── Zone & subnav configuration ────────────────────────────────────────────
 
-// Sortable items — stored / restored by href key
-const SORTABLE_NAV = [
-  { emoji: '📅', label: 'Appointments',    href: '/admin/appointments' },
-  { emoji: '💬', label: 'Communications',  href: '/admin/communications' },
-  { emoji: '✅', label: 'Compliance',      href: '/admin/compliance' },
-  { emoji: '📄', label: 'Documents',       href: '/admin/documents' },
-  { emoji: '🧾', label: 'Expense Log',     href: '/admin/expense-log' },
-  { emoji: '🛏️', label: 'Lettings',        href: '/admin/available-and-lettings' },
-  { emoji: '🔧', label: 'Maintenance',     href: '/admin/maintenance' },
-  { emoji: '👥', label: 'People',          href: '/admin/people' },
-  { emoji: '🗂️', label: 'Planner',         href: '/admin/planner' },
-  { emoji: '🏢', label: 'Properties',      href: '/admin/active-rooms' },
-  { emoji: '📋', label: 'Property Tasks',  href: '/admin/property-tasks' },
-]
-
-const STORAGE_KEY = 'admin_nav_order'
-
-function loadOrder(): string[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return SORTABLE_NAV.map(n => n.href)
-    const saved: string[] = JSON.parse(raw)
-    // Merge: honour saved order, append any new items at end
-    const known = new Set(saved)
-    const extra = SORTABLE_NAV.map(n => n.href).filter(h => !known.has(h))
-    return [...saved.filter(h => SORTABLE_NAV.some(n => n.href === h)), ...extra]
-  } catch {
-    return SORTABLE_NAV.map(n => n.href)
-  }
+interface SubItem {
+  emoji: string
+  label: string
+  href: string
+  badge?: 'red' | 'amber' | 'green'
 }
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+interface Zone {
+  id: string
+  emoji: string
+  label: string
+  // Route prefixes that belong to this zone (checked in order)
+  routes: string[]
+  subnav: SubItem[]
+}
+
+const ZONES: Zone[] = [
+  {
+    id: 'dash',
+    emoji: '🏠',
+    label: 'Dashboard',
+    routes: ['/admin'],   // exact match handled separately
+    subnav: [],           // dashboard has no subnav — full width
+  },
+  {
+    id: 'portfolio',
+    emoji: '🏢',
+    label: 'Portfolio',
+    routes: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties/new'],
+    subnav: [
+      { emoji: '🏠', label: 'All units',       href: '/admin/active-rooms' },
+      { emoji: '📋', label: 'Property tasks',  href: '/admin/property-tasks' },
+      { emoji: '🔍', label: 'Property audit',  href: '/admin/overview' },
+      { emoji: '➕', label: 'Add property',    href: '/admin/properties/new' },
+    ],
+  },
+  {
+    id: 'lettings',
+    emoji: '🔑',
+    label: 'Lettings',
+    routes: [
+      '/admin/available-and-lettings',
+      '/admin/applicants',
+      '/admin/invite-to-apply',
+      '/admin/let-only',
+      '/admin/let-only-properties',
+      '/admin/tenancies',
+      '/admin/tenancy-management',
+      '/admin/rent-increase',
+      '/admin/early-move-out',
+      '/admin/rent-history',
+    ],
+    subnav: [
+      { emoji: '🔑', label: 'Available rooms',    href: '/admin/available-and-lettings' },
+      { emoji: '📋', label: 'Applicants',          href: '/admin/applicants' },
+      { emoji: '📨', label: 'Invite to apply',     href: '/admin/invite-to-apply' },
+      { emoji: '📄', label: 'Tenancies',           href: '/admin/tenancies' },
+      { emoji: '📈', label: 'Rent reviews',        href: '/admin/rent-increase' },
+      { emoji: '📤', label: 'On notice',           href: '/admin/tenancy-management' },
+      { emoji: '🏘',  label: 'Let-only',            href: '/admin/let-only-properties' },
+    ],
+  },
+  {
+    id: 'ops',
+    emoji: '🔧',
+    label: 'Operations',
+    routes: [
+      '/admin/appointments',
+      '/admin/agency-diary',
+      '/admin/calendar',
+      '/admin/planner',
+      '/admin/maintenance',
+      '/admin/cleaner-jobs',
+    ],
+    subnav: [
+      { emoji: '📅', label: 'Diary',         href: '/admin/appointments' },
+      { emoji: '🗂️', label: 'Planner',       href: '/admin/planner' },
+      { emoji: '🔧', label: 'Maintenance',   href: '/admin/maintenance' },
+      { emoji: '🧹', label: 'Cleaning',      href: '/admin/cleaner-jobs' },
+    ],
+  },
+  {
+    id: 'compliance',
+    emoji: '✅',
+    label: 'Compliance',
+    routes: [
+      '/admin/compliance',
+      '/admin/compliance-logs',
+      '/admin/property-compliance-dashboard',
+      '/admin/tenant-safety-checks',
+      '/admin/sar',
+      '/admin/guides',
+      '/admin/ai-upload',
+    ],
+    subnav: [
+      { emoji: '📋', label: 'Certificates',      href: '/admin/property-compliance-dashboard' },
+      { emoji: '🤖', label: 'AI doc scanner',    href: '/admin/ai-upload' },
+      { emoji: '🛡', label: 'Safety checks',     href: '/admin/tenant-safety-checks' },
+      { emoji: '📖', label: 'Inspection logs',   href: '/admin/compliance-logs' },
+      { emoji: '🔐', label: 'SAR log',           href: '/admin/sar' },
+      { emoji: '📚', label: 'Tenant guides',     href: '/admin/guides' },
+    ],
+  },
+  {
+    id: 'finance',
+    emoji: '💰',
+    label: 'Finance',
+    routes: [
+      '/admin/accounts',
+      '/admin/income',
+      '/admin/expense-log',
+      '/admin/expense-review',
+      '/admin/statements',
+      '/admin/autoledger',
+    ],
+    subnav: [
+      { emoji: '📊', label: 'Statements',       href: '/admin/accounts' },
+      { emoji: '🏦', label: 'Bank import',      href: '/admin/statements/import' },
+      { emoji: '💵', label: 'Fee income',       href: '/admin/income' },
+      { emoji: '⚡', label: 'AutoLedger',       href: '/admin/autoledger' },
+      { emoji: '🏷️', label: 'Expense review',  href: '/admin/expense-review' },
+    ],
+  },
+  {
+    id: 'people',
+    emoji: '👥',
+    label: 'People',
+    routes: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords'],
+    subnav: [
+      { emoji: '👤', label: 'Tenants',      href: '/admin/people?tab=tenants' },
+      { emoji: '🏠', label: 'Landlords',    href: '/admin/people?tab=landlords' },
+      { emoji: '🔧', label: 'Contractors',  href: '/admin/people?tab=contractors' },
+      { emoji: '👔', label: 'Staff',        href: '/admin/people?tab=staff' },
+    ],
+  },
+  {
+    id: 'comms',
+    emoji: '💬',
+    label: 'Comms',
+    routes: [
+      '/admin/communications',
+      '/admin/notify',
+      '/admin/message-templates',
+      '/admin/documents',
+      '/admin/inbox',
+      '/admin/acknowledgment-notes',
+    ],
+    subnav: [
+      { emoji: '💬', label: 'All messages',       href: '/admin/communications' },
+      { emoji: '✉️', label: 'Templates',          href: '/admin/message-templates' },
+      { emoji: '📥', label: 'Documents inbox',    href: '/admin/documents' },
+      { emoji: '📝', label: 'Acknowledgments',    href: '/admin/acknowledgment-notes' },
+      { emoji: '📢', label: 'Quick Notify',       href: '/admin/notify' },
+    ],
+  },
+  {
+    id: 'biz',
+    emoji: '🏗',
+    label: 'New Business',
+    routes: ['/admin/new-business', '/admin/valuations'],
+    subnav: [
+      { emoji: '📬', label: 'Acquisition',        href: '/admin/new-business' },
+      { emoji: '🔍', label: 'AML onboarding',     href: '/admin/new-business/onboarding' },
+      { emoji: '📄', label: 'Mgmt agreement',     href: '/admin/new-business/management-agreement' },
+      { emoji: '📊', label: 'Valuations',         href: '/admin/valuations' },
+      { emoji: '✉️', label: 'Send welcome',       href: '/admin/new-business/send-welcome' },
+    ],
+  },
+]
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function getActiveZone(pathname: string): Zone | null {
+  if (pathname === '/admin') return ZONES[0]
+  // Skip dash zone — it only matches the exact /admin path above
+  return ZONES.find(z => z.id !== 'dash' && z.routes.some(r => pathname === r || pathname.startsWith(r + '/'))) ?? null
+}
+
+function isPropertyHub(pathname: string): boolean {
+  // /admin/properties/[id] — but NOT /admin/properties/new (handled in portfolio)
+  return /^\/admin\/properties\/[^/]+($|\/)/.test(pathname) && !pathname.includes('/new')
+}
+
+// ─── Layout ─────────────────────────────────────────────────────────────────
+
+export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const [order,       setOrder]       = useState<string[]>(() => SORTABLE_NAV.map(n => n.href))
-  const [mounted,     setMounted]     = useState(false)
-  const [dragging,    setDragging]    = useState<string | null>(null)
-  const [dragOver,    setDragOver]    = useState<string | null>(null)
-  const dragItem    = useRef<string | null>(null)
-  const dragOverItem = useRef<string | null>(null)
-
-  // Hydrate from localStorage once on client
-  useEffect(() => { setOrder(loadOrder()); setMounted(true) }, [])
-
-  function saveOrder(next: string[]) {
-    setOrder(next)
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch {}
-  }
-
-  function onDragStart(href: string) {
-    dragItem.current    = href
-    setDragging(href)
-  }
-
-  function onDragEnter(href: string) {
-    dragOverItem.current = href
-    setDragOver(href)
-  }
-
-  function onDragEnd() {
-    if (dragItem.current && dragOverItem.current && dragItem.current !== dragOverItem.current) {
-      const next = [...order]
-      const from = next.indexOf(dragItem.current)
-      const to   = next.indexOf(dragOverItem.current)
-      if (from !== -1 && to !== -1) {
-        next.splice(from, 1)
-        next.splice(to, 0, dragItem.current)
-        saveOrder(next)
-      }
-    }
-    dragItem.current     = null
-    dragOverItem.current = null
-    setDragging(null)
-    setDragOver(null)
-  }
-
-  // Build sorted list (stable pre-hydration = default alphabetical to avoid flash)
-  const sortedNav = mounted
-    ? order.map(h => SORTABLE_NAV.find(n => n.href === h)!).filter(Boolean)
-    : SORTABLE_NAV
-
-  function isActive(item: typeof DASHBOARD) {
-    return item.exact
-      ? pathname === item.href
-      : pathname === item.href || pathname.startsWith(item.href + '/')
-  }
+  const onPropHub = isPropertyHub(pathname)
+  const activeZone = getActiveZone(pathname)
+  const hasSubnav = !onPropHub && (activeZone?.subnav.length ?? 0) > 0
 
   return (
-    <div className="flex min-h-screen bg-neutral-100">
-      {/* ── Sidebar: desktop only ── */}
-      <aside className="hidden md:flex flex-col w-56 shrink-0 bg-neutral-950 text-white fixed inset-y-0 left-0 z-40 overflow-hidden">
-        {/* Wordmark */}
-        <div className="px-5 pt-7 pb-5 border-b border-white/10">
-          <div className="leading-none">
-            <p className="text-[15px] font-light tracking-[0.3em] uppercase text-white">CAPITAL</p>
-            <p className="text-[15px] font-light tracking-[0.3em] uppercase text-white mt-0.5">ROOMS</p>
-          </div>
-          <p className="text-[9px] text-white/30 mt-2 tracking-[0.15em] uppercase">Admin portal</p>
-        </div>
+    <div className="flex flex-col h-screen overflow-hidden bg-neutral-100">
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-3 space-y-0.5 px-2">
-          {/* Dashboard — always pinned, not draggable */}
+      {/* ── Top bar ── */}
+      <header className="flex-shrink-0 bg-neutral-950 text-white flex items-center gap-3 px-4 py-2.5 z-40">
+        <Link href="/admin" className="flex-shrink-0">
+          <p className="text-[11px] font-light tracking-[0.28em] uppercase text-white leading-tight">CAPITAL</p>
+          <p className="text-[11px] font-light tracking-[0.28em] uppercase text-white leading-tight">ROOMS</p>
+        </Link>
+
+        <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+
+        {/* Breadcrumb */}
+        {onPropHub ? (
           <Link
-            href={DASHBOARD.href}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-              isActive(DASHBOARD)
-                ? 'bg-white/10 text-white ring-1 ring-blue-400/50'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
-            }`}
+            href="/admin"
+            className="text-xs text-white/40 hover:text-white/70 transition-colors flex items-center gap-1.5"
           >
-            <span className="text-base leading-none">{DASHBOARD.emoji}</span>
-            <span>{DASHBOARD.label}</span>
+            ← All properties
           </Link>
+        ) : activeZone && activeZone.id !== 'dash' ? (
+          <span className="text-xs text-white/40">{activeZone.label}</span>
+        ) : null}
 
-          {/* Divider */}
-          <div className="mx-3 my-1 border-t border-white/5" />
+        <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/admin/notify"
+            className="px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
+          >
+            ⚡ Quick Notify
+          </Link>
+          <Link
+            href="/admin/profile"
+            className="w-7 h-7 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs text-white/60 hover:bg-white/15 transition-colors"
+          >
+            H
+          </Link>
+        </div>
+      </header>
 
-          {/* Sortable items */}
-          {sortedNav.map(item => {
-            const active = isActive(item)
-            const isDraggingThis = dragging === item.href
-            const isDragTarget   = dragOver  === item.href && dragOver !== dragging
+      {/* ── Zone tabs (hidden on property hub) ── */}
+      {!onPropHub && (
+        <nav
+          className="flex-shrink-0 bg-neutral-900 flex overflow-x-auto border-b border-white/8"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {ZONES.map(zone => {
+            const active = activeZone?.id === zone.id
             return (
-              <div
-                key={item.href}
-                draggable
-                onDragStart={() => onDragStart(item.href)}
-                onDragEnter={() => onDragEnter(item.href)}
-                onDragOver={e => { e.preventDefault() }}
-                onDragEnd={onDragEnd}
-                className={`group relative transition-all ${
-                  isDraggingThis ? 'opacity-30' : 'opacity-100'
-                } ${isDragTarget ? 'translate-y-0.5' : ''}`}
-                style={{ cursor: 'grab' }}
+              <Link
+                key={zone.id}
+                href={zone.subnav[0]?.href ?? (zone.id === 'dash' ? '/admin' : '#')}
+                className={[
+                  'flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
+                  active
+                    ? 'text-white border-amber-500'
+                    : 'text-white/35 border-transparent hover:text-white/70 hover:border-white/20',
+                ].join(' ')}
               >
-                {/* Drop indicator line */}
-                {isDragTarget && (
-                  <div className="absolute -top-0.5 left-2 right-2 h-0.5 bg-blue-400 rounded-full" />
-                )}
-                <Link
-                  href={item.href}
-                  draggable={false}   /* let the wrapper handle drag */
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-white/10 text-white'
-                      : 'text-white/40 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <span className="text-base leading-none">{item.emoji}</span>
-                  <span className="flex-1">{item.label}</span>
-                  {/* Drag handle hint on hover */}
-                  <span className="opacity-0 group-hover:opacity-30 text-white text-xs select-none transition-opacity">⠿</span>
-                </Link>
-              </div>
+                <span className="text-sm leading-none">{zone.emoji}</span>
+                {zone.label}
+              </Link>
             )
           })}
         </nav>
+      )}
 
-        {/* Footer */}
-        <div className="px-5 py-4 border-t border-white/10 space-y-2">
-          <Link
-            href="/install"
-            className="flex items-center gap-2 text-[11px] text-white/30 hover:text-white/60 transition-colors"
-          >
-            <span>📲</span>
-            <span>Install the app</span>
-          </Link>
-          <p className="text-[10px] text-white/20 truncate">harry@capitalrooms.co.uk</p>
-        </div>
-      </aside>
+      {/* ── Body: subnav + content ── */}
+      <div className="flex flex-1 overflow-hidden">
 
-      {/* ── Main area ── */}
-      <div className="flex-1 min-w-0 md:ml-56">
-        {children}
+        {/* Subnav (desktop only, only when zone has items and not on property hub) */}
+        {hasSubnav && (
+          <aside className="flex flex-col flex-shrink-0 w-44 bg-white border-r border-neutral-200 overflow-y-auto">
+            <p className="px-3.5 pt-3 pb-1.5 text-[9px] font-bold uppercase tracking-widest text-neutral-400">
+              {activeZone!.label}
+            </p>
+            {activeZone!.subnav.map(item => {
+              const active = pathname === item.href || pathname.startsWith(item.href.split('?')[0] + '/')
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={[
+                    'flex items-center gap-2 px-3.5 py-2 text-xs transition-all border-l-2',
+                    active
+                      ? 'bg-amber-50 text-amber-800 border-l-amber-500 font-medium'
+                      : 'text-neutral-500 border-l-transparent hover:bg-neutral-50 hover:text-neutral-800',
+                  ].join(' ')}
+                >
+                  <span className="text-sm w-4 text-center flex-shrink-0">{item.emoji}</span>
+                  <span className="leading-tight">{item.label}</span>
+                </Link>
+              )
+            })}
+          </aside>
+        )}
+
+        {/* Main content */}
+        <main className="flex-1 overflow-y-auto min-w-0">
+          {children}
+        </main>
+
       </div>
     </div>
   )
