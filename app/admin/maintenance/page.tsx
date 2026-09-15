@@ -18,6 +18,7 @@ interface Ticket {
   status: string;
   reporter_id: string;
   contractor_id?: string;
+  property_id: string | null;
   location: string | null;
   booked_date: string | null;
   booked_slot: string | null;
@@ -1142,6 +1143,13 @@ export default function MaintenanceDashboard() {
                   <p className="text-xs text-neutral-500 mb-md">
                     Attach this job to another visit at the same property. It will follow the target job's date.
                   </p>
+                  {/* Show which property this job is at so context is clear */}
+                  {selectedTicket.properties && (
+                    <p className="text-xs font-medium text-neutral-700 mb-sm">
+                      📍 {selectedTicket.properties.name}{selectedTicket.properties.address ? ` — ${selectedTicket.properties.address}` : ''}
+                      {' '}· only jobs at this property are shown below
+                    </p>
+                  )}
                   <select
                     value={mergeTargetId}
                     onChange={(e) => setMergeTargetId(e.target.value)}
@@ -1151,7 +1159,8 @@ export default function MaintenanceDashboard() {
                     {tickets
                       .filter(t =>
                         t.id !== selectedTicket.id &&
-                        t.properties?.name === selectedTicket.properties?.name &&
+                        t.property_id !== null &&
+                        t.property_id === selectedTicket.property_id &&
                         t.status !== 'completed' &&
                         !(t as any).merged_into_ticket_id
                       )
