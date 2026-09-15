@@ -1,9 +1,9 @@
-import { createClient } from '@/lib/supabase'
+import { createServerClient } from '@/lib/supabase'
 import { buildOfferLetterEmail, buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { randomBytes } from 'crypto'
 
 export async function POST(request: Request) {
-  const supabase = createClient()
+  const supabase = await createServerClient()
 
   try {
     const data = await request.json()
