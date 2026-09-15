@@ -108,7 +108,6 @@ function AdminDashboard() {
       const today = new Date(); today.setHours(0, 0, 0, 0)
       const todayStr = today.toISOString().split('T')[0]
       const in4days  = new Date(today.getTime() + 4 * 86400000).toISOString().split('T')[0]
-      const in14days = new Date(today.getTime() + 14 * 86400000).toISOString().split('T')[0]
 
       try {
         const [propsRes, roomsRes, tenRes, jobsRes, viewingsRes, apptRes] = await Promise.all([
@@ -125,7 +124,7 @@ function AdminDashboard() {
           // Viewings this week
           supabase.from('viewings').select('id, viewing_date, viewing_time, rooms(name, properties(name))').gte('viewing_date', todayStr).lte('viewing_date', in4days).order('viewing_date').order('viewing_time'),
           // Appointments in next 4 days
-          supabase.from('appointments').select('id, appointment_date, appointment_time, title, appointment_type, properties(name)').gte('appointment_date', todayStr).lte('appointment_date', in4days).order('appointment_date').order('appointment_time'),
+          supabase.from('admin_appointments').select('id, appointment_date, appointment_time, appointment_slot, title, appointment_type, type, properties(name)').gte('appointment_date', todayStr).lte('appointment_date', in4days).order('appointment_date').order('appointment_time'),
         ])
 
         // ── KPIs ──
@@ -244,10 +243,11 @@ function AdminDashboard() {
           const iso = a.appointment_date
           if (!slotMap[iso]) continue
           const prop = (a.properties as any)
+          const apptType = a.appointment_type || a.type || ''
           slotMap[iso].events.push({
-            time: a.appointment_time || '',
-            text: `${a.title || a.appointment_type || 'Appointment'}${prop?.name ? ` · ${prop.name}` : ''}`,
-            type: a.appointment_type === 'maintenance' ? 'maintenance' : 'other',
+            time: a.appointment_time || a.appointment_slot || '',
+            text: `${a.title || apptType || 'Appointment'}${prop?.name ? ` · ${prop.name}` : ''}`,
+            type: apptType === 'maintenance' ? 'maintenance' : 'other',
           })
         }
 
