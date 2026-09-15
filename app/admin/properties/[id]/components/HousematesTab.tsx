@@ -66,7 +66,7 @@ export default function HousematesTab({ propertyId }: { propertyId: string }) {
       const ib = ibs.get(pid)
       return {
         personId: pid,
-        name: t.people.name || 'Unnamed tenant',
+        name: t.people?.full_name || t.people?.first_name || 'Unnamed tenant',
         email: t.people?.email || null,
         roomName: t.rooms?.name || null,
         answers: ib?.answers || {},

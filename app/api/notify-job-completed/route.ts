@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (tenancy?.people?.email && tenancy?.opt_in_maintenance) {
-      const tenantName = tenancy.people.name || 'Tenant'
+      const tenantName = (tenancy.people as any).full_name || (tenancy.people as any).first_name || 'Tenant'
       const tenantSubject = completedTpl ? render(completedTpl.subject_line, { ...completedVars, tenant_name: tenantName }) : `Your repair is complete — ${category}`
       await send(
         tenancy.people.email,
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     if (otherTenancies && otherTenancies.length > 0) {
       for (const tenancy of otherTenancies) {
         if (tenancy.people?.email && tenancy.opt_in_maintenance) {
-          const tenantName = tenancy.people.name || 'Tenant'
+          const tenantName = (tenancy.people as any).full_name || (tenancy.people as any).first_name || 'Tenant'
           await send(
             tenancy.people.email,
             `Maintenance completed at your property — ${category}`,
