@@ -67,6 +67,10 @@ export default function ApplicantsPage() {
   // Stage advance
   const [advancing, setAdvancing] = useState<string | null>(null)
 
+  // Accept offer & send reserve email
+  const [acceptingSending, setAcceptingSending] = useState<string | null>(null)
+  const [acceptSentFor, setAcceptSentFor] = useState<Set<string>>(new Set())
+
   // Convert to tenant
   const [converting, setConverting] = useState<string | null>(null)
 
@@ -158,6 +162,19 @@ export default function ApplicantsPage() {
       setApplicants(prev => prev.map(a => a.id === applicant.id ? { ...a, pipeline_stage: newStage } : a))
     } finally {
       setAdvancing(null)
+    }
+  }
+
+  async function acceptOffer(applicant: Applicant) {
+    setAcceptingSending(applicant.id)
+    try {
+      const res = await fetch(`/api/applicants/${applicant.id}/accept-offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error || 'Failed to send'); return }
+      setAcceptSentFor(prev => new Set([...prev, applicant.id]))
+      setApplicants(prev => prev.map(a => a.id === applicant.id ? { ...a, pipeline_stage: 'offer_sent' } : a))
+    } finally {
+      setAcceptingSending(null)
     }
   }
 
@@ -487,12 +504,27 @@ export default function ApplicantsPage() {
                           </a>
                         )}
 
-                        {/* Stage advance */}
-                        {!isConverted && nextStage && (
+                        {/* Accept offer — only shown on 'applied' stage */}
+                        {applicant.pipeline_stage === 'applied' && (
+                          <button
+                            onClick={() => acceptOffer(applicant)}
+                            disabled={acceptingSending === applicant.id || acceptSentFor.has(applicant.id)}
+                            className="text-xs font-semibold border border-emerald-700 bg-emerald-700 text-white rounded-lg px-md py-sm hover:bg-emerald-600 disabled:opacity-50 ml-auto"
+                          >
+                            {acceptingSending === applicant.id
+                              ? 'Sending…'
+                              : acceptSentFor.has(applicant.id)
+                                ? '✓ Offer sent'
+                                : '✓ Accept offer & send reserve email'}
+                          </button>
+                        )}
+
+                        {/* Stage advance — generic for all other transitions */}
+                        {!isConverted && nextStage && applicant.pipeline_stage !== 'applied' && (
                           <button
                             onClick={() => advanceStage(applicant, nextStage.key as Stage)}
                             disabled={advancing === applicant.id}
-                            className="text-xs font-semibold border border-neutral-900 bg-neutral-900 text-white rounded-lg px-md py-sm hover:bg-neutral-700 disabled:opacity-50 ml-auto"
+                            className={`text-xs font-semibold border border-neutral-900 bg-neutral-900 text-white rounded-lg px-md py-sm hover:bg-neutral-700 disabled:opacity-50 ${applicant.pipeline_stage !== 'applied' ? 'ml-auto' : ''}`}
                           >
                             {advancing === applicant.id ? 'Updating…' : `→ Mark as ${nextStage.label}`}
                           </button>

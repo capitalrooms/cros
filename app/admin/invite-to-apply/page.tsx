@@ -24,7 +24,7 @@ export default function InviteToApplyPage() {
   const [manualMode, setManualMode] = useState(false)
   const [manual, setManual] = useState({ name: '', email: '', phone: '', property_id: '', room_id: '' })
   const [method, setMethod] = useState<'email' | 'sms' | 'both'>('email')
-  const [mode, setMode] = useState<'apply' | 'reserve'>('apply')
+  const [mode, setMode] = useState<'apply' | 'fasttrack' | 'reserve'>('apply')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<any | null>(null)
   const [copied, setCopied] = useState(false)
@@ -281,15 +281,24 @@ export default function InviteToApplyPage() {
             <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-md">
               2 · What to send
             </h2>
-            <div className="grid grid-cols-2 gap-md mb-lg">
+            <div className="grid grid-cols-3 gap-md mb-lg">
               <button
                 type="button"
                 onClick={() => setMode('apply')}
                 className={`p-md rounded-xl border-2 text-left transition-all ${mode === 'apply' ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}
               >
                 <div className="text-lg mb-xs">📋</div>
-                <p className="text-sm font-semibold text-neutral-900">Invite to Apply</p>
-                <p className="text-xs text-neutral-500 mt-xs">Send the application form link. Good when you have lots of interest.</p>
+                <p className="text-sm font-semibold text-neutral-900">Make an offer</p>
+                <p className="text-xs text-neutral-500 mt-xs">Send the application form. You review it, then decide whether to accept.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('fasttrack')}
+                className={`p-md rounded-xl border-2 text-left transition-all ${mode === 'fasttrack' ? 'border-amber-500 bg-amber-50' : 'border-neutral-200 hover:border-neutral-300'}`}
+              >
+                <div className="text-lg mb-xs">⚡</div>
+                <p className="text-sm font-semibold text-neutral-900">Fast-track</p>
+                <p className="text-xs text-neutral-500 mt-xs">They fill in their details then go straight to paying the holding deposit — no review step.</p>
               </button>
               <button
                 type="button"
@@ -297,8 +306,8 @@ export default function InviteToApplyPage() {
                 className={`p-md rounded-xl border-2 text-left transition-all ${mode === 'reserve' ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}
               >
                 <div className="text-lg mb-xs">🎉</div>
-                <p className="text-sm font-semibold text-neutral-900">Reserve the Room</p>
-                <p className="text-xs text-neutral-500 mt-xs">Send holding deposit details. Use when you&apos;re ready to offer the room.</p>
+                <p className="text-sm font-semibold text-neutral-900">Reserve only</p>
+                <p className="text-xs text-neutral-500 mt-xs">Send holding deposit details directly. Use after you&apos;ve already accepted an offer.</p>
               </button>
             </div>
             <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-md">
