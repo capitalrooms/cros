@@ -12,7 +12,9 @@ interface Tenancy {
   notice_received_date: string | null
   person?: {
     id: string
-    name: string
+    full_name?: string
+    first_name?: string
+    last_name?: string
     email: string
   }
 }
@@ -88,7 +90,8 @@ export default function RoomCommunicationsModal({
 
   const getTenantName = (personId: string) => {
     const tenancy = tenancies.find(t => t.person_id === personId)
-    return tenancy?.person?.name || 'Unknown'
+    const p = tenancy?.person as any
+    return p?.full_name || p?.first_name || 'Unknown'
   }
 
   const getTenantCommunications = (personId: string) => {
@@ -168,7 +171,7 @@ export default function RoomCommunicationsModal({
                         onClick={() => handleTenantClick(currentTenancy.person_id)}
                         className="font-semibold text-white hover:text-blue-400 underline text-left"
                       >
-                        {currentTenancy.person?.name || 'Unknown'}
+                        {(currentTenancy.person as any)?.full_name || (currentTenancy.person as any)?.first_name || 'Unknown'}
                       </button>
                       <p className="text-xs text-neutral-400">
                         {formatDate(currentTenancy.start_date)} - Present
@@ -225,7 +228,7 @@ export default function RoomCommunicationsModal({
                               onClick={() => handleTenantClick(tenancy.person_id)}
                               className="font-semibold text-white hover:text-blue-400 underline text-left"
                             >
-                              {tenancy.person?.name || 'Unknown'}
+                              {(tenancy.person as any)?.full_name || (tenancy.person as any)?.first_name || 'Unknown'}
                             </button>
                           </div>
                           <p className="text-xs text-neutral-400">
