@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
   if (roomId) {
     const { data: tenancies } = await supabase
       .from('tenancies')
-      .select('person_id, people(full_name, first_name, last_name, email), opt_in_viewings')
+      .select('person_id, people!person_id(full_name, first_name, last_name, email), opt_in_viewings')
       .eq('room_id', roomId)
       .is('end_date', null)
       .single()
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
   if (propertyId) {
     const { data: allTenancies } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people(full_name, first_name, last_name, email), opt_in_viewings')
+      .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email), opt_in_viewings')
       .eq('property_id', propertyId)
       .neq('room_id', roomId)
       .is('end_date', null)

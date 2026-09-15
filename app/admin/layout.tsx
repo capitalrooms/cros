@@ -249,6 +249,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <Link
                 key={zone.id}
                 href={zone.subnav[0]?.href ?? (zone.id === 'dash' ? '/admin' : '#')}
+                prefetch={false}
                 className={[
                   'flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
                   active
@@ -279,6 +280,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   className={[
                     'flex items-center gap-2 px-3.5 py-2 text-xs transition-all border-l-2',
                     active

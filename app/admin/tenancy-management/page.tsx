@@ -86,7 +86,7 @@ export default function TenancyManagementPage() {
     // Fetch tenancies
     const { data: tenanciesData } = await supabase
       .from('tenancies')
-      .select('*, people(id, full_name, first_name, last_name, email, phone), rooms(id, name), properties(id, name, address)')
+      .select('*, people!person_id(id, full_name, first_name, last_name, email, phone), rooms(id, name), properties(id, name, address)')
       .order('start_date', { ascending: false })
 
     // Active = no notice given yet, tenancy not ended

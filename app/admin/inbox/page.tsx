@@ -41,7 +41,7 @@ export default function InboxPage() {
       const { data: ppl } = await supabase.from('people').select('id, full_name, first_name, last_name, email').eq('role', 'tenant').order('full_name')
       const { data: tens } = await supabase
         .from('tenancies')
-        .select('id, start_date, end_date, people(full_name, first_name, last_name), rooms(name), properties(name)')
+        .select('id, start_date, end_date, people!person_id(full_name, first_name, last_name), rooms(name), properties(name)')
         .order('start_date', { ascending: false })
       const { data: apps } = await supabase
         .from('applicants')
