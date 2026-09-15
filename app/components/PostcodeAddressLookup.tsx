@@ -37,22 +37,26 @@ interface Props {
   className?:      string
 }
 
+function titleCase(s: string) {
+  return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
+}
+
 function parseAddress(raw: string): ParsedAddress {
   // Raw addresses come back as "BUILDING, STREET, TOWN, POSTCODE"
-  // or "BUILDING NUMBER STREET, TOWN, POSTCODE" — normalise to Title Case
-  const title = (s: string) =>
-    s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
-
-  const parts = raw.split(',').map(p => p.trim()).filter(Boolean)
+  // Split on commas, Title Case each segment, format with newlines
+  const parts    = raw.split(',').map(p => p.trim()).filter(Boolean)
   const postcode = parts.at(-1) ?? ''
   const town     = parts.at(-2) ?? ''
   const line1    = parts.slice(0, -2).join(', ')
+
+  // Build newline-separated address — each logical line on its own row
+  const lines = [...parts.slice(0, -1).map(titleCase), postcode.toUpperCase()].filter(Boolean)
   return {
-    line1:    title(line1),
-    town:     title(town),
+    line1:    titleCase(line1),
+    town:     titleCase(town),
     county:   '',
-    postcode,
-    full:     [title(line1), title(town), postcode].filter(Boolean).join(', '),
+    postcode: postcode.toUpperCase(),
+    full:     lines.join('\n'),
   }
 }
 
@@ -71,9 +75,10 @@ export default function PostcodeAddressLookup({
   const [town,       setTown]       = useState('')
   const [county,     setCounty]     = useState('')
   const [foundPC,    setFoundPC]    = useState('')   // postcode returned by API
-  const [open,       setOpen]       = useState(false)
-  const [manualValue, setManualValue] = useState(initialValue)
-  const [showManual, setShowManual] = useState(!!initialValue)
+  const [open,          setOpen]          = useState(false)
+  const [manualValue,   setManualValue]   = useState(initialValue)
+  const [showManual,    setShowManual]    = useState(!!initialValue)
+  const [hasFullLookup, setHasFullLookup] = useState(true)
   const dropRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown on outside click
@@ -93,6 +98,8 @@ export default function PostcodeAddressLookup({
     setMode('idle')
     setAddresses([])
     setOpen(false)
+    setManualValue('')
+    setShowManual(false)
 
     try {
       const res  = await fetch(`/api/admin/postcode-lookup?postcode=${encodeURIComponent(postcode.trim())}`)
@@ -110,9 +117,10 @@ export default function PostcodeAddressLookup({
         setMode('full')
         setOpen(true)
       } else {
-        // Partial mode — auto-fill town/county
+        // Partial mode — auto-fill town/county, show manual entry
         setTown(data.town ?? '')
         setCounty(data.county ?? '')
+        setHasFullLookup(data.hasFullLookup ?? false)
         setMode('partial')
         setShowManual(true)
       }
@@ -135,11 +143,17 @@ export default function PostcodeAddressLookup({
   function handleManualChange(val: string) {
     setManualValue(val)
     onSelect?.(val)
+    if (onSelectParsed) {
+      // Fire parsed callback so parents using onSelectParsed stay in sync
+      onSelectParsed(parseAddress(val))
+    }
   }
 
   function handleManualBlur() {
-    if (manualValue.trim()) {
-      onSelect?.(manualValue.trim())
+    const v = manualValue.trim()
+    if (v) {
+      onSelect?.(v)
+      onSelectParsed?.(parseAddress(v))
     }
   }
 
@@ -193,10 +207,15 @@ export default function PostcodeAddressLookup({
           Postcode not found. Check the postcode or enter the address manually below.
         </p>
       )}
-      {mode === 'partial' && (
+      {mode === 'partial' && !hasFullLookup && (
         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs">
-          ℹ️ Address lookup not fully configured — town auto-filled from postcode. Enter the street address below.
+          ℹ️ Address lookup not configured — town auto-filled from postcode. Enter the street address below.
           {' '}<a href="https://osdatahub.os.uk/" target="_blank" rel="noreferrer" className="underline font-semibold">Add a free OS DataHub key</a> for full dropdown lookup.
+        </p>
+      )}
+      {mode === 'partial' && hasFullLookup && (
+        <p className="text-xs text-neutral-500">
+          No individual addresses found for this postcode — enter the address below.
         </p>
       )}
 
@@ -207,16 +226,24 @@ export default function PostcodeAddressLookup({
             <p className="text-xs text-neutral-400 px-md py-xs border-b border-neutral-100">
               {addresses.length} address{addresses.length !== 1 ? 'es' : ''} found for {foundPC}
             </p>
-            {addresses.map((addr, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleSelect(addr)}
-                className="w-full text-left px-md py-sm text-sm text-neutral-800 hover:bg-neutral-50 transition border-b border-neutral-50 last:border-0"
-              >
-                {addr.split(',').map((p, j) => p.trim()).filter(Boolean).join(', ')}
-              </button>
-            ))}
+            {addresses.map((addr, i) => {
+              const lines = addr.split(',').map(p => p.trim()).filter(Boolean)
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSelect(addr)}
+                  className="w-full text-left px-md py-2.5 text-sm text-neutral-800 hover:bg-neutral-50 transition border-b border-neutral-100 last:border-0"
+                >
+                  <span className="font-medium text-neutral-900">{lines[0]}</span>
+                  {lines.length > 1 && (
+                    <span className="block text-xs text-neutral-400 mt-0.5">
+                      {lines.slice(1).join(', ')}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
             <button
               type="button"
               onClick={() => { setOpen(false); setShowManual(true) }}
@@ -228,8 +255,8 @@ export default function PostcodeAddressLookup({
         </div>
       )}
 
-      {/* ── Partial mode: auto-filled town hint ─────────────────────────────── */}
-      {mode === 'partial' && (town || county) && (
+      {/* ── Partial mode: auto-filled town hint (only shown when no full-lookup key) ── */}
+      {mode === 'partial' && !hasFullLookup && (town || county) && (
         <div className="flex gap-sm text-xs text-neutral-500">
           {town   && <span className="bg-neutral-100 rounded px-sm py-xs">Town: <strong>{town}</strong></span>}
           {county && <span className="bg-neutral-100 rounded px-sm py-xs">County: <strong>{county}</strong></span>}
@@ -243,11 +270,11 @@ export default function PostcodeAddressLookup({
             value={manualValue}
             onChange={e => handleManualChange(e.target.value)}
             onBlur={handleManualBlur}
-            rows={3}
-            placeholder={placeholder}
-            className={`${inp} w-full`}
+            rows={5}
+            placeholder={'75 High Street\nBuckden\nSt. Neots\nPE19 5TA'}
+            className={`${inp} w-full leading-relaxed`}
           />
-          {mode === 'partial' && (
+          {mode === 'partial' && !hasFullLookup && (
             <p className="text-xs text-neutral-400 mt-xs">
               Include house number, street, {town ? `${town}, ` : ''}{foundPC}
             </p>

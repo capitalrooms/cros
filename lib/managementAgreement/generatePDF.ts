@@ -90,9 +90,13 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
+    // Normalise addresses — stored with \n separators, PDF needs them inline
+    const inlineAddr = (s: string) => s.replace(/\n/g, ', ')
+    const props = data.properties.map(inlineAddr)
+
     const typeLabel = data.agreementType === 'hmo' ? 'Multiple Occupancy' : 'Single Occupier'
     const client = clientName(data)
-    const propList = data.properties.join('; ')
+    const propList = props.join('; ')
 
     // ── Draw logo + footer on EVERY page ─────────────────────────────────────
     function drawPageDecor() {
@@ -213,12 +217,12 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     // ── PROPERTY ─────────────────────────────────────────────────────────────
     drawLabel('PROPERTY')
     drawPara(
-      data.properties.length === 1
-        ? `The property to which this agreement relates is: ${data.properties[0]} ("the Property").`
+      props.length === 1
+        ? `The property to which this agreement relates is: ${props[0]} ("the Property").`
         : `The properties to which this agreement relates are ("the Properties"):`,
     )
-    if (data.properties.length > 1) {
-      drawBullets(data.properties)
+    if (props.length > 1) {
+      drawBullets(props)
       spacer(4)
     }
 

@@ -6,6 +6,7 @@ import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { displayName } from '@/lib/people'
 import AppBar from '@/components/AppBar'
+import SignOutButton from '@/app/components/SignOutButton'
 import RoleGreeting from '@/app/components/RoleGreeting'
 import BackButton from '@/app/components/BackButton'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
@@ -190,9 +191,7 @@ export default function LandlordDashboard() {
             <a href="/landlord/profile" className="shrink-0 transition-colors hover:opacity-80 flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10" title="Profile settings">
               <span className="text-lg leading-none">⚙️</span>
             </a>
-            <button onClick={handleSignOut} className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm">
-              <span>👋</span> Sign out
-            </button>
+            <SignOutButton onSignOut={handleSignOut} />
           </div>
         }
       />

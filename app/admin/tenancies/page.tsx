@@ -223,6 +223,25 @@ export default function TenanciesManagementPage() {
     }
   };
 
+  /** Download a Check-In Balance Demand PDF for this tenancy. */
+  const downloadBalanceDemand = async (tenancyId: string, mode: 'full' | 'prorata' = 'full') => {
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = {}
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      const res = await fetch(`/api/lettings/check-in-balance/${tenancyId}?mode=${mode}`, { headers })
+      if (!res.ok) throw new Error('Failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'Check-In-Balance.pdf'; a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Could not generate check-in balance — check tenant, rent and deposit are set on this tenancy.')
+    }
+  }
+
   /** Cancel notice = clear the end_date, so the room stops being marketed. */
   const handleCancelNotice = async (tenancyId: string) => {
     if (!confirm('Clear the move-out date? The room will stop being marketed as available.')) return;
@@ -433,6 +452,23 @@ export default function TenanciesManagementPage() {
                     showPreferences={true}
                   />
                   <div className="flex shrink-0 flex-col items-stretch gap-sm">
+                    {/* Check-in balance demand — full or pro-rata */}
+                    <div className="flex gap-xs">
+                      <button
+                        onClick={() => downloadBalanceDemand(tenancy.id, 'full')}
+                        className="flex-1 rounded border border-blue-200 bg-blue-50 px-sm py-sm text-[10px] font-semibold text-blue-800 hover:bg-blue-100 text-center leading-tight"
+                        title="First payment = full calendar month"
+                      >
+                        💷 Full month
+                      </button>
+                      <button
+                        onClick={() => downloadBalanceDemand(tenancy.id, 'prorata')}
+                        className="flex-1 rounded border border-blue-200 bg-blue-50 px-sm py-sm text-[10px] font-semibold text-blue-800 hover:bg-blue-100 text-center leading-tight"
+                        title="First payment = pro-rated days remaining in start month"
+                      >
+                        💷 Pro-rata
+                      </button>
+                    </div>
                     {tenancy.end_date ? (
                       <button
                         onClick={() => handleCancelNotice(tenancy.id)}

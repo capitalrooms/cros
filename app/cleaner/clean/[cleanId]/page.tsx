@@ -85,6 +85,9 @@ export default function CleanDetailPage() {
   const [cleaningNotes, setCleaningNotes] = useState<any[]>([])
   const [savingNotes, setSavingNotes] = useState<string[]>([])
 
+  // tenant extras requests for this clean
+  const [tenantExtras, setTenantExtras] = useState<any[]>([])
+
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
@@ -117,6 +120,13 @@ export default function CleanDetailPage() {
           .eq('is_deleted', false)
           .order('created_at', { ascending: true })
         setCleaningNotes(notes || [])
+
+        // Load tenant extras requests
+        const { data: extras } = await supabase
+          .from('cleaner_extras_requests')
+          .select('tasks, notes, status, tenant: tenant_person_id(first_name, last_name)')
+          .eq('clean_id', cleanId)
+        setTenantExtras(extras || [])
       }
       setLoading(false)
     }
@@ -321,6 +331,34 @@ export default function CleanDetailPage() {
           <div className="rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-lg">
             <p className="text-xs font-bold uppercase tracking-wide text-yellow-800">From the office — for this clean</p>
             <p className="mt-xs text-sm font-semibold text-yellow-900 whitespace-pre-wrap">{clean.admin_note}</p>
+          </div>
+        )}
+
+        {/* Tenant extras requests */}
+        {tenantExtras.length > 0 && (
+          <div className="rounded-2xl border-2 border-purple-300 bg-purple-50 p-lg">
+            <p className="text-xs font-bold uppercase tracking-wide text-purple-800">
+              🧹 Tenant extra requests — if time allows
+            </p>
+            <p className="mt-xs text-xs text-purple-700">These aren't mandatory — fit them in if you have time.</p>
+            {tenantExtras.map((req, i) => {
+              const tenantName = req.tenant ? `${req.tenant.first_name || ''} ${req.tenant.last_name || ''}`.trim() : 'A tenant'
+              return (
+                <div key={i} className={i > 0 ? 'mt-md pt-md border-t border-purple-200' : 'mt-md'}>
+                  <p className="text-xs font-semibold text-purple-700 mb-xs">{tenantName}</p>
+                  <ul className="space-y-xs">
+                    {(req.tasks || []).map((task: string, j: number) => (
+                      <li key={j} className="flex items-start gap-xs text-sm text-purple-900">
+                        <span className="mt-0.5">•</span> {task}
+                      </li>
+                    ))}
+                  </ul>
+                  {req.notes && (
+                    <p className="mt-sm text-xs text-purple-700 italic">Note: {req.notes}</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 

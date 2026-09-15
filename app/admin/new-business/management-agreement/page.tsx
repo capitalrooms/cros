@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
+import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAddressString } from '@/app/components/AddressInput'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -44,8 +45,9 @@ function ManagementAgreementForm() {
   const [companyName,    setCompanyName]    = useState(prefillCompany)
   const [companyReg,     setCompanyReg]     = useState(prefillReg)
   const [companyCountry, setCompanyCountry] = useState('England and Wales')
-  const [clientAddress,  setClientAddress]  = useState(prefillAddress)
-  const [properties,     setProperties]     = useState<string[]>([''])
+  const [clientAddrValue, setClientAddrValue] = useState<AddressValue>(() => parseAddressString(prefillAddress))
+  const clientAddress = toAddressString(clientAddrValue)
+  const [propAddresses, setPropAddresses] = useState<AddressValue[]>([emptyAddress()])
   const [managementFee,  setManagementFee]  = useState(DEFAULTS.hmo.managementFee)
   const [letFee,         setLetFee]         = useState(DEFAULTS.hmo.letFee)
   const [floatAmount,    setFloatAmount]    = useState(DEFAULTS.hmo.floatAmount)
@@ -65,31 +67,31 @@ function ManagementAgreementForm() {
     setFloatAmount(d.floatAmount)
     setEpcCost(d.epcCost)
     // Single let: only one property
-    if (agreementType === 'single' && properties.length > 1) {
-      setProperties([properties[0]])
+    if (agreementType === 'single' && propAddresses.length > 1) {
+      setPropAddresses([propAddresses[0]])
     }
   }, [agreementType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function addProperty() {
     if (agreementType === 'single') return
-    setProperties(p => [...p, ''])
+    setPropAddresses(p => [...p, emptyAddress()])
   }
 
   function removeProperty(i: number) {
-    setProperties(p => p.filter((_, j) => j !== i))
+    setPropAddresses(p => p.filter((_, j) => j !== i))
   }
 
-  function updateProperty(i: number, val: string) {
-    setProperties(p => p.map((v, j) => j === i ? val : v))
+  function updateProperty(i: number, val: AddressValue) {
+    setPropAddresses(p => p.map((v, j) => j === i ? val : v))
   }
 
   async function handleGenerate() {
     setError(null)
     setSuccess(false)
 
-    const filledProps = properties.filter(p => p.trim())
+    const filledProps = propAddresses.map(toAddressString).filter(p => p.trim())
     if (!filledProps.length) { setError('Enter at least one property address.'); return }
-    if (!clientAddress.trim()) { setError('Enter the client address.'); return }
+    if (!clientAddrValue.line1.trim()) { setError('Enter the client address.'); return }
     if (entityType === 'individual' && !clientFirst.trim()) { setError('Enter the client name.'); return }
     if (entityType === 'company' && !companyName.trim()) { setError('Enter the company name.'); return }
 
@@ -105,7 +107,7 @@ function ManagementAgreementForm() {
       companyName:    entityType === 'company' ? companyName    : undefined,
       companyReg:     entityType === 'company' ? companyReg     : undefined,
       companyCountry: entityType === 'company' ? companyCountry : undefined,
-      clientAddress:  clientAddress.split('\n').map(l => l.trim()).filter(Boolean),
+      clientAddress:  clientAddress.split('\n').map((l: string) => l.trim()).filter(Boolean),
       properties:     filledProps,
       managementFee,
       letFee,
@@ -260,11 +262,11 @@ function ManagementAgreementForm() {
               </div>
             )}
 
-            <PostcodeAddressLookup
-              label="Client address *"
-              placeholder={'12 High Street, London, SW1A 1AA'}
-              initialValue={clientAddress}
-              onSelect={val => setClientAddress(val)}
+            <AddressInput
+              value={clientAddrValue}
+              onChange={setClientAddrValue}
+              label="Client address"
+              required
             />
           </div>
 
@@ -274,9 +276,9 @@ function ManagementAgreementForm() {
               {agreementType === 'hmo' ? 'Properties' : 'Property'}
             </h2>
             <div className="space-y-lg">
-              {properties.map((p, i) => (
+              {propAddresses.map((p, i) => (
                 <div key={i} className="relative">
-                  {properties.length > 1 && (
+                  {propAddresses.length > 1 && (
                     <div className="flex items-center justify-between mb-xs">
                       <span className="text-xs font-semibold text-neutral-400">Property {i + 1}</span>
                       <button
@@ -285,11 +287,11 @@ function ManagementAgreementForm() {
                       >Remove</button>
                     </div>
                   )}
-                  <PostcodeAddressLookup
-                    label={properties.length === 1 ? 'Property address *' : `Property ${i + 1} address *`}
-                    placeholder="Full address"
-                    initialValue={p}
-                    onSelect={val => updateProperty(i, val)}
+                  <AddressInput
+                    value={p}
+                    onChange={val => updateProperty(i, val)}
+                    label={propAddresses.length === 1 ? 'Property address' : `Property ${i + 1} address`}
+                    required
                   />
                 </div>
               ))}

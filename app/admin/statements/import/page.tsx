@@ -266,7 +266,7 @@ function StatementCardUI({
           <p className="text-xs text-emerald-500">{prop?.name || prop?.address || fileName}</p>
         </div>
         <a
-          href="/admin/properties"
+          href="/admin/active-rooms"
           className="text-xs font-semibold text-emerald-600 hover:underline shrink-0 ml-lg"
         >
           View →

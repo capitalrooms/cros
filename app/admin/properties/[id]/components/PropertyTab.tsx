@@ -54,6 +54,19 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
     property_type: property.property_type || 'house',
     key_safe_code: property.key_safe_code || '',
     management_fee_pct: property.management_fee_pct != null ? String(property.management_fee_pct) : '12',
+    lat: property.lat != null ? String(property.lat) : '',
+    lng: property.lng != null ? String(property.lng) : '',
+    // Letting type & let-only bank details
+    letting_type: property.letting_type || 'managed',
+    bank_account_name: property.bank_account_name || '',
+    bank_sort_code: property.bank_sort_code || '',
+    bank_account_number: property.bank_account_number || '',
+    bank_iban: property.bank_iban || '',
+    bank_swift: property.bank_swift || '',
+    bank_payment_ref: property.bank_payment_ref || '',
+    letting_fee_pct: property.letting_fee_pct != null ? String(property.letting_fee_pct) : '',
+    letting_fee_flat: property.letting_fee_flat != null ? String(property.letting_fee_flat) : '',
+    rent_due_preference: property.rent_due_preference || 'fixed_day',
   })
 
   const supabase = createClient()
@@ -154,6 +167,19 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       management_fee_pct: formData.management_fee_pct ? parseFloat(formData.management_fee_pct) : 12,
       license_date: formData.license_date || null,
       license_expiry: formData.license_expiry || null,
+      lat: formData.lat ? parseFloat(formData.lat) : null,
+      lng: formData.lng ? parseFloat(formData.lng) : null,
+      // Letting type & bank details
+      letting_type: formData.letting_type,
+      bank_account_name: formData.bank_account_name.trim() || null,
+      bank_sort_code: formData.bank_sort_code.trim() || null,
+      bank_account_number: formData.bank_account_number.trim() || null,
+      bank_iban: formData.bank_iban.trim() || null,
+      bank_swift: formData.bank_swift.trim() || null,
+      bank_payment_ref: formData.bank_payment_ref.trim() || null,
+      letting_fee_pct: formData.letting_fee_pct ? parseFloat(formData.letting_fee_pct) : null,
+      letting_fee_flat: formData.letting_fee_flat ? parseFloat(formData.letting_fee_flat) : null,
+      rent_due_preference: formData.rent_due_preference,
     }
     // Merge any fields accepted from the postcode lookup modal
     if (lookupResult) {
@@ -322,8 +348,8 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
 
       {/* Landlord Information */}
       <div>
-        <div className="flex items-center justify-between mb-lg pb-lg border-b border-neutral-100">
-          <h3 className="text-sm font-bold uppercase text-neutral-400">👨 Landlord</h3>
+        <div className="flex items-center justify-between mb-md pb-sm border-b border-neutral-100">
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Landlord</h3>
         </div>
 
         {isEditing ? (
@@ -365,19 +391,14 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
           (() => {
             const linked = landlords.find(l => l.id === displayed.landlord_id)
             if (linked) {
+              const name = linked.full_name || linked.company || [linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'
+              const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
               return (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-lg">
-                  <div className="space-y-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Name</p>
-                    <a href={`/admin/landlord/${linked.id}`} className="text-sm font-semibold text-blue-600 hover:underline block">{linked.full_name || linked.company || [linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'}</a>
-                  </div>
-                  <div className="space-y-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Email</p>
-                    <p className="text-sm font-semibold text-neutral-900">{linked.email || '—'}</p>
-                  </div>
-                  <div className="space-y-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Phone</p>
-                    <p className="text-sm font-semibold text-neutral-900">{linked.phone || '—'}</p>
+                <div className="flex items-center gap-md">
+                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-xs font-semibold text-blue-700 flex-shrink-0">{initials}</div>
+                  <div>
+                    <a href={`/admin/landlord/${linked.id}`} className="text-sm font-semibold text-blue-600 hover:underline">{name}</a>
+                    <p className="text-xs text-neutral-500 mt-0.5">{[linked.email, linked.phone].filter(Boolean).join(' · ') || '—'}</p>
                   </div>
                 </div>
               )
@@ -385,12 +406,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
             return (
               <div className="flex items-center gap-md rounded-lg border border-dashed border-neutral-300 p-md">
                 <span className="text-neutral-400 text-sm">No landlord linked to this property.</span>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="text-xs text-blue-600 font-semibold hover:underline"
-                >
-                  Link one →
-                </button>
+                <button onClick={() => setIsEditing(true)} className="text-xs text-blue-600 font-semibold hover:underline">Link one →</button>
               </div>
             )
           })()
@@ -399,8 +415,8 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
 
       {/* Property Details (merged: tenancy settings + physical details) */}
       <div>
-        <div className="mb-lg pb-lg border-b border-neutral-100">
-          <h3 className="text-sm font-bold uppercase text-neutral-400">⚙️ Property Details</h3>
+        <div className="mb-md pb-sm border-b border-neutral-100">
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Details</h3>
         </div>
 
         {isEditing ? (
@@ -433,6 +449,32 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 )}
               </div>
             </div>
+            {/* Lat / Lng — set automatically via postcode lookup, or manually here */}
+            <div className="grid grid-cols-2 gap-lg">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Latitude</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={formData.lat}
+                  onChange={(e) => setFormData({ ...formData, lat: e.target.value })}
+                  placeholder="e.g. 54.9585"
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Longitude</label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={formData.lng}
+                  onChange={(e) => setFormData({ ...formData, lng: e.target.value })}
+                  placeholder="e.g. -1.6020"
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-neutral-500 -mt-sm">Set automatically by the postcode lookup above, or enter manually. Used for the tenant humidity/ventilation card.</p>
             {/* Row 1: council tax, HMO license dates, bills */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-lg">
               <div>
@@ -566,94 +608,172 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 rows={4}
               />
             </div>
+
+            {/* ── Letting type ── */}
+            <div className="border-t border-neutral-700 pt-lg">
+              <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Letting type</label>
+              <div className="grid grid-cols-2 gap-sm mb-lg">
+                {([['managed','Fully managed','Capital Rooms manages everything'],['let_only','Let only','Find tenant only — landlord manages']] as const).map(([val, label, desc]) => (
+                  <button key={val} type="button"
+                    onClick={() => setFormData({ ...formData, letting_type: val })}
+                    className={`rounded-lg border px-md py-sm text-left transition ${formData.letting_type === val ? 'border-blue-500 bg-blue-500/10 text-blue-300' : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500'}`}>
+                    <p className="text-sm font-semibold">{label}</p>
+                    <p className="text-xs opacity-70 mt-0.5">{desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {formData.letting_type === 'let_only' && (
+                <div className="space-y-lg rounded-xl border border-neutral-700 bg-neutral-800/50 p-lg">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Landlord bank details <span className="normal-case font-normal text-neutral-500">— used in tenancy agreements &amp; check-in letters</span></p>
+
+                  <div className="grid grid-cols-2 gap-md">
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">Account name</label>
+                      <input type="text" value={formData.bank_account_name} onChange={e => setFormData({ ...formData, bank_account_name: e.target.value })}
+                        placeholder="e.g. John Smith" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">Sort code</label>
+                      <input type="text" value={formData.bank_sort_code} onChange={e => setFormData({ ...formData, bank_sort_code: e.target.value })}
+                        placeholder="00-00-00" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">Account number</label>
+                      <input type="text" value={formData.bank_account_number} onChange={e => setFormData({ ...formData, bank_account_number: e.target.value })}
+                        placeholder="12345678" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">Payment reference base</label>
+                      <input type="text" value={formData.bank_payment_ref} onChange={e => setFormData({ ...formData, bank_payment_ref: e.target.value })}
+                        placeholder="e.g. 008ROC (room code appended)" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">IBAN</label>
+                      <input type="text" value={formData.bank_iban} onChange={e => setFormData({ ...formData, bank_iban: e.target.value })}
+                        placeholder="GB00 XXXX 0000 0000 0000 00" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">SWIFT / BIC</label>
+                      <input type="text" value={formData.bank_swift} onChange={e => setFormData({ ...formData, bank_swift: e.target.value })}
+                        placeholder="e.g. BUKBGB22" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-neutral-700 pt-md grid grid-cols-2 gap-md">
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">Letting fee</label>
+                      <div className="flex gap-sm items-center">
+                        <input type="number" value={formData.letting_fee_pct} onChange={e => setFormData({ ...formData, letting_fee_pct: e.target.value, letting_fee_flat: '' })}
+                          placeholder="e.g. 75" className="w-20 px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <span className="text-xs text-neutral-400">% of first month's rent</span>
+                        <span className="text-xs text-neutral-600">or</span>
+                        <span className="text-xs text-neutral-400">£</span>
+                        <input type="number" value={formData.letting_fee_flat} onChange={e => setFormData({ ...formData, letting_fee_flat: e.target.value, letting_fee_pct: '' })}
+                          placeholder="flat fee" className="w-24 px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">Rent due date preference</label>
+                      <select value={formData.rent_due_preference} onChange={e => setFormData({ ...formData, rent_due_preference: e.target.value })}
+                        className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="fixed_day">Fixed day of month (e.g. 1st)</option>
+                        <option value="move_in_date">Move-in date each month</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
         ) : (
-          <div className="space-y-lg">
-            {/* Row 1: what kind of property is this */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-lg">
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Property Type</p>
-                <p className="text-sm font-semibold text-neutral-900 capitalize">
-                  {displayed.property_type === 'hmo' ? 'HMO'
-                    : displayed.property_type === 'single' || displayed.property_type === 'single_let' ? 'Single Let'
-                    : displayed.property_type
-                    ? displayed.property_type.charAt(0).toUpperCase() + displayed.property_type.slice(1)
-                    : '—'}
-                </p>
+          <div className="space-y-0">
+            {/* Lat/lng warning */}
+            {(!displayed.lat || !displayed.lng) && (
+              <div className="flex items-start gap-sm rounded-lg border border-amber-300 bg-amber-50 px-md py-sm mb-lg">
+                <span className="text-amber-500 mt-0.5">⚠️</span>
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Location not set</p>
+                  <p className="text-xs text-amber-700 mt-0.5">Lat/lng missing — tenant humidity &amp; ventilation card won't appear. Edit and run the postcode lookup.</p>
+                </div>
               </div>
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bedrooms</p>
-                <p className="text-sm font-semibold text-neutral-900">{displayed.bedrooms || '—'}</p>
-              </div>
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bathrooms</p>
-                <p className="text-sm font-semibold text-neutral-900">{displayed.bathrooms || '—'}</p>
-              </div>
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Total Area</p>
-                <p className="text-sm font-semibold text-neutral-900">{displayed.total_area ? `${displayed.total_area} m²` : '—'}</p>
-              </div>
+            )}
+
+            {/* Manifest rows — Property section */}
+            <div className="border-l-2 border-neutral-200 pl-3 mb-5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-2">Property</p>
+              {[
+                ['Type', (() => {
+                  const t = displayed.property_type
+                  return t === 'hmo' ? 'HMO' : t === 'single' || t === 'single_let' ? 'Single Let' : t ? t.charAt(0).toUpperCase() + t.slice(1) : '—'
+                })()],
+                ['Bedrooms', displayed.bedrooms || '—'],
+                ['Bathrooms', displayed.bathrooms || '—'],
+                ['Total area', displayed.total_area ? `${displayed.total_area} m²` : '—'],
+                ['Bills included', displayed.bills_included ? 'Yes' : 'No'],
+                ['Council tax band', displayed.council_tax_band ? `Band ${displayed.council_tax_band}` : '—'],
+              ].map(([k, v]) => (
+                <div key={k as string} className="grid grid-cols-2 border-b border-neutral-100 py-1.5">
+                  <span className="text-xs text-neutral-400">{k}</span>
+                  <span className="text-xs font-medium text-neutral-900">{v as string}</span>
+                </div>
+              ))}
             </div>
 
-            {/* Row 2: management/tenancy settings */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-lg pt-lg border-t border-neutral-200">
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Council Tax Band</p>
-                <p className="text-sm font-semibold text-neutral-900">{displayed.council_tax_band ? `Band ${displayed.council_tax_band}` : '—'}</p>
-              </div>
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">HMO Licence Issued</p>
-                <p className="text-sm font-semibold text-neutral-900">
-                  {displayed.license_date ? new Date(displayed.license_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
-                </p>
-              </div>
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">HMO Licence Expiry</p>
-                {(() => {
-                  if (!displayed.license_expiry) return <p className="text-sm font-semibold text-neutral-900">—</p>
+            {/* Licence section */}
+            <div className="border-l-2 border-neutral-200 pl-3 mb-5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-2">Licence &amp; management</p>
+              {[
+                ['HMO licence issued', displayed.license_date ? new Date(displayed.license_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'],
+                ['HMO licence expiry', (() => {
+                  if (!displayed.license_expiry) return '—'
                   const expiry = new Date(displayed.license_expiry)
-                  const now = new Date()
-                  const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-                  const color = daysLeft < 0 ? 'text-red-600' : daysLeft < 90 ? 'text-amber-600' : 'text-neutral-900'
-                  const badge = daysLeft < 0 ? ' · EXPIRED' : daysLeft < 90 ? ` · ${daysLeft}d left` : ''
-                  return (
-                    <p className={`text-sm font-semibold ${color}`}>
-                      {expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      {badge && <span className="text-xs ml-xs">{badge}</span>}
-                    </p>
-                  )
-                })()}
-              </div>
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Bills Included</p>
-                <p className="text-sm font-semibold text-neutral-900">{displayed.bills_included ? '✓ Yes' : '✗ No'}</p>
-              </div>
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">🔐 Key Safe</p>
-                <p className="text-sm font-semibold text-neutral-900 font-mono">
-                  {displayed.key_safe_code ? displayed.key_safe_code : '—'}
-                </p>
-                {displayed.key_safe_code && (
-                  <p className="text-xs text-neutral-400">Shown to contractors after booking</p>
-                )}
-              </div>
+                  const daysLeft = Math.ceil((expiry.getTime() - Date.now()) / 86400000)
+                  const dateStr = expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                  if (daysLeft < 0) return `${dateStr} · EXPIRED`
+                  if (daysLeft < 90) return `${dateStr} · ${daysLeft}d left`
+                  return dateStr
+                })()],
+                ['Key safe code', displayed.key_safe_code || '—'],
+                ['Letting type', displayed.letting_type === 'let_only' ? 'Let only' : 'Fully managed'],
+                [displayed.letting_type === 'let_only' ? 'Letting fee' : 'Management fee',
+                  displayed.letting_type === 'let_only'
+                    ? (displayed.letting_fee_pct ? `${displayed.letting_fee_pct}% of first month` : displayed.letting_fee_flat ? `£${displayed.letting_fee_flat} flat` : '—')
+                    : `${displayed.management_fee_pct ?? 12}% of monthly rent`],
+                ...(displayed.letting_type === 'let_only' ? [['Rent due', displayed.rent_due_preference === 'move_in_date' ? 'Move-in date each month' : 'Fixed day of month']] : []),
+              ].map(([k, v]) => (
+                <div key={k as string} className="grid grid-cols-2 border-b border-neutral-100 py-1.5">
+                  <span className="text-xs text-neutral-400">{k}</span>
+                  <span className={`text-xs font-medium ${(v as string).includes('EXPIRED') ? 'text-red-600' : (v as string).includes('left') ? 'text-amber-600' : 'text-neutral-900'}`}>{v as string}</span>
+                </div>
+              ))}
             </div>
 
-            {/* Row 3: fee */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-lg pt-lg border-t border-neutral-200">
-              <div className="space-y-sm">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Management Fee</p>
-                <p className="text-sm font-semibold text-neutral-900">
-                  {displayed.management_fee_pct != null ? `${displayed.management_fee_pct}%` : '12%'}
-                  <span className="text-xs font-normal text-neutral-400 ml-sm">of monthly rent</span>
-                </p>
+            {/* Let-only bank details */}
+            {displayed.letting_type === 'let_only' && (displayed.bank_account_name || displayed.bank_sort_code) && (
+              <div className="border-l-2 border-neutral-200 pl-3 mb-5">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-2">Bank details</p>
+                {[
+                  ['Account name', displayed.bank_account_name],
+                  ['Sort code', displayed.bank_sort_code],
+                  ['Account number', displayed.bank_account_number],
+                  ['Payment ref base', displayed.bank_payment_ref],
+                  ['IBAN', displayed.bank_iban],
+                  ['SWIFT / BIC', displayed.bank_swift],
+                ].filter(([,v]) => v).map(([k, v]) => (
+                  <div key={k as string} className="grid grid-cols-2 border-b border-neutral-100 py-1.5">
+                    <span className="text-xs text-neutral-400">{k}</span>
+                    <span className="text-xs font-mono font-medium text-neutral-900">{v as string}</span>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
 
             {displayed.description && (
-              <div className="pt-lg border-t border-neutral-200">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Description / Notes</p>
-                <p className="text-sm text-neutral-900 whitespace-pre-wrap">{displayed.description}</p>
+              <div className="border-l-2 border-neutral-200 pl-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-2">Notes</p>
+                <p className="text-xs text-neutral-700 whitespace-pre-wrap leading-relaxed">{displayed.description}</p>
               </div>
             )}
           </div>

@@ -2,26 +2,16 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import BackButton from '@/app/components/BackButton';
+import AppBar from '@/components/AppBar';
 
 export default function MaintenanceChoosePath() {
   const router = useRouter();
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      {/* Header */}
-      <div className="bg-white border-b border-neutral-200">
-        <div className="mx-auto max-w-4xl px-lg py-lg">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-neutral-900">Report a problem</h1>
-            <Link
-              href="/tenant"
-              className="text-sm font-bold text-neutral-600 hover:text-neutral-900"
-            >
-              ← Back
-            </Link>
-          </div>
-        </div>
-      </div>
+      <AppBar left={<BackButton href="/tenant/maintenance" />} />
+
 
       {/* Main content */}
       <main className="mx-auto max-w-4xl px-lg py-3xl">

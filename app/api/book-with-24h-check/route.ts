@@ -144,18 +144,17 @@ export async function POST(req: NextRequest) {
 
   // Send notification to room tenant
   if (await getCommsLive()) {
-    const tenantIds = await activeTenantIds(service, { roomId: ticket.room_id })
+    const tenantIds = await activeTenantIds(service, ticket.property_id, ticket.room_id)
     if (tenantIds.length > 0) {
       const prop  = (ticket.properties as any)?.name ?? 'your property'
       const slot  = fmtSlot(requestedDate, requestedTime)
       const back  = fmtSlot(fallbackDate, fallbackTime)
       await insertNotifications(service, tenantIds, {
-        type:    'short_notice_access_request',
-        title:   'Short-notice access request',
-        body:    `A contractor needs access to your room at ${prop} on ${slot}. ` +
-                 `Please approve or decline. If we don't hear back, your booking will be moved to ${back}.`,
-        related_table: 'maintenance_tickets',
-        related_id: ticketId,
+        type:  'short_notice_access_request',
+        title: '⚠️ Short-notice access request',
+        body:  `A contractor needs access to your room at ${prop} on ${slot}. ` +
+               `Please approve or decline. If we don't hear back, your booking will be moved to ${back}.`,
+        link:  `/tenant/visit/${ticketId}`,
       })
     }
   }

@@ -18,13 +18,15 @@ import DocumentsTab from './components/DocumentsTab'
 import PurchasesTab from './components/PurchasesTab'
 import PhotosTab from './components/PhotosTab'
 import PropertyTabComponent from './components/PropertyTab'
+import { blockAddress, inlineAddress } from '@/lib/formatAddress'
 import HousematesTab from './components/HousematesTab'
 import ExtendedDetailsTab from './components/ExtendedDetailsTab'
 import FinancialsTab from './components/FinancialsTab'
 import TasksTab from './components/TasksTab'
 import BackButton from '@/app/components/BackButton'
+import TenantAppTab from './components/TenantAppTab'
 
-type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'lettings' | 'compliance' | 'documents'
+type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'lettings' | 'compliance' | 'documents' | 'tenant_app'
 
 // Sub-tab types for merged tabs
 type PeopleSubTab = 'tenants' | 'housemates'
@@ -226,7 +228,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   if (!property) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/admin/properties" />} />
+        <AppBar left={<BackButton href="/admin/active-rooms" />} />
         <p className="p-xl text-sm text-neutral-600">Property not found</p>
       </div>
     );
@@ -240,12 +242,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     { id: 'lettings',    label: 'Lettings',    icon: '🔑' },
     { id: 'compliance',  label: 'Compliance',  icon: '✅' },
     { id: 'documents',   label: 'Documents',   icon: '📁' },
+    { id: 'tenant_app',  label: 'Tenant App',  icon: '📱' },
   ]
 
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        left={<BackButton href="/admin/properties" />}
+        left={<BackButton href="/admin/active-rooms" />}
         right={
           <button
             onClick={() => setShowQuickNotify(true)}
@@ -257,215 +260,138 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         }
       />
 
-      <main className="mx-auto max-w-6xl px-lg py-2xl">
-        {/* Page Header with Title and Back Link */}
-        <div className="mb-2xl flex items-center justify-between">
-          <div className="flex-1">
-            <div className="space-y-sm">
-              {/* Property Name */}
-              <div className="flex items-center gap-md group">
-                <h1 className="text-3xl font-bold text-neutral-900">
-                  🏠 {editingName ? (
-                    <input
-                      type="text"
-                      value={nameValue}
-                      onChange={(e) => setNameValue(e.target.value)}
-                      className="inline px-md py-sm border border-neutral-300 rounded text-xl"
-                      autoFocus
-                    />
-                  ) : (property.name || '—')}
-                </h1>
-                <button
-                  onClick={() => editingName ? handleSaveName() : setEditingName(true)}
-                  className="opacity-0 group-hover:opacity-100 transition text-neutral-500 hover:text-neutral-900 p-sm"
-                  title={editingName ? "Save name" : "Edit property name"}
-                >
-                  {editingName ? '✓' : '✏️'}
-                </button>
-                {editingName && (
-                  <button
-                    onClick={() => {
-                      setEditingName(false);
-                      setNameValue(property.name || '');
-                    }}
-                    className="text-neutral-400 hover:text-neutral-600 text-sm"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
+      <main className="mx-auto max-w-6xl px-lg pt-lg pb-2xl">
 
-              {/* Property Address */}
-              <div className="flex items-center gap-md group">
-                <p className="text-lg text-neutral-600">
-                  {editingAddress ? (
-                    <input
-                      type="text"
-                      value={addressValue}
-                      onChange={(e) => setAddressValue(e.target.value)}
-                      className="inline px-md py-sm border border-neutral-300 rounded"
-                      autoFocus
-                    />
-                  ) : property.address}
-                </p>
-                <button
-                  onClick={() => editingAddress ? handleSaveAddress() : setEditingAddress(true)}
-                  className="opacity-0 group-hover:opacity-100 transition text-neutral-500 hover:text-neutral-900 p-sm"
-                  title={editingAddress ? "Save address" : "Edit property address"}
-                >
-                  {editingAddress ? '✓' : '✏️'}
-                </button>
-                {editingAddress && (
-                  <button
-                    onClick={() => {
-                      setEditingAddress(false);
-                      setAddressValue(property.address || '');
-                    }}
-                    className="text-neutral-400 hover:text-neutral-600 text-sm"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
+        {/* ── Compact property header ───────────────────────────────────── */}
+        <div className="mb-lg rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
+          <div className="flex items-stretch">
 
-              {/* Postcode */}
-              <div className="flex items-center gap-md group">
-                <span className="text-sm text-neutral-400 font-mono">
-                  {editingPostcode ? (
-                    <input
-                      type="text"
-                      value={postcodeValue}
-                      onChange={(e) => setPostcodeValue(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSavePostcode()}
-                      maxLength={8}
-                      placeholder="e.g. SW1A 2AA"
-                      className="w-32 px-sm py-xs border border-neutral-300 rounded font-mono text-sm uppercase"
-                      autoFocus
-                    />
-                  ) : (
-                    <span className={property.postcode ? 'text-neutral-500' : 'text-amber-500 italic'}>
-                      {property.postcode || 'No postcode set'}
-                    </span>
-                  )}
-                </span>
-                <button
-                  onClick={() => editingPostcode ? handleSavePostcode() : setEditingPostcode(true)}
-                  disabled={savingPostcode}
-                  className="opacity-0 group-hover:opacity-100 transition text-neutral-500 hover:text-neutral-900 p-sm text-xs"
-                  title={editingPostcode ? "Save postcode" : "Edit postcode"}
-                >
-                  {savingPostcode ? '…' : editingPostcode ? '✓' : '✏️'}
-                </button>
-                {editingPostcode && (
-                  <button
-                    onClick={() => {
-                      setEditingPostcode(false);
-                      setPostcodeValue(property.postcode || '');
-                    }}
-                    className="text-neutral-400 hover:text-neutral-600 text-sm"
-                  >
-                    Cancel
-                  </button>
-                )}
+            {/* Featured photo — slim left strip when available */}
+            {property.featured_photo?.file_path && (
+              <div className="w-32 flex-shrink-0 overflow-hidden">
+                <img
+                  src={property.featured_photo.file_url || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${property.featured_photo.file_path?.startsWith('property-photos/') ? property.featured_photo.file_path : `property-photos/${property.featured_photo.file_path}`}`}
+                  alt="Featured photo"
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.currentTarget.parentElement!.style.display = 'none' }}
+                />
               </div>
-            </div>
-          </div>
-        </div>
+            )}
 
-        {/* Property Header - Two Equal Columns */}
-        <div className="mb-xl grid grid-cols-1 md:grid-cols-2 gap-0 rounded-xl border border-neutral-700 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-          {/* Left Column: Property Info Card */}
-          <div className="bg-neutral-900 p-lg">
-            <div className="grid grid-cols-2 gap-xl">
-              <div className="col-span-1">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Property Code</p>
-                {property.property_code ? (
-                  <p className="text-sm font-semibold text-white">{property.property_code}</p>
-                ) : (
-                  <>
+            {/* Main info */}
+            <div className="flex-1 px-xl py-lg min-w-0">
+              {/* Name row — inline edit on hover */}
+              <div className="flex items-start justify-between gap-md mb-xs">
+                <div className="flex items-center gap-sm group min-w-0">
+                  {editingName ? (
                     <div className="flex items-center gap-sm">
                       <input
-                        value={codeValue}
-                        onChange={(e) => setCodeValue(e.target.value.toUpperCase())}
-                        placeholder="e.g. 071ALR"
-                        maxLength={10}
-                        className="w-28 rounded border border-neutral-600 bg-neutral-800 px-sm py-xs text-sm font-mono uppercase text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={nameValue}
+                        onChange={(e) => setNameValue(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                        className="px-sm py-xs border border-neutral-300 rounded text-xl font-bold"
+                        autoFocus
                       />
-                      <button
-                        onClick={handleSaveCode}
-                        disabled={savingCode || !codeValue.trim()}
-                        className="rounded bg-blue-600 px-md py-xs text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-                      >
-                        {savingCode ? 'Saving…' : 'Set'}
-                      </button>
+                      <button onClick={handleSaveName} disabled={savingName} className="text-sm text-green-700 font-semibold">{savingName ? '…' : '✓ Save'}</button>
+                      <button onClick={() => { setEditingName(false); setNameValue(property.name || '') }} className="text-sm text-neutral-400">Cancel</button>
                     </div>
-                    <p className="text-xs text-neutral-500 mt-xs">
-                      {codeError || 'Set once — becomes the immutable property code.'}
-                    </p>
+                  ) : (
+                    <>
+                      <h1 className="text-xl font-bold text-neutral-900 truncate">🏠 {property.name || '—'}</h1>
+                      <button onClick={() => setEditingName(true)} className="opacity-0 group-hover:opacity-100 transition text-neutral-400 hover:text-neutral-700 text-xs">✏️</button>
+                    </>
+                  )}
+                </div>
+                {/* Metadata chips */}
+                <div className="flex items-center gap-sm flex-shrink-0 flex-wrap justify-end">
+                  {property.property_code && (
+                    <span className="text-xs font-mono font-semibold bg-neutral-100 text-neutral-600 px-sm py-xs rounded">{property.property_code}</span>
+                  )}
+                  {property.property_type && (
+                    <span className="text-xs font-semibold bg-neutral-900 text-white px-sm py-xs rounded">
+                      {property.property_type === 'hmo' ? 'HMO' : property.property_type === 'single' || property.property_type === 'single_let' ? 'Single Let' : property.property_type}
+                    </span>
+                  )}
+                  {property.letting_type === 'let_only' && (
+                    <span className="text-xs font-semibold bg-purple-100 text-purple-800 px-sm py-xs rounded">🔑 Let only</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Address row — inline edit on hover */}
+              <div className="flex items-center gap-sm group mb-sm">
+                {editingAddress ? (
+                  <div className="flex items-center gap-sm w-full">
+                    <input
+                      value={addressValue}
+                      onChange={(e) => setAddressValue(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveAddress()}
+                      className="flex-1 px-sm py-xs border border-neutral-300 rounded text-sm"
+                      autoFocus
+                    />
+                    <button onClick={handleSaveAddress} disabled={savingAddress} className="text-sm text-green-700 font-semibold whitespace-nowrap">{savingAddress ? '…' : '✓ Save'}</button>
+                    <button onClick={() => { setEditingAddress(false); setAddressValue(property.address || '') }} className="text-sm text-neutral-400">Cancel</button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-neutral-500">{inlineAddress(property.address)}</p>
+                    <button onClick={() => setEditingAddress(true)} className="opacity-0 group-hover:opacity-100 transition text-neutral-400 hover:text-neutral-700 text-xs">✏️</button>
                   </>
                 )}
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Address</p>
-                <p className="text-sm font-semibold text-white leading-snug">{property.address}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Type</p>
-                <p className="text-sm font-semibold text-white">
-                  {property.property_type === 'hmo'
-                    ? 'HMO'
-                    : property.property_type === 'single' || property.property_type === 'single_let'
-                    ? 'Single Let'
-                    : property.property_type
-                    ? property.property_type.charAt(0).toUpperCase() + property.property_type.slice(1)
-                    : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Landlord</p>
-                <p className="text-sm font-semibold text-white">
-                  {property.landlord_name || '—'}
-                </p>
-                {property.cc_emails && (
-                  <p className="text-xs text-neutral-400 mt-xs">CC: {property.cc_emails}</p>
+
+              {/* Meta row: landlord · rooms · maintenance · postcode edit */}
+              <div className="flex items-center gap-xl flex-wrap">
+                {property.landlord_name && (
+                  <span className="text-xs text-neutral-500">Landlord: <strong className="text-neutral-700">{property.landlord_name}</strong></span>
+                )}
+                <span className="text-xs text-neutral-500"><strong className="text-neutral-700">{property.rooms?.length || property.bedrooms || 0}</strong> rooms</span>
+                {tickets.length > 0 && (
+                  <span className="text-xs text-neutral-500"><strong className="text-amber-700">{tickets.length}</strong> maintenance</span>
+                )}
+                {/* Postcode — hidden inline edit only, not displayed (already in address) */}
+                {!property.postcode && (
+                  <div className="flex items-center gap-xs group">
+                    <span className="text-xs text-amber-600 italic">No postcode set for lat/lng lookup</span>
+                    {editingPostcode ? (
+                      <div className="flex items-center gap-xs">
+                        <input
+                          value={postcodeValue}
+                          onChange={(e) => setPostcodeValue(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSavePostcode()}
+                          maxLength={8} placeholder="SW1A 2AA"
+                          className="w-24 px-xs py-0.5 border border-neutral-300 rounded font-mono text-xs uppercase"
+                          autoFocus
+                        />
+                        <button onClick={handleSavePostcode} disabled={savingPostcode} className="text-xs text-green-700 font-semibold">{savingPostcode ? '…' : '✓'}</button>
+                        <button onClick={() => { setEditingPostcode(false); setPostcodeValue(property.postcode || '') }} className="text-xs text-neutral-400">✕</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setEditingPostcode(true)} className="opacity-0 group-hover:opacity-100 text-xs text-neutral-400 hover:text-neutral-600 transition">Set postcode →</button>
+                    )}
+                  </div>
+                )}
+                {!property.property_code && (
+                  <div className="flex items-center gap-xs">
+                    <input
+                      value={codeValue}
+                      onChange={(e) => setCodeValue(e.target.value.toUpperCase())}
+                      placeholder="Set property code"
+                      maxLength={10}
+                      className="w-32 rounded border border-neutral-300 px-xs py-0.5 text-xs font-mono uppercase"
+                    />
+                    <button
+                      onClick={handleSaveCode}
+                      disabled={savingCode || !codeValue.trim()}
+                      className="rounded bg-neutral-900 px-sm py-0.5 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
+                    >
+                      {savingCode ? '…' : 'Set code'}
+                    </button>
+                    {codeError && <span className="text-xs text-red-600">{codeError}</span>}
+                  </div>
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Right Column: Featured Photo */}
-          <div className="bg-neutral-900 flex items-center justify-center min-h-[280px] overflow-hidden">
-            {property.featured_photo?.file_path ? (
-              <img
-                src={property.featured_photo.file_url || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${property.featured_photo.file_path?.startsWith('property-photos/') ? property.featured_photo.file_path : `property-photos/${property.featured_photo.file_path}`}`}
-                alt="Featured photo"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-            ) : (
-              <div className="text-center">
-                <div className="text-6xl mb-md opacity-50">📷</div>
-                <p className="text-xs text-neutral-400 uppercase tracking-wider font-semibold">Featured photo</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Quick Metrics Bar */}
-        <div className="mb-2xl grid grid-cols-2 md:grid-cols-3 gap-md">
-          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
-            <p className="text-2xl font-bold text-white">{property.rooms?.length || property.bedrooms || 0}</p>
-            <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Rooms</p>
-          </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
-            <p className="text-2xl font-bold text-white">{tickets.length}</p>
-            <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Maintenance</p>
-          </div>
-          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg text-center">
-            <p className="text-2xl font-bold text-white">—</p>
-            <p className="text-xs text-neutral-400 mt-sm uppercase tracking-wider font-semibold">Total Rent</p>
           </div>
         </div>
 
@@ -605,6 +531,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 {documentsSubTab === 'photos' && <PhotosTab propertyId={id} />}
                 {documentsSubTab === 'financials' && <FinancialsTab propertyId={id} />}
               </div>
+            </div>
+          )}
+
+          {/* ── Tenant App ───────────────────────────────────────────────── */}
+          {activeTab === 'tenant_app' && (
+            <div className="p-lg">
+              <TenantAppTab propertyId={id} property={property} onUpdate={(updates: any) => setProperty((p: any) => ({ ...p, ...updates }))} />
             </div>
           )}
 

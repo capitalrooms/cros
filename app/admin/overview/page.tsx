@@ -180,7 +180,7 @@ export default function OverviewPage() {
         <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
           <h3 className="font-bold text-neutral-900 mb-md text-lg">Quick Actions</h3>
           <div className="grid gap-md md:grid-cols-2 lg:grid-cols-4">
-            <QuickActionCard href="/admin/properties" icon="🏠" label="Add Property" />
+            <QuickActionCard href="/admin/properties/new" icon="🏠" label="Add Property" />
             <QuickActionCard href="/admin/tenancies" icon="👥" label="Add Tenancy" />
             <QuickActionCard href="/admin/property-notes" icon="📝" label="Post Note" />
             <QuickActionCard href="/admin/compliance" icon="✅" label="Check Compliance" />

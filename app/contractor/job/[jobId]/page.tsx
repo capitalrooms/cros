@@ -100,6 +100,9 @@ export default function JobDetailPage() {
   const [tasks, setTasks]   = useState<PropertyTask[]>([])
   const [tickingTask, setTickingTask] = useState<string | null>(null)
 
+  // Merged sub-tickets (add-ons approved by admin)
+  const [mergedTickets, setMergedTickets] = useState<{ id: string; title: string; description: string | null }[]>([])
+
   // Quote submission
   const [quoteAmount, setQuoteAmount]       = useState('')
   const [quoteNotes, setQuoteNotes]         = useState('')
@@ -141,6 +144,14 @@ export default function JobDetailPage() {
           .eq('ticket_id', jobId)
           .order('created_at', { ascending: true })
         if (tasksData && tasksData.length > 0) setTasks(tasksData)
+
+        // Fetch merged (add-on) sub-tickets so the contractor sees everything in one visit
+        const { data: merged } = await supabase
+          .from('maintenance_tickets')
+          .select('id, title, description')
+          .eq('merged_into_ticket_id', jobId)
+          .neq('status', 'completed')
+        if (merged && merged.length > 0) setMergedTickets(merged)
 
         // Pre-fill quote fields if already submitted
         if ((jobData as any).quote_amount) setQuoteAmount(String((jobData as any).quote_amount))
@@ -557,6 +568,28 @@ export default function JobDetailPage() {
               Note from the office — before you go
             </p>
             <p className="mt-xs text-sm font-semibold text-yellow-900">{job.admin_note}</p>
+          </div>
+        )}
+
+        {/* Merged add-on jobs for this visit */}
+        {mergedTickets.length > 0 && (
+          <div className="mb-lg rounded-2xl border-2 border-blue-300 bg-blue-50 p-lg">
+            <p className="text-xs font-bold uppercase tracking-wide text-blue-800 mb-sm">
+              Also on this visit
+            </p>
+            <div className="space-y-sm">
+              {mergedTickets.map(mt => (
+                <div key={mt.id} className="rounded-xl bg-white border border-blue-200 p-sm">
+                  <p className="text-sm font-semibold text-neutral-900">{mt.title.replace(/^\[Add-on\] /, '')}</p>
+                  {mt.description && mt.description !== mt.title.replace(/^\[Add-on\] /, '') && (
+                    <p className="text-xs text-neutral-500 mt-xs">{mt.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-sm text-xs text-neutral-500">
+              The tenant requested these additions — approved by the office. Please address them during your visit.
+            </p>
           </div>
         )}
 

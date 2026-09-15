@@ -1,300 +1,339 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 
 interface Room {
   id: string
   name: string
   property_id: string
-}
-
-interface Property {
-  id: string
-  name: string
-  address: string
+  current_asking_rent?: number | null
+  property_name?: string
+  property_address?: string
 }
 
 export default function SendOfferForm() {
-  const [loading, setLoading] = useState(false)
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [properties, setProperties] = useState<{ [key: string]: Property }>({})
+  const [rooms,           setRooms]           = useState<Room[]>([])
+  const [query,           setQuery]           = useState('')
+  const [showDropdown,    setShowDropdown]    = useState(false)
+  const [selectedRoom,    setSelectedRoom]    = useState<Room | null>(null)
+  const [customMode,      setCustomMode]      = useState(false)   // free-text for unlisted properties
+  const [customRoomDesc,  setCustomRoomDesc]  = useState('')      // e.g. "Room 2, ground floor"
+  const [customAddress,   setCustomAddress]   = useState('')      // e.g. "45 Bermondsey Street"
+  const [applicantEmail,  setApplicantEmail]  = useState('')
+  const [applicantName,   setApplicantName]   = useState('')
+  const [advertisedRent,  setAdvertisedRent]  = useState('')
+  const [moveInDate,      setMoveInDate]      = useState('')
+  const [requestDeposit,  setRequestDeposit]  = useState(false)
+  const [sending,         setSending]         = useState(false)
+  const [error,           setError]           = useState('')
+  const [success,         setSuccess]         = useState('')
 
-  const [selectedRoom, setSelectedRoom] = useState('')
-  const [applicantEmail, setApplicantEmail] = useState('')
-  const [applicantName, setApplicantName] = useState('')
-  const [advertisedRent, setAdvertisedRent] = useState('')
-  const [moveInDate, setMoveInDate] = useState('')
-  const [requestDeposit, setRequestDeposit] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    async function loadRooms() {
-      try {
-        const supabase = createClient()
-
-        // Load rooms
-        const { data: roomsData, error: roomsError } = await supabase
-          .from('rooms')
-          .select('id, name, property_id')
-          .order('name')
-
-        if (roomsError) {
-          console.error('Rooms error:', roomsError)
-          setRooms([])
-        } else {
-          setRooms((roomsData as any) || [])
-        }
-
-        // Load properties
-        const { data: propsData, error: propsError } = await supabase
-          .from('properties')
-          .select('id, name, address')
-
-        if (propsError) {
-          console.error('Properties error:', propsError)
-          setProperties({})
-        } else {
-          const propsIndex: { [key: string]: Property } = {}
-          ;(propsData as any)?.forEach((prop: Property) => {
-            propsIndex[prop.id] = prop
-          })
-          setProperties(propsIndex)
-        }
-      } catch (err) {
-        console.error('Error loading rooms:', err)
-        setRooms([])
-        setProperties({})
-      }
+    async function load() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('rooms')
+        .select('id, name, property_id, current_asking_rent, properties(name, address)')
+        .order('name')
+      setRooms(
+        (data || []).map((r: any) => ({
+          id:               r.id,
+          name:             r.name,
+          property_id:      r.property_id,
+          current_asking_rent: r.current_asking_rent,
+          property_name:    r.properties?.name || '',
+          property_address: r.properties?.address || '',
+        }))
+      )
     }
-
-    loadRooms()
+    load()
   }, [])
 
-  // Ensure component renders even if loading fails
-  if (!loading && rooms.length === 0) {
-    // Don't show error state, just render empty form
-    // This prevents the component from disappearing entirely
+  // Close dropdown on outside click
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  // Filtered suggestions
+  const q = query.toLowerCase().trim()
+  const suggestions = q.length < 1 ? [] : rooms.filter(r =>
+    r.name.toLowerCase().includes(q) ||
+    (r.property_name || '').toLowerCase().includes(q) ||
+    (r.property_address || '').toLowerCase().includes(q)
+  ).slice(0, 8)
+
+  function pickRoom(room: Room) {
+    setSelectedRoom(room)
+    setQuery(`${room.name} — ${room.property_name}`)
+    setShowDropdown(false)
+    setCustomMode(false)
+    if (room.current_asking_rent) setAdvertisedRent(String(room.current_asking_rent))
   }
 
-  const handleSendOffer = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
+  function clearSelection() {
+    setSelectedRoom(null)
+    setCustomMode(false)
+    setQuery('')
+    setAdvertisedRent('')
+  }
 
-    if (!selectedRoom || !applicantEmail || !advertisedRent) {
-      setError('Please select a room, enter applicant email, and specify advertised rent')
+  function enableCustomMode() {
+    setCustomMode(true)
+    setSelectedRoom(null)
+    setShowDropdown(false)
+    setCustomRoomDesc(query) // seed with what they typed
+    setCustomAddress('')
+  }
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault()
+    setError(''); setSuccess('')
+
+    if (!applicantEmail || !advertisedRent) {
+      setError('Please enter applicant email and rent amount')
       return
     }
-
-    const room = rooms.find((r) => r.id === selectedRoom)
-    if (!room) {
-      setError('Room not found')
+    if (!customMode && !selectedRoom) {
+      setError('Please select a room or switch to custom mode')
+      return
+    }
+    if (customMode && !customAddress.trim()) {
+      setError('Please enter the property address')
       return
     }
 
     setSending(true)
-
     try {
-      const response = await fetch('/api/lettings/send-offer', {
+      const payload = customMode
+        ? {
+            customMode:    true,
+            customRoomDesc: customRoomDesc.trim() || 'Room',
+            customAddress:  customAddress.trim(),
+            applicantEmail,
+            applicantName,
+            advertisedRent:  parseFloat(advertisedRent),
+            moveInDate:      moveInDate || null,
+            requestDeposit,
+          }
+        : {
+            roomId:         selectedRoom!.id,
+            propertyId:     selectedRoom!.property_id,
+            applicantEmail,
+            applicantName,
+            advertisedRent:  parseFloat(advertisedRent),
+            moveInDate:      moveInDate || null,
+            requestDeposit,
+          }
+
+      const res = await fetch('/api/lettings/send-offer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomId: selectedRoom,
-          propertyId: room.property_id,
-          applicantEmail,
-          applicantName,
-          advertisedRent: parseFloat(advertisedRent),
-          moveInDate: moveInDate || null,
-          requestDeposit,
-        }),
+        body: JSON.stringify(payload),
       })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        setError(result.error || 'Failed to send offer')
-        setSending(false)
-        return
-      }
+      const result = await res.json()
+      if (!res.ok) { setError(result.error || 'Failed to send offer'); setSending(false); return }
 
       setSuccess(`✓ Offer sent to ${applicantEmail}`)
-      setSelectedRoom('')
-      setApplicantEmail('')
-      setApplicantName('')
-      setAdvertisedRent('')
-      setMoveInDate('')
+      clearSelection()
+      setCustomRoomDesc(''); setCustomAddress('')
+      setApplicantEmail(''); setApplicantName('')
+      setAdvertisedRent(''); setMoveInDate('')
       setRequestDeposit(false)
-      setSending(false)
-    } catch (err) {
-      console.error('Send offer error:', err)
+    } catch {
       setError('An error occurred. Please try again.')
+    } finally {
       setSending(false)
     }
   }
 
-  const selectedRoomData = rooms.find((r) => r.id === selectedRoom)
-  const selectedProperty = selectedRoomData
-    ? properties[selectedRoomData.property_id]
-    : null
-
   return (
     <div className="bg-neutral-900 rounded-2xl p-xl border-2 border-neutral-950 text-white">
-      <h2 className="text-2xl font-bold text-white mb-md">
-        📧 Send Offer Letter
-      </h2>
-      <p className="text-sm text-white/60 mb-lg">
-        Send a personalised application link to an applicant
-      </p>
+      <h2 className="text-2xl font-bold text-white mb-xs">📧 Send Offer Letter</h2>
+      <p className="text-sm text-white/60 mb-lg">Send a personalised application link to an applicant</p>
 
-      {error && (
-        <div className="mb-lg p-md rounded-lg bg-red-100 border border-red-300 text-red-900 text-sm">
-          {error}
-        </div>
-      )}
+      {error   && <div className="mb-lg p-md rounded-lg bg-red-100  border border-red-300  text-red-900  text-sm">{error}</div>}
+      {success && <div className="mb-lg p-md rounded-lg bg-green-100 border border-green-300 text-green-900 text-sm">{success}</div>}
 
-      {success && (
-        <div className="mb-lg p-md rounded-lg bg-green-100 border border-green-300 text-green-900 text-sm">
-          {success}
-        </div>
-      )}
+      <form onSubmit={handleSend} className="space-y-md">
 
-      <form onSubmit={handleSendOffer} className="space-y-md">
+        {/* ── Property / Room search ── */}
         <div>
           <label className="block text-sm font-medium text-white mb-xs">
-            Select Room <span className="text-red-500">*</span>
+            Property / Room <span className="text-red-400">*</span>
           </label>
-          <select
-            value={selectedRoom}
-            onChange={(e) => setSelectedRoom(e.target.value)}
-            className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          >
-            <option value="">Choose a room...</option>
-            {rooms.map((room) => (
-              <option key={room.id} value={room.id}>
-                {room.name} ({properties[room.property_id]?.name})
-              </option>
-            ))}
-          </select>
-        </div>
 
-        {selectedRoomData && selectedProperty && (
-          <div className="bg-neutral-800 p-md rounded-xl border border-neutral-700">
-            <div className="text-sm text-white/80">
-              <div>
-                <strong className="text-white">Room:</strong> {selectedRoomData.name}
-              </div>
-              <div>
-                <strong className="text-white">Property:</strong> {selectedProperty.name}, {selectedProperty.address}
-              </div>
+          {!customMode ? (
+            <div ref={wrapperRef} className="relative">
+              <input
+                type="text"
+                value={query}
+                onChange={e => { setQuery(e.target.value); setSelectedRoom(null); setShowDropdown(true) }}
+                onFocus={() => { if (query.length > 0) setShowDropdown(true) }}
+                placeholder="Type a room or address to search…"
+                className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+
+              {/* Clear button */}
+              {query && (
+                <button type="button" onClick={clearSelection}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white text-lg leading-none">
+                  ✕
+                </button>
+              )}
+
+              {/* Dropdown */}
+              {showDropdown && query.length > 0 && (
+                <div className="absolute z-30 mt-1 w-full bg-neutral-800 border border-neutral-600 rounded-xl shadow-xl overflow-hidden">
+                  {suggestions.length > 0 ? (
+                    suggestions.map(r => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => pickRoom(r)}
+                        className="w-full text-left px-md py-sm hover:bg-neutral-700 transition-colors border-b border-neutral-700 last:border-0"
+                      >
+                        <p className="text-sm font-semibold text-white">{r.name}</p>
+                        <p className="text-xs text-neutral-400">{r.property_name}{r.property_address ? ` · ${r.property_address}` : ''}</p>
+                        {r.current_asking_rent && (
+                          <p className="text-xs text-green-400 mt-0.5">£{r.current_asking_rent.toLocaleString()}/mo</p>
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-md py-sm">
+                      <p className="text-sm text-neutral-400 mb-sm">No rooms matched "{query}"</p>
+                      <button
+                        type="button"
+                        onClick={enableCustomMode}
+                        className="text-sm text-blue-400 hover:text-blue-300 font-semibold"
+                      >
+                        ＋ Enter property details manually →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          ) : null}
 
-        <div>
-          <label className="block text-sm font-medium text-white mb-xs">
-            Advertised Rent (pcm) <span className="text-red-500">*</span>
-          </label>
-          <div className="flex items-center gap-xs">
-            <span className="text-white/70 font-medium">£</span>
-            <input
-              type="number"
-              value={advertisedRent}
-              onChange={(e) => setAdvertisedRent(e.target.value)}
-              placeholder="850"
-              step="0.01"
-              min="0"
-              className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-            <span className="text-white/70 font-medium whitespace-nowrap">pcm</span>
-          </div>
-          {advertisedRent && (
-            <p className="mt-xs text-xs text-white/60">
-              Holding deposit: £{(parseFloat(advertisedRent) / 4.33).toFixed(2)} (1 week's rent)
-            </p>
+          {/* Custom / unlisted mode */}
+          {customMode && (
+            <div className="space-y-sm">
+              <div className="flex items-center gap-sm mb-xs">
+                <span className="text-xs text-amber-400 font-semibold">✏️ Unlisted property</span>
+                <button type="button" onClick={() => { setCustomMode(false); setQuery('') }}
+                  className="text-xs text-neutral-500 hover:text-neutral-300 underline">
+                  Search rooms instead
+                </button>
+              </div>
+              <input
+                type="text"
+                value={customRoomDesc}
+                onChange={e => setCustomRoomDesc(e.target.value)}
+                placeholder="Room description, e.g. Double room, ground floor"
+                className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+              <input
+                type="text"
+                value={customAddress}
+                onChange={e => setCustomAddress(e.target.value)}
+                placeholder="Full property address *"
+                required
+                className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+          )}
+
+          {/* Selected room confirmation */}
+          {selectedRoom && !customMode && (
+            <div className="mt-sm bg-neutral-800 px-md py-sm rounded-xl border border-neutral-700 text-sm">
+              <span className="text-white font-semibold">{selectedRoom.name}</span>
+              <span className="text-neutral-400 ml-xs">· {selectedRoom.property_name}</span>
+              {selectedRoom.property_address && <span className="text-neutral-500 ml-xs">· {selectedRoom.property_address}</span>}
+            </div>
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-white mb-xs">
-            Applicant Email <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="email"
-            value={applicantEmail}
-            onChange={(e) => setApplicantEmail(e.target.value)}
-            placeholder="applicant@email.com"
-            className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            required
-          />
+        {/* Applicant details */}
+        <div className="grid grid-cols-2 gap-sm">
+          <div>
+            <label className="block text-sm font-medium text-white mb-xs">Applicant name</label>
+            <input
+              type="text"
+              value={applicantName}
+              onChange={e => setApplicantName(e.target.value)}
+              placeholder="Full name"
+              className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white mb-xs">Email <span className="text-red-400">*</span></label>
+            <input
+              type="email"
+              value={applicantEmail}
+              onChange={e => setApplicantEmail(e.target.value)}
+              placeholder="applicant@email.com"
+              required
+              className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-white mb-xs">
-            Applicant Name (optional)
-          </label>
-          <input
-            type="text"
-            value={applicantName}
-            onChange={(e) => setApplicantName(e.target.value)}
-            placeholder="e.g., Jane Doe"
-            className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {/* Rent + move-in */}
+        <div className="grid grid-cols-2 gap-sm">
+          <div>
+            <label className="block text-sm font-medium text-white mb-xs">Rent (pcm) <span className="text-red-400">*</span></label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">£</span>
+              <input
+                type="number"
+                value={advertisedRent}
+                onChange={e => setAdvertisedRent(e.target.value)}
+                placeholder="850"
+                required
+                className="w-full pl-6 pr-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white mb-xs">Available from</label>
+            <input
+              type="date"
+              value={moveInDate}
+              onChange={e => setMoveInDate(e.target.value)}
+              className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-white mb-xs">
-            Suggested Move-In Date (optional)
-          </label>
-          <input
-            type="date"
-            value={moveInDate}
-            onChange={(e) => setMoveInDate(e.target.value)}
-            className="w-full min-w-0 px-md py-sm rounded-xl border border-neutral-600 bg-neutral-900 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-md p-md rounded-xl bg-blue-950/50 border border-blue-800">
+        {/* Holding deposit toggle */}
+        <label className="flex items-center gap-sm cursor-pointer">
           <input
             type="checkbox"
-            id="requestDeposit"
             checked={requestDeposit}
-            onChange={(e) => setRequestDeposit(e.target.checked)}
-            className="w-4 h-4 cursor-pointer"
+            onChange={e => setRequestDeposit(e.target.checked)}
+            className="w-4 h-4 accent-blue-500"
           />
-          <label htmlFor="requestDeposit" className="text-sm font-medium text-white cursor-pointer flex-1">
-            🏦 Request Holding Deposit to Reserve Room
-          </label>
-        </div>
-
-        {requestDeposit && advertisedRent && (
-          <div className="p-md rounded-lg bg-green-50 border border-green-200">
-            <p className="text-xs text-green-900">
-              <strong>Holding Deposit Amount:</strong> £{(parseFloat(advertisedRent) / 4.33).toFixed(2)} (1 week's rent)
-            </p>
-            <p className="text-xs text-green-900 mt-xs">
-              Applicant will receive payment instructions in the email.
-            </p>
-          </div>
-        )}
+          <span className="text-sm text-white/80">Request holding deposit ("Search is over" email)</span>
+        </label>
 
         <button
           type="submit"
-          disabled={sending || !selectedRoom || !applicantEmail}
-          className="w-full py-md px-lg rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          disabled={sending || (!selectedRoom && !customMode) || !applicantEmail || !advertisedRent}
+          className="w-full rounded-xl bg-blue-600 py-sm text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
         >
-          {sending ? 'Sending...' : 'Send Offer Letter'}
+          {sending ? 'Sending…' : '📧 Send offer letter'}
         </button>
       </form>
-
-      <p className="text-xs text-white/50 mt-lg">
-        💡 The applicant will receive an email with a personalised link to complete their application.
-        The link expires in 30 days.
-      </p>
     </div>
   )
 }

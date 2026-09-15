@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
@@ -206,6 +206,164 @@ function EmailSupplierModal({ cert, contractors, onClose }: EmailModalProps) {
   )
 }
 
+// ── Complete cert modal ────────────────────────────────────────────────────────
+
+function CompleteCertModal({ cert, onClose, onSaved }: {
+  cert: CertAlert
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const supabase = createClient()
+  const icon = CERT_CHECKS.find(c => c.label === cert.label)?.icon || '📋'
+
+  // Default new expiry = 1 year from today
+  const defaultExpiry = (() => {
+    const d = new Date(); d.setFullYear(d.getFullYear() + 1)
+    return d.toISOString().split('T')[0]
+  })()
+
+  const [newExpiry, setNewExpiry] = useState(defaultExpiry)
+  const [file,      setFile]      = useState<File | null>(null)
+  const [saving,    setSaving]    = useState(false)
+  const [error,     setError]     = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function save() {
+    if (!newExpiry) { setError('Please enter the new expiry date'); return }
+    setSaving(true); setError('')
+    try {
+      // 1. Update the expiry date on the property
+      const { error: updateErr } = await supabase
+        .from('properties')
+        .update({ [cert.cert_type]: newExpiry })
+        .eq('id', cert.property_id)
+      if (updateErr) throw updateErr
+
+      // 2. Upload certificate file if provided
+      if (file) {
+        const ext      = file.name.split('.').pop() || 'pdf'
+        const path     = `certs/${cert.property_id}/${cert.cert_type}_${newExpiry}.${ext}`
+        const { error: upErr } = await supabase.storage
+          .from('documents')
+          .upload(path, file, { upsert: true })
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+          // Store in documents table for audit trail
+          await supabase.from('documents').insert({
+            property_id:   cert.property_id,
+            document_type: cert.cert_type,
+            file_name:     file.name,
+            file_path:     path,
+            storage_url:   urlData.publicUrl,
+            status:        'approved',
+            source:        'manual_upload',
+            extracted_data: { expiry_date: newExpiry, cert_label: cert.label },
+          }).select().maybeSingle()
+        }
+      }
+
+      onSaved()
+    } catch (e: any) {
+      setError(e.message || 'Something went wrong')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const hasFile = !!file
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-md">
+      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="bg-neutral-950 px-lg py-md flex items-center gap-sm">
+          <span className="text-2xl">{icon}</span>
+          <div>
+            <p className="text-white font-bold text-sm">{cert.label}</p>
+            <p className="text-neutral-400 text-xs">{cert.property_name}</p>
+          </div>
+          <button onClick={onClose} className="ml-auto text-neutral-400 hover:text-white text-xl">✕</button>
+        </div>
+
+        <div className="p-lg space-y-md">
+          {/* New expiry date */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wide text-neutral-500 block mb-xs">
+              New certificate expiry date
+            </label>
+            <input
+              type="date"
+              value={newExpiry}
+              onChange={e => setNewExpiry(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className="w-full border border-neutral-200 rounded-xl p-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-950"
+            />
+          </div>
+
+          {/* File upload */}
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wide text-neutral-500 block mb-xs">
+              Certificate file <span className="font-normal normal-case text-neutral-400">(optional — upload now or later)</span>
+            </label>
+            {!hasFile ? (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="w-full border-2 border-dashed border-neutral-200 rounded-xl p-md text-sm text-neutral-500 hover:border-neutral-400 hover:bg-neutral-50 transition text-center"
+              >
+                📎 Click to attach certificate PDF or photo
+              </button>
+            ) : (
+              <div className="flex items-center gap-sm bg-green-50 border border-green-200 rounded-xl p-sm">
+                <span className="text-green-700 text-sm font-semibold flex-1 truncate">📄 {file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setFile(null)}
+                  className="text-xs text-neutral-400 hover:text-red-500"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.heic"
+              hidden
+              onChange={e => setFile(e.target.files?.[0] || null)}
+            />
+            {!hasFile && (
+              <p className="text-xs text-neutral-400 mt-xs">
+                You can also upload later via Documents → Upload. The expiry date will update now either way.
+              </p>
+            )}
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-xl px-md py-sm">{error}</p>
+          )}
+
+          <div className="flex gap-sm pt-xs">
+            <button
+              onClick={save}
+              disabled={!newExpiry || saving}
+              className="flex-1 bg-neutral-950 text-white font-bold py-sm rounded-xl hover:bg-neutral-800 disabled:opacity-50 transition"
+            >
+              {saving ? 'Saving…' : hasFile ? '✓ Mark complete & upload' : '✓ Mark as renewed'}
+            </button>
+            <button
+              onClick={onClose}
+              className="px-lg border border-neutral-200 rounded-xl font-semibold text-sm hover:bg-neutral-50 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function PropertyTasksPage() {
@@ -218,6 +376,7 @@ export default function PropertyTasksPage() {
   const [filter,      setFilter]      = useState<FilterMode>('all')
   const [horizon,     setHorizon]     = useState<HorizonDays>(30)
   const [emailCert,   setEmailCert]   = useState<CertAlert | null>(null)
+  const [completingCert, setCompletingCert] = useState<CertAlert | null>(null)
   const [converting,  setConverting]  = useState<string | null>(null)
   const [showAdd,     setShowAdd]     = useState(false)
   // Add task form
@@ -517,7 +676,7 @@ export default function PropertyTasksPage() {
         {overdueAlerts.length > 0 && (
           <Section title="Overdue" count={overdueAlerts.length} countColor="bg-red-100 text-red-800">
             {overdueAlerts.map(cert => (
-              <CertRow key={cert.property_id + cert.cert_type} cert={cert} onEmail={() => setEmailCert(cert)} />
+              <CertRow key={cert.property_id + cert.cert_type} cert={cert} onEmail={() => setEmailCert(cert)} onComplete={() => setCompletingCert(cert)} />
             ))}
           </Section>
         )}
@@ -526,7 +685,7 @@ export default function PropertyTasksPage() {
         {urgentAlerts.length > 0 && (
           <Section title="Cert deadlines — due soon" count={urgentAlerts.length} countColor="bg-amber-100 text-amber-800">
             {urgentAlerts.map(cert => (
-              <CertRow key={cert.property_id + cert.cert_type} cert={cert} onEmail={() => setEmailCert(cert)} />
+              <CertRow key={cert.property_id + cert.cert_type} cert={cert} onEmail={() => setEmailCert(cert)} onComplete={() => setCompletingCert(cert)} />
             ))}
           </Section>
         )}
@@ -535,7 +694,7 @@ export default function PropertyTasksPage() {
         {upcomingAlerts.length > 0 && filter !== 'mine' && (
           <Section title="Upcoming certs" count={upcomingAlerts.length}>
             {upcomingAlerts.map(cert => (
-              <CertRow key={cert.property_id + cert.cert_type} cert={cert} onEmail={() => setEmailCert(cert)} />
+              <CertRow key={cert.property_id + cert.cert_type} cert={cert} onEmail={() => setEmailCert(cert)} onComplete={() => setCompletingCert(cert)} />
             ))}
           </Section>
         )}
@@ -575,6 +734,14 @@ export default function PropertyTasksPage() {
           onClose={() => setEmailCert(null)}
         />
       )}
+
+      {completingCert && (
+        <CompleteCertModal
+          cert={completingCert}
+          onClose={() => setCompletingCert(null)}
+          onSaved={async () => { setCompletingCert(null); await loadAll() }}
+        />
+      )}
     </div>
   )
 }
@@ -595,7 +762,7 @@ function Section({ title, count, countColor = 'bg-neutral-100 text-neutral-500',
   )
 }
 
-function CertRow({ cert, onEmail }: { cert: CertAlert; onEmail: () => void }) {
+function CertRow({ cert, onEmail, onComplete }: { cert: CertAlert; onEmail: () => void; onComplete: () => void }) {
   const icon = CERT_CHECKS.find(c => c.label === cert.label)?.icon || '📋'
   const due  = fmtDate(cert.expiry)
   return (
@@ -615,13 +782,11 @@ function CertRow({ cert, onEmail }: { cert: CertAlert; onEmail: () => void }) {
         >
           📧 Book
         </button>
-        {/* Placeholder for Feature 6 */}
         <button
-          disabled
-          title="Quoting coming soon"
-          className="text-xs font-semibold px-sm py-xs rounded-lg border border-neutral-100 text-neutral-300 cursor-not-allowed whitespace-nowrap"
+          onClick={onComplete}
+          className="text-xs font-semibold px-sm py-xs rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition whitespace-nowrap"
         >
-          📋 Quote
+          ✓ Done
         </button>
       </div>
     </div>

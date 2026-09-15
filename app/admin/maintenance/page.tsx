@@ -137,6 +137,21 @@ export default function MaintenanceDashboard() {
   const [batchDate, setBatchDate] = useState('');
   const [showBatchDialog, setShowBatchDialog] = useState(false);
 
+  // Visit-request + merge state
+  const [visitRequests, setVisitRequests] = useState<any[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [requestDecision, setRequestDecision] = useState<Record<string, string>>({});
+  const [mergeTargetId, setMergeTargetId] = useState('');
+  const [merging, setMerging] = useState(false);
+
+  // Add to Planner
+  const [plannerBoards, setPlannerBoards] = useState<{ id: string; title: string; section: string; items: { groupName: string }[] }[]>([]);
+  const [addToPlannerTicket, setAddToPlannerTicket] = useState<Ticket | null>(null);
+  const [plannerBoard, setPlannerBoard] = useState('');
+  const [plannerGroup, setPlannerGroup] = useState('');
+  const [plannerGroupCustom, setPlannerGroupCustom] = useState('');
+  const [plannerAdded, setPlannerAdded] = useState<string | null>(null); // ticketId just added
+
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser();
@@ -146,6 +161,55 @@ export default function MaintenanceDashboard() {
     }
     checkAuth();
   }, [router]);
+
+  // Load planner boards from localStorage (client-side only)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('cros_planner_v1')
+      if (raw) setPlannerBoards(JSON.parse(raw))
+    } catch {}
+  }, []);
+
+  function openAddToPlanner(ticket: Ticket) {
+    setAddToPlannerTicket(ticket)
+    setPlannerBoard(plannerBoards[0]?.id || '')
+    setPlannerGroup('')
+    setPlannerGroupCustom('')
+    setPlannerAdded(null)
+  }
+
+  function confirmAddToPlanner() {
+    if (!addToPlannerTicket) return
+    const board = plannerBoards.find(b => b.id === plannerBoard)
+    if (!board) return
+    const groupName = plannerGroup === '__custom__' ? plannerGroupCustom.trim() : plannerGroup
+    if (!groupName) return
+
+    const ticket = addToPlannerTicket
+    const uid = () => Math.random().toString(36).slice(2, 10)
+    const newItem = {
+      id: uid(),
+      groupName,
+      groupColor: '#6b7280',
+      title: `${ticket.category}: ${ticket.title}`,
+      status: 'discuss' as const,
+      responsible: 'Harry',
+      date: '—',
+      updates: [{
+        id: uid(),
+        author: 'Harry',
+        when: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        body: `Raised by tenant${ticket.properties?.name ? ` at ${ticket.properties.name}` : ''}${ticket.rooms?.name ? `, ${ticket.rooms.name}` : ''}. Priority: ${ticket.priority}. ${ticket.description || ''}`.trim(),
+      }],
+    }
+    const updated = plannerBoards.map(b =>
+      b.id !== plannerBoard ? b : { ...b, items: [...b.items, newItem] }
+    )
+    setPlannerBoards(updated)
+    try { localStorage.setItem('cros_planner_v1', JSON.stringify(updated)) } catch {}
+    setPlannerAdded(ticket.id)
+    setTimeout(() => setAddToPlannerTicket(null), 1500)
+  }
 
   useEffect(() => {
     fetchTickets();
@@ -327,6 +391,11 @@ export default function MaintenanceDashboard() {
         body: JSON.stringify({ ticketId }),
       }).catch((e) => console.error('Booking notification failed:', e));
 
+      // Cascade date to any merged child tickets so the visit stays coherent
+      if (bookDate && bookSlot) {
+        await cascadeDateToChildren(ticketId, bookDate, bookSlot);
+      }
+
       fetchTickets();
       setShowDetails(false);
     } catch (err) {
@@ -405,6 +474,82 @@ export default function MaintenanceDashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to batch jobs');
     }
+  }
+
+  // Load visit-requests whenever the selected ticket changes
+  useEffect(() => {
+    if (!selectedTicket) { setVisitRequests([]); return; }
+    setLoadingRequests(true);
+    fetch(`/api/admin/visit-requests?status=pending`)
+      .then(r => r.ok ? r.json() : { requests: [] })
+      .then(j => {
+        const forThisTicket = (j.requests || []).filter((r: any) => r.ticket_id === selectedTicket.id);
+        setVisitRequests(forThisTicket);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingRequests(false));
+  }, [selectedTicket?.id]);
+
+  async function handleVisitRequestDecision(requestId: string, decision: 'approved' | 'declined', response?: string) {
+    setRequestDecision(prev => ({ ...prev, [requestId]: 'saving' }));
+    try {
+      const { data: sessionData } = await createClient().auth.getSession();
+      const token = sessionData?.session?.access_token || '';
+      const res = await fetch('/api/admin/visit-requests', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ requestId, decision, adminResponse: response || null }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      setVisitRequests(prev => prev.filter(r => r.id !== requestId));
+      fetchTickets();
+    } catch (e) {
+      alert('Failed to save decision: ' + (e instanceof Error ? e.message : 'Unknown error'));
+      setRequestDecision(prev => ({ ...prev, [requestId]: '' }));
+    }
+  }
+
+  /** Merge ticketId into targetId — sets merged_into_ticket_id and copies the date. */
+  async function mergeTicketInto(ticketId: string, targetId: string) {
+    if (!targetId || merging) return;
+    const target = tickets.find(t => t.id === targetId);
+    if (!window.confirm(`Merge "${selectedTicket?.title}" into "${target?.title}"? The merged job will follow the target's schedule.`)) return;
+    setMerging(true);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase
+        .from('maintenance_tickets')
+        .update({
+          merged_into_ticket_id: targetId,
+          booked_date: target?.booked_date ?? null,
+          booked_slot: target?.booked_slot ?? null,
+          status: 'assigned',
+        })
+        .eq('id', ticketId);
+      if (err) throw err;
+      setMergeTargetId('');
+      fetchTickets();
+      setShowDetails(false);
+    } catch (e) {
+      alert('Merge failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    } finally {
+      setMerging(false);
+    }
+  }
+
+  /**
+   * When re-booking a parent ticket, cascade the new date to all child (merged) tickets
+   * so the visit stays coherent.
+   */
+  async function cascadeDateToChildren(parentId: string, newDate: string, newSlot: string) {
+    const supabase = createClient();
+    await supabase
+      .from('maintenance_tickets')
+      .update({ booked_date: newDate, booked_slot: newSlot })
+      .eq('merged_into_ticket_id', parentId);
   }
 
   const filteredTickets = tickets.filter((t) => {
@@ -716,6 +861,15 @@ export default function MaintenanceDashboard() {
                               Return visit needed
                             </p>
                           )}
+                          {/* Add to Planner — available on non-completed tickets */}
+                          {col.key !== 'completed' && (
+                            <button
+                              onClick={e => { e.stopPropagation(); openAddToPlanner(ticket) }}
+                              className="mt-sm w-full rounded-lg border border-dashed border-neutral-300 py-1 text-[10px] font-semibold text-neutral-400 hover:border-neutral-500 hover:text-neutral-700 transition-colors"
+                            >
+                              🗂️ Add to Planner
+                            </button>
+                          )}
                         </div>
                       ))
                     )}
@@ -946,6 +1100,78 @@ export default function MaintenanceDashboard() {
                   </button>
                 </div>
 
+                {/* ── Tenant add-on requests ───────────────────────────── */}
+                {(loadingRequests || visitRequests.length > 0) && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-md">
+                    <h3 className="font-bold text-amber-900 mb-sm">🔔 Tenant add-on requests</h3>
+                    {loadingRequests ? (
+                      <div className="h-8 bg-amber-100 rounded animate-pulse" />
+                    ) : visitRequests.map((vr: any) => (
+                      <div key={vr.id} className="border-t border-amber-200 pt-sm mt-sm">
+                        <p className="text-sm text-neutral-800 mb-sm">
+                          <span className="font-semibold">
+                            {vr.tenant?.first_name} {vr.tenant?.last_name}
+                          </span>
+                          {' '}wants to add:
+                        </p>
+                        <p className="text-sm text-neutral-700 italic mb-md">"{vr.request_text}"</p>
+                        <div className="flex gap-sm">
+                          <button
+                            disabled={requestDecision[vr.id] === 'saving'}
+                            onClick={() => handleVisitRequestDecision(vr.id, 'approved')}
+                            className="flex-1 rounded-lg bg-neutral-900 py-sm text-xs font-bold text-white disabled:opacity-40"
+                          >
+                            {requestDecision[vr.id] === 'saving' ? 'Saving…' : '✅ Approve + add to visit'}
+                          </button>
+                          <button
+                            disabled={requestDecision[vr.id] === 'saving'}
+                            onClick={() => handleVisitRequestDecision(vr.id, 'declined')}
+                            className="flex-1 rounded-lg border border-neutral-300 py-sm text-xs font-semibold text-neutral-700 disabled:opacity-40"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── Merge into another job ───────────────────────────── */}
+                <div className="rounded-xl border border-neutral-200 p-md">
+                  <h3 className="font-bold text-neutral-900 mb-xs">Merge into another job</h3>
+                  <p className="text-xs text-neutral-500 mb-md">
+                    Attach this job to another visit at the same property. It will follow the target job's date.
+                  </p>
+                  <select
+                    value={mergeTargetId}
+                    onChange={(e) => setMergeTargetId(e.target.value)}
+                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                  >
+                    <option value="">Select job to merge into…</option>
+                    {tickets
+                      .filter(t =>
+                        t.id !== selectedTicket.id &&
+                        t.properties?.name === selectedTicket.properties?.name &&
+                        t.status !== 'completed' &&
+                        !(t as any).merged_into_ticket_id
+                      )
+                      .map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.title}
+                          {t.booked_date ? ` · ${new Date(t.booked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ' · no date'}
+                        </option>
+                      ))
+                    }
+                  </select>
+                  <button
+                    disabled={!mergeTargetId || merging}
+                    onClick={() => mergeTicketInto(selectedTicket.id, mergeTargetId)}
+                    className="mt-sm w-full rounded-lg border border-neutral-400 py-sm text-sm font-bold text-neutral-900 disabled:opacity-40"
+                  >
+                    {merging ? 'Merging…' : 'Merge jobs →'}
+                  </button>
+                </div>
+
                 <div className="flex gap-md border-t border-neutral-200 pt-md">
                   <button
                     onClick={() => setShowDetails(false)}
@@ -1072,6 +1298,75 @@ export default function MaintenanceDashboard() {
           )}
         </section>
       </main>
+
+      {/* ── Add to Planner modal ── */}
+      {addToPlannerTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={e => { if (e.target === e.currentTarget) setAddToPlannerTicket(null) }}>
+          <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+            <div className="bg-neutral-900 px-5 py-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Add to Planner</p>
+              <h3 className="mt-1 text-sm font-semibold text-white leading-snug">{addToPlannerTicket.category}: {addToPlannerTicket.title}</h3>
+              <p className="text-xs text-neutral-500 mt-0.5">{addToPlannerTicket.properties?.name}{addToPlannerTicket.rooms?.name ? ` · ${addToPlannerTicket.rooms.name}` : ''}</p>
+            </div>
+            {plannerAdded === addToPlannerTicket.id ? (
+              <div className="p-6 text-center">
+                <p className="text-2xl mb-2">✅</p>
+                <p className="text-sm font-semibold text-neutral-800">Added to Planner</p>
+              </div>
+            ) : plannerBoards.length === 0 ? (
+              <div className="p-5">
+                <p className="text-sm text-neutral-500">No planner boards found. Open the Planner first to create boards.</p>
+                <button onClick={() => setAddToPlannerTicket(null)} className="mt-3 w-full rounded-xl border border-neutral-300 py-2 text-sm font-semibold">Close</button>
+              </div>
+            ) : (
+              <div className="p-5 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-500 mb-1">Board</label>
+                  <select value={plannerBoard} onChange={e => { setPlannerBoard(e.target.value); setPlannerGroup('') }}
+                    className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900">
+                    {plannerBoards.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-500 mb-1">Group (property section)</label>
+                  {(() => {
+                    const board = plannerBoards.find(b => b.id === plannerBoard)
+                    const groups = Array.from(new Set((board?.items || []).map((i: any) => i.groupName))).filter(Boolean)
+                    return (
+                      <>
+                        <select value={plannerGroup} onChange={e => setPlannerGroup(e.target.value)}
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900">
+                          <option value="">— choose or type new —</option>
+                          {groups.map((g: any) => <option key={g} value={g}>{g}</option>)}
+                          <option value="__custom__">+ New group…</option>
+                        </select>
+                        {plannerGroup === '__custom__' && (
+                          <input autoFocus value={plannerGroupCustom} onChange={e => setPlannerGroupCustom(e.target.value)}
+                            placeholder="Group name, e.g. Willis Road"
+                            className="mt-2 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                          />
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={confirmAddToPlanner}
+                    disabled={!plannerBoard || !plannerGroup || (plannerGroup === '__custom__' && !plannerGroupCustom.trim())}
+                    className="flex-1 rounded-xl bg-neutral-900 py-2 text-sm font-bold text-white disabled:opacity-40 hover:bg-neutral-700 transition-colors">
+                    Add to Planner
+                  </button>
+                  <button onClick={() => setAddToPlannerTicket(null)}
+                    className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-600 hover:bg-neutral-50">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

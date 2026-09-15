@@ -48,12 +48,52 @@ const BASE_URL = typeof window !== 'undefined' ? window.location.origin : 'https
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
+// ── Doc type labels ────────────────────────────────────────────────────────────
+
+const DOC_LABELS: Record<string, string> = {
+  id_document:                'ID Document',
+  proof_of_address:           'Proof of Address',
+  proof_of_ownership:         'Proof of Ownership',
+  certificate_of_incorporation: 'Certificate of Incorporation',
+  articles_of_association:    'Articles of Association',
+  director_id:                'Director ID',
+  director_address:           'Director Proof of Address',
+  // Compliance certificates
+  gas_safety_certificate:     'Gas Safety Certificate (CP12)',
+  eicr:                       'Electrical Installation Condition Report (EICR)',
+  epc:                        'Energy Performance Certificate (EPC)',
+  fire_risk_assessment:       'Fire Risk Assessment',
+  fire_detection_certificate: 'Fire Detection and Alarm System Certificate',
+  emergency_lighting_certificate: 'Emergency Lighting Certificate',
+  pat_test_record:            'Portable Appliance Testing (PAT) Record',
+  legionella_risk_assessment: 'Legionella Risk Assessment',
+  hmo_licence:                'HMO Licence',
+  other_document:             'Other Document',
+}
+
+// Days since a date
+function daysSince(iso?: string | null): number | null {
+  if (!iso) return null
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+}
+
+// Last activity date for a row (most recent non-null timestamp)
+function lastActivity(row: any): string | null {
+  return [row.agreement_sent_at, row.approval_sent_at, row.verified_at,
+          row.docs_received_at, row.welcome_sent_at, row.created_at]
+    .find(Boolean) ?? null
+}
+
 export default function OnboardingPage() {
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<any | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [advancing, setAdvancing] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [converting, setConverting] = useState(false)
+  const [convertResult, setConvertResult] = useState<{ ok: boolean; msg: string; profileId?: string } | null>(null)
+  const [docUrls, setDocUrls] = useState<Record<string, string>>({}) // path → signed URL
 
   // Add modal state
   const [addName, setAddName] = useState('')
@@ -82,6 +122,18 @@ export default function OnboardingPage() {
     if (selected) {
       setVerifyNotes(selected.verification_notes ?? '')
       setVerifyChecks(selected.verification_checks ?? [])
+      setConvertResult(null)
+      // Load signed URLs for any uploaded documents
+      const docs = selected.form_data?.documents as Record<string, string[]> | undefined
+      if (docs) {
+        const allPaths = Object.values(docs).flat() as string[]
+        allPaths.forEach(async (path) => {
+          if (docUrls[path]) return
+          const r = await fetch(`/api/landlord-onboarding/upload/${selected.token}?path=${encodeURIComponent(path)}`)
+          const d = await r.json()
+          if (d.url) setDocUrls(prev => ({ ...prev, [path]: d.url }))
+        })
+      }
     }
   }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -103,6 +155,35 @@ export default function OnboardingPage() {
       load()
     }
     setAddSending(false)
+  }
+
+  async function archiveRecord(id: string) {
+    if (!confirm("Archive this landlord? They'll be hidden from the active pipeline. You can restore them at any time.")) return
+    setAdvancing(true)
+    const r = await fetch(`/api/landlord-onboarding/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage: 0 }),
+    })
+    if (r.ok) {
+      setSelected(null)
+      setRows(prev => prev.map(row => row.id === id ? { ...row, stage: 0 } : row))
+    }
+    setAdvancing(false)
+  }
+
+  async function restoreRecord(id: string) {
+    setAdvancing(true)
+    const r = await fetch(`/api/landlord-onboarding/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage: 1 }),
+    })
+    const d = await r.json()
+    if (r.ok) {
+      setRows(prev => prev.map(row => row.id === id ? d.row : row))
+    }
+    setAdvancing(false)
   }
 
   async function advanceStage(id: string, newStage: number, extraFields?: Record<string, unknown>) {
@@ -135,10 +216,44 @@ export default function OnboardingPage() {
     ))
   }
 
-  // Group rows by stage
+  async function handleConvert() {
+    if (!selected) return
+    setConverting(true)
+    setConvertResult(null)
+    try {
+      const r = await fetch(`/api/landlord-onboarding/${selected.id}/convert`, { method: 'POST' })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error ?? 'Conversion failed')
+
+      // Update selected row so "Full profile →" link appears immediately
+      const updated = {
+        ...selected,
+        landlord_people_id: d.person?.id ?? selected.landlord_people_id,
+      }
+      setSelected(updated)
+      setRows(prev => prev.map(row => row.id === selected.id ? updated : row))
+
+      setConvertResult({
+        ok: true,
+        msg: d.alreadyExisted
+          ? `Linked to existing profile for ${d.person?.full_name ?? d.person?.email}`
+          : `Landlord profile created for ${d.person?.full_name ?? d.person?.email}`,
+        profileId: d.person?.id,
+      })
+    } catch (e) {
+      setConvertResult({ ok: false, msg: e instanceof Error ? e.message : 'Conversion failed' })
+    } finally {
+      setConverting(false)
+    }
+  }
+
+  // Group rows by stage (exclude archived stage=0)
+  const activeRows   = rows.filter(r => r.stage > 0)
+  const archivedRows = rows.filter(r => r.stage === 0)
+
   const byStage = STAGES.map(s => ({
     ...s,
-    items: rows.filter(r => r.stage === s.n),
+    items: activeRows.filter(r => r.stage === s.n),
   }))
 
   const inp = 'w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900'
@@ -214,9 +329,9 @@ export default function OnboardingPage() {
           <div className={`flex-1 space-y-md transition-all ${selected ? 'max-w-xl' : ''}`}>
             {loading ? (
               <p className="text-sm text-neutral-400 py-xl text-center">Loading pipeline…</p>
-            ) : rows.length === 0 ? (
+            ) : activeRows.length === 0 ? (
               <div className="bg-white rounded-2xl border border-neutral-200 p-2xl text-center">
-                <p className="text-neutral-400 text-sm">No landlords in the pipeline yet.</p>
+                <p className="text-neutral-400 text-sm">No landlords in the active pipeline.</p>
                 <button onClick={() => setShowAdd(true)} className="mt-md text-sm font-semibold text-neutral-700 underline">Add the first one</button>
               </div>
             ) : (
@@ -240,31 +355,81 @@ export default function OnboardingPage() {
                       <span className="ml-auto text-xs font-bold">{stage.items.length}</span>
                     </div>
                     <div className="space-y-sm">
-                      {stage.items.map(row => (
-                        <button
-                          key={row.id}
-                          onClick={() => setSelected(selected?.id === row.id ? null : row)}
-                          className={`w-full text-left bg-white rounded-xl border-2 p-md transition-all ${selected?.id === row.id ? 'border-neutral-900' : 'border-neutral-200 hover:border-neutral-300'}`}
-                        >
-                          <div className="flex items-start justify-between gap-md">
-                            <div>
-                              <p className="text-sm font-semibold text-neutral-900">{row.name}</p>
-                              <p className="text-xs text-neutral-500 mt-xs">{row.email}{row.phone ? ` · ${row.phone}` : ''}</p>
+                      {stage.items.map(row => {
+                        const idle  = daysSince(lastActivity(row))
+                        const stale = (row.stage === 2 || row.stage === 5) && idle !== null && idle >= 14
+                        return (
+                          <button
+                            key={row.id}
+                            onClick={() => setSelected(selected?.id === row.id ? null : row)}
+                            className={`w-full text-left bg-white rounded-xl border-2 p-md transition-all ${selected?.id === row.id ? 'border-neutral-900' : 'border-neutral-200 hover:border-neutral-300'}`}
+                          >
+                            <div className="flex items-start justify-between gap-md">
+                              <div>
+                                <div className="flex items-center gap-sm">
+                                  <p className="text-sm font-semibold text-neutral-900">{row.full_name || row.name || row.email}</p>
+                                  {stale && (
+                                    <span className="text-xs font-semibold bg-orange-100 text-orange-600 px-xs py-0.5 rounded-md shrink-0">
+                                      {idle}d idle
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-neutral-500 mt-xs">{row.email}{row.phone ? ` · ${row.phone}` : ''}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                {row.welcome_sent_at && <p className="text-xs text-neutral-400">Pack sent {fmt(row.welcome_sent_at)}</p>}
+                                {row.docs_received_at && <p className="text-xs text-neutral-400">Docs {fmt(row.docs_received_at)}</p>}
+                                {row.verified_at && <p className="text-xs text-green-600 font-medium">Verified {fmt(row.verified_at)}</p>}
+                              </div>
                             </div>
-                            <div className="text-right shrink-0">
-                              {row.welcome_sent_at && <p className="text-xs text-neutral-400">Pack sent {fmt(row.welcome_sent_at)}</p>}
-                              {row.docs_received_at && <p className="text-xs text-neutral-400">Docs {fmt(row.docs_received_at)}</p>}
-                              {row.verified_at && <p className="text-xs text-green-600 font-medium">Verified {fmt(row.verified_at)}</p>}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
                 )
               })
             )}
           </div>
+
+          {/* Archived section */}
+          {archivedRows.length > 0 && (
+            <div className="mt-xl">
+              <button
+                onClick={() => setShowArchived(v => !v)}
+                className="flex items-center gap-sm text-xs font-semibold text-neutral-400 hover:text-neutral-600 transition mb-sm w-full"
+              >
+                <span className={`transition-transform ${showArchived ? 'rotate-90' : ''}`}>▶</span>
+                Archived ({archivedRows.length})
+                <span className="text-neutral-300 font-normal">— gone away or no longer progressing</span>
+              </button>
+
+              {showArchived && (
+                <div className="space-y-sm">
+                  {archivedRows.map(row => (
+                    <div
+                      key={row.id}
+                      className="w-full text-left bg-white rounded-xl border border-neutral-100 p-md opacity-60"
+                    >
+                      <div className="flex items-start justify-between gap-md">
+                        <div>
+                          <p className="text-sm font-semibold text-neutral-600">{row.full_name || row.name || row.email}</p>
+                          <p className="text-xs text-neutral-400 mt-xs">{row.email}</p>
+                        </div>
+                        <button
+                          onClick={() => restoreRecord(row.id)}
+                          disabled={advancing}
+                          className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 border border-neutral-200 hover:border-neutral-400 rounded-lg px-sm py-xs transition shrink-0 disabled:opacity-40"
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Detail panel */}
           {selected && (
@@ -334,6 +499,51 @@ export default function OnboardingPage() {
                 </div>
               )}
 
+              {/* Uploaded documents */}
+              {(() => {
+                const docs = selected.form_data?.documents as Record<string, string[]> | undefined
+                if (!docs || Object.keys(docs).length === 0) return null
+                const allDocs = Object.entries(docs).flatMap(([dt, paths]) =>
+                  (paths as string[]).map((p, i) => ({ docType: dt, path: p, i }))
+                )
+                if (allDocs.length === 0) return null
+                return (
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">
+                      Uploaded Documents ({allDocs.length})
+                    </p>
+                    <div className="space-y-xs">
+                      {allDocs.map(({ docType, path, i }) => {
+                        const label = DOC_LABELS[docType] ?? docType.replace(/_/g, ' ')
+                        const filename = path.split('/').pop() ?? path
+                        const url = docUrls[path]
+                        return (
+                          <div key={`${docType}-${i}`} className="flex items-center gap-sm bg-neutral-50 border border-neutral-200 rounded-lg px-sm py-xs">
+                            <span className="text-sm">📄</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-neutral-700">{label}</p>
+                              <p className="text-xs text-neutral-400 truncate">{filename.replace(/_\d+\./, '.')}</p>
+                            </div>
+                            {url ? (
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-semibold text-blue-600 hover:underline shrink-0"
+                              >
+                                View →
+                              </a>
+                            ) : (
+                              <span className="text-xs text-neutral-400 shrink-0">Loading…</span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Verification checklist — show at stage 3+ */}
               {selected.stage >= 3 && selected.stage < 6 && (
                 <div>
@@ -398,7 +608,7 @@ export default function OnboardingPage() {
                     {/* Generate Agreement button — opens form pre-filled with this landlord's data */}
                     {(() => {
                       const fd = selected.form_data ?? {}
-                      const name = [fd.first_name, fd.last_name].filter(Boolean).join(' ') || selected.name || ''
+                      const name = [fd.first_name, fd.last_name].filter(Boolean).join(' ') || selected.full_name || selected.name || ''
                       const address = fd.property_address || ''
                       const entity  = selected.entity_type === 'company' ? 'company' : 'individual'
                       const company = fd.company_name || ''
@@ -432,8 +642,62 @@ export default function OnboardingPage() {
                   </button>
                 )}
 
+                {/* Archive — available for any active (non-fully-onboarded) record */}
+                {selected.stage > 0 && selected.stage < 6 && (
+                  <button
+                    onClick={() => archiveRecord(selected.id)}
+                    disabled={advancing}
+                    className="w-full rounded-xl border border-neutral-200 py-sm text-sm font-semibold text-neutral-400 hover:border-neutral-300 hover:text-neutral-600 transition disabled:opacity-40 mt-xs"
+                  >
+                    Archive (gone away)
+                  </button>
+                )}
+
                 {selected.stage === 6 && (
-                  <p className="text-xs text-green-600 font-semibold text-center py-sm">✓ Onboarding complete</p>
+                  <div className="space-y-sm">
+                    <p className="text-xs text-green-600 font-semibold text-center py-xs">✓ Onboarding complete</p>
+
+                    {/* Convert to landlord profile */}
+                    {selected.landlord_people_id ? (
+                      <div className="rounded-xl bg-green-50 border border-green-200 p-sm">
+                        <p className="text-xs font-semibold text-green-700 mb-xs">✓ Landlord profile created</p>
+                        <a
+                          href={`/admin/landlord/${selected.landlord_people_id}`}
+                          className="text-xs font-semibold text-blue-600 hover:underline"
+                        >
+                          View landlord profile →
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-sm">
+                        <p className="text-xs font-semibold text-neutral-700 mb-xs">Create landlord profile</p>
+                        <p className="text-xs text-neutral-500 mb-sm leading-relaxed">
+                          Convert this onboarding record into a full landlord profile so they appear in the system and can be linked to properties.
+                        </p>
+
+                        {convertResult && (
+                          <div className={`rounded-lg p-xs mb-sm text-xs font-semibold ${convertResult.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                            {convertResult.ok ? '✓ ' : '⚠ '}{convertResult.msg}
+                            {convertResult.ok && convertResult.profileId && (
+                              <a href={`/admin/landlord/${convertResult.profileId}`} className="ml-sm underline">
+                                View profile →
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {!convertResult?.ok && (
+                          <button
+                            onClick={handleConvert}
+                            disabled={converting}
+                            className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40"
+                          >
+                            {converting ? 'Creating profile…' : '👤 Create landlord profile'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
