@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
   if (room?.id) {
     const { data: tenancy } = await supabase
       .from('tenancies')
-      .select('person_id, people(full_name, first_name, last_name, email), opt_in_maintenance')
+      .select('person_id, people!person_id(full_name, first_name, last_name, email), opt_in_maintenance')
       .eq('room_id', room.id)
       .is('end_date', null)
       .single()
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
   if (property?.id) {
     const { data: otherTenancies } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people(full_name, first_name, last_name, email), opt_in_maintenance')
+      .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email), opt_in_maintenance')
       .eq('property_id', property.id)
       .neq('room_id', room?.id) // Exclude the room with the repair
       .is('end_date', null)

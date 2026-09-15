@@ -59,7 +59,7 @@ export default function RoomCommunicationsModal({
     // Get all tenancies for this room
     const { data: tenancyData } = await supabase
       .from('tenancies')
-      .select('*, notice_received_date, person:people(id, name, email)')
+      .select('*, notice_received_date, person:people!person_id(id, full_name, first_name, last_name, email)')
       .eq('room_id', roomId)
       .order('start_date', { ascending: false })
 

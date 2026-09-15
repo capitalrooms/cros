@@ -38,7 +38,7 @@ export default function HousematesTab({ propertyId }: { propertyId: string }) {
 
     const { data: tens } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people(full_name, first_name, last_name, email), rooms(name)')
+      .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email), rooms(name)')
       .eq('property_id', propertyId)
       .lte('start_date', today)
       .or(`end_date.is.null,end_date.gte.${today}`)

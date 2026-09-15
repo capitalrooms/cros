@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     // Get all active tenancies
     let query = supabase
       .from('tenancies')
-      .select('*, rooms(id, name, property_id), people(id, full_name, first_name, last_name, email)')
+      .select('*, rooms(id, name, property_id), people!person_id(id, full_name, first_name, last_name, email)')
       .is('notice_received_date', null) // Active tenancies only (not on notice)
 
     if (propertyId) {
