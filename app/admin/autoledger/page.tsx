@@ -61,8 +61,8 @@ export default function AutoLedgerPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton />} />
-      <main className="mx-auto max-w-3xl px-lg py-2xl">
+      <AppBar left={<BackButton href="/admin/accounts" />} />
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="animate-pulse h-8 w-64 bg-neutral-300 rounded-lg" />
       </main>
     </div>
@@ -70,8 +70,8 @@ export default function AutoLedgerPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton />} />
-      <main className="mx-auto max-w-3xl px-lg py-2xl space-y-xl">
+      <AppBar left={<BackButton href="/admin/accounts" />} />
+      <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
 
         {/* Header */}
         <div>
@@ -194,14 +194,14 @@ export default function AutoLedgerPage() {
                   <div className="space-y-xs">
                     <div className="flex items-center gap-sm rounded-lg bg-white border border-neutral-200 px-sm py-xs">
                       <span className="text-xs text-neutral-400 w-16 shrink-0">Recipient</span>
-                      <code className="text-xs font-mono text-neutral-700 flex-1">{BCC_ADDRESS}</code>
+                      <code className="text-xs font-mono text-neutral-700 flex-1 min-w-0 break-all">{BCC_ADDRESS}</code>
                       <button onClick={() => copy(BCC_ADDRESS, 's1')} className="text-xs text-neutral-400 hover:text-neutral-600 shrink-0">
                         {copied === 's1' ? '✓' : 'Copy'}
                       </button>
                     </div>
                     <div className="flex items-center gap-sm rounded-lg bg-white border border-neutral-200 px-sm py-xs">
                       <span className="text-xs text-neutral-400 w-16 shrink-0">Webhook</span>
-                      <code className="text-xs font-mono text-neutral-700 flex-1 truncate">{WEBHOOK_URL}</code>
+                      <code className="text-xs font-mono text-neutral-700 flex-1 min-w-0 truncate">{WEBHOOK_URL}</code>
                       <button onClick={() => copy(WEBHOOK_URL, 'w1')} className="text-xs text-neutral-400 hover:text-neutral-600 shrink-0">
                         {copied === 'w1' ? '✓' : 'Copy'}
                       </button>
@@ -213,14 +213,14 @@ export default function AutoLedgerPage() {
                   <div className="space-y-xs">
                     <div className="flex items-center gap-sm rounded-lg bg-white border border-neutral-200 px-sm py-xs">
                       <span className="text-xs text-neutral-400 w-16 shrink-0">Recipient</span>
-                      <code className="text-xs font-mono text-neutral-700 flex-1">{DOCS_ADDRESS}</code>
+                      <code className="text-xs font-mono text-neutral-700 flex-1 min-w-0 break-all">{DOCS_ADDRESS}</code>
                       <button onClick={() => copy(DOCS_ADDRESS, 's2')} className="text-xs text-neutral-400 hover:text-neutral-600 shrink-0">
                         {copied === 's2' ? '✓' : 'Copy'}
                       </button>
                     </div>
                     <div className="flex items-center gap-sm rounded-lg bg-white border border-neutral-200 px-sm py-xs">
                       <span className="text-xs text-neutral-400 w-16 shrink-0">Webhook</span>
-                      <code className="text-xs font-mono text-neutral-700 flex-1 truncate">{DOCS_WEBHOOK_URL}</code>
+                      <code className="text-xs font-mono text-neutral-700 flex-1 min-w-0 truncate">{DOCS_WEBHOOK_URL}</code>
                       <button onClick={() => copy(DOCS_WEBHOOK_URL, 'w2')} className="text-xs text-neutral-400 hover:text-neutral-600 shrink-0">
                         {copied === 'w2' ? '✓' : 'Copy'}
                       </button>
@@ -262,14 +262,14 @@ export default function AutoLedgerPage() {
               { label: 'Expense Review page', status: 'live' },
               { label: 'Resend inbound routing (MX)', status: 'pending' },
             ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-sm border-b border-neutral-100 last:border-0">
-                <div>
+              <div key={i} className="flex items-center justify-between gap-sm py-sm border-b border-neutral-100 last:border-0">
+                <div className="min-w-0">
                   <p className="text-sm text-neutral-900">{item.label}</p>
                   {item.url && (
                     <p className="text-xs text-neutral-400 font-mono truncate max-w-xs">{item.url}</p>
                   )}
                 </div>
-                <span className={`text-xs font-semibold px-sm py-xs rounded-full ${
+                <span className={`shrink-0 text-xs font-semibold px-sm py-xs rounded-full ${
                   item.status === 'live'
                     ? 'bg-green-50 text-green-700'
                     : 'bg-amber-50 text-amber-700'

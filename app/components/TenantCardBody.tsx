@@ -31,7 +31,11 @@ export interface TenantCardBodyProps {
   propertyAddress?: string | null
   rentAmount?: number | null
   startDate?: string | null
-  endDate?: string | null       // null/undefined = active; a date string = on notice
+  endDate?: string | null       // the tenancy's end date — a fixed-term end is NOT notice
+  /** The date notice was received. Only this makes a tenancy "on notice" (an end date alone doesn't). */
+  noticeReceivedDate?: string | null
+  /** Set when the caller knows better (e.g. the room is marked on notice); otherwise from noticeReceivedDate */
+  onNotice?: boolean
   communicationPreference?: 'email' | 'text' | string | null
   optIns?: OptIns
   /** Show the communication preference and opt-in badges (tenancies page shows these; tenancy-management doesn't) */
@@ -52,11 +56,13 @@ export default function TenantCardBody({
   rentAmount,
   startDate,
   endDate,
+  noticeReceivedDate,
+  onNotice,
   communicationPreference,
   optIns,
   showPreferences = false,
 }: TenantCardBodyProps) {
-  const isOnNotice = Boolean(endDate)
+  const isOnNotice = onNotice ?? Boolean(noticeReceivedDate)
 
   return (
     <div className="flex-1 min-w-0">
@@ -96,10 +102,15 @@ export default function TenantCardBody({
           </span>
         )}
 
-        {/* Move-out date (if on notice) */}
-        {endDate && (
+        {/* Move-out date (on notice) — or, without notice, just when a fixed term ends */}
+        {endDate && isOnNotice && (
           <span className="px-sm py-xs bg-amber-100 text-amber-800 rounded font-semibold">
-            🚚 Available from {formatDate(endDate)}
+            🚚 Moving out {formatDate(endDate)}
+          </span>
+        )}
+        {endDate && !isOnNotice && (
+          <span className="px-sm py-xs bg-neutral-100 text-neutral-600 rounded">
+            Fixed term to {formatDate(endDate)}
           </span>
         )}
 

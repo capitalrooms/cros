@@ -19,6 +19,9 @@ interface PersonLike {
   full_name?: string | null
   name?: string | null   // keep for TS compat with any stale types
   company?: string | null
+  joint_salutation?: string | null
+  joint_first_name?: string | null
+  joint_last_name?: string | null
 }
 
 /** Full display name (no salutation) — prefers first+last, falls back to full_name. */
@@ -47,12 +50,28 @@ export function formalName(person: PersonLike | null | undefined): string {
  */
 export function landlordName(person: PersonLike | null | undefined): string {
   if (!person) return '—'
-  const personal = [person.first_name, person.last_name].filter(Boolean).join(' ')
+  const primary = [person.first_name, person.last_name].filter(Boolean).join(' ')
     || person.full_name || person.name || ''
+  const joint = [person.joint_first_name, person.joint_last_name].filter(Boolean).join(' ')
+  const personal = primary && joint ? `${primary} & ${joint}` : primary || joint
   if (person.company) {
     return personal ? `${personal} (${person.company})` : person.company
   }
   return personal || '—'
+}
+
+/** Formal names for documents, e.g. "Mr Harry Buchanan & Mr Adam Montague". */
+export function landlordFormalNames(person: PersonLike | null | undefined): string {
+  if (!person) return ''
+  const primary = [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')
+    || person.full_name || ''
+  const joint = person.joint_first_name
+    ? [person.joint_salutation, person.joint_first_name, person.joint_last_name].filter(Boolean).join(' ')
+    : ''
+  const people = joint ? `${primary} & ${joint}` : primary
+  // a landlord who owns through a company: "Mr Richard Page of Page Properties Ltd"
+  if (person.company) return people ? `${people} of ${person.company}` : person.company
+  return people
 }
 
 /** First name only — used in email greetings etc. */

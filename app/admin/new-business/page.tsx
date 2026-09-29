@@ -4,161 +4,155 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import { adminFetch } from '@/lib/adminFetch'
+import { SERVICE_TYPES } from '@/lib/newBusiness/serviceTypes'
+
+interface Row { id: string; full_name: string; stage: number; welcome_sent_at?: string; docs_received_at?: string; approval_sent_at?: string; created_at: string; updated_at?: string }
 
 const STAGES = [
-  { n: 1, label: 'New Enquiry',       colour: 'amber',  action: true  },
-  { n: 2, label: 'Welcome Pack Sent', colour: 'blue',   action: false },
-  { n: 3, label: 'Docs Received',     colour: 'amber',  action: true  },
-  { n: 4, label: 'Verified',          colour: 'amber',  action: true  },
-  { n: 5, label: 'Agreement Sent',    colour: 'blue',   action: false },
-  { n: 6, label: 'Fully Onboarded',   colour: 'green',  action: false },
+  { n: 1, label: 'New enquiry' },
+  { n: 2, label: 'Form sent — with landlord' },
+  { n: 3, label: 'Form submitted — to review' },
+  { n: 4, label: 'Verified — ready for signing' },
+  { n: 5, label: 'Agreement out for signature' },
+  { n: 6, label: 'Onboarded' },
 ]
 
-const STAGE_DOT: Record<string, string> = {
-  amber: 'bg-amber-400',
-  blue:  'bg-blue-400',
-  green: 'bg-green-500',
-}
-
-const TOOLS = [
-  {
-    href:  '/admin/new-business/send-welcome',
-    emoji: '🚀',
-    title: 'Send welcome pack + agreement',
-    desc:  'The recommended first step. Enter landlord + property details, review the management agreement, and send everything in one email.',
-    primary: true,
-  },
-  {
-    href:  '/admin/new-business/acquisition',
-    emoji: '✉️',
-    title: 'Send acquisition email',
-    desc:  'Send a personalised introduction email to a prospective landlord before they commit.',
-  },
-  {
-    href:  '/admin/valuations',
-    emoji: '📄',
-    title: 'Produce valuation',
-    desc:  'Generate a branded rental valuation letter — HMO or single let, current or post-refurbishment.',
-  },
-  {
-    href:  '/admin/new-business/management-agreement',
-    emoji: '📋',
-    title: 'Management agreement',
-    desc:  'Generate a management agreement PDF to download — useful for re-generating or printing.',
-  },
-]
+const daysSince = (iso?: string) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) : 0)
 
 export default function NewBusinessPage() {
-  const [stageCounts, setStageCounts] = useState<Record<number, number>>({})
-  const [pipelineLoading, setPipelineLoading] = useState(true)
+  const [rows, setRows] = useState<Row[] | null>(null)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
-    fetch('/api/landlord-onboarding')
-      .then(r => r.json())
-      .then(d => {
-        const counts: Record<number, number> = {}
-        for (const row of d.rows ?? []) {
-          if (row.stage > 0) counts[row.stage] = (counts[row.stage] ?? 0) + 1
-        }
-        setStageCounts(counts)
+    adminFetch('/api/landlord-onboarding')
+      .then(async r => {
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(d.error ?? 'Could not load the pipeline')
+        setRows((d.rows ?? []).filter((x: Row) => x.stage > 0))
       })
-      .catch(() => {})
-      .finally(() => setPipelineLoading(false))
+      .catch(e => setLoadError(e instanceof Error ? e.message : 'Could not load the pipeline'))
   }, [])
 
-  const totalActive  = Object.values(stageCounts).reduce((s, n) => s + n, 0)
-  const needsAction  = STAGES.filter(s => s.action).reduce((s, st) => s + (stageCounts[st.n] ?? 0), 0)
+  const at = (n: number) => (rows ?? []).filter(r => r.stage === n)
+  const stalled = at(2).filter(r => daysSince(r.welcome_sent_at ?? r.created_at) >= 7)
+  const needs = [
+    { label: 'Forms to review', count: at(3).length, note: 'Submitted by the landlord — check documents and confirm risk', urgent: true },
+    { label: 'Ready to send for signing', count: at(4).length, note: 'AML complete — send the agreement for signature', urgent: true },
+    { label: 'Waiting on landlord', count: at(2).length, note: stalled.length ? `${stalled.length} not finished after 7+ days — worth a nudge` : 'Form sent, landlord completing it', urgent: stalled.length > 0 },
+    { label: 'New enquiries', count: at(1).length, note: 'Terms not yet sent', urgent: false },
+  ]
+
+  const section = 'text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm'
+  const tool = 'group flex items-start justify-between gap-md rounded-xl border border-neutral-200 bg-white p-md transition hover:border-neutral-400'
 
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
+      <main className="mx-auto max-w-6xl px-lg py-xl">
+        <header className="mb-xl">
+          <h1 className="text-2xl font-bold text-neutral-900">New business</h1>
+          <p className="text-sm text-neutral-500 mt-xs">Win landlords, send terms, and take them through AML to a signed agreement.</p>
+        </header>
 
-      <main className="mx-auto max-w-3xl px-lg py-2xl">
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">🏗 New Business</h1>
-          <p className="text-sm text-neutral-500 mt-xs">
-            Tools for winning and onboarding new landlord instructions.
-          </p>
-        </div>
-
-        {/* ── Actions ───────────────────────────────────────────────────── */}
-        <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-md px-xs">Actions</p>
-        <div className="space-y-md mb-2xl">
-          {TOOLS.map(tool => (
-            <Link
-              key={tool.href}
-              href={tool.href}
-              className={`flex items-start gap-lg rounded-2xl p-lg transition-all group ${
-                tool.primary
-                  ? 'bg-neutral-900 text-white hover:bg-neutral-800 shadow-sm'
-                  : 'bg-white border border-neutral-200 hover:border-neutral-300 hover:shadow-sm'
-              }`}
-            >
-              <div className="text-3xl shrink-0">{tool.emoji}</div>
-              <div className="flex-1 min-w-0">
-                <h2 className={`text-base font-bold mb-xs ${tool.primary ? 'text-white' : 'text-neutral-900'}`}>
-                  {tool.title}
-                </h2>
-                <p className={`text-sm leading-relaxed ${tool.primary ? 'text-neutral-400' : 'text-neutral-500'}`}>
-                  {tool.desc}
-                </p>
-              </div>
-              <div className={`transition-colors shrink-0 self-center text-lg ${tool.primary ? 'text-neutral-500 group-hover:text-neutral-300' : 'text-neutral-300 group-hover:text-neutral-500'}`}>→</div>
-            </Link>
-          ))}
-        </div>
-
-        {/* ── Pipeline status ───────────────────────────────────────────── */}
-        <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-md px-xs">Pipeline status</p>
-        <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden">
-          {/* Header row */}
-          <div className="flex items-center justify-between px-lg py-md border-b border-neutral-100">
-            <div>
-              <p className="text-sm font-bold text-neutral-900">AML Onboarding Pipeline</p>
-              <p className="text-xs text-neutral-400 mt-xs">
-                {pipelineLoading
-                  ? 'Loading…'
-                  : totalActive === 0
-                    ? 'No landlords in the pipeline'
-                    : `${totalActive} landlord${totalActive !== 1 ? 's' : ''} in pipeline${needsAction > 0 ? ` · ${needsAction} need${needsAction === 1 ? 's' : ''} action` : ''}`
-                }
-              </p>
+        {/* Needs you */}
+        <section className="mb-xl">
+          <h2 className={section}>Needs you</h2>
+          {loadError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-md py-sm text-sm text-red-700">
+              {loadError}. Refresh the page — if it keeps happening, sign out and back in.
             </div>
-            <Link
-              href="/admin/new-business/onboarding"
-              className="text-xs font-semibold text-neutral-700 bg-neutral-100 hover:bg-neutral-200 transition rounded-lg px-sm py-xs"
-            >
-              Open pipeline →
-            </Link>
-          </div>
+          ) : (
+            <div className="grid gap-sm grid-cols-2 lg:grid-cols-4">
+              {needs.map(n => (
+                <Link key={n.label} href="/admin/new-business/onboarding"
+                  className={`rounded-xl border bg-white p-md transition hover:border-neutral-400 ${n.urgent && n.count ? 'border-neutral-900' : 'border-neutral-200'}`}>
+                  <p className="text-2xl sm:text-3xl font-bold tabular-nums text-neutral-900">{rows ? n.count : '–'}</p>
+                  <p className="text-sm font-semibold text-neutral-900 mt-xs">{n.label}</p>
+                  <p className="text-xs text-neutral-500 mt-xs leading-relaxed">{n.note}</p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
 
-          {/* Stage breakdown */}
-          <div className="divide-y divide-neutral-50">
-            {STAGES.map(stage => {
-              const count = stageCounts[stage.n] ?? 0
-              return (
-                <div key={stage.n} className={`flex items-center gap-sm px-lg py-sm ${count > 0 && stage.action ? 'bg-amber-50/40' : ''}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${count > 0 ? STAGE_DOT[stage.colour] : 'bg-neutral-200'}`} />
-                  <span className={`text-sm flex-1 ${count > 0 ? 'text-neutral-800' : 'text-neutral-300'}`}>
-                    {stage.label}
-                  </span>
-                  {count > 0 ? (
-                    <span className={`text-xs font-bold px-xs py-0.5 rounded-md ${
-                      stage.action
-                        ? 'bg-amber-100 text-amber-700'
-                        : stage.colour === 'green'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-blue-100 text-blue-700'
-                    }`}>
-                      {count}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-neutral-300">—</span>
-                  )}
+        <div className="grid gap-xl lg:grid-cols-3">
+          {/* Win */}
+          <section>
+            <h2 className={section}>Win</h2>
+            <div className="space-y-sm">
+              <Link href="/admin/new-business/acquisition" className={tool}>
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">Introduction email</p>
+                  <p className="text-xs text-neutral-500 mt-xs leading-relaxed">A personalised first approach to a prospective landlord.</p>
                 </div>
-              )
-            })}
-          </div>
+                <span className="text-neutral-300 group-hover:text-neutral-700">→</span>
+              </Link>
+              <Link href="/admin/valuations" className={tool}>
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">Rental valuation</p>
+                  <p className="text-xs text-neutral-500 mt-xs leading-relaxed">Branded valuation letter — HMO or single let, current or post-refurbishment.</p>
+                </div>
+                <span className="text-neutral-300 group-hover:text-neutral-700">→</span>
+              </Link>
+            </div>
+          </section>
+
+          {/* Instruct */}
+          <section>
+            <h2 className={section}>Instruct</h2>
+            <div className="rounded-xl border border-neutral-900 bg-neutral-900 p-md text-white">
+              <p className="text-sm font-semibold">New instruction</p>
+              <p className="text-xs text-neutral-300 mt-xs leading-relaxed">Choose the service, then send the agreement and the landlord’s AML form in one email.</p>
+              <div className="mt-md space-y-xs">
+                {SERVICE_TYPES.map(s => s.available ? (
+                  <Link key={s.id} href={`/admin/new-business/send-welcome?service=${s.id}`}
+                    className="flex items-center justify-between rounded-lg bg-white px-sm py-xs text-sm font-semibold text-neutral-900 hover:bg-neutral-100">
+                    {s.label}<span aria-hidden>→</span>
+                  </Link>
+                ) : (
+                  <div key={s.id} title={s.summary}
+                    className="flex items-center justify-between rounded-lg border border-neutral-700 px-sm py-xs text-sm text-neutral-400">
+                    {s.label}<span className="text-[11px] uppercase tracking-wide">Coming soon</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <Link href="/admin/new-business/management-agreement" className={`${tool} mt-sm`}>
+              <div>
+                <p className="text-sm font-semibold text-neutral-900">Agreements</p>
+                <p className="text-xs text-neutral-500 mt-xs leading-relaxed">Re-generate or print a management agreement.</p>
+              </div>
+              <span className="text-neutral-300 group-hover:text-neutral-700">→</span>
+            </Link>
+          </section>
+
+          {/* Onboard */}
+          <section>
+            <div className="flex items-baseline justify-between">
+              <h2 className={section}>Onboard</h2>
+              <Link href="/admin/new-business/onboarding" className="text-xs font-semibold text-neutral-700 hover:underline">Open pipeline →</Link>
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100">
+              {STAGES.map(s => {
+                const list = at(s.n)
+                return (
+                  <div key={s.n} className="px-md py-sm">
+                    <div className="flex items-center justify-between">
+                      <p className={`text-sm ${list.length ? 'font-semibold text-neutral-900' : 'text-neutral-400'}`}>{s.label}</p>
+                      <span className={`text-xs tabular-nums ${list.length ? 'font-bold text-neutral-900' : 'text-neutral-300'}`}>{rows ? list.length : '–'}</span>
+                    </div>
+                    {list.slice(0, 3).map(r => (
+                      <Link key={r.id} href={`/admin/new-business/onboarding/${r.id}`} className="block text-xs text-neutral-500 hover:text-neutral-900 truncate mt-[2px]">
+                        {r.full_name}
+                      </Link>
+                    ))}
+                    {list.length > 3 && <p className="text-xs text-neutral-400 mt-[2px]">+{list.length - 3} more</p>}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
         </div>
       </main>
     </div>

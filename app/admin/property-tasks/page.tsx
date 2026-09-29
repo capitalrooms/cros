@@ -8,6 +8,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
+import { pendingLicenceIds } from '@/lib/compliance/hmoLicence'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -239,27 +240,34 @@ function CompleteCertModal({ cert, onClose, onSaved }: {
         .eq('id', cert.property_id)
       if (updateErr) throw updateErr
 
-      // 2. Upload certificate file if provided
+      // 2. File the certificate on the property (same route as the Compliance page), so it reaches the
+      //    certificates grid, move-in packs and tenant emails. (This used to write to a storage bucket that
+      //    doesn't exist, so renewed certificates were silently lost.)
       if (file) {
-        const ext      = file.name.split('.').pop() || 'pdf'
-        const path     = `certs/${cert.property_id}/${cert.cert_type}_${newExpiry}.${ext}`
-        const { error: upErr } = await supabase.storage
-          .from('documents')
-          .upload(path, file, { upsert: true })
-        if (!upErr) {
-          const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
-          // Store in documents table for audit trail
-          await supabase.from('documents').insert({
-            property_id:   cert.property_id,
-            document_type: cert.cert_type,
-            file_name:     file.name,
-            file_path:     path,
-            storage_url:   urlData.publicUrl,
-            status:        'approved',
-            source:        'manual_upload',
-            extracted_data: { expiry_date: newExpiry, cert_label: cert.label },
-          }).select().maybeSingle()
+        const DOC_TYPE: Record<string, string> = {
+          gas_safe_cert_expiry: 'gas_safety_certificate', electrical_cert_expiry: 'electrical_eicr', epc_expiry: 'epc',
+          fire_risk_assessment_expiry: 'fire_risk_assessment', fire_detection_expiry: 'fire_alarm_certificate',
+          emergency_lighting_expiry: 'emergency_lighting_certificate', pat_test_expiry: 'pat_test', license_expiry: 'hmo_licence',
         }
+        const fd = new FormData()
+        if (file.size > 4 * 1024 * 1024) {
+          // big files (EICRs often are) go straight to storage — the web host rejects request bodies over ~4.5 MB
+          const pre = await fetch('/api/storage/presign-upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileName: file.name, mimeType: file.type }) })
+          if (!pre.ok) throw new Error('The expiry was saved but the certificate could not be uploaded — try again')
+          const { token, path: storagePath, publicUrl } = await pre.json()
+          const { error: upErr } = await supabase.storage.from('property-documents').uploadToSignedUrl(storagePath, token, file, { contentType: file.type })
+          if (upErr) throw new Error('The expiry was saved but the upload failed: ' + upErr.message)
+          fd.append('storage_url', publicUrl)
+          fd.append('file_name', file.name)
+        } else {
+          fd.append('file', file)
+        }
+        fd.append('property_id', cert.property_id)
+        fd.append('document_type', DOC_TYPE[cert.cert_type] || 'other')
+        fd.append('description', `${cert.label} — expires ${new Date(newExpiry).toLocaleDateString('en-GB')}`)
+        fd.append('visible_to_tenants', 'false')
+        const res = await fetch('/api/admin/upload-property-document', { method: 'POST', body: fd })
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'The expiry was saved but the certificate file did not upload')
       }
 
       onSaved()
@@ -416,12 +424,14 @@ export default function PropertyTasksPage() {
     const { data: props } = await supabase
       .from('properties')
       .select(`id, name, ${CERT_CHECKS.map(c => c.field).join(', ')}`)
+    const licencePending = await pendingLicenceIds(supabase)   // application with the council → not an alert
     const today  = new Date(); today.setHours(0,0,0,0)
     const alerts: CertAlert[] = []
     for (const p of (props || [])) {
       for (const c of CERT_CHECKS) {
         const raw = (p as any)[c.field]
         if (!raw) continue
+        if (c.field === 'license_expiry' && licencePending.has(p.id)) continue
         const d    = new Date(raw)
         const days = Math.floor((d.getTime() - today.getTime()) / 86400000)
         alerts.push({ property_id: p.id, property_name: p.name, cert_type: c.field, label: c.label, days, expiry: raw })
@@ -618,7 +628,7 @@ export default function PropertyTasksPage() {
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto p-lg space-y-lg">
+      <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-sm">
@@ -831,14 +841,6 @@ function GlobalTaskRow({ task, onToggle, onConvert, converting }: {
             {converting ? '…' : '🔧'}
           </button>
         )}
-        {/* Placeholder for Feature 6 */}
-        <button
-          disabled
-          title="Quoting coming soon"
-          className="text-xs font-semibold px-sm py-xs rounded-lg border border-neutral-100 text-neutral-300 cursor-not-allowed"
-        >
-          📋
-        </button>
       </div>
     </div>
   )

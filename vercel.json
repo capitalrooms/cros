@@ -1,6 +1,12 @@
 {
   "buildCommand": "next build",
   "outputDirectory": ".next",
+  "functions": {
+    "app/api/admin/bulk-tenancy-generator/route.ts": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/nudge",
@@ -21,6 +27,22 @@
     {
       "path": "/api/cron/checkout-reminder",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/promote-overdue",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/sanctions-refresh",
+      "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/cron/generate-charges",
+      "schedule": "0 5 1 * *"
+    },
+    {
+      "path": "/api/cron/room-status",
+      "schedule": "15 0 * * *"
     }
   ]
 }

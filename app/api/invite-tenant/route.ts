@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { firstName as getFirstName } from '@/lib/people'
-import { buildEmail, FROM } from '@/lib/emailWrapper'
+import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 function createServiceClient() {
   return createClient(
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   // Get tenant details
   const { data: person, error: pErr } = await supabase
     .from('people')
-    .select('id, name, email, phone')
+    .select('id, first_name, last_name, full_name, email, phone')
     .eq('id', personId)
     .single()
 
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
   const today = new Date().toISOString().split('T')[0]
   const { data: tenancy } = await supabase
     .from('tenancies')
-    .select('start_date, rent_monthly, room:rooms(name), property:properties(address)')
+    .select('start_date, rent_amount, room:rooms(name), property:properties(address)')
     .eq('person_id', personId)
     .or(`end_date.is.null,end_date.gte.${today}`)
     .order('start_date', { ascending: false })
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
         <tr><td style="padding:4px 0;color:#78716c;font-weight:600;font-size:13px;">Start date</td>
             <td style="padding:4px 0;font-weight:700;font-size:13px;color:#1c1917;">${new Date(tenancy.start_date).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' })}</td></tr>
         <tr><td style="padding:4px 0;color:#78716c;font-weight:600;font-size:13px;">Monthly rent</td>
-            <td style="padding:4px 0;font-weight:700;font-size:13px;color:#1c1917;">£${Number(tenancy.rent_monthly ?? 0).toFixed(2)}</td></tr>
+            <td style="padding:4px 0;font-weight:700;font-size:13px;color:#1c1917;">£${Number(tenancy.rent_amount ?? 0).toFixed(2)}</td></tr>
       </tbody>
     </table>` : ''
 
@@ -115,12 +116,11 @@ export async function POST(req: NextRequest) {
     </div>
 
     <p style="margin:20px 0 0;font-size:13px;color:#78716c;">
-      Kind regards,<br>
-      <strong style="color:#1c1917;">Capital Rooms Management</strong>
+      Kind regards,
     </p>
   `
 
-  const html = await buildEmail(body)
+  const html = await buildEmail(body, { req: req })
 
   // Check for DB-editable subject
   const tpl = await getTemplate('tenant-portal-invite')
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
     body: JSON.stringify({
-      from: FROM,
+      ...(await senderFields(req)),
       to:   [person.email],
       subject: emailSubject,
       html,

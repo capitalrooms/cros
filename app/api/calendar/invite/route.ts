@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { buildIcs } from '@/lib/ics'
-import { buildEmail, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailWrapper'
+import { buildEmail, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     ${location ? `<p style="color:#78716c;margin:0 0 12px;">📍 ${location}</p>` : ''}
     ${description ? `<p style="color:#3f3f46;">${description}</p>` : ''}
     <p style="color:#a8a29e;font-size:13px;margin-top:16px;">Open the attached invite to add this to your calendar.</p>
-  `)
+  `, { req: request })
 
   const calTpl = await getTemplate('staff-calendar-invite')
   const calSubject = calTpl?.subject_line
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields(request)),
         to: [recipient],
         subject: calSubject,
         html,

@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { invalidateBusinessSettingsCache } from '@/lib/emailWrapper'
 
 const SETTINGS_ID = '00000000-0000-0000-0000-000000000001'

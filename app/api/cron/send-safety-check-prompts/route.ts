@@ -19,10 +19,11 @@ export async function GET(req: NextRequest) {
   try {
     // In production, this would check an API key/authorization header
     const authHeader = req.headers.get('authorization')
-    const expectedKey = process.env.CRON_SECRET_KEY
-    
+    // Vercel Cron sends `Bearer ${CRON_SECRET}`; CRON_SECRET_KEY kept for any manual callers.
+    const allowed = [process.env.CRON_SECRET, process.env.CRON_SECRET_KEY].filter(Boolean).map(k => `Bearer ${k}`)
+
     // Allow unauthenticated in dev, require key in production
-    if (process.env.NODE_ENV === 'production' && authHeader !== `Bearer ${expectedKey}`) {
+    if (process.env.NODE_ENV === 'production' && !allowed.includes(authHeader || '')) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

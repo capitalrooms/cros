@@ -60,7 +60,6 @@ export default function MobileToday() {
         {items && <p className="text-sm text-neutral-500 mt-0.5">{needs ? `${needs} thing${needs === 1 ? '' : 's'} need${needs === 1 ? 's' : ''} you` : 'Nothing needs you right now'}</p>}
       </header>
 
-
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error} <button className="underline ml-1" onClick={load}>Try again</button></div>}
       {!items && !error && <div className="space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-20 rounded-2xl bg-white animate-pulse" />)}</div>}
 

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { PROPERTY_WIDE_CATEGORIES, ROOM_SPECIFIC_CATEGORY_TYPES, UNMATCHED_SLUG } from '@/lib/expense-categories'
 import crypto from 'crypto'
 
@@ -66,7 +66,8 @@ Respond JSON array only, in order: [{"category":"<slug>","confidence":<0-1>}, ..
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise
   const user = await getCurrentUser()
   if (!user || !['administrator', 'admin', 'lettings'].includes(user.assignment?.role ?? '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // Fetch rooms for this property
   const { data: rooms } = await supabase
     .from('rooms')
-    .select('id, name, room_number')
+    .select('id, name')
     .eq('property_id', stmt.property_id)
 
   const categoryList = [

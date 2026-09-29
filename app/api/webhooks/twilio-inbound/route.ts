@@ -13,8 +13,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import twilio from 'twilio'
 import { createClient } from '@supabase/supabase-js'
-import { emailHtml, FROM } from '@/lib/emailTemplate'
+import { emailHtml } from '@/lib/emailTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 const PORTAL_URL = 'https://cros-sigma.vercel.app'
@@ -37,7 +39,7 @@ async function notifyAdmin(subject: string, html: string) {
   await fetch(RESEND_ENDPOINT, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [ADMIN_EMAIL], subject, html }),
+    body: JSON.stringify({ ...(await senderFields()), to: [ADMIN_EMAIL], subject, html }),
   })
 }
 
@@ -45,6 +47,16 @@ export async function POST(request: NextRequest) {
   // Twilio sends form-encoded body
   const body = await request.text()
   const params = new URLSearchParams(body)
+
+  // Only Twilio may post here: check its signature (HMAC of the URL + fields with our auth token). Without this anyone
+  // could fake a tenant's "Y" reply.
+  const token = process.env.TWILIO_AUTH_TOKEN
+  const signature = request.headers.get('x-twilio-signature') || ''
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || new URL(request.url).host
+  const publicUrl = `https://${host}/api/webhooks/twilio-inbound`   // the exact URL set in the Twilio console
+  if (!token || !twilio.validateRequest(token, signature, publicUrl, Object.fromEntries(params))) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
 
   const from   = params.get('From') ?? ''   // e.g. +447760999668
   const rawMsg = (params.get('Body') ?? '').trim()

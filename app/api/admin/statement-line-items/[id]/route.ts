@@ -3,6 +3,7 @@
 // sees correct data next visit; no change event is surfaced.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/adminAuth'
 import { createClient } from '@supabase/supabase-js'
 import { ALL_CATEGORY_SLUGS } from '@/lib/expense-categories'
 
@@ -15,6 +16,7 @@ function serviceClient() {
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireAdmin(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const body = await req.json()
   const { category, category_type, room_id, room_label } = body

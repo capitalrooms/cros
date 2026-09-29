@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Logo from './Logo'
+import { useIsAdmin } from '@/lib/admin-context'
 
 /**
  * The single top bar for every page, whatever the user's role.
@@ -10,7 +11,8 @@ import Logo from './Logo'
  *  left  — back button (BackButton component) — always on the left per convention
  *  right — role-specific actions: sign out, Quick Notify, etc.
  *
- * The logo is centred and tapping it routes to the user's home dashboard.
+ * When rendered inside the admin layout (AdminContext = true), returns null —
+ * the admin layout provides its own header and this would create a triple bar.
  */
 export default function AppBar({
   left,
@@ -22,6 +24,9 @@ export default function AppBar({
   /** @deprecated — pass left={<BackButton />} instead */
   title?: string
 }) {
+  const isAdmin = useIsAdmin()
+  if (isAdmin) return null
+
   return (
     <nav
       className="bg-neutral-900 text-white border-b border-neutral-800 sticky top-0 z-50"

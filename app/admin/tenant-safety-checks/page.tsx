@@ -58,12 +58,13 @@ export default function TenantSafetyChecksAdminPage() {
   async function loadChecks() {
     const { data: checksData } = await supabase
       .from('tenant_self_checks')
-      .select('*, properties(name), rooms(name), people:checked_by(full_name, first_name, last_name)')
+      .select('*, properties(name), rooms(name), tenancies(people!person_id(full_name, first_name, last_name))')
       .order('response_received_at', { ascending: false, nullsFirst: false })
       .order('request_sent_at', { ascending: false })
 
     if (checksData) {
-      setChecks(checksData as any)
+      // Self-checks link to the tenant through their tenancy
+      setChecks(checksData.map((c: any) => ({ ...c, people: c.tenancies?.people ?? null })) as any)
     }
   }
 
@@ -90,9 +91,9 @@ export default function TenantSafetyChecksAdminPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">Tenant Safety Checks</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Tenant Safety Checks</h1>
           <p className="mt-sm text-neutral-600">Monitor fire door and smoke alarm safety confirmations from tenants.</p>
         </div>
 
@@ -168,7 +169,7 @@ export default function TenantSafetyChecksAdminPage() {
                       </span>
                     </div>
                     <p className="text-sm text-neutral-600">
-                      Tenant: <span className="font-semibold">{check.people.name || 'Unknown'}</span>
+                      Tenant: <span className="font-semibold">{check.people?.full_name || [check.people?.first_name, check.people?.last_name].filter(Boolean).join(' ') || 'Unknown'}</span>
                     </p>
                   </div>
                   <span className={`px-md py-xs rounded-full text-xs font-semibold shrink-0 ${

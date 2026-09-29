@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/adminAuth'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic'
  * Call once: GET /api/admin/ensure-storage
  */
 export async function GET(req: NextRequest) {
+  if (!(await requireAdmin(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) {
     return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' }, { status: 500 })

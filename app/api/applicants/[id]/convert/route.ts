@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 
 /**
  * POST /api/applicants/[id]/convert
@@ -10,7 +10,8 @@ import { getCurrentUser } from '@/lib/auth'
  * Otherwise creates a new people row carrying across the applicant's details.
  * Sets applicants.converted_person_id and people.applicant_id.
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!['lettings','administrator','admin'].includes(user.assignment?.role)) {
@@ -100,15 +101,34 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .maybeSingle()
 
     if (!existingTenancy) {
+      // Mark room occupied
+      await sb.from('rooms').update({ status: 'occupied' }).eq('id', roomId)
+
       const { data: newTenancy, error: tenancyErr } = await sb
         .from('tenancies')
         .insert({
-          person_id:    personId,
-          room_id:      roomId,
-          property_id:  propertyId,
-          start_date:   startDate,
-          rent_amount:  rentAmount,
-          rent_due_day: rentDueDay,
+          person_id:              personId,
+          room_id:                roomId,
+          property_id:            propertyId,
+          start_date:             startDate,
+          end_date:               body.end_date               || null,
+          rent_amount:            rentAmount,
+          rent_due_day:           rentDueDay,
+          rent_frequency:         body.rent_frequency         || 'monthly',
+          rent_in_advance:        body.rent_in_advance        || 1,
+          deposit_amount:         body.deposit_amount         ?? null,
+          deposit_held_by:        body.deposit_held_by        || 'agent',
+          deposit_scheme_ref:     body.deposit_scheme_ref     || null,
+          holding_deposit_received: body.holding_deposit_received ?? null,
+          agreement_type:         body.agreement_type         || 'assured_periodic',
+          is_periodic:            body.is_periodic            ?? true,
+          // amount: blank = property's usual fee, 0 = no fee; a number passed through as an override
+          letting_fee_charged:    typeof body.letting_fee_charged === 'number' ? body.letting_fee_charged : body.letting_fee_charged === false ? 0 : null,
+          notice_period_months:   body.notice_period_months   ?? 2,
+          lease_reference:        body.lease_reference        || null,
+          payment_reference:      body.payment_reference      || null,
+          office_notes:           body.office_notes           || null,
+          rent_review_date:       body.rent_review_date       || null,
         })
         .select('id')
         .single()
@@ -120,6 +140,31 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
     } else {
       tenancyId = existingTenancy.id
+    }
+  }
+
+  // ── Carry pre-tenancy applicant documents across to property_documents ────────
+  // Any references, right-to-rent checks etc. filed before they became a tenant
+  // are now promoted to property_documents linked to their person + tenancy.
+  if (propertyId) {
+    const { data: appDocs } = await sb
+      .from('applicant_documents')
+      .select('*')
+      .eq('applicant_id', applicant.id)
+
+    if (appDocs?.length) {
+      const rows = appDocs.map((d: any) => ({
+        property_id:        propertyId,
+        document_type:      d.doc_type,
+        file_name:          d.file_name,
+        storage_url:        d.storage_url,
+        description:        d.description || null,
+        visible_to_tenants: false,
+        uploaded_by:        personId,
+        ...(tenancyId ? { tenancy_id: tenancyId } : {}),
+      }))
+      const { error: copyErr } = await sb.from('property_documents').insert(rows)
+      if (copyErr) console.warn('convert: could not carry applicant docs across', copyErr.message)
     }
   }
 

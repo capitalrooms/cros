@@ -1,4 +1,6 @@
+import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -48,7 +50,8 @@ async function safe<T>(p: PromiseLike<{ data: T | null; error: any }>): Promise<
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const sk = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!sk) return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' }, { status: 500 })
   const s: SupabaseClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, sk, { auth: { persistSession: false } })

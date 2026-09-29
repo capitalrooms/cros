@@ -7,8 +7,9 @@ export const dynamic = 'force-dynamic'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  const params = await paramsPromise
   try {
     // Bearer token auth (cookie-based auth is broken in this Next.js version)
     const authHeader = request.headers.get('Authorization') || ''

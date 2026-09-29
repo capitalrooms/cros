@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminAuth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/sendEmail'
@@ -18,9 +19,19 @@ const STAGE_TIMESTAMPS: Record<number, string> = {
   6: 'onboarded_at',
 }
 
+// ── GET /api/landlord-onboarding/[id] → one record (admin review page) ────────
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
+  const { data, error } = await svc().from('landlord_onboarding').select('*').eq('id', id).maybeSingle()
+  if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  return NextResponse.json({ row: data })
+}
+
 // ── PATCH /api/landlord-onboarding/[id]  → advance stage / update fields ──────
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
   const body = await req.json()
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -57,7 +68,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         data.email,
         'Capital Rooms — Verification Complete',
         approvalEmailBody(data.full_name ?? data.name),
-        { replyTo: 'harry@capitalrooms.co.uk' }
+        { req }
       )
     } catch {
       // Non-fatal — row is already updated
@@ -68,11 +79,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // ── DELETE /api/landlord-onboarding/[id]  → remove record ─────────────────────
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { error } = await svc()
     .from('landlord_onboarding')
     .delete()
-    .eq('id', params.id)
+    .eq('id', (await params).id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
@@ -95,6 +107,5 @@ function approvalEmailBody(name: string) {
   In the meantime, if you have any questions please contact us at
   <a href="mailto:management@capitalrooms.co.uk" style="color:#1a1a1a">management@capitalrooms.co.uk</a>.
 </p>
-<p style="margin:24px 0 0;font-size:15px;color:#333">Kind regards,</p>
-<p style="margin:4px 0 0;font-size:15px;color:#333;font-weight:600">The Capital Rooms Team</p>`
+<p style="margin:24px 0 0;font-size:15px;color:#333">Kind regards,</p>`
 }

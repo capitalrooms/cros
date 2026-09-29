@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminAuth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -23,9 +24,10 @@ const svc = () =>
  * creating a duplicate).
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
 
   // 1. Fetch the onboarding record

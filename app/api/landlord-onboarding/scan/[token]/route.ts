@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
 import Anthropic                     from '@anthropic-ai/sdk'
+import { AI_MODEL }                  from '@/lib/ai-classify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -176,6 +177,10 @@ export async function POST(
 
   const { path, docType } = await req.json()
   if (!path) return NextResponse.json({ error: 'path is required' }, { status: 400 })
+  // A form link may only read back its own uploads.
+  if (typeof path !== 'string' || !path.startsWith(`${token}/`)) {
+    return NextResponse.json({ error: 'Invalid path' }, { status: 403 })
+  }
 
   // Download the file from Supabase Storage
   const { data: fileData, error: dlErr } = await svc()
@@ -234,7 +239,7 @@ export async function POST(
     }
 
     const msg = await anthropic.messages.create({
-      model:      'claude-opus-5',
+      model:      AI_MODEL,
       max_tokens: 1024,
       messages:   [{ role: 'user', content }],
     })

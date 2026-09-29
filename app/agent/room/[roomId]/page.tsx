@@ -83,7 +83,7 @@ export default function RoomDetailPage() {
         if (roomData.status === 'occupied') {
           const { data: tenancyData } = await supabase
             .from('tenancies')
-            .select('*, people(full_name, first_name, last_name, email)')
+            .select('*, people!person_id(full_name, first_name, last_name, email)')
             .eq('room_id', roomId)
             .is('end_date', null)
             .single()

@@ -1,5 +1,7 @@
+import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { insertNotifications, activeTenantIds, tryPush, tryEmailFallback } from '@/lib/serverNotify'
+import { requireSignedIn, isStaff } from '@/lib/portalAuth'
+import { insertNotifications, activeTenantIds, dispatchChannels, type NotifyChannels } from '@/lib/serverNotify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -10,8 +12,10 @@ export const dynamic = 'force-dynamic'
  * columns and doesn't depend on a server-visible session.
  */
 export async function POST(request: Request) {
+  const caller = await requireSignedIn(request as any)
+  if (!caller || !(isStaff(caller) || caller.role === 'cleaner')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const { property_id, subject, message, notification_type } = await request.json()
+    const { property_id, subject, message, notification_type, channels = 'push_email' } = await request.json()
 
     if (!property_id || !subject || !message) {
       return Response.json({ error: 'Missing required fields: property_id, subject, message' }, { status: 400 })
@@ -40,10 +44,9 @@ export async function POST(request: Request) {
       return Response.json({ error: `Failed to send notifications: ${error}` }, { status: 500 })
     }
 
-    await tryPush(recipientIds, subject, message, '/tenant')
-    await tryEmailFallback(service, recipientIds, { title: subject, body: message, link: '/tenant' })
+    const { pushCount, emailCount } = await dispatchChannels(service, recipientIds, { title: subject, body: message, link: '/tenant' }, channels as NotifyChannels, request)
 
-    return Response.json({ success: true, message: `Notification sent to ${count} tenant(s)`, tenant_count: count })
+    return Response.json({ success: true, message: `Notification sent to ${count} tenant(s)`, tenant_count: count, pushCount, emailCount, recipientCount: count })
   } catch (error) {
     console.error('Error in /api/cleaner/quick-notify:', error)
     return Response.json({ error: 'Internal server error' }, { status: 500 })

@@ -20,12 +20,14 @@ interface OfferEmailContext {
   moveInDate?: string
   applicationUrl: string
   holdingDeposit: number
+  /** the holding-deposit payment reference for this room (lib/offers/holdingRef) */
+  holdingRef?: string
 }
 
 /**
  * Option 1: Initial Offer Letter — invite to apply.
  */
-export async function buildOfferLetterEmail(context: OfferEmailContext): Promise<string> {
+export async function buildOfferLetterEmail(context: OfferEmailContext, req?: Request | null): Promise<string> {
   const greeting = context.applicantName ? `Hi ${context.applicantName},` : 'Dear Applicant,'
 
   const inner = `
@@ -72,13 +74,13 @@ export async function buildOfferLetterEmail(context: OfferEmailContext): Promise
     <p style="margin-top:32px;">All the best,<br><strong style="color:#86284a;">Capital Rooms Team</strong></p>
   `
 
-  return buildEmail(inner)
+  return buildEmail(inner, { req })
 }
 
 /**
  * Option 2: Confirmed Offer with Holding Deposit Request.
  */
-export async function buildSearchIsOverEmail(context: OfferEmailContext): Promise<string> {
+export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: Request | null): Promise<string> {
   const greeting = context.applicantName ? `Hi ${context.applicantName},` : 'Dear Applicant,'
 
   const inner = `
@@ -135,7 +137,7 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext): Promis
       <p style="margin:4px 0;font-family:'Courier New',monospace;"><strong>Sort Code:</strong> 20–18–93</p>
       <p style="margin:4px 0;font-family:'Courier New',monospace;"><strong>Account Number:</strong> 40162574</p>
       <p style="margin:12px 0 4px;font-family:'Courier New',monospace;"><strong>Payment Reference:</strong></p>
-      <p style="margin:4px 0;font-family:'Courier New',monospace;">055B0R03 (for £${context.holdingDeposit.toFixed(2)})</p>
+      <p style="margin:4px 0;font-family:'Courier New',monospace;">${context.holdingRef || 'Your full name'} (for £${context.holdingDeposit.toFixed(2)})</p>
     </div>
 
     <p style="font-size:13px;margin-top:16px;"><strong>Please ensure transfer fees are covered on your side.</strong> Once your payment clears, email us a screenshot of the confirmation — we'll fast-track your application.</p>
@@ -157,5 +159,5 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext): Promis
     <p style="margin-top:28px;">All the best,<br><strong style="color:#86284a;">Harry &amp; the Capital Rooms Team</strong></p>
   `
 
-  return buildEmail(inner)
+  return buildEmail(inner, { req })
 }

@@ -29,6 +29,9 @@ export default function NewPropertyPage() {
 
   // Step 2: The fork
   const [letType, setLetType] = useState<LetType>(null)
+  // the management fee agreed with the landlord — the default for every tenancy here (a tenancy can override it)
+  const [feeType, setFeeType] = useState<'pct_received' | 'pct_charged' | 'fixed'>('pct_received')
+  const [feeValue, setFeeValue] = useState('')
 
   // Step 3: Landlord picker
   interface LandlordOption { id: string; first_name: string | null; last_name: string | null; full_name: string | null; company: string | null; email: string; phone: string | null }
@@ -40,8 +43,13 @@ export default function NewPropertyPage() {
   const [newLLLastName, setNewLLLastName] = useState('')
   const [newLLEmail, setNewLLEmail] = useState('')
   const [newLLPhone, setNewLLPhone] = useState('')
+  const [newLLCompany, setNewLLCompany] = useState('')   // when the property is owned through their company
   const [savingNewLL, setSavingNewLL] = useState(false)
   const [newLLError, setNewLLError] = useState<string | null>(null)
+  // Second (joint) landlord
+  const [selectedLandlord2, setSelectedLandlord2] = useState<LandlordOption | null>(null)
+  const [landlordSearch2, setLandlordSearch2] = useState('')
+  const [showLandlord2Picker, setShowLandlord2Picker] = useState(false)
   // CC emails — joint landlords, accountants etc.
   const [ccEmails, setCcEmails] = useState('')
 
@@ -116,10 +124,11 @@ export default function NewPropertyPage() {
           full_name: [newLLFirstName.trim(), newLLLastName.trim()].filter(Boolean).join(' '),
           email: newLLEmail.trim().toLowerCase(),
           phone: newLLPhone.trim() || null,
+          company: newLLCompany.trim() || null,
           role: 'landlord',
           landlord_comms_enabled: false,
         })
-        .select('id, first_name, last_name, full_name, email, phone')
+        .select('id, first_name, last_name, full_name, company, email, phone')
         .single()
       if (e) throw e
       setAllLandlords(prev => [...prev, ll])
@@ -172,9 +181,7 @@ export default function NewPropertyPage() {
     setLoading(true)
     setError(null)
     try {
-      const supabase = createClient()
-
-      // Geocode the postcode to get lat/lng for the weather/ventilation card
+      // Geocode the postcode
       const resolvedPostcode = postcode || null
       let lat: number | null = null
       let lng: number | null = null
@@ -188,76 +195,80 @@ export default function NewPropertyPage() {
             lng = geo.result.longitude
           }
         } catch {
-          // Non-fatal — property still creates without lat/lng
+          // Non-fatal
         }
       }
 
-      const { data: property, error: propErr } = await supabase
-        .from('properties')
-        .insert({
-          name: address,
-          address,
-          postcode: resolvedPostcode,
-          lat,
-          lng,
-          property_code: propertyCode,
-          property_type: letType,
-          landlord_id: selectedLandlord?.id || null,
-          landlord_name: selectedLandlord ? llDisplayName(selectedLandlord) : null,
-          landlord_email: selectedLandlord?.email || null,
-          landlord_phone: selectedLandlord?.phone || null,
-          cc_emails: ccEmails.trim() || null,
-          council_tax_band: councilTaxBand || councilInfo?.council_tax_band || null,
-          council_name: councilInfo?.council_name || null,
-          council_email: councilInfo?.council_email || null,
-          council_phone: councilInfo?.council_phone || null,
-          council_website: councilInfo?.council_website || null,
-          bin_collection_day: councilInfo?.bin_collection_day || null,
-          has_gas: hasGas,
-          has_electric: hasElectric,
-          furnished_status: furnishedStatus,
-          bills_included: billsIncluded,
-          notice_period_months: 2,
-          communal_bathrooms: letType === 'hmo' ? communalBathrooms : null,
-        })
-        .select()
-        .single()
+      const propertyData = {
+        name: address,
+        address,
+        postcode: resolvedPostcode,
+        lat,
+        lng,
+        property_code: propertyCode,
+        property_type: letType,
+        management_fee_type: feeType,
+        management_fee_pct: feeType !== 'fixed' && feeValue !== '' ? Number(feeValue) : null,
+        management_fee_fixed: feeType === 'fixed' && feeValue !== '' ? Number(feeValue) : null,
+        landlord_id: selectedLandlord?.id || null,
+        landlord_id_2: selectedLandlord2?.id || null,
+        landlord_name: selectedLandlord ? llDisplayName(selectedLandlord) : null,
+        landlord_email: selectedLandlord?.email || null,
+        landlord_phone: selectedLandlord?.phone || null,
+        cc_emails: ccEmails.trim() || null,
+        council_tax_band: councilTaxBand || councilInfo?.council_tax_band || null,
+        council_name: councilInfo?.council_name || null,
+        council_email: councilInfo?.council_email || null,
+        council_phone: councilInfo?.council_phone || null,
+        council_website: councilInfo?.council_website || null,
+        bin_collection_day: councilInfo?.bin_collection_day || null,
+        has_gas: hasGas,
+        has_electric: hasElectric,
+        furnished_status: furnishedStatus,
+        bills_included: billsIncluded,
+        notice_period_months: 2,
+        bedrooms: letType === 'hmo' ? (numRooms !== '' ? Number(numRooms) : null) : 1,
+        bathrooms: letType === 'hmo' ? communalBathrooms : 1,
+        communal_bathrooms: letType === 'hmo' ? communalBathrooms : null,
+      }
 
-      if (propErr) throw propErr
-      if (!property) throw new Error('Failed to create property')
-
-      // Create rooms
-      const roomsToCreate = letType === 'single_let'
-        ? [{ property_id: property.id, name: 'Whole Property', unit_code: `${propertyCode}01`, room_type: 'Single Let' }]
+      const roomsData = letType === 'single_let'
+        ? [{ name: 'Whole Property', unit_code: `${propertyCode}01`, room_type: 'Single Let', status: 'available' }]
         : roomTypes.map((type, index) => ({
-            property_id: property.id,
             name: `Room ${index + 1}`,
             unit_code: getUnitCode(index),
-            room_type: type
+            room_type: type,
+            status: 'available',
           }))
 
-      const { error: roomsErr } = await supabase.from('rooms').insert(roomsToCreate)
-      if (roomsErr) throw roomsErr
+      const res = await fetch('/api/admin/create-property', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property: propertyData, rooms: roomsData }),
+      })
 
-      router.push(`/admin/properties/${property.id}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to create property')
+
+      router.push(`/admin/properties/${json.id}`)
     } catch (err: any) {
       setError(err.message || 'Failed to create property')
       setLoading(false)
     }
   }
 
-  const inputClass = "w-full px-lg py-md border border-neutral-700 rounded-lg text-sm bg-neutral-800 text-neutral-50 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-  const smallInputClass = "w-full px-md py-xs text-sm border border-neutral-700 rounded bg-neutral-800 text-neutral-50 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-  const sectionClass = "rounded-lg border border-neutral-700 bg-neutral-900 p-md"
-  const labelClass = "block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm"
+  const inputClass = "w-full px-lg py-md border border-neutral-200 rounded-lg text-sm bg-white text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const smallInputClass = "w-full px-md py-xs text-sm border border-neutral-200 rounded bg-white text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+  const sectionClass = "rounded-lg border border-neutral-200 bg-white p-md"
+  const labelClass = "block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm"
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/active-rooms" />} />
 
-      <main className="mx-auto max-w-4xl px-md">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="pt-md mb-md">
-          <h1 className="text-xl font-bold text-neutral-900">🏠 Create Property</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">🏠 Create Property</h1>
         </div>
 
         {error && (
@@ -270,7 +281,7 @@ export default function NewPropertyPage() {
 
           {/* Section 1: Address */}
           <div className={sectionClass}>
-            <h2 className="text-xs font-bold text-white mb-sm uppercase tracking-wider">1️⃣ Address</h2>
+            <h2 className="text-xs font-bold text-neutral-500 mb-sm uppercase tracking-wider">1️⃣ Address</h2>
             {councilInfo && (
               <div className="mb-sm rounded border border-green-600 bg-green-900/30 p-xs">
                 <p className="text-xs font-semibold text-green-400">✓ {councilInfo.council_name} · Bins: {councilInfo.bin_collection_day}</p>
@@ -283,8 +294,8 @@ export default function NewPropertyPage() {
                   onChange={handleAddrChange}
                   label="Property Address"
                   required
-                  inputClass="w-full rounded-xl border border-neutral-600 bg-neutral-800 px-3 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-green-500"
-                  labelClass="block text-xs font-semibold text-neutral-300 uppercase tracking-wide mb-1"
+                  inputClass="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  labelClass="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1"
                 />
               </div>
               <div>
@@ -295,7 +306,7 @@ export default function NewPropertyPage() {
                     value={propertyCode}
                     onChange={(e) => setPropertyCode(e.target.value.toUpperCase())}
                     maxLength={10}
-                    className="flex-1 px-lg py-md border border-neutral-700 rounded-lg text-sm bg-neutral-800 text-white font-mono font-bold focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="flex-1 px-lg py-md border border-neutral-200 rounded-lg text-sm bg-white text-neutral-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                   <span className="text-lg">✏️</span>
                 </div>
@@ -310,8 +321,8 @@ export default function NewPropertyPage() {
                   ? `https://www.gov.uk/council-tax-bands?postcode=${pc}`
                   : 'https://www.gov.uk/council-tax-bands'
                 return (
-                  <div className="md:col-span-2 rounded-xl border border-neutral-600 bg-neutral-800/60 p-md">
-                    <p className="text-xs font-semibold text-neutral-300 mb-sm">
+                  <div className="md:col-span-2 rounded-xl border border-neutral-200 bg-neutral-50 p-md">
+                    <p className="text-xs font-semibold text-neutral-500 mb-sm">
                       🔍 Quick lookups{pc ? ` for ${pc}` : ''}
                     </p>
                     <div className="flex flex-wrap gap-sm mb-sm">
@@ -319,7 +330,7 @@ export default function NewPropertyPage() {
                         href={epcUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-xs rounded-lg bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-semibold px-md py-xs transition-colors"
+                        className="inline-flex items-center gap-xs rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-semibold px-md py-xs transition-colors border border-neutral-200"
                       >
                         EPC rating &amp; expiry ↗
                       </a>
@@ -327,7 +338,7 @@ export default function NewPropertyPage() {
                         href={voaUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-xs rounded-lg bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-semibold px-md py-xs transition-colors"
+                        className="inline-flex items-center gap-xs rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-semibold px-md py-xs transition-colors border border-neutral-200"
                       >
                         Council tax band ↗
                       </a>
@@ -339,7 +350,7 @@ export default function NewPropertyPage() {
                       onChange={(e) => setCouncilTaxBand(e.target.value.toUpperCase())}
                       placeholder="A–H"
                       maxLength={1}
-                      className="w-16 px-md py-xs text-sm border border-neutral-600 rounded bg-neutral-800 text-white text-center font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-16 px-md py-xs text-sm border border-neutral-200 rounded bg-white text-neutral-900 text-center font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 )
@@ -350,7 +361,7 @@ export default function NewPropertyPage() {
           {/* Section 2: THE FORK — only show once address is entered */}
           {addrValue.line1.trim().length > 3 && (
             <div className={sectionClass}>
-              <h2 className="text-xs font-bold text-white mb-md uppercase tracking-wider">2️⃣ What type of letting is this?</h2>
+              <h2 className="text-xs font-bold text-neutral-500 mb-md uppercase tracking-wider">2️⃣ What type of letting is this?</h2>
               <div className="grid grid-cols-2 gap-md">
                 {/* HMO */}
                 <button
@@ -359,12 +370,12 @@ export default function NewPropertyPage() {
                   className={`p-lg rounded-xl border-2 text-left transition-all ${
                     letType === 'hmo'
                       ? 'border-blue-500 bg-blue-900/30'
-                      : 'border-neutral-700 hover:border-neutral-500 bg-neutral-800'
+                      : 'border-neutral-200 hover:border-neutral-400 bg-neutral-50'
                   }`}
                 >
                   <div className="text-3xl mb-sm">🏠</div>
-                  <p className="text-base font-bold text-white mb-xs">HMO</p>
-                  <p className="text-xs text-neutral-400 leading-relaxed">Multiple tenants, each with their own room. Shared kitchen, bathrooms and communal areas.</p>
+                  <p className="text-base font-bold text-neutral-900 mb-xs">HMO</p>
+                  <p className="text-xs text-neutral-500 leading-relaxed">Multiple tenants, each with their own room. Shared kitchen, bathrooms and communal areas.</p>
                   {letType === 'hmo' && <p className="text-xs text-blue-400 font-semibold mt-sm">✓ Selected</p>}
                 </button>
 
@@ -375,12 +386,12 @@ export default function NewPropertyPage() {
                   className={`p-lg rounded-xl border-2 text-left transition-all ${
                     letType === 'single_let'
                       ? 'border-green-500 bg-green-900/30'
-                      : 'border-neutral-700 hover:border-neutral-500 bg-neutral-800'
+                      : 'border-neutral-200 hover:border-neutral-400 bg-neutral-50'
                   }`}
                 >
                   <div className="text-3xl mb-sm">🔑</div>
-                  <p className="text-base font-bold text-white mb-xs">Single Let</p>
-                  <p className="text-xs text-neutral-400 leading-relaxed">Whole property let to one household. One tenancy agreement, one set of keys.</p>
+                  <p className="text-base font-bold text-neutral-900 mb-xs">Single Let</p>
+                  <p className="text-xs text-neutral-500 leading-relaxed">Whole property let to one household. One tenancy agreement, one set of keys.</p>
                   {letType === 'single_let' && <p className="text-xs text-green-400 font-semibold mt-sm">✓ Selected</p>}
                 </button>
               </div>
@@ -392,18 +403,18 @@ export default function NewPropertyPage() {
             <>
               {/* Section 3: Landlord */}
               <div className={sectionClass}>
-                <h2 className="text-xs font-bold text-white mb-sm uppercase tracking-wider">3️⃣ Landlord</h2>
+                <h2 className="text-xs font-bold text-neutral-500 mb-sm uppercase tracking-wider">3️⃣ Landlord</h2>
 
                 {selectedLandlord ? (
                   /* ── Confirmed landlord card + CC emails ── */
                   <div className="space-y-sm">
-                    <div className="rounded-xl border-2 border-green-500 bg-green-950/40 p-md flex items-start gap-md">
-                      <div className="w-12 h-12 rounded-full bg-green-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                    <div className="rounded-xl border-2 border-green-500 bg-green-50 p-md flex items-start gap-md">
+                      <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
                         {llDisplayName(selectedLandlord).charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-white text-base">{llDisplayName(selectedLandlord)}</p>
-                        <p className="text-sm text-neutral-300">{selectedLandlord.email}</p>
+                        <p className="font-bold text-neutral-900 text-base">{llDisplayName(selectedLandlord)}</p>
+                        <p className="text-sm text-neutral-600">{selectedLandlord.email}</p>
                         {selectedLandlord.phone
                           ? <p className="text-sm text-neutral-400">{selectedLandlord.phone}</p>
                           : <p className="text-xs text-amber-400 mt-xs">⚠ No phone number — add to their profile after setup</p>
@@ -412,19 +423,76 @@ export default function NewPropertyPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedLandlord(null)}
-                        className="shrink-0 text-xs text-neutral-400 hover:text-white border border-neutral-600 rounded px-sm py-xs transition-colors"
+                        className="shrink-0 text-xs text-neutral-500 hover:text-neutral-900 border border-neutral-200 rounded px-sm py-xs transition-colors"
                       >
                         Change
                       </button>
                     </div>
-                    {/* CC emails — joint landlord, second owner, accountant */}
+                    {/* Second (joint) landlord */}
                     <div>
-                      <label className={labelClass}>CC emails <span className="normal-case font-normal text-neutral-500">(joint owner, accountant — comma-separated)</span></label>
+                      <label className={labelClass}>Joint landlord <span className="normal-case font-normal text-neutral-500">(optional — if two landlords co-own this property)</span></label>
+                      {selectedLandlord2 ? (
+                        <div className="flex items-center gap-sm rounded-xl border-2 border-blue-400 bg-blue-50 px-md py-sm">
+                          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                            {llDisplayName(selectedLandlord2).charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-neutral-900 text-sm">{llDisplayName(selectedLandlord2)}</p>
+                            <p className="text-xs text-neutral-500">{selectedLandlord2.email}</p>
+                          </div>
+                          <button type="button" onClick={() => { setSelectedLandlord2(null); setShowLandlord2Picker(false) }}
+                            className="text-xs text-neutral-500 hover:text-neutral-900 border border-neutral-200 rounded px-sm py-xs">
+                            Remove
+                          </button>
+                        </div>
+                      ) : showLandlord2Picker ? (
+                        <div className="space-y-sm">
+                          <input
+                            type="text"
+                            value={landlordSearch2}
+                            onChange={e => setLandlordSearch2(e.target.value)}
+                            placeholder="Search by name or email…"
+                            className={inputClass}
+                            autoFocus
+                          />
+                          {(() => {
+                            const q = landlordSearch2.toLowerCase()
+                            const filtered2 = allLandlords.filter(l => l.id !== selectedLandlord?.id && (
+                              llDisplayName(l).toLowerCase().includes(q) || (l.email || '').toLowerCase().includes(q)
+                            ))
+                            return filtered2.length === 0 ? (
+                              <p className="text-xs text-neutral-400 py-xs">{landlordSearch2 ? `No match for "${landlordSearch2}"` : 'Type to search…'}</p>
+                            ) : (
+                              <div className="rounded-lg border border-neutral-200 overflow-hidden max-h-40 overflow-y-auto">
+                                {filtered2.map((ll, i) => (
+                                  <button key={ll.id} type="button"
+                                    onClick={() => { setSelectedLandlord2(ll); setShowLandlord2Picker(false) }}
+                                    className={`w-full flex items-center gap-md px-md py-sm text-left hover:bg-neutral-50 text-sm ${i > 0 ? 'border-t border-neutral-100' : ''}`}>
+                                    <span className="font-semibold text-neutral-900">{llDisplayName(ll)}</span>
+                                    <span className="text-neutral-400 text-xs ml-1">{ll.email}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )
+                          })()}
+                          <button type="button" onClick={() => setShowLandlord2Picker(false)}
+                            className="text-xs text-neutral-500 hover:text-neutral-900">← Cancel</button>
+                        </div>
+                      ) : (
+                        <button type="button" onClick={() => setShowLandlord2Picker(true)}
+                          className="w-full rounded-lg border border-dashed border-neutral-300 text-neutral-500 hover:text-neutral-900 hover:border-neutral-400 py-sm text-sm font-semibold transition-colors">
+                          + Add joint landlord
+                        </button>
+                      )}
+                    </div>
+                    {/* CC emails — accountant etc. */}
+                    <div>
+                      <label className={labelClass}>CC emails <span className="normal-case font-normal text-neutral-500">(accountant — comma-separated)</span></label>
                       <input
                         type="text"
                         value={ccEmails}
                         onChange={e => setCcEmails(e.target.value)}
-                        placeholder="second@owner.com, accountant@firm.co.uk"
+                        placeholder="accountant@firm.co.uk"
                         className={inputClass}
                       />
                     </div>
@@ -432,11 +500,11 @@ export default function NewPropertyPage() {
                 ) : landlordMode === 'add_new' ? (
                   /* ── Add new landlord inline ── */
                   <div className="space-y-md">
-                    <div className="rounded-lg border border-amber-600 bg-amber-950/40 px-md py-sm">
-                      <p className="text-xs text-amber-300">Adding a new landlord — you can fill in the remaining details (address, company, AML) from their landlord profile after setup.</p>
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 px-md py-sm">
+                      <p className="text-xs text-amber-700">Adding a new landlord — you can fill in the remaining details (address, company, AML) from their landlord profile after setup.</p>
                     </div>
                     {newLLError && (
-                      <p className="text-xs text-red-400 bg-red-950/40 border border-red-700 rounded px-md py-sm">{newLLError}</p>
+                      <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-md py-sm">{newLLError}</p>
                     )}
                     <div className="grid grid-cols-2 gap-md">
                       <div>
@@ -459,14 +527,19 @@ export default function NewPropertyPage() {
                         <input type="tel" value={newLLPhone} onChange={e => setNewLLPhone(e.target.value)}
                           placeholder="07700 000000" className={smallInputClass} />
                       </div>
+                      <div className="col-span-2">
+                        <label className={labelClass}>Company — if they own the property through a company</label>
+                        <input value={newLLCompany} onChange={e => setNewLLCompany(e.target.value)}
+                          placeholder="e.g. Ananya Property Holding Ltd" className={smallInputClass} />
+                      </div>
                     </div>
                     <div className="flex gap-sm">
                       <button type="button" onClick={handleCreateNewLandlord} disabled={savingNewLL}
-                        className="flex-1 rounded-lg bg-white text-neutral-900 font-bold py-sm text-sm hover:bg-neutral-100 disabled:opacity-40 transition-colors">
+                        className="flex-1 rounded-lg bg-neutral-900 text-white font-bold py-sm text-sm hover:bg-neutral-800 disabled:opacity-40 transition-colors">
                         {savingNewLL ? 'Saving…' : 'Create landlord & select'}
                       </button>
                       <button type="button" onClick={() => { setLandlordMode('search'); setNewLLError(null) }}
-                        className="rounded-lg border border-neutral-600 text-neutral-300 font-semibold px-lg py-sm text-sm hover:border-neutral-400 transition-colors">
+                        className="rounded-lg border border-neutral-200 text-neutral-600 font-semibold px-lg py-sm text-sm hover:border-neutral-400 transition-colors">
                         ← Back
                       </button>
                     </div>
@@ -486,19 +559,19 @@ export default function NewPropertyPage() {
                     ) : filteredLandlords.length === 0 ? (
                       <p className="text-xs text-neutral-500 py-sm">No match for &quot;{landlordSearch}&quot;</p>
                     ) : (
-                      <div className="rounded-lg border border-neutral-700 overflow-hidden max-h-48 overflow-y-auto">
+                      <div className="rounded-lg border border-neutral-200 overflow-hidden max-h-48 overflow-y-auto">
                         {filteredLandlords.map((ll, i) => (
                           <button
                             key={ll.id}
                             type="button"
                             onClick={() => setSelectedLandlord(ll)}
-                            className={`w-full flex items-center gap-md px-md py-sm text-left hover:bg-neutral-700 transition-colors ${i > 0 ? 'border-t border-neutral-700' : ''}`}
+                            className={`w-full flex items-center gap-md px-md py-sm text-left hover:bg-neutral-50 transition-colors ${i > 0 ? 'border-t border-neutral-100' : ''}`}
                           >
-                            <div className="w-8 h-8 rounded-full bg-neutral-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-700 font-bold text-sm shrink-0">
                               {llDisplayName(ll).charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-white truncate">{llDisplayName(ll)}</p>
+                              <p className="text-sm font-semibold text-neutral-900 truncate">{llDisplayName(ll)}</p>
                               <p className="text-xs text-neutral-400 truncate">{ll.email}</p>
                             </div>
                             {!ll.phone && <span className="text-xs text-amber-500 shrink-0">no phone</span>}
@@ -509,7 +582,7 @@ export default function NewPropertyPage() {
                     <button
                       type="button"
                       onClick={() => setLandlordMode('add_new')}
-                      className="w-full rounded-lg border border-dashed border-neutral-600 text-neutral-400 hover:text-white hover:border-neutral-400 py-sm text-sm font-semibold transition-colors"
+                      className="w-full rounded-lg border border-dashed border-neutral-300 text-neutral-500 hover:text-neutral-900 hover:border-neutral-400 py-sm text-sm font-semibold transition-colors"
                     >
                       + Add new landlord
                     </button>
@@ -517,18 +590,37 @@ export default function NewPropertyPage() {
                 )}
               </div>
 
+              {/* Management fee agreed with the landlord */}
+              <div className={sectionClass}>
+                <h2 className="text-xs font-bold text-neutral-500 mb-sm uppercase tracking-wider">Management fee</h2>
+                <div className="flex flex-wrap items-center gap-sm">
+                  <select value={feeType} onChange={e => setFeeType(e.target.value as any)} className={smallInputClass + ' w-auto'}>
+                    <option value="pct_received">% of rent received</option>
+                    <option value="pct_charged">% of rent charged</option>
+                    <option value="fixed">Fixed £ a month</option>
+                  </select>
+                  <span className="flex items-center gap-xs text-sm text-neutral-600">
+                    {feeType === 'fixed' && '£'}
+                    <input type="number" min="0" step={feeType === 'fixed' ? '0.01' : '0.5'} value={feeValue} onChange={e => setFeeValue(e.target.value)}
+                      placeholder={feeType === 'fixed' ? 'e.g. 81' : 'e.g. 12'} className={smallInputClass + ' w-24'} />
+                    {feeType !== 'fixed' && '%'}
+                  </span>
+                </div>
+                <p className="text-xs text-neutral-500 mt-xs">The standard fee for every tenancy here. A tenancy on a different agreed fee can have its own. Leave blank if not agreed yet — Health Check will remind you.</p>
+              </div>
+
               {/* Section 4: Features */}
               <div className={sectionClass}>
-                <h2 className="text-xs font-bold text-white mb-sm uppercase tracking-wider">4️⃣ Features</h2>
+                <h2 className="text-xs font-bold text-neutral-500 mb-sm uppercase tracking-wider">4️⃣ Features</h2>
                 <div className="space-y-sm">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Utilities</p>
                     <div className="flex gap-md">
-                      <label className="flex items-center gap-xs text-white text-sm cursor-pointer">
+                      <label className="flex items-center gap-xs text-neutral-700 text-sm cursor-pointer">
                         <input type="checkbox" checked={hasGas} onChange={e => setHasGas(e.target.checked)} className="w-4 h-4" />
                         Gas
                       </label>
-                      <label className="flex items-center gap-xs text-white text-sm cursor-pointer">
+                      <label className="flex items-center gap-xs text-neutral-700 text-sm cursor-pointer">
                         <input type="checkbox" checked={hasElectric} onChange={e => setHasElectric(e.target.checked)} className="w-4 h-4" />
                         Electric
                       </label>
@@ -538,7 +630,7 @@ export default function NewPropertyPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Furnished</p>
                     <div className="flex gap-md">
                       {(['furnished', 'unfurnished', 'part-furnished'] as const).map(s => (
-                        <label key={s} className="flex items-center gap-xs text-white text-sm cursor-pointer">
+                        <label key={s} className="flex items-center gap-xs text-neutral-700 text-sm cursor-pointer">
                           <input type="radio" name="furnished" checked={furnishedStatus === s} onChange={() => setFurnishedStatus(s)} className="w-4 h-4" />
                           {s === 'part-furnished' ? 'Part-furnished' : s.charAt(0).toUpperCase() + s.slice(1)}
                         </label>
@@ -552,13 +644,13 @@ export default function NewPropertyPage() {
                         <button
                           type="button"
                           onClick={() => setCommunalBathrooms(Math.max(1, communalBathrooms - 1))}
-                          className="w-8 h-8 rounded bg-neutral-700 text-white font-bold text-lg hover:bg-neutral-600 flex items-center justify-center"
+                          className="w-8 h-8 rounded bg-neutral-100 text-neutral-700 font-bold text-lg hover:bg-neutral-200 border border-neutral-200 flex items-center justify-center"
                         >−</button>
-                        <span className="w-8 text-center text-white font-bold text-lg">{communalBathrooms}</span>
+                        <span className="w-8 text-center text-neutral-900 font-bold text-lg">{communalBathrooms}</span>
                         <button
                           type="button"
                           onClick={() => setCommunalBathrooms(Math.min(10, communalBathrooms + 1))}
-                          className="w-8 h-8 rounded bg-neutral-700 text-white font-bold text-lg hover:bg-neutral-600 flex items-center justify-center"
+                          className="w-8 h-8 rounded bg-neutral-100 text-neutral-700 font-bold text-lg hover:bg-neutral-200 border border-neutral-200 flex items-center justify-center"
                         >+</button>
                       </div>
                     </div>
@@ -568,12 +660,12 @@ export default function NewPropertyPage() {
 
               {/* Section 5: Tenancy */}
               <div className={sectionClass}>
-                <h2 className="text-xs font-bold text-white mb-sm uppercase tracking-wider">5️⃣ Tenancy</h2>
+                <h2 className="text-xs font-bold text-neutral-500 mb-sm uppercase tracking-wider">5️⃣ Tenancy</h2>
                 <div>
                   <label className={labelClass}>Bills Included *</label>
                   <div className="flex gap-sm w-48">
-                    <button onClick={() => setBillsIncluded(true)} className={`flex-1 px-md py-xs text-sm rounded font-semibold transition ${billsIncluded ? 'bg-blue-600 text-white' : 'border border-neutral-700 text-white hover:bg-neutral-800'}`}>Yes</button>
-                    <button onClick={() => setBillsIncluded(false)} className={`flex-1 px-md py-xs text-sm rounded font-semibold transition ${!billsIncluded ? 'bg-blue-600 text-white' : 'border border-neutral-700 text-white hover:bg-neutral-800'}`}>No</button>
+                    <button onClick={() => setBillsIncluded(true)} className={`flex-1 px-md py-xs text-sm rounded font-semibold transition ${billsIncluded ? 'bg-blue-600 text-white' : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-50'}`}>Yes</button>
+                    <button onClick={() => setBillsIncluded(false)} className={`flex-1 px-md py-xs text-sm rounded font-semibold transition ${!billsIncluded ? 'bg-blue-600 text-white' : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-50'}`}>No</button>
                   </div>
                 </div>
               </div>
@@ -581,7 +673,7 @@ export default function NewPropertyPage() {
               {/* Section 6: Rooms — HMO only */}
               {letType === 'hmo' && (
                 <div className={sectionClass}>
-                  <h2 className="text-xs font-bold text-white mb-sm uppercase tracking-wider">6️⃣ Number of Rooms</h2>
+                  <h2 className="text-xs font-bold text-neutral-500 mb-sm uppercase tracking-wider">6️⃣ Number of Rooms</h2>
                   <div className="grid grid-cols-4 md:grid-cols-8 gap-xs">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map(count => (
                       <button
@@ -603,18 +695,18 @@ export default function NewPropertyPage() {
               {/* Section 7: Room Types — HMO only */}
               {letType === 'hmo' && numRooms !== '' && (
                 <div className={sectionClass}>
-                  <h2 className="text-xs font-bold text-white mb-sm uppercase tracking-wider">7️⃣ Room Types</h2>
+                  <h2 className="text-xs font-bold text-neutral-500 mb-sm uppercase tracking-wider">7️⃣ Room Types</h2>
                   <div className="space-y-sm">
                     {roomTypes.map((type, index) => (
                       <div key={index} className="flex gap-md items-end">
                         <div className="flex-1">
-                          <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-xs">
                             Room {index + 1} <span className="text-blue-400">{getUnitCode(index)}</span>
                           </label>
                           <select
                             value={type}
                             onChange={e => handleRoomTypeChange(index, e.target.value)}
-                            className="w-full px-md py-xs border border-neutral-600 rounded text-sm bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-md py-xs border border-neutral-200 rounded text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             <option value="">Select type…</option>
                             {roomTypeOptions.map(option => (
@@ -630,8 +722,8 @@ export default function NewPropertyPage() {
 
               {/* Review & Create */}
               {isComplete && (
-                <div className="rounded border border-green-600 bg-green-50 p-sm">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-sm mb-sm text-xs">
+                <div className="rounded-xl border border-green-500 bg-green-50 p-md">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-sm mb-md text-xs">
                     <div>
                       <p className="text-green-700 font-semibold mb-xs">{selectedLandlord ? llDisplayName(selectedLandlord) : ''}</p>
                       <p className="text-green-600">{address}</p>
@@ -641,16 +733,19 @@ export default function NewPropertyPage() {
                       <p className="text-green-700 font-semibold mb-xs">{letType === 'hmo' ? `${numRooms} rooms · HMO` : 'Single Let'}</p>
                       <p className="text-green-600">Bills {billsIncluded ? 'incl.' : 'excl.'}</p>
                     </div>
-                    <div className="col-span-2">
-                      <button
-                        onClick={handleCreate}
-                        disabled={loading}
-                        className="w-full px-md py-xs bg-green-600 text-white rounded font-semibold text-xs hover:bg-green-700 disabled:opacity-50 transition"
-                      >
-                        {loading ? '⏳ Creating…' : '✅ Create Property'}
-                      </button>
-                    </div>
                   </div>
+                  {error && (
+                    <div className="mb-sm p-sm bg-red-50 border border-red-300 rounded text-xs text-red-700 font-semibold">
+                      {error}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleCreate}
+                    disabled={loading}
+                    className="w-full py-sm bg-green-600 text-white rounded-lg font-bold text-sm hover:bg-green-700 disabled:opacity-50 transition"
+                  >
+                    {loading ? '⏳ Creating property…' : '✅ Create Property'}
+                  </button>
                 </div>
               )}
             </>
@@ -658,7 +753,7 @@ export default function NewPropertyPage() {
 
           <Link
             href="/admin/active-rooms"
-            className="block w-full px-md py-xs border border-neutral-700 text-neutral-900 bg-white rounded font-semibold text-sm hover:bg-neutral-50 transition text-center"
+            className="block w-full px-md py-xs border border-neutral-200 text-neutral-600 bg-white rounded font-semibold text-sm hover:bg-neutral-50 transition text-center"
           >
             Cancel
           </Link>

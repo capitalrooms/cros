@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { classifyDocument, aiConfigured } from '@/lib/ai-classify'
+import { aiConfigured } from '@/lib/ai-classify'
+import { scanDocument } from '@/lib/scan-engine'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 90
 
 export async function POST(request: NextRequest) {
   if (!aiConfigured()) {
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const data = await classifyDocument(bytes, mime)
+    const data = await scanDocument(bytes, mime)
     return NextResponse.json({ result: data })
   } catch (err: any) {
     const status = err?.status || 500

@@ -24,6 +24,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket } from '@/lib/portalAuth'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getCommsLive } from '@/lib/comms'
 import { activeTenantIds, insertNotifications } from '@/lib/serverNotify'
@@ -51,8 +52,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { ticketId, requestedDate, requestedTime, fallbackDate, fallbackTime } = body
 
-  if (!ticketId || !requestedDate || !requestedTime) {
-    return NextResponse.json({ error: 'ticketId, requestedDate, requestedTime required' }, { status: 400 })
+  // only the contractor assigned to the job (or the office) can book it
+  if (!ticketId || !(await canWorkOnTicket(await requireSignedIn(req), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!requestedDate || !requestedTime) {
+    return NextResponse.json({ error: 'requestedDate and requestedTime required' }, { status: 400 })
   }
 
   const service = createServiceClient(
@@ -178,6 +181,7 @@ export async function PATCH(req: NextRequest) {
   if (!ticketId || !['approve', 'decline'].includes(decision)) {
     return NextResponse.json({ error: 'ticketId and decision (approve|decline) required' }, { status: 400 })
   }
+  if (!(await canWorkOnTicket(await requireSignedIn(req), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

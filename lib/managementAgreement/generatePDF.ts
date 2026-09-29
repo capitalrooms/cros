@@ -24,6 +24,10 @@ export interface ManagementAgreementData {
   clientTitle?: string                       // Mr / Mrs / Ms / Dr etc.
   clientFirstName?: string
   clientLastName?: string
+  // Second (joint) landlord — individual only
+  client2Title?: string
+  client2FirstName?: string
+  client2LastName?: string
   // Company fields
   companyName?: string
   companyReg?: string
@@ -37,6 +41,8 @@ export interface ManagementAgreementData {
   epcCost: number                           // 75 or 100
   commencementDate: string                  // ISO date
   inventoryNote?: string                    // optional free text
+  // Client's nominated account for rent remittance (added once confirmed through onboarding)
+  nominatedAccount?: { accountName: string; bankName?: string; sortCode: string; accountNumber: string }
   // Injected by API route
   bizSettings?: PDFBizSettings
 }
@@ -53,8 +59,10 @@ function formatDate(iso: string): string {
 
 function clientName(d: ManagementAgreementData): string {
   if (d.entityType === 'company') return d.companyName ?? 'The Client'
-  const parts = [d.clientTitle, d.clientFirstName, d.clientLastName].filter(Boolean)
-  return parts.join(' ') || 'The Client'
+  const name1 = [d.clientTitle, d.clientFirstName, d.clientLastName].filter(Boolean).join(' ')
+  const name2 = [d.client2Title, d.client2FirstName, d.client2LastName].filter(Boolean).join(' ')
+  if (name2) return `${name1 || 'The Client'} & ${name2}`
+  return name1 || 'The Client'
 }
 
 function hRule(doc: PDFKit.PDFDocument, x: number, y: number, w: number, colour = BORDER) {
@@ -238,6 +246,20 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     hRule(doc, MARGIN, y, COL_W, '#c0c0c0')
     y += 16
 
+    if (data.nominatedAccount) {
+      const acc = data.nominatedAccount
+      drawLabel('NOMINATED ACCOUNT')
+      drawPara(`Rent collected under this agreement shall be remitted, net of the Agent's fees and authorised expenses, to the Client's nominated account: ${[
+        `Account name: ${acc.accountName}`,
+        acc.bankName ? `Bank: ${acc.bankName}` : '',
+        `Sort code: ${acc.sortCode}`,
+        `Account number: ${acc.accountNumber}`,
+      ].filter(Boolean).join('; ')}. The Client shall notify the Agent in writing of any change to this account.`)
+      spacer(6)
+      hRule(doc, MARGIN, y, COL_W, '#c0c0c0')
+      y += 16
+    }
+
     // ── CLAUSES 1–26 ─────────────────────────────────────────────────────────
 
     const prop = data.properties.length === 1 ? 'the Property' : 'the Properties'
@@ -392,7 +414,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
 
     // Fee table
     const fees: [string, string][] = [
-      ['Management Fee', `${mgmtFee} of all rent collected (including VAT where applicable)`],
+      ['Management Fee', `${mgmtFee} of all rent collected`],
       ['Let Fee (new tenancy)', data.letFee],
       ['EPC (if required)', data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`],
       ...(data.floatAmount ? [['Working Float', `£${data.floatAmount} (held by Agent to cover day-to-day expenditure)`] as [string, string]] : []),
@@ -430,7 +452,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     }
 
     spacer(16)
-    drawPara('All fees are quoted inclusive of VAT at the prevailing rate unless otherwise stated. The management fee is deducted from rent collected before remittance to the Client. All other fees are invoiced separately.')
+    drawPara('Capital Rooms Ltd is not VAT registered, so no VAT is added to our fees. The management fee is deducted from rent collected before remittance to the Client. All other fees are invoiced separately.')
 
     spacer(10)
     hRule(doc, MARGIN, y, COL_W, '#999')

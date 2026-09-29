@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { emailHtml, FROM, PORTAL_URL } from './emailTemplate'
+import { emailHtml, PORTAL_URL, ctaButton } from './emailTemplate'
+
+const esc = (v: string) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+import { senderFields, senderFor } from '@/lib/email/sender'
 
 /**
  * The single correct way to write notifications.
@@ -85,17 +88,96 @@ export async function activeTenantIds(
   return [...new Set((data || []).map((t: any) => t.person_id).filter(Boolean))]
 }
 
+/**
+ * Channels the caller explicitly wants to use.
+ * 'push_email' = push to those with subscriptions, email to all
+ * 'push_only'  = push only (no email at all)
+ * 'email_only' = email to all (no push)
+ */
+export type NotifyChannels = 'push_email' | 'push_only' | 'email_only'
+
+/**
+ * Dispatch a notification via the requested channels.
+ * Always writes the in-app notification row regardless of channel choice.
+ */
+export async function dispatchChannels(
+  service: SupabaseClient,
+  recipientPersonIds: string[],
+  content: NotifyContent,
+  channels: NotifyChannels = 'push_email',
+  /** the request behind a staff mail-out, so it's sent from and signed by that person */
+  req?: Request | null,
+): Promise<{ pushCount: number; emailCount: number }> {
+  const ids = [...new Set(recipientPersonIds.filter(Boolean))]
+  if (ids.length === 0) return { pushCount: 0, emailCount: 0 }
+
+  let pushCount = 0
+  let emailCount = 0
+
+  if (channels === 'push_email' || channels === 'push_only') {
+    await tryPush(ids, content.title, content.body, content.link)
+    pushCount = ids.length // best-effort — we don't get individual receipts from push
+  }
+
+  if (channels === 'push_email' || channels === 'email_only') {
+    emailCount = await sendEmailToAll(service, ids, content, req)
+  }
+
+  return { pushCount, emailCount }
+}
+
+/** Send branded email to ALL supplied person ids (not just those without push). */
+async function sendEmailToAll(
+  service: SupabaseClient,
+  ids: string[],
+  content: NotifyContent,
+  req?: Request | null,
+): Promise<number> {
+  if (!process.env.RESEND_API_KEY) return 0
+
+  try {
+    const sender = await senderFor(req)
+    const { data: people } = await service
+      .from('people')
+      .select('id, full_name, first_name, email')
+      .in('id', ids)
+
+    const targets = (people ?? []).filter((p: any) => p.email)
+    if (targets.length === 0) return 0
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || PORTAL_URL
+
+    await Promise.allSettled(targets.map(async (person: any) => {
+      const firstName = person.first_name || person.full_name?.split(' ')[0] || 'there'
+      const loginUrl  = `${appUrl}/login?email=${encodeURIComponent(person.email)}`
+      // house email: the shared top bar and the sender's signature come from the wrapper
+      const html = await emailHtml(`
+        <p>Dear ${esc(firstName)},</p>
+        <p><strong>${esc(content.title)}</strong></p>
+        ${esc(content.body).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')}
+        ${content.link ? ctaButton('View details', `${appUrl}${content.link}`) : ''}
+        <p style="font-size:12px;color:#78716c;">You can also <a href="${loginUrl}" style="color:#1a1a1a;">sign in to the Capital Rooms app</a> as ${esc(person.email)}.</p>
+      `, { sender })
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+        body: JSON.stringify({ from: sender.from, reply_to: sender.replyTo, to: [person.email], subject: content.title, html }),
+      })
+    }))
+
+    return targets.length
+  } catch {
+    return 0
+  }
+}
+
 /** Fire-and-forget push to opted-in recipients; never throws. */
 export async function tryPush(recipientPersonIds: string[], title: string, body: string, link?: string) {
   const ids = [...new Set(recipientPersonIds.filter(Boolean))]
   if (ids.length === 0) return
   try {
-    const base = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
-    await fetch(`${base}/api/push/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipients: ids, title, body, data: { link } }),
-    })
+    const { sendServerPush } = await import('@/lib/serverPush')
+    await sendServerPush({ personIds: ids, title, body, url: link })
   } catch {
     // Push is best-effort — the in-app notification is the source of truth.
   }
@@ -134,7 +216,7 @@ export async function tryEmailFallback(
     // Fetch their emails
     const { data: people } = await service
       .from('people')
-      .select('id, name, email')
+      .select('id, first_name, last_name, full_name, email')
       .in('id', withoutPush)
 
     const targets = (people ?? []).filter((p: any) => p.email)
@@ -143,7 +225,7 @@ export async function tryEmailFallback(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || PORTAL_URL
 
     for (const person of targets as { id: string; name: string; email: string }[]) {
-      const firstName = person.name?.split(' ')[0] ?? 'there'
+      const firstName = (person as any).first_name || (person as any).full_name?.split(' ')[0] || 'there'
       const loginUrl  = `${appUrl}/login?email=${encodeURIComponent(person.email)}`
 
       const html = await emailHtml(`
@@ -173,7 +255,7 @@ export async function tryEmailFallback(
           Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         },
         body: JSON.stringify({
-          from:    'Capital Rooms <management@capitalrooms.co.uk>',
+          ...(await senderFields()),
           to:      [person.email],
           subject: content.title,
           html,

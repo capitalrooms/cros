@@ -165,10 +165,10 @@ export default function RoomsManagement() {
 
                 <div className="mt-md flex gap-sm">
                   <Link
-                    href={`/lettings/rooms/${room.id}`}
-                    className="flex-1 rounded-xl bg-neutral-900 px-md py-sm text-sm font-bold text-white hover:bg-neutral-800"
+                    href="/lettings/viewings"
+                    className="flex-1 rounded-xl bg-neutral-900 px-md py-sm text-center text-sm font-bold text-white hover:bg-neutral-800"
                   >
-                    Edit
+                    Viewings
                   </Link>
                 </div>
               </div>

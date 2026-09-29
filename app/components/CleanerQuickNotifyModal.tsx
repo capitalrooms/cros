@@ -32,6 +32,8 @@ export default function CleanerQuickNotifyModal({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [channels, setChannels] = useState<'push_email' | 'push_only' | 'email_only'>('push_email')
+  const [sentReceipt, setSentReceipt] = useState<{ count: number; channels: string; sentAt: string } | null>(null)
 
   const supabase = createClient()
 
@@ -81,7 +83,8 @@ export default function CleanerQuickNotifyModal({
           property_id: propertyId,
           subject,
           message,
-          notification_type: notificationType
+          notification_type: notificationType,
+          channels,
         })
       })
 
@@ -90,11 +93,14 @@ export default function CleanerQuickNotifyModal({
         throw new Error(errData.error || 'Failed to send notification')
       }
 
-      setSuccess('✓ Notification sent to all tenants!')
-      setTimeout(() => {
-        onSuccess?.()
-        onClose()
-      }, 2000)
+      const result = await response.json()
+      const channelLabel = channels === 'push_email' ? 'push + email' : channels === 'push_only' ? 'push notification' : 'email'
+      setSentReceipt({
+        count: result.recipientCount ?? result.tenant_count ?? 0,
+        channels: channelLabel,
+        sentAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+      })
+      onSuccess?.()
     } catch (err) {
       setError((err as Error).message || 'Failed to send notification. Please try again.')
       console.error(err)
@@ -213,22 +219,59 @@ export default function CleanerQuickNotifyModal({
           </div>
         )}
 
+        {/* Sent receipt */}
+        {sentReceipt && (
+          <div className="mt-lg p-lg rounded-xl bg-green-950 border border-green-700 space-y-sm">
+            <p className="text-sm font-bold text-green-400">✓ Sent at {sentReceipt.sentAt}</p>
+            <p className="text-sm text-green-300">Reached <strong>{sentReceipt.count}</strong> {sentReceipt.count === 1 ? 'person' : 'people'} via <strong>{sentReceipt.channels}</strong></p>
+            <button onClick={onClose} className="mt-sm w-full px-md py-sm bg-green-800 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition">Close</button>
+          </div>
+        )}
+
+        {/* Channel picker */}
+        {!sentReceipt && (
+          <div className="mb-lg pb-lg border-b border-neutral-700">
+            <label className="text-sm font-semibold text-white mb-sm block">How to deliver:</label>
+            <div className="grid grid-cols-3 gap-sm">
+              {([
+                { value: 'push_email', label: '📲 Push + Email' },
+                { value: 'push_only', label: '📲 Push only' },
+                { value: 'email_only', label: '✉️ Email only' },
+              ] as const).map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setChannels(opt.value)}
+                  className={`px-sm py-sm rounded-lg font-semibold text-xs transition border ${
+                    channels === opt.value
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'border-neutral-700 text-neutral-300 hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex gap-md">
-          <button
-            onClick={onClose}
-            className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold hover:bg-neutral-900 transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={sendNotification}
-            disabled={sending}
-            className="flex-1 px-lg py-md bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-          >
-            {sending ? '⏳ Sending...' : '📤 Send Notification'}
-          </button>
-        </div>
+        {!sentReceipt && (
+          <div className="flex gap-md">
+            <button
+              onClick={onClose}
+              className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold hover:bg-neutral-900 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={sendNotification}
+              disabled={sending}
+              className="flex-1 px-lg py-md bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {sending ? '⏳ Sending...' : '📤 Send Notification'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

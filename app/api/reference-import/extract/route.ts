@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { AI_MODEL_SMART } from '@/lib/ai-classify'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -113,7 +114,7 @@ Return ONLY a JSON object with these fields (no markdown, no explanation):
   })
 
   const response = await anthropic.messages.create({
-    model: 'claude-opus-4-5',
+    model: AI_MODEL_SMART,
     max_tokens: 2000,
     messages: [{ role: 'user', content: contentBlocks }],
   })

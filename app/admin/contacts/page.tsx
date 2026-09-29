@@ -49,13 +49,13 @@ export default function ContactsPage() {
       // Get contacts
       const { data: contactsData } = await supabase
         .from('people')
-        .select('*, properties(id, name)')
+        .select('*, properties!properties_landlord_id_fkey(id, name)')
         .in('role', ['contractor', 'cleaner', 'landlord'])
         .order('first_name', { ascending: true })
         .order('last_name',  { ascending: true })
         .order('email',      { ascending: true });
 
-      setContacts(contactsData || []);
+      setContacts(((contactsData as any[]) || []).map((c) => ({ ...c, name: c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || '' })));
 
       // Get properties for assignment
       const { data: propsData } = await supabase
@@ -78,7 +78,9 @@ export default function ContactsPage() {
     const supabase = createClient();
     const { error } = await supabase.from('people').insert({
       email: formData.email,
-      name: formData.name,
+      full_name: formData.name || null,
+      first_name: (formData.name || '').trim().split(/\s+/)[0] || null,
+      last_name: (formData.name || '').trim().split(/\s+/).slice(1).join(' ') || null,
       phone: formData.phone || null,
       role: formData.role,
       property_id: formData.property_id || null,
@@ -95,12 +97,12 @@ export default function ContactsPage() {
     // Refresh contacts
     const { data: contactsData } = await supabase
       .from('people')
-      .select('*, properties(id, name)')
+      .select('*, properties!properties_landlord_id_fkey(id, name)')
       .in('role', ['contractor', 'cleaner', 'landlord'])
       .order('first_name', { ascending: true })
       .order('last_name',  { ascending: true })
       .order('email',      { ascending: true });
-    setContacts(contactsData || []);
+    setContacts(((contactsData as any[]) || []).map((c) => ({ ...c, name: c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || '' })));
   }
 
   async function handleDeleteContact(id: string) {
@@ -158,10 +160,10 @@ export default function ContactsPage() {
         left={<BackButton href="/admin" />}
       />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-3xl flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Contacts</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Contacts</h1>
             <p className="mt-sm text-sm text-neutral-600">Contractors, cleaners, and landlords assigned to properties</p>
           </div>
           <button

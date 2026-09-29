@@ -168,11 +168,11 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'sent': return 'bg-neutral-900 text-neutral-300'
-      case 'delivered': return 'bg-green-900 text-green-300'
-      case 'read': return 'bg-green-800 text-green-200'
-      case 'failed': return 'bg-red-900 text-red-300'
-      default: return 'bg-neutral-900 text-neutral-400'
+      case 'sent': return 'bg-neutral-100 text-neutral-600'
+      case 'delivered': return 'bg-green-100 text-green-700'
+      case 'read': return 'bg-green-100 text-green-800'
+      case 'failed': return 'bg-red-100 text-red-700'
+      default: return 'bg-neutral-100 text-neutral-600'
     }
   }
 
@@ -198,20 +198,20 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
     const isComplianceCategory = category === 'compliance'
 
     return (
-      <div className="rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
+      <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
         {/* Category Header */}
-        <div className="bg-neutral-900 p-lg flex items-center justify-between">
+        <div className="bg-neutral-50 border-b border-neutral-200 p-lg flex items-center justify-between">
           <div className="flex items-center gap-md">
             <span className="text-2xl">{getCategoryIcon(category)}</span>
             <div>
-              <h3 className="font-semibold text-white">{getCategoryLabel(category)}</h3>
-              <p className="text-xs text-neutral-400 mt-xs">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>
+              <h3 className="font-semibold text-neutral-900">{getCategoryLabel(category)}</h3>
+              <p className="text-xs text-neutral-500 mt-xs">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           {isComplianceCategory && messages.length > 0 && (
             <Link
               href={`/admin/properties/${propertyId}?tab=compliance`}
-              className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline"
             >
               View Log →
             </Link>
@@ -224,17 +224,17 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
             No {getCategoryLabel(category).toLowerCase()} yet
           </div>
         ) : (
-          <div className="divide-y divide-neutral-800">
+          <div className="divide-y divide-neutral-100">
             {messages.map((msg) => (
               <button
                 key={msg.id}
                 onClick={() => setSelectedMessage(msg)}
-                className="w-full text-left p-lg hover:bg-neutral-900 transition"
+                className="w-full text-left p-lg hover:bg-neutral-50 transition"
               >
                 <div className="flex items-start justify-between gap-lg">
                   <div className="flex-1">
-                    <p className="font-semibold text-white text-sm">{msg.title}</p>
-                    <p className="text-xs text-neutral-400 mt-xs line-clamp-2">{msg.message}</p>
+                    <p className="font-semibold text-neutral-900 text-sm">{msg.title}</p>
+                    <p className="text-xs text-neutral-500 mt-xs line-clamp-2">{msg.message}</p>
                   </div>
                   <span className={`text-xs font-semibold px-md py-sm rounded whitespace-nowrap ${getStatusColor(msg.status)}`}>
                     {msg.status}
@@ -262,25 +262,25 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
       {/* Header */}
       <div>
         <h2 className="text-xl font-semibold text-neutral-900">Communications</h2>
-        <p className="text-sm text-neutral-400 mt-xs">5 most recent messages by type, plus room drill-down</p>
+        <p className="text-sm text-neutral-500 mt-xs">5 most recent messages by type, plus room drill-down</p>
       </div>
 
       {/* Room Drill-Down Section */}
       {rooms.length > 0 && (
-        <div className="rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
-          <div className="bg-neutral-900 p-lg border-b border-neutral-700">
-            <h3 className="font-semibold text-white">Room Communications</h3>
-            <p className="text-xs text-neutral-400 mt-xs">Click a room to view tenant-level messages</p>
+        <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
+          <div className="bg-neutral-50 border-b border-neutral-200 p-lg">
+            <h3 className="font-semibold text-neutral-900">Room Communications</h3>
+            <p className="text-xs text-neutral-500 mt-xs">Click a room to view tenant-level messages</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-md p-lg">
             {rooms.map((room) => (
               <button
                 key={room.id}
                 onClick={() => setSelectedRoom(room)}
-                className="p-lg rounded-lg bg-neutral-900 border border-neutral-700 hover:border-blue-600 hover:bg-neutral-850 transition text-left"
+                className="p-lg rounded-lg bg-white border border-neutral-200 hover:border-blue-400 hover:bg-blue-50 transition text-left"
               >
-                <p className="font-semibold text-white text-sm">{room.name}</p>
-                <p className="text-xs text-neutral-400 mt-xs">View communications</p>
+                <p className="font-semibold text-neutral-900 text-sm">{room.name}</p>
+                <p className="text-xs text-neutral-500 mt-xs">View communications</p>
               </button>
             ))}
           </div>
@@ -301,42 +301,42 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
       {/* Message Detail Modal */}
       {selectedMessage && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-lg mb-lg">
               <div>
-                <h3 className="text-lg font-semibold text-white">{selectedMessage.title}</h3>
-                <p className="text-xs text-neutral-400 mt-xs">{formatDate(selectedMessage.created_at)}</p>
+                <h3 className="text-lg font-semibold text-neutral-900">{selectedMessage.title}</h3>
+                <p className="text-xs text-neutral-500 mt-xs">{formatDate(selectedMessage.created_at)}</p>
               </div>
               <button
                 onClick={() => setSelectedMessage(null)}
-                className="text-2xl text-neutral-400 hover:text-white"
+                className="text-2xl text-neutral-400 hover:text-neutral-700"
               >
                 ×
               </button>
             </div>
 
-            <div className="rounded-lg bg-neutral-900 p-lg mb-lg">
-              <p className="text-sm text-white whitespace-pre-wrap">{selectedMessage.message}</p>
+            <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-lg mb-lg">
+              <p className="text-sm text-neutral-900 whitespace-pre-wrap">{selectedMessage.message}</p>
             </div>
 
             <div className="space-y-sm text-sm mb-lg">
               <div className="flex justify-between">
-                <span className="text-neutral-400">Type:</span>
-                <span className="font-semibold text-white">{selectedMessage.notification_type}</span>
+                <span className="text-neutral-500">Type:</span>
+                <span className="font-semibold text-neutral-900">{selectedMessage.notification_type}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-400">Recipients:</span>
-                <span className="font-semibold text-white">{selectedMessage.recipient_type}</span>
+                <span className="text-neutral-500">Recipients:</span>
+                <span className="font-semibold text-neutral-900">{selectedMessage.recipient_type}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-400">Status:</span>
-                <span className={`font-semibold ${getStatusColor(selectedMessage.status)}`}>
+                <span className="text-neutral-500">Status:</span>
+                <span className={`font-semibold px-sm py-0.5 rounded text-xs ${getStatusColor(selectedMessage.status)}`}>
                   {selectedMessage.status}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-400">Sent:</span>
-                <span className="font-semibold text-white">
+                <span className="text-neutral-500">Sent:</span>
+                <span className="font-semibold text-neutral-900">
                   {new Date(selectedMessage.created_at).toLocaleString('en-GB')}
                 </span>
               </div>

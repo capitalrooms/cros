@@ -78,7 +78,7 @@ export default function ShareTargetPage() {
           property_id: propertyId || null,
           title: sharedTitle || 'Shared note',
           content: noteText.trim(),
-          category: 'general',
+          note_type: 'admin',   // property_notes only allows admin | agent | cleaner — 'general' was rejected
           is_deleted: false,
         })
       if (err) throw err

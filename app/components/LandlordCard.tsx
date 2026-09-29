@@ -1,5 +1,7 @@
 'use client'
 
+import { landlordName } from '@/lib/people'
+
 /**
  * LandlordCard — canonical landlord identity card.
  *
@@ -91,11 +93,10 @@ export function fromPeople(
   properties?: LandlordProperty[],
   onboarding?: any
 ): LandlordCardData {
+  const personal = landlordName({ ...person, company: null })
   const name =
     person.company ||
-    person.full_name ||
-    [person.first_name, person.last_name].filter(Boolean).join(' ') ||
-    person.name ||
+    (personal !== '—' ? personal : '') ||
     person.email
 
   return {

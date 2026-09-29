@@ -317,18 +317,18 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
         </div>
       </div>
 
-      {uploadMsg && <div className="p-md rounded-lg bg-blue-950 border border-blue-800 text-sm text-blue-200">{uploadMsg}</div>}
-      {error && <div className="p-md rounded-lg bg-red-950 border border-red-800 text-sm text-red-300">{error}</div>}
+      {uploadMsg && <div className="p-md rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">{uploadMsg}</div>}
+      {error && <div className="p-md rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">{error}</div>}
 
       {/* AI scan result — feature confirmation */}
       {scanResult && (
-        <div className="rounded-xl border border-purple-700 bg-purple-950/60 p-lg">
+        <div className="rounded-xl border border-purple-200 bg-purple-50 p-lg">
           <div className="flex items-start justify-between gap-md mb-md">
             <div>
-              <p className="text-sm font-bold text-purple-200">✨ Features detected in {scanResult.roomName}</p>
-              <p className="text-xs text-purple-400 mt-xs">Uncheck anything that doesn't look right, then save.</p>
+              <p className="text-sm font-bold text-purple-900">✨ Features detected in {scanResult.roomName}</p>
+              <p className="text-xs text-purple-600 mt-xs">Uncheck anything that doesn't look right, then save.</p>
             </div>
-            <button onClick={() => setScanResult(null)} className="text-purple-400 hover:text-purple-200 text-xs">Dismiss</button>
+            <button onClick={() => setScanResult(null)} className="text-purple-500 hover:text-purple-700 text-xs">Dismiss</button>
           </div>
           <div className="space-y-xs">
             {Object.entries(scanResult.features).map(([key, val]) => {
@@ -354,8 +354,8 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
                     } : null)}
                     className="h-4 w-4 rounded accent-purple-500"
                   />
-                  <span className="text-xs text-purple-300">
-                    <span className="text-purple-500 font-semibold">{fieldLabel[key] || key}:</span>{' '}
+                  <span className="text-xs text-purple-800">
+                    <span className="text-purple-700 font-semibold">{fieldLabel[key] || key}:</span>{' '}
                     {label}
                   </span>
                 </label>
@@ -365,7 +365,7 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
           <div className="flex gap-sm mt-md">
             <button
               onClick={() => setScanResult(null)}
-              className="flex-1 rounded-lg border border-purple-700 py-sm text-xs font-semibold text-purple-300 hover:bg-purple-900/40"
+              className="flex-1 rounded-lg border border-purple-300 py-sm text-xs font-semibold text-purple-700 hover:bg-purple-100"
             >
               Skip
             </button>
@@ -382,17 +382,17 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
 
       {/* Classify-before-upload panel */}
       {pending.length > 0 && (
-        <div className="rounded-xl border border-blue-800 bg-neutral-900 p-lg space-y-md">
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-lg space-y-md">
           <div className="flex flex-wrap items-center justify-between gap-md">
             <div>
-              <h3 className="text-sm font-bold text-white">
+              <h3 className="text-sm font-bold text-neutral-900">
                 Label {pending.length} photo{pending.length === 1 ? '' : 's'} before uploading
               </h3>
-              <p className="text-xs text-neutral-400 mt-xs">
-                Pick the room or area each shows. {unlabelledPending > 0 ? `${unlabelledPending} still set to “Whole property”.` : 'All labelled.'}
+              <p className="text-xs text-neutral-500 mt-xs">
+                Pick the room or area each shows. {unlabelledPending > 0 ? `${unlabelledPending} still set to "Whole property".` : 'All labelled.'}
               </p>
             </div>
-            <label className="flex items-center gap-sm text-xs text-neutral-300">
+            <label className="flex items-center gap-sm text-xs text-neutral-600">
               Apply to all:
               <TargetSelect rooms={rooms} value="" onChange={(v) => applyToAll(v)} />
             </label>
@@ -400,8 +400,8 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-md">
             {pending.map((item, i) => (
-              <div key={i} className="rounded-lg border border-neutral-800 bg-neutral-950 overflow-hidden">
-                <div className="aspect-square bg-neutral-800">
+              <div key={i} className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
+                <div className="aspect-square bg-neutral-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.previewUrl} alt="To upload" className="w-full h-full object-cover" />
                 </div>
@@ -424,7 +424,7 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
             <button
               onClick={cancelStaged}
               disabled={uploading}
-              className="px-lg py-md border border-neutral-700 text-neutral-300 rounded-lg font-semibold text-sm hover:border-neutral-500 transition disabled:opacity-50"
+              className="px-lg py-md border border-neutral-300 text-neutral-700 rounded-lg font-semibold text-sm hover:border-neutral-400 hover:bg-neutral-50 transition disabled:opacity-50"
             >
               Cancel
             </button>
@@ -446,7 +446,7 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
 
       {/* Grid */}
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-neutral-700 bg-neutral-900 p-xl text-center">
+        <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-xl text-center">
           <p className="text-sm text-neutral-500">
             {photos.length === 0 ? 'No photos yet. Choose a batch to get started.' : 'Nothing in this view.'}
           </p>
@@ -454,8 +454,8 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-md">
           {filtered.map((p) => (
-            <div key={p.id} className="rounded-lg border border-neutral-800 bg-neutral-900 overflow-hidden">
-              <div className="aspect-square bg-neutral-800 relative">
+            <div key={p.id} className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
+              <div className="aspect-square bg-neutral-100 relative">
                 {p.file_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.file_url} alt={p.caption || 'Property photo'} className="w-full h-full object-cover" />
@@ -507,7 +507,7 @@ function TargetSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full min-w-0 rounded border border-neutral-600 bg-neutral-800 px-sm py-xs text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="w-full min-w-0 rounded border border-neutral-300 bg-white px-sm py-xs text-xs text-neutral-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
     >
       <option value="">Whole property</option>
       <optgroup label="Communal area">
@@ -527,7 +527,7 @@ function FilterChip({ active, onClick, label, count }: { active: boolean; onClic
     <button
       onClick={onClick}
       className={`px-md py-xs rounded-full text-xs font-semibold border ${
-        active ? 'bg-white text-neutral-900 border-white' : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
+        active ? 'bg-neutral-900 text-white border-neutral-900' : 'border-neutral-300 text-neutral-600 hover:border-neutral-400 hover:bg-neutral-50'
       }`}
     >
       {label}<span className="ml-xs text-neutral-500">{count}</span>

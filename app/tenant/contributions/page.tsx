@@ -88,7 +88,7 @@ export default function ContributionsPage() {
         property_id: propertyId,
         person_id: personId,
         description: desc.trim(),
-        amount: amount ? parseFloat(amount) : null,
+        amount_gbp: amount ? parseFloat(amount) : null,
         category,
       })
       .select('*, people(first_name, last_name, full_name)')

@@ -162,6 +162,22 @@ function ReportSheet({ isHmo, onClose }: { isHmo: boolean; onClose: () => void }
   )
 }
 
+const CACHE_KEY = 'cros-tenant-home-cache'
+const CACHE_TTL = 90_000 // 90 seconds
+
+function saveCache(data: Record<string, any>) {
+  try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), ...data })) } catch { /* noop */ }
+}
+function loadCache(): Record<string, any> | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (Date.now() - parsed.ts > CACHE_TTL) { sessionStorage.removeItem(CACHE_KEY); return null }
+    return parsed
+  } catch { return null }
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function TenantDashboard() {
   const router = useRouter()
@@ -204,8 +220,35 @@ export default function TenantDashboard() {
 
   useEffect(() => {
     async function checkAuth() {
+      // Restore from cache immediately so navigation back feels instant
+      const cached = loadCache()
+      if (cached && !searchParams.get('as')) {
+        setUser(cached.user)
+        setTenancy(cached.tenancy)
+        setPersonId(cached.personId)
+        setRoomId(cached.roomId)
+        setAccessRequests(cached.accessRequests || [])
+        setUpcoming(cached.upcoming || [])
+        setNotes(cached.notes || [])
+        setCompliance(cached.compliance)
+        setHouseInfo(cached.houseInfo || [])
+        setHeatingSchedule(cached.heatingSchedule || null)
+        setIsHmo(cached.isHmo ?? true)
+        setPropLat(cached.propLat ?? null)
+        setPropLng(cached.propLng ?? null)
+        setMessages(cached.messages || [])
+        setUnreadCount(cached.unreadCount || 0)
+        setLoading(false)
+        // Refresh in background after restoring from cache
+        checkAuth_fetch(null)
+        return
+      }
+
+      await checkAuth_fetch(searchParams.get('as'))
+    }
+
+    async function checkAuth_fetch(asParam: string | null) {
       const data = await getCurrentUser()
-      const asParam = searchParams.get('as')
       const isAdmin = ['administrator', 'admin'].includes(data?.assignment?.role || '')
 
       let effectiveId: string
@@ -263,24 +306,56 @@ export default function TenantDashboard() {
       }
 
       const propId = (active as any).property_id
-      if (propId) {
-        const { data: up } = await supabase
+      const asParam2 = asParam
+
+      // Run all property-level queries in parallel
+      const [upResult, cleansResult, viewingsResult, apptResult, notesResult, propResult, notifsResult] = await Promise.all([
+        propId ? supabase
           .from('maintenance_tickets')
           .select('id, category, location, room_id, booked_date, booked_slot, status, arrived_at, rooms(name)')
           .eq('property_id', propId)
           .gte('booked_date', todayISO())
           .neq('status', 'completed')
-          .order('booked_date')
+          .order('booked_date') : Promise.resolve({ data: [] }),
 
-        const { data: cleansData } = await supabase
+        propId ? supabase
           .from('cleans')
           .select('id, clean_date, clean_time, status')
           .eq('property_id', propId)
           .eq('notify_tenants', true)
           .gte('clean_date', todayISO())
-          .neq('status', 'completed')
+          .neq('status', 'completed') : Promise.resolve({ data: [] }),
 
-        const cleanItems = (cleansData || []).map((c: any) => ({
+        // upcoming viewings at my house — dates, times and rooms only, never who is viewing
+        propId ? supabase.rpc('cros_my_house_viewings') : Promise.resolve({ data: [] }),
+
+        propId ? supabase
+          .from('property_appointments')
+          .select('id, appointment_type, appointment_date, appointment_time, visitor_name, notify_tenants')
+          .eq('property_id', propId)
+          .eq('notify_tenants', true)
+          .gte('appointment_date', todayISO()) : Promise.resolve({ data: [] }),
+
+        propId ? fetch(`/api/property-notes?propertyId=${propId}`).then(r => r.ok ? r.json() : { notes: [] }) : Promise.resolve({ notes: [] }),
+
+        propId ? supabase
+          .from('properties')
+          .select('gas_safe_cert_expiry, electrical_cert_expiry, house_info, lat, lng, property_type, heating_schedule')
+          .eq('id', propId)
+          .maybeSingle() : Promise.resolve({ data: null }),
+
+        (() => {
+          const nb = supabase
+            .from('notifications')
+            .select('id, title, body, type, link, read, created_at')
+            .order('created_at', { ascending: false })
+            .limit(20)
+          return asParam2 && isAdmin ? nb.eq('person_id', effectiveId) : nb
+        })(),
+      ])
+
+      if (propId) {
+        const cleanItems = ((cleansResult as any).data || []).map((c: any) => ({
           id: `clean-${c.id}`,
           category: 'Communal clean',
           location: c.clean_time ? String(c.clean_time).slice(0, 5) : 'Whole house',
@@ -291,13 +366,7 @@ export default function TenantDashboard() {
           rooms: null,
         }))
 
-        const { data: viewingsData } = await supabase
-          .from('viewings')
-          .select('id, viewing_date, viewing_slot, room_id, viewing_status, rooms(name, property_id)')
-          .eq('viewing_status', 'scheduled')
-          .gte('viewing_date', todayISO())
-
-        const viewingItems = (viewingsData || [])
+        const viewingItems = ((viewingsResult as any).data || [])
           .filter((v: any) => v.rooms?.property_id === propId)
           .map((v: any) => {
             const time = v.viewing_slot ? slotLabel(v.viewing_slot) || v.viewing_slot : ''
@@ -313,14 +382,7 @@ export default function TenantDashboard() {
             }
           })
 
-        const { data: apptData } = await supabase
-          .from('property_appointments')
-          .select('id, appointment_type, appointment_date, appointment_time, visitor_name, notify_tenants')
-          .eq('property_id', propId)
-          .eq('notify_tenants', true)
-          .gte('appointment_date', todayISO())
-
-        const apptItems = (apptData || []).map((ap: any) => ({
+        const apptItems = ((apptResult as any).data || []).map((ap: any) => ({
           id: `appt-${ap.id}`,
           category: String(ap.appointment_type || 'appointment').replace(/_/g, ' '),
           location: ap.appointment_time ? String(ap.appointment_time).slice(0, 5) : (ap.visitor_name || 'Appointment'),
@@ -331,23 +393,14 @@ export default function TenantDashboard() {
           rooms: null,
         }))
 
-        const merged = [...(up || []), ...cleanItems, ...viewingItems, ...apptItems].sort((x, y) =>
+        const merged = [...((upResult as any).data || []), ...cleanItems, ...viewingItems, ...apptItems].sort((x, y) =>
           String(x.booked_date ?? '').localeCompare(String(y.booked_date ?? ''))
         )
         setUpcoming(merged)
-
-        const res = await fetch(`/api/property-notes?propertyId=${propId}`)
-        if (res.ok) {
-          const { notes: propertyNotes } = await res.json()
-          setNotes(propertyNotes || [])
-        }
+        setNotes((notesResult as any).notes || [])
       }
 
-      const { data: prop } = await supabase
-        .from('properties')
-        .select('gas_safe_cert_expiry, electrical_cert_expiry, house_info, lat, lng, property_type, heating_schedule')
-        .eq('id', active.property_id)
-        .maybeSingle()
+      const prop = (propResult as any).data
       setCompliance(prop || null)
       setHouseInfo((prop as any)?.house_info?.items || [])
       if ((prop as any)?.heating_schedule) setHeatingSchedule((prop as any).heating_schedule)
@@ -358,21 +411,36 @@ export default function TenantDashboard() {
         setPropLng(prop.lng)
       }
 
-      const notifBuilder = supabase
-        .from('notifications')
-        .select('id, title, body, type, link, read, created_at')
-        .order('created_at', { ascending: false })
-        .limit(20)
-      const asParam2 = searchParams.get('as')
-      const { data: notifs } = asParam2 && isAdmin
-        ? await notifBuilder.eq('person_id', effectiveId)
-        : await notifBuilder
-      setMessages(notifs || [])
-      setUnreadCount((notifs || []).filter((n: any) => !n.read).length)
+      const notifs = (notifsResult as any).data || []
+      setMessages(notifs)
+      setUnreadCount(notifs.filter((n: any) => !n.read).length)
 
-      setPersonId(effectiveId ?? null)
-      setRoomId(active.room_id ?? null)
+      const finalPersonId = effectiveId ?? null
+      const finalRoomId = active.room_id ?? null
+      setPersonId(finalPersonId)
+      setRoomId(finalRoomId)
       setLoading(false)
+
+      // Cache home data for instant back-navigation (non-admin sessions only)
+      if (!resolvedAs) {
+        saveCache({
+          user: data!.user,
+          tenancy: active,
+          personId: finalPersonId,
+          roomId: finalRoomId,
+          accessRequests: active.room_id ? [] : [],
+          upcoming: ((upResult as any).data || []),
+          notes: (notesResult as any).notes || [],
+          compliance: (propResult as any).data || null,
+          houseInfo: (propResult as any).data?.house_info?.items || [],
+          heatingSchedule: (propResult as any).data?.heating_schedule || null,
+          isHmo: !((propResult as any).data?.property_type === 'single_let'),
+          propLat: (propResult as any).data?.lat ?? null,
+          propLng: (propResult as any).data?.lng ?? null,
+          messages: notifs,
+          unreadCount: notifs.filter((n: any) => !n.read).length,
+        })
+      }
     }
     checkAuth()
   }, [router, searchParams])
@@ -683,10 +751,11 @@ export default function TenantDashboard() {
                 className="flex w-full items-start justify-between gap-md px-lg py-md text-left hover:bg-neutral-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-neutral-900">{houseInfo[0]?.icon} {houseInfo[0]?.label}</p>
-                  {houseInfo[1] && (
-                    <p className="text-sm text-neutral-500 mt-xs truncate">{houseInfo[1]?.icon} {houseInfo[1]?.label}</p>
-                  )}
+                  <p className="font-bold text-neutral-900">🏠 House Info</p>
+                  <p className="text-sm text-neutral-500 mt-xs truncate">
+                    {houseInfo.slice(0, 3).map(i => `${i.icon} ${i.label}`).join(' · ')}
+                    {houseInfo.length > 3 ? ` · +${houseInfo.length - 3} more` : ''}
+                  </p>
                 </div>
                 <span className={`mt-1 text-neutral-400 text-lg leading-none transition-transform duration-200 ${houseInfoOpen ? 'rotate-180' : ''}`}>›</span>
               </button>

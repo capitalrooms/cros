@@ -11,9 +11,7 @@ interface HouseInfoItem {
 }
 
 const QUICK_ADD: HouseInfoItem[] = [
-  { icon: '📶', label: 'WiFi Name', value: '', sensitive: false },
-  { icon: '🔒', label: 'WiFi Password', value: '', sensitive: true },
-  { icon: '🌐', label: 'WiFi Provider', value: '', sensitive: false },
+  { icon: '📶', label: 'WiFi', value: 'Network: \nPassword: \nProvider: ', sensitive: false },
   { icon: '🗑️', label: 'Bin Day', value: '', sensitive: false },
   { icon: '♻️', label: 'Recycling', value: '', sensitive: false },
   { icon: '🔥', label: 'Heating', value: '', sensitive: false },

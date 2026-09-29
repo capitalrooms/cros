@@ -1,7 +1,9 @@
+import { requireAdmin } from '@/lib/adminAuth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
+import { senderFields } from '@/lib/email/sender'
 
 const svc = () =>
   createClient(
@@ -16,6 +18,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cros-sigma.vercel.a
 // Body: { landlordId, reason? }
 // Creates a new onboarding row (is_refresh=true) and emails the landlord
 export async function POST(req: NextRequest) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { landlordId, reason } = await req.json()
 
   if (!landlordId) {
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
   // Fetch the landlord from people
   const { data: landlord, error: fetchErr } = await svc()
     .from('people')
-    .select('id, name, email')
+    .select('id, first_name, last_name, full_name, email')
     .eq('id', landlordId)
     .eq('role', 'landlord')
     .single()
@@ -33,12 +36,13 @@ export async function POST(req: NextRequest) {
   if (fetchErr || !landlord) {
     return NextResponse.json({ error: 'Landlord not found' }, { status: 404 })
   }
+  const landlordName: string | null = [landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || landlord.full_name || null
 
   // Create a fresh onboarding row for this re-verification
   const { data: row, error: insertErr } = await svc()
     .from('landlord_onboarding')
     .insert({
-      name: landlord.name ?? landlord.email,
+      full_name: landlordName ?? landlord.email,
       email: landlord.email,
       landlord_people_id: landlord.id,
       is_refresh: true,
@@ -55,13 +59,13 @@ export async function POST(req: NextRequest) {
   const formUrl = `${BASE_URL}/landlord/onboard/${row.token}`
 
   const amlTpl = await getTemplate('landlord-aml-reverification')
-  const firstName = (landlord.name ?? landlord.email.split('@')[0]).split(' ')[0]
+  const firstName = (landlordName ?? landlord.email.split('@')[0]).split(' ')[0]
   const amlSubject = amlTpl?.subject_line
     ? render(amlTpl.subject_line, { first_name: firstName })
     : 'Action Required: AML Re-verification — Capital Rooms'
 
   // Send re-verification email (shared wrapper applied via buildEmail)
-  const html = await amlRefreshHtml(landlord.name ?? landlord.email.split('@')[0], formUrl)
+  const html = await amlRefreshHtml(landlordName ?? landlord.email.split('@')[0], formUrl, req)
   const emailRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -69,8 +73,7 @@ export async function POST(req: NextRequest) {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: 'Capital Rooms Compliance <management@capitalrooms.co.uk>',
-      reply_to: 'management@capitalrooms.co.uk',
+      ...(await senderFields(req)),
       to: landlord.email,
       subject: amlSubject,
       html,
@@ -96,6 +99,7 @@ export async function POST(req: NextRequest) {
 // GET /api/landlord-aml-refresh?landlordId=xxx
 // Returns AML history for a landlord
 export async function GET(req: NextRequest) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const landlordId = req.nextUrl.searchParams.get('landlordId')
   if (!landlordId) return NextResponse.json({ error: 'landlordId required' }, { status: 400 })
 
@@ -111,7 +115,7 @@ export async function GET(req: NextRequest) {
 
 // ── Email template (body content only — wrapper applied via buildEmail) ──────────
 
-async function amlRefreshHtml(name: string, formUrl: string): Promise<string> {
+async function amlRefreshHtml(name: string, formUrl: string, req?: Request): Promise<string> {
   const firstName = name.split(' ')[0]
   const body = `
 <p style="margin:0 0 6px;font-size:11px;color:#666;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;background:#fafaf9;border-bottom:1px solid #e8e8e8;padding:10px 0;">
@@ -164,7 +168,7 @@ async function amlRefreshHtml(name: string, formUrl: string): Promise<string> {
 </p>
 
 <p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>
-<p style="margin:0 0 24px;font-size:15px;color:#333;font-weight:600">The Capital Rooms Compliance Team</p>
+<div style="height:24px;"></div>
 
 <p style="margin:0;font-size:11px;color:#999;line-height:1.6;border-top:1px solid #eee;padding-top:16px;">
   Capital Rooms Ltd · Supervised by HMRC under the Money Laundering Regulations 2017 ·
@@ -172,5 +176,5 @@ async function amlRefreshHtml(name: string, formUrl: string): Promise<string> {
   This communication is sent in accordance with our regulatory obligations and is not marketing material.
 </p>`
 
-  return buildEmail(body)
+  return buildEmail(body, { req })
 }

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { buildEmail, FROM } from '@/lib/emailWrapper'
-import { getCurrentUser } from '@/lib/auth'
+import { buildEmail } from '@/lib/emailWrapper'
+import { getCurrentUser } from '@/lib/serverAuth'
+import { senderFields } from '@/lib/email/sender'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -124,10 +125,10 @@ export async function POST(request: NextRequest) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
     body: JSON.stringify({
-      from: FROM,
+      ...(await senderFields(request)),
       to: ACCOUNTS_EMAIL,
       subject: `Property recharge expenses — ${monthLabel}`,
-      html: await buildEmail(emailBody),
+      html: await buildEmail(emailBody, { req: request }),
     }),
   })
 

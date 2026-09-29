@@ -1,10 +1,12 @@
 import { createServiceClient } from '@/lib/supabase'
+import { requireSignedIn, isStaff } from '@/lib/portalAuth'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  const params = await paramsPromise
   try {
     const { reason } = await request.json().catch(() => ({ reason: undefined }))
 
@@ -21,6 +23,8 @@ export async function PUT(
     if (jobError || !job) {
       return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
+    const caller = await requireSignedIn(request)
+    if (!caller || !(isStaff(caller) || job.cleaner_id === caller.personId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     if (job.status !== 'pending') {
       return NextResponse.json(

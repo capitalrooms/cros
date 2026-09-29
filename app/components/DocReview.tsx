@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
+import { parseStorageUrl } from '@/lib/files/paths'
+import TenantPicker from '@/app/components/TenantPicker'
 
 export interface AIResult {
   doc_type: string
@@ -48,7 +51,7 @@ export const TYPE_LABELS: Record<string, string> = {
   epc:                              'Energy certificate (EPC)',
   insurance:                        'Landlord insurance',
   // Tenancy documents
-  tenancy_agreement:                'Tenancy agreement (APT)',
+  tenancy_agreement:                'Tenancy agreement',
   deposit_certificate:              'Deposit protection certificate',
   // Tenant / applicant documents
   tenant_reference:                 'Tenant reference',
@@ -120,6 +123,7 @@ async function archiveFile(
   documentType: string,
   description: string,
   visibleToTenants: boolean,
+  tenancyId?: string,
 ) {
   try {
     const body = new FormData()
@@ -129,6 +133,7 @@ async function archiveFile(
     body.append('description', description)
     body.append('file_name', file.name)
     body.append('visible_to_tenants', String(visibleToTenants))
+    if (tenancyId) body.append('tenancy_id', tenancyId)
     await fetch('/api/admin/upload-property-document', { method: 'POST', body })
   } catch {
     // Non-fatal — primary save already succeeded
@@ -179,30 +184,48 @@ function EditRow({ label, value, onChange }: { label: string; value: string; onC
 export default function DocReview({
   initial,
   file,
+  inboxStorageUrl,
+  inboxFilename,
   properties,
   people,
   tenancies,
+  applicants,
   defaultPropertyId,
+  matchedPersonId,
+  matchedApplicantId,
   onApplied,
   onCancel,
 }: {
   initial: AIResult
   file?: File
+  /** When filing from the inbox (no File object), pass the existing storage URL directly. */
+  inboxStorageUrl?: string
+  inboxFilename?: string
   properties: any[]
   people: any[]
   tenancies: any[]
+  /** Applicants list for pre-tenancy doc filing. */
+  applicants?: any[]
   /** Pre-select this property (e.g. when scanning from within a property card). */
   defaultPropertyId?: string
+  /** Pre-select the tenancy for this person (from inbox match). */
+  matchedPersonId?: string
+  /** Pre-select this applicant (from inbox match, before they become a tenant). */
+  matchedApplicantId?: string
   onApplied: (msg: string) => void
   onCancel: () => void
 }) {
   const [fields, setFields] = useState<AIResult>(initial)
   const [targetProperty, setTargetProperty] = useState(defaultPropertyId || '')
+  const [suggestedPropertyId, setSuggestedPropertyId] = useState('')
+  const [rankedProperties, setRankedProperties] = useState<Array<{ id: string; name: string; address: string; score: number }>>([])
   const [targetPerson, setTargetPerson] = useState('')
+  const [targetApplicant, setTargetApplicant] = useState('')
   const [targetTenancy, setTargetTenancy] = useState('')
   const [notifyTenants, setNotifyTenants] = useState(false)
   const [applying, setApplying] = useState(false)
   const [error, setError] = useState('')
+  const [existingCertInfo, setExistingCertInfo] = useState<{ date: string; expiry: string } | null>(null)
   // Explicit visibility control - default to admin-only (false) for safety
   const [visibleToTenants, setVisibleToTenants] = useState(false)
 
@@ -212,21 +235,61 @@ export default function DocReview({
   const [houseInfoError, setHouseInfoError] = useState('')
   const [houseInfoSaved, setHouseInfoSaved] = useState(false)
 
+  // Score a property against an extracted address string (0–1)
+  function scoreProperty(p: any, aiAddr: string): number {
+    if (!aiAddr) return 0
+    const pName = String(p.name || '').toLowerCase()
+    const pAddr = String(p.address || '').toLowerCase()
+    const ai = aiAddr.toLowerCase()
+
+    const postcode = (s: string) => {
+      const m = s.match(/[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}/i)
+      return m ? m[0].replace(/\s/g, '').toLowerCase() : ''
+    }
+    const aiPostcode = postcode(ai)
+    const pPostcode  = postcode(pAddr) || postcode(pName)
+
+    // Exact postcode match = strong signal
+    if (aiPostcode && pPostcode && aiPostcode === pPostcode) return 0.95
+
+    // Substring containment
+    if (ai.includes(pAddr) || pAddr.includes(ai) || ai.includes(pName)) return 0.85
+
+    // Token overlap — count shared words ≥4 chars
+    const aiTokens = ai.split(/[\s,]+/).filter(t => t.length >= 4)
+    const pTokens  = (pAddr + ' ' + pName).split(/[\s,]+/).filter(t => t.length >= 4)
+    const shared = aiTokens.filter(t => pTokens.some(pt => pt.includes(t) || t.includes(pt))).length
+    if (shared > 0) return Math.min(0.7, 0.2 + shared * 0.15)
+
+    return 0
+  }
+
   useEffect(() => {
     setFields(initial)
     // If a property was pre-selected (e.g. scan from property card), keep it;
     // otherwise try to auto-match from the AI-extracted address.
     if (defaultPropertyId) {
       setTargetProperty(defaultPropertyId)
-    } else if (initial.property_address) {
-      const hit = (properties || []).find((p) =>
-        initial.property_address.toLowerCase().includes(String(p.name).toLowerCase()) ||
-        (p.address && initial.property_address.toLowerCase().includes(String(p.address).toLowerCase())) ||
-        String(p.address || '').toLowerCase().includes(initial.property_address.toLowerCase())
-      )
-      setTargetProperty(hit?.id || '')
+      setRankedProperties([])
+      setSuggestedPropertyId('')
     } else {
-      setTargetProperty('')
+      const aiAddr = initial.property_address || ''
+      // Score every property and rank them
+      const scored = (properties || [])
+        .map(p => ({ id: p.id, name: p.name, address: p.address, score: scoreProperty(p, aiAddr) }))
+        .filter(p => p.score > 0)
+        .sort((a, b) => b.score - a.score)
+
+      setRankedProperties(scored.slice(0, 3))
+
+      const topHit = scored[0]
+      if (topHit && topHit.score >= 0.85) {
+        setTargetProperty(topHit.id)
+        setSuggestedPropertyId(topHit.id)
+      } else {
+        setTargetProperty('')
+        setSuggestedPropertyId('')
+      }
     }
     if (initial.person_name) {
       const hit = (people || []).find((p) =>
@@ -234,8 +297,65 @@ export default function DocReview({
       )
       setTargetPerson(hit?.id || '')
     } else setTargetPerson('')
-    setTargetTenancy('')
-  }, [initial, properties, people, defaultPropertyId])
+
+    // Auto-select matched applicant
+    setTargetApplicant(matchedApplicantId || '')
+
+    // Auto-select the active tenancy for the matched person (most recent non-ended)
+    const personId = matchedPersonId || undefined
+    if (personId && tenancies?.length) {
+      const today = new Date().toISOString().slice(0, 10)
+      const activeTenancy = (tenancies as any[]).find((t) => {
+        if (t.people?.id !== personId && t.person_id !== personId) return false
+        if (t.end_date && t.end_date < today) return false
+        return true
+      })
+      setTargetTenancy(activeTenancy?.id || '')
+    } else {
+      setTargetTenancy('')
+    }
+  }, [initial, properties, people, tenancies, applicants, defaultPropertyId, matchedPersonId, matchedApplicantId])
+
+  // Filing an emailed document copies it out of the private inbox into the property's own documents
+  // (lib/files/storage) — the filed record must never point back at the inbox.
+  async function fileFromInbox(propertyId: string | null | undefined): Promise<string> {
+    const ref = parseStorageUrl(inboxStorageUrl)
+    if (!ref || ref.bucket !== 'inbox-docs') return inboxStorageUrl as string
+    const r = await adminFetch('/api/admin/files/file-inbox', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: ref.path, propertyId: propertyId || null, fileName: inboxFilename || null }) })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(j.error || 'Could not file the document')
+    return j.url
+  }
+
+  // Duplicate cert detection — fetch existing cert dates when property + type change
+  useEffect(() => {
+    if (!targetProperty || !fields.doc_type) { setExistingCertInfo(null); return }
+    const type = fields.doc_type
+    if (!COMPLIANCE_TYPES.includes(type)) { setExistingCertInfo(null); return }
+
+    const CERT_COLS: Record<string, [string, string]> = {
+      gas_safety_certificate:          ['gas_safe_cert_date',          'gas_safe_cert_expiry'],
+      electrical_eicr:                 ['electrical_cert_date',         'electrical_cert_expiry'],
+      emergency_lighting_certificate:  ['emergency_lighting_test_date', 'emergency_lighting_expiry'],
+      fire_alarm_certificate:          ['fire_detection_test_date',     'fire_detection_expiry'],
+      fire_risk_assessment:            ['fire_risk_assessment_date',    'fire_risk_assessment_expiry'],
+      pat_test:                        ['pat_test_date',                'pat_test_expiry'],
+      hmo_licence:                     ['license_expiry',               'license_expiry'],
+      insurance:                       ['insurance_expiry',             'insurance_expiry'],
+      epc:                             ['epc_expiry',                   'epc_expiry'],
+    }
+    const cols = CERT_COLS[type]
+    if (!cols) { setExistingCertInfo(null); return }
+
+    const supabase = createClient()
+    supabase.from('properties').select(cols.join(',')).eq('id', targetProperty).single()
+      .then(({ data }) => {
+        if (!data) { setExistingCertInfo(null); return }
+        const date   = (data as any)[cols[0]] || ''
+        const expiry = (data as any)[cols[1]] || ''
+        setExistingCertInfo(date || expiry ? { date, expiry } : null)
+      })
+  }, [targetProperty, fields.doc_type])
 
   const set = (k: keyof AIResult, v: string) => setFields((f) => ({ ...f, [k]: v }))
   const type = fields.doc_type
@@ -326,10 +446,18 @@ export default function DocReview({
           const { error: e } = await supabase.from('properties').update(update).eq('id', targetProperty)
           if (e) throw e
         }
-        // Also archive the original cert file so admin can retrieve/share it later.
-        // Stored admin-only by default; admin can toggle it visible to tenants in the property view.
+        // Archive the original cert file so admin can retrieve/share it later.
         if (file) {
           await archiveFile(file, targetProperty, type, fields.summary || '', false)
+        } else if (inboxStorageUrl) {
+          await supabase.from('property_documents').insert({
+            property_id:        targetProperty,
+            document_type:      type,
+            file_name:          inboxFilename || fields.summary?.substring(0, 100) || 'Certificate',
+            storage_url:        await fileFromInbox(targetProperty),
+            description:        fields.summary || null,
+            visible_to_tenants: false,
+          })
         }
         if (notifyTenants) {
           fetch('/api/push/send', {
@@ -369,13 +497,12 @@ export default function DocReview({
           const res = await fetch('/api/admin/upload-property-document', { method: 'POST', body })
           const json = await res.json()
           if (!res.ok) throw new Error(json.error || 'Upload failed')
-        } else {
-          // No file (e.g. from inbox with text-only extraction) — just record metadata
+        } else if (inboxStorageUrl) {
           const { error: e } = await supabase.from('property_documents').insert({
             property_id:        targetProperty,
             document_type:      dbType,
-            file_name:          fields.summary?.substring(0, 100) || 'Document',
-            storage_url:        '',
+            file_name:          inboxFilename || fields.summary?.substring(0, 100) || TYPE_LABELS[type] || 'Document',
+            storage_url:        await fileFromInbox(targetProperty),
             description:        fields.summary || null,
             visible_to_tenants: visibleToTenants,
           })
@@ -400,23 +527,31 @@ export default function DocReview({
           if (!Number.isNaN(n) && n > 0) update.rent_amount = n
         }
         if (type === 'deposit_certificate' && fields.policy_number) {
-          update.deposit_certificate_number = fields.policy_number
+          update.deposit_scheme_ref = fields.policy_number
         }
         const { error: e } = await supabase.from('tenancies').update(update).eq('id', targetTenancy)
         if (e) throw e
 
-        // Also archive the original signed document against the property (admin-only).
-        // Resolve property_id via the tenancy's room relationship.
-        if (file) {
-          const ten = (tenancies || []).find((t: any) => t.id === targetTenancy)
-          const propId = ten?.rooms?.property_id || ten?.rooms?.properties?.id || targetProperty
-          if (propId) {
-            await archiveFile(
-              file, propId,
-              type === 'tenancy_agreement' ? 'tenancy_agreement' : 'deposit_certificate',
-              fields.summary || '', false,
-            )
-          }
+        // Archive the original signed document against the property (admin-only).
+        const ten = (tenancies || []).find((t: any) => t.id === targetTenancy)
+        const propId = ten?.rooms?.property_id || ten?.rooms?.properties?.id || targetProperty
+        if (file && propId) {
+          await archiveFile(
+            file, propId,
+            type === 'tenancy_agreement' ? 'tenancy_agreement' : 'deposit_certificate',
+            fields.summary || '', false,
+            targetTenancy,
+          )
+        } else if (inboxStorageUrl && propId) {
+          await supabase.from('property_documents').insert({
+            property_id:        propId,
+            tenancy_id:         targetTenancy,
+            document_type:      type === 'tenancy_agreement' ? 'tenancy_agreement' : 'deposit_certificate',
+            file_name:          inboxFilename || fields.summary?.substring(0, 100) || TYPE_LABELS[type] || 'Document',
+            storage_url:        await fileFromInbox(propId),
+            description:        fields.summary || null,
+            visible_to_tenants: false,
+          })
         }
 
         onApplied('Tenancy dates updated. Original document saved to the property (admin-only).')
@@ -425,7 +560,24 @@ export default function DocReview({
 
       // ── 4. Person docs → people table ─────────────────────────────────────
       if (isPerson) {
-        if (!targetPerson) throw new Error('Choose which tenant this document is for')
+        // ── A. Pre-tenancy applicant — store in applicant_documents ────────
+        if (targetApplicant) {
+          if (!file) throw new Error('No file to save')
+          const body = new FormData()
+          body.append('file', file)
+          body.append('applicant_id', targetApplicant)
+          body.append('document_type', type)
+          body.append('description', fields.summary || '')
+          body.append('file_name', file.name)
+          const res = await fetch('/api/admin/upload-applicant-document', { method: 'POST', body })
+          if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Upload failed') }
+          const applicant = (applicants || []).find((a: any) => a.id === targetApplicant)
+          onApplied(`Saved to ${applicant?.full_name || 'the applicant'}. Will carry across when they become a tenant.`)
+          return
+        }
+
+        // ── B. Existing tenant — update people row ─────────────────────────
+        if (!targetPerson) throw new Error('Choose which tenant or applicant this document is for')
         const update: Record<string, string> = {}
         if (fields.person_phone)     update.phone             = fields.person_phone
         if (fields.person_email)     update.email             = fields.person_email
@@ -434,7 +586,7 @@ export default function DocReview({
         if (fields.previous_address) update.previous_address  = fields.previous_address
         const { error: e } = await supabase.from('people').update(update).eq('id', targetPerson)
         if (e) throw e
-        onApplied(`Saved to ${people.find((p) => p.id === targetPerson).name || 'the tenant'}.`)
+        onApplied(`Saved to ${people.find((p) => p.id === targetPerson)?.full_name || 'the tenant'}.`)
         return
       }
 
@@ -533,9 +685,51 @@ export default function DocReview({
             <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
               Property to file under
             </label>
+
+            {/* Ranked property suggestions — tick to select */}
+            {rankedProperties.length > 0 && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mb-xs">
+                  {rankedProperties[0].score >= 0.85 ? '🤖 AI matched' : '🤖 Closest matches — tick to select'}
+                </p>
+                <div className="flex flex-wrap gap-sm">
+                  {rankedProperties.map(p => (
+                    <button key={p.id} type="button"
+                      onClick={() => setTargetProperty(p.id)}
+                      className={`flex items-center gap-xs rounded-lg border px-md py-xs text-sm font-medium transition ${
+                        targetProperty === p.id
+                          ? 'border-neutral-900 bg-neutral-900 text-white'
+                          : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500'
+                      }`}>
+                      {targetProperty === p.id ? '✓ ' : ''}{p.name}
+                      <span className={`text-[10px] ml-xs ${targetProperty === p.id ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                        {Math.round(p.score * 100)}%
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Duplicate cert warning */}
+            {existingCertInfo && targetProperty && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-md py-sm flex items-start gap-sm">
+                <span className="text-base shrink-0 mt-xs">⚠️</span>
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Certificate already on file</p>
+                  <p className="text-xs text-amber-800 mt-xs">
+                    {existingCertInfo.date && `Issued: ${existingCertInfo.date}`}
+                    {existingCertInfo.date && existingCertInfo.expiry && ' · '}
+                    {existingCertInfo.expiry && `Expires: ${existingCertInfo.expiry}`}
+                    {' — filing this will overwrite the existing record.'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <select value={targetProperty} onChange={(e) => setTargetProperty(e.target.value)}
               className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-neutral-900 focus:outline-none">
-              <option value="">Choose a property…</option>
+              <option value="">Or choose from full list…</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name} — {p.address}</option>
               ))}
@@ -558,16 +752,15 @@ export default function DocReview({
               className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-neutral-900 focus:outline-none">
               <option value="">Choose a tenancy…</option>
               {tenancies.map((t: any) => {
-                // Property can arrive either directly on the tenancy
-                // (inbox query) or nested under the room (AI-upload query).
-                // Room alone is ambiguous once there's >1 property, so always
-                // show the property — falling back across both shapes.
                 const prop =
                   t.properties?.name ||
                   t.rooms?.properties?.name ||
                   t.properties?.address ||
                   ''
-                const parts = [t.people.name || 'Tenant', t.rooms?.name, prop].filter(Boolean)
+                const startLabel = t.start_date
+                  ? new Date(t.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : null
+                const parts = [t.people?.full_name || t.people?.name || 'Tenant', t.rooms?.name, prop, startLabel ? `from ${startLabel}` : null].filter(Boolean)
                 return (
                   <option key={t.id} value={t.id}>
                     {parts.join(' · ')}
@@ -579,15 +772,43 @@ export default function DocReview({
         )}
 
         {isPerson && (
-          <div className="mt-md">
-            <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-sm">
-              Tenant this document is for
-            </label>
-            <select value={targetPerson} onChange={(e) => setTargetPerson(e.target.value)}
-              className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-neutral-900 focus:outline-none">
-              <option value="">Choose a tenant…</option>
-              {people.map((p) => (<option key={p.id} value={p.id}>{p.name || p.email}</option>))}
-            </select>
+          <div className="mt-md space-y-sm">
+            {/* Applicant picker — shown when there are applicants to file against */}
+            {(applicants || []).length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-sm">
+                  Applicant (not yet a tenant)
+                </label>
+                <select value={targetApplicant} onChange={(e) => { setTargetApplicant(e.target.value); if (e.target.value) setTargetPerson('') }}
+                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm focus:border-neutral-900 focus:outline-none">
+                  <option value="">— Not an applicant —</option>
+                  {(applicants || []).map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.full_name}{a.rooms?.name ? ` · ${a.rooms.name}` : ''}{a.properties?.name ? ` · ${a.properties.name}` : ''}</option>
+                  ))}
+                </select>
+                {targetApplicant && (
+                  <p className="mt-xs text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-sm py-xs">
+                    📎 Will be saved to this applicant and automatically carried across when they become a tenant.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Tenant picker — shown when not filing against an applicant */}
+            {!targetApplicant && (
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-sm">
+                  {(applicants || []).length > 0 ? 'Or: existing tenant' : 'Tenant this document is for'}
+                </label>
+                <TenantPicker
+                  people={people}
+                  tenancies={tenancies}
+                  value={targetPerson}
+                  onChange={setTargetPerson}
+                  placeholder="Search by name or email…"
+                />
+              </div>
+            )}
           </div>
         )}
 

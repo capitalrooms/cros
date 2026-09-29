@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,6 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { ticketId, action } = await request.json()
+    if (!ticketId || !(await canWorkOnTicket(await requireSignedIn(request), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     if (!ticketId || !action || !['doorbell', 'knock', 'announced'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
@@ -17,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
     // Log access action to notes with timestamp

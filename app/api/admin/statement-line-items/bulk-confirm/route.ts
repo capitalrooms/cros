@@ -3,6 +3,7 @@
 // and the category is not "other" (unmatched). No Supabase console needed.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/adminAuth'
 import { createClient } from '@supabase/supabase-js'
 
 function serviceClient() {
@@ -14,6 +15,7 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireAdmin(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json().catch(() => ({}))
   const threshold = typeof body.threshold === 'number' ? body.threshold : 0.9
 

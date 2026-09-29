@@ -103,17 +103,17 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
         </h3>
 
         {activeTenancies.length === 0 ? (
-          <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-xl text-center">
-            <p className="text-sm text-neutral-400">No active tenancies</p>
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center">
+            <p className="text-sm text-neutral-500">No active tenancies</p>
           </div>
         ) : (
           <div className="grid gap-md">
             {activeTenancies.map((tenancy) => (
-              <div key={tenancy.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
+              <div key={tenancy.id} className="rounded-lg border border-neutral-200 bg-white p-lg hover:shadow-md transition">
                 <div className="flex items-start justify-between gap-lg mb-md">
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{tenancy.person.email.split('@')[0]}</p>
-                    <p className="text-xs text-neutral-400 mt-xs">
+                    <p className="font-semibold text-neutral-900">{tenancy.person.email.split('@')[0]}</p>
+                    <p className="text-xs text-neutral-500 mt-xs">
                       {tenancy.room.name} • Moved in {formatDate(tenancy.start_date)} ({getDaysAsSince(tenancy.start_date)} days)
                     </p>
                   </div>
@@ -126,7 +126,7 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
                   {tenancy.person.email && (
                     <button
                       onClick={() => navigator.clipboard.writeText(tenancy.person.email || '')}
-                      className="text-xs text-blue-400 hover:text-blue-300 font-semibold"
+                      className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
                       title="Click to copy"
                     >
                       📧 {tenancy.person.email}
@@ -136,14 +136,14 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
 
                 <div className="flex gap-sm mt-lg">
                   <Link
-                    href={`/admin/people/${tenancy.person.id}`}
-                    className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
+                    href={`/admin/tenant/${tenancy.person.id}`}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline"
                   >
                     View Profile
                   </Link>
                   <Link
-                    href={`/admin/properties/${propertyId}/tenancies/${tenancy.id}`}
-                    className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
+                    href={`/admin/tenant/${tenancy.person.id}?tab=tenancy`}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline"
                   >
                     Tenancy Details
                   </Link>
@@ -163,11 +163,11 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
 
           <div className="grid gap-md">
             {pastTenancies.map((tenancy) => (
-              <div key={tenancy.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg">
+              <div key={tenancy.id} className="rounded-lg border border-neutral-200 bg-white p-lg">
                 <div className="flex items-start justify-between gap-lg mb-md">
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{tenancy.person.email.split('@')[0]}</p>
-                    <p className="text-xs text-neutral-400 mt-xs">
+                    <p className="font-semibold text-neutral-900">{tenancy.person.email.split('@')[0]}</p>
+                    <p className="text-xs text-neutral-500 mt-xs">
                       {tenancy.room.name} • {formatDate(tenancy.start_date)} to {formatDate(tenancy.end_date!)}
                     </p>
                   </div>
@@ -177,7 +177,7 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
                 </div>
 
                 <Link
-                  href={`/admin/people/${tenancy.person.id}`}
+                  href={`/admin/tenant/${tenancy.person.id}`}
                   className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
                 >
                   View Profile
@@ -194,9 +194,9 @@ export default function PeopleTab({ propertyId }: PeopleTabProps) {
           🔧 Staff & Contractors
         </h3>
 
-        <div className="rounded-lg border border-neutral-700 bg-neutral-900 p-xl text-center">
-          <p className="text-sm text-neutral-400">Contractor management coming soon</p>
-          <p className="text-xs text-neutral-400 mt-sm">Assign cleaners, electricians, and maintenance staff</p>
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center">
+          <p className="text-sm font-medium text-neutral-500">Manage contractors in the Maintenance section</p>
+          <p className="text-xs text-neutral-400 mt-xs">Cleaners, electricians, and trades are assigned per job — view them under Operations → Maintenance.</p>
         </div>
       </div>
     </div>

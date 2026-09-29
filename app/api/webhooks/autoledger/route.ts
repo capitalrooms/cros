@@ -18,13 +18,16 @@ import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import crypto from 'crypto'
 import { Resend } from 'resend'
+import { AI_MODEL } from '@/lib/ai-classify'
 import { buildEmail } from '@/lib/emailWrapper'
+import { genStatementRef } from '@/lib/references'
 import {
   PROPERTY_WIDE_CATEGORIES,
   INCOME_CATEGORIES,
   ROOM_SPECIFIC_CATEGORY_TYPES,
   UNMATCHED_SLUG,
 } from '@/lib/expense-categories'
+import { senderFieldsSdk } from '@/lib/email/sender'
 
 // Give Vercel up to 5 minutes — background AI processing of a large PDF needs it
 export const maxDuration = 300
@@ -193,12 +196,12 @@ async function processStatement(body: any) {
   const isTrustedSender = senderEmail.endsWith('@capitalrooms.co.uk')
 
   let landlord: { id: string; first_name: string | null; last_name: string | null; full_name?: string | null; email: string } | null = null
-  let property: { id: string; name: string | null; address: string | null } | null = null
+  let property: { id: string; name: string | null; address: string | null; property_code?: string | null } | null = null
 
   if (isTrustedSender) {
     const { data: allProperties } = await supabase
       .from('properties')
-      .select('id, name, address, landlord_id, people!landlord_id(id, first_name, last_name, full_name, email)')
+      .select('id, name, address, property_code, landlord_id, people!landlord_id(id, first_name, last_name, full_name, email)')
 
     if (!allProperties?.length) {
       console.error('AutoLedger: no properties in system')
@@ -220,7 +223,7 @@ async function processStatement(body: any) {
       }).join('\n')
 
       const identifyResp = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: AI_MODEL,
         max_tokens: 500,
         messages: [{
           role: 'user',
@@ -270,7 +273,7 @@ async function processStatement(body: any) {
 
     const { data: properties } = await supabase
       .from('properties')
-      .select('id, name, address')
+      .select('id, name, address, property_code')
       .eq('landlord_id', landlord.id)
 
     if (!properties?.length) {
@@ -293,13 +296,13 @@ async function processStatement(body: any) {
   // Rooms for categorisation
   const { data: rooms } = await supabase
     .from('rooms')
-    .select('id, name, room_number')
+    .select('id, name')
     .eq('property_id', property.id)
 
   const categoryList = [
     ...PROPERTY_WIDE_CATEGORIES.map(c => `${c.slug} — ${c.label}`),
     ...(rooms || []).flatMap(r =>
-      ROOM_SPECIFIC_CATEGORY_TYPES.map(t => `${t.slug}:${r.id} — Room ${r.room_number || r.name} ${t.label}`)
+      ROOM_SPECIFIC_CATEGORY_TYPES.map(t => `${t.slug}:${r.id} — Room ${r.name} ${t.label}`)
     ),
     `${UNMATCHED_SLUG} — Other / Not Matched`,
   ].join('\n')
@@ -330,39 +333,16 @@ async function processStatement(body: any) {
     console.log('AutoLedger: extracting from PDF…')
     const client = new Anthropic()
 
-    // First: detect the statement's own period date so we use it as fallback, not today
+    // Single call: detect period + extract all line items in one PDF transmission
     let statementPeriodDate = today
-    try {
-      const periodResp = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 200,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfAttachment.content } },
-            { type: 'text', text: 'What is the statement period or statement date in this UK property management document? Respond JSON only: {"period_start":"YYYY-MM-DD","period_end":"YYYY-MM-DD"}' },
-          ],
-        }],
-      })
-      const periodText = periodResp.content[0]?.type === 'text' ? periodResp.content[0].text : ''
-      const periodMatch = periodText.match(/\{[\s\S]*\}/)
-      if (periodMatch) {
-        const pd = JSON.parse(periodMatch[0])
-        statementPeriodDate = pd.period_end || pd.period_start || today
-        console.log('AutoLedger: statement period detected:', pd)
-      }
-    } catch (e) {
-      console.warn('AutoLedger: could not detect statement period, using today as fallback', e)
-    }
-
     const pdfResp = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: AI_MODEL,
       max_tokens: 16000,
       messages: [{
         role: 'user',
         content: [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfAttachment.content } },
-          { type: 'text', text: `Extract ALL financial line items from this UK property management statement (period ending ${statementPeriodDate}).
+          { type: 'text', text: `Extract the statement period and ALL financial line items from this UK property management statement.
 
 Include EVERY line that has a money amount:
 - Rent received / rental income (money received from tenants per room or overall)
@@ -373,46 +353,46 @@ Include EVERY line that has a money amount:
 For each line item return a JSON array:
 [{"description":"<item>","amount":<positive number, no £>,"date":"<YYYY-MM-DD>","ref":"<ref or blank>","line_type":"income" or "expense"}]
 
-CRITICAL DATE RULE: Use the actual transaction date if shown. If no date is on the line, use the statement period date (${statementPeriodDate}). NEVER use today's date. NEVER leave date blank.
+CRITICAL DATE RULE: Use the actual transaction date if shown. If no date is on the line, use the period_end date you identified above. NEVER use today's date. NEVER leave date blank.
 
 line_type rules:
 - "income" = money received (rent, deposits received)
 - "expense" = money charged, deducted, or paid out (management fees, repairs, letting fees, any cost)
 
 Do NOT include running totals, subtotals, or balance carry-forwards — only actual transaction lines.
-Amounts as positive numbers only (no £ symbol). Respond with JSON array only.` },
+Amounts as positive numbers only (no £ symbol).
+
+Respond with JSON only in this exact shape:
+{"period_start":"YYYY-MM-DD","period_end":"YYYY-MM-DD","items":[{"description":"...","amount":0,"date":"YYYY-MM-DD","ref":"","line_type":"income|expense"}]}` },
         ],
       }],
     })
-    const pdfText = pdfResp.content[0]?.type === 'text' ? pdfResp.content[0].text.trim() : '[]'
+    const pdfText = pdfResp.content[0]?.type === 'text' ? pdfResp.content[0].text.trim() : '{}'
     console.log('AutoLedger: PDF extract response length', pdfText.length, 'chars')
     try {
-      // Strip markdown code fences, then repair truncated JSON if needed
       let jsonText = pdfText.replace(/```[a-z]*\s*/g, '').replace(/```\s*/g, '').trim()
+      let parsed: { period_start?: string; period_end?: string; items?: Array<{ description: string; amount: number; date?: string; ref?: string; line_type?: string }> } = {}
       let attempts = 0
-      let parsed: Array<{ description: string; amount: number; date?: string; ref?: string; line_type?: string }> = []
       while (attempts < 5) {
         try {
           parsed = JSON.parse(jsonText)
           break
         } catch {
           attempts++
-          // Truncated mid-entry: cut back to last complete object and close the array
           const lastBrace = jsonText.lastIndexOf('},')
           if (lastBrace > 0) {
-            jsonText = jsonText.slice(0, lastBrace + 1) + '\n]'
+            jsonText = jsonText.slice(0, lastBrace + 1) + '\n]}}'
             console.log(`AutoLedger: repaired truncated JSON (attempt ${attempts})`)
-          } else {
-            break
-          }
+          } else { break }
         }
       }
-      rawItems = parsed
+      statementPeriodDate = parsed.period_end || parsed.period_start || today
+      console.log('AutoLedger: statement period detected:', statementPeriodDate)
+      rawItems = (parsed.items || [])
         .filter(r => r.description && (typeof r.amount === 'number' ? r.amount > 0 : parseFloat(String(r.amount)) > 0))
         .map(r => ({
           description: String(r.description).trim(),
           amount: typeof r.amount === 'number' ? r.amount : parseFloat(String(r.amount).replace(/[£,]/g, '')),
-          // Use extracted date if valid, fall back to statement period (never today from code)
           date: (r.date && r.date.match(/^\d{4}-\d{2}-\d{2}/) && r.date !== today) ? r.date : statementPeriodDate,
           ref: r.ref || subject || `autoledger-${today}`,
           line_type: r.line_type === 'income' ? 'income' : 'expense',
@@ -481,6 +461,9 @@ Amounts as positive numbers only (no £ symbol). Respond with JSON array only.` 
       ? `${fmtMY(periodStart)} – ${fmtMY(periodEnd)}`
       : fmtMY(periodEnd)
 
+    const crStmtRef = property.property_code
+      ? genStatementRef(property.property_code, new Date(periodEnd))
+      : null
     const { data: newStmt, error: stmtErr } = await supabase
       .from('landlord_statements')
       .insert({
@@ -494,6 +477,7 @@ Amounts as positive numbers only (no £ symbol). Respond with JSON array only.` 
         management_fees: 0,  // updated below
         property_charges: 0, // updated below
         net_to_landlord: 0,  // updated below
+        ...(crStmtRef ? { reference: crStmtRef } : {}),
       })
       .select('id')
       .single()
@@ -553,6 +537,367 @@ Amounts as positive numbers only (no £ symbol). Respond with JSON array only.` 
   }
 
   console.log(`AutoLedger: done — inserted ${inserted}, duplicates ${duplicates}`)
+
+  // ── Build landlord_statement_rooms rows ──────────────────────────────────────
+  //
+  // Strategy: parse ALL statement_line_items for this statement for room + tenant
+  // signals, then group into "slots" — one slot per (room_number, tenant_name)
+  // combination. Each slot accumulates its own rent_income, management_fee,
+  // letting_fee and other_deductions, producing one LSR row per unique tenancy
+  // period within the statement.
+  //
+  // This correctly handles:
+  //  • Two tenants in the same room in the same month (pro-rata changeover):
+  //      Room 1 - Mr Smith - Rent £166  +  Room 1 - Miss Jones - Rent £200
+  //    → two separate LSR rows, each with their own fee attribution
+  //  • Per-room management fee lines: "Room 4 - Miss Batham - Management Fee £75"
+  //    → attributed directly to that tenant's row
+  //  • Per-tenancy letting fee lines: "Room 1 - Miss Jones - Letting Fee £180"
+  //    → attributed directly to Miss Jones's row only
+  //  • Lump-sum management fee: "Management Fee 10% £800" (no room in description)
+  //    → distributed proportionally across all rent rows by their share of total rent
+  try {
+    const { data: allSLI } = await supabase
+      .from('statement_line_items')
+      .select('id, category, amount, room_id, description, date:statement_date')
+      .eq('statement_id', stmtRow.id)
+
+    if (!allSLI?.length) throw new Error('No line items found after insert')
+
+    const dates = rawItems.map(r => r.date).filter(d => d?.match(/^\d{4}-\d{2}-\d{2}/)).sort()
+    const periodStart = dates[0] || today
+    const periodEnd   = dates[dates.length - 1] || today
+
+    // ── Room/property infrastructure ─────────────────────────────────────────
+    const { data: propertyRooms } = await supabase
+      .from('rooms')
+      .select('id, name')
+      .eq('property_id', property!.id)
+      .order('name')
+
+    // rooms table has no room_number column; position in name-sorted list = number
+    const roomByNumber = new Map<number, string>()
+    const roomById     = new Map<string, string>()  // id → name
+    ;(propertyRooms || []).forEach((r, i) => {
+      roomByNumber.set(i + 1, r.id)
+      roomById.set(r.id, r.name)
+    })
+
+    // All tenancies that overlap this statement period for this property's rooms
+    const roomIds = (propertyRooms || []).map(r => r.id)
+    const { data: periodTenancies } = roomIds.length > 0
+      ? await supabase
+          .from('tenancies')
+          .select('id, room_id, person_id, start_date, end_date, people!person_id(first_name, last_name)')
+          .in('room_id', roomIds)
+          .lte('start_date', periodEnd)
+          .or(`end_date.is.null,end_date.gte.${periodStart}`)
+      : { data: [] }
+
+    // Multiple tenancies may exist per room (changeover). Index all of them.
+    const tenanciesByRoom = new Map<string, Array<{ id: string; person_id: string; start_date: string; end_date: string | null; first_name: string | null; last_name: string | null }>>()
+    for (const t of (periodTenancies || []) as any[]) {
+      if (!t.room_id) continue
+      if (!tenanciesByRoom.has(t.room_id)) tenanciesByRoom.set(t.room_id, [])
+      tenanciesByRoom.get(t.room_id)!.push({
+        id: t.id,
+        person_id: t.person_id,
+        start_date: t.start_date,
+        end_date: t.end_date,
+        first_name: t.people?.first_name ?? null,
+        last_name:  t.people?.last_name  ?? null,
+      })
+    }
+
+    // ── Parse signals from a line item description ───────────────────────────
+    function parseDesc(desc: string): { roomNum: number | null; tenantName: string | null } {
+      // Room number: "Room 4", "Room4", "#4"
+      const roomMatch = desc.match(/\bRoom\s*(\d+)\b/i) || desc.match(/#(\d+)\b/)
+      const roomNum = roomMatch ? parseInt(roomMatch[1], 10) : null
+
+      // Tenant name — strip known titles, pull the human-looking segment between dashes
+      // e.g. "Room 4, 75 Crownfield Road - Miss Shivani Batham - Rent"
+      //   or "Letting Fee - Miss Jane Doe - Room 4"
+      let tenantName: string | null = null
+      const segments = desc.split(/\s*[-–]\s*/)
+      for (const seg of segments) {
+        const clean = seg.replace(/^(Mr|Mrs|Miss|Ms|Dr|Prof|Sir|Mx)\.?\s+/i, '').trim()
+        // Must look like a person name: 2+ words, each capitalised, no digits, not an address
+        if (
+          /^[A-Z][a-z]+(\s[A-Z][a-z]+)+$/.test(clean) &&
+          !/road|street|avenue|lane|close|drive|way|place|crescent|court|grove/i.test(clean)
+        ) {
+          tenantName = seg.replace(/^(Mr|Mrs|Miss|Ms|Dr|Prof|Sir|Mx)\.?\s+/i, '').trim()
+          break
+        }
+      }
+
+      return { roomNum, tenantName }
+    }
+
+    // ── Group line items into slots ───────────────────────────────────────────
+    // Key: "roomNum:tenantName" (normalised lowercase, spaces stripped)
+    // Items with no room AND no tenant go to "unattributed" pool for distribution
+    interface Slot {
+      roomNum:    number | null
+      tenantName: string | null
+      rent:       number
+      mgmtFee:    number
+      lettingFee: number
+      otherDed:   number
+      sliIds:     string[]
+    }
+    const slots   = new Map<string, Slot>()
+    const unattributed = { mgmtFee: 0, lettingFee: 0, otherDed: 0 }
+
+    function slotKey(roomNum: number | null, tenantName: string | null): string {
+      return `${roomNum ?? 'X'}:${(tenantName ?? '').toLowerCase().replace(/\s+/g, '')}`
+    }
+
+    function ensureSlot(roomNum: number | null, tenantName: string | null): Slot {
+      const k = slotKey(roomNum, tenantName)
+      if (!slots.has(k)) slots.set(k, { roomNum, tenantName, rent: 0, mgmtFee: 0, lettingFee: 0, otherDed: 0, sliIds: [] })
+      return slots.get(k)!
+    }
+
+    for (const sli of allSLI) {
+      const { roomNum, tenantName } = parseDesc(sli.description)
+      const amt = Number(sli.amount)
+
+      if (sli.category === 'rent_income') {
+        // Each rent line = one slot (even if room/tenant is null — will be needs_review)
+        const slot = ensureSlot(roomNum, tenantName)
+        slot.rent += amt
+        slot.sliIds.push(sli.id)
+      } else if (sli.category === 'management_fee') {
+        if (roomNum || tenantName) {
+          // Directly attributed to a room/tenant — find or create matching slot
+          // Try to find the rent slot for this room
+          const existing = [...slots.entries()].find(([, s]) =>
+            s.roomNum === roomNum &&
+            (!tenantName || !s.tenantName || s.tenantName.toLowerCase().includes(tenantName.toLowerCase().split(' ')[0]))
+          )
+          if (existing) {
+            existing[1].mgmtFee += amt
+            existing[1].sliIds.push(sli.id)
+          } else {
+            const slot = ensureSlot(roomNum, tenantName)
+            slot.mgmtFee += amt
+            slot.sliIds.push(sli.id)
+          }
+        } else {
+          unattributed.mgmtFee += amt
+        }
+      } else if (sli.category === 'letting_fee') {
+        if (roomNum || tenantName) {
+          const existing = [...slots.entries()].find(([, s]) =>
+            s.roomNum === roomNum &&
+            (!tenantName || !s.tenantName || s.tenantName.toLowerCase().includes(tenantName.toLowerCase().split(' ')[0]))
+          )
+          if (existing) {
+            existing[1].lettingFee += amt
+            existing[1].sliIds.push(sli.id)
+          } else {
+            const slot = ensureSlot(roomNum, tenantName)
+            slot.lettingFee += amt
+            slot.sliIds.push(sli.id)
+          }
+        } else {
+          unattributed.lettingFee += amt
+        }
+      }
+      // Other expense categories don't go on LSR rows (they're property-wide charges)
+    }
+
+    // ── Distribute lump-sum unattributed fees proportionally ─────────────────
+    const rentSlots = [...slots.values()].filter(s => s.rent > 0)
+    const totalRent = rentSlots.reduce((sum, s) => sum + s.rent, 0)
+
+    if (totalRent > 0 && (unattributed.mgmtFee > 0 || unattributed.lettingFee > 0)) {
+      for (const slot of rentSlots) {
+        const share = slot.rent / totalRent
+        slot.mgmtFee    += Math.round(unattributed.mgmtFee    * share * 100) / 100
+        slot.lettingFee += Math.round(unattributed.lettingFee * share * 100) / 100
+      }
+      console.log(`AutoLedger: distributed lump-sum fees — mgmt £${unattributed.mgmtFee.toFixed(2)}, letting £${unattributed.lettingFee.toFixed(2)} across ${rentSlots.length} rent slots`)
+    }
+
+    // ── Resolve room_id and tenancy for each slot ─────────────────────────────
+    // Normalise a name string for comparison (remove titles, lowercase, collapse spaces)
+    function normName(s: string): string {
+      return s.replace(/^(Mr|Mrs|Miss|Ms|Dr|Prof|Sir|Mx)\.?\s+/i, '').toLowerCase().replace(/\s+/g, ' ').trim()
+    }
+
+    // Fuzzy match a parsed tenant name against a known tenancy person
+    function nameMatches(slotName: string, firstName: string | null, lastName: string | null): boolean {
+      const norm = normName(slotName)
+      const full = [(firstName || ''), (lastName || '')].join(' ').toLowerCase().trim()
+      if (!full) return false
+      // Exact or partial: "smith" matches "john smith"
+      return full.includes(normName(norm)) || normName(norm).includes(full.split(' ').pop() || '')
+    }
+
+    interface ResolvedSlot extends Slot {
+      roomId:    string | null
+      tenantId:  string | null
+      tenancyId: string | null
+      resolved:  boolean
+    }
+
+    const resolvedSlots: ResolvedSlot[] = rentSlots.map(slot => {
+      let roomId:    string | null = slot.roomNum ? (roomByNumber.get(slot.roomNum) ?? null) : null
+      let tenantId:  string | null = null
+      let tenancyId: string | null = null
+
+      if (roomId) {
+        const candidates = tenanciesByRoom.get(roomId) || []
+        let matched = candidates.length === 1 ? candidates[0] : null
+
+        if (!matched && slot.tenantName) {
+          // Match by tenant name among multiple tenancies for this room
+          matched = candidates.find(c => nameMatches(slot.tenantName!, c.first_name, c.last_name)) ?? null
+        }
+
+        if (!matched && candidates.length > 0) {
+          // Take the one whose period best overlaps the statement period end
+          matched = candidates.sort((a, b) => {
+            const aEnd = a.end_date ? new Date(a.end_date).getTime() : Infinity
+            const bEnd = b.end_date ? new Date(b.end_date).getTime() : Infinity
+            return bEnd - aEnd  // prefer most recently ended / still active
+          })[0]
+        }
+
+        if (matched) {
+          tenantId  = matched.person_id
+          tenancyId = matched.id
+        }
+      } else if (slot.tenantName) {
+        // Fallback: no room number — search by name in all tenancies for this property
+        for (const [rId, tenancies] of tenanciesByRoom.entries()) {
+          const match = tenancies.find(t => nameMatches(slot.tenantName!, t.first_name, t.last_name))
+          if (match) {
+            roomId    = rId
+            tenantId  = match.person_id
+            tenancyId = match.id
+            console.log(`AutoLedger: resolved tenant "${slot.tenantName}" by name fallback → room ${roomById.get(rId)}`)
+            break
+          }
+        }
+      }
+
+      return {
+        ...slot,
+        roomId,
+        tenantId,
+        tenancyId,
+        resolved: !!(roomId && tenancyId),
+      }
+    })
+
+    // ── Auto-create rent_charges for resolved slots ────────────────────────────
+    // The statement is our source of truth for what rent was due that month.
+    // If no rent_charge exists for this room + month, create one (status=pending).
+    // If one exists, just link to it.
+    const chargeMonth = periodEnd.slice(0, 7) + '-01'
+    const resolvedRoomIds = [...new Set(resolvedSlots.filter(s => s.roomId).map(s => s.roomId!))]
+    const { data: existingCharges } = resolvedRoomIds.length > 0
+      ? await supabase
+          .from('rent_charges')
+          .select('id, room_id, amount_due, status')
+          .in('room_id', resolvedRoomIds)
+          .eq('charge_month', chargeMonth)
+      : { data: [] }
+
+    const chargeByRoom = new Map<string, { id: string; status: string }>()
+    ;(existingCharges || []).forEach((c: any) => chargeByRoom.set(c.room_id, { id: c.id, status: c.status }))
+
+    // For rooms with multiple slots (two tenants): use the LARGER rent figure as the charge amount
+    // (the statement total for the room). If two slots share a room, we use one charge per room.
+    const roomRentTotals = new Map<string, number>()
+    for (const s of resolvedSlots) {
+      if (s.roomId) roomRentTotals.set(s.roomId, (roomRentTotals.get(s.roomId) ?? 0) + s.rent)
+    }
+
+    let chargesCreated = 0
+    for (const [rId, totalRent] of roomRentTotals.entries()) {
+      if (!chargeByRoom.has(rId)) {
+        // No existing charge — create one from the statement figures
+        const { data: newCharge } = await supabase
+          .from('rent_charges')
+          .insert({
+            room_id:      rId,
+            property_id:  property!.id,
+            charge_month: chargeMonth,
+            amount_due:   totalRent,
+            status:       'pending',
+          })
+          .select('id')
+          .single()
+        if (newCharge) {
+          chargeByRoom.set(rId, { id: newCharge.id, status: 'pending' })
+          chargesCreated++
+        }
+      }
+    }
+    if (chargesCreated > 0) console.log(`AutoLedger: auto-created ${chargesCreated} rent_charge row(s) for ${chargeMonth}`)
+
+    // ── Insert LSR rows ────────────────────────────────────────────────────────
+    const lsrInserts = resolvedSlots.map((slot, i) => {
+      const charge = slot.roomId ? chargeByRoom.get(slot.roomId) : null
+      const net = slot.rent - slot.mgmtFee - slot.lettingFee - slot.otherDed
+      return {
+        statement_id:   stmtRow!.id,
+        property_id:    property!.id,
+        room_id:        slot.roomId,
+        tenant_id:      slot.tenantId,
+        tenancy_id:     slot.tenancyId,
+        room_number:    slot.roomNum ?? (i + 1),
+        tenant_name:    slot.tenantName ?? `Room ${slot.roomNum ?? i + 1}`,
+        rent_income:    slot.rent,
+        management_fee: slot.mgmtFee,
+        letting_fee:    slot.lettingFee,
+        other_deductions: slot.otherDed,
+        net_to_landlord: net,
+        needs_review:   !slot.resolved,
+        ...(charge ? { rent_charge_id: charge.id } : {}),
+      }
+    })
+
+    if (lsrInserts.length > 0) {
+      const { data: insertedLSR, error: lsrErr } = await supabase
+        .from('landlord_statement_rooms')
+        .insert(lsrInserts)
+        .select('id')
+      if (lsrErr) {
+        console.warn('AutoLedger: landlord_statement_rooms insert failed', lsrErr.message)
+      } else {
+        const inserted_ = insertedLSR || []
+        console.log(`AutoLedger: inserted ${inserted_.length} LSR rows — ${resolvedSlots.filter(s => s.resolved).length} resolved, ${resolvedSlots.filter(s => !s.resolved).length} needs_review`)
+
+        // Back-link statement_line_items to their LSR row
+        // Map sli IDs to the LSR row that was created for their slot
+        if (inserted_.length === resolvedSlots.length) {
+          const updates: Promise<any>[] = []
+          resolvedSlots.forEach((slot, i) => {
+            const lsrId = inserted_[i]?.id
+            if (!lsrId || !slot.sliIds.length) return
+            updates.push(
+              supabase
+                .from('statement_line_items')
+                .update({ landlord_statement_room_id: lsrId })
+                .in('id', slot.sliIds)
+            )
+          })
+          await Promise.all(updates)
+          console.log('AutoLedger: back-linked statement_line_items to LSR rows')
+        }
+      }
+    } else {
+      console.log('AutoLedger: no rent income lines found — no LSR rows created')
+    }
+  } catch (e) {
+    console.warn('AutoLedger: room rows failed', e)
+  }
 
   // Recompute statement header totals from actual line items
   try {
@@ -638,7 +983,7 @@ Amounts as positive numbers only (no £ symbol). Respond with JSON array only.` 
 ${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" style="display:inline-block;background:#86284a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Review in CROS →</a>` : ''}`
     const notifyHtml = await buildEmail(notifyBody)
     await resend.emails.send({
-      from: 'Capital Rooms <noreply@capitalrooms.co.uk>',
+      ...(await senderFieldsSdk()),
       to: ['harry@capitalrooms.co.uk'],
       subject: `⚡ AutoLedger: ${inserted} expenses imported — ${property!.name || property!.address}`,
       html: notifyHtml,

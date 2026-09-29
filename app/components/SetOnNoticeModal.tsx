@@ -1,7 +1,7 @@
 'use client'
 import { displayName } from '@/lib/people'
 import { useState } from 'react'
-import { buildCheckoutEmail } from '@/lib/checkoutEmailTemplate'
+import { adminFetch } from '@/lib/adminFetch'
 
 interface Tenancy {
   id: string
@@ -137,7 +137,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], 
     setBuildingPreview(true)
     setError(null)
     try {
-      const html = await buildCheckoutEmail({
+      const res = await adminFetch('/api/emails/checkout-preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         tenantName:         displayName(tenancy.person) || 'Tenant',
         tenantEmail:        tenancy.person?.email || '',
         roomName:           tenancy.room?.name || 'Room',
@@ -148,7 +148,10 @@ export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], 
         proRataCalculation: `${proRata.daysOccupied} days × £${proRata.dailyRate.toFixed(2)}/day`,
         contactEmail: 'management@capitalrooms.co.uk',
         contactPhone: '0207 112 9163',
-      })
+      }) })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || !d.html) throw new Error(d.error ?? `error ${res.status}`)
+      const html: string = d.html
       setCheckoutEmailHtml(html)
       setStep('preview')
     } catch (err) {

@@ -82,9 +82,10 @@ export default function AcknowledgmentNotesPage() {
 
       // Upload photo if provided
       if (photoFile) {
-        const fileName = `${noteId}-${Date.now()}.jpg`
+        // stored with the maintenance photos (tenants can upload there); the 'acknowledgments' bucket never existed
+        const fileName = `acknowledgments/${noteId}-${Date.now()}.jpg`
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('acknowledgments')
+          .from('maintenance-photos')
           .upload(fileName, photoFile)
 
         if (uploadError) throw uploadError

@@ -260,12 +260,14 @@ export default function LettingsPage() {
     // Currently let rooms (occupied, with tenant info via people table)
     const { data: letData } = await supabase
       .from('rooms')
-      .select('id, name, property_id, current_asking_rent, properties(name, address), people(full_name, first_name, last_name, email)')
+      .select('id, name, property_id, current_asking_rent, properties(name, address), tenancies(end_date, people!person_id(full_name, first_name, last_name, email))')
       .eq('status', 'occupied')
       .order('name', { ascending: true })
 
     const letMapped: LetRoom[] = (letData || []).map((room: any) => {
-      const tenant = Array.isArray(room.people) ? room.people[0] : room.people
+      // current tenant = the tenancy with no end date (or the latest one)
+      const tList = (room.tenancies || []) as any[]
+      const tenant = (tList.find(t => !t.end_date) ?? tList[0])?.people ?? null
       const tName = tenant
         ? tenant.full_name || [tenant.first_name, tenant.last_name].filter(Boolean).join(' ') || null
         : null

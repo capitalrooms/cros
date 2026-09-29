@@ -101,6 +101,13 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
   // Notice board settings
   const [noticeBoardEnabled, setNoticeBoardEnabled] = useState(true)
 
+  // Admin notices
+  const [adminNotices, setAdminNotices] = useState<any[]>([])
+  const [newNoticeText, setNewNoticeText] = useState('')
+  const [postingNotice, setPostingNotice] = useState(false)
+  const [noticeError, setNoticeError] = useState('')
+  const [adminPersonId, setAdminPersonId] = useState<string | null>(null)
+
   // Featured tasks (simple text list for now)
   const [featuredTasks, setFeaturedTasks] = useState('')
 
@@ -116,8 +123,55 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
     setHeatingNote(hs.note || '')
     setNoticeBoardEnabled(property?.notice_board_enabled !== false)
     setFeaturedTasks((property?.featured_tasks || []).join('\n'))
+    fetchAdminNotices()
+    // Get admin's person ID from Supabase
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) {
+        supabase.from('people').select('id').eq('email', data.user.email).maybeSingle().then(({ data: p }) => {
+          if (p?.id) setAdminPersonId(p.id)
+        })
+      }
+    })
     setShowFireDoorGuide(property?.show_fire_door_guide ?? (property?.property_type === 'hmo' || false))
   }, [property])
+
+  async function fetchAdminNotices() {
+    try {
+      const res = await fetch(`/api/admin/notices?property_id=${propertyId}`)
+      if (res.ok) {
+        const json = await res.json()
+        setAdminNotices(json.notices || [])
+      }
+    } catch {}
+  }
+
+  async function postAdminNotice() {
+    if (!newNoticeText.trim()) return
+    setPostingNotice(true)
+    setNoticeError('')
+    try {
+      const res = await fetch('/api/admin/notices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property_id: propertyId, notice_type: 'info', raw_text: newNoticeText.trim(), created_by_person_id: adminPersonId }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      setNewNoticeText('')
+      await fetchAdminNotices()
+    } catch (e: any) {
+      setNoticeError(e.message || 'Failed to post notice')
+    } finally {
+      setPostingNotice(false)
+    }
+  }
+
+  async function deleteAdminNotice(id: string) {
+    try {
+      await fetch(`/api/admin/notices?id=${id}`, { method: 'DELETE' })
+      setAdminNotices(prev => prev.filter(n => n.id !== id))
+    } catch {}
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -227,6 +281,55 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
             className="rounded w-5 h-5"
           />
         </label>
+      </section>
+
+      {/* ── Admin notices ────────────────────────────────────────────────── */}
+      <section className="border-t border-neutral-100 pt-2xl">
+        <h3 className="text-base font-bold text-neutral-900 mb-xs">📢 Admin Notices</h3>
+        <p className="text-sm text-neutral-500 mb-md">
+          Post notices to the tenant notice board as admin. These appear alongside tenant-posted notices.
+        </p>
+        <div className="space-y-sm">
+          <div className="flex gap-sm">
+            <textarea
+              value={newNoticeText}
+              onChange={e => setNewNoticeText(e.target.value)}
+              rows={2}
+              placeholder="Type a notice for all tenants at this property…"
+              className="flex-1 rounded-xl border border-neutral-200 px-md py-sm text-sm resize-none"
+            />
+            <button
+              onClick={postAdminNotice}
+              disabled={postingNotice || !newNoticeText.trim() || !adminPersonId}
+              className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors shrink-0 self-end"
+            >
+              {postingNotice ? 'Posting…' : 'Post'}
+            </button>
+          </div>
+          {noticeError && <p className="text-xs text-red-600">{noticeError}</p>}
+          {adminNotices.length > 0 && (
+            <div className="space-y-xs mt-md">
+              {adminNotices.map(n => (
+                <div key={n.id} className="flex items-start gap-sm rounded-xl border border-neutral-200 bg-neutral-50 px-md py-sm">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-neutral-900">{n.raw_text}</p>
+                    <p className="text-xs text-neutral-400 mt-xs">
+                      {n.notice_type} · {new Date(n.created_at).toLocaleDateString('en-GB')}
+                      {n.created_by_person && ` · ${n.created_by_person.first_name} ${n.created_by_person.last_name}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => deleteAdminNotice(n.id)}
+                    className="text-xs text-red-400 hover:text-red-600 shrink-0 font-bold"
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {adminNotices.length === 0 && (
+            <p className="text-xs text-neutral-400">No admin notices posted yet.</p>
+          )}
+        </div>
       </section>
 
       {/* ── Featured tasks ───────────────────────────────────────────────── */}

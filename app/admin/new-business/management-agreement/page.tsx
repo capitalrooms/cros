@@ -6,6 +6,8 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
 import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAddressString } from '@/app/components/AddressInput'
+import { createClient } from '@/lib/supabase'
+import { landlordName } from '@/lib/people'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -42,6 +44,11 @@ function ManagementAgreementForm() {
   const [clientTitle,    setClientTitle]    = useState('Mr')
   const [clientFirst,    setClientFirst]    = useState(() => prefillName.split(' ')[0] ?? '')
   const [clientLast,     setClientLast]     = useState(() => prefillName.split(' ').slice(1).join(' ') ?? '')
+  // Joint (second) landlord
+  const [hasJointLandlord, setHasJointLandlord] = useState(false)
+  const [client2Title,  setClient2Title]  = useState('Mrs')
+  const [client2First,  setClient2First]  = useState('')
+  const [client2Last,   setClient2Last]   = useState('')
   const [companyName,    setCompanyName]    = useState(prefillCompany)
   const [companyReg,     setCompanyReg]     = useState(prefillReg)
   const [companyCountry, setCompanyCountry] = useState('England and Wales')
@@ -54,6 +61,45 @@ function ManagementAgreementForm() {
   const [epcCost,        setEpcCost]        = useState(DEFAULTS.hmo.epcCost)
   const [commencementDate, setCommencementDate] = useState(today())
   const [inventoryNote,  setInventoryNote]  = useState('')
+
+  const [existingLandlords, setExistingLandlords] = useState<any[]>([])
+  const [pickedLandlordId, setPickedLandlordId] = useState('')
+
+  useEffect(() => {
+    createClient()
+      .from('people')
+      .select('*')
+      .eq('role', 'landlord')
+      .order('last_name')
+      .then(({ data }) => setExistingLandlords(data || []))
+  }, [])
+
+  function fillFromLandlord(id: string) {
+    setPickedLandlordId(id)
+    const l = existingLandlords.find(x => x.id === id)
+    if (!l) return
+    if (l.company && !l.first_name) {
+      setEntityType('company')
+      setCompanyName(l.company)
+      setCompanyReg(l.company_number || '')
+    } else {
+      setEntityType('individual')
+      if (l.salutation) setClientTitle(l.salutation)
+      setClientFirst(l.first_name || '')
+      setClientLast(l.last_name || '')
+      if (l.joint_first_name) {
+        setHasJointLandlord(true)
+        setClient2Title(l.joint_salutation || client2Title)
+        setClient2First(l.joint_first_name || '')
+        setClient2Last(l.joint_last_name || '')
+      } else {
+        setHasJointLandlord(false)
+        setClient2First('')
+        setClient2Last('')
+      }
+    }
+    if (l.home_address) setClientAddrValue(parseAddressString(l.home_address))
+  }
 
   const [generating, setGenerating] = useState(false)
   const [error,      setError]      = useState<string | null>(null)
@@ -104,6 +150,9 @@ function ManagementAgreementForm() {
       clientTitle:    entityType === 'individual' ? clientTitle : undefined,
       clientFirstName: entityType === 'individual' ? clientFirst : undefined,
       clientLastName:  entityType === 'individual' ? clientLast  : undefined,
+      client2Title:    (entityType === 'individual' && hasJointLandlord && client2First) ? client2Title : undefined,
+      client2FirstName: (entityType === 'individual' && hasJointLandlord && client2First) ? client2First : undefined,
+      client2LastName:  (entityType === 'individual' && hasJointLandlord && client2First) ? client2Last  : undefined,
       companyName:    entityType === 'company' ? companyName    : undefined,
       companyReg:     entityType === 'company' ? companyReg     : undefined,
       companyCountry: entityType === 'company' ? companyCountry : undefined,
@@ -156,7 +205,7 @@ function ManagementAgreementForm() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
 
-      <main className="mx-auto max-w-2xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl">
           <h1 className="text-2xl font-bold text-neutral-900">📋 Management Agreement</h1>
           <p className="text-sm text-neutral-500 mt-xs">
@@ -213,6 +262,18 @@ function ManagementAgreementForm() {
           <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
             <h2 className="text-sm font-bold text-neutral-900 mb-md">Client Details</h2>
 
+            {existingLandlords.length > 0 && (
+              <div className="mb-md">
+                <label className={label}>Fill from existing landlord</label>
+                <select value={pickedLandlordId} onChange={e => fillFromLandlord(e.target.value)} className={inp}>
+                  <option value="">— New client (type details below) —</option>
+                  {existingLandlords.map(l => (
+                    <option key={l.id} value={l.id}>{landlordName(l) !== '—' ? landlordName(l) : l.email}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Entity type toggle */}
             <div className="flex gap-sm mb-md">
               {(['individual', 'company'] as EntityType[]).map(t => (
@@ -227,21 +288,54 @@ function ManagementAgreementForm() {
             </div>
 
             {entityType === 'individual' ? (
-              <div className="grid grid-cols-3 gap-md mb-md">
-                <div>
-                  <label className={label}>Title</label>
-                  <select value={clientTitle} onChange={e => setClientTitle(e.target.value)} className={inp}>
-                    {['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof'].map(t => <option key={t}>{t}</option>)}
-                  </select>
+              <div className="space-y-md mb-md">
+                <div className="grid grid-cols-3 gap-md">
+                  <div>
+                    <label className={label}>Title</label>
+                    <select value={clientTitle} onChange={e => setClientTitle(e.target.value)} className={inp}>
+                      {['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof'].map(t => <option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={label}>First name *</label>
+                    <input value={clientFirst} onChange={e => setClientFirst(e.target.value)} className={inp} placeholder="James" />
+                  </div>
+                  <div>
+                    <label className={label}>Last name</label>
+                    <input value={clientLast} onChange={e => setClientLast(e.target.value)} className={inp} placeholder="Smith" />
+                  </div>
                 </div>
-                <div>
-                  <label className={label}>First name *</label>
-                  <input value={clientFirst} onChange={e => setClientFirst(e.target.value)} className={inp} placeholder="James" />
-                </div>
-                <div>
-                  <label className={label}>Last name</label>
-                  <input value={clientLast} onChange={e => setClientLast(e.target.value)} className={inp} placeholder="Smith" />
-                </div>
+                {/* Joint landlord */}
+                {hasJointLandlord ? (
+                  <div>
+                    <div className="flex items-center justify-between mb-xs">
+                      <label className={label}>Joint landlord</label>
+                      <button type="button" onClick={() => { setHasJointLandlord(false); setClient2First(''); setClient2Last('') }}
+                        className="text-xs text-neutral-400 hover:text-red-500">Remove</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-md">
+                      <div>
+                        <label className={label}>Title</label>
+                        <select value={client2Title} onChange={e => setClient2Title(e.target.value)} className={inp}>
+                          {['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof'].map(t => <option key={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={label}>First name</label>
+                        <input value={client2First} onChange={e => setClient2First(e.target.value)} className={inp} placeholder="Sarah" />
+                      </div>
+                      <div>
+                        <label className={label}>Last name</label>
+                        <input value={client2Last} onChange={e => setClient2Last(e.target.value)} className={inp} placeholder="Smith" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setHasJointLandlord(true)}
+                    className="text-xs text-neutral-500 hover:text-neutral-900 border border-dashed border-neutral-300 rounded-lg px-md py-xs font-semibold transition-colors">
+                    + Add joint landlord
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-md mb-md">
@@ -423,7 +517,7 @@ export default function ManagementAgreementPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/new-business" />} />
-        <main className="mx-auto max-w-2xl px-lg py-2xl">
+        <main className="mx-auto max-w-6xl px-lg py-xl">
           <p className="text-sm text-neutral-400 text-center py-xl">Loading…</p>
         </main>
       </div>

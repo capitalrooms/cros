@@ -3,7 +3,9 @@
 // Also handles GET /api/valuations/history?id=<logId>&download=1 to fetch the stored PDF.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
+import { contentDisposition } from '@/lib/contentDisposition'
 
 function serviceClient() {
   return createClient(
@@ -14,6 +16,7 @@ function serviceClient() {
 }
 
 export async function GET(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { searchParams } = new URL(req.url)
     const logId   = searchParams.get('id')
@@ -47,7 +50,7 @@ export async function GET(req: NextRequest) {
       return new NextResponse(buf, {
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="Capital-Rooms-Valuation_${safe}_${date}.pdf"`,
+          'Content-Disposition': contentDisposition(`Capital-Rooms-Valuation_${safe}_${date}.pdf`, 'attachment'),
         },
       })
     }

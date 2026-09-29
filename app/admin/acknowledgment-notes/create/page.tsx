@@ -111,8 +111,8 @@ export default function CreateAcknowledgmentNotePage() {
         left={<BackButton href="/admin/acknowledgment-notes" />}
       />
 
-      <main className="mx-auto max-w-2xl px-lg py-2xl">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-lg">📝 Create Acknowledgment Note</h1>
+      <main className="mx-auto max-w-6xl px-lg py-xl">
+        <h1 className="text-2xl font-bold text-neutral-900">📝 Create Acknowledgment Note</h1>
 
         <form onSubmit={handleSubmit} className="space-y-md">
           {/* Property Selection */}

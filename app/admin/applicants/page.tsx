@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
@@ -38,6 +38,23 @@ interface Applicant {
   viewing_id: string | null
   offer_id: string | null
   converted_person_id: string | null
+  // Form fields — all returned by select('*')
+  bio?: string | null
+  profession?: string | null
+  profession_description?: string | null
+  salary?: string | null
+  interests?: string | null
+  sociability?: string | null
+  house_preferences?: string | null
+  communication_style?: string | null
+  room_requirements?: string | null
+  room_conditions?: string | null
+  rent_offer_type?: string | null
+  preferred_term?: string | null
+  current_address?: string | null
+  date_of_birth?: string | null
+  linkedin_url?: string | null
+  previous_addresses?: unknown
   rooms?: { name: string; current_asking_rent: number | null }
   properties?: { name: string; address: string }
   viewings?: { viewing_date: string; viewing_slot: string | null }
@@ -92,11 +109,27 @@ export default function ApplicantsPage() {
   }, [router])
 
   // Filter rooms when property changes in add form
+  const pendingRoom = useRef<string | null>(null)
   useEffect(() => {
     if (!addForm.property_id) { setFilteredAddRooms([]); return }
-    setFilteredAddRooms(rooms.filter(r => r.property_id === addForm.property_id))
-    setAddForm(f => ({ ...f, room_id: '' }))
+    const list = rooms.filter(r => r.property_id === addForm.property_id)
+    setFilteredAddRooms(list)
+    const keep = pendingRoom.current && list.some(r => r.id === pendingRoom.current) ? pendingRoom.current : ''
+    if (list.length) pendingRoom.current = null
+    setAddForm(f => ({ ...f, room_id: keep }))
   }, [addForm.property_id, rooms])
+
+  // "+ Add letting" on a room page links here with ?add=1&property_id=…&room_id=… — open the form prefilled.
+  const prefilled = useRef(false)
+  useEffect(() => {
+    if (prefilled.current || !rooms.length) return
+    const q = new URLSearchParams(window.location.search)
+    if (q.get('add') !== '1') return
+    prefilled.current = true
+    pendingRoom.current = q.get('room_id')
+    setShowAdd(true)
+    setAddForm(f => ({ ...f, property_id: q.get('property_id') || '' }))
+  }, [rooms])
 
   async function loadAll() {
     const sb = createClient()
@@ -186,7 +219,10 @@ export default function ApplicantsPage() {
       const data = await res.json()
       if (!res.ok) { alert(data.error || 'Conversion failed'); return }
       setApplicants(prev => prev.map(a => a.id === applicant.id ? { ...a, pipeline_stage: 'converted', converted_person_id: data.personId } : a))
-      if (confirm(`Converted! Go to their tenant profile now?`)) {
+      // Next step after referencing: the move-in pack (agreement, check-in balance, certificates, guides)
+      if (data.tenancyId) {
+        if (confirm(`Converted! Prepare their move-in pack now?`)) router.push(`/admin/move-in/${data.tenancyId}`)
+      } else if (confirm(`Converted! Go to their tenant profile now?`)) {
         router.push(`/admin/tenant/${data.personId}`)
       }
     } finally {
@@ -221,9 +257,6 @@ export default function ApplicantsPage() {
         .from('applicants')
         .insert({
           full_name:      fullName.trim(),
-          first_name:     addForm.name.first_name,
-          last_name:      addForm.name.last_name,
-          salutation:     addForm.name.salutation,
           email:          addForm.email.trim().toLowerCase(),
           phone:          addForm.phone.trim() || null,
           room_id:        addForm.room_id,
@@ -257,7 +290,7 @@ export default function ApplicantsPage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin" />} />
-        <div className="mx-auto max-w-2xl px-lg py-xl">
+        <div className="mx-auto max-w-6xl px-lg py-xl">
           <div className="rounded-xl bg-red-50 border border-red-200 p-lg text-sm text-red-700">{error}</div>
         </div>
       </div>
@@ -268,11 +301,11 @@ export default function ApplicantsPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-5xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Header */}
         <div className="mb-xl flex items-start justify-between gap-md flex-wrap">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Applicants</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Applicants</h1>
             <p className="mt-xs text-sm text-neutral-500">
               {applicants.filter(a => a.pipeline_stage !== 'converted').length} active · {applicants.filter(a => a.pipeline_stage === 'converted').length} converted
             </p>
@@ -443,31 +476,157 @@ export default function ApplicantsPage() {
                         </div>
                       </div>
 
-                      {/* Key details */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-md text-xs">
-                        {prop && (
+                      {/* ── Application details ── */}
+                      <div className="space-y-md">
+
+                        {/* Room + rent snapshot */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-md text-xs">
+                          {prop && (
+                            <div>
+                              <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Property</p>
+                              <p className="text-neutral-900">{prop.address || prop.name}</p>
+                              {room && <p className="text-neutral-500">{room.name}</p>}
+                            </div>
+                          )}
+                          {room?.current_asking_rent && (
+                            <div>
+                              <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Asking rent</p>
+                              <p className="text-neutral-900">£{room.current_asking_rent.toLocaleString()} pcm</p>
+                              {applicant.rent_offer_type === 'below_asking' && applicant.offered_rent && (
+                                <p className="text-amber-700 font-semibold">Offered: £{Number(applicant.offered_rent).toLocaleString()}</p>
+                              )}
+                            </div>
+                          )}
+                          {applicant.preferred_start_date && (
+                            <div>
+                              <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Move-in</p>
+                              <p className="text-neutral-900">{new Date(applicant.preferred_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                              {applicant.preferred_term && <p className="text-neutral-500">{applicant.preferred_term}</p>}
+                            </div>
+                          )}
                           <div>
-                            <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Property</p>
-                            <p className="text-neutral-900">{prop.address || prop.name}</p>
-                            {room && <p className="text-neutral-500">{room.name}</p>}
+                            <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Applied</p>
+                            <p className="text-neutral-900">{new Date(applicant.submitted_at || applicant.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                           </div>
-                        )}
-                        {room?.current_asking_rent && (
-                          <div>
-                            <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Asking rent</p>
-                            <p className="text-neutral-900">£{room.current_asking_rent.toLocaleString()} pcm</p>
-                          </div>
-                        )}
-                        {applicant.preferred_start_date && (
-                          <div>
-                            <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Preferred start</p>
-                            <p className="text-neutral-900">{new Date(applicant.preferred_start_date).toLocaleDateString('en-GB')}</p>
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Added</p>
-                          <p className="text-neutral-900">{new Date(applicant.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                         </div>
+
+                        {/* Personal & professional */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-md text-xs border-t border-neutral-100 pt-md">
+                          {applicant.profession && (
+                            <div>
+                              <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Profession</p>
+                              <p className="text-neutral-900">{applicant.profession}</p>
+                              {applicant.salary && <p className="text-neutral-500">{applicant.salary}</p>}
+                            </div>
+                          )}
+                          {applicant.current_address && (
+                            <div>
+                              <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Current address</p>
+                              <p className="text-neutral-900">{applicant.current_address}</p>
+                            </div>
+                          )}
+                          {applicant.date_of_birth && (
+                            <div>
+                              <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Date of birth</p>
+                              <p className="text-neutral-900">{new Date(applicant.date_of_birth).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                            </div>
+                          )}
+                          {applicant.linkedin_url && (
+                            <div>
+                              <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">LinkedIn</p>
+                              <a href={applicant.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate block">{applicant.linkedin_url.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//,'')}</a>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* About them */}
+                        {(applicant.bio || applicant.profession_description || applicant.interests) && (
+                          <div className="space-y-sm border-t border-neutral-100 pt-md">
+                            {applicant.bio && (
+                              <div>
+                                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">About them</p>
+                                <p className="text-sm text-neutral-800 leading-relaxed">{applicant.bio}</p>
+                              </div>
+                            )}
+                            {applicant.profession_description && (
+                              <div>
+                                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Their work</p>
+                                <p className="text-sm text-neutral-800 leading-relaxed">{applicant.profession_description}</p>
+                              </div>
+                            )}
+                            {applicant.interests && (
+                              <div>
+                                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Interests</p>
+                                <p className="text-sm text-neutral-800 leading-relaxed">{applicant.interests}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Living with them */}
+                        {(applicant.sociability || applicant.house_preferences || applicant.communication_style) && (
+                          <div className="space-y-sm border-t border-neutral-100 pt-md">
+                            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">What they're like to live with</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-md text-xs">
+                              {applicant.sociability && (
+                                <div>
+                                  <p className="text-neutral-500 mb-xs">Sociability</p>
+                                  <p className="text-neutral-900 capitalize">{applicant.sociability}</p>
+                                </div>
+                              )}
+                              {applicant.house_preferences && (
+                                <div className="sm:col-span-1">
+                                  <p className="text-neutral-500 mb-xs">House preferences</p>
+                                  <p className="text-neutral-900">{applicant.house_preferences}</p>
+                                </div>
+                              )}
+                              {applicant.communication_style && (
+                                <div>
+                                  <p className="text-neutral-500 mb-xs">Communication</p>
+                                  <p className="text-neutral-900">{applicant.communication_style}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Room requirements */}
+                        {(applicant.room_requirements || applicant.room_conditions) && (
+                          <div className="space-y-sm border-t border-neutral-100 pt-md">
+                            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">About the room</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-md text-xs">
+                              {applicant.room_requirements && (
+                                <div>
+                                  <p className="text-neutral-500 mb-xs">Requirements</p>
+                                  <p className="text-neutral-900">{applicant.room_requirements}</p>
+                                </div>
+                              )}
+                              {applicant.room_conditions && (
+                                <div>
+                                  <p className="text-neutral-500 mb-xs">Conditions</p>
+                                  <p className="text-neutral-900">{applicant.room_conditions}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rental history */}
+                        {applicant.previous_addresses && Array.isArray(applicant.previous_addresses) && (applicant.previous_addresses as any[]).filter((a: any) => a.address).length > 0 && (
+                          <div className="border-t border-neutral-100 pt-md">
+                            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Rental history</p>
+                            <div className="space-y-sm">
+                              {(applicant.previous_addresses as any[]).filter((a: any) => a.address).map((addr: any, i: number) => (
+                                <div key={i} className="text-xs rounded-lg bg-neutral-50 border border-neutral-100 px-md py-sm">
+                                  <p className="font-medium text-neutral-900">{addr.address}</p>
+                                  <p className="text-neutral-500 mt-xs">
+                                    {[addr.movedIn && `From ${addr.movedIn}`, addr.movedOut && `to ${addr.movedOut}`, addr.reasonLeft && `· ${addr.reasonLeft}`].filter(Boolean).join(' ')}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Admin notes */}
@@ -530,15 +689,14 @@ export default function ApplicantsPage() {
                           </button>
                         )}
 
-                        {/* Convert to tenant */}
+                        {/* Set up tenancy */}
                         {applicant.pipeline_stage === 'docs_uploaded' && !isConverted && (
-                          <button
-                            onClick={() => convertToTenant(applicant)}
-                            disabled={converting === applicant.id}
-                            className="text-xs font-semibold border border-green-700 bg-green-700 text-white rounded-lg px-md py-sm hover:bg-green-600 disabled:opacity-50"
+                          <a
+                            href={`/admin/applicants/${applicant.id}/create-tenancy`}
+                            className="text-xs font-semibold border border-green-700 bg-green-700 text-white rounded-lg px-md py-sm hover:bg-green-600 inline-block"
                           >
-                            {converting === applicant.id ? 'Converting…' : '✓ Convert to Tenant'}
-                          </button>
+                            Set up tenancy →
+                          </a>
                         )}
                       </div>
                     </div>

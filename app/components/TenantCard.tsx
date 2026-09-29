@@ -198,10 +198,12 @@ export default function TenantCard({
                   <span className="text-neutral-700 font-medium">£{rent.toLocaleString()} pcm</span>
                 </span>
               ) : null}
-              <span>
-                <span className="text-neutral-400 text-xs uppercase tracking-wide mr-xs">Member since</span>
-                <span className="text-neutral-700 font-medium">{fmtDate(tenant.created_at)}</span>
-              </span>
+              {currentTenancy?.start_date ? (
+                <span>
+                  <span className="text-neutral-400 text-xs uppercase tracking-wide mr-xs">Tenancy start</span>
+                  <span className="text-neutral-700 font-medium">{fmtDate(currentTenancy.start_date)}</span>
+                </span>
+              ) : null}
             </div>
           </div>
         </div>

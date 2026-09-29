@@ -1,8 +1,10 @@
 import { createServiceClient } from '@/lib/supabase'
+import { requireStaff } from '@/lib/portalAuth'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET /api/admin/jobs/cleaner — list all assigned_jobs (admin only)
 export async function GET(request: NextRequest) {
+  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const supabase = createServiceClient()
 

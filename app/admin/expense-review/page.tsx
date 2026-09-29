@@ -35,7 +35,7 @@ interface LineItem {
   people?: { full_name: string | null; first_name: string | null; last_name: string | null; email: string }
 }
 
-interface Room { id: string; name: string; room_number: number | null; property_id: string }
+interface Room { id: string; name: string; room_number?: number | null; property_id: string }
 
 export default function ExpenseReviewPage() {
   const router = useRouter()
@@ -92,8 +92,8 @@ export default function ExpenseReviewPage() {
 
       const { data: roomData } = await supabase
         .from('rooms')
-        .select('id, name, room_number, property_id')
-        .order('room_number')
+        .select('id, name, property_id')
+        .order('name')
       setRooms(roomData || [])
 
       setLoading(false)
@@ -135,8 +135,8 @@ export default function ExpenseReviewPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton />} />
-      <main className="mx-auto max-w-5xl px-lg py-2xl">
+      <AppBar left={<BackButton href="/admin/accounts" />} />
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="animate-pulse h-8 w-64 bg-neutral-300 rounded-lg" />
       </main>
     </div>
@@ -144,8 +144,8 @@ export default function ExpenseReviewPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton />} />
-      <main className="mx-auto max-w-5xl px-lg py-2xl space-y-xl">
+      <AppBar left={<BackButton href="/admin/accounts" />} />
+      <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
         <div className="flex items-start justify-between gap-lg">
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Expense Review</h1>

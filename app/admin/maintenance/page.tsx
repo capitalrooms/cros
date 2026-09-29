@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import QuotesPanel from './QuotesPanel';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -56,7 +57,7 @@ interface PipelineStage {
 const PIPELINE: PipelineStage[] = [
   {
     key: 'awaiting',
-    title: 'New · tenant awaiting reply',
+    title: 'New — awaiting review',
     actionType: 'ACTION_NEEDED',
     getHeaderClass: () => 'bg-red-600 text-white',
     cardClass: 'border-red-500 border-2',
@@ -64,7 +65,7 @@ const PIPELINE: PipelineStage[] = [
   },
   {
     key: 'hold',
-    title: 'Batched · tenant not yet told',
+    title: 'Batched — pending action',
     actionType: 'PASSIVE_TRACKING',
     getHeaderClass: () => 'bg-neutral-700 text-white',
     cardClass: 'border-dashed border-neutral-400 border-2',
@@ -72,7 +73,7 @@ const PIPELINE: PipelineStage[] = [
   },
   {
     key: 'raised',
-    title: 'Approved · tenant told, needs contractor',
+    title: 'Approved — assign contractor',
     actionType: 'ACTION_NEEDED',
     getHeaderClass: () => 'bg-red-600 text-white',
     cardClass: 'border-red-500 border-2',
@@ -80,7 +81,7 @@ const PIPELINE: PipelineStage[] = [
   },
   {
     key: 'assigned',
-    title: 'Sent to contractor · tenant awaiting date',
+    title: 'With contractor — awaiting date',
     actionType: 'ACTION_NEEDED',
     getHeaderClass: () => 'bg-red-600 text-white',
     cardClass: 'border-red-500 border-2',
@@ -88,7 +89,7 @@ const PIPELINE: PipelineStage[] = [
   },
   {
     key: 'booked',
-    title: 'Booked in · tenant has a date',
+    title: 'Booked in',
     actionType: 'PASSIVE_TRACKING',
     getHeaderClass: () => 'bg-neutral-800 text-white',
     cardClass: 'border-neutral-300',
@@ -96,7 +97,7 @@ const PIPELINE: PipelineStage[] = [
   },
   {
     key: 'progress',
-    title: 'In progress · tenant knows work\'s underway',
+    title: 'In progress',
     actionType: 'PASSIVE_TRACKING',
     getHeaderClass: () => 'bg-neutral-600 text-white',
     cardClass: 'border-neutral-300',
@@ -104,7 +105,7 @@ const PIPELINE: PipelineStage[] = [
   },
   {
     key: 'completed',
-    title: 'Completed · tenant notified',
+    title: 'Completed',
     actionType: 'PASSIVE_TRACKING',
     getHeaderClass: () => 'bg-neutral-400 text-white',
     cardClass: 'border-neutral-200 opacity-70',
@@ -163,6 +164,15 @@ export default function MaintenanceDashboard() {
     checkAuth();
   }, [router]);
 
+  // Deep link from the phone Today screen: /admin/maintenance?ticket=<id> opens that job.
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current || !tickets.length) return;
+    const id = new URLSearchParams(window.location.search).get('ticket');
+    const t = id && tickets.find(x => x.id === id);
+    if (t) { deepLinked.current = true; setSelectedTicket(t); setShowDetails(true); }
+  }, [tickets]);
+
   // Load planner boards from localStorage (client-side only)
   useEffect(() => {
     try {
@@ -218,10 +228,14 @@ export default function MaintenanceDashboard() {
       const supabase = createClient();
       const { data } = await supabase
         .from('people')
-        .select('id, full_name, first_name, last_name, email')
+        .select('id, full_name, first_name, last_name, company, email')
         .eq('role', 'contractor')
         .order('full_name');
-      setContractors(data || []);
+      // people has no "name" column — build the label the dropdowns show
+      setContractors((data || []).map((c: any) => ({
+        id: c.id, email: c.email,
+        name: c.company || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || null,
+      })));
     })();
   }, []);
 
@@ -603,11 +617,11 @@ export default function MaintenanceDashboard() {
         left={<BackButton href="/admin" />}
       />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Page heading */}
         <div className="mb-3xl flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Maintenance Jobs</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Maintenance Jobs</h1>
             <p className="mt-sm text-sm text-neutral-600">Approve, assign, and batch repairs across all properties</p>
           </div>
           <div className="flex gap-sm shrink-0">
@@ -990,6 +1004,14 @@ export default function MaintenanceDashboard() {
                     <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
+
+                {/* Quotes from one or more contractors — accepting one assigns the job */}
+                <QuotesPanel
+                  key={selectedTicket.id}
+                  ticketId={selectedTicket.id}
+                  contractors={contractors.map((c) => ({ id: c.id, label: c.name || c.email, email: c.email }))}
+                  onAssigned={() => fetchTickets()}
+                />
 
                 {/*
                   Book on a contractor's behalf. Contractors phone rather than

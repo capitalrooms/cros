@@ -146,16 +146,16 @@ export default function RentHistoryPage() {
   })
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
       <p className="p-xl text-sm text-neutral-400">Loading tenancies…</p>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-3xl">
+    <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
-      <main className="mx-auto max-w-5xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Header */}
         <div className="mb-xl">

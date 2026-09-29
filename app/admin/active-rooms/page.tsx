@@ -9,6 +9,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 interface Room {
   id: string
@@ -129,11 +130,7 @@ export default function AllUnitsPage() {
         .sort((a, b) => (a.unit_code || a.name || '').localeCompare(b.unit_code || b.name || '', undefined, { numeric: true })),
     }))
 
-    merged.sort((a, b) =>
-      (a.name || a.address || '').localeCompare(b.name || b.address || '', undefined, { numeric: true, sensitivity: 'base' })
-    )
-
-    setProperties(merged)
+    setProperties(sortPropertiesNumerically(merged))
   }
 
   // Flat list of all rooms for search
@@ -181,11 +178,11 @@ export default function AllUnitsPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-5xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* ── Header ── */}
         <div className="mb-xl">
-          <h1 className="text-3xl font-bold text-neutral-900">All Units</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">All Units</h1>
           <p className="mt-xs text-sm text-neutral-500">
             {totalProperties} propert{totalProperties === 1 ? 'y' : 'ies'} · {totalRooms} room{totalRooms === 1 ? '' : 's'}
           </p>

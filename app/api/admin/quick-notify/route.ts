@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
-import { insertNotifications, activeTenantIds, tryPush, tryEmailFallback } from '@/lib/serverNotify'
+import { insertNotifications, activeTenantIds, dispatchChannels, type NotifyChannels } from '@/lib/serverNotify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) {
     return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' }, { status: 500 })
   }
 
-  const { property_id, subject, message, recipient_type, room_id, person_id } = await req.json()
+  const { property_id, subject, message, recipient_type, room_id, person_id, channels = 'push_email' } = await req.json()
 
   if (!property_id || !subject || !message || !recipient_type) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -52,10 +54,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Failed to create notifications: ${error}` }, { status: 500 })
     }
 
-    await tryPush(recipientIds, subject, message, '/tenant')
-    await tryEmailFallback(service, recipientIds, { title: subject, body: message, link: '/tenant' })
+    const { pushCount, emailCount } = await dispatchChannels(service, recipientIds, { title: subject, body: message, link: '/tenant' }, channels as NotifyChannels, req)
 
-    return NextResponse.json({ ok: true, message: `Notification sent to ${count} recipient(s)` })
+    return NextResponse.json({ ok: true, message: `Notification sent to ${count} recipient(s)`, pushCount, emailCount, recipientCount: count })
   } catch (error) {
     console.error('Quick notify error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

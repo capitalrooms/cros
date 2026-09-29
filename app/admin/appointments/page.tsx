@@ -263,10 +263,10 @@ export default function AppointmentsPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-full px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">📅 Property Calendar</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">📅 Property Calendar</h1>
           <p className="mt-sm text-sm text-neutral-600">
             Drag appointments to reschedule. Click a time slot to book a new visit.
           </p>

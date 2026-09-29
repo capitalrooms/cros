@@ -41,6 +41,22 @@ export default function AdminSettingsPage() {
     setSettings(map)
   }
 
+  async function saveGrace(v: string) {
+    setSaving('rent_grace_days'); setBanner(null)
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'rent_grace_days', value: v }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(j.error || 'Could not save')
+      setSettings(prev => ({ ...prev, rent_grace_days: v }))
+      setBanner({ type: 'ok', text: `Saved — unpaid rent now counts as overdue ${v} day${v === '1' ? '' : 's'} after it’s due.` })
+    } catch (e: any) {
+      setBanner({ type: 'err', text: e.message })
+    } finally { setSaving(null) }
+  }
+
   async function toggle(key: string, currentValue: string) {
     const newValue = currentValue === 'true' ? 'false' : 'true'
     setSaving(key)
@@ -51,7 +67,7 @@ export default function AdminSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key, value: newValue }),
       })
-      if (!res.ok) throw new Error('Failed to save')
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to save')
       setSettings(prev => ({ ...prev, [key]: newValue }))
       setBanner({
         type: 'ok',
@@ -71,13 +87,15 @@ export default function AdminSettingsPage() {
   if (loading) return <GenericPageSkeleton />
 
   const commsLive = settings['comms_live'] === 'true'
+  const grace = settings['rent_grace_days'] ?? '5'
+  const ledgerStart = settings['client_ledger_start']
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar />
-      <main className="mx-auto max-w-2xl px-lg py-lg">
-        <BackButton />
-        <h1 className="text-2xl font-bold text-neutral-900 mt-md mb-xs">System Settings</h1>
+      <main className="mx-auto max-w-6xl px-lg py-xl">
+        <BackButton href="/admin" />
+        <h1 className="text-2xl font-bold text-neutral-900">System Settings</h1>
         <p className="text-sm text-neutral-500 mb-xl">Global controls for Capital Rooms. Changes take effect immediately — no redeploy needed.</p>
 
         {banner && (
@@ -128,6 +146,46 @@ export default function AdminSettingsPage() {
                 </p>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* ── Rent ── */}
+        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
+          <div className="px-lg py-md border-b border-neutral-100">
+            <h2 className="font-bold text-neutral-900 text-base">Rent</h2>
+            <p className="text-xs text-neutral-500 mt-xs">
+              {ledgerStart
+                ? <>CROS collects rent from <strong>{new Date(ledgerStart + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>. Earlier months were collected by your previous agent and never count as arrears.</>
+                : 'When CROS starts collecting rent.'}
+            </p>
+          </div>
+          <div className="px-lg py-lg flex flex-wrap items-center gap-md">
+            <label htmlFor="grace" className="flex-1 min-w-[220px]">
+              <span className="block text-sm font-semibold text-neutral-900">Grace period</span>
+              <span className="block text-xs text-neutral-500 mt-xs">Days after rent is due before an unpaid charge counts as overdue and appears in Arrears. Bank transfers can take a day or two.</span>
+            </label>
+            <select id="grace" value={grace} disabled={saving === 'rent_grace_days'} onChange={e => saveGrace(e.target.value)}
+              className="rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900">
+              {[0, 1, 2, 3, 5, 7, 10, 14].map(n => <option key={n} value={String(n)}>{n === 0 ? 'None — overdue on the due date' : `${n} day${n === 1 ? '' : 's'}`}</option>)}
+            </select>
+            {saving === 'rent_grace_days' && <span className="text-xs text-neutral-400">Saving…</span>}
+          </div>
+        </div>
+
+        {/* ── Email signatures ── */}
+        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
+          <div className="px-lg py-md border-b border-neutral-100">
+            <h2 className="font-bold text-neutral-900 text-base">Email Signatures</h2>
+          </div>
+          <div className="px-lg py-lg flex items-center gap-lg">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-neutral-900">Gmail signatures in the house style</p>
+              <p className="text-xs text-neutral-500 mt-xs">Make a signature for anyone on the team — name, job title, mobile and email filled in — ready to paste into Gmail.</p>
+            </div>
+            <a href="/admin/settings/signatures"
+              className="shrink-0 rounded-xl bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-700 transition-colors">
+              Make a signature →
+            </a>
           </div>
         </div>
 

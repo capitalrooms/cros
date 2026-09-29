@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
         title,
         property_id,
         room_id,
-        return_visit_reason,
-        return_visit_date_estimate,
+        return_reason,
+        return_date,
         properties(name, id),
         rooms(name)
       `
@@ -41,8 +41,9 @@ export async function POST(request: NextRequest) {
     // Get property tenants
     const { data: tenancies } = await supabase
       .from('tenancies')
-      .select('tenant_id, tenant:tenant_id(id, auth_id)')
-      .eq('property_id', ticket.property_id);
+      .select('person_id, people!person_id(id)')
+      .eq('property_id', ticket.property_id)
+      .is('end_date', null) as { data: any[] | null };
 
     if (!tenancies) {
       return NextResponse.json({
@@ -88,30 +89,6 @@ export async function POST(request: NextRequest) {
       if (notifyError) {
         console.error('Failed to send notifications:', notifyError);
         // Non-blocking error - continue
-      }
-    }
-
-    // Optional: Send push notifications if opt-in
-    for (const tenancy of tenancies) {
-      if (!tenancy.tenant?.auth_id) continue;
-
-      // Check notification preference
-      const { data: notifSettings } = await supabase
-        .from('notification_settings')
-        .select('push_notifications, email_notifications')
-        .eq('user_id', tenancy.tenant.auth_id)
-        .single();
-
-      if (notifSettings?.push_notifications) {
-        // Send push notification (would integrate with web push service)
-        // Example: sendWebPush(tenancy.tenant.auth_id, title, body);
-        console.log(`Push notification queued for ${tenancy.tenant.auth_id}`);
-      }
-
-      if (notifSettings?.email_notifications) {
-        // Send email notification (would integrate with email service)
-        // Example: sendEmail(tenancy.tenant.email, title, body);
-        console.log(`Email notification queued for ${tenancy.tenant.auth_id}`);
       }
     }
 

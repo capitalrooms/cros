@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn } from '@/lib/portalAuth'
 import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic()
@@ -14,6 +15,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  // signed-in users only — this calls the AI (paid per use)
+  if (!(await requireSignedIn(req as any))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   try {
     const { imageBase64, mediaType } = await req.json()
 

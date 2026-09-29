@@ -217,7 +217,7 @@ export default function PrivacyPolicy() {
               </p>
               <div className="bg-neutral-50 p-md rounded-lg mt-md text-neutral-900">
                 <p className="font-medium mb-sm">Capital Rooms Ltd</p>
-                <p>Third Floor | 86-90 Paul Street | London | EC2A 4NE</p>
+                <p>Hoxton Mix | 66 Paul Street | London | EC2A 4NA</p>
                 <p className="mt-sm">
                   📧{" "}
                   <a

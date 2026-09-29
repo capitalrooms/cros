@@ -1,96 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import {
+  svc, loadRow, updateFormData, mergeDocuments,
+  DOCS_BUCKET, MAX_UPLOAD_BYTES, ALLOWED_UPLOAD_TYPES,
+} from '@/lib/landlordOnboarding/store'
 
-const svc = () =>
-  createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+export const dynamic = 'force-dynamic'
 
-const BUCKET = 'landlord-docs'
+const DOC_TYPE_RE = /^[a-z_]{2,40}$/
+const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' }
 
-// POST /api/landlord-onboarding/upload/[token]
-// Accepts multipart/form-data with fields: file, docType (e.g. 'id_document', 'proof_of_address', 'proof_of_ownership')
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
-) {
+// Files go browser → storage directly via a signed URL (Vercel caps request bodies at 4.5 MB,
+// too small for phone photos and scanned PDFs). Two steps:
+//   POST { action: 'start', docType, contentType, size } → { path, uploadToken }
+//   POST { action: 'confirm', docType, path }            → records the path once the file exists
+export async function POST(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
+  const body = await req.json().catch(() => ({}))
+  const docType = String(body.docType ?? '')
+  if (!DOC_TYPE_RE.test(docType)) return NextResponse.json({ error: 'Invalid document type' }, { status: 400 })
 
-  // Verify token exists
-  const { data: row, error: rowErr } = await svc()
-    .from('landlord_onboarding')
-    .select('id, form_data, stage')
-    .eq('token', token)
-    .single()
+  const row = await loadRow(token)
+  if (!row) return NextResponse.json({ error: 'Invalid link' }, { status: 404 })
+  if (row.stage >= 3) return NextResponse.json({ error: 'This form has already been submitted' }, { status: 409 })
 
-  if (rowErr || !row) return NextResponse.json({ error: 'Invalid link' }, { status: 404 })
-  if (row.stage >= 3) return NextResponse.json({ error: 'Already submitted' }, { status: 409 })
-
-  const formData = await req.formData()
-  const file     = formData.get('file') as File | null
-  const docType  = (formData.get('docType') as string) || 'document'
-
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-
-  // Validate file type and size (max 10MB)
-  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-  if (!allowed.includes(file.type)) {
-    return NextResponse.json({ error: 'Only JPEG, PNG, WebP or PDF files are accepted' }, { status: 400 })
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    return NextResponse.json({ error: 'File must be under 10 MB' }, { status: 400 })
+  if (body.action === 'start') {
+    const contentType = String(body.contentType ?? '')
+    const size = Number(body.size ?? 0)
+    if (!ALLOWED_UPLOAD_TYPES.includes(contentType)) {
+      return NextResponse.json({ error: 'Please upload a photo (JPEG, PNG or WebP) or a PDF' }, { status: 400 })
+    }
+    if (!size || size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: 'Files must be under 20 MB' }, { status: 400 })
+    }
+    const path = `${token}/${docType}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${EXT[contentType]}`
+    await svc().storage.createBucket(DOCS_BUCKET, { public: false }).catch(() => {})
+    const { data, error } = await svc().storage.from(DOCS_BUCKET).createSignedUploadUrl(path)
+    if (error || !data) return NextResponse.json({ error: 'Could not start the upload — please try again' }, { status: 500 })
+    return NextResponse.json({ path: data.path, uploadToken: data.token, bucket: DOCS_BUCKET })
   }
 
-  const ext  = file.name.split('.').pop() ?? 'bin'
-  const path = `${token}/${docType}_${Date.now()}.${ext}`
-
-  // Ensure bucket exists (idempotent)
-  await svc().storage.createBucket(BUCKET, { public: false }).catch(() => {})
-
-  const bytes  = await file.arrayBuffer()
-  const buffer = Buffer.from(bytes)
-
-  const { error: uploadErr } = await svc()
-    .storage
-    .from(BUCKET)
-    .upload(path, buffer, { contentType: file.type, upsert: false })
-
-  if (uploadErr) {
-    return NextResponse.json({ error: uploadErr.message }, { status: 500 })
+  if (body.action === 'confirm') {
+    const path = String(body.path ?? '')
+    if (!path.startsWith(`${token}/${docType}_`)) return NextResponse.json({ error: 'Invalid upload' }, { status: 400 })
+    const folder = path.slice(0, path.lastIndexOf('/'))
+    const name = path.slice(path.lastIndexOf('/') + 1)
+    const { data: found } = await svc().storage.from(DOCS_BUCKET).list(folder, { search: name, limit: 1 })
+    if (!found?.some(f => f.name === name)) {
+      return NextResponse.json({ error: 'The file did not finish uploading — please try again' }, { status: 400 })
+    }
+    const result = await updateFormData(token, (current) => ({
+      form_data: { ...current, documents: mergeDocuments(current.documents, { [docType]: [path] }) },
+    }))
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    return NextResponse.json({ ok: true, path, docType, documents: result.form_data.documents })
   }
 
-  // Merge the new document path into form_data.documents
-  const existing  = (row.form_data as any) ?? {}
-  const documents = (existing.documents ?? {}) as Record<string, string[]>
-  documents[docType] = [...(documents[docType] ?? []), path]
-
-  await svc()
-    .from('landlord_onboarding')
-    .update({
-      form_data:  { ...existing, documents },
-      updated_at: new Date().toISOString(),
-    })
-    .eq('token', token)
-
-  return NextResponse.json({ ok: true, path, docType })
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
 
-// GET /api/landlord-onboarding/upload/[token]?path=... → signed download URL (admin use)
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ token: string }> }
-) {
-  await params // token not needed for signed URL, path is the key
+// GET ?path=… → short-lived signed download URL (admin review screens).
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params
   const path = req.nextUrl.searchParams.get('path')
-  if (!path) return NextResponse.json({ error: 'path required' }, { status: 400 })
-
-  const { data, error } = await svc()
-    .storage
-    .from(BUCKET)
-    .createSignedUrl(path, 3600) // 1 hour
-
+  if (!path || !path.startsWith(`${token}/`)) return NextResponse.json({ error: 'path required' }, { status: 400 })
+  const { data, error } = await svc().storage.from(DOCS_BUCKET).createSignedUrl(path, 3600)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ url: data.signedUrl })
 }

@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Logo from '@/components/Logo'
 import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAddressString } from '@/app/components/AddressInput'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { missingFor, missingAll, isJoint, REQUIRED_SECTIONS, type SectionKey } from '@/lib/landlordOnboarding/requirements'
 
 type EntityType    = 'individual' | 'company'
 type PropertyCount = 'single' | 'multiple'
-type SectionKey    = 'type' | 'identity' | 'ownership' | 'bank' | 'compliance' | 'declaration'
+type YesNo         = 'yes' | 'no' | ''
 
 interface FormData {
   entity_type: EntityType | ''
@@ -54,6 +56,33 @@ interface FormData {
   emergency_phone: string
   emergency_relation: string
   declaration: boolean
+  // Joint (second) landlord — individuals only
+  joint: YesNo
+  j_salutation: string
+  j_first_name: string
+  j_last_name: string
+  j_dob: string
+  j_nationality: string
+  j_id_type: string
+  j_same_address: boolean
+  j_addr_line1: string
+  j_addr_line2: string
+  j_addr_town: string
+  j_addr_county: string
+  j_addr_postcode: string
+  j_contact_phone: string
+  j_contact_email: string
+  // Background (HMRC CDD / EDD)
+  pep: YesNo
+  pep_details: string
+  j_pep: YesNo
+  j_pep_details: string
+  acting_for_other: YesNo
+  acting_for_details: string
+  source_of_funds: string
+  source_of_funds_details: string
+  country_of_residence: string
+  account_holder: string
   __sections_saved?: SectionKey[]
   documents?: Record<string, string[]>
 }
@@ -79,13 +108,31 @@ function blank(): FormData {
     uk_resident: 'yes', nrl_ref: '',
     emergency_name: '', emergency_phone: '', emergency_relation: '',
     declaration: false,
+    joint: '', j_salutation: '', j_first_name: '', j_last_name: '', j_dob: '', j_nationality: '', j_id_type: 'passport',
+    j_same_address: true, j_addr_line1: '', j_addr_line2: '', j_addr_town: '', j_addr_county: '', j_addr_postcode: '',
+    j_contact_phone: '', j_contact_email: '',
+    pep: '', pep_details: '', j_pep: '', j_pep_details: '',
+    acting_for_other: '', acting_for_details: '',
+    source_of_funds: '', source_of_funds_details: '', country_of_residence: 'United Kingdom',
+    account_holder: '',
   }
 }
+
+const SOURCE_OF_FUNDS = [
+  ['mortgage_and_savings', 'Mortgage plus my own savings / deposit'],
+  ['savings', 'Savings or earnings (no mortgage)'],
+  ['sale_of_property', 'Proceeds from selling another property'],
+  ['inheritance', 'Inheritance'],
+  ['gift', 'Gift from family'],
+  ['business_income', 'Business income or company funds'],
+  ['other', 'Other'],
+] as const
 
 const SECTIONS: { key: SectionKey; label: string; emoji: string; optional?: boolean }[] = [
   { key: 'type',        label: 'About you',               emoji: '👤' },
   { key: 'identity',    label: 'Identity',                emoji: '🪪' },
   { key: 'ownership',   label: 'Property ownership',      emoji: '🏠' },
+  { key: 'aml',         label: 'Background & source of funds', emoji: '🔎' },
   { key: 'bank',        label: 'Banking & tax',           emoji: '🏦' },
   { key: 'compliance',  label: 'Property certificates',   emoji: '📂', optional: true },
   { key: 'declaration', label: 'Declaration',             emoji: '✍️' },
@@ -181,6 +228,87 @@ function Shell({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ── Uploads ───────────────────────────────────────────────────────────────────
+// Browser → storage directly via a signed URL: the web host rejects request bodies over 4.5 MB,
+// which is smaller than many phone photos and scanned PDFs.
+
+const storage = () => createSupabaseClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  { auth: { persistSession: false, autoRefreshToken: false } },
+).storage
+
+const MIME_BY_EXT: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', pdf: 'application/pdf' }
+
+// iPhone photos are often HEIC/HEIF, which reviewers' browsers and the document reader can't open:
+// convert them to JPEG on the landlord's device before uploading.
+async function normaliseFile(file: File): Promise<File> {
+  const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+  const isHeic = ['heic', 'heif'].includes(ext) || /image\/hei[cf]/.test(file.type)
+  if (isHeic) {
+    const heic2any = (await import('heic2any')).default
+    const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 })
+    const blob = Array.isArray(out) ? out[0] : out
+    file = new File([blob], file.name.replace(/\.(heic|heif)$/i, '') + '.jpg', { type: 'image/jpeg' })
+  }
+  return shrinkPhoto(file)
+}
+
+// Large phone photos → max 2400px JPEG: still sharp for ID checks, quick to upload and small
+// enough for automatic document reading.
+async function shrinkPhoto(file: File): Promise<File> {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 2.5 * 1024 * 1024) return file
+  try {
+    const bmp = await createImageBitmap(file)
+    const scale = Math.min(1, 2400 / Math.max(bmp.width, bmp.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bmp.width * scale)
+    canvas.height = Math.round(bmp.height * scale)
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise<Blob | null>(r => canvas.toBlob(r, 'image/jpeg', 0.88))
+    if (!blob || blob.size >= file.size) return file
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
+}
+
+async function uploadDocument(token: string, docType: string, original: File): Promise<string> {
+  let file: File
+  try { file = await normaliseFile(original) }
+  catch { throw new Error('This iPhone photo could not be converted. Please take a screenshot of it and upload that instead, or upload a PDF.') }
+  const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+  const contentType = MIME_BY_EXT[ext] ?? file.type
+  if (['tif', 'tiff'].includes(ext)) {
+    throw new Error('TIFF scans can’t be viewed online — please save the scan as a PDF or JPEG and upload that.')
+  }
+  if (!Object.values(MIME_BY_EXT).includes(contentType)) {
+    throw new Error('Please upload a photo (JPEG, PNG, HEIC) or a PDF. A screenshot of the document works too.')
+  }
+  if (file.size > 20 * 1024 * 1024) throw new Error('That file is over 20 MB — please choose a smaller photo or PDF.')
+  const call = async (payload: Record<string, unknown>) => {
+    const res = await fetch(`/api/landlord-onboarding/upload/${token}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ docType, ...payload }),
+    })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(d.error ?? 'Upload failed — please try again')
+    return d
+  }
+  const start = await call({ action: 'start', contentType, size: file.size })
+  const { error } = await storage().from(start.bucket).uploadToSignedUrl(start.path, start.uploadToken, file, { contentType })
+  if (error) throw new Error('Upload failed — please check your connection and try again')
+  await call({ action: 'confirm', path: start.path })
+  return start.path as string
+}
+
+// Document reader returns DD/MM/YYYY and names in capitals; the form needs ISO dates and normal case.
+function toIsoDate(d?: string): string | undefined {
+  if (!d) return undefined
+  const m = d.trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/)
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
+  return /^\d{4}-\d{2}-\d{2}$/.test(d.trim()) ? d.trim() : undefined
+}
+const properCase = (s?: string) => s ? s.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, p, c) => p + c.toUpperCase()) : s
+
 // ── File upload widget ────────────────────────────────────────────────────────
 
 // Doc types that benefit from AI field extraction
@@ -217,14 +345,9 @@ function FileUpload({
     setLocalUploading(true)
     setLocalError(null)
     setScanDone(false)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('docType', docType)
     try {
-      const res = await fetch(`/api/landlord-onboarding/upload/${token}`, { method: 'POST', body: fd })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error ?? 'Upload failed')
-      onUploaded(d.path)
+      const path = await uploadDocument(token, docType, file)
+      onUploaded(path)
 
       // AI scan — runs in the background after upload completes
       if (onScanned && SCANNABLE_DOC_TYPES.has(docType)) {
@@ -234,7 +357,7 @@ function FileUpload({
           const scanRes = await fetch(`/api/landlord-onboarding/scan/${token}`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ path: d.path, docType }),
+            body:    JSON.stringify({ path, docType }),
           })
           const scanData = await scanRes.json()
           if (scanRes.ok && scanData.fields && Object.keys(scanData.fields).length > 0) {
@@ -264,15 +387,12 @@ function FileUpload({
 
       {uploaded > 0 && (
         <div className="mb-3 space-y-1.5">
-          {slot.files.map((p, i) => {
-            const name = p.split('/').pop() ?? p
-            return (
-              <div key={i} className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                <span>✓</span>
-                <span className="truncate">{name.replace(/_\d+\./, '.')}</span>
-              </div>
-            )
-          })}
+          {slot.files.map((p, i) => (
+            <div key={p} className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <span>✓</span>
+              <span className="truncate">{slot.files.length > 1 ? `File ${i + 1} uploaded` : 'File uploaded'}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -280,7 +400,7 @@ function FileUpload({
         ref={inputRef}
         type="file"
         className="hidden"
-        accept=".jpg,.jpeg,.png,.webp,.pdf"
+        accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,image/*,application/pdf"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
       />
 
@@ -305,7 +425,7 @@ function FileUpload({
       >
         {localUploading ? '⏳ Uploading…' : scanning ? '⚙️ Scanning…' : uploaded > 0 ? '+ Upload another' : '📎 Choose file'}
       </button>
-      <span className="ml-3 text-xs text-neutral-400">JPEG, PNG or PDF · max 10 MB</span>
+      <span className="ml-3 text-xs text-neutral-400">Photo (JPEG, PNG, HEIC) or PDF · max 20 MB</span>
 
       {localError && <p className="mt-2 text-xs text-red-600">{localError}</p>}
     </div>
@@ -333,15 +453,9 @@ function OtherDocUpload({
     if (!docName.trim()) { setLocalError('Please name this document first.'); return }
     setLocalUploading(true)
     setLocalError(null)
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('docType', 'other_document')
-    fd.append('docLabel', docName.trim())
     try {
-      const res = await fetch(`/api/landlord-onboarding/upload/${token}`, { method: 'POST', body: fd })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error ?? 'Upload failed')
-      onUploaded(d.path, docName.trim())
+      const path = await uploadDocument(token, 'other_document', file)
+      onUploaded(path, docName.trim())
       setUploadedNames(prev => [...prev, docName.trim()])
       setDocName('')
     } catch (e) {
@@ -393,12 +507,25 @@ function OtherDocUpload({
         ref={inputRef}
         type="file"
         className="hidden"
-        accept=".jpg,.jpeg,.png,.webp,.pdf"
+        accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,image/*,application/pdf"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
       />
 
-      <p className="mt-2 text-xs text-neutral-400">JPEG, PNG or PDF · max 10 MB</p>
+      <p className="mt-2 text-xs text-neutral-400">Photo (JPEG, PNG, HEIC) or PDF · max 20 MB</p>
       {localError && <p className="mt-2 text-xs text-red-600">{localError}</p>}
+    </div>
+  )
+}
+
+function YesNoButtons({ value, onChange }: { value: string; onChange: (v: 'yes' | 'no') => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {(['no', 'yes'] as const).map(v => (
+        <button key={v} type="button" onClick={() => onChange(v)}
+          className={`rounded-xl border-2 py-3 text-sm font-semibold transition ${value === v ? 'border-neutral-900 bg-neutral-50 text-neutral-900' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'}`}>
+          {v === 'yes' ? 'Yes' : 'No'}
+        </button>
+      ))}
     </div>
   )
 }
@@ -419,7 +546,12 @@ export default function LandlordOnboardPage() {
   const [saveMsg, setSaveMsg]                 = useState<string | null>(null)
   const [submitting, setSubmitting]           = useState(false)
   const [submitError, setSubmitError]         = useState('')
+  const [submitMissing, setSubmitMissing]     = useState<{ section: SectionKey; items: string[] }[]>([])
   const [done, setDone]                       = useState(false)
+  const [autoStatus, setAutoStatus]           = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [showMissing, setShowMissing]         = useState(false)
+  const lastSavedJson = useRef<string>('')
+  const formRef = useRef<FormData | null>(null)
 
   // Upload slot state keyed by docType
   const [uploads, setUploads] = useState<Record<string, UploadSlot>>({})
@@ -498,7 +630,11 @@ export default function LandlordOnboardPage() {
           })
         }
 
-        setForm(prev => ({ ...prev, ...restored }))
+        setForm(prev => {
+          const next = { ...prev, ...restored }
+          lastSavedJson.current = JSON.stringify(next)
+          return next
+        })
 
         // Restore upload slots from previously saved documents
         const docs = (d.row.form_data?.documents ?? {}) as Record<string, string[]>
@@ -523,51 +659,104 @@ export default function LandlordOnboardPage() {
     }))
   }
 
+  formRef.current = form
+
+  // Background auto-save: shortly after the landlord stops typing, and when the tab is hidden
+  // (closing the page on a phone). Draft saves never mark a section complete.
+  async function saveDraft(keepalive = false) {
+    const current = formRef.current
+    if (!current || !activeSection) return
+    const json = JSON.stringify(current)
+    if (json === lastSavedJson.current) return
+    setAutoStatus('saving')
+    try {
+      const res = await fetch(`/api/landlord-onboarding/form/${token}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: activeSection, draft: true, form_data: current }),
+        keepalive,
+      })
+      if (!res.ok) throw new Error()
+      lastSavedJson.current = json
+      setAutoStatus('saved')
+    } catch {
+      setAutoStatus('error')
+    }
+  }
+
+  useEffect(() => {
+    if (loading || !activeSection) return
+    if (JSON.stringify(form) === lastSavedJson.current) return
+    const t = setTimeout(() => { saveDraft() }, 1200)
+    return () => clearTimeout(t)
+  }, [form, activeSection, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') saveDraft(true) }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', onHide)
+    return () => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', onHide) }
+  }, [activeSection]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function leaveSection() {
+    await saveDraft()
+    setShowMissing(false)
+    setActiveSection(null)
+    window.scrollTo(0, 0)
+  }
+
   async function saveSection(section: SectionKey) {
+    const missing = missingFor(section, form as never)
     setSaving(true)
     setSaveMsg(null)
     try {
       const res = await fetch(`/api/landlord-onboarding/form/${token}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          section,
-          entity_type: form.entity_type || undefined,
-          property_count: form.property_count || undefined,
-          form_data: form,
-        }),
+        body: JSON.stringify({ section, form_data: form }),
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error ?? 'Save failed')
-      setForm(f => ({ ...f, __sections_saved: d.sections_saved ?? [...(f.__sections_saved ?? []), section] }))
-      setSaveMsg('✓ Saved')
-      setActiveSection(null)
-    } catch {
-      setSaveMsg('Save failed — please try again')
+      lastSavedJson.current = JSON.stringify(form)
+      setAutoStatus('saved')
+      setForm(f => {
+        const next = { ...f, __sections_saved: d.sections_saved ?? f.__sections_saved }
+        lastSavedJson.current = JSON.stringify(next)
+        return next
+      })
+      if (missing.length || d.missing?.length) {
+        setShowMissing(true)
+        setSaveMsg('Your progress is saved. A few items are still needed before this section is complete — see the list below.')
+      } else {
+        setShowMissing(false)
+        setSaveMsg('✓ Section saved')
+        setActiveSection(null)
+        window.scrollTo(0, 0)
+      }
+    } catch (e) {
+      setSaveMsg(e instanceof Error && e.message !== 'Save failed' ? e.message : 'Save failed — please check your connection and try again. Nothing you typed has been lost.')
     } finally {
       setSaving(false)
-      setTimeout(() => setSaveMsg(null), 3000)
     }
   }
 
   async function handleSubmit() {
     setSubmitting(true)
     setSubmitError('')
+    setSubmitMissing([])
     try {
       const res = await fetch(`/api/landlord-onboarding/form/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entity_type: form.entity_type,
-          property_count: form.property_count,
-          form_data: form,
-        }),
+        body: JSON.stringify({ form_data: form }),
       })
       const d = await res.json()
+      if (res.status === 400 && d.missing) { setSubmitMissing(d.missing); throw new Error('A few items are still needed before you can submit — see below.') }
       if (!res.ok) throw new Error(d.error ?? 'Submission failed')
       setDone(true)
+      window.scrollTo(0, 0)
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Submission failed')
+      setSubmitError(e instanceof Error ? e.message : 'Submission failed — please try again')
     } finally {
       setSubmitting(false)
     }
@@ -583,6 +772,7 @@ export default function LandlordOnboardPage() {
     type:        'We need to know whether you are registering as a private individual or through a company, and how many properties you manage. This shapes the rest of the form and determines which documents we require.',
     identity:    'Anti-Money Laundering (AML) regulations require us to verify who we are working with before we can manage your property. We collect your personal details and a copy of your identity document here — everything is stored securely and used solely for compliance purposes.',
     ownership:   'We need to confirm you own, or are authorised to let, the properties you are registering. Please provide the address and any mortgage details. You can upload proof of ownership directly here — a utility bill, council tax letter, or title deed all qualify.',
+    aml:         'Money laundering regulations require us to understand who we are working with and how the property was funded. These short questions are asked of every landlord — answering them helps us complete your checks quickly.',
     bank:        'Rental income is paid directly to the bank account you provide here. We also collect your tax residency status to comply with HMRC reporting obligations. Your banking details are encrypted and only used for rent disbursement.',
     compliance:  'Uploading your current compliance certificates here means we have everything on file from day one — no chasing later. This section is optional: upload whichever documents you have to hand and skip any you do not. If a certificate is due for renewal we will let you know.',
     declaration: 'A brief legal confirmation that the information you have provided is accurate and that you consent to Capital Rooms processing your data in line with our Privacy Policy and Money Laundering Regulations 2017.',
@@ -605,7 +795,7 @@ export default function LandlordOnboardPage() {
     <Shell>
       <div className="text-center py-12">
         <div className="text-5xl mb-5">🎉</div>
-        <h2 className="text-xl font-bold text-neutral-900 mb-3">Thank you, {form.first_name || landlordName}!</h2>
+        <h2 className="text-xl font-bold text-neutral-900 mb-3">Thank you, {isJoint(form as never) && form.j_first_name ? `${properCase(form.first_name) || landlordName} & ${properCase(form.j_first_name)}` : properCase(form.first_name) || landlordName}!</h2>
         <p className="text-sm text-neutral-500 leading-relaxed max-w-sm mx-auto">
           Your information has been received. Our compliance team will review your submission and be in touch within 1–2 working days.
         </p>
@@ -616,8 +806,11 @@ export default function LandlordOnboardPage() {
     </Shell>
   )
 
-  const allSectionsSaved = SECTIONS.filter(s => !s.optional).every(s => saved.includes(s.key))
-  const firstName = form.first_name || landlordName || 'there'
+  const allSectionsSaved = REQUIRED_SECTIONS.every(k => saved.includes(k))
+  const firstName = isJoint(form as never) && form.j_first_name
+    ? `${form.first_name || landlordName} & ${form.j_first_name}`
+    : form.first_name || landlordName || 'there'
+  const sectionLabel = (k: SectionKey) => SECTIONS.find(x => x.key === k)?.label ?? k
 
   // ── Progress overview ──────────────────────────────────────────────────────
   if (!activeSection) {
@@ -631,9 +824,9 @@ export default function LandlordOnboardPage() {
             {(() => {
               const required = SECTIONS.filter(s => !s.optional)
               const reqDone  = required.filter(s => saved.includes(s.key)).length
-              if (saved.length === 0) return 'Please complete each section below to register as a Capital Rooms landlord. You can save your progress and return at any time using this link.'
+              if (saved.length === 0) return 'Please complete each section below to register as a Capital Rooms landlord. Everything you enter is saved automatically, so you can close this page and come back to the same link at any time to carry on.'
               if (reqDone === required.length) return 'All required sections are complete. The property certificates section is optional — add any you have, then submit when ready.'
-              return `${reqDone} of ${required.length} required sections complete. Pick up where you left off.`
+              return `${reqDone} of ${required.length} required sections complete. Your progress is saved automatically — carry on where you left off.`
             })()}
           </p>
         </div>
@@ -669,7 +862,7 @@ export default function LandlordOnboardPage() {
                     <p className={`text-sm font-bold ${isSaved ? 'text-neutral-700' : 'text-neutral-900'}`}>{s.label}</p>
                     {s.optional && <span className="text-xs text-neutral-400 border border-neutral-200 rounded-full px-2 py-0.5 leading-none">Optional</span>}
                   </div>
-                  <p className="text-xs text-neutral-400 mt-0.5">{isSaved ? 'Saved — tap to review or edit' : s.optional ? 'Optional — upload certificates if you have them' : 'Not yet completed'}</p>
+                  <p className="text-xs text-neutral-400 mt-0.5">{isSaved ? 'Complete — tap to review or edit' : s.optional ? 'Optional — upload certificates if you have them' : 'Not yet completed — your progress saves automatically'}</p>
                 </div>
                 <span className="text-neutral-300 text-lg">›</span>
               </button>
@@ -688,7 +881,15 @@ export default function LandlordOnboardPage() {
               <p>Please review your information above then submit to send it to the Capital Rooms compliance team.</p>
             </div>
             {submitError && (
-              <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-5 py-3 mb-4">{submitError}</div>
+              <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-5 py-3 mb-4">
+                <p>{submitError}</p>
+                {submitMissing.map(m => (
+                  <div key={m.section} className="mt-2">
+                    <button onClick={() => setActiveSection(m.section)} className="font-semibold underline">{sectionLabel(m.section)}</button>
+                    <ul className="list-disc pl-5 mt-1">{m.items.map(i => <li key={i}>{i}</li>)}</ul>
+                  </div>
+                ))}
+              </div>
             )}
             <button
               onClick={handleSubmit}
@@ -706,13 +907,17 @@ export default function LandlordOnboardPage() {
   // ── Section editor wrapper ─────────────────────────────────────────────────
   const currentDef = SECTIONS.find(s => s.key === activeSection)!
 
-  function SectionShell({ children, canSave }: { children: React.ReactNode; canSave: boolean }) {
+  // A plain helper, not a component: a component declared in here would be a new type on every
+  // render, remounting the section (inputs lose focus, uploads reset).
+  const sectionMissing = missingFor(activeSection, form as never)
+
+  function renderShell(_canSave: boolean, children: React.ReactNode) {
     return (
       <Shell>
         {/* Back breadcrumb */}
         <div className="flex items-center gap-3 mb-6">
           <button
-            onClick={() => setActiveSection(null)}
+            onClick={leaveSection}
             className="text-sm font-semibold text-neutral-500 hover:text-neutral-800 transition"
           >
             ← Back
@@ -728,22 +933,33 @@ export default function LandlordOnboardPage() {
 
         {children}
 
-        {saveMsg && (
-          <div className="rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-semibold px-5 py-3 mb-4">{saveMsg}</div>
+        {showMissing && sectionMissing.length > 0 && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm px-5 py-4 mb-4">
+            <p className="font-semibold mb-1">Still needed to complete this section:</p>
+            <ul className="list-disc pl-5 space-y-0.5">{sectionMissing.map(i => <li key={i}>{i}</li>)}</ul>
+            <p className="text-xs mt-2 text-amber-700">You can come back and finish this later using the same link — everything so far is saved.</p>
+          </div>
         )}
 
-        <div className="flex justify-between mt-2">
-          <button onClick={() => setActiveSection(null)} className="rounded-xl border border-neutral-200 px-6 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition">
+        {saveMsg && (
+          <div className={`rounded-xl text-sm font-semibold px-5 py-3 mb-4 border ${saveMsg.startsWith('✓') ? 'bg-green-50 border-green-200 text-green-700' : saveMsg.startsWith('Save failed') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-neutral-50 border-neutral-200 text-neutral-700'}`}>{saveMsg}</div>
+        )}
+
+        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-between mt-2">
+          <button onClick={leaveSection} className="rounded-xl border border-neutral-200 px-6 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition">
             ← Back to overview
           </button>
           <button
             onClick={() => saveSection(activeSection!)}
-            disabled={!canSave || saving}
+            disabled={saving}
             className="rounded-xl bg-neutral-900 text-white px-8 py-3 text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving…' : 'Save & continue →'}
           </button>
         </div>
+        <p className="text-xs text-neutral-400 text-right mt-3 h-4">
+          {autoStatus === 'saving' ? 'Saving…' : autoStatus === 'saved' ? '✓ All changes saved' : autoStatus === 'error' ? 'Not saved — check your connection' : ''}
+        </p>
       </Shell>
     )
   }
@@ -751,7 +967,7 @@ export default function LandlordOnboardPage() {
   // ── SECTION: TYPE ──────────────────────────────────────────────────────────
   if (activeSection === 'type') {
     return (
-      <SectionShell canSave={!!(form.entity_type && form.property_count)}>
+      renderShell(!!(form.entity_type && form.property_count), <>
         <div className={card}>
           <h2 className="text-base font-bold text-neutral-900 mb-6">Are you registering as an individual or a company?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -776,8 +992,16 @@ export default function LandlordOnboardPage() {
               </button>
             ))}
           </div>
+
+          {form.entity_type === 'individual' && (
+            <div className="mt-8">
+              <h2 className="text-base font-bold text-neutral-900 mb-1">Is there a second landlord?</h2>
+              <p className="text-sm text-neutral-500 mb-4">For example a spouse, partner or relative who jointly owns the property and is named on the management agreement. We need identity documents for both of you.</p>
+              <YesNoButtons value={form.joint} onChange={v => set('joint', v)} />
+            </div>
+          )}
         </div>
-      </SectionShell>
+      </>)
     )
   }
 
@@ -791,7 +1015,7 @@ export default function LandlordOnboardPage() {
       : !!(form.company_name && form.company_reg && form.contact_email)
 
     return (
-      <SectionShell canSave={canSave}>
+      renderShell(canSave, <>
         {isIndividual ? (
           <>
             <div className={card}>
@@ -861,10 +1085,10 @@ export default function LandlordOnboardPage() {
                   onUploaded={path => onUploaded('id_document', path)}
                   onScanned={fields => setForm(f => ({
                     ...f,
-                    ...(fields.first_name   ? { first_name:   fields.first_name }   : {}),
-                    ...(fields.last_name    ? { last_name:    fields.last_name }    : {}),
-                    ...(fields.date_of_birth ? { dob: fields.date_of_birth } : {}),
-                    ...(fields.nationality  ? { nationality:  fields.nationality }  : {}),
+                    ...(fields.first_name && !f.first_name ? { first_name: properCase(fields.first_name)! } : {}),
+                    ...(fields.last_name && !f.last_name ? { last_name: properCase(fields.last_name)! } : {}),
+                    ...(toIsoDate(fields.date_of_birth) && !f.dob ? { dob: toIsoDate(fields.date_of_birth)! } : {}),
+                    ...(fields.nationality && !f.nationality ? { nationality: properCase(fields.nationality)! } : {}),
                   }))}
                 />
                 <FileUpload
@@ -894,6 +1118,73 @@ export default function LandlordOnboardPage() {
                 </p>
               </div>
             </div>
+
+            {isJoint(form as never) && (
+              <div className={card}>
+                <h2 className="text-base font-bold text-neutral-900 mb-1">Second landlord</h2>
+                <p className="text-sm text-neutral-500 mb-6">The same checks apply to each landlord named on the agreement.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className={lbl}>Title</label>
+                    <select value={form.j_salutation} onChange={e => set('j_salutation', e.target.value)} className={inp}>
+                      <option value="">Select…</option>
+                      {['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof'].map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="hidden sm:block" />
+                  <div><label className={lbl}>First name *</label><input value={form.j_first_name} onChange={e => set('j_first_name', e.target.value)} className={inp} /></div>
+                  <div><label className={lbl}>Last name *</label><input value={form.j_last_name} onChange={e => set('j_last_name', e.target.value)} className={inp} /></div>
+                  <div><label className={lbl}>Date of birth *</label><input type="date" value={form.j_dob} onChange={e => set('j_dob', e.target.value)} className={inp} /></div>
+                  <div><label className={lbl}>Nationality *</label><input value={form.j_nationality} onChange={e => set('j_nationality', e.target.value)} className={inp} placeholder="e.g. British" /></div>
+                  <div><label className={lbl}>Contact phone</label><input type="tel" value={form.j_contact_phone} onChange={e => set('j_contact_phone', e.target.value)} className={inp} /></div>
+                  <div><label className={lbl}>Contact email</label><input type="email" value={form.j_contact_email} onChange={e => set('j_contact_email', e.target.value)} className={inp} /></div>
+                </div>
+
+                <div className="mt-5 pt-5 border-t border-neutral-100">
+                  <label className="flex items-center gap-3 cursor-pointer mb-4">
+                    <input type="checkbox" checked={form.j_same_address} onChange={e => set('j_same_address', e.target.checked)} className="w-4 h-4 rounded border-neutral-300" />
+                    <span className="text-sm text-neutral-700">Lives at the same address as the first landlord</span>
+                  </label>
+                  {!form.j_same_address && (
+                    <AddressInput
+                      label="Second landlord's residential address"
+                      required
+                      value={{ line1: form.j_addr_line1, line2: form.j_addr_line2, town: form.j_addr_town, county: form.j_addr_county, postcode: form.j_addr_postcode }}
+                      onChange={a => setForm(f => ({ ...f, j_addr_line1: a.line1, j_addr_line2: a.line2, j_addr_town: a.town, j_addr_county: a.county, j_addr_postcode: a.postcode }))}
+                      inputClass={inp}
+                      labelClass={lbl}
+                    />
+                  )}
+                </div>
+
+                <div className="mt-5 pt-5 border-t border-neutral-100 space-y-4">
+                  <div>
+                    <label className={lbl}>Document type *</label>
+                    <select value={form.j_id_type} onChange={e => set('j_id_type', e.target.value)} className={inp}>
+                      <option value="passport">Passport</option>
+                      <option value="driving_licence">UK Driving Licence</option>
+                      <option value="national_id">National Identity Card</option>
+                    </select>
+                  </div>
+                  <FileUpload
+                    token={token}
+                    docType="joint_id_document"
+                    label={form.j_id_type === 'passport' ? 'Second landlord — passport (photo page)' : form.j_id_type === 'driving_licence' ? 'Second landlord — driving licence (both sides)' : 'Second landlord — national identity card (both sides)'}
+                    hint="A clear colour copy of the second landlord's identity document."
+                    slot={getSlot('joint_id_document')}
+                    onUploaded={path => onUploaded('joint_id_document', path)}
+                  />
+                  <FileUpload
+                    token={token}
+                    docType="joint_proof_of_address"
+                    label="Second landlord — proof of address"
+                    hint="A utility bill, bank statement or council tax letter dated within the last 3 months, in the second landlord's name. If you share an address, a bill in joint names is fine for both of you."
+                    slot={getSlot('joint_proof_of_address')}
+                    onUploaded={path => onUploaded('joint_proof_of_address', path)}
+                  />
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -951,7 +1242,7 @@ export default function LandlordOnboardPage() {
             </div>
           </>
         )}
-      </SectionShell>
+      </>)
     )
   }
 
@@ -962,7 +1253,7 @@ export default function LandlordOnboardPage() {
       ? !!(form.prop_line1 && form.prop_town && form.prop_postcode)
       : !!(form.properties[0]?.line1 && form.properties[0]?.town)
     return (
-      <SectionShell canSave={canSave}>
+      renderShell(canSave, <>
         {single ? (
           <>
             <div className={card}>
@@ -1041,7 +1332,7 @@ export default function LandlordOnboardPage() {
                   </div>
                 </div>
               ))}
-              <button onClick={() => setForm(f => ({ ...f, properties: [...f.properties, { address: '', mortgage_provider: '', mortgage_account: '' }] }))}
+              <button onClick={() => setForm(f => ({ ...f, properties: [...f.properties, { line1: '', line2: '', town: '', postcode: '', address: '', mortgage_provider: '', mortgage_account: '' }] }))}
                 className="text-sm font-semibold text-neutral-700 border border-dashed border-neutral-300 rounded-xl w-full py-3 hover:border-neutral-500 transition mb-2">
                 + Add another property
               </button>
@@ -1063,20 +1354,82 @@ export default function LandlordOnboardPage() {
             </div>
           </>
         )}
-      </SectionShell>
+      </>)
+    )
+  }
+
+  // ── SECTION: BACKGROUND & SOURCE OF FUNDS ─────────────────────────────────
+  if (activeSection === 'aml') {
+    const joint = isJoint(form as never)
+    const firstLabel = joint ? `${form.first_name || 'First landlord'}` : 'You'
+    return (
+      renderShell(true, <>
+        <div className={card}>
+          <h2 className="text-base font-bold text-neutral-900 mb-1">Politically exposed persons</h2>
+          <p className="text-sm text-neutral-500 mb-5 leading-relaxed">
+            A politically exposed person (PEP) holds, or has held in the last 12 months, a prominent public role — for example a
+            member of parliament, senior judge, ambassador, senior military officer, or board member of a state-owned business —
+            in the UK or abroad. This also covers their close family and known close associates. Answering yes does not stop us
+            working with you; it simply means we carry out some additional checks.
+          </p>
+          <p className="text-sm font-semibold text-neutral-800 mb-3">{joint ? `Is ${firstLabel} a politically exposed person, or a family member or close associate of one?` : 'Are you a politically exposed person, or a family member or close associate of one?'} *</p>
+          <YesNoButtons value={form.pep} onChange={v => set('pep', v)} />
+          {form.pep === 'yes' && (
+            <div className="mt-4"><label className={lbl}>Position held and country *</label><textarea rows={2} value={form.pep_details} onChange={e => set('pep_details', e.target.value)} className={inp} placeholder="e.g. Local councillor, Southwark, until 2024" /></div>
+          )}
+          {joint && (
+            <div className="mt-6 pt-6 border-t border-neutral-100">
+              <p className="text-sm font-semibold text-neutral-800 mb-3">Is {form.j_first_name || 'the second landlord'} a politically exposed person, or a family member or close associate of one? *</p>
+              <YesNoButtons value={form.j_pep} onChange={v => set('j_pep', v)} />
+              {form.j_pep === 'yes' && (
+                <div className="mt-4"><label className={lbl}>Position held and country *</label><textarea rows={2} value={form.j_pep_details} onChange={e => set('j_pep_details', e.target.value)} className={inp} /></div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className={card}>
+          <h2 className="text-base font-bold text-neutral-900 mb-1">Acting on behalf of someone else</h2>
+          <p className="text-sm text-neutral-500 mb-5 leading-relaxed">We need to know who ultimately owns or benefits from the property.</p>
+          <p className="text-sm font-semibold text-neutral-800 mb-3">Is anyone other than {joint ? 'the two of you' : 'yourself'} the owner of, or entitled to the rent from, the property — for example through a trust, nominee or on someone else's behalf? *</p>
+          <YesNoButtons value={form.acting_for_other} onChange={v => set('acting_for_other', v)} />
+          {form.acting_for_other === 'yes' && (
+            <div className="mt-4"><label className={lbl}>Who, and how they are connected *</label><textarea rows={3} value={form.acting_for_details} onChange={e => set('acting_for_details', e.target.value)} className={inp} placeholder="Full name(s), relationship, and any trust or company name" /></div>
+          )}
+        </div>
+
+        <div className={card}>
+          <h2 className="text-base font-bold text-neutral-900 mb-1">How the property was funded</h2>
+          <p className="text-sm text-neutral-500 mb-5 leading-relaxed">A short answer is fine. If the property was bought with a mortgage, just say so.</p>
+          <label className={lbl}>Main source of funds for buying the property *</label>
+          <select value={form.source_of_funds} onChange={e => set('source_of_funds', e.target.value)} className={inp + ' mb-4'}>
+            <option value="">Select…</option>
+            {SOURCE_OF_FUNDS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <label className={lbl}>Brief explanation *</label>
+          <textarea rows={3} value={form.source_of_funds_details} onChange={e => set('source_of_funds_details', e.target.value)} className={inp}
+            placeholder="e.g. Bought in 2015 with a Nationwide mortgage and savings from my salary as a teacher" />
+        </div>
+
+        <div className={card}>
+          <h2 className="text-base font-bold text-neutral-900 mb-1">Where you live</h2>
+          <label className={lbl}>Country of residence *</label>
+          <input value={form.country_of_residence} onChange={e => set('country_of_residence', e.target.value)} className={inp} placeholder="e.g. United Kingdom" />
+        </div>
+      </>)
     )
   }
 
   // ── SECTION: BANK ──────────────────────────────────────────────────────────
   if (activeSection === 'bank') {
     return (
-      <SectionShell canSave={!!(form.bank_name && form.account_number && form.sort_code)}>
+      renderShell(!!(form.bank_name && form.account_number && form.sort_code), <>
         <div className={card}>
           <h2 className="text-base font-bold text-neutral-900 mb-2">Bank & Tax Details</h2>
           <p className="text-sm text-neutral-500 mb-6">Used to remit rental income and comply with HMRC reporting requirements. Accessible to Capital Rooms management only.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
             <div><label className={lbl}>Bank name *</label><input value={form.bank_name} onChange={e => set('bank_name', e.target.value)} className={inp} placeholder="e.g. Barclays" /></div>
-            <div><label className={lbl}>Account holder name *</label><input className={inp} placeholder="As it appears on the account" /></div>
+            <div><label className={lbl}>Account holder name *</label><input value={form.account_holder} onChange={e => set('account_holder', e.target.value)} className={inp} placeholder="As it appears on the account" /></div>
             <div><label className={lbl}>Account number *</label><input value={form.account_number} onChange={e => set('account_number', e.target.value)} className={inp} placeholder="12345678" /></div>
             <div><label className={lbl}>Sort code *</label><input value={form.sort_code} onChange={e => set('sort_code', e.target.value)} className={inp} placeholder="12-34-56" /></div>
             <div className="sm:col-span-2"><label className={lbl}>IBAN (if applicable)</label><input value={form.iban} onChange={e => set('iban', e.target.value)} className={inp} placeholder="e.g. GB29 NWBK 6016 1331 9268 19" /></div>
@@ -1101,7 +1454,7 @@ export default function LandlordOnboardPage() {
             <div className="sm:col-span-2"><label className={lbl}>Phone</label><input type="tel" value={form.emergency_phone} onChange={e => set('emergency_phone', e.target.value)} className={inp} placeholder="07700 900000" /></div>
           </div>
         </div>
-      </SectionShell>
+      </>)
     )
   }
 
@@ -1119,7 +1472,7 @@ export default function LandlordOnboardPage() {
       + getSlot('other_document').files.length
 
     return (
-      <SectionShell canSave={true /* always saveable — optional section */}>
+      renderShell(true /* always saveable — optional section */, <>
         <div className="bg-white rounded-2xl border border-neutral-200 p-8 mb-6">
           <h2 className="text-base font-bold text-neutral-900 mb-2">Property Compliance Certificates</h2>
           <p className="text-sm text-neutral-500 mb-6 leading-relaxed">
@@ -1187,14 +1540,14 @@ export default function LandlordOnboardPage() {
             </div>
           )}
         </div>
-      </SectionShell>
+      </>)
     )
   }
 
   // ── SECTION: DECLARATION ───────────────────────────────────────────────────
   if (activeSection === 'declaration') {
     return (
-      <SectionShell canSave={form.declaration}>
+      renderShell(form.declaration, <>
         <div className={card}>
           <h2 className="text-base font-bold text-neutral-900 mb-6">Declaration</h2>
           <div className="text-sm text-neutral-600 mb-6 space-y-3 leading-relaxed">
@@ -1213,7 +1566,7 @@ export default function LandlordOnboardPage() {
             </span>
           </label>
         </div>
-      </SectionShell>
+      </>)
     )
   }
 

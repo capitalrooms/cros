@@ -201,7 +201,7 @@ export default function CalendarPage() {
         left={<BackButton href="/admin" />}
       />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Month navigation */}
         <div className="mb-lg flex items-center justify-between rounded-2xl border border-neutral-200 bg-white p-md">
           <button

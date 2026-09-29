@@ -125,7 +125,7 @@ export default function InviteToApplyPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
-      <div className="mx-auto max-w-2xl py-xl px-lg">
+      <div className="mx-auto max-w-6xl py-xl px-lg">
         <div className="mb-lg">
           <h1 className="text-2xl font-bold text-neutral-900">📨 Invite to Apply</h1>
           <p className="text-sm text-neutral-500 mt-xs">

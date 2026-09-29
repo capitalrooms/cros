@@ -45,11 +45,10 @@ export async function GET(req: NextRequest) {
   if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('people')
-    .select('id, email, first_name, last_name, full_name, salutation, role, job_title, direct_phone, signature_url')
-    .eq('email', email)
-    .single()
+  const base = 'id, email, first_name, last_name, full_name, salutation, role, job_title, direct_phone'
+  // signature_url arrives with a migration — read it when the column exists, never fail without it
+  let { data, error } = await supabase.from('people').select(`${base}, signature_url`).eq('email', email).single() as { data: any; error: any }
+  if (error?.code === '42703') ({ data, error } = await supabase.from('people').select(base).eq('email', email).single() as { data: any; error: any })
 
   if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json({ person: data })

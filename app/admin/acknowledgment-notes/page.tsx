@@ -211,7 +211,7 @@ export default function AcknowledgmentNotesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton />} />
+        <AppBar left={<BackButton href="/admin/communications" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     );
@@ -232,10 +232,10 @@ export default function AcknowledgmentNotesPage() {
         }
       />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="flex items-center justify-between mb-lg">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Acknowledgment Notes</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Acknowledgment Notes</h1>
             <p className="text-sm text-neutral-600 mt-sm">
               Notes that require active tenant confirmation. Auto-files after 7 days if unacknowledged.
             </p>

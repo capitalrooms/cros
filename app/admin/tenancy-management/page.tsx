@@ -25,9 +25,11 @@ interface Tenancy {
   rescind_requested_at: string | null
   checkout_confirmation_sent_at: string | null
   // status removed — live DB has no status column; use end_date + notice_received_date instead
-  person?: {
+  people?: {
     id: string
-    name: string
+    full_name: string
+    first_name: string
+    last_name: string
     email: string
     phone: string
   }
@@ -175,8 +177,8 @@ export default function TenancyManagementPage() {
           rentDueDay: noticeData.rentDueDay,
           newAskingRent: noticeData.newAskingRent,
           emailTenant: noticeData.emailTenant,
-          tenantEmail: selectedTenancy.person?.email,
-          tenantName: displayName(selectedTenancy.person),
+          tenantEmail: selectedTenancy.people?.email,
+          tenantName: displayName(selectedTenancy.people),
           checkoutEmailHtml: noticeData.checkoutEmailHtml,
           emailCleaner: noticeData.emailCleaner,
           cleanerId: noticeData.cleanerId,
@@ -239,10 +241,10 @@ export default function TenancyManagementPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">👥 Tenancy Management</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">👥 Tenancy Management</h1>
             <p className="mt-sm text-sm text-neutral-600">View active tenancies and mark move-outs</p>
           </div>
           <Link
@@ -281,14 +283,15 @@ export default function TenancyManagementPage() {
                 <div key={tenancy.id} className="rounded-lg border border-neutral-200 bg-white p-md">
                   <div className="flex items-start justify-between gap-md">
                     <TenantCardBody
-                      name={displayName(tenancy.person)}
-                      email={tenancy.person?.email}
+                      name={displayName(tenancy.people)}
+                      email={tenancy.people?.email}
                       roomName={tenancy.room?.name}
                       propertyName={tenancy.property?.name}
                       propertyAddress={tenancy.property?.address}
                       rentAmount={tenancy.rent_amount}
                       startDate={tenancy.start_date}
                       endDate={tenancy.end_date}
+                      noticeReceivedDate={tenancy.notice_received_date}
                     />
                     <div className="shrink-0">
                       <button
@@ -338,12 +341,13 @@ export default function TenancyManagementPage() {
                     <div className="flex items-start justify-between gap-md">
                       <div className="flex-1">
                         <TenantCardBody
-                          name={displayName(tenancy.person)}
+                          name={displayName(tenancy.people)}
                           roomName={tenancy.room?.name}
                           propertyName={tenancy.property?.name}
                           rentAmount={tenancy.rent_amount}
                           startDate={tenancy.start_date}
                           endDate={tenancy.end_date}
+                          noticeReceivedDate={tenancy.notice_received_date}
                         />
                         {tenancy.notice_received_date && (
                           <p className="text-xs text-neutral-500 mt-xs">

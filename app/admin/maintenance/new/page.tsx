@@ -68,7 +68,8 @@ export default function NewJobPage() {
         .select('id, full_name, first_name, last_name, email')
         .eq('role', 'contractor')
         .order('full_name');
-      setContractors(cons || []);
+      // people has no "name" column — build the label the dropdown shows
+      setContractors(((cons as any[]) || []).map((c) => ({ id: c.id, email: c.email, name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || null })));
       setLoading(false);
     }
     init();
@@ -210,7 +211,7 @@ export default function NewJobPage() {
         }
       />
 
-      <main className="mx-auto max-w-2xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="rounded-2xl border border-neutral-200 bg-white p-xl">
           {error && (
             <div className="mb-md rounded-xl border border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">

@@ -23,6 +23,9 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { fullSignatureHtml, SIGNATURE_ASSET_BASE } from '@/lib/brand/signature'
+import { nameDisplayWidth } from '@/lib/brand/nameImage'
+import { defaultSender, senderFor, type EmailSender } from '@/lib/email/sender'
 
 // ─── Business details type ────────────────────────────────────────────────────
 
@@ -46,10 +49,10 @@ export interface BusinessSettings {
 // Live values live in business_settings table (migrations 129 + 130).
 export const BUSINESS_DEFAULTS: BusinessSettings = {
   company_name: 'Capital Rooms',
-  address_line1: 'Third Floor',
-  address_line2: '86–90 Paul Street',
+  address_line1: 'Hoxton Mix, 66 Paul Street',
+  address_line2: '',
   city: 'London',
-  postcode: 'EC2A 4NE',
+  postcode: 'EC2A 4NA',
   email: 'management@capitalrooms.co.uk',
   phone: '0207 112 9163',
   logo_url: 'https://cros-sigma.vercel.app/footer-logo.png',
@@ -103,72 +106,47 @@ export function tableRow(label: string, value: string): string {
   </tr>`
 }
 
-/** CTA button — crimson, rounded */
+/** CTA button — house black, rounded */
 export function ctaButton(label: string, href: string): string {
   return `<div style="margin:24px 0;text-align:center;">
-    <a href="${href}" style="display:inline-block;background:#86284a;color:#ffffff;font-size:14px;font-weight:600;padding:14px 32px;border-radius:6px;text-decoration:none;">${label}</a>
+    <a href="${href}" style="display:inline-block;background:#1a1a1a;color:#ffffff;font-size:14px;font-weight:600;padding:14px 32px;border-radius:8px;text-decoration:none;">${label}</a>
   </div>`
 }
 
-export const FROM = 'Capital Rooms <noreply@capitalrooms.co.uk>'
+/** @deprecated Senders are per person now — use senderFields()/senderFor() from lib/email/sender.
+ *  Kept as a safety net: a real, monitored mailbox rather than noreply@. */
+export const FROM = 'Capital Rooms <management@capitalrooms.co.uk>'
 export const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
 
-// ─── Theme definitions ────────────────────────────────────────────────────────
+// ─── The house email (agreed 27 Sep 2026) ─────────────────────────────────────
+// A white top bar with the black Capital Rooms logo and a fine rule (option C, chosen 28 Sep 2026 — so it's clear
+// who the email is from before the sign-off), a clean white page, then the sender's
+// house-style signature as the footer (dark card: disc logo, name in Space Grotesk, monospace details,
+// credentials, website). Who the sender is: lib/email/sender.ts.
 
-interface ThemeTokens {
-  headerBg: string
-  headerPad: string
-  logoHeight: number
-  footerBg: string
-  footerColor: string
-  footerLinkColor: string
-  footerLogoPad: string
-  footerLogoHeight: number
+
+const BODY_FONT = "Lato,'Helvetica Neue',Arial,sans-serif"
+
+/** Footer for emails with no person behind them (kept for completeness — buildEmail always has a sender). */
+function companyFooter(biz: BusinessSettings): string {
+  const addr = [biz.address_line1, biz.address_line2, `${biz.city} ${biz.postcode}`.trim()].filter(x => x && x.trim()).join(', ')
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d0d0d" style="width:100%;background:#0d0d0d;border-collapse:collapse;">
+    <tr><td align="center" style="padding:28px 22px 12px;"><img src="${SIGNATURE_ASSET_BASE}/brand/disc-footer.png" width="96" alt="${biz.company_name}" style="display:block;margin:0 auto;border:0;width:96px;max-width:100%;height:auto;"></td></tr>
+    <tr><td align="center" style="padding:0 22px 24px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;line-height:1.8;color:#57554f;">
+      <a href="https://www.capitalrooms.co.uk" style="color:#9a978f;text-decoration:none;">www.capitalrooms.co.uk</a><br>${addr}
+    </td></tr></table>`
 }
 
-const DARK_THEME: ThemeTokens = {
-  headerBg: '#0a0a0a',
-  headerPad: '20px 0',
-  logoHeight: 80,
-  footerBg: '#0a0a0a',
-  footerColor: '#aaaaaa',
-  footerLinkColor: '#aaaaaa',
-  footerLogoPad: '24px 28px 20px',
-  footerLogoHeight: 44,
+/** The signature block for a sender, sized for the email footer. */
+export function senderFooter(sender: EmailSender): string {
+  return fullSignatureHtml(sender, nameDisplayWidth(sender.name), SIGNATURE_ASSET_BASE, { disclaimer: false })
 }
-
-const LIGHT_THEME: ThemeTokens = {
-  headerBg: '#ffffff',
-  headerPad: '24px 0 16px',
-  logoHeight: 72,
-  footerBg: '#f5f5f4',
-  footerColor: '#78716c',
-  footerLinkColor: '#555552',
-  footerLogoPad: '20px 28px 18px',
-  footerLogoHeight: 40,
-}
-
-// ─── The wrapper ──────────────────────────────────────────────────────────────
 
 /**
- * Wrap HTML body content in the Capital Rooms email shell.
- *
- * Theme is controlled by biz.email_theme:
- *   'dark'  → Option E — white logo on black band header/footer
- *   'light' → dark logo on white/grey band header/footer
- *
- * Always call via buildEmail() so live DB settings are used.
- * Do NOT call wrapEmail() directly in route files — use buildEmail() or sendEmail().
+ * Wrap body HTML in the Capital Rooms email.
+ * Always call via buildEmail() (or sendEmail()) so the right sender's footer is used.
  */
-export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS): string {
-  const isDark = biz.email_theme !== 'light'
-  const t = isDark ? DARK_THEME : LIGHT_THEME
-  const logoUrl = isDark ? biz.logo_url : biz.logo_url_light
-  const fullAddress = `${biz.address_line1}, ${biz.address_line2}, ${biz.city} ${biz.postcode}`
-
-  // Light theme needs a visible border between white header and white body
-  const headerBorder = isDark ? '' : 'border-bottom:1px solid #e7e5e4;'
-
+export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFAULTS, footerHtml?: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -176,39 +154,19 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light">
 </head>
-<body style="margin:0;padding:0;background:#f5f5f4;-webkit-text-size-adjust:100%;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f4;padding:24px 0;">
+<body style="margin:0;padding:0;background:#f5f4f2;-webkit-text-size-adjust:100%;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f5f4f2;padding:24px 0;">
 <tr><td align="center">
-<table cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;">
-
-  <!-- ░ HEADER ░ -->
-  <!-- height is LOCKED — the container clips any oversized image; width:auto preserves aspect ratio -->
+<table cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background:#ffffff;">
+  <tr><td style="padding:24px 32px 18px;border-bottom:1px solid #efedea;"><img src="${SIGNATURE_ASSET_BASE}/brand/lockup-ink.png" width="150" alt="${biz.company_name}" style="display:block;border:0;width:150px;max-width:60%;height:auto;"></td></tr>
   <tr>
-    <td style="background:${t.headerBg};text-align:center;padding:${t.headerPad};line-height:0;mso-line-height-rule:exactly;overflow:hidden;${headerBorder}">
-      <img src="${logoUrl}" alt="${biz.company_name}" height="${t.logoHeight}"
-           style="display:inline-block;height:${t.logoHeight}px;max-height:${t.logoHeight}px;width:auto;max-width:580px;border:0;outline:none;text-decoration:none;" />
-    </td>
-  </tr>
-
-  <!-- ░ BODY ░ -->
-  <tr>
-    <td style="background:#ffffff;padding:36px 40px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.75;color:#3f3f46;">
+    <td style="padding:34px 32px 30px;font-family:${BODY_FONT};font-size:14.5px;line-height:1.7;color:#2b2a27;">
       ${content}
     </td>
   </tr>
-
-  <!-- ░ FOOTER ░ -->
-  <tr>
-    <td style="background:${t.footerBg};text-align:center;padding:${t.footerLogoPad};font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.9;letter-spacing:0.03em;color:${t.footerColor};">
-      <img src="${logoUrl}" alt="${biz.company_name}" height="${t.footerLogoHeight}"
-           style="display:block;margin:0 auto 14px;height:${t.footerLogoHeight}px;max-height:${t.footerLogoHeight}px;width:auto;max-width:580px;border:0;" />${biz.company_name}<br>
-      ${fullAddress}<br>
-      <a href="mailto:${biz.email}" style="color:${t.footerLinkColor};text-decoration:none;">${biz.email}</a>
-      &nbsp;|&nbsp; ${biz.phone}
-    </td>
-  </tr>
-
+  <tr><td style="padding:0;">${footerHtml ?? companyFooter(biz)}</td></tr>
 </table>
+<p style="max-width:600px;margin:10px auto 0;padding:0 16px;font-family:${BODY_FONT};font-size:10px;line-height:1.55;color:#9a978f;text-align:left;">This email and any attachments are intended for the recipient only. If you have received it in error, please tell the sender and delete it.</p>
 </td></tr>
 </table>
 </body>
@@ -217,15 +175,14 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 
 /**
  * ══ USE THIS IN EVERY ROUTE ══
- *
- * Async convenience: fetches live business settings then wraps.
- * The await is cheap (5-min cache); the result is always the correct
- * branded wrapper with live address/logo/theme from the DB.
- *
- * @example
- *   const html = await buildEmail(`<h2>Hello</h2><p>…</p>`)
+ * Wraps body HTML in the house email with the sender's signature as the footer.
+ * Pass `req` (or `sender`) so the person who triggered it signs it; with neither, the main administrator does.
+ * `signature: false` → company footer instead (e.g. the marketing mailer, which signs itself).
  */
-export async function buildEmail(content: string): Promise<string> {
+export async function buildEmail(content: string, opts: { sender?: EmailSender; signature?: boolean; req?: Request | null } = {}): Promise<string> {
   const biz = await getBusinessSettings()
-  return wrapEmail(content, biz)
+  if (opts.signature === false) return wrapEmail(content, biz)
+  // the signed-in staff member behind the request signs it (same person as the From address); otherwise the main administrator
+  const sender = opts.sender ?? (opts.req ? await senderFor(opts.req) : await defaultSender())
+  return wrapEmail(content, biz, senderFooter(sender))
 }

@@ -195,7 +195,7 @@ export async function acquisitionEmailHtml(opts: AcquisitionEmailOptions): Promi
   <tr><td class="acq-lav acq-p" style="padding:44px 40px;">
     <h2 class="acq-headline acq-h2" style="text-align:center;margin:0 0 26px;">our fees</h2>
     <p class="acq-sc" style="margin:0 0 8px;">Management</p>
-    <p class="acq-bt" style="text-align:center;margin:0 0 24px;">All these services are included at a rate of <strong>${managementFee} (plus VAT)</strong> per month.</p>
+    <p class="acq-bt" style="text-align:center;margin:0 0 24px;">All these services are included at a rate of <strong>${managementFee}</strong> per month.</p>
     <p class="acq-sc" style="margin:0 0 8px;">Lettings</p>
     <p class="acq-bt" style="text-align:center;margin:0 0 24px;">For procuring a new tenant, referencing, and initiating a new tenancy, we charge a <strong>${lettingFee} let fee</strong> based on the agreed term.</p>
     <p class="acq-headline" style="text-align:center;font-size:18px;margin:0 0 10px;">Statements &amp; Invoicing</p>
@@ -237,5 +237,5 @@ export async function acquisitionEmailHtml(opts: AcquisitionEmailOptions): Promi
 </table>
 </div>`
 
-  return buildEmail(body)
+  return buildEmail(body, { signature: false })
 }

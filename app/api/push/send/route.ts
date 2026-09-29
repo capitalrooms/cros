@@ -1,7 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { requireSignedIn, isStaff, canActAtProperty } from '@/lib/portalAuth'
+import { createServiceClient } from '@/lib/supabase'
 import webpush from 'web-push'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateEmail, validateUUID } from '@/lib/validation'
 import { getCommsLive } from '@/lib/comms'
@@ -26,7 +27,8 @@ function configure() {
  */
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
-  if (!user) {
+  const caller = await requireSignedIn(req)
+  if (!user || !caller) {
     await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized push/send access', ipAddress: getClientIp(req.headers) })
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -56,7 +58,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid roomId format' }, { status: 400 })
     }
 
-    const supabase = createClient()
+    // Who may send to whom (lib/portalAuth): the office to anyone; a cleaner or contractor only to the tenants of a
+    // property they're working at; nobody else. Links must stay inside the app (no phishing links in a push).
+    if (!isStaff(caller)) {
+      if (!propertyId || personId || email || role || toAll || !(await canActAtProperty(caller, propertyId)) || !['cleaner', 'contractor'].includes(caller.role)) {
+        await logAudit({ userId: user.id, action: 'security_forbidden_access', details: `push/send refused for ${caller.role}`, ipAddress: getClientIp(req.headers) })
+        return NextResponse.json({ error: 'Not allowed' }, { status: 403 })
+      }
+    }
+    if (url && !/^\/(?!\/)/.test(String(url))) return NextResponse.json({ error: 'Links must be to a page in the app' }, { status: 400 })
+    if (String(body ?? '').length > 300 || String(title ?? '').length > 80) return NextResponse.json({ error: 'Message too long' }, { status: 400 })
+
+    // service key after the check above (push subscriptions and tenancies are office-only data)
+    const supabase = createServiceClient()
     let q = supabase.from('push_subscriptions').select('*')
     if (personId) {
       q = q.eq('person_id', personId)

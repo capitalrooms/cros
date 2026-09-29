@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import FloorPlanMap from './FloorPlanMap'
 import HouseInfoEditor from './HouseInfoEditor'
 import PostcodeLookupWidget, { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
+import { postcodesIn } from '@/lib/councils/london'
 
 interface PropertyTabProps {
   property: any
@@ -36,38 +37,50 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   // Landlord picker
   const [landlords, setLandlords] = useState<any[]>([])
   const [selectedLandlordId, setSelectedLandlordId] = useState<string | null>(property.landlord_id || null)
+  // the landlord's saved bank accounts — the property's bank details are filled from one of these
+  const [landlordAccounts, setLandlordAccounts] = useState<any[]>([])
+  useEffect(() => {
+    if (!selectedLandlordId) { setLandlordAccounts([]); return }
+    fetch(`/api/admin/landlord-bank-accounts?landlord_id=${selectedLandlordId}`).then(r => r.json()).then(j => setLandlordAccounts(j.accounts || [])).catch(() => setLandlordAccounts([]))
+  }, [selectedLandlordId])
   // Postcode lookup result — merged into the save patch when the admin accepts the modal
   const [lookupResult, setLookupResult] = useState<PostcodeLookupResult | null>(null)
 
-  const [formData, setFormData] = useState({
-    name: property.name || '',
-    address: property.address || '',
-    council_tax_band: property.council_tax_band || '',
-    bills_included: property.bills_included !== undefined ? property.bills_included : true,
-    notice_period_months: property.notice_period_months || 2,
-    license_date: property.license_date || '',
-    license_expiry: property.license_expiry || '',
-    bedrooms: property.bedrooms || 0,
-    bathrooms: property.bathrooms || 0,
-    total_area: property.total_area || '',
-    description: property.description || '',
-    property_type: property.property_type || 'house',
-    key_safe_code: property.key_safe_code || '',
-    management_fee_pct: property.management_fee_pct != null ? String(property.management_fee_pct) : '12',
-    lat: property.lat != null ? String(property.lat) : '',
-    lng: property.lng != null ? String(property.lng) : '',
+  // every field the edit form holds, from a property record (used to open the form and to reset it on Cancel)
+  const formFrom = (p: any) => ({
+    name: p.name || '',
+    address: p.address || '',
+    postcode: p.postcode || '',
+    council_tax_band: p.council_tax_band || '',
+    bills_included: p.bills_included !== undefined ? p.bills_included : true,
+    notice_period_months: p.notice_period_months || 2,
+    license_date: p.license_date || '',
+    license_expiry: p.license_expiry || '',
+    bedrooms: p.bedrooms || 0,
+    bathrooms: p.bathrooms || 0,
+    total_area: p.total_area || '',
+    description: p.description || '',
+    property_type: p.property_type || 'hmo',
+    key_safe_code: p.key_safe_code || '',
+    management_fee_pct: p.management_fee_pct != null ? String(p.management_fee_pct) : '',
+    management_fee_type: p.management_fee_type || 'pct_received',
+    management_fee_fixed: p.management_fee_fixed != null ? String(p.management_fee_fixed) : '',
+    float_target: p.float_target != null && Number(p.float_target) > 0 ? String(p.float_target) : '',
+    lat: p.lat != null ? String(p.lat) : '',
+    lng: p.lng != null ? String(p.lng) : '',
     // Letting type & let-only bank details
-    letting_type: property.letting_type || 'managed',
-    bank_account_name: property.bank_account_name || '',
-    bank_sort_code: property.bank_sort_code || '',
-    bank_account_number: property.bank_account_number || '',
-    bank_iban: property.bank_iban || '',
-    bank_swift: property.bank_swift || '',
-    bank_payment_ref: property.bank_payment_ref || '',
-    letting_fee_pct: property.letting_fee_pct != null ? String(property.letting_fee_pct) : '',
-    letting_fee_flat: property.letting_fee_flat != null ? String(property.letting_fee_flat) : '',
-    rent_due_preference: property.rent_due_preference || 'fixed_day',
+    letting_type: p.letting_type || 'managed',
+    bank_account_name: p.bank_account_name || '',
+    bank_sort_code: p.bank_sort_code || '',
+    bank_account_number: p.bank_account_number || '',
+    bank_iban: p.bank_iban || '',
+    bank_swift: p.bank_swift || '',
+    bank_payment_ref: p.bank_payment_ref || '',
+    letting_fee_pct: p.letting_fee_pct != null ? String(p.letting_fee_pct) : '',
+    letting_fee_flat: p.letting_fee_flat != null ? String(p.letting_fee_flat) : '',
+    rent_due_preference: p.rent_due_preference || 'fixed_day',
   })
+  const [formData, setFormData] = useState(() => formFrom(property))
 
   const supabase = createClient()
 
@@ -150,10 +163,29 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   }
 
   async function handleSave() {
+    // Every property must have a real postcode, and it must agree with the one written in the address
+    const postcode = postcodesIn(formData.postcode)[0]
+    if (!postcode) { setError('Enter the property’s postcode, e.g. E15 1LU — every property must have one.'); return }
+    const inAddress = postcodesIn(`${formData.name}\n${formData.address}`)
+    if (inAddress.length && !inAddress.includes(postcode)) { setError(`The address says ${inAddress[0]} but the postcode is ${postcode} — make them match.`); return }
     setSaving(true)
+    let district: string | null = null
+    let located: { lat: number; lng: number } | null = null
+    try {
+      const r = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode.replace(/\s+/g, ''))}`)
+      if (r.status === 404) { setError(`${postcode} isn’t in the Royal Mail postcode register — check it.`); setSaving(false); return }
+      const res = (await r.json().catch(() => ({})))?.result
+      district = res?.admin_district ?? null
+      // a changed postcode moves the map pin too (the old one would point at the wrong street)
+      const was = postcodesIn(property.postcode)[0] ?? null
+      if (res?.latitude != null && res?.longitude != null && (was !== postcode || !formData.lat || !formData.lng)) located = { lat: res.latitude, lng: res.longitude }
+    } catch { /* lookup down — still save the postcode */ }
+    setError(null)
     const patch: Record<string, any> = {
       name: formData.name.trim() || null,
       address: formData.address.trim() || null,
+      postcode,
+      ...(district ? { council_name: district } : {}),
       landlord_id: selectedLandlordId || null,
       council_tax_band: formData.council_tax_band || null,
       bills_included: formData.bills_included,
@@ -164,11 +196,15 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       description: formData.description || null,
       property_type: formData.property_type,
       key_safe_code: formData.key_safe_code.trim() || null,
-      management_fee_pct: formData.management_fee_pct ? parseFloat(formData.management_fee_pct) : 12,
+      // the property's default management fee (a tenancy can override it) — never assumed
+      management_fee_type: formData.management_fee_type,
+      management_fee_pct: formData.management_fee_type !== 'fixed' && formData.management_fee_pct !== '' ? parseFloat(formData.management_fee_pct) : null,
+      management_fee_fixed: formData.management_fee_type === 'fixed' && formData.management_fee_fixed !== '' ? parseFloat(formData.management_fee_fixed) : null,
+      float_target: formData.float_target !== '' && parseFloat(formData.float_target) > 0 ? Math.round(parseFloat(formData.float_target) * 100) / 100 : 0,
       license_date: formData.license_date || null,
       license_expiry: formData.license_expiry || null,
-      lat: formData.lat ? parseFloat(formData.lat) : null,
-      lng: formData.lng ? parseFloat(formData.lng) : null,
+      lat: located ? located.lat : formData.lat ? parseFloat(formData.lat) : null,
+      lng: located ? located.lng : formData.lng ? parseFloat(formData.lng) : null,
       // Letting type & bank details
       letting_type: formData.letting_type,
       bank_account_name: formData.bank_account_name.trim() || null,
@@ -318,18 +354,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               onClick={() => {
                 setIsEditing(false)
                 setSelectedLandlordId(property.landlord_id || null)
-                setFormData({
-                  name: property.name || '',
-                  address: property.address || '',
-                  council_tax_band: property.council_tax_band || '',
-                  bills_included: property.bills_included !== undefined ? property.bills_included : true,
-                  notice_period_months: property.notice_period_months || 2,
-                  bedrooms: property.bedrooms || 0,
-                  bathrooms: property.bathrooms || 0,
-                  total_area: property.total_area || '',
-                  description: property.description || '',
-                  property_type: property.property_type || 'house'
-                })
+                setFormData(formFrom({ ...property, ...displayed }))   // all fields — a partial reset used to blank the fee and bank details
               }}
               className="rounded-full border border-neutral-600 px-md py-xs text-xs font-semibold text-neutral-400 hover:text-white transition"
             >
@@ -449,6 +474,20 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 )}
               </div>
             </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Postcode (required)</label>
+                <input
+                  type="text"
+                  value={formData.postcode}
+                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value.toUpperCase() })}
+                  placeholder="e.g. E15 1LU"
+                  autoComplete="postal-code"
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-neutral-500 mt-xs">Checked against the postcode register when you save; the council is set from it.</p>
+              </div>
+            </div>
             {/* Lat / Lng — set automatically via postcode lookup, or manually here */}
             <div className="grid grid-cols-2 gap-lg">
               <div>
@@ -556,12 +595,8 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                   onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
                   className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="house">House</option>
-                  <option value="flat">Flat</option>
-                  <option value="detached">Detached</option>
-                  <option value="semi-detached">Semi-Detached</option>
-                  <option value="terrace">Terrace</option>
-                  <option value="bungalow">Bungalow</option>
+                  <option value="hmo">HMO</option>
+                  <option value="single_let">Single let</option>
                 </select>
               </div>
             </div>
@@ -580,20 +615,35 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 <p className="text-xs text-neutral-500 mt-xs">Only shown to contractors/cleaners after they book through the system.</p>
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Management Fee %</label>
-                <div className="flex items-center gap-sm">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={formData.management_fee_pct}
-                    onChange={(e) => setFormData({ ...formData, management_fee_pct: e.target.value })}
-                    className="w-24 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-neutral-400">% of monthly rent</span>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Management fee (default for this property)</label>
+                <div className="flex flex-wrap items-center gap-sm">
+                  <select value={formData.management_fee_type} onChange={(e) => setFormData({ ...formData, management_fee_type: e.target.value })}
+                    className="px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100">
+                    <option value="pct_received">% of rent received</option>
+                    <option value="pct_charged">% of rent charged</option>
+                    <option value="fixed">Fixed £ a month</option>
+                  </select>
+                  {formData.management_fee_type === 'fixed' ? (
+                    <><span className="text-sm text-neutral-400">£</span>
+                    <input type="number" min="0" step="0.01" value={formData.management_fee_fixed} placeholder="e.g. 81"
+                      onChange={(e) => setFormData({ ...formData, management_fee_fixed: e.target.value })}
+                      className="w-24 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" /></>
+                  ) : (
+                    <><input type="number" min="0" max="100" step="0.5" value={formData.management_fee_pct} placeholder="e.g. 12"
+                      onChange={(e) => setFormData({ ...formData, management_fee_pct: e.target.value })}
+                      className="w-24 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <span className="text-sm text-neutral-400">%</span></>
+                  )}
                 </div>
-                <p className="text-xs text-neutral-500 mt-xs">Set once per property — this rate applies to all rooms.</p>
+                <p className="text-xs text-neutral-500 mt-xs">Used for every tenancy here unless the tenancy has its own fee (set on the tenancy). Leave blank if not agreed yet — statements will flag it rather than guess.</p>
+                <div className="mt-md flex flex-wrap items-center gap-sm">
+                  <span className="text-sm text-neutral-300">Float</span>
+                  <span className="text-sm text-neutral-400">£</span>
+                  <input type="number" min="0" step="1" value={formData.float_target} placeholder="0"
+                    onChange={(e) => setFormData({ ...formData, float_target: e.target.value })}
+                    className="w-24 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <p className="text-xs text-neutral-500 mt-xs">Money kept back from the landlord’s rent (until it reaches this amount) so repairs can still be paid in a month when rent is short. Leave at 0 for no float.</p>
               </div>
             </div>
 
@@ -626,6 +676,28 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               {formData.letting_type === 'let_only' && (
                 <div className="space-y-lg rounded-xl border border-neutral-700 bg-neutral-800/50 p-lg">
                   <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Landlord bank details <span className="normal-case font-normal text-neutral-500">— used in tenancy agreements &amp; check-in letters</span></p>
+                  {/* Fed from the landlord's own bank accounts (saved on the landlord's page) */}
+                  {!selectedLandlordId ? (
+                    <p className="text-xs text-amber-400">Choose this property's landlord above to pick one of their bank accounts.</p>
+                  ) : landlordAccounts.length === 0 ? (
+                    <p className="text-xs text-neutral-400">This landlord has no bank accounts saved yet — add one on the <a href={`/admin/landlord/${selectedLandlordId}`} className="underline">landlord&apos;s page</a>, then pick it here.</p>
+                  ) : (
+                    <div>
+                      <label className="block text-xs text-neutral-400 mb-xs">Use the landlord&apos;s account</label>
+                      <select
+                        value={landlordAccounts.find(a => a.account_number === formData.bank_account_number && a.sort_code === formData.bank_sort_code)?.id || ''}
+                        onChange={e => {
+                          const a = landlordAccounts.find(x => x.id === e.target.value)
+                          if (a) setFormData({ ...formData, bank_account_name: a.account_name || '', bank_sort_code: a.sort_code || '', bank_account_number: a.account_number || '', bank_iban: a.iban || '', bank_swift: a.swift || '' })
+                        }}
+                        className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100">
+                        <option value="">— choose an account —</option>
+                        {landlordAccounts.map(a => (
+                          <option key={a.id} value={a.id}>{a.account_label || a.account_name} · {a.sort_code} · ••••{String(a.account_number || '').slice(-4)}{a.is_default ? ' (default)' : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-md">
                     <div>
@@ -708,6 +780,8 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                   const t = displayed.property_type
                   return t === 'hmo' ? 'HMO' : t === 'single' || t === 'single_let' ? 'Single Let' : t ? t.charAt(0).toUpperCase() + t.slice(1) : '—'
                 })()],
+                ['Postcode', displayed.postcode ? (postcodesIn(displayed.postcode)[0] ?? displayed.postcode) : 'MISSING — edit to add'],
+                ['Council', displayed.council_name || '—'],
                 ['Bedrooms', displayed.bedrooms || '—'],
                 ['Bathrooms', displayed.bathrooms || '—'],
                 ['Total area', displayed.total_area ? `${displayed.total_area} m²` : '—'],
@@ -740,7 +814,10 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 [displayed.letting_type === 'let_only' ? 'Letting fee' : 'Management fee',
                   displayed.letting_type === 'let_only'
                     ? (displayed.letting_fee_pct ? `${displayed.letting_fee_pct}% of first month` : displayed.letting_fee_flat ? `£${displayed.letting_fee_flat} flat` : '—')
-                    : `${displayed.management_fee_pct ?? 12}% of monthly rent`],
+                    : (displayed.management_fee_type === 'fixed'
+                        ? (displayed.management_fee_fixed != null ? `£${Number(displayed.management_fee_fixed).toFixed(2)} a month` : 'Not set')
+                        : (displayed.management_fee_pct != null ? `${displayed.management_fee_pct}% of rent ${displayed.management_fee_type === 'pct_charged' ? 'charged' : 'received'}` : 'Not set'))],
+                ...(displayed.letting_type !== 'let_only' && Number(displayed.float_target) > 0 ? [['Float', `£${Number(displayed.float_target).toFixed(2)} kept back`]] : []),
                 ...(displayed.letting_type === 'let_only' ? [['Rent due', displayed.rent_due_preference === 'move_in_date' ? 'Move-in date each month' : 'Fixed day of month']] : []),
               ].map(([k, v]) => (
                 <div key={k as string} className="grid grid-cols-2 border-b border-neutral-100 py-1.5">

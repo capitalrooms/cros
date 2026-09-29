@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSignedIn } from '@/lib/portalAuth'
 import Anthropic from '@anthropic-ai/sdk';
+import { AI_MODEL } from '@/lib/ai-classify';
 
 const client = new Anthropic();
 
 export async function POST(request: NextRequest) {
+  // signed-in users only — this calls the AI (paid per use)
+  if (!(await requireSignedIn(request as any))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   try {
     const { category, description } = await request.json();
 
@@ -34,7 +38,7 @@ Return ONLY the questions as a JSON array of strings, nothing else. Example form
 ["Question 1?", "Question 2?", "Question 3?"]`;
 
     const response = await client.messages.create({
-      model: 'claude-opus-5',
+      model: AI_MODEL,
       max_tokens: 500,
       messages: [
         {

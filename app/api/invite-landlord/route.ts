@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { firstName as getFirstName } from '@/lib/people'
-import { buildEmail, FROM } from '@/lib/emailWrapper'
+import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 function createServiceClient() {
   return createClient(
@@ -103,12 +104,11 @@ export async function POST(req: NextRequest) {
     </div>
 
     <p style="margin:20px 0 0;font-size:13px;color:#78716c;">
-      Kind regards,<br>
-      <strong style="color:#1c1917;">Capital Rooms Management</strong>
+      Kind regards,
     </p>
   `
 
-  const html = await buildEmail(body)
+  const html = await buildEmail(body, { req: req })
 
   const landlordTpl = await getTemplate('landlord-portal-invite')
   const landlordSubject = landlordTpl?.subject_line
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
     body: JSON.stringify({
-      from: FROM,
+      ...(await senderFields(req)),
       to:   [person.email],
       subject: landlordSubject,
       html,

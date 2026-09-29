@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
-import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -26,6 +28,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { ticketId } = await request.json()
+  if (!ticketId || !(await canWorkOnTicket(await requireSignedIn(request), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!ticketId || !validateUUID(ticketId)) {
     await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid ticketId: ${ticketId}`, ipAddress: getClientIp(request.headers) })
     return NextResponse.json({ error: 'Invalid ticketId format' }, { status: 400 })
@@ -33,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   const { data: ticket, error } = await supabase
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields(request)),
         to: [to],
         subject,
         html,
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
 
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
           The contractor has marked this job complete. Check the portal for photos and notes.
-        </p>`)
+        </p>`, { req: request })
     )
     sent.push(admin)
   }
@@ -101,12 +104,12 @@ export async function POST(request: NextRequest) {
   if (room?.id) {
     const { data: tenancy } = await supabase
       .from('tenancies')
-      .select('person_id, people!person_id(full_name, first_name, last_name, email), opt_in_maintenance')
+      .select('person_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
       .eq('room_id', room.id)
       .is('end_date', null)
       .single()
 
-    if (tenancy?.people?.email && tenancy?.opt_in_maintenance) {
+    if (tenancy?.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
       const tenantName = (tenancy.people as any).full_name || (tenancy.people as any).first_name || 'Tenant'
       const tenantSubject = completedTpl ? render(completedTpl.subject_line, { ...completedVars, tenant_name: tenantName }) : `Your repair is complete — ${category}`
       await send(
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
           </div>
 
           <p style="margin:0;color:#78716c;font-size:14px">If you have any questions, please contact us.</p>
-        `)
+        `, { req: request })
       )
       sent.push(tenancy.people.email)
     }
@@ -141,14 +144,14 @@ export async function POST(request: NextRequest) {
   if (property?.id) {
     const { data: otherTenancies } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email), opt_in_maintenance')
+      .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
       .eq('property_id', property.id)
       .neq('room_id', room?.id) // Exclude the room with the repair
       .is('end_date', null)
 
     if (otherTenancies && otherTenancies.length > 0) {
       for (const tenancy of otherTenancies) {
-        if (tenancy.people?.email && tenancy.opt_in_maintenance) {
+        if (tenancy.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
           const tenantName = (tenancy.people as any).full_name || (tenancy.people as any).first_name || 'Tenant'
           await send(
             tenancy.people.email,
@@ -172,7 +175,7 @@ export async function POST(request: NextRequest) {
               </div>
 
               <p style="margin:0;color:#78716c;font-size:14px">Thank you for your patience.</p>
-            `)
+            `, { req: request })
           )
           sent.push(tenancy.people.email)
         }

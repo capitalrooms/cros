@@ -19,6 +19,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { AI_MODEL } from '@/lib/ai-classify'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -63,7 +64,7 @@ Return ONLY the raw JSON — no markdown, no explanation.`
     const base64 = Buffer.from(arrayBuffer).toString('base64')
 
     const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: AI_MODEL,
       max_tokens: 300,
       messages: [
         {

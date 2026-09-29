@@ -244,12 +244,12 @@ export default function ContractorJobs() {
         .from('maintenance_tickets')
         .update({
           status: finalStatus,
-          completion_price: parseFloat(completionData.price),
+          final_price: parseFloat(completionData.price),
           fix_quality: completionData.fixQuality,
           return_needed: completionData.returnVisitNeeded,
-          return_visit_date: completionData.returnVisitNeeded ? completionData.returnVisitDate : null,
-          return_visit_reason: completionData.returnVisitNeeded ? completionData.returnVisitReason : null,
-          contractor_notes: completionData.aftercareNotes,
+          return_date: completionData.returnVisitNeeded ? completionData.returnVisitDate : null,
+          return_reason: completionData.returnVisitNeeded ? completionData.returnVisitReason : null,
+          aftercare_notes: completionData.aftercareNotes,
           completed_at: finalStatus === 'completed' ? new Date().toISOString() : null,
         })
         .eq('id', selectedJob.id);

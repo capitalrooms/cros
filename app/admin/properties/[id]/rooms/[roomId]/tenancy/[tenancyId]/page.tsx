@@ -38,8 +38,8 @@ export default function TenancyRedirectPage({
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton />} />
-      <main className="mx-auto max-w-3xl px-lg py-2xl">
+      <AppBar left={<BackButton href={`/admin/properties/${id}`} />} />
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="animate-pulse h-8 w-48 bg-neutral-300 rounded-lg" />
       </main>
     </div>

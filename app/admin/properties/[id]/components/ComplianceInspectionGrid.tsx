@@ -75,23 +75,32 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
       return
     }
 
-    const { data: currentUser } = await supabase.auth.getUser()
-    if (!currentUser.user) {
+    const { data: authData } = await supabase.auth.getUser()
+    if (!authData.user) {
       setError('Not authenticated')
       return
     }
+    // checked_by FK references people.id (not auth UID) — look up by email
+    const { data: personRow } = await supabase
+      .from('people')
+      .select('id')
+      .eq('email', authData.user.email)
+      .single()
 
     const { data, error: err } = await supabase
       .from('compliance_logs')
       .insert({
         property_id: propertyId,
         check_type: formData.check_type,
-        fire_door_status: formData.check_type !== 'smoke_alarm' ? formData.fire_door_status : null,
-        smoke_alarm_status: formData.check_type !== 'fire_door' ? formData.smoke_alarm_status : null,
-        checked_by: currentUser.user.id,
+        checked_by: personRow?.id || null,
         checked_by_role: 'admin',
         checked_date: formData.inspection_date,
-        notes: formData.notes || null
+        // Results live in the notes (compliance_logs has no status columns)
+        notes: [
+          formData.check_type !== 'smoke_alarm' && formData.fire_door_status ? `Fire door: ${formData.fire_door_status}` : '',
+          formData.check_type !== 'fire_door' && formData.smoke_alarm_status ? `Smoke alarm: ${formData.smoke_alarm_status}` : '',
+          formData.notes || '',
+        ].filter(Boolean).join('\n') || null
       })
       .select()
 

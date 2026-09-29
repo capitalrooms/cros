@@ -245,17 +245,28 @@ export function drawPDFFooter(
   const savedBottom = doc.page.margins.bottom
   doc.page.margins.bottom = 0
 
+  // Shrink (never wrap) text that is wider than its column, e.g. a long business email.
+  const fitSize = (text: string, maxW: number) => {
+    let size = FONT_SZ
+    doc.font(fontReg).fontSize(size)
+    while (size > 4.5 && doc.widthOfString(text) > maxW) doc.fontSize(size -= 0.1)
+    return size
+  }
+  const emailStr = biz.email.toUpperCase()
+  const addrSize = fitSize(addressStr, ADDR_W)
+  const emailSize = fitSize(emailStr, EMAIL_W)
+
   // Row 1 — address, beside pin icon (icon centre = footerY+15.2pt; cap-height/2 ≈ 2.4pt → text top ≈ 12.8)
   doc.save()
-    .font(fontReg).fontSize(FONT_SZ).fillColor('#ffffff')
-    .text(addressStr, TEXT_X, footerY + 11, { width: ADDR_W, lineBreak: false })
+    .font(fontReg).fontSize(addrSize).fillColor('#ffffff')
+    .text(addressStr, TEXT_X, footerY + 11 + (FONT_SZ - addrSize) / 2, { lineBreak: false })
     .restore()
 
   // Row 2 — email beside @ icon, phone number beside phone icon (same Y row)
   // @ icon centre = 32.8pt, phone icon centre = 31.5pt → average ≈ footerY+29
   doc.save()
-    .font(fontReg).fontSize(FONT_SZ).fillColor('#ffffff')
-    .text(biz.email.toUpperCase(), TEXT_X, footerY + 27, { width: EMAIL_W, lineBreak: false })
+    .font(fontReg).fontSize(emailSize).fillColor('#ffffff')
+    .text(emailStr, TEXT_X, footerY + 27 + (FONT_SZ - emailSize) / 2, { lineBreak: false })
     .restore()
 
   doc.save()

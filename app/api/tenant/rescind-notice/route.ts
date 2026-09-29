@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
-import { buildEmail, FROM } from '@/lib/emailWrapper'
+import { createServiceClient, createServerClient } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/serverAuth'
+import { buildEmail } from '@/lib/emailWrapper'
+import { senderFields } from '@/lib/email/sender'
 
 /** POST — tenant requests to rescind their notice
  *  Body: { tenancyId, personId, note? }
  */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser()
+  const serverClient = await createServerClient()
+  const user = await getCurrentUser(serverClient)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { tenancyId, personId, note } = await req.json()
@@ -17,15 +19,17 @@ export async function POST(req: NextRequest) {
 
   const { data: tenancy, error: fetchErr } = await supabase
     .from('tenancies')
-    .select('id, person_id, notice_received_date, end_date, rooms(name), properties(address)')
+    .select('id, person_id, co_tenant_id, notice_received_date, end_date, rooms(name), properties(address)')
     .eq('id', tenancyId)
     .maybeSingle()
 
   if (fetchErr || !tenancy) return NextResponse.json({ error: 'Tenancy not found' }, { status: 404 })
 
   const role = (user.assignment as any)?.role || ''
+  const me = (user.assignment as any)?.id as string | undefined   // the signed-in person — never an id sent in the request
+  const mine = !!me && (tenancy.person_id === me || (tenancy as any).co_tenant_id === me)
   const isAdmin = ['administrator', 'admin'].includes(role)
-  if (!isAdmin && tenancy.person_id !== personId) {
+  if (!isAdmin && !mine) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -68,7 +72,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields()),
         to: process.env.ADMIN_EMAIL || 'admin@capitalrooms.co.uk',
         subject: `Rescind notice request — ${roomName}, ${address}`,
         html: await buildEmail(rescindBody),
@@ -83,7 +87,8 @@ export async function POST(req: NextRequest) {
  *  Body: { tenancyId, action: 'approve' | 'reject' }
  */
 export async function PATCH(req: NextRequest) {
-  const user = await getCurrentUser()
+  const serverClient2 = await createServerClient()
+  const user = await getCurrentUser(serverClient2)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const role = (user.assignment as any)?.role || ''

@@ -1,6 +1,7 @@
 // POST /api/admin/guides/[id]/blocks — add a block to a guide
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -15,6 +16,7 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const body = await req.json()
   const { heading, body: blockBody, sort_order, inline_image_url } = body

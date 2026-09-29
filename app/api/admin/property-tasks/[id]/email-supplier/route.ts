@@ -23,7 +23,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
+import { senderFields, senderFor } from '@/lib/email/sender'
+import { buildEmail } from '@/lib/emailWrapper'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -57,11 +59,11 @@ export async function POST(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from:    'Capital Rooms <harry@capitalrooms.co.uk>',
+      ...(await senderFields(req)),
       to:      [supplier_email],
       subject,
       text:    emailBody,
-      html:    `<p style="font-family:sans-serif;font-size:14px;line-height:1.6;color:#111;">${emailBody.replace(/\n/g, '<br>')}</p>`,
+      html:    await buildEmail(String(emailBody).replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!)).split(/\n{2,}/).map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { sender: await senderFor(req) }),
     }),
   })
 

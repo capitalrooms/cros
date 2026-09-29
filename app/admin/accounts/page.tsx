@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import FinancialTrail from '@/app/components/FinancialTrail'
+import { downloadPdf } from '@/lib/adminFetch'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Person {
@@ -14,6 +16,17 @@ interface Person {
   first_name: string | null
   last_name: string | null
   email: string | null
+}
+
+interface TenancyRow {
+  id: string
+  person_id: string
+  room_id: string | null
+  property_id: string
+  rent_amount: number | null
+  start_date: string
+  end_date: string | null
+  people: Person | null
 }
 
 interface RoomRow {
@@ -48,8 +61,9 @@ interface RentCharge {
 interface Expense {
   property_id: string
   amount: number
-  category: string
-  statement_date: string
+  source?: string | null
+  description: string | null
+  expense_date: string
 }
 
 type Tab = 'rent-roll' | 'landlord-accounts' | 'agency-income' | 'arrears'
@@ -90,6 +104,7 @@ const STATUS_STYLE: Record<string, string> = {
   overdue: 'bg-red-100 text-red-800 border-red-200',
   waived: 'bg-neutral-100 text-neutral-500 border-neutral-200',
   vacant: 'bg-neutral-50 text-neutral-400 border-neutral-200',
+  not_billed: 'bg-white text-neutral-500 border-dashed border-neutral-300',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -99,6 +114,7 @@ const STATUS_LABEL: Record<string, string> = {
   overdue: '🔴 Overdue',
   waived: '○ Waived',
   vacant: '— Vacant',
+  not_billed: '○ Not billed',
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -288,11 +304,11 @@ function RemittanceModal({
         </div>
 
         <div className="px-xl pb-lg flex gap-md">
-          <button
-            onClick={() => window.print()}
-            className="rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-700"
+          <button type="button"
+            onClick={() => downloadPdf(`/api/admin/landlord-statement/pdf?landlord_id=${landlord.id}&month=${month}`, `Landlord statement ${month}.pdf`).catch(e => alert(e.message))}
+            className="rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-700 inline-flex items-center gap-sm"
           >
-            🖨 Print / Save PDF
+            ⬇ Download PDF
           </button>
           <button
             onClick={onClose}
@@ -313,10 +329,11 @@ export default function AccountsPage() {
   const [tab, setTab] = useState<Tab>('rent-roll')
   const [loading, setLoading] = useState(true)
   const [properties, setProperties] = useState<PropertyRow[]>([])
+  const [activeTenancies, setActiveTenancies] = useState<TenancyRow[]>([])
+  const [lastTenantByRoom, setLastTenantByRoom] = useState<Record<string, Person>>({})
   const [charges, setCharges] = useState<RentCharge[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [chargeMonth, setChargeMonth] = useState(firstOfMonth())
-  const [generating, setGenerating] = useState(false)
   const [remittanceLandlord, setRemittanceLandlord] = useState<Person | null>(null)
   const [updatingCharge, setUpdatingCharge] = useState<string | null>(null)
 
@@ -325,38 +342,66 @@ export default function AccountsPage() {
     setLoading(true)
     const supabase = createClient()
 
-    const [propsRes, chargesRes, expensesRes] = await Promise.all([
+    // Month bounds for tenancy overlap check
+    const monthStart = chargeMonth  // YYYY-MM-01
+    const [y, m] = chargeMonth.split('-').map(Number)
+    const nextMonth = new Date(y, m, 1)  // first of next month
+    const monthEnd = nextMonth.toISOString().split('T')[0]
+
+    const [propsRes, tenanciesRes, allRoomTenanciesRes, chargesRes, expensesRes] = await Promise.all([
       supabase
         .from('properties')
         .select(`
           id, name, address, management_fee_pct,
           landlord:people!landlord_id(id, first_name, last_name, email),
-          rooms(
-            id, name, status, current_asking_rent, previous_rent,
-            tenancies(person_id, people!person_id(id, first_name, last_name, email))
-          )
+          rooms(id, name, status, current_asking_rent, previous_rent)
         `)
         .order('name'),
+
+      // Active tenancies overlapping the selected month
+      supabase
+        .from('tenancies')
+        .select('id, person_id, room_id, property_id, rent_amount, start_date, end_date, people!person_id(id, first_name, last_name, email)')
+        .lte('start_date', monthEnd)
+        .or(`end_date.is.null,end_date.gte.${monthStart}`),
+
+      // Most recent tenancy per room (for showing former tenants on vacant rooms)
+      supabase
+        .from('tenancies')
+        .select('room_id, start_date, end_date, people!person_id(id, first_name, last_name, email)')
+        .not('room_id', 'is', null)
+        .order('start_date', { ascending: false }),
 
       supabase
         .from('rent_charges')
         .select('*')
         .eq('charge_month', chargeMonth),
 
+      // Read expenses from recharge_expenses (live, unfinalised) not statement_line_items.
+      // statement_line_items only exists once a statement is generated — useless for live estimates.
       supabase
-        .from('statement_line_items')
-        .select('property_id, amount, category, statement_date')
-        .gte('statement_date', (() => {
-          const d = new Date()
-          d.setMonth(d.getMonth() - 1)
-          d.setDate(1)
-          return d.toISOString().split('T')[0]
-        })()),
+        .from('recharge_expenses')
+        .select('property_id, amount, source, description, expense_date')
+        .gte('expense_date', chargeMonth)
+        .lt('expense_date', monthEnd),
     ])
 
-    setProperties(sortPropertiesNumerically((propsRes.data as any[]) || []))
-    setCharges((chargesRes.data as any[]) || [])
-    setExpenses((expensesRes.data as any[]) || [])
+    // Build a map of room_id → most recent tenant (for vacant room display)
+    const latestByRoom: Record<string, Person> = {}
+    for (const t of ((allRoomTenanciesRes.data as any[]) || [])) {
+      if (t.room_id && !latestByRoom[t.room_id] && t.people) {
+        latestByRoom[t.room_id] = t.people
+      }
+    }
+    setLastTenantByRoom(latestByRoom)
+
+    // Demo/test properties (is_demo, migration 186) stay out of the accounts. Errors → column not there yet → none.
+    const { data: demoRows } = await supabase.from('properties').select('id').eq('is_demo', true)
+    const demo = new Set(((demoRows as any[]) || []).map((p) => p.id))
+    setProperties(sortPropertiesNumerically(((propsRes.data as any[]) || []).filter((p) => !demo.has(p.id))))
+    setActiveTenancies((tenanciesRes.data as any[]) || [])
+    setCharges(((chargesRes.data as any[]) || []).filter((c) => !c.voided && !demo.has(c.property_id)))
+    setExpenses(((expensesRes.data as any[]) || []).filter((e) => !demo.has(e.property_id)))
     setLoading(false)
   }, [chargeMonth])
 
@@ -377,41 +422,42 @@ export default function AccountsPage() {
     init()
   }, [router, load])
 
-  // ── Generate charges ──
-  async function generateCharges() {
-    setGenerating(true)
-    try {
-      const res = await fetch('/api/accounts/generate-charges', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ month: chargeMonth }),
-      })
-      const j = await res.json()
-      if (j.ok) {
-        await load()
-      } else {
-        alert('Error: ' + j.error)
-      }
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  // ── Update a charge status ──
-  async function updateCharge(
-    chargeId: string,
-    update: Partial<Pick<RentCharge, 'status' | 'amount_received' | 'received_date' | 'notes'>>
+  // ── Record payment against a room — auto-creates the charge row if needed ──
+  async function recordPayment(
+    roomId: string,
+    propertyId: string,
+    amountDue: number,
+    update: Partial<Pick<RentCharge, 'status' | 'amount_received' | 'received_date' | 'notes'>>,
+    existingChargeId?: string
   ) {
-    setUpdatingCharge(chargeId)
+    setUpdatingCharge(existingChargeId ?? roomId)
     try {
-      await fetch(`/api/accounts/charges/${chargeId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(update),
-      })
-      setCharges((prev) =>
-        prev.map((c) => (c.id === chargeId ? { ...c, ...update } : c))
-      )
+      if (existingChargeId) {
+        await fetch(`/api/accounts/charges/${existingChargeId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(update),
+        })
+        setCharges((prev) =>
+          prev.map((c) => (c.id === existingChargeId ? { ...c, ...update } : c))
+        )
+      } else {
+        // Create the charge row then apply the update
+        const res = await fetch('/api/accounts/generate-charges', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ month: chargeMonth, room_id: roomId, property_id: propertyId, amount_due: amountDue }),
+        })
+        const json = await res.json()
+        if (json.charge_id) {
+          await fetch(`/api/accounts/charges/${json.charge_id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(update),
+          })
+          await load()
+        }
+      }
     } finally {
       setUpdatingCharge(null)
     }
@@ -425,35 +471,49 @@ export default function AccountsPage() {
     expensesByProp[e.property_id] = (expensesByProp[e.property_id] || 0) + Math.abs(e.amount)
   }
 
-  // All rooms flattened (rent roll rows)
+  // Rent roll: the month's actual rent charge for each room (what was billed and what came in).
+  // Only where no charge has been raised yet does it fall back to the tenancy rent — shown as "Not billed".
+  const tenancyByRoom = Object.fromEntries(activeTenancies.map((t) => [t.room_id, t]))
+
   const allRooms = properties.flatMap((prop) =>
-    prop.rooms.map((room) => ({
-      prop,
-      room,
-      charge: chargesByRoom[room.id] as RentCharge | undefined,
-      tenant: room.tenancies?.[0]?.people ?? null,
-      rent: room.current_asking_rent ?? 0,
-      feePct: prop.management_fee_pct ?? 12,
-      fee: (room.current_asking_rent ?? 0) * ((prop.management_fee_pct ?? 12) / 100),
-      status:
-        room.status !== 'occupied'
-          ? 'vacant'
-          : (chargesByRoom[room.id]?.status ?? 'pending'),
-    }))
+    prop.rooms.map((room) => {
+      const tenancy = tenancyByRoom[room.id] as TenancyRow | undefined
+      const charge = chargesByRoom[room.id] as RentCharge | undefined
+      const isOccupied = !!tenancy || !!charge
+      const rent = charge ? Number(charge.amount_due) : (tenancy?.rent_amount ?? room.current_asking_rent ?? 0)
+      const received = charge ? Number(charge.amount_received || 0) : 0
+      const feePct = prop.management_fee_pct ?? 12
+      // For vacant rooms, show the most recent former tenant
+      const lastTenant = (lastTenantByRoom[room.id] ?? null) as Person | null
+      return {
+        prop,
+        room,
+        tenancy,
+        charge,
+        tenant: (tenancy?.people ?? null) as Person | null,
+        lastTenant,
+        rent,
+        received,
+        feePct,
+        fee: rent * (feePct / 100),              // if everything due is paid
+        feeEarned: received * (feePct / 100),    // on rent actually received
+        status: !isOccupied ? 'vacant' : !charge ? 'not_billed' : charge.status,
+      }
+    })
   )
 
   const occupied = allRooms.filter((r) => r.status !== 'vacant')
   const vacant = allRooms.filter((r) => r.status === 'vacant')
   const arrears = allRooms.filter((r) => r.status === 'overdue' || r.status === 'partial')
+  const notBilled = allRooms.filter((r) => r.status === 'not_billed')
 
   const totalExpected = occupied.reduce((s, r) => s + r.rent, 0)
   const totalFee = occupied.reduce((s, r) => s + r.fee, 0)
-  const totalCollected = charges
-    .filter((c) => c.status === 'paid')
-    .reduce((s, c) => s + c.amount_received, 0)
-  const totalOutstanding = charges
-    .filter((c) => c.status === 'overdue' || c.status === 'partial' || c.status === 'pending')
-    .reduce((s, c) => s + (c.amount_due - c.amount_received), 0)
+  const totalFeeEarned = occupied.reduce((s, r) => s + r.feeEarned, 0)
+  const totalCollected = charges.reduce((s, c) => s + Number(c.amount_received || 0), 0)   // part payments count
+  const totalOutstanding = occupied
+    .filter((r) => r.status !== 'paid' && r.status !== 'waived')
+    .reduce((s, r) => s + Math.max(0, r.rent - r.received), 0)
 
   // Landlords
   const landlordMap = new Map<string, { landlord: Person; properties: PropertyRow[] }>()
@@ -503,17 +563,17 @@ export default function AccountsPage() {
         )
       })()}
 
-      <main className="mx-auto max-w-7xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* ── Page header ── */}
         <div className="mb-xl flex flex-wrap items-end justify-between gap-md">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Agency Accounts</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Agency Accounts</h1>
             <p className="mt-xs text-sm text-neutral-500">
               Rent ledger · Landlord remittance · Management fee income · Arrears
             </p>
           </div>
-          {/* Month picker + generate */}
+          {/* Month picker */}
           <div className="flex items-center gap-sm">
             <input
               type="month"
@@ -524,23 +584,23 @@ export default function AccountsPage() {
               }}
               className="rounded-xl border border-neutral-300 px-md py-sm text-sm bg-white"
             />
-            <button
-              onClick={generateCharges}
-              disabled={generating}
-              className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50"
-            >
-              {generating ? 'Generating…' : '⚡ Generate Rent Roll'}
-            </button>
           </div>
         </div>
+
+        {chargeMonth < '2026-10-01' && (
+          <div className="mb-lg rounded-xl border border-blue-200 bg-blue-50 px-lg py-md text-sm text-blue-900">
+            Rent for {new Date(chargeMonth + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} was collected by the previous agent, so it isn’t in CROS’s rent records (they start on 1 October 2026).
+            The <a href={`/admin/rent-roll?month=${chargeMonth.slice(0, 7)}`} className="font-semibold underline">rent roll</a> shows that month from their statements, and <a href="/admin/statements" className="font-semibold underline">Statements</a> has each one.
+          </div>
+        )}
 
         {/* ── Portfolio stats bar ── */}
         <div className="mb-xl grid grid-cols-2 gap-md sm:grid-cols-4">
           {[
-            { label: 'Expected this month', value: GBP(totalExpected), note: `${occupied.length} occupied rooms` },
-            { label: 'Confirmed collected', value: GBP(totalCollected), note: `${charges.filter(c=>c.status==='paid').length} paid` },
-            { label: 'Outstanding / pending', value: GBP(totalOutstanding), note: arrears.length ? `${arrears.length} rooms flagged` : 'None flagged' },
-            { label: 'Agency fee income', value: GBP(totalFee), note: 'At current fee %' },
+            { label: 'Due this month', value: GBP(totalExpected), note: notBilled.length ? `${occupied.length - notBilled.length} billed · ${notBilled.length} not billed yet` : `${occupied.length} rooms billed` },
+            { label: 'Collected', value: GBP(totalCollected), note: `${charges.filter(c => c.status === 'paid').length} paid · ${charges.filter(c => c.status === 'partial').length} part paid` },
+            { label: 'Outstanding', value: GBP(totalOutstanding), note: arrears.length ? `${arrears.length} rooms flagged` : 'None flagged' },
+            { label: 'Fee earned', value: GBP(totalFeeEarned), note: `of ${GBP(totalFee)} if all rent is paid` },
           ].map((stat) => (
             <div key={stat.label} className="rounded-2xl bg-white border border-neutral-200 px-lg py-md">
               <p className="text-xs text-neutral-500 uppercase tracking-wide">{stat.label}</p>
@@ -549,6 +609,16 @@ export default function AccountsPage() {
             </div>
           ))}
         </div>
+
+        {notBilled.length > 0 && (
+          <div className="mb-xl flex flex-wrap items-center justify-between gap-md rounded-2xl border border-amber-200 bg-amber-50 px-lg py-md text-sm text-amber-900">
+            <span>
+              {notBilled.length} occupied room{notBilled.length === 1 ? ' has' : 's have'} no rent charge for {monthLabel(chargeMonth)} yet,
+              so {notBilled.length === 1 ? 'its figure is' : 'their figures are'} the tenancy rent rather than a real charge.
+            </span>
+            <a href="/admin/rent-charges" className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Raise charges</a>
+          </div>
+        )}
 
         {/* ── Tabs ── */}
         <div className="mb-lg flex gap-xs border-b border-neutral-200">
@@ -579,16 +649,6 @@ export default function AccountsPage() {
         ══════════════════════════════════════════════════════════════════════ */}
         {tab === 'rent-roll' && (
           <div>
-            {charges.length === 0 && (
-              <div className="mb-lg rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50 p-lg text-center">
-                <p className="text-sm font-semibold text-amber-800">
-                  No rent charges generated for {monthLabel(chargeMonth)} yet.
-                </p>
-                <p className="text-xs text-amber-700 mt-xs">
-                  Click <strong>⚡ Generate Rent Roll</strong> to create charge records for all occupied rooms.
-                </p>
-              </div>
-            )}
 
             {properties.map((prop) => {
               const propRooms = allRooms.filter((r) => r.prop.id === prop.id)
@@ -626,9 +686,9 @@ export default function AccountsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {propRooms.map(({ room, charge, tenant, rent, fee, status }) => {
+                        {propRooms.map(({ room, charge, tenant, lastTenant, rent, fee, status, prop: rowProp }) => {
                           const net = rent - fee
-                          const isUpdating = updatingCharge === charge?.id
+                          const isUpdating = updatingCharge === (charge?.id ?? room.id)
 
                           return (
                             <tr
@@ -642,8 +702,12 @@ export default function AccountsPage() {
                               }`}
                             >
                               <td className="px-md py-sm font-medium text-neutral-900">{room.name}</td>
-                              <td className="px-md py-sm hidden sm:table-cell text-neutral-600 text-xs">
-                                {tenant ? personName(tenant) : <span className="text-neutral-300">—</span>}
+                              <td className="px-md py-sm hidden sm:table-cell text-xs">
+                                {tenant
+                                  ? <span className="text-neutral-600">{personName(tenant)}</span>
+                                  : lastTenant
+                                    ? <span className="text-neutral-400 italic">formerly {personName(lastTenant)}</span>
+                                    : <span className="text-neutral-300">—</span>}
                               </td>
                               <td className="px-md py-sm text-right font-mono text-neutral-900">
                                 {rent ? GBP(rent, 2) : '—'}
@@ -658,45 +722,42 @@ export default function AccountsPage() {
                                 <StatusPill status={status} />
                               </td>
                               <td className="px-md py-sm">
-                                {charge && (
+                                {status !== 'vacant' && (
                                   <div className="flex items-center gap-xs">
-                                    {status !== 'paid' && status !== 'vacant' && (
+                                    {status !== 'paid' && (
                                       <button
                                         disabled={isUpdating}
                                         onClick={() =>
-                                          updateCharge(charge.id, {
+                                          recordPayment(room.id, rowProp.id, rent, {
                                             status: 'paid',
-                                            amount_received: charge.amount_due,
+                                            amount_received: charge?.amount_due ?? rent,
                                             received_date: new Date().toISOString().split('T')[0],
-                                          })
+                                          }, charge?.id)
                                         }
                                         className="rounded-lg bg-emerald-600 px-sm py-xs text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                                       >
                                         {isUpdating ? '…' : '✓ Paid'}
                                       </button>
                                     )}
-                                    {status !== 'overdue' && status !== 'vacant' && status !== 'waived' && (
+                                    {status !== 'overdue' && status !== 'waived' && (
                                       <button
                                         disabled={isUpdating}
-                                        onClick={() => updateCharge(charge.id, { status: 'overdue' })}
+                                        onClick={() => recordPayment(room.id, rowProp.id, rent, { status: 'overdue' }, charge?.id)}
                                         className="rounded-lg border border-red-300 px-sm py-xs text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
                                       >
                                         Flag
                                       </button>
                                     )}
-                                    {(status === 'overdue' || status === 'paid') && (
+                                    {(status === 'overdue' || status === 'paid') && charge && (
                                       <button
                                         disabled={isUpdating}
-                                        onClick={() => updateCharge(charge.id, { status: 'pending', amount_received: 0, received_date: null })}
+                                        onClick={() => recordPayment(room.id, rowProp.id, rent, { status: 'pending', amount_received: 0, received_date: null }, charge.id)}
                                         className="rounded-lg border border-neutral-200 px-sm py-xs text-xs text-neutral-500 hover:bg-neutral-50 disabled:opacity-50"
                                       >
                                         Reset
                                       </button>
                                     )}
                                   </div>
-                                )}
-                                {!charge && status !== 'vacant' && (
-                                  <span className="text-xs text-neutral-400">Generate first</span>
                                 )}
                               </td>
                             </tr>
@@ -728,8 +789,9 @@ export default function AccountsPage() {
               const lRooms = allRooms.filter((r) =>
                 lProps.some((p) => p.id === r.prop.id) && r.status !== 'vacant'
               )
-              const grossRent = lRooms.reduce((s, r) => s + r.rent, 0)
-              const totalFeeL = lRooms.reduce((s, r) => s + r.fee, 0)
+              // what has actually come in — the landlord is paid from rent received, not rent due
+              const grossRent = lRooms.reduce((s, r) => s + r.received, 0)
+              const totalFeeL = lRooms.reduce((s, r) => s + r.feeEarned, 0)
               const totalExp = lProps.reduce((s, p) => s + (expensesByProp[p.id] || 0), 0)
               const netPayout = grossRent - totalFeeL - totalExp
 
@@ -744,8 +806,15 @@ export default function AccountsPage() {
                       <p className="text-xs text-white/40 mt-xs">{lProps.length} propert{lProps.length === 1 ? 'y' : 'ies'} · {lRooms.length} occupied rooms</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-white/50 uppercase">Net payout</p>
-                      <p className="text-3xl font-bold">{GBP(netPayout, 2)}</p>
+                      <p className="text-xs text-white/50 uppercase">
+                        {netPayout >= 0 ? 'Due to landlord so far' : 'Shortfall this month'}
+                      </p>
+                      <p className={`text-3xl font-bold ${netPayout < 0 ? 'text-amber-400' : ''}`}>
+                        {netPayout >= 0 ? GBP(netPayout, 2) : GBP(Math.abs(netPayout), 2)}
+                      </p>
+                      {netPayout < 0 && (
+                        <p className="text-xs text-amber-400/80">Expenses exceeded rent income</p>
+                      )}
                       <p className="text-xs text-white/40">{monthLabel(chargeMonth)}</p>
                       <button
                         onClick={() => setRemittanceLandlord(landlord)}
@@ -762,8 +831,8 @@ export default function AccountsPage() {
                       const pRooms = allRooms.filter(
                         (r) => r.prop.id === prop.id && r.status !== 'vacant'
                       )
-                      const pRent = pRooms.reduce((s, r) => s + r.rent, 0)
-                      const pFee = pRooms.reduce((s, r) => s + r.fee, 0)
+                      const pRent = pRooms.reduce((s, r) => s + r.received, 0)
+                      const pFee = pRooms.reduce((s, r) => s + r.feeEarned, 0)
                       const pExp = expensesByProp[prop.id] || 0
 
                       return (
@@ -775,17 +844,24 @@ export default function AccountsPage() {
 
                           <div className="grid grid-cols-3 gap-md text-sm mb-sm">
                             <div className="rounded-xl bg-neutral-50 p-md text-center">
-                              <p className="text-xs text-neutral-500">Gross rent</p>
+                              <p className="text-xs text-neutral-500">Rent received</p>
                               <p className="font-bold text-neutral-900">{GBP(pRent, 2)}</p>
                             </div>
                             <div className="rounded-xl bg-red-50 p-md text-center">
                               <p className="text-xs text-neutral-500">Deductions</p>
                               <p className="font-bold text-red-700">−{GBP(pFee + pExp, 2)}</p>
                             </div>
-                            <div className="rounded-xl bg-emerald-50 p-md text-center">
-                              <p className="text-xs text-neutral-500">Net to landlord</p>
-                              <p className="font-bold text-emerald-800">{GBP(pRent - pFee - pExp, 2)}</p>
-                            </div>
+                            {(pRent - pFee - pExp) >= 0 ? (
+                              <div className="rounded-xl bg-emerald-50 p-md text-center">
+                                <p className="text-xs text-neutral-500">Due to landlord</p>
+                                <p className="font-bold text-emerald-800">{GBP(pRent - pFee - pExp, 2)}</p>
+                              </div>
+                            ) : (
+                              <div className="rounded-xl bg-amber-50 p-md text-center">
+                                <p className="text-xs text-amber-700">Shortfall</p>
+                                <p className="font-bold text-amber-800">{GBP(Math.abs(pRent - pFee - pExp), 2)}</p>
+                              </div>
+                            )}
                           </div>
 
                           {pExp > 0 && (
@@ -802,10 +878,12 @@ export default function AccountsPage() {
                   <div className="border-t border-neutral-100 px-xl py-md bg-neutral-50 flex items-center justify-between text-sm">
                     <span className="font-semibold text-neutral-700">Portfolio totals</span>
                     <div className="flex items-center gap-xl font-mono text-xs">
-                      <span>Gross: {GBP(grossRent, 2)}</span>
+                      <span>Received: {GBP(grossRent, 2)}</span>
                       <span className="text-red-600">Fee: −{GBP(totalFeeL, 2)}</span>
                       {totalExp > 0 && <span className="text-red-600">Exp: −{GBP(totalExp, 2)}</span>}
-                      <span className="font-bold text-neutral-900 text-base">= {GBP(netPayout, 2)}</span>
+                      <span className={`font-bold text-base ${netPayout < 0 ? 'text-amber-700' : 'text-neutral-900'}`}>
+                        = {netPayout < 0 ? `Shortfall ${GBP(Math.abs(netPayout), 2)}` : GBP(netPayout, 2)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -919,7 +997,7 @@ export default function AccountsPage() {
 
             <p className="text-xs text-neutral-400">
               Fee income is calculated from <code>current_asking_rent × management_fee_pct</code> for occupied rooms.
-              Set fee percentages in each property's Info tab. Figures are estimates — actual income depends on rent received.
+              Set fee percentages in each property's Info tab. Monthly fee is on rent due; fee earned (top of page) is on rent actually received.
             </p>
           </div>
         )}
@@ -971,10 +1049,14 @@ export default function AccountsPage() {
                             ) : '—'}
                           </td>
                           <td className="px-md py-sm text-right font-mono">
-                            {charge ? GBP(charge.amount_due, 2) : GBP(room.current_asking_rent ?? 0, 2)}
+                            {charge
+                              ? <FinancialTrail type="rent_charge" id={charge.id}>{GBP(charge.amount_due, 2)}</FinancialTrail>
+                              : GBP(room.current_asking_rent ?? 0, 2)}
                           </td>
                           <td className="px-md py-sm text-right font-mono text-emerald-700">
-                            {charge ? GBP(charge.amount_received, 2) : '—'}
+                            {charge
+                              ? <FinancialTrail type="rent_charge" id={charge.id}>{GBP(charge.amount_received, 2)}</FinancialTrail>
+                              : '—'}
                           </td>
                           <td className="px-md py-sm text-right font-mono font-bold text-red-700">
                             {GBP(outstanding, 2)}
@@ -988,11 +1070,11 @@ export default function AccountsPage() {
                                 <button
                                   disabled={isUpdating}
                                   onClick={() =>
-                                    updateCharge(charge.id, {
+                                    recordPayment(room.id, prop.id, charge.amount_due, {
                                       status: 'paid',
                                       amount_received: charge.amount_due,
                                       received_date: new Date().toISOString().split('T')[0],
-                                    })
+                                    }, charge.id)
                                   }
                                   className="rounded-lg bg-emerald-600 px-sm py-xs text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                                 >
@@ -1006,6 +1088,13 @@ export default function AccountsPage() {
                                     ✉ Email
                                   </a>
                                 )}
+                                <button type="button"
+                                  onClick={() => downloadPdf(`/api/admin/arrears-letter?rent_charge_id=${charge.id}`, 'Arrears letter.pdf').catch(e => alert(e.message))}
+                                  className="rounded-lg border border-red-200 px-sm py-xs text-xs font-semibold text-red-700 hover:bg-red-50"
+                                  title="Download formal arrears letter PDF"
+                                >
+                                  ⬇ Letter
+                                </button>
                               </div>
                             )}
                           </td>

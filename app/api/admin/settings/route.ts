@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /** GET /api/admin/settings — return all system settings */
 export async function GET() {
+  const user = await getCurrentUser()
+  if (!user || !['administrator', 'admin'].includes(user.assignment?.role || '')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('system_settings')
@@ -28,6 +32,13 @@ export async function POST(req: NextRequest) {
   if (!key || value === undefined) {
     return NextResponse.json({ error: 'key and value required' }, { status: 400 })
   }
+  // Only settings with a control on the Settings page can be changed from here, each checked
+  const valid: Record<string, (v: string) => boolean> = {
+    comms_live: v => v === 'true' || v === 'false',
+    rent_grace_days: v => /^\d{1,2}$/.test(v) && Number(v) <= 31,
+  }
+  if (!valid[key]) return NextResponse.json({ error: `${key} can’t be changed here` }, { status: 400 })
+  if (!valid[key](String(value))) return NextResponse.json({ error: 'That value isn’t allowed' }, { status: 400 })
 
   const supabase = createServiceClient()
   const { error } = await supabase

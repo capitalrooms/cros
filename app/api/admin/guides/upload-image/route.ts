@@ -3,6 +3,7 @@
 // Uploads an image to Supabase Storage (tenant-guides bucket) and returns the public URL.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -20,6 +21,7 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const formData = await req.formData()
   const file = formData.get('file') as File | null
   const pathHint = (formData.get('path') as string | null) || 'uploads'

@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
-import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -33,6 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { ticketId } = await request.json()
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!ticketId || !validateUUID(ticketId)) {
     await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid ticketId: ${ticketId}`, ipAddress: getClientIp(request.headers) })
     return NextResponse.json({ error: 'Invalid ticketId format' }, { status: 400 })
@@ -40,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   const { data: ticket } = await supabase
@@ -91,12 +94,12 @@ export async function POST(request: NextRequest) {
         Open dashboard
       </a>`
 
-  const html = await emailHtml(body)
+  const html = await emailHtml(body, { req: request })
 
   const res = await fetch(RESEND_ENDPOINT, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [reporter.email], subject, html }),
+    body: JSON.stringify({ ...(await senderFields(request)), to: [reporter.email], subject, html }),
   })
 
   if (!res.ok) {

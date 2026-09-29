@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import AddressAutocomplete from '@/components/admin/AddressAutocomplete';
 import DocReview, { AIResult } from '@/app/components/DocReview';
+import DocUploadDrawer from '@/components/DocUploadDrawer';
 import { sortPropertiesNumerically } from '@/lib/sortProperties';
 import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal';
 import PropertyHeader from '@/app/components/PropertyHeader';
@@ -140,6 +141,7 @@ export default function PropertiesManagementPage() {
   const [docUpload, setDocUpload] = useState<Record<string, {
     file?: File; type: string; uploading: boolean; error: string; success: boolean
   }>>({});
+  const [docDrawerProperty, setDocDrawerProperty] = useState<{ id: string; name: string } | null>(null);
 
   // AI scan modal — triggered from inside a property card
   const [aiScan, setAiScan] = useState<{
@@ -283,14 +285,16 @@ export default function PropertiesManagementPage() {
         if (newTenancy.name) {
           await supabase
             .from('people')
-            .update({ name: newTenancy.name, room_id: roomId, property_id: propertyId })
+            .update({ full_name: newTenancy.name, first_name: newTenancy.name.trim().split(/\s+/)[0] || null, last_name: newTenancy.name.trim().split(/\s+/).slice(1).join(' ') || null, room_id: roomId, property_id: propertyId })
             .eq('id', personId);
         }
       } else {
         const { data: created, error: peErr } = await supabase
           .from('people')
           .insert({
-            name: newTenancy.name || null,
+            full_name: newTenancy.name || null,
+            first_name: (newTenancy.name || '').trim().split(/\s+/)[0] || null,
+            last_name: (newTenancy.name || '').trim().split(/\s+/).slice(1).join(' ') || null,
             email: newTenancy.email.trim().toLowerCase(),
             role: 'tenant',
             room_id: roomId,
@@ -598,10 +602,10 @@ export default function PropertiesManagementPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="pt-lg mb-3xl flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Properties</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Properties</h1>
           </div>
           <Link
             href="/admin/properties/new"
@@ -810,9 +814,9 @@ export default function PropertiesManagementPage() {
 
                       {/* Pathways to the recurring in-person checks */}
                       <div className="mt-md flex flex-wrap gap-sm">
-                        <a href="/admin/compliance-logs" className="rounded-lg border border-neutral-300 bg-neutral-50 px-md py-sm text-xs font-semibold text-neutral-800 hover:bg-neutral-100">🔔 Monthly smoke alarm tests →</a>
-                        <a href="/admin/compliance-logs" className="rounded-lg border border-neutral-300 bg-neutral-50 px-md py-sm text-xs font-semibold text-neutral-800 hover:bg-neutral-100">🚪 Fire door checks →</a>
-                        <a href="/admin/tenant-safety-checks" className="rounded-lg border border-neutral-300 bg-neutral-50 px-md py-sm text-xs font-semibold text-neutral-800 hover:bg-neutral-100">📋 Tenant safety self-checks →</a>
+                        <a href="/admin/compliance?tab=inspection-logs" className="rounded-lg border border-neutral-300 bg-neutral-50 px-md py-sm text-xs font-semibold text-neutral-800 hover:bg-neutral-100">🔔 Monthly smoke alarm tests →</a>
+                        <a href="/admin/compliance?tab=inspection-logs" className="rounded-lg border border-neutral-300 bg-neutral-50 px-md py-sm text-xs font-semibold text-neutral-800 hover:bg-neutral-100">🚪 Fire door checks →</a>
+                        <a href="/admin/compliance?tab=safety-checks" className="rounded-lg border border-neutral-300 bg-neutral-50 px-md py-sm text-xs font-semibold text-neutral-800 hover:bg-neutral-100">📋 Tenant safety self-checks →</a>
                       </div>
                     </div>
 
@@ -1298,7 +1302,7 @@ export default function PropertiesManagementPage() {
                       { value: 'policies',             label: '📄 Policy Document' },
                       { value: 'council_correspondence', label: '🏛️ Council Correspondence' },
                       { value: 'landlord_statement',   label: '💷 Landlord Statement' },
-                      { value: 'tenancy_agreement',    label: '📝 Tenancy Agreement (APT)' },
+                      { value: 'tenancy_agreement',    label: '📝 Tenancy Agreement' },
                       { value: 'deposit_certificate',  label: '🔐 Deposit Certificate' },
                       { value: 'supplier_invoice',     label: '🧾 Supplier / Contractor Invoice' },
                       { value: 'purchase_receipt',     label: '🛒 Purchase Receipt' },
@@ -1365,68 +1369,13 @@ export default function PropertiesManagementPage() {
                           <p className="text-xs text-neutral-400 mb-md">No documents uploaded yet.</p>
                         )}
 
-                        {/* Upload form */}
-                        <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-md">
-                          <p className="text-xs font-semibold text-neutral-600 mb-sm">Upload a document</p>
-                          <div className="flex flex-col gap-sm">
-                            <select
-                              value={up.type}
-                              onChange={(e) => setUp({ type: e.target.value })}
-                              className="w-full rounded-lg border border-neutral-300 px-sm py-xs text-xs"
-                            >
-                              <option value="">Select document type…</option>
-                              {DOC_TYPES.map((t) => (
-                                <option key={t.value} value={t.value}>{t.label}</option>
-                              ))}
-                            </select>
-
-                            <div className="flex items-center gap-sm">
-                              <label className="flex-1 cursor-pointer rounded-lg border border-neutral-300 bg-white px-sm py-xs text-xs text-neutral-500 hover:border-neutral-400 truncate">
-                                {up.file ? up.file.name : 'Choose file (PDF, PNG, JPG)…'}
-                                <input type="file" className="sr-only" accept=".pdf,.png,.jpg,.jpeg,.gif"
-                                  onChange={(e) => setUp({ file: e.target.files?.[0], success: false })} />
-                              </label>
-
-                              {/* Tenant visibility option */}
-                              <label className="flex shrink-0 items-center gap-xs text-[10px] text-neutral-600 cursor-pointer select-none">
-                                <input type="checkbox"
-                                  checked={!!(up as any).shareWithTenants}
-                                  onChange={(e) => setUp({ shareWithTenants: e.target.checked } as any)}
-                                  className="rounded" />
-                                Share with tenants
-                              </label>
-                            </div>
-
-                            {up.error && <p className="text-xs text-red-600">{up.error}</p>}
-                            {up.success && <p className="text-xs text-green-600">✅ Uploaded successfully</p>}
-
-                            <button
-                              disabled={!up.file || !up.type || up.uploading}
-                              onClick={async () => {
-                                const state = docUpload[property.id] || {}
-                                const body = new FormData()
-                                body.append('file', state.file!)
-                                body.append('property_id', property.id)
-                                body.append('document_type', state.type)
-                                body.append('file_name', state.file!.name)
-                                body.append('visible_to_tenants', String(!!(state as any).shareWithTenants))
-                                setUp({ uploading: true, error: '', success: false })
-                                try {
-                                  const res = await fetch('/api/admin/upload-property-document', { method: 'POST', body })
-                                  const json = await res.json()
-                                  if (!res.ok) throw new Error(json.error || 'Upload failed')
-                                  setUp({ type: '', file: undefined, uploading: false, success: true, shareWithTenants: false } as any)
-                                  loadPropertyDocs(property.id)
-                                } catch (err: any) {
-                                  setUp({ uploading: false, error: err.message })
-                                }
-                              }}
-                              className="rounded-lg bg-neutral-900 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 disabled:opacity-40"
-                            >
-                              {up.uploading ? 'Uploading…' : '↑ Upload'}
-                            </button>
-                          </div>
-                        </div>
+                        {/* Upload button → drawer */}
+                        <button
+                          onClick={() => setDocDrawerProperty({ id: property.id, name: property.name })}
+                          className="w-full rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 hover:border-neutral-500 hover:bg-white transition py-md text-xs font-semibold text-neutral-600 flex items-center justify-center gap-sm"
+                        >
+                          <span>📎</span> Upload a document
+                        </button>
                       </div>
                     )
                   })()}
@@ -1606,6 +1555,16 @@ export default function PropertiesManagementPage() {
           </div>
         )}
       </main>
+
+      {docDrawerProperty && (
+        <DocUploadDrawer
+          title={docDrawerProperty.name}
+          subtitle="Upload document"
+          propertyId={docDrawerProperty.id}
+          onClose={() => setDocDrawerProperty(null)}
+          onUploaded={() => loadPropertyDocs(docDrawerProperty.id)}
+        />
+      )}
     </div>
   );
 }

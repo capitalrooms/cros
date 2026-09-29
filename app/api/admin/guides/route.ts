@@ -2,6 +2,7 @@
 // POST /api/admin/guides — create a new guide
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -15,7 +16,8 @@ function serviceClient() {
   )
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const sb = serviceClient()
 
   const { data: guides, error } = await sb
@@ -33,6 +35,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const { slug, title, emoji, sort_order, visibility, trigger_stage, acknowledgment_required } = body
 

@@ -9,6 +9,7 @@
 //   'full'     (~10 credits) — all of the above + schools + environmental risk
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -35,6 +36,7 @@ async function piGet(path: string, params: Record<string, string | number | bool
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const { property_id, scan_type = 'property' } = body
 

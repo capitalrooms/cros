@@ -39,7 +39,7 @@ export default function LetOnlyContactsSection({ listingId }: Props) {
   async function loadContacts() {
     const { data } = await supabase
       .from('let_only_contacts')
-      .select('id, full_name, first_name, last_name, email, phone, room_info')
+      .select('id, full_name, email, phone, room_info')
       .eq('listing_id', listingId)
       .order('created_at')
     setContacts(data || [])
@@ -54,7 +54,7 @@ export default function LetOnlyContactsSection({ listingId }: Props) {
     setError(null)
     const { error: err } = await supabase.from('let_only_contacts').insert({
       listing_id: listingId,
-      name: name.trim(),
+      full_name: name.trim(),
       email: email.trim() || null,
       phone: phone.trim() || null,
       room_info: roomInfo.trim() || null,

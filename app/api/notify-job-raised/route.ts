@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import twilio from 'twilio'
-import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendServerPush } from '@/lib/serverPush'
+import { senderFields } from '@/lib/email/sender'
 
 async function sendSms(to: string, body: string) {
   const sid = process.env.TWILIO_ACCOUNT_SID
@@ -47,6 +49,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { ticketId } = await request.json()
+  if (!ticketId) return NextResponse.json({ error: 'ticketId required' }, { status: 400 })
+  {
+    const caller = await requireSignedIn(request)
+    const { data: t } = await createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).from('maintenance_tickets').select('property_id').eq('id', ticketId).maybeSingle()
+    if (!t?.property_id || !(isStaff(caller) || (await canActAtProperty(caller, t.property_id)))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   if (!ticketId || !validateUUID(ticketId)) {
     await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid ticketId: ${ticketId}`, ipAddress: getClientIp(request.headers) })
     return NextResponse.json({ error: 'Invalid ticketId format' }, { status: 400 })
@@ -54,7 +62,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   const { data: ticket, error } = await supabase
@@ -62,9 +70,7 @@ export async function POST(request: NextRequest) {
     .select(`
       *,
       properties(name, address),
-      rooms(name),
-      people(email),
-      contractor:people!contractor_id(id, first_name, last_name, full_name, email, phone)
+      rooms(name)
     `)
     .eq('id', ticketId)
     .single()
@@ -75,8 +81,12 @@ export async function POST(request: NextRequest) {
 
   const property = ticket.properties as any
   const room = ticket.rooms as any
-  const reporter = ticket.people as any
-  const contractor = ticket.contractor as any
+  // No foreign keys from maintenance_tickets to people — look up reporter and contractor directly
+  const personById = async (id: string | null | undefined) => id
+    ? (await supabase.from('people').select('id, first_name, last_name, full_name, email, phone').eq('id', id).maybeSingle()).data as any
+    : null
+  const reporter = await personById((ticket as any).reporter_id)
+  const contractor = await personById((ticket as any).contractor_id)
   const where = [property?.name, property?.address].filter(Boolean).join(', ')
   const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
@@ -88,7 +98,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields(request)),
         to: [to],
         subject,
         html,
@@ -140,7 +150,7 @@ export async function POST(request: NextRequest) {
           Your request has been submitted and is now waiting for our team to review and schedule.
           You'll get an email as soon as a time is arranged.
         </p>`
-    const success = await send(reporter.email, subject, await emailHtml(body))
+    const success = await send(reporter.email, subject, await emailHtml(body, { req: request }))
     if (success) sent.push(reporter.email)
   }
 
@@ -163,7 +173,7 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:20px">
           <strong>Action needed:</strong> Review and approve this request, then assign to a contractor.
         </p>`
-    await send(admin, subject, await emailHtml(body))
+    await send(admin, subject, await emailHtml(body, { req: request }))
     sent.push(admin)
   }
 
@@ -192,7 +202,7 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
           Please log in to the contractor portal to confirm you've received this job and book a date to attend.
         </p>`
-    await send(contractor.email, subject, await emailHtml(body))
+    await send(contractor.email, subject, await emailHtml(body, { req: request }))
     sent.push(contractor.email)
 
     // SMS — send if contractor has a phone number and Twilio is configured
@@ -205,7 +215,7 @@ export async function POST(request: NextRequest) {
       try {
         const supa = createClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
         await supa.from('sms_confirmations').insert({
           phone: contractorPhone,
