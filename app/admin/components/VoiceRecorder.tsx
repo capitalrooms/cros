@@ -57,15 +57,7 @@ export default function VoiceRecorder({ onClose, onComplete }: Props) {
     recognition.onend = async () => {
       setIsRecording(false)
       if (transcript.trim()) {
-        setIsLoading(true)
-        const { commands: parsed, error: parseError } = await parseVoiceCommand(transcript, {})
-        setIsLoading(false)
-        if (parseError) {
-          setError(parseError)
-        } else {
-          setCommands(parsed)
-          setShowConfirm(true)
-        }
+        // Don't auto-parse - let user tap Continue to avoid errors
       }
     }
 
@@ -139,14 +131,22 @@ export default function VoiceRecorder({ onClose, onComplete }: Props) {
               {!isRecording && transcript && !isLoading && (
                 <button
                   onClick={async () => {
-                    setIsLoading(true)
-                    const { commands: parsed, error: parseError } = await parseVoiceCommand(transcript, {})
-                    setIsLoading(false)
-                    if (parseError) {
-                      setError(parseError)
-                    } else {
-                      setCommands(parsed)
-                      setShowConfirm(true)
+                    try {
+                      setIsLoading(true)
+                      setError('')
+                      const { commands: parsed, error: parseError } = await parseVoiceCommand(transcript, {})
+                      setIsLoading(false)
+                      if (parseError) {
+                        setError(`Parse error: ${parseError}`)
+                      } else if (!parsed || parsed.length === 0) {
+                        setError('No valid commands found in transcript')
+                      } else {
+                        setCommands(parsed)
+                        setShowConfirm(true)
+                      }
+                    } catch (e) {
+                      setIsLoading(false)
+                      setError(`Error: ${e instanceof Error ? e.message : String(e)}`)
                     }
                   }}
                   className="flex-1 bg-neutral-950 text-white py-2 rounded-lg font-semibold text-sm"
