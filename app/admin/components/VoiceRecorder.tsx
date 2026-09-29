@@ -136,6 +136,24 @@ export default function VoiceRecorder({ onClose, onComplete }: Props) {
                   Stop Recording
                 </button>
               )}
+              {!isRecording && transcript && !isLoading && (
+                <button
+                  onClick={async () => {
+                    setIsLoading(true)
+                    const { commands: parsed, error: parseError } = await parseVoiceCommand(transcript, {})
+                    setIsLoading(false)
+                    if (parseError) {
+                      setError(parseError)
+                    } else {
+                      setCommands(parsed)
+                      setShowConfirm(true)
+                    }
+                  }}
+                  className="flex-1 bg-neutral-950 text-white py-2 rounded-lg font-semibold text-sm"
+                >
+                  Continue
+                </button>
+              )}
               <button
                 onClick={onClose}
                 className="flex-1 bg-neutral-200 text-neutral-900 py-2 rounded-lg font-semibold text-sm"
