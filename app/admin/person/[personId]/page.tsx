@@ -104,16 +104,24 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
 
       const { data: p } = await supabase
         .from('people')
-        .select('id, first_name, last_name, full_name, name, email, phone, role, company, using_app, created_at')
+        .select('id, first_name, last_name, full_name, email, phone, role, company, using_app, created_at')
         .eq('id', personId)
         .maybeSingle()
 
       if (!p) { router.push('/admin/people'); return }
       setPerson(p as Person)
 
-      // Redirect tenants to the richer tenant page
+      // Redirect to dedicated profile pages
       if (p.role === 'tenant') {
         router.replace(`/admin/tenant/${personId}`)
+        return
+      }
+      if (p.role === 'landlord') {
+        router.replace(`/admin/landlord/${personId}`)
+        return
+      }
+      if (p.role === 'contractor' || p.role === 'cleaner') {
+        router.replace(`/admin/contractor/${personId}`)
         return
       }
 
@@ -220,13 +228,13 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
       {/* ── Dark header ── */}
       <div className="bg-neutral-900 text-white">
         <AppBar left={<BackButton href="/admin/people" />} />
-        <div className="mx-auto max-w-4xl px-lg pb-0 pt-lg">
+        <div className="mx-auto max-w-6xl px-lg pb-0 pt-lg">
           <div className="flex items-start justify-between gap-lg mb-lg">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">
                 {meta.emoji} {meta.label}
               </p>
-              <h1 className="text-3xl font-bold">{name}</h1>
+              <h1 className="text-2xl font-bold text-neutral-900">{name}</h1>
               <p className="text-sm text-neutral-400 mt-xs">{person.email}</p>
             </div>
             <div className="flex items-start gap-sm shrink-0">
@@ -258,7 +266,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
         </div>
       </div>
 
-      <main className="mx-auto max-w-4xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {saveBanner && (
           <div className={`rounded-xl px-lg py-md mb-lg text-sm font-semibold border ${
             saveBanner.startsWith('Error') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-800'

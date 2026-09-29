@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canActAtProperty, isStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID, validateNotes } from '@/lib/validation'
 
@@ -21,17 +22,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid propertyId' }, { status: 400 })
   }
 
+  // only people connected to this property (lib/portalAuth) — the service key skips the database's own rules
+  if (!(await canActAtProperty(await requireSignedIn(request), propertyId))) return NextResponse.json({ error: 'Not your property' }, { status: 403 })
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data: notes, error } = await supabase
+  // Internal admin notes are never shown to tenants/cleaners — only staff see them
+  const isStaff = ['administrator', 'admin', 'lettings'].includes(String((currentUser as any)?.assignment?.role ?? ''))
+  const query = () => supabase
     .from('property_notes')
     .select('*, people(full_name, first_name, last_name, email)')
     .eq('property_id', propertyId)
     .eq('is_deleted', false)
     .order('created_at', { ascending: false })
+  let { data: notes, error } = await (isStaff ? query() : query().or('is_internal.is.null,is_internal.eq.false'))
+  // Before migration 183 adds is_internal no internal notes can exist — fall back to the unfiltered read
+  if (error?.code === '42703' && !isStaff) ({ data: notes, error } = await query())
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
@@ -86,7 +94,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   // Verify permission for cleaner, agent, and admin roles
@@ -131,8 +139,13 @@ export async function DELETE(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  // only the office, or the person who wrote the note
+  const caller = await requireSignedIn(request)
+  const { data: note } = await supabase.from('property_notes').select('created_by').eq('id', noteId).maybeSingle()
+  if (!caller || !note || !(isStaff(caller) || note.created_by === caller.personId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Soft delete
   const { error } = await supabase

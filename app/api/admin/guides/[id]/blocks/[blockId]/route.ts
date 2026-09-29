@@ -2,6 +2,7 @@
 // DELETE /api/admin/guides/[id]/blocks/[blockId] — delete a block
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -19,6 +20,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; blockId: string }> }
 ) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id, blockId } = await params
   const body = await req.json()
   const allowed = ['heading', 'body', 'sort_order', 'inline_image_url']
@@ -44,6 +46,7 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; blockId: string }> }
 ) {
+  if (!(await requireStaff(_req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id, blockId } = await params
   const sb = serviceClient()
   const { error } = await sb

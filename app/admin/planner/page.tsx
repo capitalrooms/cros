@@ -37,6 +37,60 @@ interface PlannerBoard {
   colorB: string
   section: 'landlords' | 'workspace'
   items: PlannerItem[]
+  /** headings added before they have any items */
+  extraGroups?: { name: string; color: string }[]
+}
+
+// ── Saving: the planner lives in CROS (shared by phone and computer), with this browser's copy as a fallback ──
+const byId = <T extends { id: string }>(xs: T[]) => new Map(xs.map(x => [x.id, x]))
+/** Combine two copies without losing anything: boards, items and notes are joined by id. */
+function mergeBoards(primary: PlannerBoard[], other: PlannerBoard[]): PlannerBoard[] {
+  const out = new Map(primary.map(b => [b.id, b]))
+  for (const ob of other) {
+    const pb = out.get(ob.id)
+    if (!pb) { out.set(ob.id, ob); continue }
+    const items = byId(pb.items)
+    for (const oi of ob.items) {
+      const pi = items.get(oi.id)
+      if (!pi) { items.set(oi.id, oi); continue }
+      const ups = byId(pi.updates)
+      for (const u of oi.updates) if (!ups.has(u.id)) ups.set(u.id, u)
+      items.set(oi.id, { ...pi, updates: [...ups.values()] })
+    }
+    const groups = [...(pb.extraGroups ?? [])]
+    for (const g of ob.extraGroups ?? []) if (!groups.some(x => x.name === g.name)) groups.push(g)
+    out.set(ob.id, { ...pb, items: [...items.values()], extraGroups: groups })
+  }
+  return [...out.values()]
+}
+/** Photos are stored as files, not packed into the notes — keeps the planner small enough to sync. */
+async function uploadPhoto(dataUrl: string): Promise<string> {
+  try {
+    const blob = await (await fetch(dataUrl)).blob()
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+    const pres = await fetch('/api/storage/presign-upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fileName: `planner.${ext}`, mimeType: blob.type }) })
+    if (!pres.ok) return dataUrl
+    const { token, path, publicUrl } = await pres.json()
+    const { createClient } = await import('@/lib/supabase')
+    const { error } = await createClient().storage.from('property-documents').uploadToSignedUrl(path, token, blob, { contentType: blob.type })
+    return error ? dataUrl : publicUrl
+  } catch { return dataUrl }
+}
+async function withUploadedPhotos(boards: PlannerBoard[]): Promise<PlannerBoard[]> {
+  const out: PlannerBoard[] = []
+  for (const b of boards) {
+    const items: PlannerItem[] = []
+    for (const i of b.items) {
+      const updates: Update[] = []
+      for (const u of i.updates) {
+        const images = u.images ? await Promise.all(u.images.map(x => x.startsWith('data:') ? uploadPhoto(x) : Promise.resolve(x))) : u.images
+        updates.push({ ...u, images })
+      }
+      items.push({ ...i, updates })
+    }
+    out.push({ ...b, items })
+  }
+  return out
 }
 
 // ── Colour palettes ───────────────────────────────────────────────────────
@@ -102,6 +156,7 @@ const SEED: PlannerBoard[] = [
 ]
 
 const STORAGE_KEY = 'cros_planner_v1'
+const SYNC_KEY = 'cros_planner_synced'   // set once this browser's planner has been shared with CROS
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 function normaliseUrl(raw: string) {
@@ -135,6 +190,9 @@ export default function PlannerPage() {
   const [colorPickerBoardId, setColorPickerBoardId] = useState<string | null>(null)
   const [colorPickerGroup,   setColorPickerGroup]   = useState<string | null>(null)
   const [colorPickerPos,     setColorPickerPos]     = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [editingTitle, setEditingTitle]             = useState(false)
+  const [titleDraft, setTitleDraft]                 = useState('')
+  const [showMobileSidebar, setShowMobileSidebar]   = useState(false)
   // Compile & send
   const [showCompile, setShowCompile]       = useState(false)
   const [compileItemId, setCompileItemId]   = useState<string | null>(null)
@@ -151,23 +209,58 @@ export default function PlannerPage() {
     async function init() {
       const user = await getCurrentUser()
       if (!user) { router.push('/login'); return }
+      let local: PlannerBoard[] | null = null
+      try { const raw = localStorage.getItem(STORAGE_KEY); local = raw ? JSON.parse(raw) : null } catch {}
+      let server: PlannerBoard[] | null = null
       try {
-        const raw = localStorage.getItem(STORAGE_KEY)
-        const data: PlannerBoard[] = raw ? JSON.parse(raw) : SEED
-        setBoards(data)
-        setActiveBoardId(data[0]?.id ?? null)
-      } catch {
-        setBoards(SEED)
-        setActiveBoardId(SEED[0]?.id ?? null)
-      }
+        const r = await fetch('/api/admin/planner')
+        if (r.ok) server = (await r.json()).boards
+        else setSyncState('error')
+      } catch { setSyncState('error') }
+      // A device that has never synced (its planner only ever lived in this browser) brings its copy in first — its
+      // notes win. After that the shared copy wins, and anything only on this device is merged in, never lost.
+      let synced = false
+      try { synced = localStorage.getItem(SYNC_KEY) === '1' } catch {}
+      const data = server
+        ? (local ? (synced ? mergeBoards(server, local) : mergeBoards(local, server)) : server)
+        : (local ?? SEED)
+      setBoards(data)
+      setActiveBoardId(data[0]?.id ?? null)
       setLoading(false)
+      if (!server || (local && JSON.stringify(data) !== JSON.stringify(server))) pushToServer(data)
     }
     init()
   }, [])
 
+  const [syncState, setSyncState] = useState<'saved' | 'saving' | 'error'>('saved')
+  const pushTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  async function pushToServer(next: PlannerBoard[]) {
+    setSyncState('saving')
+    try {
+      const clean = await withUploadedPhotos(next)
+      const r = await fetch('/api/admin/planner', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ boards: clean }) })
+      if (!r.ok) throw new Error()
+      if (JSON.stringify(clean) !== JSON.stringify(next)) { setBoards(clean); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(clean)) } catch {} }
+      try { localStorage.setItem(SYNC_KEY, '1') } catch {}
+      setSyncState('saved')
+    } catch { setSyncState('error') }
+  }
   function save(next: PlannerBoard[]) {
     setBoards(next)
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch {}
+    if (pushTimer.current) clearTimeout(pushTimer.current)
+    pushTimer.current = setTimeout(() => pushToServer(next), 700)
+  }
+  // a new heading (group) — shown straight away, ready for its first item
+  const [addingHeading, setAddingHeading] = useState(false)
+  const [newHeading, setNewHeading] = useState('')
+  function addHeading() {
+    const name = newHeading.trim()
+    if (!name || !activeBoardId) return
+    const used = new Set((activeBoard?.items ?? []).map(i => i.groupColor))
+    const color = GROUP_COLORS.find(c => !used.has(c)) ?? GROUP_COLORS[0]
+    save(boards.map(b => b.id !== activeBoardId ? b : { ...b, extraGroups: [...(b.extraGroups ?? []).filter(g => g.name !== name), { name, color }] }))
+    setNewHeading(''); setAddingHeading(false); setAddingTo(name); setNewItemTitle('')
   }
 
   const activeBoard   = boards.find(b => b.id === activeBoardId) ?? null
@@ -181,6 +274,7 @@ export default function PlannerPage() {
       if (!seen.has(item.groupName)) seen.set(item.groupName, { color: item.groupColor, items: [] })
       seen.get(item.groupName)!.items.push(item)
     }
+    for (const g of activeBoard.extraGroups ?? []) if (!seen.has(g.name)) seen.set(g.name, { color: g.color, items: [] })
     return Array.from(seen.entries()).map(([name, v]) => ({ name, ...v }))
   })()
 
@@ -284,6 +378,14 @@ export default function PlannerPage() {
     setColorPickerBoardId(null)
   }
 
+  function renameItem(itemId: string, newTitle: string) {
+    if (!newTitle.trim() || !activeBoardId) return
+    save(boards.map(b => b.id !== activeBoardId ? b : {
+      ...b, items: b.items.map(i => i.id !== itemId ? i : { ...i, title: newTitle.trim() })
+    }))
+    setEditingTitle(false)
+  }
+
   function deleteItem(itemId: string) {
     if (!activeBoardId) return
     save(boards.map(b => b.id !== activeBoardId ? b : { ...b, items: b.items.filter(i => i.id !== itemId) }))
@@ -346,10 +448,49 @@ export default function PlannerPage() {
     <div className="flex flex-col" style={{ height: '100vh', background: '#faf9f7', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <AppBar left={<BackButton href="/admin" />} />
 
+      {/* ── Mobile top bar ── */}
+      <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b" style={{ background: '#f2f0ec', borderColor: '#e5e2db' }}>
+        <button onClick={() => setShowMobileSidebar(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, background: '#fff', border: '1px solid #e5e2db', borderRadius: 8, padding: '7px 11px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+          {activeBoard && <div style={{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg,${activeBoard.colorA},${activeBoard.colorB})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff' }}>{activeBoard.title[0]}</div>}
+          <span style={{ fontSize: 13, fontWeight: 500, color: '#1c1917', flex: 1 }}>{activeBoard?.title ?? 'Select board'}</span>
+          <span style={{ fontSize: 10, color: '#b5b0a8' }}>▼</span>
+        </button>
+      </div>
+
+      {/* ── Mobile board picker overlay ── */}
+      {showMobileSidebar && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,.4)' }} onClick={() => setShowMobileSidebar(false)}>
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#f2f0ec', borderRadius: '16px 16px 0 0', maxHeight: '70vh', overflowY: 'auto', padding: '16px 0 32px' }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: '#b5b0a8', padding: '0 16px 8px' }}>Landlords</p>
+            {landlordBoards.map(b => (
+              <button key={b.id} onClick={() => { setActiveBoardId(b.id); setSelectedItemId(null); setShowMobileSidebar(false) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', background: b.id === activeBoardId ? '#fff' : 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg,${b.colorA},${b.colorB})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{b.title[0]}</div>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: '#1c1917', margin: 0 }}>{b.title}</p>
+                  <p style={{ fontSize: 11, color: '#a8a29e', margin: 0 }}>{b.items.length} items</p>
+                </div>
+              </button>
+            ))}
+            {workspaceBoards.length > 0 && <>
+              <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: '#b5b0a8', padding: '12px 16px 8px', borderTop: '1px solid #e5e2db', marginTop: 8 }}>Personal</p>
+              {workspaceBoards.map(b => (
+                <button key={b.id} onClick={() => { setActiveBoardId(b.id); setSelectedItemId(null); setShowMobileSidebar(false) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', background: b.id === activeBoardId ? '#fff' : 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg,${b.colorA},${b.colorB})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>{b.title[0]}</div>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: '#1c1917', margin: 0 }}>{b.title}</p>
+                </button>
+              ))}
+            </>}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── Board list sidebar ── */}
-        <div className="flex flex-col flex-shrink-0 overflow-y-auto" style={{ width: 210, background: '#f2f0ec', borderRight: '1px solid #e5e2db' }}>
+        {/* ── Board list sidebar — desktop only ── */}
+        <div className="hidden md:flex flex-col flex-shrink-0 overflow-y-auto" style={{ width: 210, background: '#f2f0ec', borderRight: '1px solid #e5e2db' }}>
           <div style={{ padding: '16px 14px 6px' }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: '#b5b0a8' }}>Landlords</p>
           </div>
@@ -481,7 +622,7 @@ export default function PlannerPage() {
                             const sel = selectedItemId === item.id
                             const hasAttachments = item.updates.some(u => u.links?.length || u.images?.length)
                             return (
-                              <tr key={item.id} onClick={() => setSelectedItemId(sel ? null : item.id)}
+                              <tr key={item.id} onClick={() => { setSelectedItemId(sel ? null : item.id); setEditingTitle(false) }}
                                 style={{ borderBottom: '1px solid #eeebe6', cursor: 'pointer', background: sel ? 'rgba(251,191,36,.06)' : '#fff', transition: 'background .1s' }}
                                 onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLTableRowElement).style.background = '#f9f7f4' }}
                                 onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLTableRowElement).style.background = '#fff' }}>
@@ -547,7 +688,7 @@ export default function PlannerPage() {
                             ...(doneOpen ? doneItems.map(item => {
                               const sel = selectedItemId === item.id
                               return (
-                                <tr key={item.id} onClick={() => setSelectedItemId(sel ? null : item.id)}
+                                <tr key={item.id} onClick={() => { setSelectedItemId(sel ? null : item.id); setEditingTitle(false) }}
                                   style={{ borderBottom: '1px solid #eeebe6', cursor: 'pointer', background: sel ? 'rgba(251,191,36,.04)' : '#fafaf9', transition: 'background .1s', opacity: 0.75 }}
                                   onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLTableRowElement).style.background = '#f5f3f0' }}
                                   onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLTableRowElement).style.background = '#fafaf9' }}>
@@ -577,18 +718,60 @@ export default function PlannerPage() {
                       })}
                     </tbody>
                   </table>
+                  {/* New heading — e.g. another property on this landlord's board */}
+                  <div style={{ padding: '10px 14px', borderTop: '1px solid #eeebe6', background: '#fff', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {addingHeading ? (
+                      <>
+                        <input autoFocus value={newHeading} onChange={e => setNewHeading(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') addHeading(); if (e.key === 'Escape') setAddingHeading(false) }}
+                          placeholder="Heading, e.g. Willis Road"
+                          style={{ flex: '1 1 180px', fontSize: 13, border: '1px solid #d6d3cb', borderRadius: 6, padding: '8px 10px', outline: 'none', background: '#fff', color: '#1c1917', fontFamily: 'inherit' }} />
+                        <button onClick={addHeading} style={{ fontSize: 12, background: '#1c1917', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Add heading</button>
+                        <button onClick={() => setAddingHeading(false)} style={{ fontSize: 12, color: '#a8a29e', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                      </>
+                    ) : (
+                      <button onClick={() => { setAddingHeading(true); setNewHeading('') }}
+                        style={{ fontSize: 12.5, fontWeight: 600, color: '#6b6460', background: '#f5f4f2', border: '1px dashed #d6d3cb', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        ＋ New heading
+                      </button>
+                    )}
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: syncState === 'error' ? '#b91c1c' : '#a8a29e' }}>
+                      {syncState === 'saving' ? 'Saving…' : syncState === 'error' ? 'Not saved to CROS — check your connection' : 'Saved — same on phone and computer'}
+                    </span>
+                  </div>
                 </div>
 
-                {/* ── Detail panel ── */}
+                {/* ── Detail panel — side panel on desktop, bottom sheet on mobile ── */}
                 {selectedItem && (
-                  <div style={{ width: 300, flexShrink: 0, borderLeft: '1px solid #e5e2db', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <>
+                  {/* Mobile backdrop */}
+                  <div className="fixed inset-0 z-40 md:hidden" style={{ background: 'rgba(0,0,0,.4)' }} onClick={() => setSelectedItemId(null)} />
+                  <div className="fixed bottom-0 left-0 right-0 z-50 md:static md:z-auto md:bottom-auto md:h-full" style={{ maxHeight: '90vh', background: '#fff', borderRadius: '16px 16px 0 0', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderLeft: '1px solid #e5e2db', flexShrink: 0, width: 300 }}
+                    // desktop overrides via inline - Tailwind md: only handles display not exact style
+                  >
+                  {/* Drag handle for mobile */}
+                  <div className="md:hidden w-12 h-1.5 rounded-full bg-neutral-200 mx-auto mt-2.5 mb-1 flex-shrink-0" />
                     <div style={{ height: 3, background: `linear-gradient(90deg,${activeBoard.colorA},${activeBoard.colorB})`, flexShrink: 0 }} />
 
                     <div style={{ flex: 1, overflowY: 'auto' }}>
                       {/* Title + actions */}
                       <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid #eeebe6' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                          <h2 style={{ fontSize: 13.5, fontWeight: 600, color: '#1c1917', margin: 0, lineHeight: 1.35, flex: 1 }}>{selectedItem.title}</h2>
+                          {editingTitle ? (
+                            <input autoFocus value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') renameItem(selectedItem.id, titleDraft); if (e.key === 'Escape') setEditingTitle(false) }}
+                              onBlur={() => renameItem(selectedItem.id, titleDraft)}
+                              style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: '#1c1917', border: '1px solid #d4b483', borderRadius: 6, padding: '3px 7px', outline: 'none', fontFamily: 'inherit', lineHeight: 1.35 }}
+                            />
+                          ) : (
+                            <h2 onClick={() => { setTitleDraft(selectedItem.title); setEditingTitle(true) }}
+                              title="Click to edit title"
+                              style={{ fontSize: 13.5, fontWeight: 600, color: '#1c1917', margin: 0, lineHeight: 1.35, flex: 1, cursor: 'text', borderRadius: 4, padding: '2px 4px', marginLeft: -4 }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#f7f5f2')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                              {selectedItem.title} <span style={{ fontSize: 10, color: '#c8c4be', fontWeight: 400 }}>✏</span>
+                            </h2>
+                          )}
                           <button onClick={() => setSelectedItemId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b5b0a8', fontSize: 14, lineHeight: 1, flexShrink: 0, padding: 2, marginTop: 1 }}>✕</button>
                         </div>
                         <p style={{ fontSize: 11, color: '#a8a29e', margin: '4px 0 10px' }}>{selectedItem.groupName} · {activeBoard.title}</p>
@@ -745,6 +928,7 @@ export default function PlannerPage() {
                       </div>
                     </div>
                   </div>
+                  </>
                 )}
               </div>
             </>

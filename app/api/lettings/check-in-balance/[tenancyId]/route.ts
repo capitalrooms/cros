@@ -14,9 +14,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { contentDisposition } from '@/lib/contentDisposition'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,8 +33,10 @@ function serviceClient() {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { tenancyId: string } }
+  { params }: { params: Promise<{ tenancyId: string }> }
 ) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { tenancyId } = await params
   // ── Auth ─────────────────────────────────────────────────────────────────────
   const authHeader = req.headers.get('Authorization') || ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
@@ -57,13 +61,13 @@ export async function GET(
     .select(`
       id,
       start_date,
-      rent_monthly,
+      rent_amount,
       deposit_amount,
       holding_deposit_received,
       payment_reference,
-      tenant_id,
+      person_id,
       room_id,
-      people!tenancies_tenant_id_fkey (
+      people!tenancies_person_id_fkey (
         first_name,
         last_name
       ),
@@ -82,7 +86,7 @@ export async function GET(
         )
       )
     `)
-    .eq('id', params.tenancyId)
+    .eq('id', tenancyId)
     .maybeSingle()
 
   if (tErr || !tenancy) {
@@ -120,7 +124,7 @@ export async function GET(
 
   const holdingDeposit = Number(tenancy.holding_deposit_received ?? 0)
   const depositAmount  = Number(tenancy.deposit_amount ?? 0)
-  const rentMonthly    = Number(tenancy.rent_monthly ?? 0)
+  const rentMonthly    = Number(tenancy.rent_amount ?? 0)
 
   const bizSettings = await fetchPDFBizSettings()
 
@@ -148,11 +152,11 @@ export async function GET(
   const startSlug = tenancy.start_date?.slice(0, 10) ?? 'unknown'
   const filename  = `Check-In-Balance_${safeName}_${startSlug}.pdf`
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       'Content-Type':        'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': contentDisposition(`${filename}`, 'attachment'),
     },
   })
 }

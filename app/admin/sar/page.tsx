@@ -108,11 +108,11 @@ export default function SarPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-5xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Header */}
         <div className="mb-xl flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Suspected Activity Reports</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Suspected Activity Reports</h1>
             <p className="mt-sm text-sm text-neutral-500">
               Internal SAR log — MLRO: Harry Buchanan · Confidential · Retained 5 years minimum
             </p>

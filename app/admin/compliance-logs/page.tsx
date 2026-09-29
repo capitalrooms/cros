@@ -99,13 +99,28 @@ export default function ComplianceLogsPage() {
     setError(null)
 
     try {
+      // checked_by FK references people.id (not auth UID) — look up by email
+      const { data: authData } = await supabase.auth.getUser()
+      if (!authData?.user?.email) throw new Error('Not signed in')
+
+      const { data: personRow } = await supabase
+        .from('people')
+        .select('id, first_name, last_name, full_name')
+        .eq('email', authData.user.email)
+        .single()
+
+      if (!personRow?.id) throw new Error('Your user account was not found in the system')
+
+      const checkedByName = [personRow.first_name, personRow.last_name].filter(Boolean).join(' ')
+        || (personRow as any).full_name || authData.user.email
+
       const { error: insertError } = await supabase
         .from('compliance_logs')
         .insert({
           property_id: selectedProperty,
           check_type: tab,
-          checked_by: currentUser?.user?.id,
-          checked_by_role: currentUser?.assignment?.role,
+          checked_by: personRow.id,
+          checked_by_role: (currentUser?.assignment as any)?.role || 'admin',
           checked_date: form.checked_date,
           notes: form.notes || null,
         })
@@ -136,9 +151,9 @@ export default function ComplianceLogsPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">Compliance Logs</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Compliance Logs</h1>
           <p className="mt-sm text-neutral-600">Fire door and smoke alarm checks across your properties.</p>
         </div>
 

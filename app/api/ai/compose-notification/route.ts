@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { Anthropic } from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 
@@ -8,6 +9,7 @@ export const dynamic = 'force-dynamic'
 const client = new Anthropic()
 
 export async function POST(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { prompt, property_id, recipient_type } = await req.json()
 
   if (!prompt || !property_id) {

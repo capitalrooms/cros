@@ -10,12 +10,13 @@ function createServiceClient() {
 }
 
 // GET /api/lookup-email?phone=07XXXXXXXXX
-// Used by the login page when arriving via an SMS link (?phone=...)
-// Returns { email } or { email: null }
+// Used by the login page when arriving via an SMS link (?phone=...).
+// Returns only a masked hint — { hint: 'h•••y@c•••.co.uk' } or { hint: null } — never the address itself, so the
+// route can't be used to harvest people's email addresses from phone numbers.
 
 export async function GET(req: NextRequest) {
   const phone = req.nextUrl.searchParams.get('phone')
-  if (!phone) return NextResponse.json({ email: null })
+  if (!phone) return NextResponse.json({ hint: null })
 
   // Normalise: strip spaces, ensure +44 format for UK numbers
   const normalised = phone.trim().replace(/\s+/g, '')
@@ -33,8 +34,15 @@ export async function GET(req: NextRequest) {
       .select('email')
       .eq('phone', candidate)
       .maybeSingle()
-    if (data?.email) return NextResponse.json({ email: data.email })
+    if (data?.email) return NextResponse.json({ hint: maskEmail(data.email) })
   }
 
-  return NextResponse.json({ email: null })
+  return NextResponse.json({ hint: null })
+}
+
+function maskEmail(e: string): string {
+  const [user, domain = ''] = e.split('@')
+  const [host, ...rest] = domain.split('.')
+  const m = (x: string) => (x.length <= 2 ? x[0] + '•' : x[0] + '•••' + x[x.length - 1])
+  return `${m(user)}@${m(host)}${rest.length ? '.' + rest.join('.') : ''}`
 }

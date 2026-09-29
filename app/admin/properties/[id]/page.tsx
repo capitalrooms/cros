@@ -25,6 +25,7 @@ import FinancialsTab from './components/FinancialsTab'
 import TasksTab from './components/TasksTab'
 import BackButton from '@/app/components/BackButton'
 import TenantAppTab from './components/TenantAppTab'
+import { landlordFormalNames } from '@/lib/people'
 
 type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'lettings' | 'compliance' | 'documents' | 'tenant_app'
 
@@ -96,7 +97,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       // Get property
       const { data: prop } = await supabase
         .from('properties')
-        .select('*')
+        .select('*, rooms(id)')
         .eq('id', id)
         .single();
 
@@ -124,14 +125,11 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       if (prop?.landlord_id) {
         const { data: landlordPerson } = await supabase
           .from('people')
-          .select('full_name, first_name, last_name')
+          .select('*')
           .eq('id', prop.landlord_id)
           .single();
         if (landlordPerson && prop) {
-          (prop as any).landlord_name =
-            landlordPerson.full_name ||
-            [landlordPerson.first_name, landlordPerson.last_name].filter(Boolean).join(' ') ||
-            null;
+          (prop as any).landlord_name = landlordFormalNames(landlordPerson) || null;
         }
       }
 
@@ -260,7 +258,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         }
       />
 
-      <main className="mx-auto max-w-6xl px-lg pt-lg pb-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* ── Compact property header ───────────────────────────────────── */}
         <div className="mb-lg rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
@@ -297,7 +295,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                   ) : (
                     <>
-                      <h1 className="text-xl font-bold text-neutral-900 truncate">🏠 {property.name || '—'}</h1>
+                      <h1 className="text-2xl font-bold text-neutral-900">🏠 {property.name || '—'}</h1>
                       <button onClick={() => setEditingName(true)} className="opacity-0 group-hover:opacity-100 transition text-neutral-400 hover:text-neutral-700 text-xs">✏️</button>
                     </>
                   )}
@@ -429,7 +427,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {/* ── Units ────────────────────────────────────────────────────── */}
           {activeTab === 'units' && (
             <div className="p-lg">
-              <UnitsTab propertyId={id} bedrooms={property.bedrooms} initialRoomId={initialRoomId} propertyName={property.name} propertyAddress={property.address} />
+              <UnitsTab propertyId={id} bedrooms={property.bedrooms} initialRoomId={initialRoomId} propertyName={property.name} propertyAddress={property.address} propertyCode={property.property_code} />
             </div>
           )}
 
@@ -525,9 +523,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                     }`}
                   >{label}</button>
                 ))}
+                <Link href={`/admin/properties/${id}/send-documents`}
+                  className="ml-auto mb-xs self-center rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white hover:bg-neutral-700">
+                  ✉️ Send certificates to tenants
+                </Link>
               </div>
               <div className="p-lg">
-                {documentsSubTab === 'documents' && <DocumentsTab propertyId={id} />}
+                {documentsSubTab === 'documents' && <DocumentsTab propertyId={id} propertyName={property.name} />}
                 {documentsSubTab === 'photos' && <PhotosTab propertyId={id} />}
                 {documentsSubTab === 'financials' && <FinancialsTab propertyId={id} />}
               </div>

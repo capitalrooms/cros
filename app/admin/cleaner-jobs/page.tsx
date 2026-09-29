@@ -130,9 +130,9 @@ export default function CleanerJobsPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
-          <h1 className="text-3xl font-bold text-neutral-900">🧹 Cleaner Jobs</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">🧹 Cleaner Jobs</h1>
           <p className="mt-sm text-sm text-neutral-600">
             Move-out cleans raised from Set on Notice — assign, track and reassign
           </p>

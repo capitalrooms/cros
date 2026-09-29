@@ -56,26 +56,26 @@ export default function OverviewPage() {
           .select('id')
           .gte('viewing_date', new Date().toISOString().split('T')[0]),
         supabase.from('maintenance_tickets').select('id, status'),
-        supabase.from('role_assignments').select('id', { count: 'exact' }),
+        supabase.from('people').select('id', { count: 'exact' }).in('role', ['administrator', 'admin', 'lettings', 'cleaner', 'contractor']),
       ])
 
-      const jobsData = jobs[1] || []
-      const roomsData = rooms[1] || []
+      const jobsData = jobs.data || []
+      const roomsData = rooms.data || []
       const availableCount = roomsData.filter((r: any) => r.status === 'available').length
       const occupiedCount = roomsData.filter((r: any) => r.status === 'occupied').length
       const pendingCount = jobsData.filter((j: any) => j.status === 'pending').length
       const completedCount = jobsData.filter((j: any) => j.status === 'completed').length
 
       setStats({
-        totalProperties: props[2] || 0,
-        totalRooms: rooms[2] || 0,
-        totalTenancies: tenancies[2] || 0,
-        activeViewings: viewings[1]?.length || 0,
+        totalProperties: props.count || 0,
+        totalRooms: rooms.count || 0,
+        totalTenancies: tenancies.count || 0,
+        activeViewings: viewings.data?.length || 0,
         pendingJobs: pendingCount,
         completedJobs: completedCount,
         availableRooms: availableCount,
         occupiedRooms: occupiedCount,
-        usersCount: users[2] || 0,
+        usersCount: users.count || 0,
       })
 
       setLoading(false)
@@ -94,10 +94,10 @@ export default function OverviewPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Header */}
         <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">System Overview</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">System Overview</h1>
           <p className="mt-sm text-sm text-neutral-600">
             Real-time snapshot of Capital Rooms platform status
           </p>

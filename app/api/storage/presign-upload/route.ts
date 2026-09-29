@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -16,6 +17,7 @@ export const dynamic = 'force-dynamic'
  * role key lives only on the server, never in the browser).
  */
 export async function POST(request: NextRequest) {
+  if (!(await requireAdmin(request))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) {
     return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not configured' }, { status: 500 })

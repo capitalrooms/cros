@@ -149,7 +149,7 @@ export default function AdminGuidesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-100">
       <AppBar
         left={<BackButton href="/admin" />}
         title="Tenant Guides"
@@ -159,10 +159,10 @@ export default function AdminGuidesPage() {
         <NewGuideModal onClose={() => setShowNew(false)} onCreated={handleCreated} />
       )}
 
-      <main className="max-w-3xl mx-auto px-lg py-xl">
+      <main className="max-w-6xl mx-auto px-lg py-xl">
         <div className="flex items-center justify-between mb-xl">
           <div>
-            <h1 className="text-xl font-bold text-neutral-900">Tenant Guides</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Tenant Guides</h1>
             <p className="text-sm text-neutral-500 mt-xs">
               Create and manage guides shown to tenants in the app.
             </p>

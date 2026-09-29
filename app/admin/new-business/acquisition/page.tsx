@@ -91,7 +91,7 @@ export default function AcquisitionEmailPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl">
           <h1 className="text-2xl font-bold text-neutral-900">✉️ Send Acquisition Email</h1>
           <p className="text-sm text-neutral-500 mt-xs">
@@ -100,7 +100,7 @@ export default function AcquisitionEmailPage() {
         </div>
 
         {step === 'sent' ? (
-          <div className="bg-white rounded-2xl border border-neutral-200 p-2xl text-center max-w-md mx-auto">
+          <div className="bg-white rounded-2xl border border-neutral-200 p-2xl text-center max-w-6xl mx-auto">
             <div className="text-4xl mb-md">✅</div>
             <h2 className="text-xl font-bold text-neutral-900 mb-sm">Email sent!</h2>
             <p className="text-sm text-neutral-500 mb-xl">
@@ -122,9 +122,9 @@ export default function AcquisitionEmailPage() {
             </div>
           </div>
         ) : (
-          <div className="flex gap-xl items-start">
-            {/* Left panel — form */}
-            <div className="w-96 shrink-0 space-y-lg">
+          <div className="flex flex-col gap-xl items-stretch lg:flex-row lg:items-start">
+            {/* Left panel — form (full width on phones, fixed column beside the preview on desktop) */}
+            <div className="w-full lg:w-96 shrink-0 space-y-lg">
 
               {/* Step tabs */}
               <div className="flex rounded-xl border border-neutral-200 overflow-hidden bg-white">
@@ -330,7 +330,7 @@ export default function AcquisitionEmailPage() {
             </div>
 
             {/* Right panel — live preview iframe */}
-            <div className="flex-1 min-w-0">
+            <div className="w-full lg:flex-1 min-w-0">
               <div className="rounded-2xl border border-neutral-200 overflow-hidden bg-white">
                 <div className="flex items-center gap-sm px-md py-sm bg-neutral-50 border-b border-neutral-200">
                   <div className="flex gap-xs">

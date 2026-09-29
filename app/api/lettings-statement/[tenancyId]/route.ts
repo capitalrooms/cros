@@ -3,10 +3,12 @@
 // Pulls tenancy, room, property (bank details + fee), tenant, landlord from DB.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { generateLettingsStatementPDF } from '@/lib/lettingsStatement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { inlineAddress } from '@/lib/formatAddress'
+import { contentDisposition } from '@/lib/contentDisposition'
 
 function serviceClient() {
   return createClient(
@@ -18,8 +20,10 @@ function serviceClient() {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { tenancyId: string } }
+  { params: paramsPromise }: { params: Promise<{ tenancyId: string }> }
 ) {
+  if (!(await requireStaff(_req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const params = await paramsPromise
   const supabase = serviceClient()
   const { tenancyId } = params
 
@@ -37,8 +41,7 @@ export async function GET(
           bank_account_name, bank_sort_code, bank_account_number,
           bank_iban, bank_swift, bank_payment_ref,
           people!landlord_id (
-            id, first_name, last_name, full_name, email, phone,
-            address_line1, address_line2, city, postcode
+            id, first_name, last_name, full_name, email, phone, home_address
           )
         )
       ),
@@ -68,12 +71,7 @@ export async function GET(
     ? (landlord.full_name || [landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || 'Landlord')
     : 'Landlord'
 
-  const landlordAddrParts = [
-    landlord?.address_line1,
-    landlord?.address_line2,
-    landlord?.city,
-    landlord?.postcode,
-  ].filter(Boolean)
+  const landlordAddrParts = String(landlord?.home_address || '').split(/\n|,\s*/).map((l: string) => l.trim()).filter(Boolean)
   const landlordAddress = landlordAddrParts.join('\n') || ''
 
   // ── Tenant notes: DOB + occupation ──────────────────────────────────────
@@ -129,7 +127,7 @@ export async function GET(
     status: 200,
     headers: {
       'Content-Type':        'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': contentDisposition(`${filename}`, 'attachment'),
       'Cache-Control':       'no-store',
     },
   })

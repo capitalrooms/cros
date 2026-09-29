@@ -9,6 +9,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { ValuationData, ValuationType, PriceRow, RefurbItem } from '@/lib/valuations/ValuationDocument'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { downloadPdf } from '@/lib/adminFetch'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const VALUATION_TYPES: { value: ValuationType; label: string; desc: string }[] = [
@@ -282,9 +283,9 @@ export default function ValuationsPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/new-business" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
-          <h1 className="text-3xl font-bold text-neutral-900">📄 Rental Valuation Letter</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">📄 Rental Valuation Letter</h1>
           <p className="mt-sm text-sm text-neutral-500">
             Generate a Capital Rooms branded valuation letter. Fill in the form, preview, then export as PDF.
           </p>
@@ -617,12 +618,12 @@ export default function ValuationsPage() {
                         <td className="px-lg py-md text-neutral-500 text-xs">{date} {time}</td>
                         <td className="px-lg py-md text-right">
                           {row.pdf_storage_path ? (
-                            <a
-                              href={`/api/valuations/history?id=${row.id}&download=1`}
+                            <button type="button"
+                              onClick={() => downloadPdf(`/api/valuations/history?id=${row.id}&download=1`, 'Valuation.pdf').catch(e => alert(e.message))}
                               className="inline-flex items-center gap-xs rounded-lg bg-neutral-900 px-md py-xs text-xs font-semibold text-white hover:bg-neutral-700 transition"
                             >
                               ⬇ Download
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-xs text-neutral-400">No file</span>
                           )}

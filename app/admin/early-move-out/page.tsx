@@ -137,7 +137,7 @@ export default function AdminEarlyMoveOutPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl flex items-start justify-between gap-md">
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Early Move-Out Requests</h1>

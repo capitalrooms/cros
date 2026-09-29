@@ -8,19 +8,33 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
-interface Property { id: string; name: string; address: string; management_fee_pct: number | null }
+import { genStatementRef } from '@/lib/references'
+import { adminFetch, downloadPdf } from '@/lib/adminFetch'
+import StatementSend from './StatementSend'
+interface Property { id: string; name: string; address: string; management_fee_pct: number | null; property_code?: string | null }
 interface Landlord { id: string; name: string | null; email: string; property_id: string | null }
 interface StatementRow {
   id: string
   statement_reference: string
   statement_date: string
+  period_start: string | null
+  period_end: string | null
+  gross_rent: number | null
+  management_fees: number | null
+  property_charges: number | null
   net_to_landlord: number
+  amount_paid: number | null
+  paid_date: string | null
+  management_fee_pct: number | null
+  rooms: any[] | null
+  expenses: any[] | null
   property_id: string
   landlord_id: string
   properties?: { name: string; address: string }
+  sent_at?: string | null
 }
 
-interface RoomLine { room_number: string; tenant_name: string; rent: string; fee: string; net: string }
+interface RoomLine { room_number: string; tenant_name: string; rent: string; fee: string; net: string; note?: string }
 interface ExpenseLine { description: string; amount: string }
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -75,13 +89,20 @@ export default function AdminStatementsPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [matchNote, setMatchNote] = useState('')
+  const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null)
+  // "Fill from rent received": the month to build, and what saving it must mark as paid over
+  const [genMonth, setGenMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [genBusy, setGenBusy] = useState(false)
+  const [annualLandlord, setAnnualLandlord] = useState('')
+  const [annualYear, setAnnualYear] = useState(() => { const n = new Date(); return n.getMonth() > 3 || (n.getMonth() === 3 && n.getDate() >= 6) ? n.getFullYear() : n.getFullYear() - 1 })
+  const [generated, setGenerated] = useState<{ charges: { id: string; amount: number }[]; expenseIds: string[] } | null>(null)
 
   async function loadStatements() {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('landlord_statements')
-      .select('id, statement_reference, statement_date, net_to_landlord, property_id, landlord_id, properties(name, address)')
-      .order('statement_date', { ascending: false })
+    const cols = 'id, statement_reference, statement_date, period_start, period_end, gross_rent, management_fees, property_charges, net_to_landlord, amount_paid, paid_date, management_fee_pct, rooms, expenses, property_id, landlord_id, properties(name, address)'
+    let { data, error: e } = await supabase.from('landlord_statements').select(cols + ', sent_at').order('statement_date', { ascending: false })
+    if (e) ({ data, error: e } = await supabase.from('landlord_statements').select(cols).order('statement_date', { ascending: false }))  // before migration 185
+    if (e) setError(`Could not load statements: ${e.message}`)
     setStatements((data as any) || [])
   }
 
@@ -92,11 +113,12 @@ export default function AdminStatementsPage() {
       if (!data || (role !== 'administrator' && role !== 'admin')) { router.push('/login'); return }
       const supabase = createClient()
       const [{ data: props }, { data: lls }] = await Promise.all([
-        supabase.from('properties').select('id, name, address, management_fee_pct').order('name'),
+        supabase.from('properties').select('id, name, address, management_fee_pct, property_code').order('name'),
         supabase.from('people').select('id, full_name, first_name, last_name, email, property_id').eq('role', 'landlord').order('full_name'),
       ])
       setProperties(sortPropertiesNumerically((props as any) || []))
-      setLandlords((lls as any) || [])
+      // people has no "name" column — build the label the dropdowns show
+      setLandlords(((lls as any[]) || []).map((l) => ({ ...l, name: [l.first_name, l.last_name].filter(Boolean).join(' ') || l.full_name || null })))
       await loadStatements()
       setLoading(false)
     }
@@ -111,10 +133,11 @@ export default function AdminStatementsPage() {
   }
 
   function onSelectProperty(pid: string) {
+    if (pid !== propertyId) setGenerated(null)
     setPropertyId(pid)
     setLandlordId(resolveLandlord(pid) || landlordId)
     const p = properties.find((x) => x.id === pid)
-    const pct = p?.management_fee_pct != null ? String(p.management_fee_pct) : '12'
+    const pct = p?.management_fee_pct != null ? String(p.management_fee_pct) : ''   // no fee is ever assumed
     setFeePct(pct)
     setRooms((rs) => rs.map((r) => applyFee(r, pct)))
   }
@@ -151,7 +174,7 @@ export default function AdminStatementsPage() {
 
   async function handleFile(file: File | undefined) {
     if (!file) return
-    setAiBusy(true); setError(''); setNotice(''); setMatchNote('')
+    setAiBusy(true); setError(''); setNotice(''); setMatchNote(''); setGenerated(null)
     try {
       const body = new FormData(); body.append('file', file)
       const res = await fetch('/api/ai/extract-statement', { method: 'POST', body })
@@ -161,7 +184,7 @@ export default function AdminStatementsPage() {
       const matched = matchProperty(r.property_address || '', properties)
       const pid = matched?.id || ''
       if (pid) onSelectProperty(pid)
-      const pct = r.management_fee_pct ? String(r.management_fee_pct) : (matched?.management_fee_pct != null ? String(matched.management_fee_pct) : '12')
+      const pct = r.management_fee_pct ? String(r.management_fee_pct) : (matched?.management_fee_pct != null ? String(matched.management_fee_pct) : '')
       setReference(r.statement_reference || '')
       setStatementDate(r.statement_date || '')
       setPeriodStart(r.period_start || '')
@@ -186,6 +209,37 @@ export default function AdminStatementsPage() {
     } finally { setAiBusy(false) }
   }
 
+  async function fillFromRent() {
+    if (!propertyId) return setError('Choose the property first, then the month.')
+    setGenBusy(true); setError(''); setNotice(''); setMatchNote('')
+    try {
+      const res = await adminFetch(`/api/admin/statements/draft?propertyId=${propertyId}&month=${genMonth}`)
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(d.error || 'Could not build the statement')
+      const dr = d.draft
+      if (dr.landlordId) setLandlordId(dr.landlordId)
+      setReference(dr.reference); setPeriodStart(dr.periodStart); setPeriodEnd(dr.periodEnd); setStatementDate(dr.statementDate)
+      setFeePct(String(dr.feePct))
+      setRooms(dr.rooms.length
+        ? dr.rooms.map((r: any) => ({ room_number: r.room_number, tenant_name: r.tenant_name, rent: String(r.rent), fee: String(r.fee), net: String(round2(r.rent - r.fee)), note: r.note }))
+        : [blankRoom(1)])
+      setExpenses(dr.expenses.length ? dr.expenses.map((x: any) => ({ description: x.description, amount: String(x.amount) })) : [blankExpense()])
+      setGenerated({ charges: dr.charges, expenseIds: dr.expenses.map((x: any) => x.id) })
+      const notes: string[] = [
+        dr.rooms.length
+          ? `Filled from ${dr.rooms.length} room${dr.rooms.length === 1 ? '' : 's'} of rent received${dr.expenses.length ? ` and ${dr.expenses.length} logged expense${dr.expenses.length === 1 ? '' : 's'}` : ''}. Check it, then save.`
+          : 'No rent has been received for this property yet this month — nothing to put on a statement.',
+      ]
+      if (dr.unpaid.length) notes.push(`Not yet received: ${dr.unpaid.map((u: any) => `${u.room}${u.tenant ? ` (${u.tenant})` : ''} £${(u.due - u.received).toFixed(2)}`).join(', ')}. It will go on the statement for the month it's paid.`)
+      if (dr.existingId) notes.push(`A ${dr.reference} statement already exists for this property — saving updates it.`)
+      if (!dr.tracksRemitted) notes.push('Run migration 185 so late payments carry onto the next statement automatically.')
+      if (dr.feeWarnings?.length) notes.push(`⚠ ${dr.feeWarnings.join('; ')}.`)
+      setMatchNote(notes.join(' '))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not build the statement')
+    } finally { setGenBusy(false) }
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setError(''); setNotice('')
@@ -197,6 +251,7 @@ export default function AdminStatementsPage() {
     if (filledRooms.length === 0) return setError('Add at least one room with its rent.')
 
     setBusy(true)
+    const generatedAtSave = generated
     try {
       const supabase = createClient()
       const dt = (v: string) => (v ? v : null)
@@ -206,6 +261,7 @@ export default function AdminStatementsPage() {
         rent_income: num(r.rent),
         management_fee: num(r.fee),
         net_to_landlord: num(r.net),
+        ...(r.note ? { note: r.note } : {}),
       }))
       const expensesJson = expenses
         .filter((x) => x.description.trim() !== '' || x.amount !== '')
@@ -213,6 +269,10 @@ export default function AdminStatementsPage() {
       // Core totals always save (these columns exist). The breakdown columns
       // (management_fee_pct / rooms / expenses) are added by migration 044 — until
       // that's run we fall back to totals-only so the statement still saves.
+      const prop = properties.find((p) => p.id === propertyId)
+      const stmtRef = prop?.property_code
+        ? genStatementRef(prop.property_code, new Date(periodEnd))
+        : null
       const core = {
         landlord_id: landlordId,
         property_id: propertyId,
@@ -226,6 +286,7 @@ export default function AdminStatementsPage() {
         net_to_landlord: totals.net,
         amount_paid: totals.net,
         paid_date: dt(paidDate),
+        ...(stmtRef ? { reference: stmtRef } : {}),
       }
       const full = { ...core, management_fee_pct: num(feePct), rooms: roomsJson, expenses: expensesJson }
 
@@ -241,8 +302,7 @@ export default function AdminStatementsPage() {
       }
       if (upErr) throw upErr
 
-      // Remember this property's fee rate for next time (best-effort; ignore if column absent).
-      supabase.from('properties').update({ management_fee_pct: num(feePct) }).eq('id', propertyId).then(() => {})
+      // (Saving a statement no longer changes the property's management fee — that's set on the property/tenancy.)
 
       // Fire-and-forget: AI-categorise expense lines into statement_line_items.
       // Fetch the statement ID we just upserted, then POST to the categorise endpoint.
@@ -253,13 +313,19 @@ export default function AdminStatementsPage() {
         .eq('property_id', propertyId)
         .eq('statement_reference', reference.trim())
         .single()
-        .then(({ data: s }) => {
-          if (s?.id) {
-            fetch(`/api/admin/statements/${s.id}/categorise`, { method: 'POST' }).catch(() => {})
+        .then(async ({ data: s }) => {
+          if (!s?.id) return
+          fetch(`/api/admin/statements/${s.id}/categorise`, { method: 'POST' }).catch(() => {})
+          // Generated from rent received: record what's now been paid over so it isn't counted twice.
+          if (generatedAtSave) {
+            const r = await adminFetch(`/api/admin/statements/${s.id}/finalise`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(generatedAtSave),
+            })
+            const d = await r.json().catch(() => ({}))
+            if (!r.ok || d.warning) setError(d.warning || d.error || 'Saved, but could not mark the rent as paid over.')
           }
         })
 
-      const prop = properties.find((p) => p.id === propertyId)
       const where = prop?.name || prop?.address || 'the property'
       setNotice(breakdownSaved
         ? `Saved ${core.statement_reference} for ${where} — ${roomsJson.length} room${roomsJson.length === 1 ? '' : 's'}, net £${totals.net.toFixed(2)}. It now shows on that landlord's page.`
@@ -277,7 +343,7 @@ export default function AdminStatementsPage() {
   function resetForm() {
     setPropertyId(''); setLandlordId(''); setReference(''); setStatementDate('')
     setPeriodStart(''); setPeriodEnd(''); setPaidDate(''); setFeePct('12')
-    setExpenses([blankExpense()]); setRooms([blankRoom(1)]); setMatchNote('')
+    setExpenses([blankExpense()]); setRooms([blankRoom(1)]); setMatchNote(''); setGenerated(null)
   }
 
   const grouped = useMemo(() => {
@@ -287,7 +353,7 @@ export default function AdminStatementsPage() {
   }, [statements])
 
   if (loading) {
-    return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
+    return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href="/admin/accounts" />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
   }
 
   const field = 'mt-xs w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none'
@@ -297,8 +363,8 @@ export default function AdminStatementsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
-      <main className="mx-auto max-w-3xl px-lg py-lg">
-        <h1 className="text-3xl font-bold text-neutral-900">Landlord statements</h1>
+      <main className="mx-auto max-w-6xl px-lg py-xl">
+        <h1 className="text-2xl font-bold text-neutral-900">Landlord statements</h1>
         <p className="mt-sm text-sm text-neutral-600">
           Enter a statement room by room — rent per room, the fee at that property, and any expenses. The totals roll up
           automatically and populate that property's landlord page. Upload a PDF to auto-fill it all.
@@ -306,6 +372,11 @@ export default function AdminStatementsPage() {
 
         {error && <div className="mt-lg rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{error}</div>}
         {notice && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">✅ {notice}</div>}
+
+        <a href="/admin/statements/import" className="mt-lg flex items-center justify-between gap-md rounded-2xl bg-neutral-900 px-lg py-md text-white hover:bg-neutral-800">
+          <span><span className="block font-bold">Upload a month of statements</span><span className="block text-xs text-neutral-300">Several PDFs at once, one per property — each checked before it’s saved</span></span>
+          <span aria-hidden>→</span>
+        </a>
 
         <label className="mt-lg block cursor-pointer rounded-2xl border-2 border-dashed border-neutral-300 bg-white p-lg text-center hover:border-neutral-900">
           <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} disabled={aiBusy || busy} />
@@ -325,6 +396,14 @@ export default function AdminStatementsPage() {
                   <option value="">Select a property…</option>
                   {properties.map((p) => <option key={p.id} value={p.id}>{p.name ? `${p.name} — ${p.address}` : p.address}</option>)}
                 </select>
+                <div className="mt-sm flex flex-wrap items-center gap-sm rounded-xl bg-neutral-50 p-sm">
+                  <span className="text-sm text-neutral-700">Statements from rent CROS has received are made on</span>
+                  <input type="month" value={genMonth} onChange={(e) => setGenMonth(e.target.value)} className="rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900" />
+                  <a href={propertyId ? `/admin/statements/prepare?property=${propertyId}&month=${genMonth}` : `/admin/rent-roll?month=${genMonth}`} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white">
+                    Prepare statement →
+                  </a>
+                  <span className="w-full text-xs text-neutral-500">This form is for entering statements from the previous agent. New statements are made from the rent roll, checked and approved there, then paid in the payment run.</span>
+                </div>
               </div>
               <div className="sm:col-span-2">
                 <span className={label}>Landlord</span>
@@ -427,6 +506,22 @@ export default function AdminStatementsPage() {
           </div>
         </form>
 
+        {/* Annual summary for a landlord's tax return */}
+        <div className="mt-2xl flex flex-wrap items-end gap-sm rounded-2xl border border-neutral-200 bg-white p-lg">
+          <div className="mr-auto">
+            <h2 className="font-bold text-neutral-900">Annual summary</h2>
+            <p className="text-xs text-neutral-500">Income and expenditure for a landlord’s tax return (6 April – 5 April), from their statements.</p>
+          </div>
+          <select value={annualLandlord} onChange={(e) => setAnnualLandlord(e.target.value)} className="rounded-lg border border-neutral-300 px-sm py-xs text-sm">
+            <option value="">Landlord…</option>
+            {landlords.map((l) => <option key={l.id} value={l.id}>{l.name || l.email}</option>)}
+          </select>
+          <select value={annualYear} onChange={(e) => setAnnualYear(Number(e.target.value))} className="rounded-lg border border-neutral-300 px-sm py-xs text-sm">
+            {[0, 1, 2, 3].map((k) => { const y = new Date().getFullYear() - k; return <option key={y} value={y}>{y}/{String(y + 1).slice(2)}</option> })}
+          </select>
+          <button type="button" disabled={!annualLandlord} onClick={() => downloadPdf(`/api/admin/statements/annual?landlordId=${annualLandlord}&year=${annualYear}`, `Annual summary ${annualYear}.pdf`)} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white disabled:bg-neutral-300">Download</button>
+        </div>
+
         {/* Existing */}
         <h2 className="mt-2xl text-xl font-bold text-neutral-900">Statements on file</h2>
         {grouped.length === 0 && <p className="mt-sm text-sm text-neutral-500">No statements yet.</p>}
@@ -434,19 +529,148 @@ export default function AdminStatementsPage() {
           {grouped.map(([pid, rowsFor]) => {
             const prop = rowsFor[0].properties
             return (
-              <div key={pid} className="rounded-2xl border border-neutral-200 bg-white p-md">
-                <div className="flex items-center justify-between gap-md">
+              <div key={pid} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+                <div className="flex items-center justify-between gap-md px-md py-sm bg-neutral-50 border-b border-neutral-100">
                   <p className="font-bold text-neutral-900">{prop?.name || prop?.address || 'Property'}</p>
                   <span className="text-xs font-semibold text-neutral-500">{rowsFor.length} statement{rowsFor.length === 1 ? '' : 's'}</span>
                 </div>
-                <div className="mt-sm divide-y divide-neutral-100">
-                  {rowsFor.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between gap-md py-sm text-sm">
-                      <span className="font-semibold text-neutral-900">{s.statement_reference}</span>
-                      <span className="text-neutral-500">{new Date(s.statement_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
-                      <span className="font-bold text-green-700">£{Number(s.net_to_landlord).toFixed(2)}</span>
-                    </div>
-                  ))}
+                <div className="divide-y divide-neutral-100">
+                  {rowsFor.map((s) => {
+                    const isExpanded = expandedStatementId === s.id
+                    const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+                    const gbp = (n: number | null) => n != null ? `£${Number(n).toFixed(2)}` : '—'
+                    const net = Number(s.net_to_landlord)
+                    return (
+                      <div key={s.id}>
+                        <button
+                          onClick={() => setExpandedStatementId(isExpanded ? null : s.id)}
+                          className="w-full flex items-center justify-between gap-md px-md py-sm text-sm hover:bg-neutral-50 transition-colors text-left"
+                        >
+                          <span className="font-semibold text-neutral-900">{s.statement_reference}</span>
+                          {s.period_start && s.period_end ? (
+                            <span className="text-neutral-500 text-xs">{fmt(s.period_start)} – {fmt(s.period_end)}</span>
+                          ) : (
+                            <span className="text-neutral-500">{new Date(s.statement_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
+                          )}
+                          <span className={`font-bold ${net < 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                            {net < 0 ? `Shortfall ${gbp(Math.abs(net))}` : gbp(net)}
+                          </span>
+                          <span className="text-neutral-400 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="px-md pb-lg bg-neutral-50 border-t border-neutral-100 text-sm">
+                            {/* Period */}
+                            {(s.period_start || s.period_end) && (
+                              <p className="pt-sm text-xs text-neutral-500 font-semibold uppercase tracking-wide">
+                                Period: {fmt(s.period_start)} – {fmt(s.period_end)}
+                              </p>
+                            )}
+
+                            {/* Room breakdown */}
+                            {s.rooms && s.rooms.length > 0 ? (
+                              <div className="mt-sm">
+                                <p className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-xs">Room rents</p>
+                                <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-neutral-100 text-neutral-500 font-semibold">
+                                      <tr>
+                                        <th className="px-sm py-xs text-left">Room</th>
+                                        <th className="px-sm py-xs text-left">Tenant</th>
+                                        <th className="px-sm py-xs text-right">Rent</th>
+                                        <th className="px-sm py-xs text-right">Mgmt fee</th>
+                                        <th className="px-sm py-xs text-right">Net</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-neutral-100">
+                                      {s.rooms.map((r: any, i: number) => (
+                                        <tr key={i} className="hover:bg-neutral-50">
+                                          <td className="px-sm py-xs font-medium">Rm {r.room_number}</td>
+                                          <td className="px-sm py-xs text-neutral-700">{r.tenant_name || '—'}</td>
+                                          {/* saved as rent_income / management_fee / net_to_landlord (older rows: rent / fee / net) */}
+                                          <td className="px-sm py-xs text-right">{(r.rent_income ?? r.rent) != null ? `£${Number(r.rent_income ?? r.rent).toFixed(2)}` : '—'}</td>
+                                          <td className="px-sm py-xs text-right text-red-600">{(r.management_fee ?? r.fee) ? `−£${Number(r.management_fee ?? r.fee).toFixed(2)}` : '—'}</td>
+                                          <td className="px-sm py-xs text-right text-green-700 font-semibold">{(r.net_to_landlord ?? r.net) != null ? `£${Number(r.net_to_landlord ?? r.net).toFixed(2)}` : '—'}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ) : s.gross_rent != null ? (
+                              <div className="mt-sm rounded-lg border border-neutral-200 bg-white px-md py-sm flex justify-between">
+                                <span className="text-neutral-600">Gross rent (all rooms)</span>
+                                <span className="font-semibold">{gbp(s.gross_rent)}</span>
+                              </div>
+                            ) : null}
+
+                            {/* Expenses */}
+                            {s.expenses && s.expenses.length > 0 && (
+                              <div className="mt-sm">
+                                <p className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-xs">Expenses charged</p>
+                                <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
+                                  <table className="w-full text-xs">
+                                    <tbody className="divide-y divide-neutral-100">
+                                      {s.expenses.map((e: any, i: number) => (
+                                        <tr key={i}>
+                                          <td className="px-sm py-xs text-neutral-700">{e.description || 'Expense'}</td>
+                                          <td className="px-sm py-xs text-right text-red-600 font-semibold">−£{Number(e.amount || 0).toFixed(2)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Summary totals */}
+                            <div className="mt-sm rounded-lg border border-neutral-200 bg-white divide-y divide-neutral-100 text-xs">
+                              {s.gross_rent != null && (
+                                <div className="flex justify-between px-md py-xs">
+                                  <span className="text-neutral-500">Gross rent</span>
+                                  <span className="font-semibold">{gbp(s.gross_rent)}</span>
+                                </div>
+                              )}
+                              {s.management_fees != null && (
+                                <div className="flex justify-between px-md py-xs">
+                                  <span className="text-neutral-500">Management fee {s.management_fee_pct ? `(${s.management_fee_pct}%)` : ''}</span>
+                                  <span className="font-semibold text-red-600">−{gbp(s.management_fees)}</span>
+                                </div>
+                              )}
+                              {s.property_charges != null && (
+                                <div className="flex justify-between px-md py-xs">
+                                  <span className="text-neutral-500">Property charges / expenses</span>
+                                  <span className="font-semibold text-red-600">−{gbp(s.property_charges)}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between px-md py-sm bg-neutral-50">
+                                <span className="font-bold text-neutral-900">Landlord received</span>
+                                <span className={`font-bold text-base ${net < 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                                  {net < 0 ? `Shortfall ${gbp(Math.abs(net))}` : gbp(net)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="mt-md">
+                              <StatementSend statementId={s.id} label={`${s.statement_reference} ${prop?.name || ''}`.trim()} sentAt={s.sent_at} onSent={loadStatements} />
+                            </div>
+
+                            {s.paid_date && (
+                              <p className="mt-sm text-xs text-neutral-500">
+                                Paid {fmt(s.paid_date)}{s.amount_paid != null ? ` · ${gbp(s.amount_paid)}` : ''}
+                              </p>
+                            )}
+
+                            {!s.rooms && !s.gross_rent && (
+                              <p className="mt-sm text-xs text-neutral-400 italic">
+                                Detailed breakdown not available for this statement — upload a new statement using the form above to capture room-by-room detail.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )

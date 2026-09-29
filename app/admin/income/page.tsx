@@ -400,12 +400,12 @@ export default function IncomeDashboard() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-5xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Header */}
         <div className="mb-xl flex flex-wrap items-end justify-between gap-md">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Agency Fee Income</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Agency Fee Income</h1>
             <p className="mt-xs text-sm text-neutral-500">
               {hasImports
                 ? `Actual income from ${importedMonths} imported 10ninety statements · Live estimate shown separately`

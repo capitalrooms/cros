@@ -189,7 +189,7 @@ export default function LetOnlyPropertiesPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-5xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* ── Page header ───────────────────────────────────────────────── */}
         <div className="flex items-start justify-between mb-xl">
@@ -230,7 +230,7 @@ export default function LetOnlyPropertiesPage() {
           <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-3xl text-center">
             <p className="text-4xl mb-md">🔑</p>
             <p className="text-base font-semibold text-neutral-700">No let-only properties yet</p>
-            <p className="text-sm text-neutral-400 mt-xs max-w-sm mx-auto">
+            <p className="text-sm text-neutral-400 mt-xs max-w-6xl mx-auto">
               Mark an existing property as let-only and store the landlord&apos;s bank details here for statement generation.
             </p>
             <button

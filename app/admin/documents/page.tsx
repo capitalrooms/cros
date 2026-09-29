@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { openStoredFile } from '@/lib/files/openFile'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
@@ -53,6 +54,7 @@ export default function DocumentsPage() {
   const [inboxDocs, setInboxDocs] = useState<any[]>([])
   const [inboxOpenId, setInboxOpenId] = useState<string | null>(null)
   const [inboxFlash, setInboxFlash] = useState('')
+  const [rescanning, setRescanning] = useState<string | null>(null)
 
   // Pending tab state
   const [pendingDocs, setPendingDocs] = useState<DocumentPending[]>([])
@@ -202,10 +204,27 @@ export default function DocumentsPage() {
   }
 
   async function dismissInboxDoc(id: string) {
-    if (!confirm('Dismiss this document from the inbox?')) return
     await supabase.from('inbox_documents').update({ status: 'dismissed' }).eq('id', id)
     setInboxOpenId(null)
     await loadInboxDocs()
+  }
+
+  async function rescanInboxDoc(id: string) {
+    setRescanning(id)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = {}
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      const res = await fetch(`/api/inbox/rescan/${id}`, { method: 'POST', headers })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Rescan failed')
+      setInboxFlash('🔄 Rescan complete — document updated')
+      await loadInboxDocs()
+    } catch (e: any) {
+      setInboxFlash('❌ Rescan failed: ' + e.message)
+    } finally {
+      setRescanning(null)
+    }
   }
 
   // ==========================================================================
@@ -241,12 +260,12 @@ export default function DocumentsPage() {
         .update({ status: 'filed', filed_at: new Date().toISOString() })
         .eq('id', doc.id)
 
-      alert('✅ Document filed!')
+      setInboxFlash('✅ Document filed!')
       setPendingSelected(null)
       setPendingPropertyId(null)
       await loadPendingDocs()
     } catch (err: any) {
-      alert('Error: ' + err.message)
+      setInboxFlash('❌ ' + err.message)
     } finally {
       setPendingFiling(false)
     }
@@ -258,7 +277,7 @@ export default function DocumentsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton />} />
+        <AppBar left={<BackButton href="/admin/compliance" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -268,11 +287,11 @@ export default function DocumentsPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
           <div className="flex items-center justify-between mb-lg">
             <div>
-              <h1 className="text-3xl font-bold text-neutral-900">📁 Documents</h1>
+              <h1 className="text-2xl font-bold text-neutral-900">📁 Documents</h1>
               <p className="mt-sm text-sm text-neutral-600">
                 Upload, manage, and file documents — certificates, contracts, tenancy agreements, and more
               </p>
@@ -458,17 +477,24 @@ export default function DocumentsPage() {
 
                       {isOpen && (
                         <div className="border-t border-neutral-200 p-md">
-                          <div className="mb-md flex items-center gap-md text-sm">
-                            <a href={fileUrl(d.storage_path)} target="_blank" rel="noreferrer" className="font-semibold text-neutral-900 underline">
+                          <div className="mb-md flex items-center gap-md text-sm flex-wrap">
+                            <a href="#" onClick={e => { e.preventDefault(); openStoredFile({ bucket: 'inbox-docs', path: d.storage_path }) }} className="font-semibold text-neutral-900 underline">
                               View original ({d.filename})
                             </a>
-                            <button onClick={() => dismissInboxDoc(d.id)} className="text-xs text-neutral-400 hover:text-red-600">
+                            <button
+                              onClick={() => rescanInboxDoc(d.id)}
+                              disabled={rescanning === d.id}
+                              className="text-xs font-semibold text-blue-700 border border-blue-200 rounded-lg px-sm py-xs hover:bg-blue-50 disabled:opacity-50"
+                            >
+                              {rescanning === d.id ? '⏳ Rescanning…' : '🔄 Rescan'}
+                            </button>
+                            <button onClick={() => dismissInboxDoc(d.id)} className="text-xs text-neutral-400 hover:text-red-600 ml-auto">
                               Dismiss
                             </button>
                           </div>
                           {d.ai_error && !ai && (
-                            <p className="mb-md rounded-lg bg-amber-50 p-sm text-xs text-amber-800">
-                              The AI couldn't read this ({d.ai_error}). Pick the type and fill the details in yourself below.
+                            <p className="mb-md rounded-lg bg-amber-50 border border-amber-200 p-sm text-xs text-amber-800">
+                              ⚠️ AI couldn't read this ({d.ai_error}). Try Rescan above, or pick the type manually below.
                             </p>
                           )}
                           <DocReview

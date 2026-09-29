@@ -90,7 +90,7 @@ export default function JobCompletion({ jobId, onComplete, onCancel }: JobComple
       const { data: person } = await supabase
         .from('people')
         .select('id')
-        .eq('auth_id', user.id)
+        .ilike('email', user.email ?? '')
         .single();
       if (!person) throw new Error('User not found');
 
@@ -100,16 +100,14 @@ export default function JobCompletion({ jobId, onComplete, onCancel }: JobComple
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
-          completed_by: person.id,
-          completion_notes: completionNotes,
-          photo_before_url: photoBeforeUrl,
-          photo_after_url: photoAfterUrl,
-          cost: cost ? parseFloat(cost) : null,
-          cost_notes: costNotes || null,
-          return_visit_needed: returnVisitNeeded,
-          return_visit_reason: returnVisitNeeded ? returnVisitReason : null,
-          return_visit_notes: returnVisitNeeded ? returnVisitNotes : null,
-          return_visit_date_estimate: returnVisitNeeded ? returnVisitDate : null,
+          aftercare_notes: [completionNotes, returnVisitNeeded && returnVisitNotes ? `Return visit: ${returnVisitNotes}` : ''].filter(Boolean).join('\n\n') || null,
+          before_photo: photoBeforeUrl,
+          after_photo: photoAfterUrl,
+          final_price: cost ? parseFloat(cost) : null,
+          admin_note: costNotes || null,
+          return_needed: returnVisitNeeded,
+          return_reason: returnVisitNeeded ? returnVisitReason : null,
+          return_date: returnVisitNeeded ? returnVisitDate : null,
         })
         .eq('id', jobId);
 

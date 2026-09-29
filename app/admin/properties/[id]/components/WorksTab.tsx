@@ -104,17 +104,17 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
         </p>
       </div>
 
-      {error && <div className="p-md rounded-lg bg-red-950 border border-red-800 text-sm text-red-300">{error}</div>}
+      {error && <div className="p-md rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">{error}</div>}
 
       {jobs.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-neutral-700 bg-neutral-900 p-xl text-center">
+        <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-xl text-center">
           <p className="text-sm text-neutral-500">No completed jobs recorded yet.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-neutral-800">
+        <div className="overflow-x-auto rounded-lg border border-neutral-200">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-neutral-900 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <tr className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500 border-b border-neutral-200">
                 <th className="px-md py-sm">Job</th>
                 <th className="px-md py-sm">Where</th>
                 <th className="px-md py-sm">Completed</th>
@@ -129,21 +129,21 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
                 return (
                   <tr
                     key={j.id}
-                    className="cursor-pointer border-t border-neutral-800 hover:bg-neutral-900"
+                    className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50"
                     onClick={() => setSelected(j)}
                   >
                     <td className="px-md py-sm">
-                      <p className="font-medium text-white">{j.title || 'Untitled job'}</p>
+                      <p className="font-medium text-neutral-900">{j.title || 'Untitled job'}</p>
                       {j.description && <p className="text-xs text-neutral-500 line-clamp-1 max-w-md">{j.description}</p>}
                     </td>
-                    <td className="px-md py-sm text-neutral-300 text-xs">{j.room?.name || <span className="text-neutral-500">Whole property</span>}</td>
-                    <td className="px-md py-sm text-neutral-400 text-xs">
+                    <td className="px-md py-sm text-neutral-600 text-xs">{j.room?.name || <span className="text-neutral-500">Whole property</span>}</td>
+                    <td className="px-md py-sm text-neutral-500 text-xs">
                       {j.completed_at ? new Date(j.completed_at).toLocaleDateString('en-GB') : '—'}
                     </td>
-                    <td className="px-md py-sm text-neutral-400 text-xs">{j.contractor.name || '—'}</td>
+                    <td className="px-md py-sm text-neutral-500 text-xs">{j.contractor.name || '—'}</td>
                     <td className="px-md py-sm text-right">
                       {j.final_price != null
-                        ? <span className="text-neutral-200">£{Number(j.final_price).toLocaleString()}</span>
+                        ? <span className="text-neutral-900 font-semibold">£{Number(j.final_price).toLocaleString()}</span>
                         : <span className="text-xs italic text-neutral-500">cost not recorded</span>}
                     </td>
                     <td className="px-md py-sm text-right text-xs text-neutral-500">
@@ -160,30 +160,30 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
       {/* Detail modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => setSelected(null)}>
-          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-700 p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white border border-neutral-200 p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-md mb-md">
               <div>
-                <h3 className="text-lg font-bold text-white">{selected.title || 'Untitled job'}</h3>
+                <h3 className="text-lg font-bold text-neutral-900">{selected.title || 'Untitled job'}</h3>
                 <p className="text-xs text-neutral-500 mt-xs">
                   {[selected.category, selected.room?.name || 'Whole property'].filter(Boolean).join(' · ')}
                 </p>
               </div>
-              <button onClick={() => setSelected(null)} className="text-neutral-500 hover:text-white text-2xl leading-none shrink-0">×</button>
+              <button onClick={() => setSelected(null)} className="text-neutral-400 hover:text-neutral-700 text-2xl leading-none shrink-0">×</button>
             </div>
 
             {/* Summary chips */}
             <div className="flex flex-wrap gap-sm mb-lg text-xs">
-              <span className="rounded bg-neutral-800 px-sm py-0.5 text-neutral-300">
+              <span className="rounded bg-neutral-100 px-sm py-0.5 text-neutral-600">
                 Completed {selected.completed_at ? new Date(selected.completed_at).toLocaleDateString('en-GB') : '—'}
               </span>
-              <span className="rounded bg-neutral-800 px-sm py-0.5 text-neutral-300">
+              <span className="rounded bg-neutral-100 px-sm py-0.5 text-neutral-600">
                 {selected.contractor.name || 'Contractor not recorded'}
               </span>
-              <span className={`rounded px-sm py-0.5 ${selected.final_price != null ? 'bg-green-900 text-green-200' : 'bg-neutral-800 text-neutral-400 italic'}`}>
+              <span className={`rounded px-sm py-0.5 ${selected.final_price != null ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-500 italic'}`}>
                 {selected.final_price != null ? `£${Number(selected.final_price).toLocaleString()}` : 'cost not recorded'}
               </span>
-              {selected.fix_quality && <span className="rounded bg-neutral-800 px-sm py-0.5 text-neutral-300">Quality: {selected.fix_quality}</span>}
-              {selected.return_needed && <span className="rounded bg-amber-900 px-sm py-0.5 text-amber-200">Return needed</span>}
+              {selected.fix_quality && <span className="rounded bg-neutral-100 px-sm py-0.5 text-neutral-600">Quality: {selected.fix_quality}</span>}
+              {selected.return_needed && <span className="rounded bg-amber-100 px-sm py-0.5 text-amber-700">Return needed</span>}
             </div>
 
             {/* Detail fields */}
@@ -203,7 +203,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
                   {photoUrls(selected).map((pic, i) => (
                     <a key={i} href={pic.url} target="_blank" rel="noopener noreferrer" className="block">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={pic.url} alt={pic.label} className="w-full h-28 object-cover rounded-lg border border-neutral-700" />
+                      <img src={pic.url} alt={pic.label} className="w-full h-28 object-cover rounded-lg border border-neutral-200" />
                       <p className="text-xs text-neutral-500 mt-xs">{pic.label}</p>
                     </a>
                   ))}
@@ -221,7 +221,7 @@ function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs font-bold uppercase tracking-wide text-neutral-500 mb-xs">{label}</p>
-      <p className="text-neutral-200 whitespace-pre-wrap">{value}</p>
+      <p className="text-neutral-700 whitespace-pre-wrap">{value}</p>
     </div>
   )
 }

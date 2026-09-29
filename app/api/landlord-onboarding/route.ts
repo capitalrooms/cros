@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminAuth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
@@ -13,7 +14,8 @@ const svc = () =>
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://cros-sigma.vercel.app'
 
 // ── GET /api/landlord-onboarding  → list all records ──────────────────────────
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { data, error } = await svc()
     .from('landlord_onboarding')
     .select('*')
@@ -25,6 +27,7 @@ export async function GET() {
 
 // ── POST /api/landlord-onboarding  → create + send welcome pack ────────────────
 export async function POST(req: NextRequest) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const { full_name: full_name_or_name, email, phone, created_by } = body
 
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
       email.trim(),
       welcomeSubject,
       welcomePackBodyHtml(full_name_or_name.trim(), formUrl),
-      { replyTo: 'harry@capitalrooms.co.uk' }
+      { req }
     )
     if (!ok) throw new Error(sendErr ?? 'Email failed')
     emailSent = true
@@ -160,7 +163,5 @@ function welcomePackBodyHtml(name: string, formUrl: string): string {
   If you have any questions at any point, simply reply to this email and I will come back to you directly.
 </p>
 
-<p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>
-<p style="margin:0;font-size:15px;color:#333;font-weight:600">Harry</p>
-<p style="margin:2px 0 0;font-size:13px;color:#888">Capital Rooms &nbsp;·&nbsp; <a href="mailto:harry@capitalrooms.co.uk" style="color:#555;">harry@capitalrooms.co.uk</a></p>`
+<p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>`
 }

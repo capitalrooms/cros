@@ -228,6 +228,7 @@ export default function PropertyNotesPage() {
       }
 
       // Tenants' notice board OR internal admin notes
+      const internal = audience === 'internal'
       const { error } = await supabase.from('property_notes').insert({
         property_id: selectedProperty,
         room_id: roomId || null,
@@ -235,9 +236,18 @@ export default function PropertyNotesPage() {
         title,
         content,
         note_type: 'admin',
-        is_internal: audience === 'internal',
+        is_internal: internal,
       })
-      if (error) throw error
+      // Before migration 183 there is no is_internal column: notice-board notes can still be saved,
+      // but an internal note must not be saved without the flag (tenants would see it)
+      if (error?.code === '42703' && !internal) {
+        const { error: retryErr } = await supabase.from('property_notes').insert({
+          property_id: selectedProperty, room_id: roomId || null, created_by: me?.id, title, content, note_type: 'admin',
+        })
+        if (retryErr) throw retryErr
+      } else if (error?.code === '42703') {
+        throw new Error('Internal notes need a quick database update before they can be saved — the notice board works now.')
+      } else if (error) throw error
 
       setTitle('')
       setContent('')
@@ -278,9 +288,9 @@ export default function PropertyNotesPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900">Property Notes</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Property Notes</h1>
           <p className="mt-sm text-sm text-neutral-600">
             Post updates to tenants, leave notes for the cleaner, or save internal admin observations.
           </p>

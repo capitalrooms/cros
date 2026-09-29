@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
+import { contentDisposition } from '@/lib/contentDisposition'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -314,7 +315,7 @@ export async function POST(req: NextRequest) {
     return new NextResponse(html, {
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Content-Disposition': `inline; filename="compliance-log-${property_code || 'unknown'}.html"`
+        'Content-Disposition': contentDisposition(`compliance-log-${property.property_code || 'unknown'}.html`, 'inline')
       }
     })
   } catch (err) {

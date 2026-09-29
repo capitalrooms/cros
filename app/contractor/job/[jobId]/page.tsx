@@ -72,6 +72,9 @@ export default function JobDetailPage() {
   const jobId        = params.jobId as string
 
   const [job, setJob] = useState<Job | null>(null)
+  // Opened from a quote request (?quote=<id>): the job isn't theirs yet — price only, no booking/completion.
+  const quoteId = searchParams.get('quote')
+  const [quoteOnly, setQuoteOnly] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
@@ -158,6 +161,20 @@ export default function JobDetailPage() {
         if ((jobData as any).quote_notes) setQuoteNotes((jobData as any).quote_notes)
         if ((jobData as any).quote_site_visit) setQuoteSiteVisit(true)
         if ((jobData as any).quote_visit_date) setQuoteVisitDate((jobData as any).quote_visit_date)
+
+        if (quoteId) {
+          const qr = await fetch('/api/contractor/quotes').then(r => r.ok ? r.json() : { quotes: [] }).catch(() => ({ quotes: [] }))
+          const mine = ((qr.quotes ?? []) as any[]).find(q => q.id === quoteId)
+          if (mine && (mine.status === 'requested' || mine.status === 'submitted')) {
+            setQuoteOnly(true)
+            setJob(j => j ? { ...j, quote_requested: true, quote_amount: mine.amount, quote_notes: mine.notes,
+              quote_site_visit: mine.site_visit, quote_visit_date: mine.visit_date, quote_submitted_at: mine.submitted_at } : j)
+            setQuoteAmount(mine.amount != null ? String(mine.amount) : '')
+            setQuoteNotes(mine.notes || '')
+            setQuoteSiteVisit(!!mine.site_visit)
+            setQuoteVisitDate(mine.visit_date || '')
+          }
+        }
 
         // Show cached estimate immediately, then fetch/generate if missing
         if ((jobData as any).duration_estimate_label) {
@@ -457,14 +474,23 @@ export default function JobDetailPage() {
     }
     setSubmittingQuote(true)
     try {
+      if (quoteOnly && quoteId) {
+        const res = await fetch('/api/contractor/quotes', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quoteId, amount: quoteAmount ? parseFloat(quoteAmount) : null, notes: quoteNotes, site_visit: quoteSiteVisit, visit_date: quoteSiteVisit ? quoteVisitDate : null }),
+        })
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Error submitting quote')
+      } else {
       const supabase = createClient()
-      await supabase.from('maintenance_tickets').update({
+      const { error: qErr } = await supabase.from('maintenance_tickets').update({
         quote_amount:       quoteAmount ? parseFloat(quoteAmount) : null,
         quote_notes:        quoteNotes.trim() || null,
         quote_site_visit:   quoteSiteVisit,
         quote_visit_date:   quoteSiteVisit ? quoteVisitDate : null,
         quote_submitted_at: new Date().toISOString(),
       }).eq('id', jobId)
+      if (qErr) throw qErr
+      }
       setJob(j => j ? { ...j,
         quote_amount: quoteAmount ? parseFloat(quoteAmount) : null,
         quote_notes: quoteNotes.trim() || null,
@@ -475,8 +501,8 @@ export default function JobDetailPage() {
       alert(quoteSiteVisit
         ? '✅ Site visit request sent — the office will confirm the date.'
         : '✅ Quote submitted — the office will review it.')
-    } catch {
-      alert('Error submitting quote. Please try again.')
+    } catch (e) {
+      alert(e instanceof Error && e.message ? e.message : 'Error submitting quote. Please try again.')
     } finally {
       setSubmittingQuote(false)
     }
@@ -769,7 +795,7 @@ export default function JobDetailPage() {
             )}
 
             {/* ---- Guided lifecycle ---- */}
-            {isDone ? (
+            {quoteOnly ? null : isDone ? (
               <>
                 <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
                   <h3 className="font-bold text-green-800">✅ Completed</h3>
@@ -1178,7 +1204,7 @@ export default function JobDetailPage() {
             )}
 
             {/* Notes */}
-            <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
+            {!quoteOnly && <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
               <h3 className="font-bold text-neutral-900 mb-md">Your notes</h3>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={5}
                 placeholder="Work done, parts used, anything to flag…"
@@ -1187,7 +1213,7 @@ export default function JobDetailPage() {
                 className="mt-md w-full rounded-lg border border-neutral-400 py-md text-sm font-bold text-neutral-900 disabled:opacity-40">
                 {savingNotes ? 'Saving…' : 'Save notes'}
               </button>
-            </div>
+            </div>}
           </div>
 
           {/* Sidebar */}

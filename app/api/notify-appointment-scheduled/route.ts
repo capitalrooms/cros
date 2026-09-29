@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { createServerClient } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
-import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 export async function POST(request: NextRequest) {
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
-  }
-
   // Step 1: Verify authentication
-  const user = await getCurrentUser()
+  const supabaseServer = await createServerClient()
+  const user = await getCurrentUser(supabaseServer)
   if (!user) {
     await logAudit({
       userId: 'unknown',
@@ -28,6 +27,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Step 2: Verify authorization (admin only)
+  // Master switch: tenant/applicant messaging is paused until go-live.
+  if (!await getCommsLive()) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
+  }
+
   if (!['administrator', 'admin'].includes(user.assignment?.role)) {
     await logAudit({
       userId: user.id,
@@ -44,6 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { appointmentId } = await request.json()
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Step 3: Validate input
   if (!appointmentId || !validateUUID(appointmentId)) {
@@ -58,7 +63,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   // Fetch appointment with property and room info
@@ -66,8 +71,7 @@ export async function POST(request: NextRequest) {
     .from('property_appointments')
     .select(`
       *,
-      properties:property_id(id, name, address),
-      rooms:room_id(id, name)
+      properties:property_id(id, name, address)
     `)
     .eq('id', appointmentId)
     .single()
@@ -79,7 +83,10 @@ export async function POST(request: NextRequest) {
   const propertyName = (appointment.properties as any)?.name || 'Capital Rooms'
   const propertyAddress = (appointment.properties as any)?.address || ''
   const propertyId = (appointment.properties as any)?.id
-  const roomName = (appointment.rooms as any)?.name || null
+  // property_appointments.room_id has no foreign key — look the room up directly
+  const roomName = appointment.room_id
+    ? ((await supabase.from('rooms').select('name').eq('id', appointment.room_id).maybeSingle()).data as any)?.name || null
+    : null
   const roomId = appointment.room_id
 
   async function send(to: string, subject: string, html: string) {
@@ -90,7 +97,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields(request)),
         to: [to],
         subject,
         html,
@@ -113,7 +120,7 @@ export async function POST(request: NextRequest) {
 
   async function buildViewingEmail(tenantName: string, roomOrAtProperty: string): Promise<string> {
     const vars = { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: roomOrAtProperty }
-    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, vars))
+    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, vars), { req: request })
     return await emailHtml(`
       <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
       <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
@@ -129,7 +136,7 @@ export async function POST(request: NextRequest) {
         </table>
       </div>
       <p style="margin:0;color:#78716c;font-size:14px">Please keep shared areas tidy during this time. Thank you!</p>
-    `)
+    `, { req: request })
   }
 
   // Only send tenant notifications for viewing appointments
@@ -139,12 +146,12 @@ export async function POST(request: NextRequest) {
       // Send to tenant IN this room: "A viewing has been booked on your room"
       const { data: tenancies } = await supabase
         .from('tenancies')
-        .select('person_id, people!person_id(full_name, first_name, last_name, email), opt_in_viewings')
+        .select('person_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
         .eq('room_id', roomId)
         .is('end_date', null)
         .single()
 
-      if (tenancies && (tenancies as any).people?.email && tenancies?.opt_in_viewings) {
+      if (tenancies && (tenancies as any).people?.email && ((tenancies as any).people?.notify_by_email !== false)) {
         const tenantName = (tenancies as any).people.first_name || (tenancies as any).people.name || 'Tenant'
         const roomSubject = tenantTpl
           ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: roomName, property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'on your room' })
@@ -160,14 +167,14 @@ export async function POST(request: NextRequest) {
       // Send to all OTHER tenants in the property: "A viewing is booked at the house"
       const { data: allTenancies } = await supabase
         .from('tenancies')
-        .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email), opt_in_viewings')
+        .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
         .eq('property_id', propertyId)
         .neq('room_id', roomId)
         .is('end_date', null)
 
       if (allTenancies && allTenancies.length > 0) {
         for (const tenancy of allTenancies) {
-          if ((tenancy as any).people?.email && tenancy.opt_in_viewings) {
+          if ((tenancy as any).people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
             const tenantName = (tenancy as any).people.first_name || (tenancy as any).people.name || 'Tenant'
             const otherSubject = tenantTpl
               ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'at your property' })
@@ -185,13 +192,13 @@ export async function POST(request: NextRequest) {
       // No specific room selected — notify all tenants in the property
       const { data: allTenancies } = await supabase
         .from('tenancies')
-        .select('person_id, people!person_id(full_name, first_name, last_name, email), opt_in_viewings')
+        .select('person_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
         .eq('property_id', propertyId)
         .is('end_date', null)
 
       if (allTenancies && allTenancies.length > 0) {
         for (const tenancy of allTenancies) {
-          if ((tenancy as any).people?.email && tenancy.opt_in_viewings) {
+          if ((tenancy as any).people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
             const tenantName = (tenancy as any).people.first_name || (tenancy as any).people.name || 'Tenant'
             const allSubject = tenantTpl
               ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'at your property' })

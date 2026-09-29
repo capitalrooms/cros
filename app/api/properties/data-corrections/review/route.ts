@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
@@ -19,6 +20,7 @@ interface ReviewRequest {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { correction_id, action, admin_notes } = (await req.json()) as ReviewRequest
 

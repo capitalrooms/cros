@@ -141,7 +141,7 @@ export default function LetOnlyDetailPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href={backHref} />} />
 
-      <main className="mx-auto max-w-3xl px-lg py-2xl space-y-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl space-y-2xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-lg">
           <div>

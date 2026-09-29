@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { nameFields, SALUTATIONS } from '@/lib/people'
+import { withOptionalColumns } from '@/lib/optionalColumns'
 
 interface Person {
   id: string
@@ -12,7 +13,8 @@ interface Person {
   last_name?: string
   full_name?: string
   name?: string  // kept for compat; live DB uses full_name
-  phone_number?: string
+  phone?: string
+  phone_number?: string  // legacy alias
   bank_details?: string
 }
 
@@ -34,7 +36,7 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
     first_name: initFirst,
     last_name: initLast,
     email: person.email || '',
-    phone_number: person.phone_number || '',
+    phone_number: person.phone || person.phone_number || '',
     bank_details: person.bank_details || '',
   })
   const [saving, setSaving] = useState(false)
@@ -55,16 +57,17 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
     try {
       const supabase = createClient()
       const names = nameFields(formData.first_name, formData.last_name)
-      const { error: err } = await supabase
+      // bank_details arrives with migration 183 — save everything else even before it exists
+      const { error: err } = await withOptionalColumns(withNew => supabase
         .from('people')
         .update({
           ...names,
           salutation: formData.salutation || null,
           email: formData.email,
-          phone_number: formData.phone_number || null,
-          bank_details: formData.bank_details || null,
+          phone: formData.phone_number || null,
+          ...(withNew ? { bank_details: formData.bank_details || null } : {}),
         })
-        .eq('id', person.id)
+        .eq('id', person.id))
 
       if (err) throw err
 
@@ -73,7 +76,7 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
         ...names,
         salutation: formData.salutation || undefined,
         email: formData.email,
-        phone_number: formData.phone_number || undefined,
+        phone: formData.phone_number || undefined,
         bank_details: formData.bank_details || undefined,
       })
       onClose()

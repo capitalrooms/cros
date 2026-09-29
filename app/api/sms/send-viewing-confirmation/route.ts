@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase'
+import { getSmsSignOff } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
+import { getCommsLive } from '@/lib/comms'
 import twilio from 'twilio'
 
 export const runtime = 'nodejs'
 
-interface SMSRequest {
-  phone: string
-  visitorName: string
-  roomAddress: string
-  viewingDate: string
-  viewingTime: string
-  senderName: string
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const body: SMSRequest = await req.json()
-    const { phone, visitorName, roomAddress, viewingDate, viewingTime, senderName } = body
+    const supabase = await createServerClient()
+    const user = await getCurrentUser(supabase)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const live = await getCommsLive()
+    if (!live) return NextResponse.json({ error: 'Tenant comms are paused' }, { status: 503 })
+
+    const body = await req.json()
+    const { phone, visitorName, roomAddress, viewingDate, viewingTime } = body
 
     if (!phone || !visitorName) {
       return NextResponse.json({ error: 'Phone and visitor name required' }, { status: 400 })
@@ -27,18 +29,17 @@ export async function POST(req: NextRequest) {
 
     if (!sid || !token || !from) {
       console.warn('Twilio env vars not set — SMS not sent')
-      return NextResponse.json(
-        { error: 'SMS provider not configured' },
-        { status: 503 },
-      )
+      return NextResponse.json({ error: 'SMS provider not configured' }, { status: 503 })
     }
 
-    const message = `Hi ${visitorName}, your viewing at ${roomAddress} is confirmed for ${viewingDate} at ${viewingTime}. Contact ${senderName} at Capital Rooms if you have any questions. -Capital Rooms`
+    const signOff = await getSmsSignOff(user.user.email || '')
+
+    const message = `Hi ${visitorName}, your viewing at ${roomAddress} is confirmed for ${viewingDate} at ${viewingTime}. Reply to this message or call/text us directly. -${signOff}`
 
     const client = twilio(sid, token)
     await client.messages.create({ body: message, from, to: phone })
 
-    return NextResponse.json({ success: true, message: 'SMS sent' })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('SMS send error:', error)
     return NextResponse.json(

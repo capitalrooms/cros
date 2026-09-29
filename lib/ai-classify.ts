@@ -1,8 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 
-// One capable model handles classify + extract in a single call.
-// Swap to claude-sonnet-5 / claude-haiku-4-5 via AI_MODEL for a cheaper run.
-export const AI_MODEL = process.env.AI_MODEL || 'claude-opus-5'
+// Haiku is fast and cheap for document parsing — Opus/Sonnet only if overridden.
+export const AI_MODEL = process.env.AI_MODEL || 'claude-haiku-4-5-20251001'
+// Separate model for tasks that genuinely need reasoning (floor plans, references)
+export const AI_MODEL_SMART = process.env.AI_MODEL_SMART || 'claude-sonnet-5'
 
 export const DOC_TYPES = [
   // ── Compliance certificates (→ properties table fields)
@@ -196,7 +197,7 @@ export async function scanFloorplan(bytes: Buffer, mime: string) {
       }
   const client = new Anthropic()
   const res = await client.messages.create({
-    model: AI_MODEL,
+    model: AI_MODEL_SMART, // floor plans need spatial reasoning
     max_tokens: 2048,
     output_config: { format: { type: 'json_schema', schema: FLOORPLAN_SCHEMA } } as any,
     messages: [{ role: 'user', content: [media, { type: 'text', text: FLOORPLAN_PROMPT }] }],
@@ -209,6 +210,54 @@ export async function scanFloorplan(bytes: Buffer, mime: string) {
     ensuite_room_labels: string[]
     layout_notes: string
     notes: string
+  }
+}
+
+// ── Lightweight cert date extraction (compliance drawer) ─────────────────────
+const CERT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    issue_date:       { type: 'string' },
+    expiry_date:      { type: 'string' },
+    certified_date:   { type: 'string' },
+    property_address: { type: 'string' },
+    epc_rating:       { type: 'string' },
+    license_number:   { type: 'string' },
+  },
+  required: ['issue_date', 'expiry_date', 'certified_date', 'property_address', 'epc_rating', 'license_number'],
+} as const
+
+const CERT_PROMPT = `Extract key dates and identifiers from this property compliance certificate or document. Use ISO dates (yyyy-mm-dd). Leave fields as "" if not present — do not guess. epc_rating is the letter rating (A-G). license_number is an HMO or licence reference number.`
+
+/** Fast, cheap date extraction for known cert type uploads. First page only. */
+export async function scanCertDates(bytes: Buffer, mime: string) {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set')
+
+  // For large PDFs send only the first ~500KB to keep cost down — dates are always on page 1
+  const MAX_PDF_BYTES = 500 * 1024
+  const data = (mime === 'application/pdf' && bytes.length > MAX_PDF_BYTES)
+    ? bytes.subarray(0, MAX_PDF_BYTES)
+    : bytes
+
+  const b64 = data.toString('base64')
+  const isPdf = mime === 'application/pdf'
+  const media: any = isPdf
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } }
+    : { type: 'image', source: { type: 'base64', media_type: (['image/png','image/jpeg','image/gif','image/webp'].includes(mime) ? mime : 'image/jpeg') as any, data: b64 } }
+
+  const client = new Anthropic()
+  const res = await client.messages.create({
+    model: AI_MODEL, // haiku — fast and cheap
+    max_tokens: 256,
+    output_config: { format: { type: 'json_schema', schema: CERT_SCHEMA } } as any,
+    messages: [{ role: 'user', content: [media, { type: 'text', text: CERT_PROMPT }] }],
+  })
+  const textBlock = res.content.find((b: any) => b.type === 'text') as any
+  if (!textBlock?.text) throw new Error('AI returned no result')
+  return JSON.parse(textBlock.text) as {
+    issue_date: string; expiry_date: string; certified_date: string
+    property_address: string; epc_rating: string; license_number: string
   }
 }
 
@@ -235,7 +284,7 @@ export async function classifyDocument(bytes: Buffer, mime: string) {
   const client = new Anthropic()
   const res = await client.messages.create({
     model: AI_MODEL,
-    max_tokens: 2048,
+    max_tokens: 512,
     output_config: { format: { type: 'json_schema', schema: SCHEMA } } as any,
     messages: [{ role: 'user', content: [media, { type: 'text', text: PROMPT }] }],
   })

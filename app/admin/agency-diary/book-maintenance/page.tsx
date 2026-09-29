@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import { withContractors } from '@/lib/contractors'
 
 interface MaintenanceJob {
   id: string
@@ -60,12 +61,12 @@ export default function BookMaintenancePage() {
       try {
         const { data: jobsData } = await supabase
           .from('maintenance_tickets')
-          .select('*, properties(name, address), rooms(name), contractor:contractor_id(full_name)')
+          .select('*, properties(name, address), rooms(name)')
           .eq('status', 'assigned')
           .is('booked_date', null)
-          .order('priority DESC, created_at ASC')
+          .order('priority', { ascending: false }).order('created_at', { ascending: true })
 
-        setJobs((jobsData as any) || [])
+        setJobs((await withContractors(supabase as any, jobsData as any)) as any)
         setLoading(false)
       } catch (err) {
         console.error('Error loading jobs:', err)
@@ -143,7 +144,7 @@ export default function BookMaintenancePage() {
   const selectedJobs = jobs.filter((j) => selectedJobIds.has(j.id))
   const groupedByContractor = selectedJobs.reduce(
     (acc, job) => {
-      const key = job.contractor.name || 'Unassigned'
+      const key = (job.contractor?.full_name || [job.contractor?.first_name, job.contractor?.last_name].filter(Boolean).join(' ') || 'Unassigned')
       if (!acc[key]) acc[key] = []
       acc[key].push(job)
       return acc
@@ -153,9 +154,9 @@ export default function BookMaintenancePage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton />} />
+      <AppBar left={<BackButton href="/admin/appointments" />} />
 
-      <main className="mx-auto max-w-5xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Back Link */}
         <Link
           href="/admin/agency-diary"
@@ -166,7 +167,7 @@ export default function BookMaintenancePage() {
 
         {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900 mb-md">
+          <h1 className="text-2xl font-bold text-neutral-900">
             🔧 Book Maintenance Job
           </h1>
           <p className="text-base text-neutral-600">

@@ -1,4 +1,6 @@
+import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { requireStaff } from '@/lib/portalAuth'
 import { emailHtml, FROM, tableRow } from '@/lib/emailTemplate'
 
 const supabase = createClient(
@@ -7,6 +9,7 @@ const supabase = createClient(
 )
 
 export async function POST(request: Request) {
+  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { applicantId, landlordEmail } = await request.json()
 
@@ -93,7 +96,7 @@ export async function POST(request: Request) {
         from:    FROM,
         to:      [landlordEmail],
         subject: `New application: ${applicant.full_name} — ${roomName}, ${propAddress}`,
-        html:    await emailHtml(body),
+        html:    await emailHtml(body, { req: request }),
       }),
     })
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 const URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const ANON = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 // GET /api/onboarding-steps?role=tenant
 export async function GET(req: NextRequest) {

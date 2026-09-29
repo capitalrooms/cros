@@ -12,7 +12,9 @@ function serviceClient() {
   )
 }
 
-async function getPersonFromToken(req: NextRequest) {
+// Returns person + their current tenancy's property_id in 2 network calls total
+// (1 auth.getUser + 1 combined people+tenancy query) instead of the old 3.
+async function getPersonAndPropertyFromToken(req: NextRequest) {
   const authHeader = req.headers.get('Authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
   if (!token) return null
@@ -21,40 +23,40 @@ async function getPersonFromToken(req: NextRequest) {
   const { data: { user }, error } = await sb.auth.getUser(token)
   if (error || !user?.email) return null
 
+  const today = new Date().toISOString().split('T')[0]
+
+  // Single DB query: person + their active tenancy
   const { data: person } = await sb
     .from('people')
-    .select('id, email, role')
+    .select(`
+      id, email, role,
+      tenancies!person_id(property_id, start_date, end_date, rooms!inner(property_id))
+    `)
     .eq('email', user.email)
     .maybeSingle()
 
-  return person ?? null
-}
+  if (!person) return null
 
-async function getPropertyIdForTenant(personId: string, sb: ReturnType<typeof serviceClient>) {
-  const today = new Date().toISOString().split('T')[0]
-  const { data: tenancy } = await sb
-    .from('tenancies')
-    .select('property_id, rooms!inner(property_id)')
-    .eq('person_id', personId)
-    .lte('start_date', today)
-    .or(`end_date.is.null,end_date.gte.${today}`)
-    .order('start_date', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  const activeTenancy = (person as any).tenancies?.find((t: any) =>
+    t.start_date <= today && (t.end_date === null || t.end_date >= today)
+  )
+  const propertyId =
+    (activeTenancy as any)?.property_id ??
+    (activeTenancy as any)?.rooms?.property_id ??
+    null
 
-  // Try direct property_id first, then via rooms join
-  return (tenancy as any)?.property_id ?? (tenancy as any)?.rooms?.property_id ?? null
+  return { id: person.id, email: person.email, role: person.role, propertyId }
 }
 
 // GET /api/tenant/notices — fetch active+recent notices for the caller's property
 export async function GET(req: NextRequest) {
-  const person = await getPersonFromToken(req)
-  if (!person) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const personAndProp = await getPersonAndPropertyFromToken(req)
+  if (!personAndProp) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id: personId, propertyId } = personAndProp
   const sb = serviceClient()
 
-  const propertyId = await getPropertyIdForTenant(person.id, sb)
-  if (!propertyId) return NextResponse.json({ notices: [], propertyId: null, personId: person.id })
+  if (!propertyId) return NextResponse.json({ notices: [], propertyId: null, personId })
 
   const { data: notices, error } = await sb
     .from('communal_notices')
@@ -73,14 +75,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ notices: notices ?? [], propertyId, personId: person.id })
+  return NextResponse.json({ notices: notices ?? [], propertyId, personId })
 }
 
 // POST /api/tenant/notices — create a new notice
 export async function POST(req: NextRequest) {
-  const person = await getPersonFromToken(req)
-  if (!person) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const personAndProp = await getPersonAndPropertyFromToken(req)
+  if (!personAndProp) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const person = personAndProp
   const sb = serviceClient()
 
   const body = await req.json()

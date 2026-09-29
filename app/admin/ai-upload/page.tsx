@@ -67,7 +67,7 @@ export default function AIUploadPage() {
           .limit(10),
         supabase
           .from('property_photos')
-          .select('id, file_name, file_url, created_at, properties(name)')
+          .select('id, file_name, file_url, created_at, properties!property_photos_property_id_fkey(name)')
           .order('created_at', { ascending: false })
           .limit(10),
         supabase
@@ -193,7 +193,7 @@ export default function AIUploadPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton />} />
+        <AppBar left={<BackButton href="/admin/compliance" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -203,10 +203,10 @@ export default function AIUploadPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-2xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">⚡ AI File Scanner</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">⚡ AI File Scanner</h1>
             <p className="mt-sm text-sm text-neutral-600">
               Drop in certificates, tenancy agreements, contact sheets, utility bills, invoices and receipts — plus property photos. The AI reads documents, tells you what they are, and files once you confirm. For photos, you&apos;ll confirm which property they belong to (and assign rooms now or later on the property&apos;s Photos tab).
             </p>

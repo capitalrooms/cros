@@ -98,14 +98,19 @@ export default function LandlordProfilePage() {
         return `${label[k] || k}: "${person[k] || '—'}" → "${v}"`
       }).join('\n')
 
-      await supabase.from('notifications').insert({
-        type:        'Profile change request',
-        message:     `Landlord ${[person.first_name, person.last_name].filter(Boolean).join(' ') || person.email} has requested the following changes:\n\n${lines}`,
-        related_table: 'people',
-        related_id:  person.id,
-        created_at:  new Date().toISOString(),
-        is_read:     false,
-      })
+      // Tell every administrator (notifications are addressed to a person)
+      const { data: admins } = await supabase.from('people').select('id').in('role', ['administrator', 'admin'])
+      const body = `Landlord ${[person.first_name, person.last_name].filter(Boolean).join(' ') || person.email} has requested the following changes:\n\n${lines}`
+      if (admins?.length) {
+        await supabase.from('notifications').insert(admins.map((a: { id: string }) => ({
+          user_id: a.id,
+          type:    'profile_change_request',
+          title:   'Landlord profile change request',
+          body,
+          link:    `/admin/landlord/${person.id}`,
+          read:    false,
+        })))
+      }
     }
 
     setSaving(false)

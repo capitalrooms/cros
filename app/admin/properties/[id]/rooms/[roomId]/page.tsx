@@ -10,6 +10,8 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { ICEBREAKER_QUESTIONS } from '@/lib/icebreaker'
+import { genTenancyRefs } from '@/lib/references'
+import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 
 type TabType = 'overview' | 'tenant' | 'maintenance' | 'lettings' | 'photos' | 'compliance' | 'notes'
 type ComplianceFilter = 'all' | 'fire_door' | 'smoke_alarm'
@@ -34,6 +36,7 @@ interface RoomData {
 interface PropertyData {
   name: string
   address: string
+  property_code?: string | null
 }
 
 interface PersonData {
@@ -51,6 +54,9 @@ interface TenancyData {
   start_date: string
   end_date: string | null
   rent_amount: number | null
+  deposit_amount?: number | null
+  deposit_held_by?: string | null
+  deposit_scheme_ref?: string | null
   person: PersonData
 }
 
@@ -76,7 +82,7 @@ interface SelfCheck {
   response_received_at: string | null
   tenant_response: 'confirmed_ok' | 'issue_reported' | 'no_response' | null
   issue_description: string | null
-  photo_attachment_url: string | null
+  photo_attachment_id: string | null
   tenancy_id: string
   // joined
   tenantName?: string
@@ -111,7 +117,7 @@ export default function RoomDashboardPage({
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const [activeTab, setActiveTab] = useState<TabType>('lettings')
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all')
 
   // Data
@@ -194,7 +200,7 @@ export default function RoomDashboardPage({
     // Property
     const { data: propData } = await supabase
       .from('properties')
-      .select('name, address')
+      .select('name, address, property_code')
       .eq('id', propertyId)
       .single()
     if (propData) setProperty(propData)
@@ -203,7 +209,7 @@ export default function RoomDashboardPage({
     const todayStr = new Date().toISOString().split('T')[0]
     const { data: curT } = await supabase
       .from('tenancies')
-      .select('id, person_id, co_tenant_id, start_date, end_date, rent_amount, people!person_id(id, full_name, first_name, last_name, email, phone)')
+      .select('id, person_id, co_tenant_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, first_name, last_name, email, phone)')
       .eq('room_id', roomId)
       .or(`end_date.is.null,end_date.gte.${todayStr}`)
       .order('end_date', { ascending: false, nullsFirst: true })
@@ -243,11 +249,11 @@ export default function RoomDashboardPage({
     // Previous tenancies (end_date in the past only)
     const { data: prevTs } = await supabase
       .from('tenancies')
-      .select('id, person_id, start_date, end_date, rent_amount, people!person_id(id, full_name, first_name, last_name, email, phone_number)')
+      .select('id, person_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, first_name, last_name, email, phone)')
       .eq('room_id', roomId)
       .lt('end_date', todayStr)
       .order('end_date', { ascending: false })
-      .limit(10)
+      .limit(20)
     if (prevTs) {
       setPreviousTenancies(prevTs.map((t: any) => ({
         id: t.id,
@@ -255,6 +261,10 @@ export default function RoomDashboardPage({
         start_date: t.start_date,
         end_date: t.end_date,
         rent_amount: t.rent_amount,
+        deposit_amount: t.deposit_amount,
+        deposit_held_by: t.deposit_held_by,
+        deposit_scheme_ref: t.deposit_scheme_ref,
+        lease_reference: t.lease_reference,
         person: t.people,
       })))
     }
@@ -286,7 +296,7 @@ export default function RoomDashboardPage({
     // Tenant self-checks (compliance)
     const { data: checks } = await supabase
       .from('tenant_self_checks')
-      .select('id, check_type, request_sent_at, response_received_at, tenant_response, issue_description, photo_attachment_url, tenancy_id')
+      .select('id, check_type, request_sent_at, response_received_at, tenant_response, issue_description, photo_attachment_id, tenancy_id')
       .eq('room_id', roomId)
       .order('request_sent_at', { ascending: false })
 
@@ -575,7 +585,10 @@ export default function RoomDashboardPage({
         }
       }
 
-      // 3. Create tenancy
+      // 3. Create tenancy — auto-generate CR references if property has a code
+      const refs = property?.property_code && room
+        ? await genTenancyRefs(supabase, property.property_code, room.name, roomId)
+        : null
       const { error: te } = await supabase.from('tenancies').insert({
         person_id: personId,
         co_tenant_id: coTenantId,
@@ -589,7 +602,11 @@ export default function RoomDashboardPage({
         deposit_held_by: newTenancyDepositHeldBy.trim() || null,
         deposit_scheme_ref: newTenancyDepositRef.trim() || null,
         deposit_release_status: 'pending',
-        lease_reference: newTenancyLeaseRef.trim() || null,
+        lease_reference: newTenancyLeaseRef.trim() || refs?.lease_reference || null,
+        deposit_reference: refs?.deposit_reference || null,
+        holding_deposit_reference: refs?.holding_deposit_reference || null,
+        // the bank import matches rent on this reference
+        payment_reference: property?.name && room ? buildPaymentRef(property.name, room.name) : null,
       })
       if (te) throw te
 
@@ -620,7 +637,7 @@ export default function RoomDashboardPage({
   // ─── helpers ───────────────────────────────────────────────────────────────
 
   const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-  const fmtShort = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'
+  const fmtShort = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
   const statusBadge = (status: string | null) => {
     if (status === 'occupied') return { label: 'Occupied', cls: 'bg-emerald-100 text-emerald-700' }
@@ -655,10 +672,10 @@ export default function RoomDashboardPage({
     : selfChecks.filter(c => c.check_type === complianceFilter)
 
   const tabs: Array<{ id: TabType; label: string }> = [
+    { id: 'lettings', label: 'Lettings' },
     { id: 'overview', label: 'Overview' },
     { id: 'tenant', label: 'Tenant' },
     { id: 'maintenance', label: 'Maintenance' },
-    { id: 'lettings', label: 'Lettings' },
     { id: 'photos', label: 'Photos' },
     { id: 'compliance', label: 'Compliance' },
     { id: 'notes', label: 'Notes' },
@@ -669,14 +686,18 @@ export default function RoomDashboardPage({
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${heroPhoto.file_path.startsWith('property-photos/') ? heroPhoto.file_path : `property-photos/${heroPhoto.file_path}`}`
     : null)
 
-  const { label: statusLabel, cls: statusCls } = statusBadge(room?.status || null)
+  // Derive tenant-facing status from the tenancy record itself — never trust room.status for this
+  const derivedRoomStatus = currentTenancy
+    ? (currentTenancy as any).notice_received_date ? 'on_notice' : 'occupied'
+    : (room?.status || null)
+  const { label: statusLabel, cls: statusCls } = statusBadge(derivedRoomStatus)
 
   if (loading) return <GenericPageSkeleton />
 
   if (!room || !property) return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href={`/admin/properties/${propertyId}`} />} />
-      <div className="mx-auto max-w-4xl px-lg py-2xl">
+      <div className="mx-auto max-w-6xl px-lg py-xl">
         <p className="text-sm text-neutral-500">Room not found.</p>
       </div>
     </div>
@@ -686,7 +707,7 @@ export default function RoomDashboardPage({
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href={`/admin/properties/${propertyId}`} />} />
 
-      <main className="mx-auto max-w-5xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Breadcrumb */}
         <nav className="flex items-center gap-xs text-xs text-neutral-500 mb-lg font-medium">
@@ -716,7 +737,7 @@ export default function RoomDashboardPage({
             <div className="p-lg flex flex-col gap-md">
               <div className="flex items-start justify-between gap-md flex-wrap">
                 <div>
-                  <h1 className="text-2xl font-bold text-neutral-900 leading-tight">{room.name}</h1>
+                  <h1 className="text-2xl font-bold text-neutral-900">{room.name}</h1>
                   <p className="text-sm text-neutral-500 mt-xs">{property.name} · {property.address}</p>
                 </div>
                 <span className={`inline-flex items-center gap-xs px-md py-xs rounded-full text-xs font-semibold shrink-0 mt-xs ${statusCls}`}>
@@ -844,6 +865,69 @@ export default function RoomDashboardPage({
                   <p className="text-xs text-neutral-400 mt-sm">Detected from room photos. Rescan from the Photos tab after uploading new images.</p>
                 </div>
               )}
+
+              {/* Lettings history — all tenancies for this room */}
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">
+                  Lettings history ({(currentTenancy ? 1 : 0) + previousTenancies.length})
+                </h2>
+                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      <thead>
+                        <tr className="bg-neutral-50 border-b border-neutral-200">
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Tenant</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Start</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">End</th>
+                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Rent</th>
+                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Deposit</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Scheme ref</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100">
+                        {currentTenancy && (
+                          <tr className="bg-green-50/40">
+                            <td className="px-lg py-md">
+                              <Link href={`/admin/tenant/${currentTenancy.person?.id}`} className="font-semibold text-neutral-900 hover:underline">
+                                {displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}
+                              </Link>
+                              <p className="text-xs text-neutral-400 mt-xs">{currentTenancy.person?.email}</p>
+                            </td>
+                            <td className="px-lg py-md text-neutral-700">{fmtShort(currentTenancy.start_date)}</td>
+                            <td className="px-lg py-md text-neutral-400">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : '—'}</td>
+                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{currentTenancy.rent_amount ? `£${Number(currentTenancy.rent_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-right text-neutral-700">{currentTenancy.deposit_amount ? `£${Number(currentTenancy.deposit_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-xs text-neutral-500">{(currentTenancy as any).deposit_scheme_ref || '—'}</td>
+                            <td className="px-lg py-md"><span className="text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-sm py-0.5 rounded-full">Current</span></td>
+                          </tr>
+                        )}
+                        {previousTenancies.map((t: any) => (
+                          <tr key={t.id}>
+                            <td className="px-lg py-md">
+                              {t.person?.id
+                                ? <Link href={`/admin/tenant/${t.person.id}`} className="font-semibold text-neutral-900 hover:underline">{displayName(t.person) || t.person?.email || 'Unknown'}</Link>
+                                : <span className="font-semibold text-neutral-900">{displayName(t.person) || t.person?.email || 'Unknown'}</span>
+                              }
+                              <p className="text-xs text-neutral-400 mt-xs">{t.person?.email}</p>
+                            </td>
+                            <td className="px-lg py-md text-neutral-700">{fmtShort(t.start_date)}</td>
+                            <td className="px-lg py-md text-neutral-500">{fmtShort(t.end_date)}</td>
+                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{t.rent_amount ? `£${Number(t.rent_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-right text-neutral-700">{t.deposit_amount ? `£${Number(t.deposit_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-xs text-neutral-500">{t.deposit_scheme_ref || '—'}</td>
+                            <td className="px-lg py-md"><span className="text-xs text-neutral-400 bg-neutral-100 border border-neutral-200 px-sm py-0.5 rounded-full">Ended</span></td>
+                          </tr>
+                        ))}
+                        {!currentTenancy && previousTenancies.length === 0 && (
+                          <tr><td colSpan={7} className="px-lg py-lg text-sm text-neutral-400 text-center">No tenancy history for this room</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -993,7 +1077,7 @@ export default function RoomDashboardPage({
                           <div className="sm:col-span-2">
                             <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Lease reference</label>
                             <input value={newTenancyLeaseRef} onChange={e => setNewTenancyLeaseRef(e.target.value)}
-                              placeholder="e.g. AST-2024-001"
+                              placeholder="e.g. TEN-2024-001"
                               className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                           </div>
                         </div>
@@ -1070,25 +1154,69 @@ export default function RoomDashboardPage({
                 </div>
               )}
 
-              {/* Previous tenants */}
-              {previousTenancies.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Previous tenants</h2>
-                  <div className="space-y-sm">
-                    {previousTenancies.map(t => (
-                      <div key={t.id} className="flex items-center justify-between gap-md rounded-lg border border-neutral-200 bg-neutral-50 px-lg py-md">
-                        <div>
-                          <p className="text-sm font-semibold text-neutral-900">{displayName(t.person) || t.person?.email || 'Unknown'}</p>
-                          <p className="text-xs text-neutral-500 mt-xs">
-                            {fmtShort(t.start_date)} → {fmtShort(t.end_date)} {t.rent_amount ? `· £${t.rent_amount}/mo` : ''}
-                          </p>
-                        </div>
-                        <span className="text-xs text-neutral-400 font-medium shrink-0">Closed</span>
-                      </div>
-                    ))}
+              {/* Full lettings history — current + all previous in one table */}
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">
+                  Lettings history ({(currentTenancy ? 1 : 0) + previousTenancies.length})
+                </h2>
+                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      <thead>
+                        <tr className="bg-neutral-50 border-b border-neutral-200">
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Tenant</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Start</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">End</th>
+                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Rent</th>
+                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Deposit</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Scheme ref</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100">
+                        {/* Current tenancy first */}
+                        {currentTenancy && (
+                          <tr className="bg-green-50/40">
+                            <td className="px-lg py-md">
+                              <Link href={`/admin/tenant/${currentTenancy.person?.id}`} className="font-semibold text-neutral-900 hover:underline">
+                                {displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}
+                              </Link>
+                              <p className="text-xs text-neutral-400 mt-xs">{currentTenancy.person?.email}</p>
+                            </td>
+                            <td className="px-lg py-md text-neutral-700">{fmtShort(currentTenancy.start_date)}</td>
+                            <td className="px-lg py-md text-neutral-400">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : '—'}</td>
+                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{currentTenancy.rent_amount ? `£${Number(currentTenancy.rent_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-right text-neutral-700">{currentTenancy.deposit_amount ? `£${Number(currentTenancy.deposit_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-xs text-neutral-500">{(currentTenancy as any).deposit_scheme_ref || '—'}</td>
+                            <td className="px-lg py-md"><span className="text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-sm py-0.5 rounded-full">Current</span></td>
+                          </tr>
+                        )}
+                        {/* Previous tenancies */}
+                        {previousTenancies.map((t: any) => (
+                          <tr key={t.id}>
+                            <td className="px-lg py-md">
+                              {t.person?.id
+                                ? <Link href={`/admin/tenant/${t.person.id}`} className="font-semibold text-neutral-900 hover:underline">{displayName(t.person) || t.person?.email || 'Unknown'}</Link>
+                                : <span className="font-semibold text-neutral-900">{displayName(t.person) || t.person?.email || 'Unknown'}</span>
+                              }
+                              <p className="text-xs text-neutral-400 mt-xs">{t.person?.email}</p>
+                            </td>
+                            <td className="px-lg py-md text-neutral-700">{fmtShort(t.start_date)}</td>
+                            <td className="px-lg py-md text-neutral-500">{fmtShort(t.end_date)}</td>
+                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{t.rent_amount ? `£${Number(t.rent_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-right text-neutral-700">{t.deposit_amount ? `£${Number(t.deposit_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-xs text-neutral-500">{t.deposit_scheme_ref || '—'}</td>
+                            <td className="px-lg py-md"><span className="text-xs text-neutral-400 bg-neutral-100 border border-neutral-200 px-sm py-0.5 rounded-full">Ended</span></td>
+                          </tr>
+                        ))}
+                        {!currentTenancy && previousTenancies.length === 0 && (
+                          <tr><td colSpan={7} className="px-lg py-lg text-sm text-neutral-400 text-center">No tenancy history for this room</td></tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -1176,74 +1304,146 @@ export default function RoomDashboardPage({
           {/* ── LETTINGS ────────────────────────────────────────────────────── */}
           {activeTab === 'lettings' && (
             <div className="space-y-xl">
-              {(room.status === 'available' || room.status === 'on_notice') ? (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Marketing copy</h2>
-                  {advertBanner && (
-                    <div className="mb-md rounded-lg bg-blue-50 border border-blue-200 px-lg py-sm text-sm text-blue-800">{advertBanner}</div>
-                  )}
+
+              {/* ── Register table — primary view ── */}
+              <div>
+                <div className="flex items-center justify-between mb-md gap-md flex-wrap">
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400">
+                    Lettings register ({(currentTenancy ? 1 : 0) + previousTenancies.length})
+                  </h2>
+                  <Link
+                    href={`/admin/applicants?add=1&property_id=${propertyId}&room_id=${roomId}`}
+                    className="inline-flex items-center gap-xs px-md py-xs rounded-lg bg-neutral-900 text-white text-xs font-semibold hover:bg-neutral-700 transition"
+                  >
+                    + Add letting
+                  </Link>
+                </div>
+                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      <thead>
+                        <tr className="bg-neutral-50 border-b border-neutral-200">
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Reference</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Tenant</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Start date</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">End date</th>
+                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Rent</th>
+                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Deposit</th>
+                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Status</th>
+                          <th className="px-lg py-sm"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100">
+                        {currentTenancy && (
+                          <tr className="bg-green-50/50">
+                            <td className="px-lg py-md">
+                              {(currentTenancy as any).lease_reference
+                                ? <span className="font-mono text-xs font-bold text-indigo-600">{(currentTenancy as any).lease_reference}</span>
+                                : <span className="text-xs text-neutral-300">—</span>
+                              }
+                            </td>
+                            <td className="px-lg py-md">
+                              <p className="font-semibold text-neutral-900">{displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}</p>
+                              <p className="text-xs text-neutral-400 mt-0.5">{currentTenancy.person?.email}</p>
+                            </td>
+                            <td className="px-lg py-md text-neutral-700">{fmtShort(currentTenancy.start_date)}</td>
+                            <td className="px-lg py-md text-neutral-400">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : <span className="text-xs text-neutral-300">Periodic</span>}</td>
+                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{currentTenancy.rent_amount ? `£${Number(currentTenancy.rent_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-right text-neutral-700">{(currentTenancy as any).deposit_amount ? `£${Number((currentTenancy as any).deposit_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md">
+                              <span className="inline-flex items-center gap-xs text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-sm py-0.5 rounded-full">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                {derivedRoomStatus === 'on_notice' ? 'On notice' : 'Current'}
+                              </span>
+                            </td>
+                            <td className="px-lg py-md text-right">
+                              <Link
+                                href={`/admin/tenant/${currentTenancy.person?.id}`}
+                                className="inline-flex items-center gap-xs px-md py-xs rounded-lg border border-neutral-200 bg-white text-xs font-semibold text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 transition whitespace-nowrap"
+                              >
+                                View →
+                              </Link>
+                            </td>
+                          </tr>
+                        )}
+                        {previousTenancies.map((t: any) => (
+                          <tr key={t.id} className="text-neutral-500">
+                            <td className="px-lg py-md">
+                              {t.lease_reference
+                                ? <span className="font-mono text-xs font-bold text-indigo-400">{t.lease_reference}</span>
+                                : <span className="text-xs text-neutral-300">—</span>
+                              }
+                            </td>
+                            <td className="px-lg py-md">
+                              <p className="font-semibold text-neutral-700">{displayName(t.person) || t.person?.email || 'Unknown'}</p>
+                              <p className="text-xs text-neutral-400 mt-0.5">{t.person?.email}</p>
+                            </td>
+                            <td className="px-lg py-md">{fmtShort(t.start_date)}</td>
+                            <td className="px-lg py-md">{fmtShort(t.end_date)}</td>
+                            <td className="px-lg py-md text-right font-semibold text-neutral-700">{t.rent_amount ? `£${Number(t.rent_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md text-right">{t.deposit_amount ? `£${Number(t.deposit_amount).toLocaleString()}` : '—'}</td>
+                            <td className="px-lg py-md">
+                              <span className="text-xs text-neutral-400 bg-neutral-100 border border-neutral-200 px-sm py-0.5 rounded-full">Ended</span>
+                            </td>
+                            <td className="px-lg py-md text-right">
+                              {t.person?.id && (
+                                <Link
+                                  href={`/admin/tenant/${t.person.id}`}
+                                  className="inline-flex items-center gap-xs px-md py-xs rounded-lg border border-neutral-200 bg-white text-xs font-semibold text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300 transition whitespace-nowrap"
+                                >
+                                  View →
+                                </Link>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        {!currentTenancy && previousTenancies.length === 0 && (
+                          <tr><td colSpan={8} className="px-lg py-xl text-sm text-neutral-400 text-center">No lettings history for this room yet.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Marketing copy — secondary, below the register ── */}
+              <div>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Marketing copy</h2>
+                {(room.status === 'available' || room.status === 'on_notice') ? (
                   <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-lg space-y-md">
+                    {advertBanner && (
+                      <div className="rounded-lg bg-blue-50 border border-blue-200 px-lg py-sm text-sm text-blue-800">{advertBanner}</div>
+                    )}
                     <div className="flex items-center gap-sm flex-wrap">
                       <span className="text-xs font-semibold text-neutral-500">Generate:</span>
-                      <button
-                        onClick={() => generateAdvert('listing')}
-                        disabled={!!generatingAdvert}
-                        className="px-md py-xs rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition"
-                      >
+                      <button onClick={() => generateAdvert('listing')} disabled={!!generatingAdvert} className="px-md py-xs rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition">
                         {generatingAdvert === 'listing' ? '✨ Drafting…' : '✨ Advert'}
                       </button>
-                      <button
-                        onClick={() => generateAdvert('group')}
-                        disabled={!!generatingAdvert}
-                        className="px-md py-xs rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition"
-                      >
+                      <button onClick={() => generateAdvert('group')} disabled={!!generatingAdvert} className="px-md py-xs rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition">
                         {generatingAdvert === 'group' ? '✨ Drafting…' : '✨ Group post'}
                       </button>
-                      {detectedChips.length > 0 && (
-                        <span className="text-xs text-neutral-400" title={`Uses: ${detectedChips.join(', ')}`}>
-                          ✨ Uses detected room features
-                        </span>
-                      )}
+                      {detectedChips.length > 0 && <span className="text-xs text-neutral-400">✨ Uses detected room features</span>}
                     </div>
-                    {detectedChips.length > 0 && (
-                      <div className="flex flex-wrap gap-xs">
-                        {detectedChips.map((chip, i) => (
-                          <span key={i} className="px-sm py-0.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700">{chip}</span>
-                        ))}
-                      </div>
-                    )}
-                    <textarea
-                      value={advertDraft}
-                      onChange={e => setAdvertDraft(e.target.value)}
-                      rows={8}
-                      placeholder="Generate an advert listing or a quick group post above — then edit and save…"
-                      className="w-full rounded-lg border border-neutral-200 px-md py-sm text-sm text-neutral-900 resize-y focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none bg-white"
-                    />
+                    <textarea value={advertDraft} onChange={e => setAdvertDraft(e.target.value)} rows={8} placeholder="Generate an advert listing or a quick group post above — then edit and save…" className="w-full rounded-lg border border-neutral-200 px-md py-sm text-sm text-neutral-900 resize-y focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none bg-white" />
                     {advertDraft !== (room.marketing_description || '') && (
-                      <button
-                        onClick={saveAdvert}
-                        disabled={savingAdvert}
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                      >
+                      <button onClick={saveAdvert} disabled={savingAdvert} className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50">
                         {savingAdvert ? 'Saving…' : 'Save copy →'}
                       </button>
                     )}
                   </div>
-                </div>
-              ) : (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Marketing copy</h2>
+                ) : (
                   <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-lg text-center">
-                    <p className="text-sm text-neutral-500">This room is currently occupied. Marketing copy is only active when the room is available or on notice.</p>
+                    <p className="text-sm text-neutral-500">Room is occupied — marketing copy activates when status changes to available or on notice.</p>
                     {room.marketing_description && (
                       <div className="mt-md text-left">
-                        <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-sm">Saved copy (for when available)</p>
+                        <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-sm">Saved copy (ready for when available)</p>
                         <p className="text-sm text-neutral-700 whitespace-pre-wrap">{room.marketing_description}</p>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
             </div>
           )}
 
@@ -1548,8 +1748,8 @@ export default function RoomDashboardPage({
                         {check.issue_description && (
                           <p className="text-xs text-red-700 mt-sm bg-red-50 rounded-lg p-sm border border-red-100">{check.issue_description}</p>
                         )}
-                        {check.photo_attachment_url && (
-                          <a href={check.photo_attachment_url} target="_blank" rel="noopener noreferrer"
+                        {check.photo_attachment_id && /^https?:/.test(check.photo_attachment_id) && (
+                          <a href={check.photo_attachment_id} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-xs mt-sm text-xs text-blue-600 hover:text-blue-800 font-medium">
                             📷 View photo
                           </a>

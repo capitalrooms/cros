@@ -5,16 +5,20 @@
  * Prevents glitchy layout shifts by pre-rendering the page structure
  */
 
+const DarkAppBarSkeleton = () => (
+  <div className="border-b border-neutral-800 bg-neutral-900" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="mx-auto max-w-6xl px-lg grid items-center" style={{ gridTemplateColumns: '1fr auto 1fr', minHeight: 52 }}>
+      <div className="h-5 w-16 rounded bg-white/10" />
+      <div className="h-7 w-7 rounded-full bg-white/10" />
+      <div />
+    </div>
+  </div>
+)
+
 export function TenantDashboardSkeleton() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl animate-pulse">
-      {/* AppBar */}
-      <div className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto max-w-6xl px-lg py-md flex items-center justify-between">
-          <div className="h-8 w-32 rounded bg-neutral-200" />
-          <div className="h-8 w-24 rounded bg-neutral-200" />
-        </div>
-      </div>
+      <DarkAppBarSkeleton />
 
       <main className="mx-auto max-w-6xl px-lg">
         {/* Header section - dark band */}
@@ -101,13 +105,7 @@ export function TenantDashboardSkeleton() {
 export function ContractorDashboardSkeleton() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl animate-pulse">
-      {/* AppBar */}
-      <div className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto max-w-6xl px-lg py-md flex items-center justify-between">
-          <div className="h-8 w-32 rounded bg-neutral-200" />
-          <div className="h-8 w-24 rounded bg-neutral-200" />
-        </div>
-      </div>
+      <DarkAppBarSkeleton />
 
       <main className="mx-auto max-w-6xl px-lg">
         {/* Header section */}
@@ -158,13 +156,7 @@ export function ContractorDashboardSkeleton() {
 export function AdminDashboardSkeleton() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl animate-pulse">
-      {/* AppBar */}
-      <div className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto max-w-6xl px-lg py-md flex items-center justify-between">
-          <div className="h-8 w-32 rounded bg-neutral-200" />
-          <div className="h-8 w-24 rounded bg-neutral-200" />
-        </div>
-      </div>
+      <DarkAppBarSkeleton />
 
       <main className="mx-auto max-w-6xl px-lg">
         <div className="mt-2xl">
@@ -187,13 +179,7 @@ export function AdminDashboardSkeleton() {
 export function GenericPageSkeleton() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl animate-pulse">
-      {/* AppBar */}
-      <div className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto max-w-6xl px-lg py-md flex items-center justify-between">
-          <div className="h-8 w-32 rounded bg-neutral-200" />
-          <div className="h-8 w-24 rounded bg-neutral-200" />
-        </div>
-      </div>
+      <DarkAppBarSkeleton />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
         <div className="h-8 w-48 rounded bg-neutral-200 mb-lg" />

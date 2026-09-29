@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canActAtProperty } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { insertNotifications } from '@/lib/serverNotify'
 
@@ -84,6 +85,8 @@ export async function POST(req: NextRequest) {
     .eq('id', cleanId)
     .single()
   if (cleanErr || !clean) return NextResponse.json({ error: 'Clean not found' }, { status: 404 })
+  // only a tenant living at that property (or the office) can ask for extras on its clean
+  if (!(await canActAtProperty(await requireSignedIn(req), clean.property_id))) return NextResponse.json({ error: 'Not your property' }, { status: 403 })
 
   // Upsert — replace any existing request for this tenant+clean
   const { data: existing } = await service

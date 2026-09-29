@@ -1,5 +1,31 @@
 import { createClient, UserRole } from './supabase'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+
+/**
+ * Returns a short sign-off string for SMS messages, e.g. "Harry | 07700 900123"
+ * Falls back gracefully if no direct_phone is set.
+ */
+export async function getSmsSignOff(userEmail: string): Promise<string> {
+  try {
+    const sb = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const { data } = await sb
+      .from('people')
+      .select('first_name, preferred_name, direct_phone, email')
+      .eq('email', userEmail)
+      .maybeSingle()
+    if (!data) return 'Capital Rooms'
+    const name    = (data as any).preferred_name || data.first_name || 'Capital Rooms'
+    const contact = data.direct_phone || data.email || ''
+    return contact ? `${name}, Capital Rooms | ${contact}` : `${name}, Capital Rooms`
+  } catch {
+    return 'Capital Rooms'
+  }
+}
 
 export async function signIn(email: string, password: string) {
   const supabase = createClient()

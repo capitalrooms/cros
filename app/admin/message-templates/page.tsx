@@ -581,11 +581,11 @@ export default function MessageTemplatesPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Page header */}
         <div className="mb-2xl">
-          <h1 className="text-3xl font-bold text-neutral-900">✉️ Message Templates</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">✉️ Message Templates</h1>
           <p className="mt-sm text-sm text-neutral-600">
             Every automated message the system sends — grouped by purpose.
             Templates marked <strong>✏️ Editable</strong> can be changed here;

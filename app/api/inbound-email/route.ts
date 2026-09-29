@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 const ALLOWED_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp']
 
 function db() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 }
 
 type Attachment = { name: string; mime: string; bytes: Buffer }
@@ -23,14 +23,13 @@ type Attachment = { name: string; mime: string; bytes: Buffer }
  * stored, logged to the inbox, and classified by the AI (best effort).
  */
 export async function POST(request: NextRequest) {
-  // Optional shared secret so only your provider can post here.
+  // Legacy inbox route (the live one is /api/webhooks/docs-inbound, which checks Resend's signature).
+  // Closed unless a shared secret is configured — otherwise anyone could post files into the inbox.
   const secret = process.env.INBOUND_EMAIL_SECRET
-  if (secret) {
-    const url = new URL(request.url)
-    const supplied = url.searchParams.get('secret') || request.headers.get('x-inbound-secret')
-    if (supplied !== secret) {
-      return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-    }
+  const url = new URL(request.url)
+  const supplied = url.searchParams.get('secret') || request.headers.get('x-inbound-secret')
+  if (!secret || supplied !== secret) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
   const ctype = request.headers.get('content-type') || ''

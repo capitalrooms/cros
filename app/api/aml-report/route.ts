@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminAuth'
 // GET /api/aml-report?landlordId=xxx&generatedBy=Harry+Jones
 // Fetches landlord details + AML history and streams a PDF response.
 
@@ -5,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateAMLReport } from '@/lib/aml/generateAMLReport'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { contentDisposition } from '@/lib/contentDisposition'
 
 function svc() {
   return createClient(
@@ -15,6 +17,7 @@ function svc() {
 }
 
 export async function GET(req: NextRequest) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const landlordId  = req.nextUrl.searchParams.get('landlordId')
   const generatedBy = req.nextUrl.searchParams.get('generatedBy') ?? undefined
 
@@ -27,22 +30,24 @@ export async function GET(req: NextRequest) {
   // Landlord from people
   const { data: landlord, error: lErr } = await db
     .from('people')
-    .select('id, name, email, phone')
+    .select('id, first_name, last_name, full_name, email, phone')
     .eq('id', landlordId)
     .single()
 
   if (lErr || !landlord) {
     return NextResponse.json({ error: 'Landlord not found' }, { status: 404 })
   }
+  const landlordName: string | null = [landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || landlord.full_name || null
 
   // Properties linked to this landlord
-  const { data: propLinks } = await db
-    .from('landlord_properties')
-    .select('property_id, properties(name, address)')
-    .eq('landlord_id', landlordId)
+  // (sole or joint landlord — properties.landlord_id / landlord_id_2)
+  const { data: propRows } = await db
+    .from('properties')
+    .select('name, address')
+    .or(`landlord_id.eq.${landlordId},landlord_id_2.eq.${landlordId}`)
 
-  const properties = (propLinks ?? [])
-    .map((l: any) => l.properties?.name ?? l.properties?.address)
+  const properties = (propRows ?? [])
+    .map((p: any) => p.name ?? p.address)
     .filter(Boolean) as string[]
 
   // AML onboarding records
@@ -64,7 +69,7 @@ export async function GET(req: NextRequest) {
 
   const buffer = await generateAMLReport({
     landlord: {
-      name:       landlord.name ?? landlord.email,
+      name:       landlordName ?? landlord.email,
       email:      landlord.email,
       phone:      landlord.phone ?? undefined,
       properties,
@@ -75,14 +80,14 @@ export async function GET(req: NextRequest) {
     bizSettings,
   })
 
-  const safeName = (landlord.name ?? 'Landlord').replace(/[^a-zA-Z0-9 ]+/g, '').trim().replace(/ +/g, '-')
+  const safeName = (landlordName ?? 'Landlord').replace(/[^a-zA-Z0-9 ]+/g, '').trim().replace(/ +/g, '-')
   const filename = `Capital-Rooms-AML-Record_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`
 
   return new NextResponse(buffer, {
     status: 200,
     headers: {
       'Content-Type':        'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': contentDisposition(`${filename}`, 'attachment'),
       'Content-Length':      String(buffer.length),
     },
   })

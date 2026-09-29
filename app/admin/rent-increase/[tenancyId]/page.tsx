@@ -210,7 +210,7 @@ export default function RentIncreasePage() {
   // ── Loading ──────────────────────────────────────────────────────────────
 
   if (loading || !tenancy) return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/tenancy-management" />} />
       <p className="p-xl text-sm text-neutral-400">Loading…</p>
     </div>
@@ -226,9 +226,9 @@ export default function RentIncreasePage() {
   // ── STEP: Form ───────────────────────────────────────────────────────────
 
   if (step === 'form') return (
-    <div className="min-h-screen bg-neutral-50 pb-3xl">
+    <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href={`/admin/tenant/${tenancy.person ? (tenancy as any).person_id || '' : ''}`} />} />
-      <main className="mx-auto max-w-lg px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl">
           <p className="text-xs font-bold uppercase tracking-wide text-neutral-400 mb-xs">Section 13 — Rent Increase Notice</p>
           <h1 className="text-2xl font-bold text-neutral-900">{person?.full_name}</h1>
@@ -423,9 +423,9 @@ export default function RentIncreasePage() {
   // ── STEP: Preview ────────────────────────────────────────────────────────
 
   if (step === 'preview') return (
-    <div className="min-h-screen bg-neutral-50 pb-3xl">
+    <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton onClick={() => setStep('form')} />} />
-      <main className="mx-auto max-w-3xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl">
           <p className="text-xs font-bold uppercase tracking-wide text-neutral-400 mb-xs">Preview — review before sending</p>
           <h1 className="text-2xl font-bold text-neutral-900">Section 13 Notice — {person?.full_name}</h1>
@@ -524,11 +524,11 @@ export default function RentIncreasePage() {
   // ── STEP: Sent ───────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/tenancy-management" />} />
-      <main className="mx-auto max-w-lg px-lg py-3xl text-center">
+      <main className="mx-auto max-w-6xl px-lg py-xl text-center">
         <div className="text-5xl mb-lg">📨</div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-sm">Section 13 notice sent</h1>
+        <h1 className="text-2xl font-bold text-neutral-900">Section 13 notice sent</h1>
         <p className="text-sm text-neutral-600 mb-sm">
           Both documents have been emailed to <strong>{person?.email}</strong>.
         </p>

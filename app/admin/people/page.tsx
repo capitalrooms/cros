@@ -8,7 +8,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import EditPersonModal from '../components/EditPersonModal'
-import { displayName, nameFields } from '@/lib/people'
+import { displayName, landlordName, nameFields } from '@/lib/people'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 type Tab = 'tenants' | 'staff' | 'landlords' | 'administrators'
@@ -38,6 +38,9 @@ interface Landlord {
   email: string
   first_name?: string
   last_name?: string
+  joint_salutation?: string
+  joint_first_name?: string
+  joint_last_name?: string
   full_name?: string
   name?: string
   created_at: string
@@ -100,7 +103,9 @@ export default function PeopleManagement() {
   // Landlords tab state
   const [landlords, setLandlords] = useState<Landlord[]>([])
   const [showAddLandlord, setShowAddLandlord] = useState(false)
-  const [landlordForm, setLandlordForm] = useState({ email: '', salutation: '', first_name: '', last_name: '', selectedProperties: [] as string[] })
+  const [landlordForm, setLandlordForm] = useState({ email: '', salutation: '', first_name: '', last_name: '', company: '', company_number: '', selectedProperties: [] as string[] })
+  const [landlord2Form, setLandlord2Form] = useState({ salutation: '', first_name: '', last_name: '', email: '' })
+  const [hasJointLandlord, setHasJointLandlord] = useState(false)
   const [landlordSuccessMessage, setLandlordSuccessMessage] = useState('')
   const [statements, setStatements] = useState<Statement[]>([])
 
@@ -172,7 +177,7 @@ export default function PeopleManagement() {
       // Load landlords
       const { data: landlordData } = await supabase
         .from('people')
-        .select('id, email, full_name, first_name, last_name, created_at')
+        .select('*')
         .eq('role', 'landlord')
         .order('created_at', { ascending: false })
 
@@ -264,48 +269,71 @@ export default function PeopleManagement() {
   // ==========================================================================
 
   async function handleAddLandlord() {
+    setError('')
     if (!landlordForm.email || !landlordForm.first_name) {
       setError('Please fill in email and first name')
       return
     }
+    const withJoint = hasJointLandlord && landlord2Form.first_name.trim() !== ''
 
     try {
+      const insert: Record<string, unknown> = {
+        email: landlordForm.email.trim(),
+        ...nameFields(landlordForm.first_name, landlordForm.last_name),
+        salutation: landlordForm.salutation || null,
+        // a landlord who lets through their company: the person is the contact, the company owns the property
+        company: landlordForm.company.trim() || null,
+        company_number: landlordForm.company_number.trim() || null,
+        role: 'landlord',
+      }
+      if (withJoint) {
+        insert.joint_salutation = landlord2Form.salutation || null
+        insert.joint_first_name = landlord2Form.first_name.trim()
+        insert.joint_last_name = landlord2Form.last_name.trim() || null
+        insert.joint_email = landlord2Form.email.trim() || null
+      }
+
       const { data: landlord, error } = await supabase
         .from('people')
-        .insert({
-          email: landlordForm.email,
-          ...nameFields(landlordForm.first_name, landlordForm.last_name),
-          salutation: landlordForm.salutation || null,
-          role: 'landlord',
-        })
+        .insert(insert)
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        if (/joint_/.test(error.message)) {
+          throw new Error('joint landlord fields are not set up in the database yet — run migration 182 in the Supabase SQL Editor, then try again')
+        }
+        if (/duplicate key|already exists|people_email/i.test(error.message)) {
+          throw new Error(`a person with the email ${landlordForm.email.trim()} already exists`)
+        }
+        throw new Error(error.message)
+      }
 
-      // Link selected properties via properties.landlord_id FK
       for (const propertyId of landlordForm.selectedProperties) {
+        if (propertyId === 'unassigned') continue
         await supabase
           .from('properties')
           .update({ landlord_id: landlord.id })
           .eq('id', propertyId)
       }
 
-      setLandlordSuccessMessage(`✓ Landlord added! Email: ${landlordForm.email}`)
-      setLandlordForm({ email: '', salutation: '', first_name: '', last_name: '', selectedProperties: [] })
+      setLandlordSuccessMessage(`✓ Landlord added: ${landlordName(landlord)}`)
+      setLandlordForm({ email: '', salutation: '', first_name: '', last_name: '', company: '', company_number: '', selectedProperties: [] })
+      setLandlord2Form({ salutation: '', first_name: '', last_name: '', email: '' })
+      setHasJointLandlord(false)
       setShowAddLandlord(false)
 
-      // Refresh landlords
       const { data: landlordData } = await supabase
         .from('people')
-        .select('id, email, full_name, first_name, last_name, created_at')
+        .select('*')
         .eq('role', 'landlord')
         .order('created_at', { ascending: false })
 
       setLandlords(landlordData || [])
-      setTimeout(() => setLandlordSuccessMessage(''), 3000)
+      setTimeout(() => setLandlordSuccessMessage(''), 4000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add landlord')
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message
+      setError(msg ? `Failed to add landlord: ${msg}` : 'Failed to add landlord')
     }
   }
 
@@ -321,7 +349,7 @@ export default function PeopleManagement() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton />} />
+        <AppBar left={<BackButton href="/admin" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -334,9 +362,9 @@ export default function PeopleManagement() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
-          <h1 className="text-3xl font-bold text-neutral-900 mb-sm">👥 People</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">👥 People</h1>
           <p className="text-sm text-neutral-600 mb-lg">
             Manage tenants, contractors, cleaners, landlords, and administrators across all properties
           </p>
@@ -843,12 +871,78 @@ export default function PeopleManagement() {
                       className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-xs">Company <span className="font-normal text-neutral-400">— if they own the property through a company</span></label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Ananya Property Holding Ltd"
+                      value={landlordForm.company}
+                      onChange={(e) => setLandlordForm({ ...landlordForm, company: e.target.value })}
+                      className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-xs">Company number <span className="font-normal text-neutral-400">(optional)</span></label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 12345678"
+                      value={landlordForm.company_number}
+                      onChange={(e) => setLandlordForm({ ...landlordForm, company_number: e.target.value })}
+                      className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Joint landlord */}
+                <div className="mb-md">
+                  {hasJointLandlord ? (
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md">
+                      <div className="flex items-center justify-between mb-md">
+                        <span className="text-xs font-semibold text-neutral-700">Joint landlord <span className="font-normal text-neutral-400">— shares this landlord entry; both names appear on agreements and statements</span></span>
+                        <button type="button" onClick={() => { setHasJointLandlord(false); setLandlord2Form({ salutation: '', first_name: '', last_name: '', email: '' }) }}
+                          className="text-xs text-neutral-400 hover:text-red-500">Remove</button>
+                      </div>
+                      <div className="grid gap-md md:grid-cols-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-neutral-700 mb-xs">Salutation</label>
+                          <select value={landlord2Form.salutation} onChange={e => setLandlord2Form({ ...landlord2Form, salutation: e.target.value })}
+                            className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm bg-white">
+                            <option value="">—</option>
+                            {['Mr','Mrs','Ms','Miss','Dr','Prof','Rev','Mx'].map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-neutral-700 mb-xs">First Name</label>
+                          <input type="text" placeholder="Jane" value={landlord2Form.first_name}
+                            onChange={e => setLandlord2Form({ ...landlord2Form, first_name: e.target.value })}
+                            className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-neutral-700 mb-xs">Last Name</label>
+                          <input type="text" placeholder="Smith" value={landlord2Form.last_name}
+                            onChange={e => setLandlord2Form({ ...landlord2Form, last_name: e.target.value })}
+                            className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-neutral-700 mb-xs">Email (optional)</label>
+                          <input type="email" placeholder="jane@example.com" value={landlord2Form.email}
+                            onChange={e => setLandlord2Form({ ...landlord2Form, email: e.target.value })}
+                            className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setHasJointLandlord(true)}
+                      className="text-xs text-neutral-500 hover:text-neutral-900 border border-dashed border-neutral-300 rounded-lg px-md py-xs font-semibold transition-colors w-full text-left">
+                      + Add joint landlord
+                    </button>
+                  )}
                 </div>
 
                 <div className="mb-md">
-                  <label className="block text-xs font-semibold text-neutral-700 mb-md">Select Properties</label>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-md">Select Properties <span className="font-normal text-neutral-400">(optional — can be assigned later)</span></label>
                   <div className="grid gap-sm md:grid-cols-2 max-h-[300px] overflow-y-auto">
-                    {properties.map((prop) => (
+                    {properties.filter(p => p.id !== 'unassigned').map((prop) => (
                       <label
                         key={prop.id}
                         className="flex items-start gap-sm p-md border border-neutral-200 rounded-lg cursor-pointer hover:bg-neutral-50"
@@ -871,6 +965,9 @@ export default function PeopleManagement() {
                   </p>
                 </div>
 
+                {error && (
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-md text-sm text-red-700 mb-md">{error}</div>
+                )}
                 <div className="flex gap-md">
                   <button
                     onClick={handleAddLandlord}
@@ -896,11 +993,11 @@ export default function PeopleManagement() {
               <div className="space-y-md">
                 {landlords.map((landlord) => (
                   <div key={landlord.id}
-                    onClick={() => router.push(`/admin/person/${landlord.id}`)}
+                    onClick={() => router.push(`/admin/landlord/${landlord.id}`)}
                     className="rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-400 transition-colors cursor-pointer">
                     <div className="flex items-start justify-between gap-md">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-base font-bold text-neutral-900">{displayName(landlord) || landlord.email}</h3>
+                        <h3 className="text-base font-bold text-neutral-900">{landlordName(landlord) !== '—' ? landlordName(landlord) : landlord.email}</h3>
                         <p className="text-sm text-neutral-600">{landlord.email}</p>
                         <p className="text-xs text-neutral-500 mt-xs">
                           Added {new Date(landlord.created_at).toLocaleDateString()}

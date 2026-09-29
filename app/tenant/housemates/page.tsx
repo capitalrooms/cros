@@ -51,17 +51,11 @@ export default function HousematesPage() {
       setPropertyName(active.properties?.name || 'your house')
 
       const supabase = createClient()
-      const today = new Date().toISOString().split('T')[0]
+      // Everyone currently living at this property (me included) — first names and rooms only, from a
+      // database function, so tenants never see each other's tenancy details (rent, deposit, contact).
+      const { data: tens } = await supabase.rpc('cros_my_housemates')
 
-      // Everyone currently living at this property (me included).
-      const { data: tens } = await supabase
-        .from('tenancies')
-        .select('person_id, room_id, people(full_name, first_name, last_name), rooms(name)')
-        .eq('property_id', active.property_id)
-        .lte('start_date', today)
-        .or(`end_date.is.null,end_date.gte.${today}`)
-
-      const rows = (tens as any[]) || []
+      const rows: any[] = (tens as unknown as any[]) ?? []
       // De-dupe by person (someone could have overlapping rows) and drop blanks.
       const byPerson = new Map<string, any>()
       for (const t of rows) {
@@ -83,8 +77,8 @@ export default function HousematesPage() {
         const t = byPerson.get(pid)
         return {
           personId: pid,
-          name: t.people.name || 'A housemate',
-          roomName: t.rooms?.name || null,
+          name: t.first_name || 'A housemate',
+          roomName: t.room_name || null,
           isMe: pid === myId,
           answers: icebreakers.get(pid) || {},
         }

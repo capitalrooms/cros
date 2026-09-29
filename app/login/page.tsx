@@ -24,6 +24,7 @@ function LoginForm() {
   const [magicSent, setMagicSent]     = useState(false)
   const [magicLoading, setMagicLoading] = useState(false)
   const [prefilled, setPrefilled]     = useState(false)
+  const [emailHint, setEmailHint]     = useState<string | null>(null)   // masked, from an SMS link
 
   // Forgot password
   const [showForgot, setShowForgot]   = useState(false)
@@ -47,13 +48,8 @@ function LoginForm() {
       // Look up email from phone number
       fetch(`/api/lookup-email?phone=${encodeURIComponent(qPhone)}`)
         .then(r => r.json())
-        .then(({ email: found }) => {
-          if (found) {
-            setEmail(found)
-            setForgotEmail(found)
-            setPrefilled(true)
-            setMagicMode(true)
-          }
+        .then(({ hint }) => {
+          if (hint) { setEmailHint(hint); setMagicMode(true) }
         })
         .catch(() => {})
     }
@@ -270,6 +266,7 @@ function LoginForm() {
                     <label className={lbl}>Email</label>
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                       placeholder="you@example.com" autoComplete="email" className={inp} required />
+                    {emailHint && <p className="mt-xs text-xs text-neutral-500">Your account email looks like <span className="font-mono">{emailHint}</span></p>}
                   </div>
                 )}
                 <div>

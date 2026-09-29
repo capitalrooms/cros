@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { createServerClient } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
-import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 export async function POST(request: NextRequest) {
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
-  }
-  const user = await getCurrentUser()
+  const supabaseServer = await createServerClient()
+  const user = await getCurrentUser(supabaseServer)
   if (!user) {
     await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized notify-tenant-viewing access', ipAddress: getClientIp(request.headers) })
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Master switch: tenant/applicant messaging is paused until go-live.
+  if (!await getCommsLive()) {
+    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
 
   const apiKey = process.env.RESEND_API_KEY
@@ -25,6 +30,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { roomId, propertyId, notifyType } = await request.json()
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!roomId || !validateUUID(roomId) || !notifyType) {
     await logAudit({ userId: user.id, action: 'security_invalid_input', details: `Invalid roomId: ${roomId}, notifyType: ${notifyType}`, ipAddress: getClientIp(request.headers) })
     return NextResponse.json({ error: 'Invalid roomId or notifyType format' }, { status: 400 })
@@ -32,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   async function send(to: string, subject: string, html: string) {
@@ -43,7 +49,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields(request)),
         to: [to],
         subject,
         html,
@@ -58,13 +64,13 @@ export async function POST(request: NextRequest) {
     // Notify the tenant in this specific room (if they've opted in to viewings)
     const { data: tenancy } = await supabase
       .from('tenancies')
-      .select('*, people(email, name), opt_in_viewings')
+      .select('id, people!person_id(email, first_name, full_name, notify_by_email)')
       .eq('room_id', roomId)
       .is('end_date', null)
-      .single()
-      .catch(() => ({ data: null }))
+      .limit(1)
+      .maybeSingle() as { data: any }
 
-    if (tenancy?.people?.email && tenancy?.opt_in_viewings) {
+    if (tenancy?.people?.email && tenancy.people.notify_by_email !== false) {
       const success = await send(
         tenancy.people.email,
         'Notice of scheduled viewing at your property',
@@ -77,7 +83,7 @@ export async function POST(request: NextRequest) {
           <p style="color:#78716c;font-size:14px;margin:20px 0 0 0">
             If you have any questions, please get in touch.
           </p>
-        `)
+        `, { req: request })
       )
       if (success) sent.push(tenancy.people.email)
     }
@@ -89,14 +95,13 @@ export async function POST(request: NextRequest) {
 
     const { data: otherTenancies } = await supabase
       .from('tenancies')
-      .select('*, people(email, name), rooms(name), opt_in_viewings')
+      .select('id, people!person_id(email, first_name, full_name, notify_by_email), rooms(name)')
       .eq('property_id', propertyId)
       .neq('room_id', roomId)
-      .is('end_date', null)
-      .catch(() => ({ data: [] }))
+      .is('end_date', null) as { data: any[] | null }
 
     for (const tenancy of otherTenancies || []) {
-      if (tenancy?.people?.email && tenancy?.opt_in_viewings) {
+      if (tenancy?.people?.email && tenancy.people.notify_by_email !== false) {
         const success = await send(
           tenancy.people.email,
           'Notice: Scheduled activity in your property',
@@ -109,7 +114,7 @@ export async function POST(request: NextRequest) {
             <p style="color:#78716c;font-size:14px;margin:20px 0 0 0">
               Thank you for your understanding. If you have questions, please contact us.
             </p>
-          `)
+          `, { req: request })
         )
         if (success) sent.push(tenancy.people.email)
       }

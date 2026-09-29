@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket } from '@/lib/portalAuth'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -23,11 +24,10 @@ function aiConfigured() {
 }
 
 export async function POST(req: NextRequest) {
-  // No user-session auth needed — gated by ticketId (UUID); result is non-sensitive.
-
-
+  // The assigned contractor or the office only (it calls the AI and writes to the job) — lib/portalAuth
   const { ticketId } = await req.json()
   if (!ticketId) return NextResponse.json({ error: 'ticketId required' }, { status: 400 })
+  if (!(await canWorkOnTicket(await requireSignedIn(req), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

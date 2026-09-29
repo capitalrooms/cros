@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromOnboarding } from '@/app/components/LandlordCard'
+import { adminFetch } from '@/lib/adminFetch'
 
 // ── Stage definitions ──────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ export default function OnboardingPage() {
 
   async function load() {
     setLoading(true)
-    const r = await fetch('/api/landlord-onboarding')
+    const r = await adminFetch('/api/landlord-onboarding')
     const d = await r.json()
     setRows(d.rows ?? [])
     setLoading(false)
@@ -129,7 +130,7 @@ export default function OnboardingPage() {
         const allPaths = Object.values(docs).flat() as string[]
         allPaths.forEach(async (path) => {
           if (docUrls[path]) return
-          const r = await fetch(`/api/landlord-onboarding/upload/${selected.token}?path=${encodeURIComponent(path)}`)
+          const r = await adminFetch(`/api/landlord-onboarding/upload/${selected.token}?path=${encodeURIComponent(path)}`)
           const d = await r.json()
           if (d.url) setDocUrls(prev => ({ ...prev, [path]: d.url }))
         })
@@ -141,7 +142,7 @@ export default function OnboardingPage() {
     if (!addName.trim() || !addEmail.trim()) return
     setAddSending(true)
     setAddResult(null)
-    const r = await fetch('/api/landlord-onboarding', {
+    const r = await adminFetch('/api/landlord-onboarding', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ full_name: addName, email: addEmail, phone: addPhone }),
@@ -160,7 +161,7 @@ export default function OnboardingPage() {
   async function archiveRecord(id: string) {
     if (!confirm("Archive this landlord? They'll be hidden from the active pipeline. You can restore them at any time.")) return
     setAdvancing(true)
-    const r = await fetch(`/api/landlord-onboarding/${id}`, {
+    const r = await adminFetch(`/api/landlord-onboarding/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: 0 }),
@@ -174,7 +175,7 @@ export default function OnboardingPage() {
 
   async function restoreRecord(id: string) {
     setAdvancing(true)
-    const r = await fetch(`/api/landlord-onboarding/${id}`, {
+    const r = await adminFetch(`/api/landlord-onboarding/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: 1 }),
@@ -188,7 +189,7 @@ export default function OnboardingPage() {
 
   async function advanceStage(id: string, newStage: number, extraFields?: Record<string, unknown>) {
     setAdvancing(true)
-    const r = await fetch(`/api/landlord-onboarding/${id}`, {
+    const r = await adminFetch(`/api/landlord-onboarding/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: newStage, ...extraFields }),
@@ -203,7 +204,7 @@ export default function OnboardingPage() {
 
   async function saveNotes() {
     if (!selected) return
-    await fetch(`/api/landlord-onboarding/${selected.id}`, {
+    await adminFetch(`/api/landlord-onboarding/${selected.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ verification_notes: verifyNotes, verification_checks: verifyChecks }),
@@ -221,7 +222,7 @@ export default function OnboardingPage() {
     setConverting(true)
     setConvertResult(null)
     try {
-      const r = await fetch(`/api/landlord-onboarding/${selected.id}/convert`, { method: 'POST' })
+      const r = await adminFetch(`/api/landlord-onboarding/${selected.id}/convert`, { method: 'POST' })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error ?? 'Conversion failed')
 
@@ -262,12 +263,12 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Title row */}
         <div className="flex items-center justify-between mb-xl">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">🔐 Landlord Onboarding</h1>
-            <p className="text-sm text-neutral-500 mt-xs">AML pipeline — track each landlord from enquiry to fully onboarded.</p>
+            <h1 className="text-2xl font-bold text-neutral-900">Onboarding &amp; AML</h1>
+            <p className="text-sm text-neutral-500 mt-xs">Every landlord from first enquiry to signed agreement. Open a record to review their AML checks.</p>
           </div>
           <button
             onClick={() => { setShowAdd(true); setAddResult(null) }}
@@ -451,6 +452,11 @@ export default function OnboardingPage() {
                   ) : undefined
                 }
               />
+
+              <a href={`/admin/new-business/onboarding/${selected.id}`}
+                className="block w-full text-center rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition">
+                {selected.stage >= 3 ? 'Open full AML review →' : 'Open record →'}
+              </a>
 
               {/* AML form link */}
               <div>

@@ -60,7 +60,7 @@ export default function QuickNotifyPage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin" />} />
-        <main className="mx-auto max-w-4xl px-lg py-3xl">
+        <main className="mx-auto max-w-6xl px-lg py-xl">
           <p className="text-neutral-500">Loading properties…</p>
         </main>
       </div>
@@ -71,10 +71,10 @@ export default function QuickNotifyPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-4xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="space-y-2xl">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Quick Notify</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Quick Notify</h1>
             <p className="text-sm text-neutral-500">Select a property to send messages to tenants, cleaners, or contractors</p>
           </div>
 

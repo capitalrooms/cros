@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
+  const cron = request.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}` && !!process.env.CRON_SECRET
+  if (!cron && !(await requireStaff(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { tenancyIds } = await request.json();
 

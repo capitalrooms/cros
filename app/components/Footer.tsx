@@ -5,9 +5,15 @@ import { usePathname } from 'next/navigation'
 
 export default function Footer() {
   const pathname = usePathname()
-  if (pathname === '/login' || pathname.startsWith('/landlord/onboard')) return null
+  if (pathname === '/login' || pathname.startsWith('/landlord/onboard') || pathname.startsWith('/quote/') || pathname.startsWith('/pack/')) return null
+
+  // Admin on a phone is a full-screen app (header, scrolling content, bottom tabs). A footer below it makes
+  // the whole page scroll, dragging the header under the status bar and the tabs off the bottom — so on
+  // phones the admin area has no footer. Desktop keeps it.
+  const phoneHidden = pathname.startsWith('/admin') ? 'hidden md:block' : undefined
 
   return (
+    <div className={phoneHidden}>
     <footer style={{ background: '#0d0d0d', padding: '44px 32px 36px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
       <Image
         src="/footer-logo.png"
@@ -35,5 +41,6 @@ export default function Footer() {
         © 2026 Capital Rooms Ltd &nbsp;·&nbsp; London
       </p>
     </footer>
+    </div>
   )
 }

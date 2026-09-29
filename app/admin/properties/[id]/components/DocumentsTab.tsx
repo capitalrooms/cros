@@ -2,230 +2,157 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import DocUploadDrawer from '@/components/DocUploadDrawer'
+import DocViewDrawer from '@/components/DocViewDrawer'
 
-interface Document {
+interface Doc {
   id: string
   file_name: string
-  file_type: string
-  file_size: number
-  created_at: string
-  uploader_id: string
-  category?: string
+  document_type: string
+  description?: string
+  storage_url: string
+  uploaded_at: string
+  visible_to_tenants?: boolean
 }
 
 interface DocumentsTabProps {
   propertyId: string
+  propertyName?: string
 }
 
-export default function DocumentsTab({ propertyId }: DocumentsTabProps) {
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
+const TYPE_LABELS: Record<string, string> = {
+  tenancy_agreement: 'Tenancy Agreement',
+  gas_safety: 'Gas Safety Certificate',
+  electrical_cert: 'EICR',
+  epc: 'EPC',
+  fire_risk_assessment: 'Fire Risk Assessment',
+  inventory: 'Inventory',
+  right_to_rent: 'Right to Rent',
+  deposit_certificate: 'Deposit Certificate',
+  how_to_rent: 'How to Rent Guide',
+  reference_report: 'Reference Report',
+  id_proof: 'ID Proof',
+  employment_letter: 'Employment Letter',
+  floor_plan: 'Floor Plan',
+  insurance_policy: 'Insurance Policy',
+  hmo_licence: 'HMO Licence',
+  management_agreement: 'Management Agreement',
+  evacuation_plan: 'Evacuation Plan',
+  emergency_contacts: 'Emergency Contacts',
+  house_rules: 'House Rules',
+  safety_info: 'Safety Information',
+  utility_info: 'Utilities Info',
+  other: 'Other',
+}
 
+export default function DocumentsTab({ propertyId, propertyName }: DocumentsTabProps) {
   const supabase = createClient()
+  const [docs, setDocs] = useState<Doc[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [showDrawer, setShowDrawer] = useState(false)
+  const [viewingDoc, setViewingDoc] = useState<Doc | null>(null)
 
-  useEffect(() => {
-    loadDocuments()
-  }, [propertyId])
+  useEffect(() => { loadDocs() }, [propertyId])
 
-  async function loadDocuments() {
+  async function loadDocs() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('attachments')
-      .select('*')
+    const { data } = await supabase
+      .from('property_documents')
+      .select('id, file_name, document_type, description, storage_url, uploaded_at, visible_to_tenants')
       .eq('property_id', propertyId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error(error)
-    } else {
-      // Categorize documents by type
-      const docs = (data || []).map((d: any) => ({
-        ...d,
-        category: categorizeDocument(d.file_type, d.file_name)
-      }))
-      setDocuments(docs)
-    }
+      .order('uploaded_at', { ascending: false })
+    setDocs(data || [])
     setLoading(false)
   }
 
-  const categorizeDocument = (fileType: string, fileName: string): string => {
-    if (fileType?.includes('pdf') || fileName?.includes('certificate') || fileName?.includes('gas') || fileName?.includes('eicr')) {
-      return 'certificates'
-    }
-    if (fileType?.includes('pdf') || fileName?.includes('policy') || fileName?.includes('insurance')) {
-      return 'insurance'
-    }
-    if (fileType?.includes('image')) {
-      return 'photos'
-    }
-    if (fileName?.includes('floor') || fileName?.includes('plan')) {
-      return 'floor_plans'
-    }
-    if (fileName?.includes('tenancy') || fileName?.includes('agreement')) {
-      return 'tenancies'
-    }
-    return 'other'
-  }
-
-  const getCategoryLabel = (category: string) => {
-    switch (category) {
-      case 'certificates': return '📄 Certificates'
-      case 'insurance': return '🛡️ Insurance'
-      case 'photos': return '📷 Photos'
-      case 'floor_plans': return '🏗️ Floor Plans'
-      case 'tenancies': return '📋 Tenancy Docs'
-      case 'maintenance': return '🔧 Maintenance'
-      default: return '📁 Other'
-    }
-  }
-
-  const filtered = documents.filter(doc => {
-    const matchesCategory = categoryFilter === 'all' || doc.category === categoryFilter
-    const matchesSearch = searchQuery === '' ||
-      doc.file_name.toLowerCase().includes(searchQuery.toLowerCase())
-
-    return matchesCategory && matchesSearch
-  })
-
-  const groupedDocuments = filtered.reduce((acc: Record<string, Document[]>, doc) => {
-    const cat = doc.category || 'other'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(doc)
-    return acc
-  }, {})
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes}B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  const categories = ['all', 'certificates', 'insurance', 'photos', 'floor_plans', 'tenancies', 'maintenance', 'other']
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-xl">
-        <div className="text-sm text-neutral-400">Loading documents...</div>
-      </div>
-    )
-  }
+  const filtered = docs.filter(d =>
+    !search ||
+    d.file_name.toLowerCase().includes(search.toLowerCase()) ||
+    (TYPE_LABELS[d.document_type] || d.document_type || '').toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
-    <div className="space-y-xl">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold text-neutral-900">Documents</h2>
-        <p className="text-sm text-neutral-400 mt-xs">Certificates, insurance, floor plans, and property files</p>
+    <div className="space-y-lg">
+      <div className="flex items-center justify-between gap-md flex-wrap">
+        <div>
+          <h2 className="text-xl font-semibold text-neutral-900">Documents</h2>
+          <p className="text-sm text-neutral-400 mt-xs">Certificates, tenancy docs, floor plans and property files</p>
+        </div>
+        <button
+          onClick={() => setShowDrawer(true)}
+          className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-800 transition whitespace-nowrap"
+        >
+          + Upload document
+        </button>
       </div>
 
-      {/* Filters */}
-      <div className="space-y-md">
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-            Search Documents
-          </label>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by filename..."
-            className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+      {docs.length > 0 && (
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search documents…"
+          className="w-full rounded-lg border border-neutral-200 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+        />
+      )}
 
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
-            Category
-          </label>
-          <div className="flex flex-wrap gap-sm">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-md py-sm rounded-lg font-semibold text-sm transition ${
-                  categoryFilter === cat
-                    ? 'bg-blue-600 text-white'
-                    : 'border border-neutral-700 text-white hover:bg-neutral-900'
-                }`}
-              >
-                {cat === 'all' ? 'All' : getCategoryLabel(cat).split(' ')[0]}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Documents List */}
-      {filtered.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-xl text-center">
-          <div className="text-3xl mb-md opacity-50">📁</div>
-          <p className="text-sm font-semibold text-white mb-md">No documents found</p>
-          <p className="text-xs text-neutral-400 mb-lg">
-            {documents.length === 0
-              ? 'Upload documents to get started'
-              : 'Try adjusting your filters'}
+      {loading ? (
+        <div className="text-sm text-neutral-400 py-xl text-center">Loading…</div>
+      ) : filtered.length === 0 ? (
+        <div
+          onClick={() => setShowDrawer(true)}
+          className="rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 hover:border-neutral-500 hover:bg-white transition cursor-pointer p-xl text-center"
+        >
+          <p className="text-2xl mb-sm">📎</p>
+          <p className="text-sm font-semibold text-neutral-700">
+            {docs.length === 0 ? 'No documents yet — click to upload' : 'No results — click to upload a new document'}
           </p>
+          <p className="text-xs text-neutral-400 mt-xs">PDF, JPG, PNG or DOCX · AI will identify the type</p>
         </div>
       ) : (
-        <div className="space-y-lg">
-          {Object.entries(groupedDocuments).map(([category, docs]) => (
-            <div key={category}>
-              <h3 className="text-sm font-bold uppercase text-neutral-400 mb-md pb-md border-b border-neutral-100">
-                {getCategoryLabel(category)}
-              </h3>
-              <div className="space-y-md">
-                {docs.map(doc => (
-                  <div key={doc.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
-                    <div className="flex items-start justify-between gap-lg mb-md">
-                      <div className="flex-1">
-                        <a
-                          href="#"
-                          className="font-semibold text-blue-400 hover:text-blue-300 underline"
-                        >
-                          {doc.file_name}
-                        </a>
-                        <div className="flex items-center gap-md text-xs text-neutral-400 mt-sm">
-                          <span>{formatFileSize(doc.file_size)}</span>
-                          <span>•</span>
-                          <span>{formatDate(doc.created_at)}</span>
-                        </div>
-                      </div>
-                      <div className="flex gap-sm">
-                        <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
-                          View
-                        </button>
-                        <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
-                          Download
-                        </button>
-                        <button className="text-xs font-semibold text-red-400 hover:text-red-400">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+        <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden divide-y divide-neutral-100">
+          {filtered.map(doc => (
+            <button
+              key={doc.id}
+              onClick={() => setViewingDoc(doc)}
+              className="w-full px-lg py-md flex items-center gap-lg text-left hover:bg-neutral-50 transition"
+            >
+              <span className="text-lg shrink-0">📄</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-neutral-900 truncate">{doc.file_name}</p>
+                <div className="flex items-center gap-md mt-xs flex-wrap">
+                  <span className="text-xs text-neutral-500">{TYPE_LABELS[doc.document_type] || doc.document_type}</span>
+                  {doc.description && <span className="text-xs text-neutral-400">· {doc.description}</span>}
+                  {doc.visible_to_tenants && <span className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded px-xs py-0">tenant visible</span>}
+                  <span className="text-xs text-neutral-300">{new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</span>
+                </div>
               </div>
-            </div>
+              <span className="shrink-0 text-xs font-semibold text-neutral-500">View →</span>
+            </button>
           ))}
         </div>
       )}
 
-      {/* Upload Zone Coming Soon */}
-      <div className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 p-xl text-center">
-        <div className="text-3xl mb-md">☁️</div>
-        <p className="text-sm font-semibold text-blue-300 mb-sm">Upload files</p>
-        <p className="text-xs text-blue-700">Drag & drop documents here to upload</p>
-      </div>
+      {showDrawer && (
+        <DocUploadDrawer
+          title={propertyName || 'Property'}
+          subtitle="Upload document"
+          propertyId={propertyId}
+          onClose={() => setShowDrawer(false)}
+          onUploaded={() => loadDocs()}
+        />
+      )}
+
+      {viewingDoc && (
+        <DocViewDrawer
+          title={propertyName || 'Property'}
+          subtitle={TYPE_LABELS[viewingDoc.document_type] || viewingDoc.document_type}
+          fileName={viewingDoc.file_name}
+          storageUrl={viewingDoc.storage_url}
+          onClose={() => setViewingDoc(null)}
+          onReplace={() => { setViewingDoc(null); setShowDrawer(true) }}
+        />
+      )}
     </div>
   )
 }

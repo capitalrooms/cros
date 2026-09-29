@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { buildEmail, FROM } from '@/lib/emailWrapper'
+import { buildEmail } from '@/lib/emailWrapper'
+import { senderFields } from '@/lib/email/sender'
+import { getCommsLive } from '@/lib/comms'
 
 const svc = () =>
   createServiceClient(
@@ -24,6 +26,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Tenant comms kill-switch — nothing goes to tenants while comms are paused
+  if (!await getCommsLive()) return NextResponse.json({ skipped: 'Tenant comms are paused' })
+
   const supabase = svc()
 
   // Target: move-out in 14 days, confirmation sent, reminder not yet sent
@@ -39,7 +44,7 @@ export async function GET(req: Request) {
       rooms(name),
       properties(address)
     `)
-    .eq('status', 'on_notice')
+    .not('notice_received_date', 'is', null)   // on notice
     .eq('end_date', targetDate)
     .not('checkout_confirmation_sent_at', 'is', null)
     .is('checkout_reminder_sent_at', null)
@@ -87,7 +92,7 @@ export async function GET(req: Request) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-      body: JSON.stringify({ from: FROM, to: email, subject, html }),
+      body: JSON.stringify({ ...(await senderFields()), to: email, subject, html }),
     })
 
     if (res.ok) {

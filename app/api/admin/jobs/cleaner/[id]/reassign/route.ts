@@ -1,11 +1,14 @@
 import { createServiceClient } from '@/lib/supabase'
+import { requireStaff } from '@/lib/portalAuth'
 import { NextRequest, NextResponse } from 'next/server'
 
 // PATCH /api/admin/jobs/cleaner/[id]/reassign — reassign to a different cleaner
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params: paramsPromise }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const params = await paramsPromise
   try {
     const { cleanerId } = await request.json()
     if (!cleanerId) {

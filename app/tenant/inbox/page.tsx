@@ -87,7 +87,10 @@ export default function InboxPage() {
         setNotifications(notifs || [])
 
         // Fetch recent notice board posts
-        const noticesRes = await fetch('/api/tenant/notices')
+        const { data: { session } } = await supabase.auth.getSession()
+        const noticeHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (session?.access_token) noticeHeaders['Authorization'] = `Bearer ${session.access_token}`
+        const noticesRes = await fetch('/api/tenant/notices', { headers: noticeHeaders })
         if (noticesRes.ok) {
           const json = await noticesRes.json()
           const active = ((json.notices || []) as Notice[]).filter(n => n.status === 'active').slice(0, 5)

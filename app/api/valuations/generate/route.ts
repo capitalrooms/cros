@@ -3,10 +3,12 @@
 // After generating, saves a log record + uploads PDF to Supabase Storage.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { generateValuationPDF } from '@/lib/valuations/generatePDF'
 import { ValuationData } from '@/lib/valuations/ValuationDocument'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { contentDisposition } from '@/lib/contentDisposition'
 
 function serviceClient() {
   return createClient(
@@ -17,6 +19,7 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const data: ValuationData = await req.json()
     if (!data.recipientName || !data.propertyAddress) {
@@ -83,7 +86,7 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: {
         'Content-Type':        'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': contentDisposition(`${filename}`, 'attachment'),
         'Content-Length':      String(buffer.length),
       },
     })

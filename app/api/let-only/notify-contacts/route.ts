@@ -19,8 +19,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { buildEmail, FROM } from '@/lib/emailWrapper'
+import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields, senderFor } from '@/lib/email/sender'
+import { requireStaff } from '@/lib/portalAuth'
+import { getCommsLive } from '@/lib/comms'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 
@@ -90,10 +93,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
   }
 
+  if (!(await requireStaff(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
+  if (!(await getCommsLive())) return NextResponse.json({ sent: 0, reason: 'tenant_comms_paused', message: 'Tenant messages are paused' })
   const body = await req.json()
-  const { listing_id, event, viewing_date, viewing_time, visitor_name, room_name, sender_name } = body
+  const { listing_id, property_id, contacts: givenContacts, event, viewing_date, viewing_time, visitor_name, room_name } = body
+  const sender_name = body.sender_name || (await senderFor(req)).name
 
-  if (!listing_id || !event || !viewing_date || !viewing_time || !sender_name) {
+  if ((!listing_id && !property_id) || !event || !viewing_date || !viewing_time) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
@@ -104,7 +110,9 @@ export async function POST(req: NextRequest) {
     { auth: { persistSession: false } }
   )
 
-  const { data: listing } = await service
+  const { data: listing } = property_id
+    ? await service.from('properties').select('address, postcode').eq('id', property_id).single()
+    : await service
     .from('let_only_listings')
     .select('address, postcode')
     .eq('id', listing_id)
@@ -114,16 +122,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
   }
 
-  const { data: contacts } = await service
+  const { data: contacts } = Array.isArray(givenContacts)
+    ? { data: givenContacts.filter((c: any) => c && typeof c.email === 'string' && c.email.includes('@')).map((c: any) => ({ full_name: String(c.full_name || ''), email: c.email.trim() })) }
+    : await service
     .from('let_only_contacts')
-    .select('full_name, first_name, last_name, email')
+    .select('full_name, email')
     .eq('listing_id', listing_id)
 
   if (!contacts || contacts.length === 0) {
     return NextResponse.json({ sent: 0, message: 'No contacts to notify' })
   }
 
-  const address = listing.postcode
+  const address = listing.postcode && !String(listing.address || '').includes(listing.postcode)
     ? `${listing.address}, ${listing.postcode}`
     : listing.address
 
@@ -134,7 +144,7 @@ export async function POST(req: NextRequest) {
     contacts
       .filter(c => c.email)
       .map(async contact => {
-        const contactName = contact.first_name || contact.full_name || 'there'
+        const contactName = (contact.full_name || '').split(' ')[0] || 'there'
 
         let subject: string
         let html: string
@@ -158,11 +168,11 @@ export async function POST(req: NextRequest) {
           const vars = { event_subject: eventSubject, address, contact_name: contactName, event_intro: eventIntro, sender_name }
           subject = render(letOnlyTpl.subject_line, vars)
           const bodyText = render(letOnlyTpl.template_text, vars)
-          html = await buildEmail(`<div style="white-space:pre-line;">${bodyText}</div>`)
+          html = await buildEmail(`<div style="white-space:pre-line;">${bodyText}</div>`, { req: req })
         } else {
           const result = buildEmailBody({ event, viewing_date, viewing_time, visitor_name, room_name, address, sender_name, contact_name: contactName })
           subject = result.subject
-          html = await buildEmail(result.body)
+          html = await buildEmail(result.body, { req: req })
         }
 
         const res = await fetch('https://api.resend.com/emails', {
@@ -172,7 +182,7 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: FROM,
+            ...(await senderFields(req)),
             to: [contact.email],
             subject,
             html,

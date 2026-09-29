@@ -145,9 +145,9 @@ export default function JobSheetPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/maintenance" />} title="Job sheet" />
-        <div className="animate-pulse p-lg space-y-md max-w-2xl mx-auto mt-xl">
+        <div className="animate-pulse p-lg space-y-md max-w-6xl mx-auto mt-xl">
           {[1,2,3].map(i => <div key={i} className="h-14 rounded-2xl bg-neutral-200" />)}
         </div>
       </div>
@@ -155,10 +155,10 @@ export default function JobSheetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/maintenance" />} title="Send job sheet" />
 
-      <div className="max-w-2xl mx-auto px-lg py-xl space-y-xl">
+      <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 
         {/* ── Property + Contractor ──────────────────────────────────────── */}
         <section className="bg-white rounded-2xl border border-neutral-200 p-lg space-y-md">

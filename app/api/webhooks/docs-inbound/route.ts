@@ -6,9 +6,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { classifyDocument } from '@/lib/ai-classify'
+import { scanDocument, fileHash } from '@/lib/scan-engine'
 import { Resend } from 'resend'
 import crypto from 'crypto'
+import { senderFieldsSdk } from '@/lib/email/sender'
+import { buildEmail } from '@/lib/emailWrapper'
+
+// Give Vercel up to 5 minutes — fetching attachments + AI classification of multiple PDFs needs it
+export const maxDuration = 300
 
 function serviceClient() {
   return createClient(
@@ -55,6 +60,7 @@ export async function POST(req: NextRequest) {
 
   // Resend email.received event payload — data is nested under body.data
   const emailData = body.data ?? body
+  const inboundEmailId: string = emailData.email_id || emailData.id || ''
   const recipient: string = (emailData.to?.[0] || '').toLowerCase()
 
   // Only process emails addressed to docs@
@@ -64,14 +70,41 @@ export async function POST(req: NextRequest) {
 
   const from: string = emailData.from || emailData.sender || ''
   const subject: string = emailData.subject || 'Document'
-  const attachments: Array<{
-    filename: string
-    content_type: string
-    content: string // base64
-  }> = emailData.attachments || []
+  const attachments: Array<Record<string, any>> = emailData.attachments || []
 
   const fromEmail = from.replace(/.*<(.+)>/, '$1').trim().toLowerCase()
+  console.log('docs-inbound: from=%s subject=%s attachments=%d id=%s', fromEmail, subject, attachments.length, inboundEmailId)
   const supabase = serviceClient()
+
+  // Fetch attachment content — Resend does not include base64 in the webhook payload.
+  // Must fetch from the Resend inbound attachments API using the email id.
+  if (inboundEmailId && attachments.length) {
+    for (const att of attachments) {
+      if (!att.content && att.id) {
+        try {
+          const attResp = await fetch(
+            `https://api.resend.com/emails/inbound/${inboundEmailId}/attachments/${att.id}`,
+            { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } }
+          )
+          if (attResp.ok) {
+            const attMeta = await attResp.json()
+            if (attMeta.download_url) {
+              const fileResp = await fetch(attMeta.download_url)
+              if (fileResp.ok) {
+                const buf = await fileResp.arrayBuffer()
+                att.content = Buffer.from(buf).toString('base64')
+                console.log('docs-inbound: fetched attachment', att.filename, `${(buf.byteLength / 1024).toFixed(0)}KB`)
+              }
+            }
+          } else {
+            console.warn('docs-inbound: attachment API failed', attResp.status)
+          }
+        } catch (e) {
+          console.warn('docs-inbound: could not fetch attachment', att.id, e)
+        }
+      }
+    }
+  }
 
   let stored = 0
   const errors: string[] = []
@@ -83,13 +116,23 @@ export async function POST(req: NextRequest) {
   }> = []
 
   for (const att of attachments) {
-    const mime = att.content_type || 'application/octet-stream'
+    const mime = att.content_type || att.contentType || att.mime_type || 'application/octet-stream'
     const allowed = ALLOWED_MIME.some(m => mime.startsWith(m))
     if (!allowed) continue
 
     const bytes = Buffer.from(att.content, 'base64')
+    const hash = fileHash(bytes)
     const safeName = att.filename.replace(/[^a-zA-Z0-9._-]/g, '_')
     const path = `inbound/${Date.now()}_${safeName}`
+
+    // Dedup: if we already classified a file with this exact hash, reuse the result
+    const { data: dupRow } = await supabase
+      .from('inbox_documents')
+      .select('ai_result')
+      .eq('file_hash', hash)
+      .not('ai_result', 'is', null)
+      .limit(1)
+      .maybeSingle()
 
     // Upload to storage
     const { error: upErr } = await supabase.storage
@@ -101,13 +144,17 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    // AI classify (best effort)
-    let ai_result: any = null
+    // AI classify (best effort) — skip entirely if we have a cached result for this hash
+    let ai_result: any = dupRow?.ai_result || null
     let ai_error: string | null = null
-    try {
-      ai_result = await classifyDocument(bytes, mime, att.filename)
-    } catch (e: any) {
-      ai_error = e?.message || 'AI classification failed'
+    if (!ai_result) {
+      try {
+        ai_result = await scanDocument(bytes, mime)
+      } catch (e: any) {
+        ai_error = e?.message || 'AI classification failed'
+      }
+    } else {
+      console.log('docs-inbound: reusing cached AI result for hash', hash.slice(0, 8))
     }
 
     // ── Tenancy agreement matching ───────────────────────────────────────────
@@ -198,6 +245,7 @@ export async function POST(req: NextRequest) {
       filename: att.filename,
       storage_path: path,
       mime,
+      file_hash: hash,
       ai_result,
       ai_error,
       status: 'new',
@@ -248,20 +296,14 @@ export async function POST(req: NextRequest) {
       }).join('')
 
       await resend.emails.send({
-        from: 'Capital Rooms <noreply@capitalrooms.co.uk>',
+        ...(await senderFieldsSdk()),
         to: ['harry@capitalrooms.co.uk'],
         subject: `📄 ${storedResults.length} document${storedResults.length > 1 ? 's' : ''} received — ready to file`,
-        html: `
-          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9fafb">
-            <h2 style="color:#111;margin-bottom:4px">📄 New document${storedResults.length > 1 ? 's' : ''} received</h2>
-            <p style="color:#666;font-size:14px;margin-bottom:24px">
-              From: <strong>${fromEmail}</strong><br>
-              Subject: ${subject}
-            </p>
+        html: await buildEmail(`
+            <p><strong>New document${storedResults.length > 1 ? 's' : ''} received</strong></p>
+            <p style="color:#78716c;font-size:13px;">From: <strong>${fromEmail}</strong><br>Subject: ${subject}</p>
             ${docCards}
-            <p style="color:#999;font-size:12px;margin-top:24px">Capital Rooms CROS · <a href="https://cros-sigma.vercel.app/admin/ai-upload" style="color:#666">View all pending documents</a></p>
-          </div>
-        `,
+            <p style="font-size:13px;"><a href="https://cros-sigma.vercel.app/admin/ai-upload" style="color:#1a1a1a;">View all pending documents</a></p>`),
       })
     } catch (e) {
       console.warn('docs-inbound: notify failed', e)

@@ -1,180 +1,14 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ReactNode } from 'react'
+import { ReactNode, useState, useRef, useEffect } from 'react'
+import Logo from '@/components/Logo'
+import { AdminContext } from '@/lib/admin-context'
+import { createClient } from '@/lib/supabase'
 
-// ─── Zone & subnav configuration ────────────────────────────────────────────
-
-interface SubItem {
-  emoji: string
-  label: string
-  href: string
-  badge?: 'red' | 'amber' | 'green'
-}
-
-interface Zone {
-  id: string
-  emoji: string
-  label: string
-  // Route prefixes that belong to this zone (checked in order)
-  routes: string[]
-  subnav: SubItem[]
-}
-
-const ZONES: Zone[] = [
-  {
-    id: 'dash',
-    emoji: '🏠',
-    label: 'Dashboard',
-    routes: ['/admin'],   // exact match handled separately
-    subnav: [],           // dashboard has no subnav — full width
-  },
-  {
-    id: 'portfolio',
-    emoji: '🏢',
-    label: 'Portfolio',
-    routes: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties/new'],
-    subnav: [
-      { emoji: '🏠', label: 'All units',       href: '/admin/active-rooms' },
-      { emoji: '📋', label: 'Property tasks',  href: '/admin/property-tasks' },
-      { emoji: '🔍', label: 'Property audit',  href: '/admin/overview' },
-      { emoji: '➕', label: 'Add property',    href: '/admin/properties/new' },
-    ],
-  },
-  {
-    id: 'lettings',
-    emoji: '🔑',
-    label: 'Lettings',
-    routes: [
-      '/admin/available-and-lettings',
-      '/admin/applicants',
-      '/admin/invite-to-apply',
-      '/admin/let-only',
-      '/admin/let-only-properties',
-      '/admin/tenancies',
-      '/admin/tenancy-management',
-      '/admin/rent-increase',
-      '/admin/early-move-out',
-      '/admin/rent-history',
-    ],
-    subnav: [
-      { emoji: '🔑', label: 'Available rooms',    href: '/admin/available-and-lettings' },
-      { emoji: '📋', label: 'Applicants',          href: '/admin/applicants' },
-      { emoji: '📨', label: 'Invite to apply',     href: '/admin/invite-to-apply' },
-      { emoji: '📄', label: 'Tenancies',           href: '/admin/tenancies' },
-      { emoji: '📈', label: 'Rent reviews',        href: '/admin/rent-increase' },
-      { emoji: '📤', label: 'On notice',           href: '/admin/tenancy-management' },
-      { emoji: '🏘',  label: 'Let-only',            href: '/admin/let-only-properties' },
-    ],
-  },
-  {
-    id: 'ops',
-    emoji: '🔧',
-    label: 'Operations',
-    routes: [
-      '/admin/appointments',
-      '/admin/agency-diary',
-      '/admin/calendar',
-      '/admin/planner',
-      '/admin/maintenance',
-      '/admin/cleaner-jobs',
-    ],
-    subnav: [
-      { emoji: '📅', label: 'Diary',         href: '/admin/appointments' },
-      { emoji: '🗂️', label: 'Planner',       href: '/admin/planner' },
-      { emoji: '🔧', label: 'Maintenance',   href: '/admin/maintenance' },
-      { emoji: '🧹', label: 'Cleaning',      href: '/admin/cleaner-jobs' },
-    ],
-  },
-  {
-    id: 'compliance',
-    emoji: '✅',
-    label: 'Compliance',
-    routes: [
-      '/admin/compliance',
-      '/admin/compliance-logs',
-      '/admin/property-compliance-dashboard',
-      '/admin/tenant-safety-checks',
-      '/admin/sar',
-      '/admin/guides',
-      '/admin/ai-upload',
-    ],
-    subnav: [
-      { emoji: '📋', label: 'Certificates',      href: '/admin/property-compliance-dashboard' },
-      { emoji: '🤖', label: 'AI doc scanner',    href: '/admin/ai-upload' },
-      { emoji: '🛡', label: 'Safety checks',     href: '/admin/tenant-safety-checks' },
-      { emoji: '📖', label: 'Inspection logs',   href: '/admin/compliance-logs' },
-      { emoji: '🔐', label: 'SAR log',           href: '/admin/sar' },
-      { emoji: '📚', label: 'Tenant guides',     href: '/admin/guides' },
-    ],
-  },
-  {
-    id: 'finance',
-    emoji: '💰',
-    label: 'Finance',
-    routes: [
-      '/admin/accounts',
-      '/admin/income',
-      '/admin/expense-log',
-      '/admin/expense-review',
-      '/admin/statements',
-      '/admin/autoledger',
-    ],
-    subnav: [
-      { emoji: '📊', label: 'Statements',       href: '/admin/accounts' },
-      { emoji: '🏦', label: 'Bank import',      href: '/admin/statements/import' },
-      { emoji: '💵', label: 'Fee income',       href: '/admin/income' },
-      { emoji: '⚡', label: 'AutoLedger',       href: '/admin/autoledger' },
-      { emoji: '🏷️', label: 'Expense review',  href: '/admin/expense-review' },
-    ],
-  },
-  {
-    id: 'people',
-    emoji: '👥',
-    label: 'People',
-    routes: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords'],
-    subnav: [
-      { emoji: '👤', label: 'Tenants',      href: '/admin/people?tab=tenants' },
-      { emoji: '🏠', label: 'Landlords',    href: '/admin/people?tab=landlords' },
-      { emoji: '🔧', label: 'Contractors',  href: '/admin/people?tab=contractors' },
-      { emoji: '👔', label: 'Staff',        href: '/admin/people?tab=staff' },
-    ],
-  },
-  {
-    id: 'comms',
-    emoji: '💬',
-    label: 'Comms',
-    routes: [
-      '/admin/communications',
-      '/admin/notify',
-      '/admin/message-templates',
-      '/admin/documents',
-      '/admin/inbox',
-      '/admin/acknowledgment-notes',
-    ],
-    subnav: [
-      { emoji: '💬', label: 'All messages',       href: '/admin/communications' },
-      { emoji: '✉️', label: 'Templates',          href: '/admin/message-templates' },
-      { emoji: '📥', label: 'Documents inbox',    href: '/admin/documents' },
-      { emoji: '📝', label: 'Acknowledgments',    href: '/admin/acknowledgment-notes' },
-      { emoji: '📢', label: 'Quick Notify',       href: '/admin/notify' },
-    ],
-  },
-  {
-    id: 'biz',
-    emoji: '🏗',
-    label: 'New Business',
-    routes: ['/admin/new-business', '/admin/valuations'],
-    subnav: [
-      { emoji: '📬', label: 'Acquisition',        href: '/admin/new-business' },
-      { emoji: '🔍', label: 'AML onboarding',     href: '/admin/new-business/onboarding' },
-      { emoji: '📄', label: 'Mgmt agreement',     href: '/admin/new-business/management-agreement' },
-      { emoji: '📊', label: 'Valuations',         href: '/admin/valuations' },
-      { emoji: '✉️', label: 'Send welcome',       href: '/admin/new-business/send-welcome' },
-    ],
-  },
-]
+import { ZONES, type Zone } from '@/lib/adminNav'
+import MobileTabBar from './components/MobileTabBar'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -191,91 +25,226 @@ function isPropertyHub(pathname: string): boolean {
 
 // ─── Layout ─────────────────────────────────────────────────────────────────
 
+function ProfileMenu() {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+  const [initial, setInitial] = useState('')
+
+  useEffect(() => {
+    createClient().auth.getSession().then(({ data }) => {
+      const email = data.session?.user?.email ?? ''
+      setInitial(email ? email[0].toUpperCase() : '')
+    })
+  }, [])
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Phone: straight to your profile */}
+      <Link href="/admin/profile" aria-label="My profile"
+        className="md:hidden w-8 h-8 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs font-bold text-white/80">
+        {initial || '·'}
+      </Link>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="hidden md:flex w-7 h-7 rounded-full bg-white/10 border border-white/10 items-center justify-center text-xs text-white/60 hover:bg-white/15 transition-colors"
+        aria-label="Account menu"
+      >
+        {initial || '·'}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 w-40 bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden z-50">
+          <Link
+            href="/admin/profile"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 text-xs text-neutral-700 hover:bg-neutral-50"
+          >
+            👤 My profile
+          </Link>
+          <Link
+            href="/admin/settings"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 text-xs text-neutral-700 hover:bg-neutral-50 border-t border-neutral-100"
+          >
+            ⚙️ Settings
+          </Link>
+          <Link
+            href="/admin/settings/signatures"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 text-xs text-neutral-700 hover:bg-neutral-50"
+          >
+            ✍️ Email signatures
+          </Link>
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50 border-t border-neutral-100"
+          >
+            🚪 Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const PHONE_TAB_ROOTS = ['/admin', '/admin/search', '/admin/properties', '/admin/money', '/admin/more']
+const isPhoneTabRoot = (p: string) => PHONE_TAB_ROOTS.includes(p)
+
 export default function AdminLayout({ children }: { children: ReactNode }) {
+  const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const onPropHub = isPropertyHub(pathname)
   const activeZone = getActiveZone(pathname)
   const hasSubnav = !onPropHub && (activeZone?.subnav.length ?? 0) > 0
 
+  // On phones the tab bars scroll sideways; bring the current tab into view.
+  useEffect(() => {
+    document.querySelectorAll<HTMLElement>('nav [data-active]').forEach(el =>
+      el.scrollIntoView({ block: 'nearest', inline: 'center' }))
+  }, [pathname, searchParams])
+
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-neutral-100">
+    <AdminContext.Provider value={true}>
+    <div className="flex flex-col h-screen supports-[height:100dvh]:h-dvh overflow-hidden bg-neutral-100">
 
       {/* ── Top bar ── */}
-      <header className="flex-shrink-0 bg-neutral-950 text-white flex items-center gap-3 px-4 py-2.5 z-40">
-        <Link href="/admin" className="flex-shrink-0">
-          <p className="text-[11px] font-light tracking-[0.28em] uppercase text-white leading-tight">CAPITAL</p>
-          <p className="text-[11px] font-light tracking-[0.28em] uppercase text-white leading-tight">ROOMS</p>
-        </Link>
+      <header className="flex-shrink-0 bg-neutral-950 text-white z-40" style={{ minHeight: 56, paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
+        <div className="grid h-14 px-3" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
+          {/* Left: breadcrumb — always same width bucket so logo stays centred */}
+          <div className="flex items-center min-w-0">
+            {/* Phone: back arrow on inner pages (tab screens are top level) */}
+            {!isPhoneTabRoot(pathname) && (
+              <button type="button" onClick={() => router.back()} aria-label="Back"
+                className="md:hidden -ml-1 mr-1 flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+              </button>
+            )}
+            {onPropHub ? (
+              <Link
+                href="/admin"
+                className="hidden md:flex text-xs text-white/40 hover:text-white/70 transition-colors items-center gap-1 whitespace-nowrap"
+              >
+                ← All properties
+              </Link>
+            ) : activeZone && activeZone.id !== 'dash' ? (
+              <span className="text-xs text-white/40 truncate hidden sm:block">{activeZone.label}</span>
+            ) : null}
+          </div>
 
-        <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+          {/* Centre: logo — always perfectly centred */}
+          <div className="flex items-center justify-center">
+            <Link href="/admin" aria-label="Home" className="block hover:opacity-80 transition-opacity">
+              <Logo variant="emblem" height={32} invert />
+            </Link>
+          </div>
 
-        {/* Breadcrumb */}
-        {onPropHub ? (
-          <Link
-            href="/admin"
-            className="text-xs text-white/40 hover:text-white/70 transition-colors flex items-center gap-1.5"
-          >
-            ← All properties
-          </Link>
-        ) : activeZone && activeZone.id !== 'dash' ? (
-          <span className="text-xs text-white/40">{activeZone.label}</span>
-        ) : null}
-
-        <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/admin/notify"
-            className="px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
-          >
-            ⚡ Quick Notify
-          </Link>
-          <Link
-            href="/admin/profile"
-            className="w-7 h-7 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs text-white/60 hover:bg-white/15 transition-colors"
-          >
-            H
-          </Link>
+          {/* Right: actions */}
+          <div className="flex items-center justify-end gap-1.5">
+            <Link
+              href="/admin/notify"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
+            >
+              <span>⚡</span>
+              <span className="hidden sm:inline">Quick Notify</span>
+            </Link>
+            <ProfileMenu />
+          </div>
         </div>
       </header>
 
-      {/* ── Zone tabs (hidden on property hub) ── */}
+      {/* ── Zone tabs ── */}
       {!onPropHub && (
         <nav
-          className="flex-shrink-0 bg-neutral-900 flex overflow-x-auto border-b border-white/8"
-          style={{ scrollbarWidth: 'none' }}
+          className="flex-shrink-0 bg-neutral-900 hidden md:flex overflow-x-auto border-b border-white/8"
+          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
         >
           {ZONES.map(zone => {
             const active = activeZone?.id === zone.id
             return (
               <Link
                 key={zone.id}
-                href={zone.subnav[0]?.href ?? (zone.id === 'dash' ? '/admin' : '#')}
+                href={zone.home ?? zone.subnav[0]?.href ?? (zone.id === 'dash' ? '/admin' : '#')}
                 prefetch={false}
+                aria-label={zone.label}
+                data-active={active || undefined}
                 className={[
-                  'flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
+                  'flex-shrink-0 flex items-center gap-1 px-3 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
                   active
                     ? 'text-white border-amber-500'
-                    : 'text-white/35 border-transparent hover:text-white/70 hover:border-white/20',
+                    : 'text-white/60 border-transparent hover:text-white hover:border-white/20',
                 ].join(' ')}
               >
                 <span className="text-sm leading-none">{zone.emoji}</span>
-                {zone.label}
+                <span className="hidden xs:inline sm:inline">{zone.label}</span>
               </Link>
             )
           })}
         </nav>
       )}
 
-      {/* ── Body: subnav + content ── */}
+      {/* ── Mobile subnav (horizontal scroll, shown below zone bar on mobile) ── */}
+      {hasSubnav && (
+        <nav
+          className="hidden"
+          style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+        >
+          {activeZone!.subnav.map(item => {
+            const [itemPath, itemQuery] = item.href.split('?')
+            const itemTab = itemQuery ? new URLSearchParams(itemQuery).get('tab') : null
+            const active = itemTab
+              ? pathname === itemPath && searchParams.get('tab') === itemTab
+              : pathname === item.href || pathname.startsWith(itemPath + '/')
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch={false}
+                data-active={active || undefined}
+                className={[
+                  'flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium transition-colors border-b-2 whitespace-nowrap',
+                  active
+                    ? 'text-amber-700 border-amber-500 bg-amber-50'
+                    : 'text-neutral-500 border-transparent hover:text-neutral-800',
+                ].join(' ')}
+              >
+                <span>{item.emoji}</span>
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+      )}
+
+      {/* ── Body: subnav sidebar (desktop) + content ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Subnav (desktop only, only when zone has items and not on property hub) */}
+        {/* Subnav sidebar — desktop only */}
         {hasSubnav && (
-          <aside className="flex flex-col flex-shrink-0 w-44 bg-white border-r border-neutral-200 overflow-y-auto">
+          <aside className="hidden md:flex flex-col flex-shrink-0 w-44 bg-white border-r border-neutral-200 overflow-y-auto">
             <p className="px-3.5 pt-3 pb-1.5 text-[9px] font-bold uppercase tracking-widest text-neutral-400">
               {activeZone!.label}
             </p>
             {activeZone!.subnav.map(item => {
-              const active = pathname === item.href || pathname.startsWith(item.href.split('?')[0] + '/')
+              const [itemPath, itemQuery] = item.href.split('?')
+              const itemTab = itemQuery ? new URLSearchParams(itemQuery).get('tab') : null
+              const active = itemTab
+                ? pathname === itemPath && searchParams.get('tab') === itemTab
+                : pathname === item.href || pathname.startsWith(itemPath + '/')
               return (
                 <Link
                   key={item.href}
@@ -297,11 +266,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         )}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto min-w-0">
+        <main className="flex-1 overflow-y-auto min-w-0 md:pb-[env(safe-area-inset-bottom)]">
           {children}
         </main>
 
       </div>
+
+      {/* Phone only: app-style bottom tabs */}
+      <MobileTabBar />
     </div>
+    </AdminContext.Provider>
   )
 }

@@ -11,15 +11,24 @@
  * ╚══════════════════════════════════════════════════════════════════════════╝
  */
 
-import { buildEmail, FROM } from '@/lib/emailWrapper'
+import { buildEmail } from '@/lib/emailWrapper'
+import { senderFor, type EmailSender } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 interface SendOptions {
-  /** Reply-to address, if different from FROM */
+  /** The request that triggered this email — the signed-in staff member becomes the sender */
+  req?: Request | null
+  /** Explicit sender (overrides req); defaults to the main administrator */
+  sender?: EmailSender
+  /** Reply-to address, if different from the sender */
   replyTo?: string
-  /** Sender override — defaults to FROM constant */
+  /** Carbon-copy recipients */
+  cc?: string[]
+  /** Raw From header override — normally leave unset so the sender's own address is used */
   from?: string
+  /** false → company footer instead of the sender's signature (e.g. marketing mailers that sign themselves) */
+  signature?: boolean
   /** ICS / PDF attachments: [{filename, content}] where content is base64 */
   attachments?: Array<{ filename: string; content: string }>
 }
@@ -59,21 +68,23 @@ export async function sendEmail(
     return { ok: false, error: 'Email service not configured' }
   }
 
+  const sender = opts.sender ?? await senderFor(opts.req)
   let html: string
   try {
-    html = await buildEmail(bodyHtml)
+    html = await buildEmail(bodyHtml, { sender, signature: opts.signature })
   } catch (err: any) {
     console.error('[sendEmail] buildEmail failed:', err?.message)
     return { ok: false, error: 'Failed to build email HTML' }
   }
 
   const payload: Record<string, unknown> = {
-    from: opts.from ?? FROM,
+    from: opts.from ?? sender.from,
     to: Array.isArray(to) ? to : [to],
     subject,
     html,
   }
-  if (opts.replyTo) payload.reply_to = opts.replyTo
+  payload.reply_to = opts.replyTo ?? sender.replyTo
+  if (opts.cc?.length) payload.cc = opts.cc
   if (opts.attachments?.length) payload.attachments = opts.attachments
 
   try {

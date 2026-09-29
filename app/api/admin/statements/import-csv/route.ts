@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { PROPERTY_WIDE_CATEGORIES, ROOM_SPECIFIC_CATEGORY_TYPES, UNMATCHED_SLUG } from '@/lib/expense-categories'
 import crypto from 'crypto'
 
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
   // Fetch property rooms for room-specific categorisation
   const { data: rooms } = await supabase
     .from('rooms')
-    .select('id, name, room_number')
+    .select('id, name')
     .eq('property_id', propertyId)
 
   const categoryList = [

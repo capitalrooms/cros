@@ -7,8 +7,9 @@
  */
 
 import { buildEmail } from '@/lib/emailWrapper'
+import type { EmailSender } from '@/lib/email/sender'
 
-interface CheckoutEmailData {
+export interface CheckoutEmailData {
   tenantName: string
   tenantEmail: string
   roomName: string
@@ -24,7 +25,7 @@ interface CheckoutEmailData {
   contactPhone?: string
 }
 
-export async function buildCheckoutEmail(data: CheckoutEmailData): Promise<string> {
+export async function buildCheckoutEmail(data: CheckoutEmailData, sender?: EmailSender): Promise<string> {
   const moveOutFormatted = new Date(data.moveOutDate).toLocaleDateString('en-GB', {
     weekday: 'long',
     year: 'numeric',
@@ -124,5 +125,5 @@ export async function buildCheckoutEmail(data: CheckoutEmailData): Promise<strin
 </div>
 `
 
-  return buildEmail(body)
+  return buildEmail(body, { sender })
 }

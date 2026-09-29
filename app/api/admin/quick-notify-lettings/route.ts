@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { insertNotifications, activeTenantIds, tryPush, tryEmailFallback } from '@/lib/serverNotify'
+import { insertNotifications, activeTenantIds, dispatchChannels, type NotifyChannels } from '@/lib/serverNotify'
+import { requireStaff } from '@/lib/portalAuth'
+import { getCommsLive } from '@/lib/comms'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,6 +14,7 @@ export const dynamic = 'force-dynamic'
  * shared helper.
  */
 export async function POST(request: NextRequest) {
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' }, { status: 500 })
 
@@ -24,6 +27,8 @@ export async function POST(request: NextRequest) {
     viewing_period_start,
     viewing_period_end,
     new_arrival_time,
+    exclude_room_id,
+    channels = 'push_email',
   } = await request.json()
 
   if (!property_id || !subject || !message) {
@@ -81,7 +86,13 @@ export async function POST(request: NextRequest) {
         ? (viewingData?.room_id ?? null)
         : null
 
-    const recipientIds = await activeTenantIds(service, property_id, targetRoomId)
+    let recipientIds = await activeTenantIds(service, property_id, targetRoomId)
+    if (selector_type === 'housemates') {
+      // a new viewing: the other people in the house (the room's own tenant is told separately, by text)
+      if (!(await getCommsLive())) return NextResponse.json({ success: false, reason: 'tenant_comms_paused', message: 'Tenant messages are paused' })
+      const inRoom = new Set(exclude_room_id ? await activeTenantIds(service, property_id, exclude_room_id) : [])
+      recipientIds = recipientIds.filter(id => !inRoom.has(id))
+    }
     if (recipientIds.length === 0) {
       return NextResponse.json({ success: true, message: 'No current tenants to notify' })
     }
@@ -94,10 +105,9 @@ export async function POST(request: NextRequest) {
     }, { propertyId: property_id, roomId: viewingData?.room_id || null })
     if (error) return NextResponse.json({ error: `Failed to send notification: ${error}` }, { status: 500 })
 
-    await tryPush(recipientIds, finalSubject, finalMessage, '/tenant')
-    await tryEmailFallback(service, recipientIds, { title: finalSubject, body: finalMessage, link: '/tenant' })
+    const { pushCount, emailCount } = await dispatchChannels(service, recipientIds, { title: finalSubject, body: finalMessage, link: '/tenant' }, channels as NotifyChannels, request)
 
-    return NextResponse.json({ success: true, message: `Notification sent to ${count} tenant(s)` })
+    return NextResponse.json({ success: true, message: `Notification sent to ${count} tenant(s)`, pushCount, emailCount, recipientCount: count })
   } catch (error) {
     console.error('Error sending lettings notification:', error)
     return NextResponse.json({ error: 'Failed to send notification' }, { status: 500 })

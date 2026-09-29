@@ -3,6 +3,7 @@
 // DELETE /api/admin/guides/[id] — soft-delete (unpublish)
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
@@ -17,6 +18,7 @@ function serviceClient() {
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireStaff(_req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const sb = serviceClient()
 
@@ -43,6 +45,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const body = await req.json()
   const allowed = ['title', 'emoji', 'sort_order', 'visibility', 'trigger_stage',
@@ -65,6 +68,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireStaff(_req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { id } = await params
   const sb = serviceClient()
   const { error } = await sb

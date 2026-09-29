@@ -14,6 +14,9 @@ import {
 } from '@/lib/rent-increase/generatePDF'
 import { getDeemedServiceDate, getDeemedServiceDescription } from '@/lib/rent-increase/deemedServiceDate'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { landlordFormalNames } from '@/lib/people'
+import { senderFieldsSdk, senderFor } from '@/lib/email/sender'
+import { buildEmail } from '@/lib/emailWrapper'
 
 function serviceClient() {
   return createClient(
@@ -69,7 +72,7 @@ export async function POST(req: NextRequest) {
       person:people!tenancies_person_id_fkey(id, full_name, first_name, last_name, email),
       room:rooms!tenancies_room_id_fkey(id, name),
       property:properties!tenancies_property_id_fkey(id, name, address, landlord_id,
-        landlord:people!properties_landlord_id_fkey(id, full_name, first_name, last_name, company)
+        landlord:people!properties_landlord_id_fkey(*)
       )
     `)
     .eq('id', tenancyId)
@@ -117,7 +120,7 @@ export async function POST(req: NextRequest) {
       day: 'numeric', month: 'long', year: 'numeric',
     })
     return NextResponse.json({
-      error: `Section 13 notices cannot be served during the fixed term of an AST. Fixed term ends ${fmtFixed}.`,
+      error: `Section 13 notices cannot be served during the fixed term of an Assured Periodic Tenancy. Fixed term ends ${fmtFixed}.`,
     }, { status: 422 })
   }
 
@@ -141,7 +144,7 @@ export async function POST(req: NextRequest) {
   // ── Build data object ─────────────────────────────────────────────────────
   const nameParts   = (person.full_name || '').trim().split(/\s+/)
   const landlordName = landlord
-    ? (landlord.company || landlord.full_name || [landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || 'The Landlord')
+    ? (landlord.company || landlordFormalNames(landlord) || 'The Landlord')
     : property.landlord_name || 'The Landlord'
 
   const pcodeMatch = property.address?.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}/i)
@@ -230,7 +233,7 @@ export async function POST(req: NextRequest) {
 
   try {
     await resend.emails.send({
-      from:    'Capital Rooms <noreply@capitalrooms.co.uk>',
+      ...(await senderFieldsSdk(req)),
       to:      [person.email],
       subject: `Important: Section 13 rent increase notice — effective ${effFormatted}`,
       attachments: [
@@ -243,25 +246,14 @@ export async function POST(req: NextRequest) {
           content:  formBuf.toString('base64'),
         },
       ],
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px;background:#f9fafb">
-          <h2 style="color:#111;margin-bottom:4px">Rent increase notice</h2>
-          <p style="color:#444;font-size:14px">Dear ${data.tenantFirstName},</p>
-          <p style="color:#444;font-size:14px">
-            Please find enclosed two documents regarding a proposed change to your rent, effective from
-            <strong>${effFormatted}</strong>:
-          </p>
-          <ol style="color:#444;font-size:14px;padding-left:20px">
-            <li style="margin-bottom:8px"><strong>Cover letter</strong> — explains the increase and your options in plain English</li>
+      html: await buildEmail(`
+          <p>Dear ${data.tenantFirstName},</p>
+          <p>Please find enclosed two documents regarding a proposed change to your rent, effective from <strong>${effFormatted}</strong>:</p>
+          <ol style="padding-left:20px;">
+            <li style="margin-bottom:8px;"><strong>Cover letter</strong> — explains the increase and your options in plain English</li>
             <li><strong>Form 4A</strong> — the statutory Section 13 notice required by law</li>
           </ol>
-          <p style="color:#444;font-size:14px">
-            Please read both documents carefully. If you have any questions, reply to this email or call us on
-            <strong>0207 112 9163</strong>.
-          </p>
-          <p style="color:#666;font-size:12px;margin-top:24px">Capital Rooms · Third Floor, 86-90 Paul Street, London EC2A 4NE</p>
-        </div>
-      `,
+          <p>Please read both documents carefully. If you have any questions, reply to this email or call us on <strong>0207 112 9163</strong>.</p>`, { sender: await senderFor(req) }),
     })
   } catch (emailErr: any) {
     console.error('Email send failed', emailErr)

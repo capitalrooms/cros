@@ -3,7 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { genTenancyRefs } from '@/lib/references'
 import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal'
+import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
+import { fiveWeeksDeposit, oneWeekRent } from '@/lib/tenancy/deposit'
+import { resolveFee, describeFee } from '@/lib/fees/managementFee'
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -62,6 +66,7 @@ interface UnitsTabProps {
   initialRoomId?: string
   propertyName?: string
   propertyAddress?: string
+  propertyCode?: string | null
 }
 
 interface CleanerOption {
@@ -116,7 +121,7 @@ function statusPill(room: RoomRow) {
 
 /* ─── Component ──────────────────────────────────────────── */
 
-export default function UnitsTab({ propertyId, bedrooms, initialRoomId, propertyName, propertyAddress }: UnitsTabProps) {
+export default function UnitsTab({ propertyId, bedrooms, initialRoomId, propertyName, propertyAddress, propertyCode }: UnitsTabProps) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -129,6 +134,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   // Drill-down
   const [view, setView] = useState<View>('list')
   const [selectedRoom, setSelectedRoom] = useState<RoomDetail | null>(null)
+  const [pastTenancies, setPastTenancies] = useState<TenancyDetail[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
 
   // Mark on notice modal (first-time checkout flow)
@@ -167,7 +173,9 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   const [newTenancyDepositHeldBy, setNewTenancyDepositHeldBy] = useState<'agent'|'landlord'>('agent')
   const [newTenancyDepositSchemeRef, setNewTenancyDepositSchemeRef] = useState('')
   const [newTenancyType, setNewTenancyType] = useState<'standard'|'short_term'>('standard')
+  const [newTenancyAgreementType, setNewTenancyAgreementType] = useState<string>('assured_periodic')
   const [newTenancyIsPeriodic, setNewTenancyIsPeriodic] = useState(true)
+  const [newTenancyHoldingDeposit, setNewTenancyHoldingDeposit] = useState('')
   const [newTenancyRentReviewDate, setNewTenancyRentReviewDate] = useState('')
   const [newTenancyNoticePeriodMonths, setNewTenancyNoticePeriodMonths] = useState('2')
   const [newTenancyBreakClauseMonths, setNewTenancyBreakClauseMonths] = useState('')
@@ -177,8 +185,22 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   const [newTenancyOfficeNotes, setNewTenancyOfficeNotes] = useState('')
   const [newTenancyLeaseRef, setNewTenancyLeaseRef] = useState('')
   const [newTenancyPaymentRef, setNewTenancyPaymentRef] = useState('')
+  // letting fee: % of the monthly rent, % of the rent over the whole term, a fixed amount, or none
+  const [newTenancyFeeMode, setNewTenancyFeeMode] = useState<'pct_month' | 'pct_term' | 'fixed' | 'none'>('pct_month')
+  const [newTenancyFeeValue, setNewTenancyFeeValue] = useState('75')
+  // management fee: the property's standard fee unless this tenancy was agreed differently
+  const [newTenancyMgmtType, setNewTenancyMgmtType] = useState<'property' | 'pct_received' | 'pct_charged' | 'fixed'>('property')
+  const [newTenancyMgmtValue, setNewTenancyMgmtValue] = useState('')
+  const [propertyFee, setPropertyFee] = useState<any>(null)
+  useEffect(() => {
+    supabase.from('properties').select('management_fee_type, management_fee_pct, management_fee_fixed').eq('id', propertyId).maybeSingle()
+      .then(({ data }) => setPropertyFee(data ?? null))
+  }, [propertyId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [newTenancySaving, setNewTenancySaving] = useState(false)
   const [showTenancyExtended, setShowTenancyExtended] = useState(false)
+
+  // Applicant pre-fill
+  const [roomApplicant, setRoomApplicant] = useState<{ id: string; name: string; email: string; phone: string | null; offered_rent: number | null } | null>(null)
 
   // Add / edit modals
   const [isAddingRoom, setIsAddingRoom] = useState(false)
@@ -250,11 +272,11 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     if (roomIds.length > 0) {
       const { data: photosData } = await supabase
         .from('property_photos')
-        .select('id, url, room_id')
+        .select('id, file_url, room_id')
         .in('room_id', roomIds)
       const byRoom: Record<string, RoomPhoto[]> = {}
       for (const p of (photosData || []) as any[]) {
-        if (p.room_id) (byRoom[p.room_id] ||= []).push({ id: p.id, url: p.url })
+        if (p.room_id) (byRoom[p.room_id] ||= []).push({ id: p.id, url: p.file_url })
       }
       setRoomPhotos(byRoom)
     }
@@ -358,6 +380,22 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     }
   }
 
+  // ── Load active applicant for room when modal opens ──
+  useEffect(() => {
+    if (!addingTenancyRoom) { setRoomApplicant(null); return }
+    supabase
+      .from('applicants')
+      .select('id, full_name, email, phone, offered_rent, pipeline_stage')
+      .eq('room_id', addingTenancyRoom.id)
+      .in('pipeline_stage', ['offer_sent', 'offer_accepted', 'referencing', 'applied'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setRoomApplicant({ id: data.id, name: data.full_name, email: data.email, phone: data.phone, offered_rent: data.offered_rent })
+      })
+  }, [addingTenancyRoom])
+
   // ── Person search for add tenancy modal ──
   async function searchPeople(q: string) {
     if (q.length < 2) { setNewTenancyPersonResults([]); return }
@@ -373,6 +411,25 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     })))
   }
 
+  // months in the tenancy term: the term box, or worked out from the start and end dates
+  function tenancyTermMonths(): number | null {
+    if (Number(newTenancyTermMonths) > 0) return Number(newTenancyTermMonths)
+    if (!newTenancyStart || !newTenancyEnd) return null
+    const a = new Date(newTenancyStart + 'T12:00:00'), b = new Date(newTenancyEnd + 'T12:00:00')
+    const m = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + (b.getDate() >= a.getDate() - 1 ? 0 : -1)
+    return m > 0 ? m : null
+  }
+  /** The letting fee in £ for the chosen basis, or null when it can't be worked out yet. */
+  function lettingFeeAmount(): number | null {
+    const v = Number(newTenancyFeeValue), rent = Number(newTenancyRent)
+    if (newTenancyFeeMode === 'none') return 0
+    if (newTenancyFeeMode === 'fixed') return newTenancyFeeValue.trim() ? Math.round(v * 100) / 100 : null
+    if (!rent || !newTenancyFeeValue.trim()) return null
+    if (newTenancyFeeMode === 'pct_month') return Math.round(rent * v) / 100
+    const months = tenancyTermMonths()
+    return months ? Math.round(rent * months * v) / 100 : null
+  }
+
   // ── Add new tenancy: create record + mark room occupied ──
   async function handleAddNewTenancy() {
     if (!addingTenancyRoom || !newTenancyPerson || !newTenancyStart || !newTenancyRent) {
@@ -382,12 +439,17 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     setNewTenancySaving(true)
     setError(null)
     try {
+      // Auto-generate CR references if a property code exists and none was manually entered
+      const refs = propertyCode
+        ? await genTenancyRefs(supabase, propertyCode, addingTenancyRoom.name, addingTenancyRoom.id)
+        : null
       const { error: tenErr } = await supabase.from('tenancies').insert({
         room_id: addingTenancyRoom.id,
         property_id: propertyId,
         person_id: newTenancyPerson.id,
         start_date: newTenancyStart,
-        end_date: newTenancyEnd || null,
+        // an Assured Periodic Tenancy has no end date: it continues until notice is recorded
+        end_date: newTenancyAgreementType === 'assured_periodic' ? null : (newTenancyEnd || null),
         rent_amount: Number(newTenancyRent),
         rent_due_day: Number(newTenancyRentDueDay) || 1,
         rent_frequency: newTenancyRentFrequency,
@@ -395,8 +457,17 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
         deposit_amount: newTenancyDeposit ? Number(newTenancyDeposit) : null,
         deposit_held_by: newTenancyDepositHeldBy,
         deposit_scheme_ref: newTenancyDepositSchemeRef || null,
-        tenancy_type: newTenancyType,
+        agreement_type: newTenancyAgreementType,
         is_periodic: newTenancyIsPeriodic,
+        holding_deposit_received: newTenancyHoldingDeposit ? Number(newTenancyHoldingDeposit) : null,
+        // the fee as an amount (it was sent as true/false, so every save failed): what's typed, else the suggested
+        // ¾ of a month's rent; 0 = no fee
+        letting_fee_charged: lettingFeeAmount(),
+        ...(newTenancyMgmtType === 'property' || newTenancyMgmtValue === '' ? {} : {
+          management_fee_type: newTenancyMgmtType,
+          management_fee_pct: newTenancyMgmtType === 'fixed' ? null : Number(newTenancyMgmtValue),
+          management_fee_fixed: newTenancyMgmtType === 'fixed' ? Number(newTenancyMgmtValue) : null,
+        }),
         rent_review_date: newTenancyRentReviewDate || null,
         notice_period_months: newTenancyNoticePeriodMonths ? Number(newTenancyNoticePeriodMonths) : null,
         break_clause_months: newTenancyBreakClauseMonths ? Number(newTenancyBreakClauseMonths) : null,
@@ -404,15 +475,15 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
         special_clauses: newTenancySpecialClauses || null,
         permitted_occupiers: newTenancyPermittedOccupiers || null,
         office_notes: newTenancyOfficeNotes || null,
-        lease_reference: newTenancyLeaseRef || null,
-        payment_reference: newTenancyPaymentRef || null,
+        lease_reference: newTenancyLeaseRef || refs?.lease_reference || null,
+        deposit_reference: refs?.deposit_reference || null,
+        holding_deposit_reference: refs?.holding_deposit_reference || null,
+        payment_reference: newTenancyPaymentRef.trim() || (propertyName ? buildPaymentRef(propertyName, addingTenancyRoom.name) : null),
       })
       if (tenErr) throw tenErr
-      // Only flip room to occupied if it's currently available (not still on notice)
-      if (addingTenancyRoom.status !== 'on_notice') {
-        const { error: roomErr } = await supabase.from('rooms').update({ status: 'occupied' }).eq('id', addingTenancyRoom.id)
-        if (roomErr) throw roomErr
-      }
+      // Always mark occupied when a new tenancy is created — clears any stale on_notice from the previous tenant
+      const { error: roomErr } = await supabase.from('rooms').update({ status: 'occupied' }).eq('id', addingTenancyRoom.id)
+      if (roomErr) throw roomErr
       await loadRooms()
       setAddingTenancyRoom(null)
       setNewTenancyPerson(null)
@@ -428,7 +499,13 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
       setNewTenancyDepositHeldBy('agent')
       setNewTenancyDepositSchemeRef('')
       setNewTenancyType('standard')
+      setNewTenancyAgreementType('assured_periodic')
       setNewTenancyIsPeriodic(true)
+      setNewTenancyHoldingDeposit('')
+      setNewTenancyFeeMode('pct_month')
+      setNewTenancyFeeValue('75')
+      setNewTenancyMgmtType('property'); setNewTenancyMgmtValue('')
+      setRoomApplicant(null)
       setNewTenancyRentReviewDate('')
       setNewTenancyNoticePeriodMonths('2')
       setNewTenancyBreakClauseMonths('')
@@ -457,6 +534,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
         tenancyId: onNoticeForRoom.tenancyId,
         roomId: onNoticeForRoom.id,
         moveOutDate: noticeData.moveOutDate,
+        noticeReceivedDate: noticeData.noticeReceivedDate,
         newAskingRent: noticeData.newAskingRent,
         emailTenant: noticeData.emailTenant,
         tenantEmail: onNoticeForRoom.currentTenant?.email,
@@ -487,13 +565,14 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   async function openRoom(room: RoomRow) {
     setDetailLoading(true)
     setSelectedRoom({ ...room, tenancy: null, nextTenancy: null })
+    setPastTenancies([])
     setView('room')
 
     const today = new Date().toISOString().split('T')[0]
     const TENANCY_SELECT = `id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, person_id, people!person_id(id, full_name, first_name, last_name, email, phone, occupation)`
 
     // Current tenancy: started on or before today, not yet ended
-    const [{ data: currentRaw }, { data: nextRaw }] = await Promise.all([
+    const [{ data: currentRaw }, { data: nextRaw }, { data: pastRaw }] = await Promise.all([
       supabase.from('tenancies').select(TENANCY_SELECT)
         .eq('room_id', room.id)
         .lte('start_date', today)
@@ -506,6 +585,12 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
         .gt('start_date', today)
         .order('start_date', { ascending: true })
         .limit(1).maybeSingle(),
+      // Past tenancies: ended before today
+      supabase.from('tenancies').select(TENANCY_SELECT)
+        .eq('room_id', room.id)
+        .not('end_date', 'is', null)
+        .lt('end_date', today)
+        .order('end_date', { ascending: false }),
     ])
 
     function mapTenancy(raw: any): TenancyDetail | null {
@@ -520,7 +605,23 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     }
 
     setSelectedRoom({ ...room, tenancy: mapTenancy(currentRaw), nextTenancy: mapTenancy(nextRaw) })
+    setPastTenancies((pastRaw || []).map(mapTenancy).filter(Boolean) as TenancyDetail[])
     setDetailLoading(false)
+  }
+
+  // Mark a room let / available again without deleting anything (let-only rooms, or rooms let outside CROS)
+  async function setRoomAvailability(room: RoomRow, status: 'occupied' | 'available') {
+    let available_date: string | null | undefined = undefined
+    if (status === 'available') {
+      const d = window.prompt('Available from (YYYY-MM-DD)', new Date().toISOString().slice(0, 10))
+      if (d === null) return
+      available_date = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : new Date().toISOString().slice(0, 10)
+    }
+    const { error: e } = await supabase.from('rooms').update({ status, ...(available_date ? { available_date } : {}) }).eq('id', room.id)
+    if (e) { setError(e.message); return }
+    setSuccess(status === 'available' ? `${room.name} is available again — it’s back on Available Rooms` : `${room.name} marked as let`)
+    setSelectedRoom(r => r && r.id === room.id ? { ...r, status } : r)
+    loadRooms()
   }
 
   /* ── CRUD ── */
@@ -666,15 +767,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       </td>
                       <td className="px-lg py-md text-right">
                         <div className="flex items-center justify-end gap-sm">
-                          {room.currentTenant && room.status !== 'on_notice' && (
-                            <button
-                              onClick={(e) => openOnNotice(room, e)}
-                              className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs hover:bg-amber-100 transition-colors whitespace-nowrap"
-                            >
-                              Mark on notice
-                            </button>
-                          )}
-                          {room.currentTenant && room.status === 'on_notice' && (
+                          {room.currentTenant && room.tenancyNoticeReceivedDate && (
                             <button
                               onClick={(e) => openQuickEditNotice(room, e)}
                               className="text-xs font-semibold text-neutral-600 bg-white border border-neutral-300 rounded-lg px-sm py-xs hover:bg-neutral-50 transition-colors whitespace-nowrap"
@@ -779,13 +872,12 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                           className="text-xs font-semibold text-neutral-600 border border-neutral-200 rounded-lg px-sm py-xs hover:bg-neutral-50 transition">
                           Tenancy details
                         </button>
-                        {selectedRoom.status !== 'on_notice' && (
-                          <button onClick={(e) => openOnNotice(selectedRoom, e)}
-                            className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs hover:bg-amber-100 transition">
-                            Mark on notice
-                          </button>
-                        )}
-                        {selectedRoom.status === 'on_notice' && (
+                        {/* the same Rent Review screen as the Lettings → Rent Reviews list */}
+                        <button onClick={() => router.push(`/admin/rent-increase/${selectedRoom.tenancy!.id}`)}
+                          className="text-xs font-semibold text-neutral-600 border border-neutral-200 rounded-lg px-sm py-xs hover:bg-neutral-50 transition">
+                          Rent review
+                        </button>
+                        {selectedRoom.tenancyNoticeReceivedDate && (
                           <button onClick={(e) => openQuickEditNotice(selectedRoom, e)}
                             className="text-xs font-semibold text-neutral-600 border border-neutral-200 rounded-lg px-sm py-xs hover:bg-neutral-50 transition">
                             ✏️ Edit notice
@@ -794,8 +886,55 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       </div>
                     </>
                   ) : (
-                    <div className="rounded-lg border border-dashed border-neutral-200 px-md py-lg text-center">
+                    <div className="rounded-lg border border-dashed border-neutral-200 px-md py-lg text-center space-y-sm">
                       <p className="text-sm text-neutral-400">No current tenant</p>
+                      {/* Rooms are never deleted — a let-only room (or one let outside CROS) is marked let, then made
+                          available again later with its photos and marketing kept */}
+                      {selectedRoom.status === 'available' ? (
+                        <button onClick={() => setRoomAvailability(selectedRoom, 'occupied')}
+                          className="text-xs font-semibold text-neutral-700 border border-neutral-300 rounded-lg px-sm py-xs hover:bg-neutral-50">
+                          Mark as let
+                        </button>
+                      ) : (
+                        <button onClick={() => setRoomAvailability(selectedRoom, 'available')}
+                          className="text-xs font-semibold text-white bg-neutral-900 rounded-lg px-sm py-xs hover:bg-neutral-700">
+                          Make available again
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Previous tenants */}
+                  {pastTenancies.length > 0 && (
+                    <div className="mt-lg pt-lg border-t border-neutral-100">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Previous tenants</p>
+                      <div className="space-y-sm">
+                        {pastTenancies.map((pt) => {
+                          const ptName = pt.person
+                            ? (pt.person.full_name || [pt.person.first_name, pt.person.last_name].filter(Boolean).join(' ') || pt.person.email)
+                            : 'Unknown'
+                          return (
+                            <div key={pt.id} className="flex items-center gap-md rounded-lg border border-neutral-100 bg-neutral-50 px-md py-sm">
+                              <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center text-neutral-500 font-semibold text-xs flex-shrink-0">
+                                {ptName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-neutral-700 truncate">{ptName}</p>
+                                <p className="text-xs text-neutral-400">
+                                  {fmtDate(pt.start_date)} – {fmtDate(pt.end_date!)}
+                                  {pt.rent_amount ? ` · £${pt.rent_amount.toLocaleString()} pcm` : ''}
+                                </p>
+                              </div>
+                              {pt.person && (
+                                <button
+                                  onClick={() => router.push(`/admin/tenant/${pt.person!.id}`)}
+                                  className="text-xs text-neutral-500 border border-neutral-200 rounded px-sm py-xs hover:bg-neutral-100 flex-shrink-0"
+                                >Profile →</button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
 
@@ -1001,17 +1140,39 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
       {/* ── ADD NEW TENANCY MODAL ── */}
       {addingTenancyRoom && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-neutral-200 my-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl border border-neutral-200 my-auto">
             {/* Header */}
             <div className="flex items-center justify-between px-xl py-lg border-b border-neutral-100">
               <div>
-                <h3 className="text-lg font-semibold text-neutral-900">New tenancy</h3>
-                <p className="text-xs text-neutral-400 mt-0.5">{addingTenancyRoom.unit_code || addingTenancyRoom.name} · {addingTenancyRoom.room_type || 'Room'}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">New tenancy</p>
+                <h3 className="text-lg font-bold text-neutral-900">{addingTenancyRoom.name}{propertyName ? `, ${propertyName.split(/\n+/).map(l => l.trim().replace(/,$/, '')).filter(Boolean).join(', ')}` : ''}</h3>
+                <p className="text-xs text-neutral-500 mt-0.5">{addingTenancyRoom.unit_code ? `${addingTenancyRoom.unit_code} · ` : ''}{addingTenancyRoom.room_type ? String(addingTenancyRoom.room_type).replace(/_/g, ' ') : 'Room'}</p>
               </div>
               <button onClick={() => setAddingTenancyRoom(null)} className="text-neutral-400 hover:text-neutral-600 text-xl leading-none">✕</button>
             </div>
 
             <div className="px-xl py-lg space-y-xl">
+
+              {/* Applicant match banner */}
+              {roomApplicant && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-md py-sm">
+                  <div className="flex items-start justify-between gap-md">
+                    <div>
+                      <p className="text-xs font-semibold text-blue-900 mb-xs">Active applicant for this room</p>
+                      <p className="text-sm font-semibold text-neutral-900">{roomApplicant.name}</p>
+                      <p className="text-xs text-neutral-500">{roomApplicant.email}</p>
+                      {roomApplicant.offered_rent && (
+                        <p className="text-xs text-blue-700 mt-xs">Offered rent: <span className="font-semibold">£{roomApplicant.offered_rent.toLocaleString()}/mo</span></p>
+                      )}
+                    </div>
+                    <a
+                      href={`/admin/applicants/${roomApplicant.id}/create-tenancy`}
+                      className="shrink-0 rounded-lg bg-blue-600 px-md py-sm text-xs font-semibold text-white hover:bg-blue-700 transition inline-block">
+                      Set up tenancy →
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* Tenant */}
               <div>
@@ -1051,17 +1212,96 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
 
               {/* ── CORE DETAILS ── */}
 
-              {/* Tenancy type */}
+              {/* Agreement type */}
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Tenancy type</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Agreement type</p>
                 <div className="grid grid-cols-2 gap-sm">
-                  {([['standard','Standard (rolling / AST)'],['short_term','Short-term / fixed']] as const).map(([val, label]) => (
+                  {([
+                    ['assured_periodic',  'Assured Periodic Tenancy'],
+                    ['fixed_term',        'Fixed-term (initial period)'],
+                    ['company_let',       'Company Let'],
+                    ['licence',           'Licence Agreement'],
+                  ] as const).map(([val, label]) => (
                     <button key={val} type="button"
-                      onClick={() => { setNewTenancyType(val); setNewTenancyIsPeriodic(val === 'standard') }}
-                      className={`rounded-lg border px-md py-sm text-sm font-medium text-left transition ${newTenancyType === val ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'}`}>
+                      onClick={() => {
+                        setNewTenancyAgreementType(val)
+                        if (val === 'assured_periodic') { setNewTenancyType('standard'); setNewTenancyIsPeriodic(true) }
+                        else if (val === 'fixed_term') { setNewTenancyType('short_term'); setNewTenancyIsPeriodic(true) }
+                        else { setNewTenancyType('standard'); setNewTenancyIsPeriodic(false) }
+                      }}
+                      className={`rounded-lg border px-md py-sm text-sm font-medium text-left transition ${newTenancyAgreementType === val ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'}`}>
                       {label}
                     </button>
                   ))}
+                </div>
+                {newTenancyAgreementType === 'fixed_term' && (
+                  <p className="text-[11px] text-neutral-400 mt-xs">Set an end date below — tenancy becomes periodic once the initial term expires.</p>
+                )}
+              </div>
+
+              {/* Letting fee */}
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Letting fee (charged to landlord)</p>
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm mb-sm space-y-sm">
+                  <div className="flex flex-wrap gap-xs">
+                    {([
+                      ['pct_month', '% of monthly rent', '75'],
+                      ['pct_term', '% of rent for the term', '10'],
+                      ['fixed', 'Fixed fee', ''],
+                      ['none', 'No fee', ''],
+                    ] as const).map(([mode, label, dflt]) => (
+                      <button key={mode} type="button"
+                        onClick={() => { setNewTenancyFeeMode(mode); if (newTenancyFeeMode !== mode) setNewTenancyFeeValue(dflt) }}
+                        className={`rounded-lg border px-sm py-xs text-xs font-semibold ${newTenancyFeeMode === mode ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {newTenancyFeeMode !== 'none' && (
+                    <div className="flex flex-wrap items-center gap-sm">
+                      <span className="flex items-center rounded-lg border border-neutral-200 bg-white px-sm">
+                        {newTenancyFeeMode === 'fixed' && <span className="text-sm text-neutral-400">£</span>}
+                        <input type="number" step="0.01" min="0" inputMode="decimal" value={newTenancyFeeValue}
+                          onChange={e => setNewTenancyFeeValue(e.target.value)}
+                          className="w-20 py-xs px-xs text-sm text-neutral-900 focus:outline-none" />
+                        {newTenancyFeeMode !== 'fixed' && <span className="text-sm text-neutral-400">%</span>}
+                      </span>
+                      <span className="text-xs text-neutral-500">
+                        {newTenancyFeeMode === 'pct_month' && 'of the monthly rent'}
+                        {newTenancyFeeMode === 'pct_term' && (tenancyTermMonths() ? `of the rent over ${tenancyTermMonths()} months` : 'of the rent over the term — set the end date or term below')}
+                        {newTenancyFeeMode === 'fixed' && 'fixed fee'}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-sm font-semibold text-neutral-900">
+                    {newTenancyFeeMode === 'none' ? 'No letting fee'
+                      : lettingFeeAmount() != null ? `Letting fee: £${lettingFeeAmount()!.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : newTenancyRent ? 'Letting fee: —' : 'Enter the rent to work out the fee'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Management fee — the property's standard fee unless agreed differently for this tenancy */}
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Management fee (charged to landlord)</p>
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm flex flex-wrap items-center gap-sm">
+                  <select value={newTenancyMgmtType} onChange={e => setNewTenancyMgmtType(e.target.value as any)} className="rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm">
+                    <option value="property">Property’s standard fee — {describeFee(resolveFee(null, propertyFee))}</option>
+                    <option value="pct_received">Different: % of rent received</option>
+                    <option value="pct_charged">Different: % of rent charged</option>
+                    <option value="fixed">Different: fixed £ a month</option>
+                  </select>
+                  {newTenancyMgmtType !== 'property' && (
+                    <span className="flex items-center gap-xs text-sm">
+                      {newTenancyMgmtType === 'fixed' && '£'}
+                      <input type="number" min="0" step={newTenancyMgmtType === 'fixed' ? '0.01' : '0.5'} value={newTenancyMgmtValue} onChange={e => setNewTenancyMgmtValue(e.target.value)}
+                        className="w-20 rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm" />
+                      {newTenancyMgmtType !== 'fixed' && '%'}
+                    </span>
+                  )}
+                  {newTenancyMgmtType === 'property' && resolveFee(null, propertyFee).source === 'none' && (
+                    <span className="text-xs font-semibold text-red-700">The property has no fee set — set one here or on the property’s details.</span>
+                  )}
                 </div>
               </div>
 
@@ -1084,7 +1324,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                   </div>
                   <div>
-                    <label className="block text-xs text-neutral-500 mb-xs">Term (months) — auto-fills end date</label>
+                    <label className="block text-xs text-neutral-500 mb-xs">{newTenancyAgreementType === 'assured_periodic' ? 'Expected stay (months) — optional, for the letting fee' : 'Term (months) — auto-fills end date'}</label>
                     <input type="number" min="1" max="60" value={newTenancyTermMonths}
                       onChange={e => {
                         setNewTenancyTermMonths(e.target.value)
@@ -1099,6 +1339,10 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                   </div>
                 </div>
+                {/* An Assured Periodic Tenancy has no end date — it runs until notice is given (recorded with Mark on notice) */}
+                {newTenancyAgreementType === 'assured_periodic' ? (
+                  <p className="text-xs text-neutral-500">No end date — the tenancy runs until notice is given.</p>
+                ) : (
                 <div>
                   <label className="block text-xs text-neutral-500 mb-xs">
                     End date {newTenancyType === 'short_term' ? '*' : '(optional — leave blank for rolling)'}
@@ -1106,7 +1350,8 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                   <input type="date" value={newTenancyEnd} onChange={e => { setNewTenancyEnd(e.target.value); setNewTenancyTermMonths('') }}
                     className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                 </div>
-                {newTenancyType === 'standard' && (
+                )}
+                {newTenancyType === 'standard' && newTenancyAgreementType !== 'assured_periodic' && (
                   <label className="flex items-center gap-sm mt-sm cursor-pointer">
                     <input type="checkbox" checked={newTenancyIsPeriodic} onChange={e => setNewTenancyIsPeriodic(e.target.checked)}
                       className="rounded border-neutral-300" />
@@ -1152,38 +1397,127 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                     className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
                     {[1,2,3,6].map(n => <option key={n} value={n}>{n} month{n>1?'s':''} {n===1?'(standard)':n===2?'(two months upfront)':'('+n+' months upfront)'}</option>)}
                   </select>
-                  {newTenancyRent && (
-                    <p className="text-[11px] text-neutral-400 mt-xs">
-                      First payment: £{(Number(newTenancyRent) * Number(newTenancyRentInAdvance)).toLocaleString()}
-                      {newTenancyDeposit ? ` + £${Number(newTenancyDeposit).toLocaleString()} deposit = £${(Number(newTenancyRent) * Number(newTenancyRentInAdvance) + Number(newTenancyDeposit)).toLocaleString()} total due on move-in` : ''}
-                    </p>
-                  )}
+                  {newTenancyRent && (() => {
+                    const rentDue = Number(newTenancyRent) * Number(newTenancyRentInAdvance)
+                    const depositBalance = newTenancyDeposit
+                      ? Math.max(0, Number(newTenancyDeposit) - (newTenancyHoldingDeposit ? Number(newTenancyHoldingDeposit) : 0))
+                      : 0
+                    const total = rentDue + depositBalance
+                    return (
+                      <p className="text-[11px] text-neutral-400 mt-xs">
+                        Rent due: £{rentDue.toLocaleString()}
+                        {newTenancyDeposit ? ` + £${depositBalance.toLocaleString()} deposit balance = £${total.toLocaleString()} total due on move-in` : ''}
+                        {newTenancyHoldingDeposit && newTenancyDeposit ? ` (holding deposit of £${Number(newTenancyHoldingDeposit).toLocaleString()} already received)` : ''}
+                      </p>
+                    )
+                  })()}
                 </div>
               </div>
 
               {/* Deposit */}
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Deposit</p>
-                <div className="grid grid-cols-2 gap-md mb-sm">
-                  <div className="relative">
-                    <span className="absolute left-sm top-1/2 -translate-y-1/2 text-neutral-400 text-sm">£</span>
-                    <input type="number" value={newTenancyDeposit} onChange={e => setNewTenancyDeposit(e.target.value)} placeholder="0"
-                      className="w-full pl-6 pr-sm py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+
+                {/* Live deposit calculator */}
+                {newTenancyRent && (() => {
+                  const monthly = Number(newTenancyRent)
+                  const fiveWks = fiveWeeksDeposit(monthly)   // monthly × 12 ÷ 52 × 5, to the penny
+                  const oneMonth = monthly
+                  const oneWeek = oneWeekRent(monthly)
+                  return (
+                    <div className="rounded-lg bg-neutral-50 border border-neutral-200 px-md py-sm mb-md">
+                      <div className="grid grid-cols-3 gap-md text-center">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-neutral-400 mb-xs">5 weeks' rent</p>
+                          <p className="text-base font-semibold text-neutral-900">£{fiveWks.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          <p className="text-[10px] text-neutral-400">Legal max (TFA 2019)</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-neutral-400 mb-xs">1 month</p>
+                          <p className="text-base font-semibold text-neutral-900">£{oneMonth.toLocaleString()}</p>
+                          <p className="text-[10px] text-neutral-400">Equivalent</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider text-neutral-400 mb-xs">Max holding deposit</p>
+                          <p className="text-base font-semibold text-amber-700">£{oneWeek.toLocaleString()}</p>
+                          <p className="text-[10px] text-neutral-400">1 week (statutory cap)</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* Full deposit charged */}
+                <div className="mb-sm">
+                  <label className="block text-xs text-neutral-500 mb-xs">Full deposit charged</label>
+                  <div className="flex gap-sm items-center">
+                    <div className="relative flex-1">
+                      <span className="absolute left-sm top-1/2 -translate-y-1/2 text-neutral-400 text-sm">£</span>
+                      <input type="number" value={newTenancyDeposit} onChange={e => setNewTenancyDeposit(e.target.value)} placeholder="0"
+                        className="w-full pl-6 pr-sm py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                    </div>
+                    {newTenancyRent && (
+                      <>
+                        <button type="button"
+                          onClick={() => setNewTenancyDeposit(fiveWeeksDeposit(Number(newTenancyRent)).toFixed(2))}
+                          className="px-sm py-sm border border-neutral-200 rounded-lg text-xs text-neutral-600 hover:bg-neutral-50 whitespace-nowrap">
+                          Set 5 wks
+                        </button>
+                        <button type="button"
+                          onClick={() => setNewTenancyDeposit(String(Number(newTenancyRent)))}
+                          className="px-sm py-sm border border-neutral-200 rounded-lg text-xs text-neutral-600 hover:bg-neutral-50 whitespace-nowrap">
+                          Set 1 month
+                        </button>
+                      </>
+                    )}
                   </div>
-                  <select value={newTenancyDepositHeldBy} onChange={e => setNewTenancyDepositHeldBy(e.target.value as 'agent'|'landlord')}
-                    className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
-                    <option value="agent">Held by agent</option>
-                    <option value="landlord">Held by landlord</option>
-                  </select>
                 </div>
-                {newTenancyRent && (
-                  <p className="text-[11px] text-neutral-400 mb-sm">
-                    5 weeks' rent = £{Math.round(Number(newTenancyRent) * 12 / 52 * 5).toLocaleString()} (Tenant Fees Act max for ASTs)
-                  </p>
-                )}
-                <input type="text" value={newTenancyDepositSchemeRef} onChange={e => setNewTenancyDepositSchemeRef(e.target.value)}
-                  placeholder="Deposit scheme reference — DPS / TDS / MyDeposits"
-                  className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+
+                {/* Held by */}
+                <div className="mb-sm">
+                  <label className="block text-xs text-neutral-500 mb-xs">Held by</label>
+                  <div className="grid grid-cols-2 gap-sm">
+                    {(['agent','landlord'] as const).map(v => (
+                      <button key={v} type="button"
+                        onClick={() => setNewTenancyDepositHeldBy(v)}
+                        className={`rounded-lg border px-md py-sm text-sm font-medium transition ${newTenancyDepositHeldBy === v ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'}`}>
+                        {v === 'agent' ? 'Agent' : 'Landlord'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Holding deposit */}
+                <div className="mb-sm">
+                  <label className="block text-xs text-neutral-500 mb-xs">Holding deposit received</label>
+                  <div className="flex gap-sm items-center">
+                    <div className="relative flex-1">
+                      <span className="absolute left-sm top-1/2 -translate-y-1/2 text-neutral-400 text-sm">£</span>
+                      <input type="number" value={newTenancyHoldingDeposit} onChange={e => setNewTenancyHoldingDeposit(e.target.value)} placeholder="0"
+                        className="w-full pl-6 pr-sm py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                    </div>
+                    {newTenancyRent && (
+                      <button type="button"
+                        onClick={() => setNewTenancyHoldingDeposit(oneWeekRent(Number(newTenancyRent)).toFixed(2))}
+                        className="px-sm py-sm border border-neutral-200 rounded-lg text-xs text-neutral-600 hover:bg-neutral-50 whitespace-nowrap">
+                        Set max (1 wk)
+                      </button>
+                    )}
+                  </div>
+                  {newTenancyDeposit && newTenancyHoldingDeposit && (
+                    <p className="text-[11px] text-neutral-500 mt-xs">
+                      Balance due on move-in: <span className="font-semibold text-neutral-900">£{(Number(newTenancyDeposit) - Number(newTenancyHoldingDeposit)).toLocaleString()}</span> deposit remainder
+                    </p>
+                  )}
+                </div>
+
+                {/* Scheme ref */}
+                <div>
+                  <label className="block text-xs text-neutral-500 mb-xs">Deposit scheme reference</label>
+                  <input type="text" value={newTenancyDepositSchemeRef} onChange={e => setNewTenancyDepositSchemeRef(e.target.value)}
+                    placeholder="DPS / TDS / MyDeposits ref — complete after protection"
+                    className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                </div>
               </div>
 
               {/* ── EXTENDED DETAILS toggle ── */}
@@ -1238,9 +1572,9 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
 
                     {/* Lease ref */}
                     <div>
-                      <label className="block text-xs text-neutral-500 mb-xs">Lease / AST reference</label>
+                      <label className="block text-xs text-neutral-500 mb-xs">Tenancy reference</label>
                       <input type="text" value={newTenancyLeaseRef} onChange={e => setNewTenancyLeaseRef(e.target.value)}
-                        placeholder="e.g. AST-2024-CLH04"
+                        placeholder="e.g. TEN-2024-CLH04"
                         className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                     </div>
 
@@ -1264,7 +1598,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                     <div>
                       <label className="block text-xs text-neutral-500 mb-xs">Payment reference <span className="text-neutral-400">(tenant uses this when paying rent)</span></label>
                       <input type="text" value={newTenancyPaymentRef} onChange={e => setNewTenancyPaymentRef(e.target.value.toUpperCase())}
-                        placeholder="e.g. 008ROC-R2 — auto-built from property base ref if left blank"
+                        placeholder={propertyName ? `${buildPaymentRef(propertyName, addingTenancyRoom?.name)} — used if left blank` : "e.g. 208ROS05"}
                         className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                     </div>
 

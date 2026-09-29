@@ -1,21 +1,23 @@
 import { createServiceClient } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { buildOfferLetterEmail, buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { randomBytes } from 'crypto'
+import { senderFields } from '@/lib/email/sender'
+import { holdingDepositRef } from '@/lib/offers/holdingRef'
+import { oneWeekRent } from '@/lib/tenancy/deposit'
+import { buildEmail } from '@/lib/emailWrapper'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = 'Capital Rooms <noreply@capitalrooms.co.uk>'
 
-function weeklyRent(monthly: number) {
-  return Math.round((monthly * 12) / 52)
+// saved message templates hold the body only — give them the house email (an old full-page one is sent as is)
+async function wrapTemplate(body: string, req: Request) {
+  if (/<html/i.test(body)) return body
+  return buildEmail(body.includes('<') ? body : body.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { req })
 }
 
-function buildRef(propertyCode: string | null, roomName: string | null) {
-  const propPart = (propertyCode || 'CAP').toUpperCase().replace(/\s/g, '')
-  const roomPart = (roomName || '').replace(/[^0-9]/g, '').padStart(2, '0')
-  return `${propPart}${roomPart} RESERVE`.trim()
-}
+const weeklyRent = (monthly: number) => oneWeekRent(monthly)   // monthly × 12 ÷ 52, to the penny
+
 
 export async function POST(request: Request) {
   // Auth guard — service client bypasses RLS so we enforce permissions here
@@ -54,24 +56,24 @@ export async function POST(request: Request) {
           first_name: firstName, room_name: roomName, property_address: propAddress,
           property_address_with_at: propAddress ? ` at ${propAddress}` : '',
           monthly_rent: String(monthly.toLocaleString()), weekly_rent: String(weekly.toLocaleString()),
-          payment_ref: 'RESERVE', apply_url: applicationUrl, reserve_url: applicationUrl,
+          payment_ref: holdingDepositRef(null, null, data.applicantName), apply_url: applicationUrl, reserve_url: applicationUrl,
         }
         subject   = render(tpl.subject_line, tokenVars)
-        emailHtml = render(tpl.template_text, tokenVars)
+        emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars), request)
       } else if (data.requestDeposit) {
         subject = `THE SEARCH IS OVER! — ${roomName}${propAddress ? `, ${propAddress}` : ''}`
         emailHtml = await buildSearchIsOverEmail({
           applicantName: data.applicantName, roomName, propertyAddress: propAddress,
           propertyCity: 'London', advertisedRent: monthly, moveInDate: moveInDisplay,
-          applicationUrl, holdingDeposit: weekly,
-        })
+          applicationUrl, holdingDeposit: weekly, holdingRef: holdingDepositRef(null, null, data.applicantName),
+        }, request)
       } else {
         subject = `Your application for ${roomName}${propAddress ? ` at ${propAddress}` : ''}`
         emailHtml = await buildOfferLetterEmail({
           applicantName: data.applicantName, roomName, propertyAddress: propAddress,
           propertyCity: 'London', advertisedRent: monthly, moveInDate: moveInDisplay,
-          applicationUrl, holdingDeposit: weekly,
-        })
+          applicationUrl, holdingDeposit: weekly, holdingRef: holdingDepositRef(null, null, data.applicantName),
+        }, request)
       }
 
       const apiKey = process.env.RESEND_API_KEY
@@ -79,7 +81,7 @@ export async function POST(request: Request) {
       const emailRes = await fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: FROM, to: [data.applicantEmail], subject, html: emailHtml }),
+        body: JSON.stringify({ ...(await senderFields(request)), to: [data.applicantEmail], subject, html: emailHtml }),
       })
       if (!emailRes.ok) {
         const err = await emailRes.json().catch(() => ({}))
@@ -185,7 +187,7 @@ export async function POST(request: Request) {
     const propCode       = (roomData?.properties as any)?.property_code || null
     const roomName       = roomData?.name || 'Room'
     const propAddress    = propertyData?.address || propertyData?.name || ''
-    const payRef         = buildRef(propCode, roomName)
+    const payRef         = holdingDepositRef(propertyData?.name || propertyData?.address, roomName)
     const firstName      = data.applicantName ? data.applicantName.split(' ')[0] : 'there'
     const moveInDisplay  = data.moveInDate || 'To be confirmed'
 
@@ -209,31 +211,33 @@ export async function POST(request: Request) {
         reserve_url:              `${appUrl}/applicant/reserve?roomId=${data.roomId}&propertyId=${data.propertyId}`,
       }
       subject   = render(tpl.subject_line, tokenVars)
-      emailHtml = render(tpl.template_text, tokenVars)
+      emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars), request)
     } else if (data.requestDeposit) {
       subject = `THE SEARCH IS OVER! — ${roomName}${propAddress ? `, ${propAddress}` : ''}`
       emailHtml = await buildSearchIsOverEmail({
         applicantName:   data.applicantName,
         roomName,
         propertyAddress: propAddress,
-        propertyCity:    propertyData?.name || 'London',
+        propertyCity:    'London',
         advertisedRent:  monthly,
         moveInDate:      moveInDisplay,
         applicationUrl,
         holdingDeposit:  weekly,
-      })
+        holdingRef:      payRef,
+      }, request)
     } else {
       subject = `Your application for ${roomName}${propAddress ? ` at ${propAddress}` : ''}`
       emailHtml = await buildOfferLetterEmail({
         applicantName:   data.applicantName,
         roomName,
         propertyAddress: propAddress,
-        propertyCity:    propertyData?.name || 'London',
+        propertyCity:    'London',
         advertisedRent:  monthly,
         moveInDate:      moveInDisplay,
         applicationUrl,
         holdingDeposit:  weekly,
-      })
+        holdingRef:      payRef,
+      }, request)
     }
 
     // Send via Resend
@@ -245,7 +249,7 @@ export async function POST(request: Request) {
     const emailRes = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to: [data.applicantEmail], subject, html: emailHtml }),
+      body: JSON.stringify({ ...(await senderFields(request)), to: [data.applicantEmail], subject, html: emailHtml }),
     })
 
     if (!emailRes.ok) {

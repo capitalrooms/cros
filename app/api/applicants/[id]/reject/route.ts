@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
-import { emailHtml, ctaButton, FROM } from '@/lib/emailTemplate'
+import { emailHtml, ctaButton } from '@/lib/emailTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 export const runtime = 'nodejs'
 
@@ -55,7 +56,8 @@ function textToHtml(text: string): string {
  * - For reason=asking_rent: appends a counter-offer CTA to the email
  * - Adds a GDPR footer noting 30-day data deletion
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
+  const params = await paramsPromise
   if (!await requireAdmin(req)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { reason, subject, body: emailBody } = await req.json()
@@ -116,7 +118,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     </p>
   `
 
-  const fullHtml = await emailHtml(`${bodyHtml}${ctaSection}${gdprFooter}`)
+  const fullHtml = await emailHtml(`${bodyHtml}${ctaSection}${gdprFooter}`, { req: req })
 
   // Send via Resend
   const resendKey = process.env.RESEND_API_KEY
@@ -125,7 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       method: 'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields(req)),
         to: [applicant.email],
         subject,
         html: fullHtml,

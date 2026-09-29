@@ -160,7 +160,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
 
       <AppBar />
 
-      <main className="mx-auto max-w-2xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Person card */}
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg mb-lg">
           <div className="flex items-start gap-md">

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
-import { emailHtml, tableRow, ctaButton, FROM } from '@/lib/emailTemplate'
+import { emailHtml, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 export const runtime = 'nodejs'
 
@@ -158,10 +159,10 @@ export async function GET(req: NextRequest) {
       method: 'POST',
       headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields(req)),
         to: ['harry@capitalrooms.co.uk'],
         subject: `🎉 Counter-offer: ${firstName} has matched the asking rent — ${roomName}`,
-        html: await emailHtml(notifyBody),
+        html: await emailHtml(notifyBody, { req: req }),
       }),
     }).catch(e => console.error('Counter-offer notify failed:', e))
   }

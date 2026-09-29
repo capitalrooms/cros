@@ -9,6 +9,7 @@ import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import AgencyDiaryMap from '@/app/components/AgencyDiaryMap'
+import { withContractors } from '@/lib/contractors'
 
 interface MaintenanceJob {
   id: string
@@ -122,12 +123,12 @@ export default function AgencyDiaryPage() {
         // Load maintenance jobs (booked in this week)
         const { data: maint } = await supabase
           .from('maintenance_tickets')
-          .select('*, properties(name, address), rooms(name), contractor:contractor_id(full_name)')
+          .select('*, properties(name, address), rooms(name)')
           .gte('booked_date', weekStart.toISOString().split('T')[0])
           .lt('booked_date', weekEnd.toISOString().split('T')[0])
           .order('booked_date', { ascending: true })
 
-        setMaintenanceJobs((maint as any) || [])
+        setMaintenanceJobs((await withContractors(supabase as any, maint as any)) as any)
 
         // Load clean jobs
         const { data: cleans } = await supabase
@@ -183,12 +184,12 @@ export default function AgencyDiaryPage() {
         // Load outstanding jobs (approved but not booked)
         const { data: outstanding } = await supabase
           .from('maintenance_tickets')
-          .select('*, properties(name, address), rooms(name), contractor:contractor_id(full_name)')
+          .select('*, properties(name, address), rooms(name)')
           .eq('status', 'assigned')
           .is('booked_date', null)
           .order('created_at', { ascending: true })
 
-        setOutstandingJobs((outstanding as any) || [])
+        setOutstandingJobs((await withContractors(supabase as any, outstanding as any)) as any)
 
         setLoading(false)
       } catch (error) {
@@ -257,9 +258,9 @@ export default function AgencyDiaryPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton />} />
+      <AppBar left={<BackButton href="/admin/appointments" />} />
 
-      <main className="mx-auto max-w-7xl px-lg py-3xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Back Button */}
         <Link
           href={canBook ? '/admin' : '/lettings'}
@@ -270,7 +271,7 @@ export default function AgencyDiaryPage() {
 
         {/* Header — Subtitle Perfectly Centered */}
         <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-slate-900 mb-md">
+          <h1 className="text-2xl font-bold text-neutral-900">
             📅 Agency Diary
           </h1>
           <p className="text-base text-slate-600">
@@ -401,7 +402,7 @@ export default function AgencyDiaryPage() {
                   id: j.id,
                   type: 'maintenance' as const,
                   property: j.property,
-                  person_name: j.contractor.name || 'Unassigned',
+                  person_name: (j.contractor?.full_name || [j.contractor?.first_name, j.contractor?.last_name].filter(Boolean).join(' ') || 'Unassigned'),
                   time: j.booked_slot || '09:00',
                   title: j.title,
                 })),
@@ -409,7 +410,7 @@ export default function AgencyDiaryPage() {
                   id: c.id,
                   type: 'clean' as const,
                   property: c.property,
-                  person_name: c.cleaner.name || 'Unassigned',
+                  person_name: (c.cleaner?.full_name || [c.cleaner?.first_name, c.cleaner?.last_name].filter(Boolean).join(' ') || 'Unassigned'),
                   time: c.clean_time || '09:00',
                   title: 'Cleaning',
                 })),
@@ -525,7 +526,7 @@ export default function AgencyDiaryPage() {
                     date: j.booked_date || '',
                     time: j.booked_slot || '09:00',
                     property: j.property,
-                    person: j.contractor.name || 'Unassigned',
+                    person: (j.contractor?.full_name || [j.contractor?.first_name, j.contractor?.last_name].filter(Boolean).join(' ') || 'Unassigned'),
                     title: j.title,
                   })),
                   ...cleanJobs.map((c) => ({
@@ -534,7 +535,7 @@ export default function AgencyDiaryPage() {
                     date: c.clean_date || '',
                     time: c.clean_time || '09:00',
                     property: c.property,
-                    person: c.cleaner.name || 'Unassigned',
+                    person: (c.cleaner?.full_name || [c.cleaner?.first_name, c.cleaner?.last_name].filter(Boolean).join(' ') || 'Unassigned'),
                     title: 'Cleaning',
                   })),
                   ...appointments.map((a) => ({

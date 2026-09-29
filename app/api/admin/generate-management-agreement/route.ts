@@ -3,9 +3,11 @@
 // No auth check — follows same pattern as other admin API routes in this codebase.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { generateManagementAgreementPDF, type ManagementAgreementData } from '@/lib/managementAgreement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { contentDisposition } from '@/lib/contentDisposition'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,6 +21,7 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const body: ManagementAgreementData & { onboardingId?: string } = await req.json()
 
@@ -49,13 +52,22 @@ export async function POST(req: NextRequest) {
         .upload(storagePath, buffer, { contentType: 'application/pdf', upsert: false })
 
       // If an onboarding record ID was supplied, record the generated agreement link on it
+      // Kept as the record's "agreement as sent" so the AML review can compare against it.
       if (body.onboardingId) {
-        await sb.from('landlord_onboarding')
-          .update({
-            agreement_pdf_path: storagePath,
-            agreement_generated_at: new Date().toISOString(),
-          })
-          .eq('id', body.onboardingId)
+        const { onboardingId, bizSettings: _biz, ...agreementFields } = body
+        void _biz
+        const { data: ob } = await sb.from('landlord_onboarding').select('form_data').eq('id', onboardingId).maybeSingle()
+        if (ob) {
+          const fd = (ob.form_data ?? {}) as Record<string, unknown>
+          const prev = fd.__agreement as { version?: number } | undefined
+          await sb.from('landlord_onboarding').update({
+            form_data: {
+              ...fd,
+              __agreement: { ...agreementFields, sent_at: new Date().toISOString(), version: (prev?.version ?? 0) + 1, pdf_path: storagePath },
+              ...(prev ? { __agreement_history: [...((fd.__agreement_history as unknown[]) ?? []), prev] } : {}),
+            },
+          }).eq('id', onboardingId)
+        }
       }
     } catch (logErr) {
       console.error('[generate-management-agreement] log error:', logErr)
@@ -65,7 +77,7 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: {
         'Content-Type':        'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': contentDisposition(`${filename}`, 'attachment'),
         'Content-Length':      String(buffer.length),
       },
     })

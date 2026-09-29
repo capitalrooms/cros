@@ -1,12 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { DEFAULT_SERVICE_TYPE, SERVICE_TYPES, serviceTypeLabel, type ServiceType } from '@/lib/newBusiness/serviceTypes'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import PostcodeAddressLookup, { type ParsedAddress } from '@/app/components/PostcodeAddressLookup'
 import NameInput, { type NameValue, emptyName, toFullName } from '@/app/components/NameInput'
-import AddressInput, { type AddressValue, emptyAddress, toAddressString, toAddressLines } from '@/app/components/AddressInput'
+import AddressInput, { type AddressValue, emptyAddress, toAddressString, toAddressLines, parseAddressString } from '@/app/components/AddressInput'
+import { createClient } from '@/lib/supabase'
+import { landlordName } from '@/lib/people'
+import { adminFetch } from '@/lib/adminFetch'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -72,12 +76,46 @@ function Card({ title, subtitle, children }: { title: string; subtitle?: string;
 export default function SendWelcomePage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
+  const [serviceType] = useState<ServiceType>(() => {
+    const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('service') : null
+    return SERVICE_TYPES.find(s => s.id === q && s.available)?.id ?? DEFAULT_SERVICE_TYPE
+  })
 
   // Step 1 — Landlord
   const [llName,    setLlName]    = useState<NameValue>(emptyName())
   const fullName = toFullName(llName)
   const [email,     setEmail]     = useState('')
   const [phone,     setPhone]     = useState('')
+  // Joint (second) landlord — shares the one landlord entry and appears on the agreement
+  const [hasJoint,  setHasJoint]  = useState(false)
+  const [jName,     setJName]     = useState<NameValue>(emptyName())
+  const [jEmail,    setJEmail]    = useState('')
+  const [existing,  setExisting]  = useState<any[]>([])
+  const [pickedId,  setPickedId]  = useState('')
+
+  useEffect(() => {
+    createClient().from('people').select('*').eq('role', 'landlord').order('last_name')
+      .then(({ data }) => setExisting(data || []))
+  }, [])
+
+  function fillFromLandlord(id: string) {
+    setPickedId(id)
+    const l = existing.find(x => x.id === id)
+    if (!l) return
+    setLlName({ salutation: l.salutation || '', first_name: l.first_name || '', last_name: l.last_name || '' })
+    setEmail(l.email || '')
+    setPhone(l.phone || '')
+    if (l.home_address) setLlAddrValue(parseAddressString(l.home_address))
+    if (l.company && !l.first_name) { setEntityType('company'); setCompanyName(l.company); setCompanyReg(l.company_number || '') }
+    else setEntityType('individual')
+    if (l.joint_first_name) {
+      setHasJoint(true)
+      setJName({ salutation: l.joint_salutation || '', first_name: l.joint_first_name || '', last_name: l.joint_last_name || '' })
+      setJEmail(l.joint_email || '')
+    } else { setHasJoint(false); setJName(emptyName()); setJEmail('') }
+  }
+  const jointFull = hasJoint ? toFullName(jName) : ''
+  const addressee = jointFull ? `${fullName} & ${jointFull}` : fullName
 
   // Step 2 — Property
   const [propType,      setPropType]      = useState<PropertyType>('hmo')
@@ -145,16 +183,20 @@ export default function SendWelcomePage() {
 
     const payload = {
       // Landlord record
-      full_name: fullName.trim(),
+      full_name: addressee.trim(),
       email:     email.trim(),
       phone:     phone.trim() || undefined,
+      joint_email: hasJoint && jEmail.trim() ? jEmail.trim() : undefined,
+      landlord_people_id: pickedId || undefined,
+      service_type: serviceType,
 
       // Agreement
       agreementType:   propType,
       agreementDate,
       entityType,
       ...(entityType === 'individual'
-        ? { clientTitle, clientFirstName: clientFirst, clientLastName: clientLast }
+        ? { clientTitle, clientFirstName: clientFirst, clientLastName: clientLast,
+            ...(hasJoint && jName.first_name ? { client2Title: jName.salutation || undefined, client2FirstName: jName.first_name, client2LastName: jName.last_name } : {}) }
         : { companyName, companyReg, companyCountry }),
       clientAddress:   clientAddressLines,
       properties:      allProperties,
@@ -167,7 +209,7 @@ export default function SendWelcomePage() {
     }
 
     try {
-      const res = await fetch('/api/landlord-onboarding/send-with-agreement', {
+      const res = await adminFetch('/api/landlord-onboarding/send-with-agreement', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
@@ -188,17 +230,28 @@ export default function SendWelcomePage() {
 
   if (step === 1) {
     const canProceed = (llName.first_name.trim().length >= 1 || fullName.trim().length >= 2) && /\S+@\S+\.\S+/.test(email)
+      && (!hasJoint || (jName.first_name.trim() && jName.last_name.trim() && (!jEmail || /\S+@\S+\.\S+/.test(jEmail))))
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/new-business" />} />
-        <main className="mx-auto max-w-2xl px-lg py-2xl">
+        <main className="mx-auto max-w-6xl px-lg py-xl">
           <StepBar step={1} />
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-md">New instruction · {serviceTypeLabel(serviceType)}</p>
 
           <Card
             title="Landlord details"
             subtitle="Who are you sending this to? These details create their record in the onboarding pipeline."
           >
             <div className="space-y-md">
+              {existing.length > 0 && (
+                <div>
+                  <label className={lbl}>Fill from existing landlord</label>
+                  <select value={pickedId} onChange={e => fillFromLandlord(e.target.value)} className={inp}>
+                    <option value="">— New landlord (type details below) —</option>
+                    {existing.map(l => <option key={l.id} value={l.id}>{landlordName(l) !== '—' ? landlordName(l) : l.email}</option>)}
+                  </select>
+                </div>
+              )}
               <NameInput value={llName} onChange={setLlName} required />
               <div>
                 <label className={lbl}>Email address *</label>
@@ -208,6 +261,24 @@ export default function SendWelcomePage() {
                 <label className={lbl}>Phone number</label>
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} className={inp} placeholder="07700 900000" />
               </div>
+              {hasJoint ? (
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md space-y-md">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-neutral-700">Joint landlord <span className="font-normal text-neutral-400">— named on the agreement; completes their own ID checks on the same form</span></p>
+                    <button type="button" onClick={() => { setHasJoint(false); setJName(emptyName()); setJEmail('') }} className="text-xs text-neutral-400 hover:text-red-500">Remove</button>
+                  </div>
+                  <NameInput value={jName} onChange={setJName} required />
+                  <div>
+                    <label className={lbl}>Joint landlord email <span className="normal-case font-normal text-neutral-400">(optional — they'll also receive the email)</span></label>
+                    <input type="email" value={jEmail} onChange={e => setJEmail(e.target.value)} className={inp} />
+                  </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setHasJoint(true)}
+                  className="text-xs text-neutral-500 hover:text-neutral-900 border border-dashed border-neutral-300 rounded-lg px-md py-xs font-semibold transition w-full text-left">
+                  + Add joint landlord
+                </button>
+              )}
             </div>
           </Card>
 
@@ -232,7 +303,7 @@ export default function SendWelcomePage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/new-business" />} />
-        <main className="mx-auto max-w-2xl px-lg py-2xl">
+        <main className="mx-auto max-w-6xl px-lg py-xl">
           <StepBar step={2} />
 
           <Card
@@ -336,7 +407,7 @@ export default function SendWelcomePage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/new-business" />} />
-        <main className="mx-auto max-w-2xl px-lg py-2xl">
+        <main className="mx-auto max-w-6xl px-lg py-xl">
           <StepBar step={3} />
 
           {/* Agreement preview banner */}
@@ -345,7 +416,7 @@ export default function SendWelcomePage() {
             <div>
               <p className="text-white font-bold text-base mb-xs">Management Agreement — Review before sending</p>
               <p className="text-neutral-400 text-sm leading-relaxed">
-                This agreement will be generated as a PDF and attached to {fullName.split(' ')[0]}'s welcome email.
+                This agreement will be generated as a PDF and attached to the welcome email for {addressee}.
                 Check all details carefully — you can edit the fee structure and terms here before sending.
               </p>
             </div>
@@ -381,6 +452,11 @@ export default function SendWelcomePage() {
                   <label className={lbl}>Last name *</label>
                   <input value={clientLast} onChange={e => setClientLast(e.target.value)} className={smInp} placeholder="Al-Rashid" />
                 </div>
+                {hasJoint && (
+                  <p className="col-span-3 text-xs text-neutral-600 bg-neutral-50 border border-neutral-200 rounded-lg px-md py-xs">
+                    Joint landlord on the agreement: <strong>{jointFull || '—'}</strong> <span className="text-neutral-400">(change in step 1)</span>
+                  </p>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
@@ -485,13 +561,13 @@ export default function SendWelcomePage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
-      <main className="mx-auto max-w-2xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <StepBar step={4} />
 
         <div className="bg-white rounded-2xl border border-neutral-200 p-2xl text-center">
           <div className="text-5xl mb-lg">🎉</div>
           <h2 className="text-xl font-bold text-neutral-900 mb-sm">Welcome pack sent</h2>
-          <p className="text-sm text-neutral-500 leading-relaxed mb-xl max-w-md mx-auto">
+          <p className="text-sm text-neutral-500 leading-relaxed mb-xl max-w-6xl mx-auto">
             The management agreement and AML registration form have been sent to <strong>{email}</strong>.{' '}
             {llName.first_name || clientFirst || 'They'} can read the agreement, then complete the form at their own pace.
           </p>
@@ -517,9 +593,10 @@ export default function SendWelcomePage() {
               onClick={() => {
                 // Reset for another send
                 setStep(1)
-                setFullName(''); setEmail(''); setPhone('')
-                setPropAddress(''); setApproxRooms(''); setExtraProperties([])
-                setClientFirst(''); setClientLast(''); setLlAddress('')
+                setLlName(emptyName()); setEmail(''); setPhone('')
+                setHasJoint(false); setJName(emptyName()); setJEmail(''); setPickedId('')
+                setPropAddrValue(emptyAddress()); setApproxRooms(''); setExtraProperties([])
+                setClientFirst(''); setClientLast(''); setLlAddrValue(emptyAddress())
                 setInventoryNote(''); setSendResult(null)
               }}
               className="rounded-xl border border-neutral-200 px-xl py-sm text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition"

@@ -11,9 +11,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket } from '@/lib/portalAuth'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getCommsLive } from '@/lib/comms'
-import { activeTenantIds, insertNotifications, tryEmailFallback } from '@/lib/serverNotify'
+import { activeTenantIds, insertNotifications, tryEmailFallback, tryPush } from '@/lib/serverNotify'
 import { slotLabel } from '@/lib/booking'
 import { getTemplate, render } from '@/lib/messageTemplate'
 
@@ -29,16 +30,17 @@ function fmtDate(iso: string) {
 }
 
 export async function POST(req: NextRequest) {
-  // Called from contractor job page (browser fetch, no server session).
-  // Gated by ticketId (UUID); service client enforces RLS.
+  // Called from the contractor job page: only the assigned contractor (or the office) — lib/portalAuth.
+
+  const { ticketId } = await req.json()
+  if (!ticketId) return NextResponse.json({ error: 'ticketId required' }, { status: 400 })
+  if (!(await canWorkOnTicket(await requireSignedIn(req), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Master kill switch
   if (!await getCommsLive()) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
 
-  const { ticketId } = await req.json()
-  if (!ticketId) return NextResponse.json({ error: 'ticketId required' }, { status: 400 })
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -101,21 +103,8 @@ export async function POST(req: NextRequest) {
     { propertyId: ticket.property_id, roomId: ticket.room_id }
   )
 
-  // Push (best-effort, respects kill switch in push/send)
-  try {
-    const base = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
-    fetch(`${base}/api/push/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        propertyId: ticket.property_id,
-        roomId: ticket.room_id,
-        title: 'Capital Rooms',
-        body: notifyBody,
-        url: visitLink,
-      }),
-    }).catch(() => {})
-  } catch { /* best-effort */ }
+  // Push (best-effort; the kill switch is applied inside sendServerPush)
+  await tryPush(recipientIds, 'Capital Rooms', notifyBody, visitLink)
 
   // Email fallback for tenants without push subscriptions
   await tryEmailFallback(service, recipientIds, {

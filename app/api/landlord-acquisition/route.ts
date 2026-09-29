@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { acquisitionEmailHtml } from '@/lib/email-templates/acquisition'
+import { senderFields } from '@/lib/email/sender'
 
 // POST /api/landlord-acquisition
 // Body: { firstName, email, greeting?, headshotUrl?, igUrl?, fbUrl? }
@@ -37,8 +38,7 @@ export async function POST(req: NextRequest) {
       Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
     },
     body: JSON.stringify({
-      from: 'Harry at Capital Rooms <management@capitalrooms.co.uk>',
-      reply_to: 'management@capitalrooms.co.uk',
+      ...(await senderFields(req)),
       to: email.trim(),
       subject: `Let us make property simple, ${firstName.trim()}.`,
       html,

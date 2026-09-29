@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 
 function service() {
   return createServiceClient(
@@ -66,7 +66,7 @@ export async function POST(
       category,
       location:     location || null,
       status:       'reported',
-      source:       'admin_task',               // audit trail: came from a property task
+      admin_note:   'Created from a property task',
     })
     .select()
     .single()

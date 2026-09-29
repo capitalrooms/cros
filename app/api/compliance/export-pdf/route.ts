@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { contentDisposition } from '@/lib/contentDisposition'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
       status: 200,
       headers: {
         'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="compliance-log-${property?.name}-${new Date().getTime()}.csv"`,
+        'Content-Disposition': contentDisposition(`compliance-log-${property?.name}-${new Date().getTime()}.csv`, 'attachment'),
       },
     })
   } catch (error) {

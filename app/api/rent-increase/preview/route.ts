@@ -13,6 +13,7 @@ import {
 } from '@/lib/rent-increase/generatePDF'
 import { getDeemedServiceDate, getDeemedServiceDescription } from '@/lib/rent-increase/deemedServiceDate'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { landlordFormalNames } from '@/lib/people'
 
 function serviceClient() {
   return createClient(
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
       person:people!tenancies_person_id_fkey(id, full_name, first_name, last_name, email),
       room:rooms!tenancies_room_id_fkey(id, name),
       property:properties!tenancies_property_id_fkey(id, name, address, landlord_id,
-        landlord:people!properties_landlord_id_fkey(id, full_name, first_name, last_name, company)
+        landlord:people!properties_landlord_id_fkey(*)
       )
     `)
     .eq('id', tenancyId)
@@ -116,7 +117,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({
       error:           'fixed_term_block',
-      fixedTermError:  `Section 13 notices cannot be served during the fixed term of an AST. This tenancy's fixed term does not expire until ${fmtFixed}. Once it becomes a periodic tenancy after that date, a Section 13 notice may be served.`,
+      fixedTermError:  `Section 13 notices cannot be served during the fixed term of an Assured Periodic Tenancy. This tenancy's fixed term does not expire until ${fmtFixed}. Once it becomes a periodic tenancy after that date, a Section 13 notice may be served.`,
       fixedTermEndDate: tenancyEndDate,
     }, { status: 422 })
   }
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
   const tenantTitle = storedTitle || 'Mx'   // Mx = gender-neutral default; admin can override via UI
 
   const landlordName = landlord
-    ? (landlord.company || landlord.full_name || [landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || 'The Landlord')
+    ? (landlord.company || landlordFormalNames(landlord) || 'The Landlord')
     : property.landlord_name || 'The Landlord'
 
   // Derive postcode from property address for market area description

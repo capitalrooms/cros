@@ -308,7 +308,7 @@ export default function AdminGuideDetailPage() {
 
   if (loading || !guide) {
     return (
-      <div className="min-h-screen bg-neutral-50">
+      <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/guides" />} />
         <div className="flex items-center justify-center pt-[30vh]">
           <div className="w-6 h-6 rounded-full border-2 border-neutral-300 border-t-neutral-700 animate-spin" />
@@ -318,10 +318,10 @@ export default function AdminGuideDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-[80px]">
+    <div className="min-h-screen bg-neutral-100 pb-[80px]">
       <AppBar left={<BackButton href="/admin/guides" />} title="Edit Guide" />
 
-      <main className="max-w-2xl mx-auto px-lg py-xl space-y-xl">
+      <main className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 
         {/* Guide settings */}
         <section className="bg-white rounded-2xl border border-neutral-200 p-lg space-y-md">

@@ -85,9 +85,9 @@ export default function CommunicationsHubPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-lg text-center">
-          <h1 className="text-3xl font-bold text-neutral-900">Communications Hub</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Communications Hub</h1>
           <p className="mt-xs text-sm text-neutral-500">Every message, every channel, one filterable place.</p>
         </div>
 

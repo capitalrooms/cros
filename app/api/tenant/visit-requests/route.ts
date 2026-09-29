@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canActAtProperty } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createBrowserClient } from '@/lib/supabase'
 import { insertNotifications } from '@/lib/serverNotify'
@@ -89,6 +90,8 @@ export async function POST(req: NextRequest) {
   if (!person) {
     return NextResponse.json({ error: 'Person not found' }, { status: 404 })
   }
+  // only a tenant living at that property (or the office) can send a request about its visit
+  if (!ticket.property_id || !(await canActAtProperty(await requireSignedIn(req), ticket.property_id))) return NextResponse.json({ error: 'Not your property' }, { status: 403 })
 
   // Create the request
   const { data: visitRequest, error: insErr } = await service

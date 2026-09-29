@@ -2,26 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 const ACCOUNT_NAME = 'Capital Rooms Ltd'
 const SORT_CODE = '20-18-93'
 const ACCOUNT_NUMBER = '40162574'
-
-function weeklyRent(monthly: number) {
-  return Math.round((monthly * 12) / 52)
-}
-
-function buildRef(propertyCode: string | null, roomName: string | null) {
-  const propPart = (propertyCode || 'CAP').toUpperCase().replace(/\s/g, '')
-  const roomPart = (roomName || '').replace(/[^0-9]/g, '').padStart(2, '0')
-  return `${propPart}${roomPart} RESERVE`.trim()
-}
 
 export default function ReservePage() {
   const params = useSearchParams()
@@ -32,20 +16,15 @@ export default function ReservePage() {
 
   useEffect(() => {
     if (!roomId) return
-    supabase
-      .from('rooms')
-      .select('id, name, current_asking_rent, properties(name, address, property_code)')
-      .eq('id', roomId)
-      .single()
-      .then(({ data }) => setRoom(data))
+    fetch(`/api/applicant/room/${roomId}`).then(r => (r.ok ? r.json() : null)).then(setRoom).catch(() => setRoom(null))
   }, [roomId])
 
-  const monthly = room?.current_asking_rent ?? null
-  const weekly = monthly ? weeklyRent(monthly) : null
-  const propCode = (room?.properties as any)?.property_code || null
-  const roomName = room?.name || null
-  const ref = buildRef(propCode, roomName)
-  const propAddress = (room?.properties as any)?.address || (room?.properties as any)?.name || ''
+  const monthly: number | null = room?.monthly ?? null
+  const weekly: number | null = room?.weekly ?? null
+  const ref: string = room?.reference ?? 'HOLD'
+  const propAddress: string = room?.property || ''
+  const roomName: string | null = room?.name ?? null
+  const gbp = (n: number | null) => n == null ? '' : n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const copy = async (text: string, key: string) => {
     await navigator.clipboard.writeText(text)
@@ -98,7 +77,7 @@ export default function ReservePage() {
           <p className="text-sm text-neutral-600 mb-md leading-relaxed">
             To take this room off the market, we need a holding deposit of{' '}
             <strong className="text-neutral-900">
-              one week&apos;s rent {weekly ? `— £${weekly.toLocaleString()}` : ''}
+              one week&apos;s rent {weekly ? `— £${gbp(weekly)}` : ''}
             </strong>.
             Don&apos;t worry, this is deducted from your final balance — it&apos;s not an extra fee.
           </p>
@@ -117,14 +96,14 @@ export default function ReservePage() {
             <CopyRow label="Account number" value={ACCOUNT_NUMBER} id="acc" />
             <CopyRow label="Payment reference" value={ref} id="ref" />
             {weekly && (
-              <CopyRow label="Amount" value={`£${weekly.toLocaleString()}`} id="amount" />
+              <CopyRow label="Amount" value={`£${gbp(weekly)}`} id="amount" />
             )}
           </div>
           {weekly && (
             <div className="mt-md bg-neutral-50 rounded-xl p-md border border-neutral-200">
               <p className="text-xs text-neutral-500 mb-xs">How we calculate the holding deposit</p>
               <p className="text-xs text-neutral-600">
-                Monthly rent (£{monthly?.toLocaleString()}) × 12 ÷ 52 = <strong>£{weekly?.toLocaleString()} per week</strong>
+                Monthly rent (£{monthly?.toLocaleString()}) × 12 ÷ 52 = <strong>£{gbp(weekly)} per week</strong>
               </p>
             </div>
           )}
@@ -135,7 +114,7 @@ export default function ReservePage() {
           <h2 className="text-base font-bold text-neutral-900 mb-md">What happens next</h2>
           <ol className="space-y-md">
             {[
-              { n: '1', t: 'Make the transfer', d: 'Send £' + (weekly ?? '—') + ' to the account above using the reference shown.' },
+              { n: '1', t: 'Make the transfer', d: 'Send £' + (weekly != null ? gbp(weekly) : '—') + ' to the account above using the reference shown.' },
               { n: '2', t: 'Let us know', d: 'Message or email us once sent — a screenshot of the confirmation helps us confirm quickly.' },
               { n: '3', t: 'Room reserved', d: 'We take the room off the market as soon as payment is confirmed.' },
               { n: '4', t: 'Online referencing', d: 'We\'ll get you started with our referencing provider, Homeppl, straight away.' },
@@ -154,12 +133,14 @@ export default function ReservePage() {
           </ol>
         </div>
 
-        {/* Non-refundable notice */}
+        {/* Holding deposit terms — Tenant Fees Act 2019, Schedule 2 */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-lg mb-lg">
           <p className="text-xs text-amber-800 leading-relaxed">
-            <strong>Important:</strong> The holding deposit is a non-refundable commitment to the room.
-            However, if Capital Rooms or the landlord can no longer let the room to you,
-            it will be returned to you in full.
+            <strong>Important:</strong> Paying the holding deposit takes the room off the market for you while we complete
+            your checks. It isn&apos;t an extra fee: it comes off the balance you pay before moving in. It is returned to you within
+            7 days if we or the landlord decide not to go ahead. We may keep it only if you pull out, fail a Right to Rent
+            check, give us false or misleading information, or don&apos;t take reasonable steps to sign the agreement within
+            15 days (unless we agree a different date with you).
           </p>
         </div>
 

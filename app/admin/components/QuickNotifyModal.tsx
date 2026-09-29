@@ -57,6 +57,16 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
   const [roomId, setRoomId] = useState('')
   const [personId, setPersonId] = useState('')
 
+  // Channel + schedule state
+  const [channels, setChannels] = useState<'push_email' | 'push_only' | 'email_only'>('push_email')
+  const [scheduleMode, setScheduleMode] = useState<'now' | 'later'>('now')
+  const [scheduledAt, setScheduledAt] = useState('')
+  const [sentReceipt, setSentReceipt] = useState<{ recipientCount: number; pushCount: number; emailCount: number; channels: string; sentAt: string } | null>(null)
+
+  // Recipient preview count
+  const [recipientCount, setRecipientCount] = useState<number | null>(null)
+  const [countLoading, setCountLoading] = useState(false)
+
   // Lettings-specific state
   const [viewingSelector, setViewingSelector] = useState<ViewingSelector>('single')
   const [selectedViewing, setSelectedViewing] = useState<Viewing | null>(null)
@@ -87,6 +97,46 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
     }
     loadRooms()
   }, [propertyId])
+
+  // Fetch recipient count whenever recipient selection changes
+  useEffect(() => {
+    async function fetchCount() {
+      setCountLoading(true)
+      try {
+        if (recipientType === 'all_tenants') {
+          const { data } = await supabase
+            .from('rooms')
+            .select('id')
+            .eq('property_id', propertyId)
+          const roomIds = (data || []).map((r: any) => r.id)
+          if (roomIds.length === 0) { setRecipientCount(0); return }
+          const today = new Date().toISOString().split('T')[0]
+          const { data: tenancies } = await supabase
+            .from('tenancies')
+            .select('person_id')
+            .in('room_id', roomIds)
+            .or(`end_date.is.null,end_date.gte.${today}`)
+          setRecipientCount(new Set((tenancies || []).map((t: any) => t.person_id)).size)
+        } else if (recipientType === 'room' && roomId) {
+          const today = new Date().toISOString().split('T')[0]
+          const { data } = await supabase
+            .from('tenancies')
+            .select('person_id')
+            .eq('room_id', roomId)
+            .or(`end_date.is.null,end_date.gte.${today}`)
+          setRecipientCount(new Set((data || []).map((t: any) => t.person_id)).size)
+        } else if (recipientType === 'cleaners') {
+          const { data } = await supabase.from('people').select('id', { count: 'exact', head: true }).eq('role', 'cleaner')
+          setRecipientCount((data as any)?.length ?? null)
+        } else {
+          setRecipientCount(null)
+        }
+      } finally {
+        setCountLoading(false)
+      }
+    }
+    fetchCount()
+  }, [recipientType, roomId, propertyId])
 
   // Load templates on mount
   const loadTemplates = async () => {
@@ -263,13 +313,23 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
             message,
             recipient_type: recipientType,
             room_id: recipientType === 'room' ? roomId : null,
-            person_id: recipientType === 'individual' ? personId : null
+            person_id: recipientType === 'individual' ? personId : null,
+            channels,
           })
         })
 
-        if (!response.ok) {
-          throw new Error('Failed to send notification')
-        }
+        if (!response.ok) throw new Error('Failed to send notification')
+        const result = await response.json()
+        const channelLabel = channels === 'push_email' ? 'push + email' : channels === 'push_only' ? 'push notification' : 'email'
+        setSentReceipt({
+          recipientCount: result.recipientCount ?? 0,
+          pushCount: result.pushCount ?? 0,
+          emailCount: result.emailCount ?? 0,
+          channels: channelLabel,
+          sentAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        })
+        onSuccess?.()
+        return
       }
 
       setSuccess('Notification sent successfully!')
@@ -694,22 +754,126 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
           )}
         </div>
 
+        {/* ── Sent receipt ── */}
+        {sentReceipt && (
+          <div className="mt-lg p-lg rounded-xl bg-green-950 border border-green-700 space-y-sm">
+            <p className="text-sm font-bold text-green-400">✓ Notification sent at {sentReceipt.sentAt}</p>
+            <p className="text-sm text-green-300">
+              Reached <strong>{sentReceipt.recipientCount}</strong> {sentReceipt.recipientCount === 1 ? 'person' : 'people'} via <strong>{sentReceipt.channels}</strong>
+            </p>
+            {sentReceipt.pushCount > 0 && <p className="text-xs text-green-500">📲 Push dispatched to {sentReceipt.pushCount}</p>}
+            {sentReceipt.emailCount > 0 && <p className="text-xs text-green-500">✉️ Email sent to {sentReceipt.emailCount}</p>}
+            <button onClick={onClose} className="mt-sm w-full px-md py-sm bg-green-800 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition">Close</button>
+          </div>
+        )}
+
+        {/* ── Delivery channel + schedule (hidden once sent) ── */}
+        {!sentReceipt && notificationCategory !== 'noticeboard' && (
+          <div className="mt-lg pt-lg border-t border-neutral-700 space-y-md">
+
+            {/* Channel picker */}
+            <div>
+              <label className="text-sm font-semibold text-white mb-sm block">How to deliver:</label>
+              <div className="grid grid-cols-3 gap-sm">
+                {([
+                  { value: 'push_email', label: '📲 Push + Email' },
+                  { value: 'push_only', label: '📲 Push only' },
+                  { value: 'email_only', label: '✉️ Email only' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setChannels(opt.value)}
+                    className={`px-sm py-sm rounded-lg font-semibold text-xs transition border ${
+                      channels === opt.value
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'border-neutral-700 text-neutral-300 hover:text-white'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-neutral-500 mt-xs">
+                {channels === 'push_email' && 'Push notification to app + email to all recipients'}
+                {channels === 'push_only' && 'Push notification in-app only — no email sent'}
+                {channels === 'email_only' && 'Email only — no in-app notification'}
+              </p>
+            </div>
+
+            {/* Schedule toggle */}
+            <div>
+              <label className="text-sm font-semibold text-white mb-sm block">When to send:</label>
+              <div className="flex gap-sm mb-sm">
+                {(['now', 'later'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setScheduleMode(m)}
+                    className={`flex-1 px-md py-sm rounded-lg font-semibold text-sm transition border ${
+                      scheduleMode === m
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'border-neutral-700 text-neutral-300 hover:text-white'
+                    }`}
+                  >
+                    {m === 'now' ? '⚡ Send now' : '🕐 Schedule'}
+                  </button>
+                ))}
+              </div>
+              {scheduleMode === 'later' && (
+                <div>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={e => setScheduledAt(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                    className="w-full px-md py-sm border border-neutral-700 bg-neutral-800 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-neutral-500 mt-xs">⚠️ Scheduled sends are queued — ensure the server is running at that time.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Pre-send summary */}
+            <div className="rounded-lg bg-neutral-800 border border-neutral-700 px-md py-sm flex items-center justify-between">
+              <div className="text-sm text-neutral-300">
+                {countLoading ? (
+                  <span className="text-neutral-500">Counting recipients…</span>
+                ) : recipientCount !== null ? (
+                  <span>Will reach <strong className="text-white">{recipientCount}</strong> {recipientCount === 1 ? 'person' : 'people'} via <strong className="text-white">{channels === 'push_email' ? 'push + email' : channels === 'push_only' ? 'push' : 'email'}</strong></span>
+                ) : (
+                  <span className="text-neutral-500">Select recipients to see count</span>
+                )}
+              </div>
+              {scheduleMode === 'later' && scheduledAt && (
+                <span className="text-xs text-blue-400 ml-md">Scheduled {new Date(scheduledAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex gap-md mt-lg pt-lg border-t border-neutral-700">
-          <button
-            onClick={onClose}
-            className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-900 transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={sendNotification}
-            disabled={sending}
-            className="flex-1 px-lg py-md bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition"
-          >
-            {sending ? 'Posting...' : notificationCategory === 'noticeboard' ? '📋 Post to Notice Board' : '📤 Send Notification'}
-          </button>
-        </div>
+        {!sentReceipt && (
+          <div className="flex gap-md mt-md">
+            <button
+              onClick={onClose}
+              className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-900 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={sendNotification}
+              disabled={sending || (scheduleMode === 'later' && !scheduledAt)}
+              className="flex-1 px-lg py-md bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition"
+            >
+              {sending
+                ? 'Sending…'
+                : notificationCategory === 'noticeboard'
+                  ? '📋 Post to Notice Board'
+                  : scheduleMode === 'later'
+                    ? '🕐 Schedule notification'
+                    : '📤 Send now'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

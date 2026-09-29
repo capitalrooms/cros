@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { resolveFee, feeAmount } from '@/lib/fees/managementFee'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   const { data: rooms } = await service
     .from('rooms')
-    .select('property_id, current_asking_rent, status')
+    .select('id, property_id, current_asking_rent, status')
     .not('current_asking_rent', 'is', null)
 
   // Only count rooms that are occupied (actively bringing in rent)
@@ -44,18 +45,20 @@ export async function POST(req: NextRequest) {
     (r: any) => r.current_asking_rent && r.status === 'occupied'
   )
 
-  const feePctByProperty: Record<string, number> = {}
-  for (const p of props) {
-    feePctByProperty[p.id] = p.management_fee_pct ?? 12
-  }
+  // Fee: each current tenancy's own management fee, else its property's (never an assumed 12%)
+  const today = new Date().toISOString().slice(0, 10)
+  const { data: lets } = await service.from('tenancies')
+    .select('room_id, rent_amount, management_fee_type, management_fee_pct, management_fee_fixed, properties(management_fee_type, management_fee_pct, management_fee_fixed)')
+    .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
+  const letByRoom = new Map(((lets ?? []) as any[]).map(t => [t.room_id, t]))
 
   let totalRent = 0
   let totalFee = 0
   for (const r of occupiedRooms as any[]) {
-    const rent = parseFloat(r.current_asking_rent) || 0
-    const pct = feePctByProperty[r.property_id] ?? 12
+    const t = letByRoom.get(r.id)
+    const rent = t ? Number(t.rent_amount || 0) : (parseFloat(r.current_asking_rent) || 0)
     totalRent += rent
-    totalFee += rent * (pct / 100)
+    totalFee += (t ? feeAmount(resolveFee(t, t.properties), { received: rent, charged: rent }) : null) ?? 0
   }
 
   const snapshotDate = new Date()
@@ -80,3 +83,6 @@ export async function POST(req: NextRequest) {
     roomCount: occupiedRooms.length,
   })
 }
+
+// Vercel Cron calls scheduled jobs with GET — without this the job was rejected (405) and never ran.
+export const GET = POST

@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/adminAuth'
 /**
  * POST /api/landlord-onboarding/send-with-agreement
  *
@@ -39,6 +40,7 @@ const svc = () =>
   )
 
 export async function POST(req: NextRequest) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
 
   const {
@@ -46,6 +48,9 @@ export async function POST(req: NextRequest) {
     email,
     phone,
     created_by,
+    joint_email,
+    landlord_people_id,
+    service_type,
     ...agreementFields
   } = body
 
@@ -56,7 +61,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'properties and clientAddress are required' }, { status: 400 })
   }
 
-  // 1. Create the onboarding record (stage 1 — email not yet sent)
+  // 1. Create the onboarding record (stage 1 — email not yet sent). form_data is pre-filled so the
+  //    landlord(s) see their names already entered, and __agreement keeps an exact copy of the
+  //    agreement as sent (compared against their answers at review).
+  const a = agreementFields as ManagementAgreementData
+  const isJoint = a.entityType === 'individual' && !!a.client2FirstName
+  const prefill: Record<string, unknown> = {
+    entity_type: a.entityType ?? '',
+    contact_email: email.trim().toLowerCase(),
+    contact_phone: phone?.trim() || '',
+    ...(a.entityType === 'individual' ? {
+      salutation: a.clientTitle ?? '', first_name: a.clientFirstName ?? '', last_name: a.clientLastName ?? '',
+      joint: isJoint ? 'yes' : '',
+      ...(isJoint ? { j_salutation: a.client2Title ?? '', j_first_name: a.client2FirstName ?? '', j_last_name: a.client2LastName ?? '', j_contact_email: joint_email?.trim().toLowerCase() || '' } : {}),
+    } : { company_name: a.companyName ?? '', company_reg: a.companyReg ?? '' }),
+    __service_type: service_type || 'full_management',
+    __agreement: { ...agreementFields, service_type: service_type || 'full_management', sent_at: new Date().toISOString(), version: 1 },
+  }
   const { data: row, error: insertErr } = await svc()
     .from('landlord_onboarding')
     .insert({
@@ -66,6 +87,8 @@ export async function POST(req: NextRequest) {
       created_by:  created_by ?? null,
       stage:       1,
       entity_type: agreementFields.entityType ?? null,
+      form_data:   prefill,
+      ...(landlord_people_id ? { landlord_people_id } : {}),
     })
     .select()
     .single()
@@ -101,8 +124,7 @@ export async function POST(req: NextRequest) {
       .upload(storagePath, pdfBuffer, { contentType: 'application/pdf', upsert: false })
 
     await svc().from('landlord_onboarding').update({
-      agreement_pdf_path:      storagePath,
-      agreement_generated_at:  new Date().toISOString(),
+      form_data: { ...prefill, __agreement: { ...(prefill.__agreement as object), pdf_path: storagePath } },
     }).eq('id', row.id)
   } catch {
     storagePath = null // non-fatal
@@ -127,12 +149,13 @@ export async function POST(req: NextRequest) {
     commencementDate: agreementFields.commencementDate,
   })
 
+  const recipients = Array.from(new Set([email, joint_email].filter(Boolean).map((e: string) => e.trim().toLowerCase())))
   const { ok: emailSent, error: emailError } = await sendEmail(
-    email.trim().toLowerCase(),
+    recipients,
     'Welcome to Capital Rooms — Your Management Agreement & Registration Form',
     bodyHtml,
     {
-      replyTo:     'harry@capitalrooms.co.uk',
+      req,
       attachments: [
         {
           filename,
@@ -202,7 +225,7 @@ function welcomeWithAgreementHtml(
         <strong>Management fee:</strong> ${details.managementFee}<br>
         <strong>Let fee:</strong> ${details.letFee}<br>
         <strong>Proposed commencement:</strong> ${fmtDate(details.commencementDate)}<br>
-        <strong>Notice period:</strong> 2 months written notice by either party
+        <strong>Notice period:</strong> 3 months written notice by either party
       </p>
     </td>
   </tr>
@@ -271,7 +294,5 @@ function welcomeWithAgreementHtml(
   If you have any questions at any point, simply reply to this email and I will come back to you directly.
 </p>
 
-<p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>
-<p style="margin:0;font-size:15px;color:#333;font-weight:600">Harry</p>
-<p style="margin:2px 0 0;font-size:13px;color:#888">Capital Rooms &nbsp;·&nbsp; <a href="mailto:harry@capitalrooms.co.uk" style="color:#555;">harry@capitalrooms.co.uk</a></p>`
+<p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>`
 }

@@ -60,7 +60,7 @@ export default function EarlyMoveOutPage() {
       // Get active tenancy
       const { data: t } = await supabase
         .from('tenancies')
-        .select('id, property_id, room_id, start_date, end_date, rent_amount, status, rooms(name), properties(name, address)')
+        .select('id, property_id, room_id, start_date, end_date, rent_amount, notice_received_date, rooms(name), properties(name, address)')
         .eq('person_id', pid)
         .is('end_date', null)
         .maybeSingle()

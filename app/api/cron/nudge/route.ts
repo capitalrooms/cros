@@ -1,25 +1,22 @@
 import { NextResponse } from 'next/server'
-import { getCommsLive } from '@/lib/comms'
-import { createClient } from '@/lib/supabase'
+import { sendServerPush } from '@/lib/serverPush'
+import { pendingLicenceIds } from '@/lib/compliance/hmoLicence'
+import { createServiceClient } from '@/lib/supabase'
 import { TIME_SLOTS } from '@/lib/booking'
 import { getTemplate, render } from '@/lib/messageTemplate'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Stable origin for the internal push call.
-const BASE = 'https://cros-capital-rooms.vercel.app'
-
+// Pushes go through sendServerPush: this used to POST to /api/push/send on an old deployment URL, which needs a
+// signed-in user, so every nudge was refused. These nudges go to staff (contractors, cleaners, admins), so they run
+// while tenant comms are paused; sendServerPush still holds back any tenant device.
 function slotLabel(slot: string | null) {
   return TIME_SLOTS.find((s) => s.value === slot)?.label ?? slot ?? ''
 }
 
-function push(payload: any) {
-  return fetch(`${BASE}/api/push/send`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  }).catch(() => {})
+function push(p: { personId?: string; role?: string; title: string; body: string; url: string; tag?: string; requireInteraction?: boolean }) {
+  return sendServerPush(p)
 }
 
 /**
@@ -29,12 +26,11 @@ function push(payload: any) {
  *     tenants of the new time).
  *  2. Compliance reminder to admins, ~every 3rd day, for certs due within 14 days.
  */
-export async function GET() {
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
+export async function GET(req: Request) {
+  if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
-  const supabase = createClient()
+  const supabase = createServiceClient()
   const today = new Date().toISOString().split('T')[0]
 
   const { data: jobs } = await supabase
@@ -93,7 +89,8 @@ export async function GET() {
   if (Math.floor(Date.now() / 86400000) % 3 === 0) {
     const { data: props } = await supabase
       .from('properties')
-      .select('name, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry')
+      .select('id, name, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry')
+    const licencePending = await pendingLicenceIds(supabase)
     const t0 = new Date(today).getTime()
     const names = new Set<string>()
     for (const p of props || []) {
@@ -105,6 +102,7 @@ export async function GET() {
       ]) {
         const v = (p as any)[f]
         if (!v) continue
+        if (f === 'license_expiry' && licencePending.has((p as any).id)) continue
         const days = Math.floor((new Date(v).getTime() - t0) / 86400000)
         if (days <= 14) names.add(p.name)
       }

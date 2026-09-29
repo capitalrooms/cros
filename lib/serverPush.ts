@@ -3,9 +3,11 @@
  * Fire-and-forget push helper for server-side API routes that need to notify
  * staff/admin without going through the user-auth-gated /api/push/send endpoint.
  *
- * NEVER targets tenants (respects the master comms kill-switch automatically
- * via the getCommsLive check, and callers should pass staff roles only).
+ * Tenant devices only receive a push while tenant comms are live (the master kill-switch, getCommsLive);
+ * staff devices always do. Server code must use this, not fetch('/api/push/send') — that route needs a
+ * signed-in user, so server-to-server calls to it were always refused.
  */
+import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 
@@ -30,11 +32,14 @@ interface PushOptions {
   role?: string
   /** Target a specific person by their people.id */
   personId?: string
+  /** Target several people by people.id */
+  personIds?: string[]
   title: string
   body: string
   /** URL to open when tapped — defaults to /admin */
   url?: string
   tag?: string
+  requireInteraction?: boolean
 }
 
 /**
@@ -42,11 +47,12 @@ interface PushOptions {
  * Fire-and-forget: swallows errors so callers don't need to await or catch.
  * Cleans up expired/gone subscriptions automatically.
  */
-export async function sendServerPush(opts: PushOptions): Promise<void> {
+export async function sendServerPush(opts: PushOptions): Promise<number> {
+  let sent = 0
   try {
     if (!configureVapid()) {
       console.warn('serverPush: VAPID keys not configured — skipping')
-      return
+      return sent
     }
 
     const supabase = createClient(
@@ -60,31 +66,38 @@ export async function sendServerPush(opts: PushOptions): Promise<void> {
       q = q.eq('role', opts.role)
     } else if (opts.personId) {
       q = q.eq('person_id', opts.personId)
+    } else if (opts.personIds?.length) {
+      q = q.in('person_id', [...new Set(opts.personIds)])
     } else {
       console.warn('serverPush: no target specified — skipping')
-      return
+      return sent
     }
 
     const { data: subs, error } = await q
     if (error) {
       console.warn('serverPush: DB query failed', error.message)
-      return
+      return sent
     }
-    if (!subs || subs.length === 0) return
+    if (!subs || subs.length === 0) return sent
+    // kill-switch: while tenant comms are paused only staff devices (subscriptions with a staff role) get pushes
+    const live = await getCommsLive()
+    const targets = live ? subs : subs.filter((x: any) => x.role && x.role !== 'tenant' && x.role !== 'applicant')
 
     const payload = JSON.stringify({
       title: opts.title,
       body: opts.body,
       url: opts.url ?? '/admin',
       tag: opts.tag,
+      requireInteraction: opts.requireInteraction,
     })
 
-    for (const s of subs) {
+    for (const s of targets) {
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
           payload
         )
+        sent++
       } catch (err: any) {
         if (err?.statusCode === 404 || err?.statusCode === 410) {
           // Subscription expired/unsubscribed — clean it up silently
@@ -100,4 +113,5 @@ export async function sendServerPush(opts: PushOptions): Promise<void> {
   } catch (err) {
     console.warn('serverPush: unexpected error', err)
   }
+  return sent
 }

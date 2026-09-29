@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
-import { emailHtml, FROM, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
+import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import twilio from 'twilio'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -70,6 +72,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { viewingId } = await request.json()
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Step 3: Validate input
   if (!viewingId || !validateUUID(viewingId)) {
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   // Fetch viewing with room and property info
@@ -112,7 +115,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: FROM,
+        ...(await senderFields(request)),
         to: [to],
         subject,
         html,
@@ -166,7 +169,7 @@ export async function POST(request: NextRequest) {
         </table>
         ${viewing.feedback ? `<p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">Notes: ${viewing.feedback}</p>` : ''}
       `
-    await send(admin, adminSubject, await emailHtml(adminBody))
+    await send(admin, adminSubject, await emailHtml(adminBody, { req: request }))
     sent.push(admin)
   }
 
@@ -184,7 +187,7 @@ export async function POST(request: NextRequest) {
 
   async function buildTenantViewingEmail(tenantName: string, roomOrProperty: string): Promise<string> {
     const tenantVars = { ...viewingVars, tenant_name: tenantName, room_or_at_property: roomOrProperty }
-    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, tenantVars))
+    if (tenantTpl) return await emailHtml(render(tenantTpl.template_text, tenantVars), { req: request })
     return await emailHtml(`
       <h2 style="margin:0 0 18px;font-size:22px">Viewing Scheduled</h2>
       <p style="margin:0 0 12px;font-size:16px">Hi ${tenantName},</p>
@@ -200,19 +203,19 @@ export async function POST(request: NextRequest) {
         </table>
       </div>
       <p style="margin:0;color:#78716c;font-size:14px">Please keep your shared areas tidy during this time. Thank you!</p>
-    `)
+    `, { req: request })
   }
 
   // Send to tenant IN this room: "A viewing has been booked on your room"
   if (roomId) {
     const { data: tenancies } = await supabase
       .from('tenancies')
-      .select('person_id, people!person_id(full_name, first_name, last_name, email), opt_in_viewings')
+      .select('person_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
       .eq('room_id', roomId)
       .is('end_date', null)
       .single()
 
-    if (tenancies?.people?.email && tenancies?.opt_in_viewings) {
+    if (tenancies?.people?.email && ((tenancies as any).people?.notify_by_email !== false)) {
       const tenantName = (tenancies.people as any).first_name || 'Tenant'
       const roomSubject = tenantTpl
         ? render(tenantTpl.subject_line, { ...viewingVars, tenant_name: tenantName, room_or_at_property: 'on your room' })
@@ -226,13 +229,13 @@ export async function POST(request: NextRequest) {
   if (propertyId) {
     const { data: allTenancies } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email), opt_in_viewings')
+      .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
       .eq('property_id', propertyId)
       .neq('room_id', roomId)
       .is('end_date', null)
 
     for (const tenancy of allTenancies ?? []) {
-      if (tenancy.people?.email && tenancy.opt_in_viewings) {
+      if (tenancy.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
         const tenantName = (tenancy.people as any).first_name || 'Tenant'
         const otherSubject = tenantTpl
           ? render(tenantTpl.subject_line, { ...viewingVars, tenant_name: tenantName, room_or_at_property: 'at your property' })

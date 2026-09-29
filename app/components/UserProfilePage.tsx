@@ -41,6 +41,8 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
     first_name: '',
     last_name:  '',
     phone:      '',
+    job_title:    '',
+    direct_phone: '',
   })
 
   // Push notification state
@@ -64,7 +66,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
       const { data: p } = await supabase
         .from('people')
         .select('*')
-        .eq('email', user.email)
+        .eq('email', user.user?.email ?? user.assignment?.email ?? '')
         .single()
 
       if (!p) { setLoading(false); return }
@@ -73,6 +75,8 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
         first_name: p.first_name || '',
         last_name:  p.last_name  || '',
         phone:      p.phone      || '',
+        job_title:    p.job_title    || '',
+        direct_phone: p.direct_phone || '',
       })
       // Check push support & re-sync existing subscription to DB if needed
       if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -165,6 +169,8 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
     finally { setPushLoading(false) }
   }
 
+  const isStaff = ['administrator', 'admin', 'lettings'].includes(userRole)
+
   async function handleSave() {
     if (!person) return
     setSaving(true); setError(null); setSaved(false)
@@ -174,6 +180,8 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
         first_name: form.first_name.trim(),
         last_name:  form.last_name.trim(),
         phone:      form.phone.trim() || null,
+        // staff only: these fill the signature on emails they send
+        ...(isStaff ? { job_title: form.job_title.trim() || null, direct_phone: form.direct_phone.trim() || null } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', person.id)
@@ -260,6 +268,29 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
                 placeholder="e.g. 07700 000000"
                 className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
             </div>
+
+            {isStaff && (
+              <div className="rounded-xl bg-neutral-50 p-md space-y-md">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">Your email signature</p>
+                  <p className="text-xs text-neutral-500">Every email you send from the system is signed with your name, job title, phone number and email address.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Job title</label>
+                  <input type="text" value={form.job_title}
+                    onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))}
+                    placeholder="e.g. Lettings Negotiator"
+                    className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Phone on your signature</label>
+                  <input type="tel" value={form.direct_phone}
+                    onChange={e => setForm(f => ({ ...f, direct_phone: e.target.value }))}
+                    placeholder="Leave blank to show the office number, 0207 112 9163"
+                    className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                </div>
+              </div>
+            )}
 
           </div>
           <div className="px-xl pb-xl">

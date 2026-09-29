@@ -6,6 +6,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 import AdminAddAppointmentModal from '@/app/components/AdminAddAppointmentModal'
+import MobileToday from './components/MobileToday'
+import { pendingLicenceIds } from '@/lib/compliance/hmoLicence'
 
 // ── Error boundary ─────────────────────────────────────────────────────────────
 class AdminErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -122,7 +124,7 @@ function AdminDashboard() {
           // Open jobs per property (through room → property)
           supabase.from('maintenance_tickets').select('id, property_id').not('status', 'in', '("completed","closed","cancelled")'),
           // Viewings this week
-          supabase.from('viewings').select('id, viewing_date, viewing_time, rooms(name, properties(name))').gte('viewing_date', todayStr).lte('viewing_date', in4days).order('viewing_date').order('viewing_time'),
+          supabase.from('viewings').select('id, viewing_date, viewing_slot, rooms(name, properties(name))').gte('viewing_date', todayStr).lte('viewing_date', in4days).order('viewing_date').order('viewing_slot'),
           // Appointments in next 4 days
           supabase.from('admin_appointments').select('id, appointment_date, appointment_time, appointment_slot, title, appointment_type, type, properties(name)').gte('appointment_date', todayStr).lte('appointment_date', in4days).order('appointment_date').order('appointment_time'),
         ])
@@ -139,11 +141,13 @@ function AdminDashboard() {
         // ── Compliance alerts → action items + urgent count ──
         const actionList: ActionItem[] = []
         let urgentCount = 0
+        const licencePending = await pendingLicenceIds(supabase)   // application with the council → not urgent
 
         for (const prop of props) {
           for (const c of CERT_CHECKS) {
             const raw = (prop as any)[c.field]
             if (!raw) continue
+            if (c.field === 'license_expiry' && licencePending.has(prop.id)) continue
             const expiry = new Date(raw)
             const days = Math.floor((expiry.getTime() - today.getTime()) / 86400000)
             if (days > 14) continue
@@ -233,7 +237,7 @@ function AdminDashboard() {
           const room = (v.rooms as any)
           const prop = room?.properties
           slotMap[iso].events.push({
-            time: v.viewing_time || '',
+            time: v.viewing_slot || '',
             text: `Viewing · ${prop?.name || ''}${room?.name ? ` · ${room.name}` : ''}`,
             type: 'viewing',
           })
@@ -312,7 +316,7 @@ function AdminDashboard() {
         {/* Demo mode banner */}
         {commsLive === false && (
           <div className="rounded-lg border border-neutral-300 bg-neutral-50 px-lg py-md text-sm text-neutral-700">
-            Tenants are <strong>not currently receiving notifications</strong>. This is a demo environment.
+            Tenant notifications are currently <strong>paused</strong>. Changes you make will not trigger messages to tenants until notifications are enabled.
           </div>
         )}
 
@@ -471,10 +475,25 @@ function AdminDashboard() {
   )
 }
 
+// Phones get the Today feed; tablets and desktops keep the dashboard exactly as it was.
+function usePhone() {
+  const [phone, setPhone] = useState<boolean | null>(null)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const on = () => setPhone(mq.matches)
+    on()
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return phone
+}
+
 export default function AdminDashboardWithBoundary() {
+  const phone = usePhone()
+  if (phone === null) return null
   return (
     <AdminErrorBoundary>
-      <AdminDashboard />
+      {phone ? <MobileToday /> : <AdminDashboard />}
     </AdminErrorBoundary>
   )
 }

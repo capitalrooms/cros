@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireSignedIn } from '@/lib/portalAuth'
 import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -9,6 +10,8 @@ const SUBTYPES: Record<string, string[]> = {
 }
 
 export async function POST(req: NextRequest) {
+  // signed-in users only — this calls the AI (paid per use)
+  if (!(await requireSignedIn(req as any))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const { raw_text, notice_type, subtype } = await req.json()
 
   if (!raw_text?.trim()) {

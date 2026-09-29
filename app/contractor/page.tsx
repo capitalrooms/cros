@@ -40,6 +40,7 @@ interface Job {
   quote_visit_date?: string | null
   quote_submitted_at?: string | null
   admin_note?: string | null
+  quote_id?: string            // set when this came from a multi-contractor quote request (maintenance_quotes)
 }
 
 /** Build 7 days for a given week offset (0 = current week Mon–Sun) */
@@ -121,7 +122,7 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
 function QuoteCard({ job, asParam }: { job: Job; asParam?: string }) {
   const submitted = !!job.quote_submitted_at
   return (
-    <Link href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : ''}`}>
+    <Link href={`/contractor/job/${job.id}${asParam ? `?as=${asParam}` : job.quote_id ? `?quote=${job.quote_id}` : ''}`}>
       <div className={`rounded-2xl border p-md shadow-sm flex items-center justify-between gap-md hover:shadow-md transition-shadow cursor-pointer ${
         submitted ? 'border-green-200 bg-green-50' : 'border-blue-200 bg-blue-50'
       }`}>
@@ -229,7 +230,22 @@ export default function ContractorDashboard() {
         .eq('contractor_id', contractorId)
         .neq('status', 'completed')
         .order('booked_date', { ascending: true })
-      setJobs(jobsData || [])
+      // Quote requests don't assign the job, so they come from their own list and join the Quotes tab.
+      let quoteJobsData: Job[] = []
+      if (!(asParam && isAdmin)) {
+        const qr = await fetch('/api/contractor/quotes').then(r => r.ok ? r.json() : { quotes: [] }).catch(() => ({ quotes: [] }))
+        quoteJobsData = ((qr.quotes ?? []) as any[])
+          .filter(q => q.maintenance_tickets && (q.status === 'requested' || q.status === 'submitted'))
+          .map(q => ({
+            ...q.maintenance_tickets,
+            quote_requested: true, quote_id: q.id,
+            quote_amount: q.amount, quote_notes: q.notes, quote_site_visit: q.site_visit,
+            quote_visit_date: q.visit_date, quote_submitted_at: q.submitted_at,
+          }))
+      }
+      const assigned = (jobsData || []) as Job[]
+      const assignedIds = new Set(assigned.map(j => j.id))
+      setJobs([...assigned, ...quoteJobsData.filter(j => !assignedIds.has(j.id))])
 
       const { data: doneData } = await supabase
         .from('maintenance_tickets')

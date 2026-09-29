@@ -1,22 +1,26 @@
+import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { buildEmail, FROM } from '@/lib/emailWrapper'
+import { requireStaff } from '@/lib/portalAuth'
+import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
-async function sendEmail(to: string, subject: string, html: string) {
+async function sendEmail(to: string, subject: string, html: string, req: Request) {
   const key = process.env.RESEND_API_KEY
   if (!key) { console.warn('RESEND_API_KEY not set — email skipped'); return false }
   const res = await fetch(RESEND_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ from: FROM, to, subject, html }),
+    body: JSON.stringify({ ...(await senderFields(req)), to, subject, html }),
   })
   if (!res.ok) { console.error('Resend error:', await res.text()); return false }
   return true
 }
 
 export async function POST(request: Request) {
+  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   // Use service client — this route is called from admin-only pages; service client
   // bypasses RLS and avoids the cookie-auth issue with the browser singleton client.
   const supabase = createServiceClient()
@@ -58,7 +62,8 @@ export async function POST(request: Request) {
     const tenancyUpdate: Record<string, unknown> = {
       end_date: moveOutDate,
     }
-    if (noticeReceivedDate) tenancyUpdate.notice_received_date = noticeReceivedDate
+    // "on notice" = notice recorded; without this date a notice looked the same as a fixed-term end date
+    tenancyUpdate.notice_received_date = noticeReceivedDate || new Date().toISOString().slice(0, 10)
     if (rentDueDay)         tenancyUpdate.rent_due_day = rentDueDay
 
     const { error: tenancyError } = await supabase
@@ -80,9 +85,9 @@ export async function POST(request: Request) {
     if (newAskingRent && !isNaN(Number(newAskingRent)) && Number(newAskingRent) > 0) {
       await supabase
         .from('rooms')
-        .update({ asking_rent: Number(newAskingRent) })
+        .update({ current_asking_rent: Number(newAskingRent) })
         .eq('id', roomId)
-        .then(({ error }) => { if (error) console.warn('Could not update asking_rent (non-blocking):', error.message) })
+        .then(({ error }) => { if (error) console.warn('Could not update current_asking_rent (non-blocking):', error.message) })
     }
 
     // 3. Notes for lettings team
@@ -141,14 +146,14 @@ export async function POST(request: Request) {
           move_out_date: moveOutFormatted,
           pro_rata_amount: proRataAmount != null ? `£${proRataAmount}` : '',
         }
-        tenantHtml = await buildEmail(render(tenantCheckoutTpl.template_text, tplVars))
+        tenantHtml = await buildEmail(render(tenantCheckoutTpl.template_text, tplVars), { req: request })
       } else if (checkoutEmailHtml) {
         // Already fully wrapped by buildCheckoutEmail() on the frontend
         tenantHtml = checkoutEmailHtml
       }
 
       if (tenantHtml) {
-        tenantEmailSent = await sendEmail(tenantEmail, tenantSubject, tenantHtml)
+        tenantEmailSent = await sendEmail(tenantEmail, tenantSubject, tenantHtml, request)
         // Mark confirmation email sent
         if (tenantEmailSent) {
           await supabase
@@ -187,7 +192,7 @@ export async function POST(request: Request) {
           roomName: roomName || 'Room',
           propertyAddress: propertyAddress || '',
           moveOutDate,
-        }))
+        }), { req: request })
         const cleanerSubject = cleanerCheckoutTpl?.subject_line
           ? render(cleanerCheckoutTpl.subject_line, {
               room_name: roomName || 'Room',
@@ -197,19 +202,18 @@ export async function POST(request: Request) {
               clean_date: '',
             })
           : `Move-out coming up — ${roomName || 'Room'} at ${propertyAddress || 'property'}`
-        cleanerEmailSent = await sendEmail(cleanerEmail, cleanerSubject, cleanerEmailHtml)
+        cleanerEmailSent = await sendEmail(cleanerEmail, cleanerSubject, cleanerEmailHtml, request)
       }
     }
 
     // 6. Audit record
     await supabase
-      .from('notifications')
+      .from('audit_logs')
       .insert([{
-        type: 'tenancy_on_notice',
-        user_id: 'system',
-        related_table: 'tenancies',
-        related_id: tenancyId,
-        data: {
+        action: 'tenancy_on_notice',
+        table_name: 'tenancies',
+        record_id: tenancyId,
+        details: JSON.stringify({
           moveOutDate,
           noticeReceivedDate,
           rentDueDay,
@@ -218,9 +222,9 @@ export async function POST(request: Request) {
           dailyRate,
           monthlyRent,
           emailsSent: { tenant: tenantEmailSent, cleaner: cleanerEmailSent },
-        },
+        }),
       }])
-      .then(({ error }) => { if (error) console.error('Notification record error:', error) })
+      .then(({ error }) => { if (error) console.error('Audit record error:', error) })
 
     return Response.json({
       success: true,

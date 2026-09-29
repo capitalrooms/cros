@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { buildIcs } from '@/lib/ics'
 
@@ -38,8 +39,6 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
   const [selectedViewingForNotify, setSelectedViewingForNotify] = useState<Viewing | null>(null)
   const [notifyTemplate, setNotifyTemplate] = useState('viewing_notification')
   const [notifySending, setNotifySending] = useState(false)
-  const [smsOffer, setSmsOffer] = useState<{ name: string; phone: string; date: string; slot: string | null; roomName: string } | null>(null)
-  const [smsSending, setSmsSending] = useState(false)
   const [smsResult, setSmsResult] = useState<string | null>(null)
   // Offer to drop the booked viewing into the booker's own calendar (#8 Part B).
   const [calOffer, setCalOffer] = useState<{ title: string; date: string; time: string | null; location: string } | null>(null)
@@ -60,6 +59,36 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
     room_id: rooms[0]?.id || '',
     feedback: ''
   })
+
+  // Who to tell about a new viewing — suggested, and only sent once the admin books with them ticked
+  const searchParams = useSearchParams()
+  const [lettingType, setLettingType] = useState<string | null>(null)
+  const [occupant, setOccupant] = useState<{ name: string; phone: string | null; email: string | null } | null>(null)
+  const [tellTenant, setTellTenant] = useState(true)
+  const [tellHousemates, setTellHousemates] = useState(true)
+  const [otherOccupant, setOtherOccupant] = useState({ name: '', email: '', phone: '' })   // let-only occupant not in CROS
+  useEffect(() => {
+    supabase.from('properties').select('letting_type').eq('id', propertyId).maybeSingle().then(({ data }) => setLettingType((data as any)?.letting_type ?? null))
+  }, [propertyId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Arriving from Available Rooms → Add viewing: open the booking form with that room chosen
+  useEffect(() => {
+    const book = searchParams.get('book')
+    if (book) { setFormData(f => ({ ...f, room_id: book })); setIsAddingViewing(true) }
+  }, [searchParams])
+  useEffect(() => {
+    setOccupant(null); setTellTenant(true); setTellHousemates(true); setOtherOccupant({ name: '', email: '', phone: '' })
+    if (!formData.room_id) return
+    let stale = false   // switching rooms quickly: ignore the answer for the room no longer chosen
+    const today = new Date().toISOString().slice(0, 10)
+    supabase.from('tenancies').select('people!person_id(first_name, last_name, phone, email)').eq('room_id', formData.room_id)
+      .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`).order('start_date', { ascending: false }).limit(1)
+      .then(({ data }) => {
+        if (stale) return
+        const p = (data as any)?.[0]?.people
+        if (p) setOccupant({ name: [p.first_name, p.last_name].filter(Boolean).join(' '), phone: p.phone || null, email: p.email || null })
+      })
+    return () => { stale = true }
+  }, [formData.room_id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [roomList, setRoomList] = useState<Array<{
     id: string
@@ -263,26 +292,61 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       // second (different property) shows on that property's own Lettings tab.
       const mine = data.filter((v: any) => v.property_id === propertyId)
       setViewings([...viewings, ...mine])
-      // Offer to text the applicant a confirmation if we captured a phone number.
+
+      const roomName = roomList.find((r) => r.id === formData.room_id)?.name || ''
+      const location = [roomName, propertyAddress || propertyName].filter(Boolean).join(', ')
+      const dateStr  = formData.viewing_date
+      const slot     = formData.viewing_slot || 'the arranged time'
+
+      // 1. Auto-send confirmation SMS to applicant if phone provided
       if (formData.visitor_phone.trim()) {
-        setSmsResult(null)
-        setSmsOffer({
-          name: formData.visitor_name,
-          phone: formData.visitor_phone.trim(),
-          date: formData.viewing_date,
-          slot: formData.viewing_slot || null,
-          roomName: roomList.find((r) => r.id === formData.room_id)?.name || '',
-        })
+        fetch('/api/sms/send-viewing-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: formData.visitor_phone.trim(),
+            visitorName: formData.visitor_name,
+            roomAddress: location,
+            viewingDate: dateStr,
+            viewingTime: slot,
+            senderName: 'Capital Rooms',
+          }),
+        }).then((r) => r.json()).then((json) => {
+          if (json.success) setSmsResult(`✅ Confirmation text sent to ${formData.visitor_name}`)
+          else setSmsResult(`⚠️ Applicant SMS not sent: ${json.error || 'unknown error'}`)
+        }).catch(() => setSmsResult('⚠️ Could not send applicant confirmation text'))
       }
 
+      // 2. Tell the people living there — only those the admin ticked when booking
+      const told: string[] = []
+      const whenText = `${new Date(dateStr + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}${slot && slot !== 'the arranged time' ? ` at ${slot}` : ''}`
+      const post = (url: string, body: unknown) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()).catch(() => ({}))
+      const jobs: Promise<void>[] = []
+      if (formData.room_id && occupant && tellTenant) {
+        jobs.push(post('/api/sms/notify-tenant-viewing', { room_id: formData.room_id, property_address: propertyAddress || propertyName || '', viewing_date: dateStr, viewing_slot: slot })
+          .then((j: any) => { told.push(j.smsSent ? `${occupant.name.split(' ')[0]} (text)` : `${occupant.name.split(' ')[0]} — not sent${j.reason === 'no_phone' ? ': no mobile saved' : j.reason === 'comms_paused' ? ': tenant messages are paused' : ''}`) }))
+      }
+      if (formData.room_id && !occupant && lettingType === 'let_only' && (otherOccupant.email.trim() || otherOccupant.phone.trim())) {
+        if (otherOccupant.email.trim()) jobs.push(post('/api/let-only/notify-contacts', { property_id: propertyId, contacts: [{ full_name: otherOccupant.name || '', email: otherOccupant.email.trim() }], event: 'booked', viewing_date: dateStr, viewing_time: formData.viewing_slot || '09:00', room_name: roomName })
+          .then((j: any) => { told.push(j.sent ? 'occupant (email)' : `occupant email not sent${j.reason === 'tenant_comms_paused' ? ': tenant messages are paused' : ''}`) }))
+        if (otherOccupant.phone.trim()) jobs.push(post('/api/sms/notify-tenant-viewing', { room_id: formData.room_id, phone: otherOccupant.phone.trim(), name: otherOccupant.name, property_address: propertyAddress || propertyName || '', viewing_date: dateStr, viewing_slot: slot })
+          .then((j: any) => { told.push(j.smsSent ? 'occupant (text)' : `occupant text not sent${j.reason === 'comms_paused' ? ': tenant messages are paused' : ''}`) }))
+      }
+      if (formData.room_id && tellHousemates && lettingType !== 'let_only') {
+        // housemates are never told which room — only that a viewing is booked at the house
+        jobs.push(post('/api/admin/quick-notify-lettings', { property_id: propertyId, selector_type: 'housemates', exclude_room_id: formData.room_id,
+          subject: 'A viewing is booked at your home', message: `Just to let you know, a viewing is booked at the house on ${whenText}. We'll keep disruption to the communal areas to a minimum — thank you.`, channels: 'push_email' })
+          .then((j: any) => { told.push(j.success ? `housemates (${j.recipientCount ?? 0})` : 'housemates — not sent') }))
+      }
+      Promise.all(jobs).then(() => { if (told.length) setSuccess(s => `${s ? s + ' · ' : ''}Told: ${told.join(', ')}`) })
+
       // Offer to drop it into the booker's own calendar.
-      const roomName = roomList.find((r) => r.id === formData.room_id)?.name || ''
       setCalResult(null)
       setCalOffer({
         title: `Viewing — ${formData.visitor_name}`,
         date: formData.viewing_date,
         time: formData.viewing_slot || null,
-        location: [roomName, propertyAddress || propertyName].filter(Boolean).join(', '),
+        location: location,
       })
       setFormData({
         visitor_name: '',
@@ -303,42 +367,6 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
           : `Viewing scheduled for ${formData.visitor_name}`
       )
       setTimeout(() => setSuccess(null), 4000)
-    }
-  }
-
-  async function handleSendSms() {
-    if (!smsOffer) return
-    setSmsSending(true)
-    setSmsResult(null)
-    try {
-      const location = [smsOffer.roomName, propertyAddress || propertyName]
-        .filter(Boolean)
-        .join(', ')
-      const res = await fetch('/api/sms/send-viewing-confirmation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: smsOffer.phone,
-          visitorName: smsOffer.name,
-          roomAddress: location,
-          viewingDate: smsOffer.date,
-          viewingTime: smsOffer.slot || 'the arranged time',
-          senderName: 'Capital Rooms',
-        }),
-      })
-      const json = await res.json()
-      if (json.sent) {
-        setSmsResult(`✅ Text sent to ${json.phone}`)
-        setTimeout(() => { setSmsOffer(null); setSmsResult(null) }, 3000)
-      } else if (json.reason) {
-        setSmsResult(`⚠️ Not sent — Twilio isn't configured yet. Add the TWILIO_* env vars to enable texts.`)
-      } else {
-        setSmsResult(`⚠️ ${json.error || 'Could not send text'}`)
-      }
-    } catch (err) {
-      setSmsResult(`⚠️ ${err instanceof Error ? err.message : 'Could not send text'}`)
-    } finally {
-      setSmsSending(false)
     }
   }
 
@@ -474,77 +502,56 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
 
       {/* Availability summary — makes the "why is this empty" clear */}
       {noneToLet ? (
-        <div className="p-lg rounded-lg bg-neutral-900 border border-neutral-800">
-          <p className="text-sm text-neutral-300">
+        <div className="p-lg rounded-lg bg-neutral-50 border border-neutral-200">
+          <p className="text-sm text-neutral-600">
             🏠 No rooms currently available at this property — every room is occupied.
           </p>
         </div>
       ) : (
-        <div className="p-lg rounded-lg bg-neutral-900 border border-neutral-800 flex flex-wrap gap-lg">
+        <div className="p-lg rounded-lg bg-neutral-50 border border-neutral-200 flex flex-wrap gap-lg">
           {availableCount > 0 && (
-            <span className="text-sm font-semibold text-green-400">🟢 {availableCount} available now</span>
+            <span className="text-sm font-semibold text-green-700">🟢 {availableCount} available now</span>
           )}
           {onNoticeCount > 0 && (
-            <span className="text-sm font-semibold text-amber-400">📋 {onNoticeCount} on notice (coming up)</span>
+            <span className="text-sm font-semibold text-amber-700">📋 {onNoticeCount} on notice (coming up)</span>
           )}
         </div>
       )}
 
       {/* Messages */}
       {error && (
-        <div className="p-lg rounded-lg bg-red-950 border border-red-800">
-          <p className="text-sm font-semibold text-red-400">{error}</p>
+        <div className="p-lg rounded-lg bg-red-50 border border-red-200">
+          <p className="text-sm font-semibold text-red-700">{error}</p>
         </div>
       )}
       {success && (
-        <div className="p-lg rounded-lg bg-green-950 border border-green-800">
-          <p className="text-sm font-semibold text-green-400">✓ {success}</p>
+        <div className="p-lg rounded-lg bg-green-50 border border-green-200">
+          <p className="text-sm font-semibold text-green-700">✓ {success}</p>
         </div>
       )}
 
-      {/* SMS confirmation offer (shown after booking a viewing with a phone number) */}
-      {smsOffer && (
-        <div className="p-lg rounded-lg bg-blue-950 border border-blue-800 flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-blue-200">
-              Text a confirmation to {smsOffer.name}?
-            </p>
-            <p className="text-xs text-blue-300/80 mt-xs">{smsOffer.phone}</p>
-            {smsResult && <p className="text-xs text-blue-100 mt-sm">{smsResult}</p>}
-          </div>
-          <div className="flex gap-sm shrink-0">
-            <button
-              onClick={() => { setSmsOffer(null); setSmsResult(null) }}
-              disabled={smsSending}
-              className="px-lg py-sm rounded-lg border border-blue-700 text-sm font-semibold text-blue-200 hover:bg-blue-900 disabled:opacity-50"
-            >
-              No thanks
-            </button>
-            <button
-              onClick={handleSendSms}
-              disabled={smsSending}
-              className="px-lg py-sm rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {smsSending ? 'Sending…' : 'Send text'}
-            </button>
-          </div>
+      {/* SMS status (shown after booking — auto-sent, no prompt needed) */}
+      {smsResult && (
+        <div className="p-lg rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-between gap-md">
+          <p className="text-sm text-blue-700">{smsResult}</p>
+          <button onClick={() => setSmsResult(null)} className="text-xs text-blue-500 hover:text-blue-700">✕</button>
         </div>
       )}
 
       {/* Calendar invite offer (shown after booking a viewing) */}
       {calOffer && (
-        <div className="p-lg rounded-lg bg-neutral-900 border border-neutral-700 flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
+        <div className="p-lg rounded-lg bg-neutral-50 border border-neutral-200 flex flex-col gap-md sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-white">Add this viewing to your calendar?</p>
-            <p className="text-xs text-neutral-400 mt-xs">
+            <p className="text-sm font-semibold text-neutral-900">Add this viewing to your calendar?</p>
+            <p className="text-xs text-neutral-500 mt-xs">
               Downloads a calendar file — open it to add the viewing to your own Google/Apple calendar.
             </p>
-            {calResult && <p className="text-xs text-neutral-200 mt-sm">{calResult}</p>}
+            {calResult && <p className="text-xs text-neutral-700 mt-sm">{calResult}</p>}
           </div>
           <div className="flex gap-sm shrink-0">
             <button
               onClick={() => { setCalOffer(null); setCalResult(null) }}
-              className="px-lg py-sm rounded-lg border border-neutral-600 text-sm font-semibold text-neutral-200 hover:bg-neutral-800"
+              className="px-lg py-sm rounded-lg border border-neutral-300 text-sm font-semibold text-neutral-600 hover:bg-neutral-100"
             >
               No thanks
             </button>
@@ -561,12 +568,12 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       {/* Add Viewing Modal */}
       {isAddingViewing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-white mb-lg">Schedule New Viewing</h3>
+          <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full max-h-[90vh] overflow-y-auto border border-neutral-200">
+            <h3 className="text-lg font-semibold text-neutral-900 mb-lg">Schedule New Viewing</h3>
 
             <div className="space-y-lg">
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                   Visitor Name *
                 </label>
                 <input
@@ -574,13 +581,13 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                   value={formData.visitor_name}
                   onChange={(e) => setFormData({ ...formData, visitor_name: e.target.value })}
                   placeholder="e.g., Sarah Johnson"
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-neutral-400"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                   Email
                 </label>
                 <input
@@ -588,12 +595,12 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                   value={formData.visitor_email}
                   onChange={(e) => setFormData({ ...formData, visitor_email: e.target.value })}
                   placeholder="sarah@example.com"
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                   Phone
                 </label>
                 <input
@@ -601,18 +608,18 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                   value={formData.visitor_phone}
                   onChange={(e) => setFormData({ ...formData, visitor_phone: e.target.value })}
                   placeholder="+44 7123 456789"
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                   Room
                 </label>
                 <select
                   value={formData.room_id}
                   onChange={(e) => setFormData({ ...formData, room_id: e.target.value })}
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select a room...</option>
                   {roomList.map((room) => (
@@ -623,47 +630,77 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                 </select>
               </div>
 
+              {formData.room_id && (
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-md space-y-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Let people living there know</p>
+                  {occupant ? (
+                    <label className="flex items-start gap-sm text-sm text-neutral-800">
+                      <input type="checkbox" checked={tellTenant} onChange={e => setTellTenant(e.target.checked)} className="mt-[3px]" />
+                      <span>Text the current tenant of this room, <strong>{occupant.name}</strong>{occupant.phone ? '' : <span className="text-amber-700"> — no mobile saved</span>}</span>
+                    </label>
+                  ) : lettingType === 'let_only' ? (
+                    <div className="space-y-xs">
+                      <p className="text-xs text-neutral-600">Current occupant (not in CROS) — add their details from your emails to tell them:</p>
+                      <div className="grid grid-cols-3 gap-xs">
+                        <input value={otherOccupant.name} onChange={e => setOtherOccupant(o => ({ ...o, name: e.target.value }))} placeholder="Name" className="px-sm py-xs border border-neutral-300 rounded text-sm bg-white" />
+                        <input type="email" value={otherOccupant.email} onChange={e => setOtherOccupant(o => ({ ...o, email: e.target.value }))} placeholder="Email" className="px-sm py-xs border border-neutral-300 rounded text-sm bg-white" />
+                        <input type="tel" value={otherOccupant.phone} onChange={e => setOtherOccupant(o => ({ ...o, phone: e.target.value }))} placeholder="Mobile" className="px-sm py-xs border border-neutral-300 rounded text-sm bg-white" />
+                      </div>
+                      <p className="text-[11px] text-neutral-500">Email and/or text are sent when you book. Leave blank to tell no one.</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-neutral-500">No current tenant in this room.</p>
+                  )}
+                  {lettingType !== 'let_only' && (
+                    <label className="flex items-start gap-sm text-sm text-neutral-800">
+                      <input type="checkbox" checked={tellHousemates} onChange={e => setTellHousemates(e.target.checked)} className="mt-[3px]" />
+                      <span>Tell the housemates a viewing is booked <span className="text-neutral-500">(app + email; the room isn’t named)</span></span>
+                    </label>
+                  )}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-md">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                     Date *
                   </label>
                   <input
                     type="date"
                     value={formData.viewing_date}
                     onChange={(e) => setFormData({ ...formData, viewing_date: e.target.value })}
-                    className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                     Time
                   </label>
                   <input
                     type="time"
                     value={formData.viewing_slot}
                     onChange={(e) => setFormData({ ...formData, viewing_slot: e.target.value })}
-                    className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                   Notes
                 </label>
                 <textarea
                   value={formData.feedback}
                   onChange={(e) => setFormData({ ...formData, feedback: e.target.value })}
                   placeholder="Any special notes about this viewing..."
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-neutral-400"
                   rows={3}
                 />
               </div>
 
               {/* Optional: show this applicant a second property in the same session */}
-              <div className="rounded-lg border border-neutral-700 p-md">
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-md">
                 <label className="flex cursor-pointer items-center gap-sm">
                   <input
                     type="checkbox"
@@ -671,19 +708,19 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                     onChange={(e) => setSecondEnabled(e.target.checked)}
                     className="h-4 w-4"
                   />
-                  <span className="text-sm font-semibold text-white">Also showing another property this session</span>
+                  <span className="text-sm font-semibold text-neutral-900">Also showing another property this session</span>
                 </label>
 
                 {secondEnabled && (
                   <div className="mt-md space-y-md">
                     <div>
-                      <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                      <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                         Second property
                       </label>
                       <select
                         value={secondForm.property_id}
                         onChange={(e) => setSecondForm({ ...secondForm, property_id: e.target.value })}
-                        className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select a property…</option>
                         {allProperties.map((p) => (
@@ -694,14 +731,14 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
 
                     <div className="grid grid-cols-2 gap-md">
                       <div className="min-w-0">
-                        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                           Room
                         </label>
                         <select
                           value={secondForm.room_id}
                           onChange={(e) => setSecondForm({ ...secondForm, room_id: e.target.value })}
                           disabled={!secondForm.property_id}
-                          className="w-full min-w-0 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                          className="w-full min-w-0 px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                         >
                           <option value="">{secondForm.property_id ? 'Select a room…' : 'Pick a property first'}</option>
                           {secondRooms.map((r) => (
@@ -710,14 +747,14 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                         </select>
                       </div>
                       <div className="min-w-0">
-                        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">
+                        <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
                           Time
                         </label>
                         <input
                           type="time"
                           value={secondForm.viewing_slot}
                           onChange={(e) => setSecondForm({ ...secondForm, viewing_slot: e.target.value })}
-                          className="w-full min-w-0 px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full min-w-0 px-md py-sm border border-neutral-300 bg-white text-neutral-900 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                     </div>
@@ -735,7 +772,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                   setIsAddingViewing(false)
                   setError(null)
                 }}
-                className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-900 transition"
+                className="flex-1 px-lg py-md border border-neutral-300 text-neutral-700 rounded-lg font-semibold text-sm hover:bg-neutral-50 transition"
               >
                 Cancel
               </button>
@@ -756,22 +793,22 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
         if (marketingRooms.length === 0) return null
         return (
           <div>
-            <div className="flex items-center justify-between mb-lg pb-sm border-b border-neutral-700">
-              <h3 className="text-sm font-bold uppercase text-neutral-400">✨ Room Marketing</h3>
+            <div className="flex items-center justify-between mb-lg pb-sm border-b border-neutral-200">
+              <h3 className="text-sm font-bold uppercase text-neutral-500">✨ Room Marketing</h3>
               {advertBanner && (
-                <span className="text-xs text-green-400 font-semibold">{advertBanner}</span>
+                <span className="text-xs text-green-700 font-semibold">{advertBanner}</span>
               )}
               {rentBanner && (
-                <span className="text-xs text-amber-400 font-semibold">{rentBanner}</span>
+                <span className="text-xs text-amber-700 font-semibold">{rentBanner}</span>
               )}
             </div>
             <div className="space-y-md">
               {marketingRooms.map(room => (
-                <div key={room.id} className="rounded-xl border border-neutral-700 bg-neutral-900 p-lg">
+                <div key={room.id} className="rounded-xl border border-neutral-200 bg-white p-lg">
                   <div className="flex items-start justify-between gap-md mb-md">
                     <div>
-                      <p className="font-semibold text-white">{room.name}</p>
-                      <div className="flex flex-wrap gap-md mt-xs text-xs text-neutral-400">
+                      <p className="font-semibold text-neutral-900">{room.name}</p>
+                      <div className="flex flex-wrap gap-md mt-xs text-xs text-neutral-500">
                         {editingRentId === room.id ? (
                           <span className="flex items-center gap-xs">
                             <span className="text-neutral-400">£</span>
@@ -781,18 +818,18 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                               value={rentDraft}
                               onChange={e => setRentDraft(e.target.value)}
                               onKeyDown={e => { if (e.key === 'Enter') saveRent(room.id); if (e.key === 'Escape') setEditingRentId(null) }}
-                              className="w-20 bg-neutral-800 text-white border border-neutral-600 rounded px-xs py-0.5 text-xs focus:outline-none focus:border-blue-400"
+                              className="w-20 bg-white text-neutral-900 border border-neutral-300 rounded px-xs py-0.5 text-xs focus:outline-none focus:border-blue-400"
                             />
-                            <span className="text-neutral-400">pcm</span>
-                            <button onClick={() => saveRent(room.id)} disabled={savingRent} className="text-green-400 hover:text-green-300 text-xs font-bold">
+                            <span className="text-neutral-500">pcm</span>
+                            <button onClick={() => saveRent(room.id)} disabled={savingRent} className="text-green-600 hover:text-green-700 text-xs font-bold">
                               {savingRent ? '…' : '✓'}
                             </button>
-                            <button onClick={() => setEditingRentId(null)} className="text-neutral-500 hover:text-neutral-300 text-xs">✕</button>
+                            <button onClick={() => setEditingRentId(null)} className="text-neutral-400 hover:text-neutral-600 text-xs">✕</button>
                           </span>
                         ) : (
                           <button
                             onClick={() => { setEditingRentId(room.id); setRentDraft(String(room.current_asking_rent || '')) }}
-                            className="hover:text-white transition-colors group flex items-center gap-xs"
+                            className="hover:text-neutral-900 transition-colors group flex items-center gap-xs"
                             title="Click to edit marketed rent"
                           >
                             {room.current_asking_rent ? `£${Number(room.current_asking_rent).toLocaleString()} pcm` : 'Set rent'}
@@ -803,7 +840,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                           <span>Available {new Date(room.available_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         )}
                         {room.status === 'on_notice' && (
-                          <span className="text-amber-400 font-semibold">📋 On notice</span>
+                          <span className="text-amber-600 font-semibold">📋 On notice</span>
                         )}
                       </div>
                     </div>
@@ -811,7 +848,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                       <button
                         onClick={() => generateAdvert(room, 'listing')}
                         disabled={!!generatingAdvert}
-                        className="text-xs text-purple-400 hover:text-purple-300 font-semibold disabled:opacity-50"
+                        className="text-xs text-purple-600 hover:text-purple-700 font-semibold disabled:opacity-50"
                         title={room.detected_features ? 'Uses saved room features + photos' : 'Upload a room photo to enable photo-based generation'}
                       >
                         {generatingAdvert === `${room.id}:listing` ? '✨ Drafting…' : '✨ Advert'}
@@ -820,7 +857,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                       <button
                         onClick={() => generateAdvert(room, 'group')}
                         disabled={!!generatingAdvert}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold disabled:opacity-50"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold disabled:opacity-50"
                       >
                         {generatingAdvert === `${room.id}:group` ? '✨ Drafting…' : '✨ Group post'}
                       </button>
@@ -832,7 +869,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                         if (!v || (Array.isArray(v) && v.length === 0)) return null
                         const display = Array.isArray(v) ? v.join(', ') : String(v)
                         return (
-                          <span key={k} className="rounded-full bg-purple-900/40 border border-purple-700/50 px-sm py-0.5 text-xs text-purple-300">
+                          <span key={k} className="rounded-full bg-purple-50 border border-purple-200 px-sm py-0.5 text-xs text-purple-700">
                             {display}
                           </span>
                         )
@@ -844,13 +881,13 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                     onChange={e => setAdvertDrafts(prev => ({ ...prev, [room.id]: e.target.value }))}
                     rows={5}
                     placeholder="Generate an advert or group post with the buttons above, then edit and save…"
-                    className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-md py-sm text-sm text-neutral-100 placeholder:text-neutral-500 resize-y focus:border-purple-500 focus:ring-2 focus:ring-purple-900 outline-none"
+                    className="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900 placeholder:text-neutral-400 resize-y focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none"
                   />
                   {(advertDrafts[room.id] || '') !== (room.marketing_description || '') && (
                     <button
                       onClick={() => saveAdvert(room.id)}
                       disabled={savingAdvert === room.id}
-                      className="mt-xs text-xs text-blue-400 hover:text-blue-300 font-semibold disabled:opacity-50"
+                      className="mt-xs text-xs text-blue-600 hover:text-blue-700 font-semibold disabled:opacity-50"
                     >
                       {savingAdvert === room.id ? 'Saving…' : 'Save copy'}
                     </button>
@@ -869,10 +906,10 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
         </h3>
 
         {upcomingViewings.length === 0 ? (
-          <div className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-xl text-center">
+          <div className="rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 p-xl text-center">
             <div className="text-3xl mb-md opacity-50">👀</div>
-            <p className="text-sm font-semibold text-white mb-md">No viewings scheduled</p>
-            <p className="text-xs text-neutral-400 mb-lg">Schedule your first viewing to start tracking leads</p>
+            <p className="text-sm font-semibold text-neutral-900 mb-md">No viewings scheduled</p>
+            <p className="text-xs text-neutral-500 mb-lg">Schedule your first viewing to start tracking leads</p>
             <button
               onClick={() => setIsAddingViewing(true)}
               className="px-lg py-md bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 transition mx-auto"
@@ -883,11 +920,11 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
         ) : (
           <div className="space-y-md">
             {upcomingViewings.map((viewing) => (
-              <div key={viewing.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg hover:shadow-md transition">
+              <div key={viewing.id} className="rounded-lg border border-neutral-200 bg-white p-lg hover:shadow-md transition">
                 <div className="flex items-start justify-between gap-lg mb-md">
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{viewing.visitor_name}</p>
-                    <p className="text-xs text-neutral-400 mt-xs">
+                    <p className="font-semibold text-neutral-900">{viewing.visitor_name}</p>
+                    <p className="text-xs text-neutral-500 mt-xs">
                       {formatDate(viewing.viewing_date)}
                       {viewing.viewing_slot && ` at ${viewing.viewing_slot}`}
                     </p>
@@ -898,14 +935,14 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                 </div>
 
                 {viewing.room && (
-                  <p className="text-xs text-neutral-400 mb-md">📍 {viewing.room.name}</p>
+                  <p className="text-xs text-neutral-500 mb-md">📍 {viewing.room.name}</p>
                 )}
 
                 <div className="flex flex-wrap gap-md text-xs mb-md">
                   {viewing.visitor_email && (
                     <button
                       onClick={() => navigator.clipboard.writeText(viewing.visitor_email || '')}
-                      className="text-blue-400 hover:text-blue-300 font-semibold"
+                      className="text-blue-600 hover:text-blue-700 font-semibold"
                       title="Click to copy"
                     >
                       📧 {viewing.visitor_email}
@@ -914,7 +951,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                   {viewing.visitor_phone && (
                     <button
                       onClick={() => navigator.clipboard.writeText(viewing.visitor_phone || '')}
-                      className="text-blue-400 hover:text-blue-300 font-semibold"
+                      className="text-blue-600 hover:text-blue-700 font-semibold"
                       title="Click to copy"
                     >
                       📱 {viewing.visitor_phone}
@@ -923,7 +960,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                 </div>
 
                 {viewing.feedback && (
-                  <p className="text-xs text-neutral-400 mb-md italic">💬 {viewing.feedback}</p>
+                  <p className="text-xs text-neutral-500 mb-md italic">💬 {viewing.feedback}</p>
                 )}
 
                 <div className="flex gap-sm flex-wrap">
@@ -932,14 +969,14 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                       setSelectedViewingForNotify(viewing)
                       setShowNotifyModal(true)
                     }}
-                    className="text-xs font-semibold text-green-400 hover:text-green-300"
+                    className="text-xs font-semibold text-green-700 hover:text-green-800"
                   >
                     📢 Notify Tenants
                   </button>
-                  <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
+                  <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">
                     Update Status
                   </button>
-                  <button className="text-xs font-semibold text-blue-400 hover:text-blue-300">
+                  <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">
                     Send Follow-up
                   </button>
                 </div>
@@ -958,11 +995,11 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
 
           <div className="space-y-md">
             {completedViewings.map((viewing) => (
-              <div key={viewing.id} className="rounded-lg border border-neutral-700 bg-neutral-900 p-lg">
+              <div key={viewing.id} className="rounded-lg border border-neutral-200 bg-white p-lg">
                 <div className="flex items-start justify-between gap-lg">
                   <div className="flex-1">
-                    <p className="font-semibold text-white">{viewing.visitor_name}</p>
-                    <p className="text-xs text-neutral-400 mt-xs">{formatDate(viewing.viewing_date)}</p>
+                    <p className="font-semibold text-neutral-900">{viewing.visitor_name}</p>
+                    <p className="text-xs text-neutral-500 mt-xs">{formatDate(viewing.viewing_date)}</p>
                   </div>
                   <span className={`text-xs font-semibold px-md py-sm rounded-full ${getStatusColor(viewing.viewing_status)}`}>
                     {getStatusLabel(viewing.viewing_status)}
@@ -977,24 +1014,24 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       {/* Notify Tenants Modal */}
       {showNotifyModal && selectedViewingForNotify && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-700">
-            <h3 className="text-lg font-semibold text-white mb-lg">📢 Notify Tenants</h3>
+          <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-200">
+            <h3 className="text-lg font-semibold text-neutral-900 mb-lg">📢 Notify Tenants</h3>
 
             <div className="space-y-lg mb-lg">
               <div>
-                <p className="text-sm text-neutral-400 mb-sm">Room:</p>
-                <p className="font-semibold text-white">{selectedViewingForNotify.room?.name || 'Unknown Room'}</p>
+                <p className="text-sm text-neutral-500 mb-sm">Room:</p>
+                <p className="font-semibold text-neutral-900">{selectedViewingForNotify.room?.name || 'Unknown Room'}</p>
               </div>
               <div>
-                <p className="text-sm text-neutral-400 mb-sm">Viewing Date & Time:</p>
-                <p className="font-semibold text-white">
+                <p className="text-sm text-neutral-500 mb-sm">Viewing Date & Time:</p>
+                <p className="font-semibold text-neutral-900">
                   {formatDate(selectedViewingForNotify.viewing_date)}
                   {selectedViewingForNotify.viewing_slot && ` at ${selectedViewingForNotify.viewing_slot}`}
                 </p>
               </div>
-              <div className="bg-neutral-900 p-md rounded-lg">
-                <p className="text-xs text-neutral-400 mb-sm">Message Preview:</p>
-                <p className="text-xs text-white">
+              <div className="bg-neutral-50 border border-neutral-200 p-md rounded-lg">
+                <p className="text-xs text-neutral-500 mb-sm">Message Preview:</p>
+                <p className="text-xs text-neutral-700">
                   Hi All, we have a viewing scheduled for {selectedViewingForNotify.room?.name} on {formatDate(selectedViewingForNotify.viewing_date)}{selectedViewingForNotify.viewing_slot && ` at ${selectedViewingForNotify.viewing_slot}`}. We will try to keep disruption to the communal areas minimal during this period.
                 </p>
               </div>
@@ -1006,7 +1043,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                   setShowNotifyModal(false)
                   setSelectedViewingForNotify(null)
                 }}
-                className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-900 transition"
+                className="flex-1 px-lg py-md border border-neutral-300 text-neutral-700 rounded-lg font-semibold text-sm hover:bg-neutral-50 transition"
               >
                 Cancel
               </button>

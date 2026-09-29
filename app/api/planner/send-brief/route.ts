@@ -1,7 +1,8 @@
-import { getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/serverAuth'
+import { senderFields, senderFor } from '@/lib/email/sender'
+import { buildEmail } from '@/lib/emailWrapper'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
-const FROM = 'Capital Rooms <noreply@capitalrooms.co.uk>'
 
 interface Update {
   id: string
@@ -47,62 +48,24 @@ function buildBriefHtml(params: {
           </div>`
       }).join('')
 
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f9fafb;font-family:'Inter',Helvetica,Arial,sans-serif;">
-  <div style="max-width:580px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.08);">
-
-    <!-- Header -->
-    <div style="background:#1c1917;padding:24px 28px;">
-      <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#a8a29e;">Capital Rooms</p>
-      <h1 style="margin:6px 0 0;font-size:20px;font-weight:700;color:#fff;line-height:1.2;">Project Brief</h1>
-    </div>
-
-    <!-- Item context strip -->
-    <div style="background:#f2f0ec;padding:12px 28px;border-bottom:1px solid #e5e2db;display:flex;gap:12px;align-items:center;">
-      <span style="font-size:13px;font-weight:600;color:#44403c;">${itemTitle}</span>
-      <span style="font-size:11px;color:#a8a29e;">${groupName} · ${boardTitle}</span>
-      <span style="margin-left:auto;font-size:11px;background:#fff;border:1px solid #e5e2db;border-radius:6px;padding:2px 8px;color:#57534e;">${status}</span>
-    </div>
-
-    <div style="padding:24px 28px;">
-
-      <!-- Greeting / personal note -->
-      <p style="font-size:15px;color:#374151;margin:0 0 8px;">${greeting}</p>
-      ${personalMsg ? `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;">${personalMsg}</p>` : '<p style="font-size:14px;color:#374151;margin:0 0 20px;">Please find the project brief below.</p>'}
-
-      <!-- Notes section -->
-      <div style="margin-bottom:24px;">
-        <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;margin:0 0 14px;">Notes & context</p>
-        ${notesHtml}
-      </div>
-
+  return `
+      <p>${greeting}</p>
+      ${personalMsg ? `<p>${personalMsg}</p>` : '<p>Please find the project brief below.</p>'}
+      <p style="margin:18px 0 4px;"><strong>${itemTitle}</strong></p>
+      <p style="margin:0 0 18px;font-size:12px;color:#78716c;">${groupName} · ${boardTitle} · ${status}</p>
+      <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;margin:0 0 14px;">Notes &amp; context</p>
+      <div style="margin-bottom:24px;">${notesHtml}</div>
       ${allLinks.length ? `
-      <div style="margin-bottom:24px;padding:14px 16px;background:#eff6ff;border-radius:8px;border:1px solid #bfdbfe;">
-        <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#3b82f6;margin:0 0 10px;">Reference links</p>
-        ${allLinks.map(l => `<div style="margin-bottom:5px;"><a href="${l}" style="font-size:13px;color:#2563eb;">${l}</a></div>`).join('')}
+      <div style="margin-bottom:24px;padding:14px 16px;background:#f5f4f2;border-radius:8px;">
+        <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#78716c;margin:0 0 10px;">Reference links</p>
+        ${allLinks.map(l => `<div style="margin-bottom:5px;"><a href="${l}" style="font-size:13px;color:#1a1a1a;">${l}</a></div>`).join('')}
       </div>` : ''}
-
       ${allImages.length ? `
       <div style="margin-bottom:24px;">
         <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;margin:0 0 10px;">Reference photos (${allImages.length})</p>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          ${allImages.map((img, i) => `<img src="${img}" alt="Photo ${i+1}" width="160" height="120" style="object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;" />`).join('')}
-        </div>
+        <div>${allImages.map((img, i) => `<img src="${img}" alt="Photo ${i+1}" width="160" height="120" style="object-fit:cover;border-radius:8px;border:1px solid #e5e7eb;margin:0 6px 6px 0;" />`).join('')}</div>
       </div>` : ''}
-
-      <hr style="border:none;border-top:1px solid #f3f4f6;margin:20px 0;">
-      <p style="font-size:12px;color:#9ca3af;margin:0;">Please let me know if you have any questions or need anything else.<br>— Harry, Capital Rooms</p>
-    </div>
-
-    <!-- Footer -->
-    <div style="background:#f9fafb;padding:14px 28px;border-top:1px solid #f3f4f6;">
-      <p style="font-size:11px;color:#d1d5db;margin:0;">Capital Rooms · harry@capitalrooms.co.uk</p>
-    </div>
-  </div>
-</body>
-</html>`
+      <p>Please let me know if you have any questions or need anything else.</p>`
 }
 
 export async function POST(request: Request) {
@@ -118,7 +81,7 @@ export async function POST(request: Request) {
 
     if (!contractorEmail) return Response.json({ error: 'contractorEmail is required' }, { status: 400 })
 
-    const html = buildBriefHtml({ contractorName: contractorName || '', personalMsg: personalMsg || '', boardTitle, itemTitle, groupName, status, responsible, updates: updates || [] })
+    const html = await buildEmail(buildBriefHtml({ contractorName: contractorName || '', personalMsg: personalMsg || '', boardTitle, itemTitle, groupName, status, responsible, updates: updates || [] }), { sender: await senderFor(request) })
 
     const allLinks  = (updates || []).flatMap((u: Update) => u.links  || [])
     const allImages = (updates || []).flatMap((u: Update) => u.images || [])
@@ -130,7 +93,7 @@ export async function POST(request: Request) {
     const emailRes = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to: [contractorEmail], subject, html }),
+      body: JSON.stringify({ ...(await senderFields(request)), to: [contractorEmail], subject, html }),
     })
 
     if (!emailRes.ok) {

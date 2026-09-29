@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
+import { createServiceClient, createServerClient } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/serverAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /** POST — tenant submits early move-out request */
 export async function POST(req: NextRequest) {
-  const user = await getCurrentUser()
+  const supabaseServer = await createServerClient()
+  const user = await getCurrentUser(supabaseServer)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { tenancy_id, person_id, property_id, room_id, requested_move_out_date, reason, track } = await req.json()
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   // Verify the tenancy belongs to the requester
   const { data: tenancy } = await supabase
     .from('tenancies')
-    .select('id, person_id, rent_amount, start_date')
+    .select('id, person_id, co_tenant_id, rent_amount, start_date')
     .eq('id', tenancy_id)
     .maybeSingle()
 
@@ -29,7 +30,9 @@ export async function POST(req: NextRequest) {
 
   // Allow admin override; otherwise enforce ownership
   const role = (user.assignment as any)?.role || ''
-  if (!['administrator', 'admin'].includes(role) && tenancy.person_id !== person_id) {
+  const me = (user.assignment as any)?.id as string | undefined   // the signed-in person — never an id sent in the request
+  const mine = !!me && (tenancy.person_id === me || (tenancy as any).co_tenant_id === me)
+  if (!['administrator', 'admin'].includes(role) && !mine) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -74,7 +77,8 @@ export async function POST(req: NextRequest) {
 
 /** PATCH — admin approves AP1/AP2, or tenant withdraws */
 export async function PATCH(req: NextRequest) {
-  const user = await getCurrentUser()
+  const supabaseServer = await createServerClient()
+  const user = await getCurrentUser(supabaseServer)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const role = (user.assignment as any)?.role || ''
@@ -160,7 +164,8 @@ export async function PATCH(req: NextRequest) {
 
 /** GET — admin: list all pending requests (optionally filtered by property) */
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser()
+  const supabaseServer = await createServerClient()
+  const user = await getCurrentUser(supabaseServer)
   if (!user || !['administrator', 'admin'].includes((user.assignment as any)?.role || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

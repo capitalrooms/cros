@@ -10,6 +10,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import { nameFields, displayName } from '@/lib/people'
 import LandlordCard, { fromPeople } from '@/app/components/LandlordCard';
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 // All notification categories available to landlords
 const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
   { key: 'urgent',               label: '🚨 Urgent issues',            description: 'Emergency maintenance, gas/fire/flood — always on', mandatory: true },
@@ -96,6 +97,7 @@ export default function LandlordsPage() {
     email: '',
     first_name: '',
     last_name: '',
+    company: '',
     selectedProperties: [] as string[],
   });
 
@@ -111,7 +113,7 @@ export default function LandlordsPage() {
 
       const { data: landlordData } = await supabase
         .from('people')
-        .select('id, email, full_name, first_name, last_name, phone, created_at, aml_risk_level, aml_risk_notes, landlord_comms_enabled')
+        .select('*')
         .eq('role', 'landlord')
         .order('created_at', { ascending: false });
 
@@ -131,7 +133,7 @@ export default function LandlordsPage() {
         const map: Record<string, AmlRecord[]> = {}
         await Promise.all(list.map(async l => {
           try {
-            const r = await fetch(`/api/landlord-aml-refresh?landlordId=${l.id}`)
+            const r = await adminFetch(`/api/landlord-aml-refresh?landlordId=${l.id}`)
             const d = await r.json()
             map[l.id] = d.records ?? []
           } catch { map[l.id] = [] }
@@ -174,7 +176,7 @@ export default function LandlordsPage() {
 
     const { data: landlord, error } = await supabase
       .from('people')
-      .insert({ email: formData.email, ...names, role: 'landlord', landlord_comms_enabled: false })
+      .insert({ email: formData.email, ...names, company: formData.company.trim() || null, role: 'landlord', landlord_comms_enabled: false })
       .select()
       .single();
 
@@ -185,12 +187,12 @@ export default function LandlordsPage() {
     }
 
     setSuccessMessage(`✓ Landlord added: ${names.full_name}`);
-    setFormData({ email: '', first_name: '', last_name: '', selectedProperties: [] });
+    setFormData({ email: '', first_name: '', last_name: '', company: '', selectedProperties: [] });
     setShowInviteForm(false);
 
     const { data: updated } = await supabase
       .from('people')
-      .select('id, email, name, phone, created_at, aml_risk_level, aml_risk_notes, landlord_comms_enabled')
+      .select('*')
       .eq('role', 'landlord')
       .order('created_at', { ascending: false });
     setLandlords(updated || []);
@@ -217,7 +219,7 @@ export default function LandlordsPage() {
     setSending(true)
     setSendResult(null)
     try {
-      const res = await fetch('/api/landlord-aml-refresh', {
+      const res = await adminFetch('/api/landlord-aml-refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ landlordId: landlord.id, reason: 'periodic_review' }),
@@ -225,7 +227,7 @@ export default function LandlordsPage() {
       const d = await res.json()
       if (!res.ok) throw new Error(d.error ?? 'Failed')
       setSendResult({ ok: true, msg: d.emailSent ? 'Re-verification email sent.' : `Form created but email failed: ${d.emailError}` })
-      const r = await fetch(`/api/landlord-aml-refresh?landlordId=${landlord.id}`)
+      const r = await adminFetch(`/api/landlord-aml-refresh?landlordId=${landlord.id}`)
       const rd = await r.json()
       setAmlMap(prev => ({ ...prev, [landlord.id]: rd.records ?? [] }))
     } catch (e) {
@@ -300,10 +302,10 @@ export default function LandlordsPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-lg">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-3xl flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900">Landlords</h1>
+            <h1 className="text-2xl font-bold text-neutral-900">Landlords</h1>
             <p className="mt-sm text-sm text-neutral-600">Manage landlords, AML compliance, and notification settings</p>
           </div>
           <button
@@ -339,6 +341,12 @@ export default function LandlordsPage() {
                 <label className="block text-xs font-semibold text-neutral-700 mb-xs">Email</label>
                 <input type="email" placeholder="john@example.com" value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-xs">Company <span className="font-normal text-neutral-400">— if they own through a company</span></label>
+                <input type="text" placeholder="e.g. Ananya Property Holding Ltd" value={formData.company}
+                  onChange={e => setFormData({ ...formData, company: e.target.value })}
                   className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
               </div>
             </div>
@@ -498,14 +506,13 @@ export default function LandlordsPage() {
                             Sends a secure, unique form link via email
                           </p>
 
-                          <a
-                            href={`/api/aml-report?landlordId=${landlord.id}&generatedBy=Capital+Rooms`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => downloadPdf(`/api/aml-report?landlordId=${landlord.id}&generatedBy=Capital+Rooms`, 'AML-Report.pdf')}
                             className="w-full block text-center rounded-xl border border-neutral-300 text-neutral-700 py-sm text-sm font-semibold hover:bg-neutral-50 transition"
                           >
                             ⬇ Download AML Compliance Report (PDF)
-                          </a>
+                          </button>
                         </div>
                       </div>
 

@@ -42,7 +42,7 @@ export default function BookCleanPage() {
           .from('cleans')
           .select('*, properties(name, address), cleaner:cleaner_id(full_name)')
           .is('clean_date', null)
-          .order('created_at ASC')
+          .order('created_at', { ascending: true })
 
         setJobs((jobsData as any) || [])
         setLoading(false)
@@ -110,9 +110,9 @@ export default function BookCleanPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton />} />
+      <AppBar left={<BackButton href="/admin/appointments" />} />
 
-      <main className="mx-auto max-w-5xl px-lg py-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl">
         <Link
           href="/admin/agency-diary"
           className="inline-flex items-center gap-sm text-neutral-600 hover:text-neutral-900 font-medium mb-3xl transition-colors"
@@ -122,7 +122,7 @@ export default function BookCleanPage() {
 
         {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
-          <h1 className="text-3xl font-bold text-neutral-900 mb-md">
+          <h1 className="text-2xl font-bold text-neutral-900">
             🧹 Book Cleaner
           </h1>
           <p className="text-base text-neutral-600">Select cleaning jobs to schedule.</p>

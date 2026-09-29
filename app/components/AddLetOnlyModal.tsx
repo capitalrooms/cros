@@ -3,8 +3,9 @@
 /**
  * AddLetOnlyModal
  *
- * Lightweight form for adding a let-only listing (landlord-marketed property).
- * Creates one let_only_listing + one or more let_only_rooms in a single submit.
+ * Adds let-only rooms (landlord-managed; Capital Rooms finds the tenant). Creates — or reuses — a parent property
+ * with letting type "let only" and puts the rooms under it, so let-only rooms use the same property/room structure
+ * (landlord, bank account, photos, viewings, agreements) as managed houses.
  *
  * - Postcode → address lookup via PostcodeAddressLookup component
  * - Landlord search: type to search existing people (role=landlord), or enter new details
@@ -12,6 +13,7 @@
  * - "+ Add another room" row for multi-room listings
  */
 
+import { postcodesIn } from '@/lib/councils/london'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import PostcodeAddressLookup, { ParsedAddress } from './PostcodeAddressLookup'
@@ -181,78 +183,78 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId }: 
 
   async function handleSave() {
     if (!address.trim()) { setError('Address is required'); return }
+    if (!postcodesIn(postcode)[0]) { setError('Postcode is required — every property must have one (e.g. E15 1LU)'); return }
     if (rooms.some(r => !r.room_name.trim())) { setError('Each room must have a name'); return }
     setSaving(true)
     setError(null)
+    try {
+      // A let-only room sits under a proper property (letting type "let only") — the same property/room structure as
+      // managed houses, so it has a landlord, bank details, photos, viewings and agreements. Adding "Room 4" at an
+      // address that's already set up puts it under that same property; nothing is ever deleted — rooms are marked
+      // let, and made available again later.
+      const norm = (v: string) => (v || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const pc = norm(postcode)
+      const { data: existing } = await supabase.from('properties').select('id, name, address, postcode, property_code, landlord_id')
+      const street = norm(address.split(',')[0])
+      const match = (existing ?? []).find((p: any) =>
+        (!pc || !p.postcode || norm(p.postcode) === pc) &&
+        [p.name, p.address].some((v: string | null) => norm(String(v || '').split(/[,\n]/)[0]) === street))
 
-    const { data: listing, error: listingErr } = await supabase
-      .from('let_only_listings')
-      .insert({
-        address: address.trim(),
-        postcode: postcode.trim() || null,
-        landlord_name: landlordName.trim() || null,
-        landlord_phone: landlordPhone.trim() || null,
-        landlord_email: landlordEmail.trim() || null,
-        landlord_person_id: selectedLandlordId || null,
-        notes: notes.trim() || null,
-        has_washing_machine: hasWashingMachine,
-        has_tumble_dryer: hasTumbleDryer,
-        is_active: true,
-        created_by: createdByPersonId || null,
-      })
-      .select()
-      .single()
-
-    if (listingErr || !listing) {
-      // landlord_person_id column may not exist yet — retry without it
-      const { data: listing2, error: listingErr2 } = await supabase
-        .from('let_only_listings')
-        .insert({
-          address: address.trim(),
-          postcode: postcode.trim() || null,
-          landlord_name: landlordName.trim() || null,
-          landlord_phone: landlordPhone.trim() || null,
-          landlord_email: landlordEmail.trim() || null,
-          notes: notes.trim() || null,
-          has_washing_machine: hasWashingMachine,
-          has_tumble_dryer: hasTumbleDryer,
-          is_active: true,
-          created_by: createdByPersonId || null,
-        })
-        .select()
-        .single()
-      if (listingErr2 || !listing2) {
-        setError(listingErr2?.message || listingErr?.message || 'Failed to create listing')
-        setSaving(false)
-        return
+      let property: any = match
+      if (!property) {
+        const num = address.match(/^(\d+)/)?.[1]
+        const letters = address.split(',')[0].split(/\s+/).filter(w => !/^\d+$/.test(w)).map(w => w.charAt(0).toUpperCase()).join('')
+        const code = `${num ? String(parseInt(num)).padStart(3, '0') : ''}${letters}`.toUpperCase().slice(0, 8)
+        const notesText = [notes.trim(),
+          hasWashingMachine != null ? `Washing machine: ${hasWashingMachine ? 'yes' : 'no'}` : '',
+          hasTumbleDryer != null ? `Tumble dryer: ${hasTumbleDryer ? 'yes' : 'no'}` : ''].filter(Boolean).join('\n')
+        const { data: created, error: pErr } = await supabase.from('properties').insert({
+          name: address.trim(),
+          address: [address.trim(), postcode.trim()].filter(Boolean).join(', '),
+          postcode: postcodesIn(postcode)[0],
+          property_code: code || null,
+          property_type: 'hmo',
+          letting_type: 'let_only',
+          landlord_id: selectedLandlordId,
+          landlord_name: selectedLandlordId ? null : (landlordName.trim() || null),
+          landlord_email: selectedLandlordId ? null : (landlordEmail.trim() || null),
+          landlord_phone: selectedLandlordId ? null : (landlordPhone.trim() || null),
+          property_notes: notesText || null,
+        }).select('id, name, address, postcode, property_code, landlord_id').single()
+        if (pErr || !created) throw new Error(pErr?.message || 'Could not create the property')
+        property = created
+      } else if (selectedLandlordId && !property.landlord_id) {
+        await supabase.from('properties').update({ landlord_id: selectedLandlordId }).eq('id', property.id)
       }
-      return finishSave(listing2)
-    }
-    finishSave(listing)
-  }
 
-  async function finishSave(listing: any) {
-    const roomRows = rooms.map(r => ({
-      listing_id: listing.id,
-      room_name: r.room_name.trim(),
-      monthly_rent: r.monthly_rent ? parseFloat(r.monthly_rent) : null,
-      floor_area_sqm: r.floor_area_sqm ? parseFloat(r.floor_area_sqm) : null,
-      available_date: r.available_date || null,
-      has_ensuite: r.has_ensuite,
-      has_shared_bathroom: r.has_shared_bathroom,
-      has_lounge: r.has_lounge,
-      description: r.description.trim() || null,
-      status: 'available',
-    }))
-
-    const { error: roomsErr } = await supabase.from('let_only_rooms').insert(roomRows)
-    if (roomsErr) {
-      setError(roomsErr.message)
-      await supabase.from('let_only_listings').delete().eq('id', listing.id)
+      // Rooms: an existing room of the same name is made available again (keeps its photos and marketing);
+      // otherwise a new let-only room is added under the property
+      const { data: current } = await supabase.from('rooms').select('id, name').eq('property_id', property.id)
+      for (const r of rooms) {
+        const fields = {
+          current_asking_rent: r.monthly_rent ? parseFloat(r.monthly_rent) : null,
+          available_date: r.available_date || null,
+          has_ensuite: r.has_ensuite,
+          has_shared_bathroom: r.has_shared_bathroom,
+          has_lounge: r.has_lounge,
+          room_size: r.floor_area_sqm ? parseFloat(r.floor_area_sqm) : null,
+          ...(r.description.trim() ? { marketing_description: r.description.trim() } : {}),
+          status: 'available',
+          is_let_only: true,
+        }
+        const same = (current ?? []).find((x: any) => norm(x.name) === norm(r.room_name))
+        const n = parseInt(r.room_name.match(/\d+/)?.[0] ?? '')
+        const { error: rErr } = same
+          ? await supabase.from('rooms').update(fields).eq('id', same.id)
+          : await supabase.from('rooms').insert({ ...fields, property_id: property.id, name: r.room_name.trim(),
+              unit_code: property.property_code && n ? `${property.property_code}${String(n).padStart(2, '0')}` : null })
+        if (rErr) throw new Error(rErr.message)
+      }
+      onSave(property)
+    } catch (e: any) {
+      setError(e?.message || 'Could not save')
       setSaving(false)
-      return
     }
-    onSave(listing)
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
