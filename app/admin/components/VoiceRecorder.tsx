@@ -113,7 +113,7 @@ export default function VoiceRecorder({ onClose, onComplete }: Props) {
                   isRecording ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
                 }`}
               >
-                🎤
+                ✏️
               </button>
               <p className="text-sm text-neutral-600">
                 {isRecording ? 'Listening...' : isLoading ? 'Processing...' : 'Tap to start speaking'}
