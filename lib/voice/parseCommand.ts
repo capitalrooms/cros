@@ -18,6 +18,7 @@ export async function parseVoiceCommand(
     const res = await fetch('/api/admin/voice-parse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ transcript, context }),
     })
 
