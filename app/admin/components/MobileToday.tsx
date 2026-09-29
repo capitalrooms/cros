@@ -64,7 +64,7 @@ export default function MobileToday() {
 
       {/* Quick Action button */}
       <div className="flex gap-2 pt-1">
-        <button onClick={() => setShowVoice(true)} className="flex-1 rounded-lg bg-neutral-950 px-3 py-3 text-sm font-bold text-white text-center">🎤 Voice</button>
+        <button onClick={() => setShowVoice(true)} className="flex-1 rounded-lg bg-neutral-950 px-3 py-3 text-sm font-bold text-white text-center">✏️ Voice</button>
       </div>
 
       {showVoice && <VoiceRecorder onClose={() => setShowVoice(false)} onComplete={() => { setShowVoice(false); load() }} />}
