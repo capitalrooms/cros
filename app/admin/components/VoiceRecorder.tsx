@@ -71,10 +71,12 @@ export default function VoiceRecorder({ onClose, onComplete }: Props) {
 
     if (isRecording) {
       recognition.start()
+    } else {
+      recognition.abort()
     }
 
     return () => recognition.abort()
-  }, [isRecording, transcript])
+  }, [isRecording])
 
   const handleProceed = async () => {
     setIsLoading(true)
@@ -124,6 +126,23 @@ export default function VoiceRecorder({ onClose, onComplete }: Props) {
                 <p className="text-neutral-900 font-medium">{transcript}</p>
               </div>
             )}
+
+            <div className="flex gap-2 pt-2">
+              {isRecording && (
+                <button
+                  onClick={() => setIsRecording(false)}
+                  className="flex-1 bg-red-100 text-red-700 py-2 rounded-lg font-semibold text-sm"
+                >
+                  Stop Recording
+                </button>
+              )}
+              <button
+                onClick={onClose}
+                className="flex-1 bg-neutral-200 text-neutral-900 py-2 rounded-lg font-semibold text-sm"
+              >
+                Cancel
+              </button>
+            </div>
           </>
         )}
 
