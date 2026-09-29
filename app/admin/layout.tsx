@@ -57,7 +57,6 @@ const ZONES: Zone[] = [
       '/admin/rent-increase',
       '/admin/early-move-out',
       '/admin/rent-history',
-      '/admin/bulk-tenancy-generator',
     ],
     subnav: [
       { emoji: '🔑', label: 'Available rooms',    href: '/admin/available-and-lettings' },
@@ -67,7 +66,6 @@ const ZONES: Zone[] = [
       { emoji: '📈', label: 'Rent reviews',        href: '/admin/rent-increase' },
       { emoji: '📤', label: 'On notice',           href: '/admin/tenancy-management' },
       { emoji: '🏘',  label: 'Let-only',            href: '/admin/let-only-properties' },
-      { emoji: '✍️', label: 'Create tenancies',   href: '/admin/bulk-tenancy-generator' },
     ],
   },
   {
