@@ -57,6 +57,7 @@ const ZONES: Zone[] = [
       '/admin/rent-increase',
       '/admin/early-move-out',
       '/admin/rent-history',
+      '/admin/bulk-tenancy-generator',
     ],
     subnav: [
       { emoji: '🔑', label: 'Available rooms',    href: '/admin/available-and-lettings' },
@@ -66,6 +67,7 @@ const ZONES: Zone[] = [
       { emoji: '📈', label: 'Rent reviews',        href: '/admin/rent-increase' },
       { emoji: '📤', label: 'On notice',           href: '/admin/tenancy-management' },
       { emoji: '🏘',  label: 'Let-only',            href: '/admin/let-only-properties' },
+      { emoji: '✍️', label: 'Create tenancies',   href: '/admin/bulk-tenancy-generator' },
     ],
   },
   {
@@ -221,15 +223,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <span className="text-xs text-white/40">{activeZone.label}</span>
         ) : null}
 
-        {/* Quick Notify - Centered */}
-        <div className="flex-1 flex justify-center">
-          <Link
-            href="/admin/notify"
-            className="px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors whitespace-nowrap"
-          >
-            ✏️ Voice
-          </Link>
-        </div>
 
         {/* Profile - Right */}
         <Link

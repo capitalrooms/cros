@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
-import VoiceRecorder from './VoiceRecorder'
 import type { TodayItem } from '@/app/api/admin/today/route'
 
 const TONE: Record<string, string> = {
@@ -20,7 +19,6 @@ export default function MobileToday() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
   const [first, setFirst] = useState('')
-  const [showVoice, setShowVoice] = useState(false)
 
   async function load() {
     try {
@@ -62,12 +60,6 @@ export default function MobileToday() {
         {items && <p className="text-sm text-neutral-500 mt-0.5">{needs ? `${needs} thing${needs === 1 ? '' : 's'} need${needs === 1 ? 's' : ''} you` : 'Nothing needs you right now'}</p>}
       </header>
 
-      {/* Quick Action button */}
-      <div className="flex gap-2 pt-1">
-        <button onClick={() => setShowVoice(true)} className="flex-1 rounded-lg bg-neutral-950 px-3 py-3 text-sm font-bold text-white text-center">✏️ Voice</button>
-      </div>
-
-      {showVoice && <VoiceRecorder onClose={() => setShowVoice(false)} onComplete={() => { setShowVoice(false); load() }} />}
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error} <button className="underline ml-1" onClick={load}>Try again</button></div>}
       {!items && !error && <div className="space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-20 rounded-2xl bg-white animate-pulse" />)}</div>}
