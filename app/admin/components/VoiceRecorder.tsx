@@ -1,278 +1,163 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { parseVoiceCommand, executeCommands } from '@/lib/voice/parseCommand'
-import { ParsedCommand, VoiceSessionState } from '@/lib/voice/types'
+import type { ParsedCommand } from '@/lib/voice/types'
 
-interface VoiceRecorderProps {
-  propertyId?: string
-  propertyName?: string
-  rooms?: { id: string; name: string; unit_code: string | null; room_type?: string | null }[]
-  tenants?: { id: string; name: string; email: string; room_id: string }[]
-  onComplete?: () => void
+interface Props {
+  onClose: () => void
+  onComplete: () => void
 }
 
-export default function VoiceRecorder({
-  propertyId,
-  propertyName,
-  rooms = [],
-  tenants = [],
-  onComplete,
-}: VoiceRecorderProps) {
-  const recognitionRef = useRef<any>(null)
-  const [state, setState] = useState<VoiceSessionState>({
-    isRecording: false,
-    transcript: '',
-    isLoading: false,
-    error: null,
-    commands: [],
-    showConfirm: false,
-  })
+export default function VoiceRecorder({ onClose, onComplete }: Props) {
+  const [isRecording, setIsRecording] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const [commands, setCommands] = useState<ParsedCommand[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
-    // Initialize Web Speech API (cross-browser compat)
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (typeof window === 'undefined') return
+    const SpeechRecognition = window.webkitSpeechRecognition || (window as any).SpeechRecognition
     if (!SpeechRecognition) {
-      setState((s) => ({ ...s, error: 'Speech recognition not supported on this device' }))
+      setError('Speech recognition not supported in this browser')
       return
     }
 
     const recognition = new SpeechRecognition()
-    recognition.continuous = true
+    recognition.continuous = false
     recognition.interimResults = true
 
     recognition.onstart = () => {
-      setState((s) => ({ ...s, isRecording: true, error: null, transcript: '' }))
+      setTranscript('')
+      setError('')
+      setCommands([])
+      setShowConfirm(false)
     }
 
-    recognition.onresult = (event: any) => {
-      let interim = ''
-      let final = ''
+    recognition.onresult = (event) => {
+      let interimText = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript
+        const text = event.results[i][0].transcript
         if (event.results[i].isFinal) {
-          final += transcript + ' '
+          setTranscript((prev) => (prev ? prev + ' ' + text : text))
         } else {
-          interim += transcript
+          interimText += text
         }
       }
-      setState((s) => ({
-        ...s,
-        transcript: (s.transcript + final + interim).trim(),
-      }))
+      if (interimText) setTranscript((prev) => prev + interimText)
     }
 
-    recognition.onerror = (event: any) => {
-      setState((s) => ({ ...s, error: `Speech error: ${event.error}` }))
+    recognition.onerror = (event) => {
+      setError(`Error: ${event.error}`)
+      setIsRecording(false)
     }
 
-    recognition.onend = () => {
-      setState((s) => ({ ...s, isRecording: false }))
+    recognition.onend = async () => {
+      setIsRecording(false)
+      if (transcript.trim()) {
+        setIsLoading(true)
+        const { commands: parsed, error: parseError } = await parseVoiceCommand(transcript, {})
+        setIsLoading(false)
+        if (parseError) {
+          setError(parseError)
+        } else {
+          setCommands(parsed)
+          setShowConfirm(true)
+        }
+      }
     }
 
-    recognitionRef.current = recognition
-  }, [])
-
-  const startListening = () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.start()
-    }
-  }
-
-  const stopListening = async () => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
+    if (isRecording) {
+      recognition.start()
     }
 
-    if (!state.transcript.trim()) {
-      setState((s) => ({ ...s, error: 'No transcript recorded' }))
-      return
-    }
+    return () => recognition.abort()
+  }, [isRecording, transcript])
 
-    setState((s) => ({ ...s, isLoading: true, error: null }))
+  const handleProceed = async () => {
+    setIsLoading(true)
+    const { executed, failed } = await executeCommands(commands)
+    setIsLoading(false)
 
-    const result = await parseVoiceCommand(state.transcript, {
-      propertyId,
-      propertyName,
-      rooms,
-      tenants,
-    })
-
-    if (result.error) {
-      setState((s) => ({ ...s, error: result.error, isLoading: false }))
-      return
-    }
-
-    setState((s) => ({
-      ...s,
-      commands: result.commands,
-      showConfirm: result.commands.length > 0,
-      isLoading: false,
-    }))
-  }
-
-  const handleConfirm = async () => {
-    setState((s) => ({ ...s, isLoading: true }))
-    const result = await executeCommands(state.commands)
-
-    if (result.failed.length > 0) {
-      const failMsg = result.failed.map((f) => `${f.command}: ${f.error}`).join('\n')
-      setState((s) => ({
-        ...s,
-        error: `${result.executed} executed, ${result.failed.length} failed:\n${failMsg}`,
-        isLoading: false,
-        showConfirm: false,
-      }))
+    if (failed.length === 0) {
+      setTranscript('')
+      setCommands([])
+      setShowConfirm(false)
+      onComplete()
+      setTimeout(onClose, 500)
     } else {
-      setState((s) => ({
-        ...s,
-        transcript: '',
-        commands: [],
-        showConfirm: false,
-        isLoading: false,
-      }))
-      onComplete?.()
+      setError(`${executed} executed, ${failed.length} failed`)
     }
-  }
-
-  const handleCancel = () => {
-    setState((s) => ({
-      ...s,
-      showConfirm: false,
-      transcript: '',
-      commands: [],
-      error: null,
-    }))
-  }
-
-  const handleClear = () => {
-    setState((s) => ({
-      ...s,
-      transcript: '',
-      commands: [],
-      showConfirm: false,
-      error: null,
-    }))
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-end">
-      <div className="w-full bg-white rounded-t-2xl p-lg space-y-lg max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-neutral-900">Voice Command</h2>
-          <button
-            onClick={handleClear}
-            className="text-neutral-400 hover:text-neutral-600"
-          >
-            ✕
-          </button>
+    <div className="fixed inset-0 bg-black/50 flex items-end z-50">
+      <div className="w-full bg-white rounded-t-3xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Voice Command</h2>
+          <button onClick={onClose} className="text-2xl">×</button>
         </div>
 
-        {/* Mic control */}
-        <div className="flex gap-sm justify-center py-lg">
-          {!state.isRecording ? (
-            <button
-              onClick={startListening}
-              disabled={state.isLoading}
-              className="w-16 h-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-2xl hover:bg-blue-700 disabled:opacity-50"
-            >
-              🎤
-            </button>
-          ) : (
-            <button
-              onClick={stopListening}
-              className="w-16 h-16 rounded-full bg-red-600 text-white flex items-center justify-center text-2xl hover:bg-red-700 animate-pulse"
-            >
-              ⏹
-            </button>
-          )}
-        </div>
+        {error && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">{error}</div>}
 
-        {/* Transcript */}
-        {state.transcript && (
-          <div className="bg-neutral-50 rounded-lg p-md">
-            <p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Transcript</p>
-            <p className="text-sm text-neutral-900 leading-relaxed">{state.transcript}</p>
-          </div>
-        )}
-
-        {/* Loading */}
-        {state.isLoading && (
-          <div className="text-center py-lg">
-            <div className="inline-block">
-              <div className="w-8 h-8 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-            </div>
-            <p className="text-xs text-neutral-400 mt-sm">Parsing command...</p>
-          </div>
-        )}
-
-        {/* Error */}
-        {state.error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-md">
-            <p className="text-xs text-red-800 font-semibold mb-xs">Error</p>
-            <p className="text-sm text-red-700 whitespace-pre-wrap">{state.error}</p>
-          </div>
-        )}
-
-        {/* Confirmation modal */}
-        {state.showConfirm && !state.isLoading && (
-          <div className="border-t border-neutral-200 pt-lg space-y-md">
-            <div className="bg-blue-50 rounded-lg p-md">
-              <p className="text-xs text-blue-800 font-semibold mb-md">Actions to execute:</p>
-              <div className="space-y-xs">
-                {state.commands.map((cmd, i) => (
-                  <div key={i} className="bg-white rounded p-sm border border-blue-100">
-                    <p className="text-sm font-medium text-neutral-900">{cmd.summary}</p>
-                    {cmd.warnings && cmd.warnings.length > 0 && (
-                      <div className="mt-xs space-y-0.5">
-                        {cmd.warnings.map((w, j) => (
-                          <p key={j} className="text-xs text-amber-700">
-                            ⚠️ {w}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-[11px] text-neutral-400 mt-xs">
-                      Confidence: {Math.round(cmd.confidence * 100)}%
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-sm">
+        {!showConfirm && (
+          <>
+            <div className="flex flex-col items-center gap-4 py-6">
               <button
-                onClick={handleCancel}
-                className="flex-1 rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+                onClick={() => setIsRecording(!isRecording)}
+                className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl transition ${
+                  isRecording ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
+                }`}
+              >
+                🎤
+              </button>
+              <p className="text-sm text-neutral-600">
+                {isRecording ? 'Listening...' : isLoading ? 'Processing...' : 'Tap to start speaking'}
+              </p>
+            </div>
+
+            {transcript && (
+              <div className="bg-neutral-100 rounded-lg p-4">
+                <p className="text-sm text-neutral-600">Transcript:</p>
+                <p className="text-neutral-900 font-medium">{transcript}</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {showConfirm && commands.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-sm text-neutral-600">Parsed commands:</p>
+            {commands.map((cmd, i) => (
+              <div key={i} className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded">
+                <p className="font-semibold text-blue-900">{cmd.summary}</p>
+                {cmd.warnings && cmd.warnings.length > 0 && (
+                  <p className="text-xs text-blue-700 mt-1">⚠️ {cmd.warnings[0]}</p>
+                )}
+                <p className="text-xs text-blue-600 mt-1">Confidence: {Math.round(cmd.confidence * 100)}%</p>
+              </div>
+            ))}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setShowConfirm(false)
+                  setCommands([])
+                  setTranscript('')
+                }}
+                className="flex-1 bg-neutral-200 text-neutral-900 py-2 rounded-lg font-semibold"
               >
                 Cancel
               </button>
               <button
-                onClick={handleConfirm}
-                className="flex-1 rounded-lg bg-blue-600 px-md py-sm text-sm font-semibold text-white hover:bg-blue-700"
+                onClick={handleProceed}
+                disabled={isLoading}
+                className="flex-1 bg-neutral-950 text-white py-2 rounded-lg font-semibold disabled:opacity-50"
               >
-                Proceed
+                {isLoading ? 'Executing...' : 'Proceed'}
               </button>
             </div>
-          </div>
-        )}
-
-        {/* Buttons when recording/done */}
-        {!state.showConfirm && state.transcript && !state.isLoading && (
-          <div className="flex gap-sm">
-            <button
-              onClick={handleClear}
-              className="flex-1 rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-            >
-              Clear
-            </button>
-            <button
-              onClick={stopListening}
-              className="flex-1 rounded-lg bg-blue-600 px-md py-sm text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              Parse
-            </button>
           </div>
         )}
       </div>
