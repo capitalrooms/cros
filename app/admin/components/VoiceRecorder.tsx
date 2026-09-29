@@ -37,16 +37,16 @@ export default function VoiceRecorder({ onClose, onComplete }: Props) {
     }
 
     recognition.onresult = (event) => {
-      let interimText = ''
+      let finalText = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const text = event.results[i][0].transcript
         if (event.results[i].isFinal) {
-          setTranscript((prev) => (prev ? prev + ' ' + text : text))
-        } else {
-          interimText += text
+          finalText += text + ' '
         }
       }
-      if (interimText) setTranscript((prev) => prev + interimText)
+      if (finalText.trim()) {
+        setTranscript((prev) => (prev ? prev + finalText : finalText))
+      }
     }
 
     recognition.onerror = (event) => {
