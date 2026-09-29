@@ -221,20 +221,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <span className="text-xs text-white/40">{activeZone.label}</span>
         ) : null}
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* Quick Notify - Centered */}
+        <div className="flex-1 flex justify-center">
           <Link
             href="/admin/notify"
-            className="px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
+            className="px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors whitespace-nowrap"
           >
-            ⚡ Quick Notify
-          </Link>
-          <Link
-            href="/admin/profile"
-            className="w-7 h-7 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs text-white/60 hover:bg-white/15 transition-colors"
-          >
-            H
+            ✏️ Voice
           </Link>
         </div>
+
+        {/* Profile - Right */}
+        <Link
+          href="/admin/profile"
+          className="w-7 h-7 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs text-white/60 hover:bg-white/15 transition-colors flex-shrink-0"
+        >
+          H
+        </Link>
       </header>
 
       {/* ── Zone tabs (hidden on property hub) ── */}
