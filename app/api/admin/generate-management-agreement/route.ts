@@ -23,7 +23,7 @@ function serviceClient() {
 export async function POST(req: NextRequest) {
   if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const body: ManagementAgreementData & { onboardingId?: string } = await req.json()
+    const body: ManagementAgreementData & { onboardingId?: string; preview?: boolean } = await req.json()
 
     if (!body.properties?.length || !body.clientAddress?.length) {
       return NextResponse.json(
@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
     const dateSlug  = (body.agreementDate ?? new Date().toISOString()).slice(0, 10)
     const filename  = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${dateSlug}.pdf`
 
-    // Best-effort: log the generation to Supabase (does not block the response)
-    try {
+    // Best-effort: log the generation to Supabase (does not block the response). Check copies (preview) aren't kept.
+    if (!body.preview) try {
       const sb = serviceClient()
       const logId       = crypto.randomUUID()
       const storagePath = `management-agreements/${logId}.pdf`

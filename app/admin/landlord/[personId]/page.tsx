@@ -10,6 +10,8 @@ import LandlordCard, { fromPeople, LandlordCardData, LandlordProperty } from '@/
 import { landlordName } from '@/lib/people'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { withOptionalColumns } from '@/lib/optionalColumns'
+import { onboardingFiles } from '@/lib/landlordOnboarding/propertyDocs'
+import { openStoredFile } from '@/lib/files/openFile'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -1190,6 +1192,32 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                       </button>
                       {isOpen && (
                         <div className="border-t border-neutral-100 px-xl py-xl space-y-xl">
+                          {(() => {
+                            const files = onboardingFiles(rec.form_data)
+                            if (!files.length) return null
+                            const groups = Array.from(new Set(files.map(x => x.group)))
+                            return (
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Files on record ({files.length})</p>
+                                <div className="space-y-md">
+                                  {groups.map(g => (
+                                    <div key={g}>
+                                      <p className="text-xs font-semibold text-neutral-500 mb-xs">{g}</p>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+                                        {files.filter(x => x.group === g).map(x => (
+                                          <button key={x.path} type="button" onClick={() => openStoredFile({ bucket: 'landlord-docs', path: x.path })}
+                                            className="flex items-center justify-between gap-sm px-md py-sm rounded-lg border border-neutral-200 bg-white text-left text-sm hover:border-neutral-400">
+                                            <span className="text-neutral-800 font-medium truncate">📄 {x.name}</span>
+                                            <span className="text-xs font-semibold text-blue-600 shrink-0">Open →</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })()}
                           <div>
                             <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Documents collected</p>
                             {docs.length > 0 ? (

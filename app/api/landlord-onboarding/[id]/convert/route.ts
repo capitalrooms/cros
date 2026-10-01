@@ -62,7 +62,10 @@ export async function POST(
     : firstName ?? lastName ?? onb.full_name?.trim() ?? null
   const companyName = fd.company_name?.trim()  || null
   const companyReg  = fd.company_reg?.trim()   || null
-  const homeAddress = fd.address?.trim()       || fd.registered_office?.trim() || null
+  // The form saves the address as separate fields; `address` is only on records from the old single-line form.
+  const splitAddress = [fd.addr_line1, fd.addr_line2, fd.addr_town, fd.addr_county, fd.addr_postcode]
+    .map((x: unknown) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean).join(', ')
+  const homeAddress = (isCompany ? fd.registered_office?.trim() : splitAddress) || fd.address?.trim() || fd.registered_office?.trim() || null
   const phone       = fd.contact_phone?.trim() || onb.phone?.trim() || null
   const email       = (fd.contact_email?.trim() || onb.email?.trim()).toLowerCase()
 

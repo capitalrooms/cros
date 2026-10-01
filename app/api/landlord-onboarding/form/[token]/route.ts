@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { runSubmissionReview, notifyOfficeOfSubmission } from '@/lib/landlordOnboarding/review'
 import { svc, loadRow, updateFormData, stripServerKeys, mergeDocuments } from '@/lib/landlordOnboarding/store'
 import { missingAll, missingFor, type SectionKey } from '@/lib/landlordOnboarding/requirements'
+import { mergePropertyDocs } from '@/lib/landlordOnboarding/propertyDocs'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -17,8 +18,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   // Server-only keys (agreement snapshot, review data) never go to the public form.
   const { __agreement, __review, ...form_data } = (data.form_data ?? {}) as Record<string, unknown>
-  void __agreement; void __review
-  return NextResponse.json({ row: { ...data, form_data } })
+  void __review
+  const agreement_type = (__agreement as { agreementType?: string } | undefined)?.agreementType ?? null
+  return NextResponse.json({ row: { ...data, form_data, agreement_type } })
 }
 
 // ── PATCH → save progress. draft=true is the background auto-save (does not mark the
@@ -40,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ to
       ...current,
       ...client,
       documents: mergeDocuments(current.documents, client.documents as Record<string, string[]> | undefined),
+      property_docs: mergePropertyDocs(current.property_docs, client.property_docs),
     }
     const saved = new Set<string>((current.__sections_saved as string[] | undefined) ?? [])
     if (section && !draft) {
@@ -76,6 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       ...current,
       ...client,
       documents: mergeDocuments(current.documents, client.documents as Record<string, string[]> | undefined),
+      property_docs: mergePropertyDocs(current.property_docs, client.property_docs),
     }
     missing = missingAll(merged)
     if (missing.length) return { form_data: current } // no change; reported below

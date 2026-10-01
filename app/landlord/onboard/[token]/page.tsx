@@ -6,6 +6,8 @@ import Logo from '@/components/Logo'
 import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAddressString } from '@/app/components/AddressInput'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { missingFor, missingAll, isJoint, REQUIRED_SECTIONS, type SectionKey } from '@/lib/landlordOnboarding/requirements'
+import type { PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
+import PropertyDocs from './PropertyDocs'
 
 type EntityType    = 'individual' | 'company'
 type PropertyCount = 'single' | 'multiple'
@@ -85,6 +87,7 @@ interface FormData {
   account_holder: string
   __sections_saved?: SectionKey[]
   documents?: Record<string, string[]>
+  property_docs?: PropertyDoc[]
 }
 
 // Per-upload slot state
@@ -134,7 +137,7 @@ const SECTIONS: { key: SectionKey; label: string; emoji: string; optional?: bool
   { key: 'ownership',   label: 'Property ownership',      emoji: '🏠' },
   { key: 'aml',         label: 'Background & source of funds', emoji: '🔎' },
   { key: 'bank',        label: 'Banking & tax',           emoji: '🏦' },
-  { key: 'compliance',  label: 'Property certificates',   emoji: '📂', optional: true },
+  { key: 'compliance',  label: 'Property documents',      emoji: '📂', optional: true },
   { key: 'declaration', label: 'Declaration',             emoji: '✍️' },
 ]
 
@@ -432,91 +435,6 @@ function FileUpload({
   )
 }
 
-// ── Other document upload (custom-named) ──────────────────────────────────────
-
-function OtherDocUpload({
-  token,
-  slot,
-  onUploaded,
-}: {
-  token: string
-  slot: UploadSlot
-  onUploaded: (path: string, customName: string) => void
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [docName, setDocName]           = useState('')
-  const [localUploading, setLocalUploading] = useState(false)
-  const [localError, setLocalError]     = useState<string | null>(null)
-  const [uploadedNames, setUploadedNames] = useState<string[]>([])
-
-  async function handleFile(file: File) {
-    if (!docName.trim()) { setLocalError('Please name this document first.'); return }
-    setLocalUploading(true)
-    setLocalError(null)
-    try {
-      const path = await uploadDocument(token, 'other_document', file)
-      onUploaded(path, docName.trim())
-      setUploadedNames(prev => [...prev, docName.trim()])
-      setDocName('')
-    } catch (e) {
-      setLocalError(e instanceof Error ? e.message : 'Upload failed')
-    } finally {
-      setLocalUploading(false)
-    }
-  }
-
-  return (
-    <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 p-5">
-      <p className="text-sm font-bold text-neutral-800 mb-1">Other document</p>
-      <p className="text-xs text-neutral-500 mb-4 leading-relaxed">
-        Have a certificate or document that is not listed above? Name it and upload it here.
-        You can add as many as you need.
-      </p>
-
-      {uploadedNames.length > 0 && (
-        <div className="mb-3 space-y-1.5">
-          {uploadedNames.map((name, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-              <span>✓</span><span>{name}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex gap-3 items-end">
-        <div className="flex-1">
-          <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Document name</label>
-          <input
-            value={docName}
-            onChange={e => setDocName(e.target.value)}
-            placeholder="e.g. Asbestos Survey, HMO Additional Licence…"
-            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={localUploading || !docName.trim()}
-          className="inline-flex items-center gap-2 text-sm font-semibold border border-neutral-300 bg-white text-neutral-700 rounded-xl px-4 py-2.5 hover:border-neutral-500 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-        >
-          {localUploading ? '⏳' : '📎 Upload'}
-        </button>
-      </div>
-
-      <input
-        ref={inputRef}
-        type="file"
-        className="hidden"
-        accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,image/*,application/pdf"
-        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
-      />
-
-      <p className="mt-2 text-xs text-neutral-400">Photo (JPEG, PNG, HEIC) or PDF · max 20 MB</p>
-      {localError && <p className="mt-2 text-xs text-red-600">{localError}</p>}
-    </div>
-  )
-}
-
 function YesNoButtons({ value, onChange }: { value: string; onChange: (v: 'yes' | 'no') => void }) {
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -540,6 +458,7 @@ export default function LandlordOnboardPage() {
   const [notFound, setNotFound]               = useState(false)
   const [alreadySubmitted, setAlreadySubmitted] = useState(false)
   const [landlordName, setLandlordName]       = useState('')
+  const [agreementType, setAgreementType]     = useState<string | null>(null)
   const [form, setForm]                       = useState<FormData>(blank())
   const [activeSection, setActiveSection]     = useState<SectionKey | null>(null)
   const [saving, setSaving]                   = useState(false)
@@ -586,6 +505,7 @@ export default function LandlordOnboardPage() {
         const SALUTATIONS = /^(Mr\.?|Mrs\.?|Miss\.?|Ms\.?|Dr\.?|Prof\.?)\s+/i
         const nameParts = rawName.replace(SALUTATIONS, '').trim().split(/\s+/)
         setLandlordName(nameParts[0] || rawName)
+        setAgreementType(d.row.agreement_type ?? null)
         if (d.row.stage >= 3) { setAlreadySubmitted(true); return }
 
         const restored: Partial<FormData> = d.row.form_data ?? {}
@@ -774,7 +694,7 @@ export default function LandlordOnboardPage() {
     ownership:   'We need to confirm you own, or are authorised to let, the properties you are registering. Please provide the address and any mortgage details. You can upload proof of ownership directly here — a utility bill, council tax letter, or title deed all qualify.',
     aml:         'Money laundering regulations require us to understand who we are working with and how the property was funded. These short questions are asked of every landlord — answering them helps us complete your checks quickly.',
     bank:        'Rental income is paid directly to the bank account you provide here. We also collect your tax residency status to comply with HMRC reporting obligations. Your banking details are encrypted and only used for rent disbursement.',
-    compliance:  'Uploading your current compliance certificates here means we have everything on file from day one — no chasing later. This section is optional: upload whichever documents you have to hand and skip any you do not. If a certificate is due for renewal we will let you know.',
+    compliance:  'Adding your property documents here means we have everything on file from day one — no chasing later. This section is optional: add whatever you have to hand and send anything else later. If a certificate is due for renewal we will let you know.',
     declaration: 'A brief legal confirmation that the information you have provided is accurate and that you consent to Capital Rooms processing your data in line with our Privacy Policy and Money Laundering Regulations 2017.',
   }
 
@@ -835,9 +755,9 @@ export default function LandlordOnboardPage() {
         <div className="bg-neutral-900 rounded-2xl p-6 mb-6 flex items-start gap-5">
           <div className="text-3xl mt-0.5">📋</div>
           <div className="flex-1">
-            <p className="text-white font-bold text-base mb-1">Management Agreement</p>
+            <p className="text-white font-bold text-base mb-1">{agreementType === 'rent_collection' ? 'Rent Collection Agreement' : 'Management Agreement'}</p>
             <p className="text-neutral-400 text-sm leading-relaxed">
-              Your management agreement has been sent to you by email as a PDF. Please review it before completing the
+              Your {agreementType === 'rent_collection' ? 'rent collection' : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the
               sections below. If you did not receive it or need any changes made, reply to Harry's email and he will
               come back to you straight away.
             </p>
@@ -862,7 +782,7 @@ export default function LandlordOnboardPage() {
                     <p className={`text-sm font-bold ${isSaved ? 'text-neutral-700' : 'text-neutral-900'}`}>{s.label}</p>
                     {s.optional && <span className="text-xs text-neutral-400 border border-neutral-200 rounded-full px-2 py-0.5 leading-none">Optional</span>}
                   </div>
-                  <p className="text-xs text-neutral-400 mt-0.5">{isSaved ? 'Complete — tap to review or edit' : s.optional ? 'Optional — upload certificates if you have them' : 'Not yet completed — your progress saves automatically'}</p>
+                  <p className="text-xs text-neutral-400 mt-0.5">{isSaved ? 'Complete — tap to review or edit' : s.optional ? 'Optional — add certificates, plans, bills and other documents' : 'Not yet completed — your progress saves automatically'}</p>
                 </div>
                 <span className="text-neutral-300 text-lg">›</span>
               </button>
@@ -1458,88 +1378,28 @@ export default function LandlordOnboardPage() {
     )
   }
 
-  // ── SECTION: COMPLIANCE ────────────────────────────────────────────────────
+  // ── SECTION: PROPERTY DOCUMENTS (key 'compliance' kept so earlier progress still counts) ──────────
   if (activeSection === 'compliance') {
-    const isHmo = form.entity_type !== 'company' && form.property_count !== 'multiple'
-      ? true  // default show all — we don't know yet if it's HMO
-      : true  // always show all; admin can filter later
-
-    // Determine whether to show HMO-specific docs
-    // We show them all — it's better to offer and have the landlord skip than to hide docs they need
-    const relevantDocs = COMPLIANCE_DOCS
-
-    const totalUploaded = relevantDocs.reduce((n, d) => n + getSlot(d.docType).files.length, 0)
-      + getSlot('other_document').files.length
+    const propertyNames = form.property_count === 'multiple'
+      ? form.properties.map((p, i) => p.line1?.trim() || `Property ${i + 1}`)
+      : [form.prop_line1?.trim() || 'Your property']
+    // Uploads made with the earlier one-box-per-certificate version of this step.
+    const otherNames = ((form as any).other_doc_names ?? []) as string[]
+    const earlier = [
+      ...COMPLIANCE_DOCS.map(d => ({ label: d.label, count: getSlot(d.docType).files.length })),
+      ...(otherNames.length ? otherNames.map(n => ({ label: n, count: 1 })) : [{ label: 'Other document', count: getSlot('other_document').files.length }]),
+    ].filter(e => e.count > 0)
 
     return (
       renderShell(true /* always saveable — optional section */, <>
-        <div className="bg-white rounded-2xl border border-neutral-200 p-8 mb-6">
-          <h2 className="text-base font-bold text-neutral-900 mb-2">Property Compliance Certificates</h2>
-          <p className="text-sm text-neutral-500 mb-6 leading-relaxed">
-            Upload whichever certificates you currently hold. Skip any you do not have — you will not be blocked from submitting.
-            All documents are stored securely and shared only with Capital Rooms management.
-          </p>
-
-          <div className="mb-5 flex items-start gap-3 bg-violet-50 border border-violet-100 rounded-xl px-4 py-3.5">
-            <span className="text-lg shrink-0">✨</span>
-            <p className="text-xs text-violet-700 leading-relaxed">
-              <strong>AI tip:</strong> Upload each certificate and we'll automatically read the expiry date so you never have to type it in manually.
-            </p>
-          </div>
-
-          <div className="space-y-5">
-            {relevantDocs.map(doc => (
-              <div key={doc.docType} className="rounded-xl border border-neutral-100 bg-neutral-50 p-5">
-                <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-0.5">{doc.regulation}</p>
-                <FileUpload
-                  token={token}
-                  docType={doc.docType}
-                  label={doc.label}
-                  hint={doc.hint}
-                  slot={getSlot(doc.docType)}
-                  onUploaded={path => onUploaded(doc.docType, path)}
-                  onScanned={fields => {
-                    // Store extracted dates in form_data under cert_dates[docType]
-                    if (fields.expiry_date || fields.issue_date) {
-                      setForm(f => ({
-                        ...f,
-                        cert_dates: {
-                          ...((f as any).cert_dates ?? {}),
-                          [doc.docType]: {
-                            issue_date:  fields.issue_date  ?? null,
-                            expiry_date: fields.expiry_date ?? null,
-                            ...(fields.current_rating ? { rating: fields.current_rating } : {}),
-                            ...(fields.licence_number ? { licence_number: fields.licence_number } : {}),
-                          }
-                        }
-                      }))
-                    }
-                  }}
-                />
-              </div>
-            ))}
-
-            {/* Other — free-text named upload */}
-            <OtherDocUpload
-              token={token}
-              slot={getSlot('other_document')}
-              onUploaded={(path, customName) => {
-                onUploaded('other_document', path)
-                // Store the custom name in form state
-                setForm(f => ({
-                  ...f,
-                  other_doc_names: [...((f as any).other_doc_names ?? []), customName],
-                }))
-              }}
-            />
-          </div>
-
-          {totalUploaded > 0 && (
-            <div className="mt-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-              ✓ {totalUploaded} document{totalUploaded !== 1 ? 's' : ''} uploaded — save to continue.
-            </div>
-          )}
-        </div>
+        <PropertyDocs
+          token={token}
+          properties={propertyNames}
+          docs={form.property_docs ?? []}
+          onChange={update => setForm(f => ({ ...f, property_docs: update(f.property_docs ?? []) }))}
+          upload={file => uploadDocument(token, 'property_document', file)}
+          earlier={earlier}
+        />
       </>)
     )
   }
