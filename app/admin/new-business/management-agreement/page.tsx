@@ -8,10 +8,12 @@ import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
 import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAddressString } from '@/app/components/AddressInput'
 import { createClient } from '@/lib/supabase'
 import { landlordName } from '@/lib/people'
+import RentCollectionFields from '../RentCollectionFields'
+import { RENT_COLLECTION_DEFAULTS, rentCollectionProblems, rentCollectionTermsFrom, type RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type AgreementType = 'hmo' | 'single'
+type AgreementType = 'hmo' | 'single' | 'rent_collection'
 type EntityType    = 'individual' | 'company'
 
 // ── Defaults ───────────────────────────────────────────────────────────────────
@@ -19,7 +21,10 @@ type EntityType    = 'individual' | 'company'
 const DEFAULTS = {
   hmo:    { managementFee: 10, letFee: '£300 per unit',    floatAmount: 500, epcCost: 75  },
   single: { managementFee: 8,  letFee: '£500',             floatAmount: 0,   epcCost: 100 },
+  rent_collection: { managementFee: 0, letFee: '',         floatAmount: 0,   epcCost: 0   },
 }
+
+const TYPE_LABEL: Record<AgreementType, string> = { hmo: 'Multi-Let', single: 'Single-Let', rent_collection: 'Rent-Collection' }
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
@@ -61,6 +66,8 @@ function ManagementAgreementForm() {
   const [epcCost,        setEpcCost]        = useState(DEFAULTS.hmo.epcCost)
   const [commencementDate, setCommencementDate] = useState(today())
   const [inventoryNote,  setInventoryNote]  = useState('')
+  const [rcTerms,        setRcTerms]        = useState<RentCollectionTerms>(RENT_COLLECTION_DEFAULTS)
+  const isRC = agreementType === 'rent_collection'
 
   const [existingLandlords, setExistingLandlords] = useState<any[]>([])
   const [pickedLandlordId, setPickedLandlordId] = useState('')
@@ -112,6 +119,7 @@ function ManagementAgreementForm() {
     setLetFee(d.letFee)
     setFloatAmount(d.floatAmount)
     setEpcCost(d.epcCost)
+    if (agreementType === 'rent_collection' && !prefillName) setEntityType('company')
     // Single let: only one property
     if (agreementType === 'single' && propAddresses.length > 1) {
       setPropAddresses([propAddresses[0]])
@@ -140,6 +148,10 @@ function ManagementAgreementForm() {
     if (!clientAddrValue.line1.trim()) { setError('Enter the client address.'); return }
     if (entityType === 'individual' && !clientFirst.trim()) { setError('Enter the client name.'); return }
     if (entityType === 'company' && !companyName.trim()) { setError('Enter the company name.'); return }
+    if (isRC) {
+      const problems = rentCollectionProblems(rentCollectionTermsFrom(rcTerms))
+      if (problems.length) { setError(problems.join('. ') + '.'); return }
+    }
 
     setGenerating(true)
 
@@ -163,7 +175,8 @@ function ManagementAgreementForm() {
       floatAmount:    agreementType === 'hmo' ? floatAmount : undefined,
       epcCost,
       commencementDate,
-      inventoryNote:  inventoryNote.trim() || undefined,
+      inventoryNote:  isRC ? undefined : inventoryNote.trim() || undefined,
+      rentCollection: isRC ? rentCollectionTermsFrom(rcTerms) : undefined,
       onboardingId:   onboardingId || undefined,
     }
 
@@ -182,7 +195,7 @@ function ManagementAgreementForm() {
       const blob     = await res.blob()
       const url      = URL.createObjectURL(blob)
       const a        = document.createElement('a')
-      const typeLabel = agreementType === 'hmo' ? 'Multi-Let' : 'Single-Let'
+      const typeLabel = TYPE_LABEL[agreementType]
       const propSlug  = (filledProps[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
       a.href         = url
       a.download     = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${agreementDate}.pdf`
@@ -225,21 +238,23 @@ function ManagementAgreementForm() {
           {/* ── Agreement type ──────────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
             <h2 className="text-sm font-bold text-neutral-900 mb-md">Agreement Type</h2>
-            <div className="flex gap-md">
-              {(['hmo', 'single'] as AgreementType[]).map(t => (
+            <div className="flex flex-col sm:flex-row gap-md">
+              {(['hmo', 'single', 'rent_collection'] as AgreementType[]).map(t => (
                 <button
                   key={t}
                   onClick={() => setAgreementType(t)}
                   className={`flex-1 rounded-xl border-2 py-md text-sm font-semibold transition ${agreementType === t ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:border-neutral-400'}`}
                 >
-                  {t === 'hmo' ? '🏠 HMO / Multi-Let' : '🏡 Single Let'}
+                  {t === 'hmo' ? '🏠 HMO / Multi-Let' : t === 'single' ? '🏡 Single Let' : '💷 Rent collection only'}
                 </button>
               ))}
             </div>
             <p className="text-xs text-neutral-400 mt-sm">
               {agreementType === 'hmo'
                 ? 'Multiple Occupancy — for HMO and multi-room properties'
-                : 'Single Occupier — for entire property let to one household'}
+                : agreementType === 'single'
+                  ? 'Single Occupier — for entire property let to one household'
+                  : 'The client manages its properties and tenants; we collect rent, pay agreed fixed outgoings, protect and release deposits, inspect and report'}
             </p>
           </div>
 
@@ -367,7 +382,7 @@ function ManagementAgreementForm() {
           {/* ── Properties ──────────────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
             <h2 className="text-sm font-bold text-neutral-900 mb-md">
-              {agreementType === 'hmo' ? 'Properties' : 'Property'}
+              {agreementType === 'single' ? 'Property' : 'Properties'}
             </h2>
             <div className="space-y-lg">
               {propAddresses.map((p, i) => (
@@ -390,7 +405,7 @@ function ManagementAgreementForm() {
                 </div>
               ))}
             </div>
-            {agreementType === 'hmo' && (
+            {agreementType !== 'single' && (
               <button
                 onClick={addProperty}
                 className="mt-sm text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition"
@@ -400,8 +415,15 @@ function ManagementAgreementForm() {
             )}
           </div>
 
+          {isRC && (
+            <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
+              <h2 className="text-sm font-bold text-neutral-900 mb-md">Rent collection terms</h2>
+              <RentCollectionFields value={rcTerms} onChange={setRcTerms} isCompany={entityType === 'company'} />
+            </div>
+          )}
+
           {/* ── Fees ────────────────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
+          {!isRC && <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
             <h2 className="text-sm font-bold text-neutral-900 mb-md">Fee Structure</h2>
             <div className="grid grid-cols-2 gap-md">
               <div>
@@ -457,10 +479,10 @@ function ManagementAgreementForm() {
                 </div>
               )}
             </div>
-          </div>
+          </div>}
 
           {/* ── Optional notes ──────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
+          {!isRC && <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
             <h2 className="text-sm font-bold text-neutral-900 mb-md">Inventory Note <span className="text-neutral-400 font-normal">(optional)</span></h2>
             <textarea
               value={inventoryNote}
@@ -469,7 +491,7 @@ function ManagementAgreementForm() {
               placeholder="Leave blank to use the standard clause, or enter custom inventory wording…"
               className={inp}
             />
-          </div>
+          </div>}
 
           {/* ── Error / success ─────────────────────────────────────────────── */}
           {error && (

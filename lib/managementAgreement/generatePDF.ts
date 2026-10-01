@@ -13,11 +13,13 @@ import {
   type PDFBizSettings,
   type PDFLetterheadAssets,
 } from '@/lib/pdfLetterhead'
+import type { RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
+import { generateRentCollectionAgreementPDF } from '@/lib/managementAgreement/rentCollectionPDF'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ManagementAgreementData {
-  agreementType: 'hmo' | 'single'          // HMO = multiple occupancy
+  agreementType: 'hmo' | 'single' | 'rent_collection'   // HMO = multiple occupancy; rent_collection = rentCollectionPDF.ts
   agreementDate: string                     // ISO date string e.g. "2026-09-08"
   entityType: 'individual' | 'company'
   // Individual client fields
@@ -43,6 +45,7 @@ export interface ManagementAgreementData {
   inventoryNote?: string                    // optional free text
   // Client's nominated account for rent remittance (added once confirmed through onboarding)
   nominatedAccount?: { accountName: string; bankName?: string; sortCode: string; accountNumber: string }
+  rentCollection?: RentCollectionTerms     // rent_collection agreements only
   // Injected by API route
   bizSettings?: PDFBizSettings
 }
@@ -72,6 +75,7 @@ function hRule(doc: PDFKit.PDFDocument, x: number, y: number, w: number, colour 
 // ── Main generator ─────────────────────────────────────────────────────────────
 
 export async function generateManagementAgreementPDF(data: ManagementAgreementData): Promise<Buffer> {
+  if (data.agreementType === 'rent_collection') return generateRentCollectionAgreementPDF(data)
   return new Promise((resolve, reject) => {
     const assets: PDFLetterheadAssets = loadPDFLetterheadAssets()
     const { logoImg, footerImg, fontReg, fontBold } = assets
