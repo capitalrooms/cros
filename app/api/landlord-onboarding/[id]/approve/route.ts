@@ -40,17 +40,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
        <ul style="margin:0 0 18px;padding-left:18px;font-size:14px;color:#333;line-height:1.7">${check.diffs.map(d => `<li><strong>${esc(d.field)}:</strong> ${esc(d.fromLandlord)}</li>`).join('')}</ul>`
     : `<p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">The details you confirmed match your agreement, so no changes were needed.</p>`
   const prop = (check.updated.properties?.[0] ?? '').replace(/\n/g, ', ')
+  const kind = check.updated.agreementType === 'rent_collection' ? 'rent collection' : 'management'
   const html = `
 <p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">Dear ${esc(row.full_name)},</p>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Thank you for completing your registration. We have now reviewed your information and documents, and your identity and anti-money laundering checks are <strong>complete</strong>.</p>
 ${changes}
-<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Your final management agreement${prop ? ` for <strong>${esc(prop)}</strong>` : ''} is attached for your records. Please have a read through — if anything needs changing, just reply to this email.</p>
+<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Your final ${kind} agreement${prop ? ` for <strong>${esc(prop)}</strong>` : ''} is attached for your records. Please have a read through — if anything needs changing, just reply to this email.</p>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">When you are ready, reply to let me know and I will send the agreement for your electronic signature through our signing software. Once it is signed, we can get started.</p>
 <p style="margin:24px 0 4px;font-size:15px;color:#333">Kind regards,</p>`
   const slug = (prop || 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
-  const { ok, error } = await sendEmail(recipients, 'Your checks are complete — your final management agreement', html, {
+  const { ok, error } = await sendEmail(recipients, `Your checks are complete — your final ${kind} agreement`, html, {
     req,
-    attachments: [{ filename: `Capital-Rooms-Management-Agreement_${slug}_final.pdf`, content: pdf.toString('base64') }],
+    attachments: [{ filename: `Capital-Rooms-${kind === 'management' ? 'Management' : 'Rent-Collection'}-Agreement_${slug}_final.pdf`, content: pdf.toString('base64') }],
   })
   if (!ok) return NextResponse.json({ error: `Email failed: ${error ?? 'unknown'}` }, { status: 502 })
 

@@ -179,13 +179,11 @@ export default function SendWelcomePage() {
 
   const allProperties = [propAddress, ...extraProperties].filter(p => p.trim())
 
-  async function handleSend() {
-    setSending(true)
-    setSendError(null)
+  const [previewing, setPreviewing] = useState(false)
 
+  function agreementPayload() {
     const clientAddressLines = toAddressLines(llAddrValue)
-
-    const payload = {
+    return {
       // Landlord record
       full_name: addressee.trim(),
       email:     email.trim(),
@@ -212,6 +210,37 @@ export default function SendWelcomePage() {
       inventoryNote:   isRC ? undefined : inventoryNote.trim() || undefined,
       rentCollection:  isRC ? rentCollectionTermsFrom(rcTerms) : undefined,
     }
+  }
+
+  // Same PDF that would be attached, downloaded for checking — nothing is sent or saved.
+  async function handlePreview() {
+    setPreviewing(true)
+    setSendError(null)
+    try {
+      const { full_name: _n, email: _e, phone: _p, joint_email: _j, landlord_people_id: _l, service_type: _s, ...agreement } = agreementPayload()
+      void _n; void _e; void _p; void _j; void _l; void _s
+      const res = await adminFetch('/api/admin/generate-management-agreement', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...agreement, preview: true }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Could not build the agreement')
+      const url = URL.createObjectURL(await res.blob())
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `CHECK-${isRC ? 'Rent-Collection' : 'Management'}-Agreement_${(allProperties[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)}.pdf`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : 'Could not build the agreement')
+    } finally {
+      setPreviewing(false)
+    }
+  }
+
+  async function handleSend() {
+    setSending(true)
+    setSendError(null)
+    const payload = agreementPayload()
 
     try {
       const res = await adminFetch('/api/landlord-onboarding/send-with-agreement', {
@@ -557,6 +586,14 @@ export default function SendWelcomePage() {
             <button onClick={() => setStep(2)} className="rounded-xl border border-neutral-200 px-lg py-sm text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition">
               ← Back
             </button>
+            <div className="flex flex-wrap justify-end gap-sm">
+            <button
+              onClick={handlePreview}
+              disabled={!canSend || rcProblems.length > 0 || previewing || sending}
+              className="rounded-xl border border-neutral-300 bg-white px-lg py-sm text-sm font-semibold text-neutral-800 hover:border-neutral-900 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {previewing ? 'Building PDF…' : '⬇ Download PDF to check'}
+            </button>
             <button
               onClick={handleSend}
               disabled={!canSend || rcProblems.length > 0 || sending}
@@ -566,6 +603,7 @@ export default function SendWelcomePage() {
                 ? <><span className="animate-spin">⏳</span> Generating &amp; sending…</>
                 : '📨 Generate PDF & send welcome email →'}
             </button>
+            </div>
           </div>
         </main>
       </div>

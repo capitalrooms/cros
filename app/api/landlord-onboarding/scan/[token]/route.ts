@@ -15,6 +15,7 @@ import { AI_MODEL }                  from '@/lib/ai-classify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 const svc = () =>
   createClient(

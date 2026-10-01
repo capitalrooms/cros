@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
+import { FACT_LABELS, propertyDocLabel, type PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
 
 type Status = 'pass' | 'review' | 'fail'
 interface Check { area: string; label: string; status: Status; detail: string }
@@ -33,6 +34,8 @@ const DOC_LABELS: Record<string, string> = {
   proof_of_ownership: 'Proof of ownership', certificate_of_incorporation: 'Certificate of Incorporation',
   articles_of_association: 'Articles of Association', director_id: 'Director ID', director_address: 'Director proof of address',
   gas_safety_certificate: 'Gas Safety Certificate', eicr: 'EICR', epc: 'EPC', fire_risk_assessment: 'Fire Risk Assessment',
+  fire_detection_certificate: 'Fire alarm certificate', emergency_lighting_certificate: 'Emergency lighting certificate',
+  pat_test_record: 'PAT test record', legionella_risk_assessment: 'Legionella risk assessment', hmo_licence: 'HMO licence',
   other_document: 'Other document',
 }
 const fmt = (iso?: string) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -95,7 +98,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
   async function approve() {
     const high = row?.form_data?.__decision?.risk_level === 'high'
     if (high && !confirm('This client is HIGH risk. Confirm enhanced due diligence is complete and senior approval has been given.')) return
-    if (!confirm(`Send the confirmation email and final management agreement to ${row.email}${row.form_data?.j_contact_email ? ` and ${row.form_data.j_contact_email}` : ''}?`)) return
+    if (!confirm(`Send the confirmation email and final ${row?.form_data?.__agreement?.agreementType === 'rent_collection' ? 'rent collection' : 'management'} agreement to ${row.email}${row.form_data?.j_contact_email ? ` and ${row.form_data.j_contact_email}` : ''}?`)) return
     await act('approve', () => adminFetch(`/api/landlord-onboarding/${id}/approve`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm_high: high }),
     }), 'Confirmation and final agreement sent')
@@ -112,7 +115,70 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
   const review: Review | undefined = f.__review
   const decision: Decision | undefined = f.__decision
   const submitted = row.stage >= 3
-  const docs = Object.entries((f.documents ?? {}) as Record<string, string[]>)
+  const docs = Object.entries((f.documents ?? {}) as Record<string, string[]>).filter(([type]) => type !== 'property_document')
+  const otherNames = (f.other_doc_names ?? []) as string[]
+  const propertyDocs = ((f.property_docs ?? []) as PropertyDoc[]).filter(d => !d.removed)
+  const propertyNames: string[] = f.property_count === 'multiple'
+    ? ((f.properties ?? []) as { line1?: string; town?: string; postcode?: string }[]).map((p, i) => [p.line1, p.postcode].filter(Boolean).join(', ') || `Property ${i + 1}`)
+    : [[f.prop_line1, f.prop_postcode].filter(Boolean).join(', ') || 'Property']
+  const docLabel = (type: string, i: number, n: number) =>
+    type === 'other_document' && otherNames[i] ? otherNames[i] : `${DOC_LABELS[type] ?? type.replace(/_/g, ' ')}${n > 1 ? ` (${i + 1})` : ''}`
+  const documentCards = (
+    <>
+      <div className={card}>
+        <h2 className={h2}>Identity &amp; ownership documents ({docs.reduce((n, [, p]) => n + p.length, 0)})</h2>
+        {!docs.length && <p className="text-sm text-neutral-500">Nothing uploaded yet.</p>}
+        <div className="grid gap-md sm:grid-cols-2">
+          {docs.flatMap(([type, paths]) => paths.map((p, i) => {
+            const url = urls[p]
+            const isPdf = p.endsWith('.pdf')
+            return (
+              <div key={p} className="rounded-xl border border-neutral-200 overflow-hidden">
+                <div className="h-40 bg-neutral-50 flex items-center justify-center">
+                  {url && !isPdf ? <img src={url} alt={docLabel(type, i, paths.length)} className="max-h-40 w-full object-contain" /> : <span className="text-3xl">{isPdf ? '📄' : '⏳'}</span>}
+                </div>
+                <div className="flex items-center justify-between gap-sm px-sm py-xs">
+                  <p className="text-xs font-semibold text-neutral-800">{docLabel(type, i, paths.length)}</p>
+                  {url && <a href={url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-600 hover:underline shrink-0">Open →</a>}
+                </div>
+              </div>
+            )
+          }))}
+        </div>
+      </div>
+
+      <div className={card}>
+        <h2 className={h2}>Property documents ({propertyDocs.length})</h2>
+        {!propertyDocs.length && <p className="text-sm text-neutral-500">None added yet. Landlords can add certificates, plans, tenancy agreements and bills in the optional “Property documents” step.</p>}
+        <div className="space-y-lg">
+          {propertyNames.map((name, pi) => {
+            const list = propertyDocs.filter(d => d.property === pi)
+            if (!list.length) return null
+            return (
+              <div key={pi}>
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">{name}</p>
+                <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
+                  {list.map(d => {
+                    const facts = Object.entries(d.info ?? {}).filter(([k]) => FACT_LABELS[k])
+                    return (
+                      <div key={d.path} className="flex items-start justify-between gap-md px-md py-sm">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-neutral-900">{d.label || propertyDocLabel(d.type)}{d.type && d.label ? <span className="font-normal text-neutral-400"> · {propertyDocLabel(d.type)}</span> : null}</p>
+                          {facts.length > 0 && <p className="text-xs text-neutral-600 break-words">{facts.map(([k, v]) => `${FACT_LABELS[k]}: ${/^\d{4}-\d{2}-\d{2}$/.test(v) ? fmt(v) : v}`).join(' · ')}</p>}
+                          {!d.scanned && <p className="text-xs text-violet-700">Still being read</p>}
+                        </div>
+                        {urls[d.path] && <a href={urls[d.path]} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-600 hover:underline shrink-0">Open →</a>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </>
+  )
   const areas = Array.from(new Set((review?.checks ?? []).map(c => c.area)))
 
   return (
@@ -132,7 +198,12 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
 
       {msg && <div className={`rounded-xl border px-md py-sm text-sm mb-lg ${msg.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>{msg.text}</div>}
 
-      {!submitted && <div className={card}><p className="text-sm text-neutral-600">The landlord hasn’t submitted their form yet. Their progress saves automatically — this page fills in once they submit.</p></div>}
+      {!submitted && (
+        <div className="space-y-lg">
+          <div className={card}><p className="text-sm text-neutral-600">The landlord hasn’t submitted their form yet. Their progress saves automatically — the checks run once they submit. Documents they’ve uploaded so far are below.</p></div>
+          {documentCards}
+        </div>
+      )}
 
       {submitted && (
         <div className="grid gap-lg lg:grid-cols-3">
@@ -176,27 +247,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
               </div>
             )}
 
-            {/* Documents */}
-            <div className={card}>
-              <h2 className={h2}>Documents ({docs.reduce((n, [, p]) => n + p.length, 0)})</h2>
-              <div className="grid gap-md sm:grid-cols-2">
-                {docs.flatMap(([type, paths]) => paths.map((p, i) => {
-                  const url = urls[p]
-                  const isPdf = p.endsWith('.pdf')
-                  return (
-                    <div key={p} className="rounded-xl border border-neutral-200 overflow-hidden">
-                      <div className="h-40 bg-neutral-50 flex items-center justify-center">
-                        {url && !isPdf ? <img src={url} alt={DOC_LABELS[type] ?? type} className="max-h-40 w-full object-contain" /> : <span className="text-3xl">{isPdf ? '📄' : '⏳'}</span>}
-                      </div>
-                      <div className="flex items-center justify-between gap-sm px-sm py-xs">
-                        <p className="text-xs font-semibold text-neutral-800">{DOC_LABELS[type] ?? type.replace(/_/g, ' ')}{paths.length > 1 ? ` (${i + 1})` : ''}</p>
-                        {url && <a href={url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-600 hover:underline shrink-0">Open →</a>}
-                      </div>
-                    </div>
-                  )
-                }))}
-              </div>
-            </div>
+            {documentCards}
 
             {/* Answers */}
             <div className={card}>
