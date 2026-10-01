@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     const buffer = await generateManagementAgreementPDF({ ...body, bizSettings })
 
-    const typeLabel = body.agreementType === 'hmo' ? 'Multi-Let' : 'Single-Let'
+    const typeLabel = body.agreementType === 'hmo' ? 'Multi-Let' : body.agreementType === 'rent_collection' ? 'Rent-Collection' : 'Single-Let'
     const propSlug  = (body.properties[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
     const dateSlug  = (body.agreementDate ?? new Date().toISOString()).slice(0, 10)
     const filename  = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${dateSlug}.pdf`

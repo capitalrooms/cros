@@ -26,6 +26,7 @@ import { createClient }               from '@supabase/supabase-js'
 import { generateManagementAgreementPDF, type ManagementAgreementData } from '@/lib/managementAgreement/generatePDF'
 import { fetchPDFBizSettings }        from '@/lib/pdfLetterhead'
 import { sendEmail }                  from '@/lib/sendEmail'
+import { rentCollectionTermsFrom }    from '@/lib/managementAgreement/rentCollectionTerms'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -131,7 +132,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 4. Build the filename
-  const typeLabel  = agreementFields.agreementType === 'hmo' ? 'Multi-Let' : 'Single-Let'
+  const isRC       = agreementFields.agreementType === 'rent_collection'
+  const typeLabel  = agreementFields.agreementType === 'hmo' ? 'Multi-Let' : isRC ? 'Rent-Collection' : 'Single-Let'
   const propSlug   = (agreementFields.properties[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
   const dateSlug   = (agreementFields.agreementDate ?? new Date().toISOString()).slice(0, 10)
   const filename   = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${dateSlug}.pdf`
@@ -141,8 +143,18 @@ export async function POST(req: NextRequest) {
   const feeDesc   = agreementFields.agreementType === 'hmo'
     ? `${agreementFields.managementFee}% of rent collected (multi-let)`
     : `${agreementFields.managementFee}% of rent collected (single let)`
+  const rc = isRC ? rentCollectionTermsFrom(agreementFields.rentCollection) : null
 
-  const bodyHtml = welcomeWithAgreementHtml(firstName, full_name.trim(), formUrl, {
+  const bodyHtml = welcomeWithAgreementHtml(firstName, full_name.trim(), formUrl, rc ? {
+    agreementName:   'rent collection agreement',
+    propertyLabel:   agreementFields.properties.length > 1 ? 'Properties' : 'Property',
+    propertyAddress: (agreementFields.properties as string[]).map(p => p.replace(/\n/g, ', ')).join('; '),
+    feeLabel:        'Service fee',
+    managementFee:   rc.serviceFee,
+    letFeeLabel:     'Working float',
+    letFee:          `£${rc.floatAmount.toLocaleString('en-GB')} held in the client account`,
+    commencementDate: agreementFields.commencementDate,
+  } : {
     propertyAddress: (agreementFields.properties[0] ?? '').replace(/\n/g, ', '),
     managementFee:   feeDesc,
     letFee:          String(agreementFields.letFee),
@@ -152,7 +164,7 @@ export async function POST(req: NextRequest) {
   const recipients = Array.from(new Set([email, joint_email].filter(Boolean).map((e: string) => e.trim().toLowerCase())))
   const { ok: emailSent, error: emailError } = await sendEmail(
     recipients,
-    'Welcome to Capital Rooms — Your Management Agreement & Registration Form',
+    `Welcome to Capital Rooms — Your ${isRC ? 'Rent Collection' : 'Management'} Agreement & Registration Form`,
     bodyHtml,
     {
       req,
@@ -190,12 +202,18 @@ function welcomeWithAgreementHtml(
   fullName: string,
   formUrl: string,
   details: {
+    agreementName?: string     // defaults to "management agreement"
+    propertyLabel?: string
     propertyAddress: string
+    feeLabel?: string
     managementFee: string
+    letFeeLabel?: string
     letFee: string
     commencementDate: string
   }
 ): string {
+  const agreement = details.agreementName ?? 'management agreement'
+  const Agreement = agreement.replace(/(^|\s)\w/g, c => c.toUpperCase())
   const fmtDate = (iso: string) => {
     try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) }
     catch { return iso }
@@ -205,8 +223,8 @@ function welcomeWithAgreementHtml(
 <p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${fullName},</p>
 
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
-  Thank you for choosing Capital Rooms. I'm delighted to be working with you. Your management
-  agreement is attached to this email as a PDF — please take a moment to review it in full.
+  Thank you for choosing Capital Rooms. I'm delighted to be working with you. Your ${agreement}
+  is attached to this email as a PDF — please take a moment to review it in full.
   It sets out the scope of our services, our fees, and your terms of engagement.
 </p>
 
@@ -219,11 +237,11 @@ function welcomeWithAgreementHtml(
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
   <tr>
     <td style="background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px;">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;">📋 Your Management Agreement — Key Terms</p>
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;">📋 Your ${Agreement} — Key Terms</p>
       <p style="margin:0;font-size:13px;color:#444;line-height:1.8">
-        <strong>Property:</strong> ${details.propertyAddress}<br>
-        <strong>Management fee:</strong> ${details.managementFee}<br>
-        <strong>Let fee:</strong> ${details.letFee}<br>
+        <strong>${details.propertyLabel ?? 'Property'}:</strong> ${details.propertyAddress}<br>
+        <strong>${details.feeLabel ?? 'Management fee'}:</strong> ${details.managementFee}<br>
+        <strong>${details.letFeeLabel ?? 'Let fee'}:</strong> ${details.letFee}<br>
         <strong>Proposed commencement:</strong> ${fmtDate(details.commencementDate)}<br>
         <strong>Notice period:</strong> 3 months written notice by either party
       </p>
@@ -240,7 +258,7 @@ function welcomeWithAgreementHtml(
       <div style="width:26px;height:26px;background:#1a1a1a;border-radius:50%;text-align:center;line-height:26px;font-size:12px;font-weight:700;color:#fff;">1</div>
     </td>
     <td style="padding-left:12px;">
-      <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#1a1a1a;">Review your management agreement</p>
+      <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#1a1a1a;">Review your ${agreement}</p>
       <p style="margin:0;font-size:13px;color:#555;line-height:1.5;">
         Your agreement is attached to this email as a PDF. Please read it carefully — if anything needs
         amending, simply reply and I will update it before we proceed.
@@ -259,7 +277,7 @@ function welcomeWithAgreementHtml(
       <p style="margin:0 0 2px;font-size:14px;font-weight:700;color:#1a1a1a;">Complete your landlord registration form</p>
       <p style="margin:0;font-size:13px;color:#555;line-height:1.5;">
         Our online form collects your identity and property details for our Anti-Money Laundering compliance — a regulatory
-        requirement before we can manage your property. You can save your progress at any time and return to it later.
+        requirement before we can ${details.agreementName ? 'act for you' : 'manage your property'}. You can save your progress at any time and return to it later.
       </p>
     </td>
   </tr>

@@ -11,6 +11,8 @@ import AddressInput, { type AddressValue, emptyAddress, toAddressString, toAddre
 import { createClient } from '@/lib/supabase'
 import { landlordName } from '@/lib/people'
 import { adminFetch } from '@/lib/adminFetch'
+import RentCollectionFields from '../RentCollectionFields'
+import { RENT_COLLECTION_DEFAULTS, rentCollectionProblems, rentCollectionTermsFrom, type RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,7 @@ export default function SendWelcomePage() {
     const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('service') : null
     return SERVICE_TYPES.find(s => s.id === q && s.available)?.id ?? DEFAULT_SERVICE_TYPE
   })
+  const isRC = serviceType === 'rent_collection'
 
   // Step 1 — Landlord
   const [llName,    setLlName]    = useState<NameValue>(emptyName())
@@ -127,7 +130,7 @@ export default function SendWelcomePage() {
   const llAddress = toAddressString(llAddrValue)
 
   // Step 3 — Agreement fields
-  const [entityType,      setEntityType]      = useState<EntityType>('individual')
+  const [entityType,      setEntityType]      = useState<EntityType>(isRC ? 'company' : 'individual')
   const [clientTitle,     setClientTitle]     = useState('Mr')
   const [clientFirst,     setClientFirst]     = useState('')
   const [clientLast,      setClientLast]      = useState('')
@@ -142,6 +145,7 @@ export default function SendWelcomePage() {
   const [epcCost,         setEpcCost]         = useState(FEE_DEFAULTS.hmo.epcCost)
   const [inventoryNote,   setInventoryNote]   = useState('')
   const [extraProperties, setExtraProperties] = useState<string[]>([])
+  const [rcTerms,         setRcTerms]         = useState<RentCollectionTerms>(RENT_COLLECTION_DEFAULTS)
 
   // Step 4 — send
   const [sending,     setSending]     = useState(false)
@@ -191,7 +195,7 @@ export default function SendWelcomePage() {
       service_type: serviceType,
 
       // Agreement
-      agreementType:   propType,
+      agreementType:   isRC ? 'rent_collection' : propType,
       agreementDate,
       entityType,
       ...(entityType === 'individual'
@@ -205,7 +209,8 @@ export default function SendWelcomePage() {
       floatAmount:     propType === 'hmo' ? floatAmount : undefined,
       epcCost,
       commencementDate: commenceDate,
-      inventoryNote:   inventoryNote.trim() || undefined,
+      inventoryNote:   isRC ? undefined : inventoryNote.trim() || undefined,
+      rentCollection:  isRC ? rentCollectionTermsFrom(rcTerms) : undefined,
     }
 
     try {
@@ -311,7 +316,7 @@ export default function SendWelcomePage() {
             subtitle="The property this landlord is bringing to Capital Rooms. This populates the management agreement — you can adjust fees in the next step."
           >
             {/* Property type */}
-            <div className="mb-lg">
+            {!isRC && <div className="mb-lg">
               <label className={lbl}>Property type *</label>
               <div className="grid grid-cols-2 gap-md">
                 {(['hmo', 'single'] as PropertyType[]).map(t => (
@@ -329,7 +334,7 @@ export default function SendWelcomePage() {
                   </button>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* Address lookup */}
             <div className="mb-md">
@@ -337,7 +342,7 @@ export default function SendWelcomePage() {
             </div>
 
             {/* Approx rooms (HMO only — informational) */}
-            {propType === 'hmo' && (
+            {propType === 'hmo' && !isRC && (
               <div className="mb-md">
                 <label className={lbl}>Approximate number of rooms</label>
                 <input
@@ -353,8 +358,8 @@ export default function SendWelcomePage() {
               </div>
             )}
 
-            {/* Additional properties (HMO multi-portfolio) */}
-            {propType === 'hmo' && (
+            {/* Additional properties (HMO multi-portfolio, or a rent collection portfolio) */}
+            {(propType === 'hmo' || isRC) && (
               <div>
                 {extraProperties.map((p, i) => (
                   <div key={i} className="flex gap-sm mb-sm">
@@ -403,6 +408,7 @@ export default function SendWelcomePage() {
       llAddrValue.line1.trim().length > 2 &&
       allProperties.length >= 1
     )
+    const rcProblems = isRC ? rentCollectionProblems(rentCollectionTermsFrom(rcTerms)) : []
 
     return (
       <div className="min-h-screen bg-neutral-100">
@@ -414,7 +420,7 @@ export default function SendWelcomePage() {
           <div className="bg-neutral-900 rounded-2xl p-lg mb-lg flex items-start gap-md">
             <div className="text-3xl">📋</div>
             <div>
-              <p className="text-white font-bold text-base mb-xs">Management Agreement — Review before sending</p>
+              <p className="text-white font-bold text-base mb-xs">{isRC ? 'Rent Collection' : 'Management'} Agreement — Review before sending</p>
               <p className="text-neutral-400 text-sm leading-relaxed">
                 This agreement will be generated as a PDF and attached to the welcome email for {addressee}.
                 Check all details carefully — you can edit the fee structure and terms here before sending.
@@ -491,8 +497,14 @@ export default function SendWelcomePage() {
             </div>
           </Card>
 
+          {isRC && (
+            <Card title="Rent collection terms" subtitle="The client manages the properties and tenants. These terms set what we do, the float and the fixed outgoings we pay.">
+              <RentCollectionFields value={rcTerms} onChange={setRcTerms} isCompany={entityType === 'company'} />
+            </Card>
+          )}
+
           {/* Fees */}
-          <Card title="Fees & charges" subtitle="Defaults are set by property type. Adjust here if negotiated differently.">
+          {!isRC && <Card title="Fees & charges" subtitle="Defaults are set by property type. Adjust here if negotiated differently.">
             <div className="grid grid-cols-2 gap-md mb-md">
               <div>
                 <label className={lbl}>Management fee (%)</label>
@@ -513,7 +525,7 @@ export default function SendWelcomePage() {
                 <input type="number" min="0" value={epcCost} onChange={e => setEpcCost(parseInt(e.target.value) || 0)} className={smInp} />
               </div>
             </div>
-          </Card>
+          </Card>}
 
           {/* Properties */}
           <Card title="Properties covered">
@@ -525,11 +537,15 @@ export default function SendWelcomePage() {
             {approxRooms && propType === 'hmo' && (
               <p className="text-xs text-neutral-400 mt-xs">Approx. {approxRooms} rooms — note in agreement if needed.</p>
             )}
-            <div className="mt-md">
+            {!isRC && <div className="mt-md">
               <label className={lbl}>Additional notes (optional)</label>
               <textarea rows={2} value={inventoryNote} onChange={e => setInventoryNote(e.target.value)} className={inp} placeholder="e.g. Inventory to be agreed separately; furnished / unfurnished terms…" />
-            </div>
+            </div>}
           </Card>
+
+          {rcProblems.length > 0 && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-md py-sm mb-lg">Before sending: {rcProblems.join(' · ')}</p>
+          )}
 
           {sendError && (
             <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-md py-sm mb-lg">
@@ -543,7 +559,7 @@ export default function SendWelcomePage() {
             </button>
             <button
               onClick={handleSend}
-              disabled={!canSend || sending}
+              disabled={!canSend || rcProblems.length > 0 || sending}
               className="rounded-xl bg-neutral-900 text-white px-xl py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-sm"
             >
               {sending
@@ -568,7 +584,7 @@ export default function SendWelcomePage() {
           <div className="text-5xl mb-lg">🎉</div>
           <h2 className="text-xl font-bold text-neutral-900 mb-sm">Welcome pack sent</h2>
           <p className="text-sm text-neutral-500 leading-relaxed mb-xl max-w-6xl mx-auto">
-            The management agreement and AML registration form have been sent to <strong>{email}</strong>.{' '}
+            The {isRC ? 'rent collection' : 'management'} agreement and AML registration form have been sent to <strong>{email}</strong>.{' '}
             {llName.first_name || clientFirst || 'They'} can read the agreement, then complete the form at their own pace.
           </p>
 
@@ -576,7 +592,7 @@ export default function SendWelcomePage() {
             <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-md text-left mb-xl text-sm text-neutral-600 space-y-xs">
               <p>📋 <strong>Agreement:</strong> {sendResult.filename}</p>
               <p>🗓 <strong>Commencement:</strong> {fmtDate(commenceDate)}</p>
-              <p>💷 <strong>Management fee:</strong> {managementFee}% · Let fee: {letFee}</p>
+              <p>💷 {isRC ? <><strong>Service fee:</strong> {rcTerms.serviceFee}</> : <><strong>Management fee:</strong> {managementFee}% · Let fee: {letFee}</>}</p>
             </div>
           )}
 
