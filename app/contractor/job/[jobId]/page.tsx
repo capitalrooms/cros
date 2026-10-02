@@ -878,6 +878,11 @@ export default function JobDetailPage() {
                         alert('Pick a new date and time slot first (in the sidebar below).')
                         return
                       }
+                      const earliest = earliestBookableDate(job.location ?? job.rooms?.name, job.priority)
+                      if (bookDate < earliest) {
+                        alert(`${bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)} The earliest date is ${new Date(earliest).toLocaleDateString('en-GB')}.`)
+                        return
+                      }
                       setBusy('book')
                       try {
                         await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
