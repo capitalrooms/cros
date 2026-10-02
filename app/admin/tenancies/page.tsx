@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import TenantCardBody from '@/app/components/TenantCardBody'
@@ -265,15 +266,22 @@ export default function TenanciesManagementPage() {
         }`}>{toast.msg}</div>
       )}
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero
+        title="Tenancies"
+        subtitle="Every tenancy, from let agreed to moved out — each one opens its letting file"
+        stats={[
+          { label: 'Live', value: liveList.length },
+          { label: 'Let agreed', value: letAgreed.length, tone: 'info' },
+          { label: 'On notice', value: onNoticeList.length, tone: 'warn' },
+          { label: 'Past', value: past.length },
+        ]}
+        actions={<HeroButton primary onClick={() => setShowAdd(true)}>+ New tenancy</HeroButton>}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="pt-lg mb-3xl flex items-center justify-between">
+        <div className="mb-lg flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Tenancies</h1>
-            <p className="mt-sm text-sm text-neutral-600">
-              {current.length} current · {letAgreed.length} let agreed · {onNoticeList.length} on notice · {past.length} past · each one opens its letting file
-            </p>
-            <div className="mt-md inline-flex rounded-xl bg-white p-[3px] ring-1 ring-neutral-200">
+            <div className="inline-flex rounded-xl bg-white p-[3px] ring-1 ring-neutral-200">
               {([['all', `All current (${current.length})`], ['let_agreed', `Let agreed (${letAgreed.length})`], ['live', `Live (${liveList.length})`], ['notice', `On notice (${onNoticeList.length})`]] as const).map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setView(k)}
                   className={`rounded-lg px-md py-xs text-sm font-semibold ${view === k ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:text-neutral-900'}`}>
@@ -282,10 +290,6 @@ export default function TenanciesManagementPage() {
               ))}
             </div>
           </div>
-          <button onClick={() => setShowAdd(true)}
-            className="rounded-xl bg-neutral-900 px-lg py-md font-bold text-white hover:bg-neutral-800">
-            + New Tenancy
-          </button>
         </div>
 
         {/* ── Active + On Notice ── */}

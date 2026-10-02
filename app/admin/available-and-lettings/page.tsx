@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import SendOfferForm from '@/components/SendOfferForm'
@@ -230,18 +231,23 @@ export default function LettingsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero
+        title="Available Rooms"
+        subtitle="Rooms free now or coming up — send offers, book viewings and tell let-only contacts"
+        stats={[
+          { label: 'Available now', value: availableRooms.filter(r => r.status === 'available').length, tone: 'good' },
+          { label: 'Coming up (on notice)', value: availableRooms.filter(r => r.status === 'on_notice').length, tone: 'warn' },
+          { label: 'Managed', value: availableRooms.filter(r => !r.is_let_only).length },
+          { label: 'Let only', value: availableRooms.filter(r => r.is_let_only).length, tone: 'info' },
+        ]}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-2xl">
-          <h1 className="text-2xl font-bold text-neutral-900">🚪 Available Rooms</h1>
-          <p className="mt-sm text-sm text-neutral-600">Send offers and manage available properties</p>
-        </div>
 
         <div>
           {/* Section header + action buttons */}
           <div className="flex items-center justify-between mb-lg gap-md flex-wrap">
             <div className="flex items-center gap-md flex-wrap">
-              <h2 className="text-xl font-bold text-neutral-900">Available Rooms</h2>
               <div className="inline-flex rounded-xl bg-white p-[3px] ring-1 ring-neutral-200">
                 {([['all', 'All'], ['managed', 'Managed'], ['let_only', 'Let Only']] as const).map(([k, label]) => (
                   <button key={k} type="button" onClick={() => setKind(k)}

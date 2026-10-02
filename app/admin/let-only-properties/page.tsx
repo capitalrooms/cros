@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { blockAddress, inlineAddress } from '@/lib/formatAddress'
@@ -188,42 +189,19 @@ export default function LetOnlyPropertiesPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero
+        title="Let-only properties"
+        subtitle="Capital Rooms finds the tenant — the landlord manages from then on"
+        stats={letOnlyProperties.length > 0 ? [
+          { label: 'Properties', value: letOnlyProperties.length },
+          { label: 'Rooms occupied', value: `${totalOccupied} / ${totalRooms}` },
+          { label: 'Monthly rent', value: totalMonthly > 0 ? fmtGBP(totalMonthly) : '—', tone: 'good' },
+          { label: 'Letting fees', value: totalFees > 0 ? fmtGBP(totalFees) : '—', tone: 'warn' },
+        ] : undefined}
+        actions={<HeroButton primary onClick={() => setShowConvertPicker(true)}>+ Add let-only property</HeroButton>}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-
-        {/* ── Page header ───────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between mb-xl">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Let-only properties</h1>
-            <p className="mt-xs text-sm text-neutral-500">
-              Capital Rooms finds the tenant — the landlord manages thereafter.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowConvertPicker(true)}
-            className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-700 transition"
-          >
-            + Add let-only property
-          </button>
-        </div>
-
-        {/* ── Summary stat bar ──────────────────────────────────────────── */}
-        {letOnlyProperties.length > 0 && (
-          <div className="grid grid-cols-4 gap-md mb-2xl">
-            {[
-              { label: 'Properties', value: letOnlyProperties.length.toString(), sub: 'let-only' },
-              { label: 'Rooms', value: `${totalOccupied} / ${totalRooms}`, sub: 'occupied' },
-              { label: 'Monthly rent', value: totalMonthly > 0 ? fmtGBP(totalMonthly) : '—', sub: 'under management' },
-              { label: 'Letting fees', value: totalFees > 0 ? fmtGBP(totalFees) : '—', sub: 'from active tenancies' },
-            ].map(({ label, value, sub }) => (
-              <div key={label} className="rounded-2xl bg-white border border-neutral-200 px-lg py-md">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-xs">{label}</p>
-                <p className="text-xl font-bold text-neutral-900">{value}</p>
-                <p className="text-xs text-neutral-400 mt-xs">{sub}</p>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* ── Properties list ───────────────────────────────────────────── */}
         {letOnlyProperties.length === 0 ? (
