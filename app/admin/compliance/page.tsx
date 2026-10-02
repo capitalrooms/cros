@@ -13,6 +13,9 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { displayName } from '@/lib/people'
 
 type Tab = 'certificates' | 'monthly-checks'
+// Older links use the names of the screens these tabs replaced.
+const TAB_ALIASES: Record<string, Tab> = { certificates: 'certificates', 'monthly-checks': 'monthly-checks', 'inspection-logs': 'monthly-checks', 'safety-checks': 'monthly-checks', checks: 'monthly-checks' }
+const toTab = (t?: string): Tab => TAB_ALIASES[t ?? ''] ?? 'certificates'
 
 type CertKey = 'gas_safe' | 'electrical' | 'epc' | 'fire_risk' | 'fire_detection' | 'emergency_lighting' | 'pat' | 'license'
 
@@ -711,9 +714,9 @@ function CompliancePageInner({ tab }: { tab?: string }) {
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<Tab>((tab as Tab) || 'certificates')
+  const [activeTab, setActiveTab] = useState<Tab>(toTab(tab))
   // The side menu links to ?tab=…; follow it when it changes without leaving the page.
-  useEffect(() => { if (tab) setActiveTab(tab as Tab) }, [tab])
+  useEffect(() => { if (tab) setActiveTab(toTab(tab)) }, [tab])
   const [checksTypeFilter, setChecksTypeFilter] = useState<'all' | 'fire_door' | 'smoke_alarm'>('all')
   const [checksPropertyFilter, setChecksPropertyFilter] = useState<string>('all')
   const [properties, setProperties] = useState<Property[]>([])
