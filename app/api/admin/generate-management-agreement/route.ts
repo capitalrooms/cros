@@ -21,9 +21,10 @@ function serviceClient() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const caller = await requireStaff(req as any)
+  if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const body: ManagementAgreementData & { onboardingId?: string; preview?: boolean } = await req.json()
+    const body: ManagementAgreementData & { onboardingId?: string; preview?: boolean; savedId?: string; form?: Record<string, unknown> } = await req.json()
 
     if (!body.properties?.length || !body.clientAddress?.length) {
       return NextResponse.json(
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
     const filename  = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${dateSlug}.pdf`
 
     // Best-effort: log the generation to Supabase (does not block the response). Check copies (preview) aren't kept.
+    let savedId: string | null = null
     if (!body.preview) try {
       const sb = serviceClient()
       const logId       = crypto.randomUUID()
@@ -53,8 +55,22 @@ export async function POST(req: NextRequest) {
 
       // If an onboarding record ID was supplied, record the generated agreement link on it
       // Kept as the record's "agreement as sent" so the AML review can compare against it.
+      // The saved entry (migration 201): reopened later to edit, rather than writing it all out again
+      if (body.form) {
+        const clientName = body.entityType === 'company' ? (body.companyName ?? '')
+          : [[body.clientTitle, body.clientFirstName, body.clientLastName].filter(Boolean).join(' '), [body.client2Title, body.client2FirstName, body.client2LastName].filter(Boolean).join(' ')].filter(Boolean).join(' & ')
+        const row = { agreement_type: body.agreementType, client_name: clientName, properties: body.properties, form: body.form, pdf_path: storagePath, onboarding_id: body.onboardingId || null, updated_by: caller.email, updated_at: new Date().toISOString() }
+        const { data: prev } = body.savedId ? await sb.from('management_agreements').select('id, version').eq('id', body.savedId).is('deleted_at', null).maybeSingle() : { data: null }
+        const saved = prev
+          ? await sb.from('management_agreements').update({ ...row, version: (prev.version ?? 1) + 1 }).eq('id', prev.id).select('id').single()
+          : await sb.from('management_agreements').insert({ ...row, created_by: caller.email }).select('id').single()
+        if (saved.error) console.error('[generate-management-agreement] not saved to the list:', saved.error.message)
+        else savedId = saved.data.id
+      }
+
       if (body.onboardingId) {
-        const { onboardingId, bizSettings: _biz, ...agreementFields } = body
+        const { onboardingId, bizSettings: _biz, savedId: _sid, form: _form, ...agreementFields } = body
+        void _sid; void _form
         void _biz
         const { data: ob } = await sb.from('landlord_onboarding').select('form_data').eq('id', onboardingId).maybeSingle()
         if (ob) {
@@ -78,6 +94,7 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type':        'application/pdf',
         'Content-Disposition': contentDisposition(`${filename}`, 'attachment'),
+        ...(savedId ? { 'X-Agreement-Id': savedId } : {}),
         'Content-Length':      String(buffer.length),
       },
     })
