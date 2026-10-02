@@ -165,7 +165,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* ── Top bar: logo in the centre ── */}
-        <header className="flex-shrink-0 bg-[#181614] text-white z-40 border-b border-white/[0.06]" style={{ minHeight: 56, paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
+        <header className="flex-shrink-0 bg-[#181614] text-white z-40 border-b border-white/5" style={{ minHeight: 56, paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
           <div className="grid h-14 px-3 md:px-6" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
             {/* Left: back on phones; where you are on desktop */}
             <div className="flex items-center min-w-0">

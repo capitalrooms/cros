@@ -29,7 +29,7 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
         {stats && stats.length > 0 && (
           <div className={`mt-md grid gap-sm ${stats.length >= 4 ? 'grid-cols-2 sm:grid-cols-4' : stats.length === 3 ? 'grid-cols-3' : stats.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
             {stats.map(s => (
-              <div key={s.label} className="rounded-2xl bg-[#F6F3EC]/[0.07] px-md py-sm">
+              <div key={s.label} className="rounded-2xl px-md py-sm" style={{ backgroundColor: 'rgba(246,243,236,0.07)' }}>
                 <p className={`text-xl font-bold tabular-nums sm:text-2xl ${s.tone ? TONE[s.tone] : ''}`} style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{s.value}</p>
                 <p className="text-[11px] uppercase tracking-[0.06em] text-[#F6F3EC]/55">{s.label}</p>
               </div>

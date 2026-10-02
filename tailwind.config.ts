@@ -3,6 +3,8 @@ import type { Config } from 'tailwindcss'
 const config: Config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    // shared components too — classes used only there (e.g. PageHero's) were never generated
+    './components/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
