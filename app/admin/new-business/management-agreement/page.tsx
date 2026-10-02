@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { useCallback, useEffect, useRef, useState, use } from 'react'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { adminFetch } from '@/lib/adminFetch'
 import BackButton from '@/app/components/BackButton'
 import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
 import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAddressString } from '@/app/components/AddressInput'
@@ -112,8 +114,70 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
   const [error,      setError]      = useState<string | null>(null)
   const [success,    setSuccess]    = useState(false)
 
+  // ── Saved agreements (migration 201): generating saves the entry; Open reloads it to edit ──
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const [savedLabel, setSavedLabel] = useState('')
+  const [saved, setSaved] = useState<any[] | null>(null)
+  const [savedSetup, setSavedSetup] = useState(false)
+  const skipDefaults = useRef(false)   // reopening an entry keeps its own fees, not the type's defaults
+
+  const loadSaved = useCallback(async () => {
+    const r = await adminFetch('/api/admin/management-agreements')
+    const d = await r.json().catch(() => ({}))
+    setSaved(d.agreements ?? []); setSavedSetup(!!d.setupNeeded)
+  }, [])
+  useEffect(() => { loadSaved() }, [loadSaved])
+
+  function snapshot() {
+    return { agreementType, agreementDate, entityType, clientTitle, clientFirst, clientLast, hasJointLandlord, client2Title, client2First, client2Last,
+      companyName, companyReg, companyCountry, clientAddrValue, propAddresses, managementFee, letFee, floatAmount, epcCost, commencementDate, inventoryNote, rcTerms, pickedLandlordId }
+  }
+  async function openSaved(id: string) {
+    setError(null); setSuccess(false)
+    const r = await adminFetch(`/api/admin/management-agreements?id=${id}`)
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) { setError(d.error ?? 'Could not open it'); return }
+    const f = d.agreement.form ?? {}
+    if (f.agreementType && f.agreementType !== agreementType) skipDefaults.current = true
+    if (f.agreementType) setAgreementType(f.agreementType)
+    if (f.agreementDate) setAgreementDate(f.agreementDate)
+    if (f.entityType) setEntityType(f.entityType)
+    setClientTitle(f.clientTitle ?? 'Mr'); setClientFirst(f.clientFirst ?? ''); setClientLast(f.clientLast ?? '')
+    setHasJointLandlord(!!f.hasJointLandlord); setClient2Title(f.client2Title ?? 'Mrs'); setClient2First(f.client2First ?? ''); setClient2Last(f.client2Last ?? '')
+    setCompanyName(f.companyName ?? ''); setCompanyReg(f.companyReg ?? ''); setCompanyCountry(f.companyCountry ?? 'England and Wales')
+    if (f.clientAddrValue) setClientAddrValue(f.clientAddrValue)
+    if (Array.isArray(f.propAddresses) && f.propAddresses.length) setPropAddresses(f.propAddresses)
+    if (f.managementFee != null) setManagementFee(f.managementFee)
+    if (f.letFee != null) setLetFee(f.letFee)
+    if (f.floatAmount != null) setFloatAmount(f.floatAmount)
+    if (f.epcCost != null) setEpcCost(f.epcCost)
+    if (f.commencementDate) setCommencementDate(f.commencementDate)
+    setInventoryNote(f.inventoryNote ?? '')
+    if (f.rcTerms) setRcTerms(f.rcTerms)
+    setPickedLandlordId(f.pickedLandlordId ?? '')
+    setSavedId(id)
+    setSavedLabel(`${d.agreement.client_name || 'this client'} (version ${d.agreement.version})`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  async function openPdf(id: string, mode: 'view' | 'download') {
+    const win = mode === 'view' ? window.open('', '_blank') : null
+    const r = await adminFetch(`/api/admin/management-agreements?id=${id}&pdf=${mode}`)
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok || !d.url) { win?.close(); setError(d.error ?? 'Could not open the PDF'); return }
+    if (win) win.location.href = d.url
+    else { const a = document.createElement('a'); a.href = d.url; a.click() }
+  }
+  async function removeSaved(a: any) {
+    if (!window.confirm(`Remove the agreement for ${a.client_name || 'this client'} from the list? The record and PDF are kept.`)) return
+    const r = await adminFetch(`/api/admin/management-agreements?id=${a.id}`, { method: 'DELETE' })
+    if (!r.ok) { const d = await r.json().catch(() => ({})); setError(d.error ?? 'Could not remove it'); return }
+    if (savedId === a.id) { setSavedId(null); setSavedLabel('') }
+    loadSaved()
+  }
+
   // Update defaults when agreement type changes
   useEffect(() => {
+    if (skipDefaults.current) { skipDefaults.current = false; return }
     const d = DEFAULTS[agreementType]
     setManagementFee(d.managementFee)
     setLetFee(d.letFee)
@@ -178,10 +242,12 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
       inventoryNote:  isRC ? undefined : inventoryNote.trim() || undefined,
       rentCollection: isRC ? rentCollectionTermsFrom(rcTerms) : undefined,
       onboardingId:   onboardingId || undefined,
+      savedId:        savedId || undefined,
+      form:           snapshot(),
     }
 
     try {
-      const res = await fetch('/api/admin/generate-management-agreement', {
+      const res = await adminFetch('/api/admin/generate-management-agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -192,6 +258,8 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
         throw new Error(d.error ?? `HTTP ${res.status}`)
       }
 
+      const newId    = res.headers.get('X-Agreement-Id')
+      if (newId) { setSavedId(newId); loadSaved() }
       const blob     = await res.blob()
       const url      = URL.createObjectURL(blob)
       const a        = document.createElement('a')
@@ -218,14 +286,47 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
 
+      <PageHero
+        eyebrow="New business"
+        title="Management Agreement"
+        subtitle="Fill in the client and properties, then generate it on the letterhead. Every one you generate is saved below, to reopen and edit."
+        stats={saved && saved.length ? [{ label: 'Saved agreements', value: saved.length }] : undefined}
+      />
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">📋 Management Agreement</h1>
-          <p className="text-sm text-neutral-500 mt-xs">
-            Generate a fully populated management agreement on Capital Rooms letterhead.
-            Fill in the client details below and download the signed-ready PDF.
-          </p>
-        </div>
+        {/* ── Saved agreements ── */}
+        <section className="mb-lg rounded-2xl border border-neutral-200 bg-white p-lg">
+          <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
+            <h2 className="text-sm font-bold text-neutral-900">Saved agreements</h2>
+            {savedId && <button type="button" onClick={() => { window.location.href = '/admin/new-business/management-agreement' }} className="text-xs font-semibold text-blue-700 hover:underline">+ Start a new one</button>}
+          </div>
+          {savedSetup && <p className="text-sm text-amber-800">Saving agreements needs migration 201 running in Supabase.</p>}
+          {saved === null && <p className="text-sm text-neutral-400">Loading…</p>}
+          {saved && saved.length === 0 && !savedSetup && <p className="text-sm text-neutral-500">None yet — each agreement you generate is saved here, so you can reopen it and change it rather than starting again.</p>}
+          {saved && saved.length > 0 && (
+            <ul className="divide-y divide-neutral-100">
+              {saved.map(a => (
+                <li key={a.id} className={`flex flex-wrap items-center justify-between gap-sm py-sm ${savedId === a.id ? 'bg-amber-50 -mx-sm px-sm rounded-lg' : ''}`}>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-neutral-900">{a.client_name || 'Client'} <span className="font-normal text-neutral-500">· {TYPE_LABEL[a.agreement_type as AgreementType] ?? a.agreement_type} · v{a.version}</span></span>
+                    <span className="block truncate text-xs text-neutral-500">{(a.properties ?? []).map((p: string) => p.split('\n')[0].split(',')[0]).join(' · ')} · {new Date(a.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  </span>
+                  <span className="flex shrink-0 gap-md text-xs font-semibold">
+                    <button type="button" onClick={() => openSaved(a.id)} className="text-blue-700 hover:underline">{savedId === a.id ? 'Open (editing)' : 'Open & edit'}</button>
+                    <button type="button" onClick={() => openPdf(a.id, 'view')} className="text-blue-700 hover:underline">View</button>
+                    <button type="button" onClick={() => openPdf(a.id, 'download')} className="text-blue-700 hover:underline">Download</button>
+                    <button type="button" onClick={() => removeSaved(a)} className="text-red-600 hover:underline">Remove</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {savedId && savedLabel && (
+          <div className="mb-lg rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">
+            Editing the saved agreement for <strong>{savedLabel}</strong> — generating it again saves the changes as the next version.
+          </div>
+        )}
 
         {onboardingId && (
           <div className="mb-lg rounded-xl bg-blue-50 border border-blue-200 px-md py-sm text-sm text-blue-700">

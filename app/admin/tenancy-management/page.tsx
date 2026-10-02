@@ -89,19 +89,19 @@ export default function TenancyManagementPage() {
     // Fetch tenancies
     const { data: tenanciesData } = await supabase
       .from('tenancies')
-      .select('*, people!person_id(id, full_name, first_name, last_name, email, phone), rooms(id, name), properties(id, name, address)')
+      .select('*, people!person_id(id, full_name, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address)')
       .order('start_date', { ascending: false })
 
     // Active = no notice given yet, tenancy not ended
     // On notice = notice_received_date set, tenancy not yet ended
     // (live tenancies table has no status column — use these date fields instead)
     const today = new Date().toISOString().slice(0, 10)
-    const active = (tenanciesData || []).filter((t: any) =>
-      !t.notice_received_date && (!t.end_date || t.end_date >= today)
-    )
-    const onNotice = (tenanciesData || []).filter((t: any) =>
-      !!t.notice_received_date && (!t.end_date || t.end_date >= today)
-    )
+    // on notice = notice recorded, or (for notices recorded before that date was kept) the room marked on notice with
+    // a move-out date — the same rule as Tenancies. Someone let agreed to move in later isn't counted here.
+    const isOnNotice = (t: any) => !!t.notice_received_date || (t.rooms?.status === 'on_notice' && !!t.end_date)
+    const current = (tenanciesData || []).filter((t: any) => t.start_date <= today && (!t.end_date || t.end_date >= today))
+    const active = current.filter((t: any) => !isOnNotice(t))
+    const onNotice = current.filter(isOnNotice)
 
     setActiveTenancies(active as any)
     setOnNoticeTenancies(onNotice as any)
