@@ -250,7 +250,7 @@ export default function AllUnitsPage() {
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 text-left">
-                  <th className="px-md py-sm w-[120px] text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Code</th>
+                  <th className="px-md py-sm w-[120px] text-[10px] font-semibold uppercase tracking-widest text-neutral-400 hidden sm:table-cell">Code</th>
                   <th className="px-md py-sm text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Room</th>
                   <th className="px-md py-sm text-[10px] font-semibold uppercase tracking-widest text-neutral-400 hidden sm:table-cell">Type</th>
                   <th className="px-md py-sm w-[110px] text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Status</th>
@@ -309,7 +309,7 @@ export default function AllUnitsPage() {
                           }`}
                           onClick={() => router.push(`/admin/properties/${property.id}?tab=units&room=${room.id}`)}
                         >
-                          <td className="px-md py-sm pl-lg font-mono text-[11px] text-neutral-400">
+                          <td className="px-md py-sm pl-lg font-mono text-[11px] text-neutral-400 hidden sm:table-cell">
                             {room.unit_code || '—'}
                           </td>
                           <td className="px-md py-sm">
