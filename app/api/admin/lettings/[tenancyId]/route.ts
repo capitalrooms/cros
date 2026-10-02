@@ -147,5 +147,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     return NextResponse.json({ ok: true })
   }
 
+  // Notice withdrawn (or recorded by mistake): the tenancy runs on, the room shows as occupied again
+  if (b.action === 'cancel_notice') {
+    if (stageOf(t, today) !== 'on_notice') return NextResponse.json({ error: 'There’s no notice to cancel on this tenancy' }, { status: 409 })
+    const reason = String(b.reason ?? '').trim().slice(0, 500)
+    const { error } = await s.from('tenancies').update({ end_date: null, notice_received_date: null }).eq('id', tenancyId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (t.room_id) {
+      // unless someone is already lined up to move in, the room is simply occupied again
+      const { data: incoming } = await s.from('tenancies').select('id').eq('room_id', t.room_id).neq('id', tenancyId).is('let_cancelled_at', null).gt('start_date', today).limit(1)
+      await s.from('rooms').update({ status: 'occupied' }).eq('id', t.room_id)
+      if (incoming?.length) await logTenancyEvent(s, tenancyId, 'notice', 'Heads up: an incoming tenancy is already agreed for this room — check it', caller.email)
+    }
+    await logTenancyEvent(s, tenancyId, 'notice', `Notice cancelled (was moving out ${t.end_date ? new Date(`${t.end_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—'})${reason ? `: ${reason}` : ''}`, caller.email)
+    return NextResponse.json({ ok: true })
+  }
+
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
