@@ -100,15 +100,13 @@ export async function recordHoldingDeposit(s: SupabaseClient, ctx: DepositContex
 export function receiptLetter(rec: HoldingDeposit, ctx: DepositContext, recipientAddress: string): FormalLetter {
   const first = (ctx.applicant.full_name || rec.payer_name).trim().split(/\s+/)[0]
   const deadline = addDays(rec.received_on, 15)
-  const where = [ctx.roomName, ctx.propertyAddress].filter(Boolean).join(', ')
+  const where = [ctx.roomName, ctx.propertyName || ctx.propertyAddress].filter(Boolean).join(', ')
   const rows = [
     `| Receipt number | ${rec.hold_no} |`,
     `| Amount received | **${gbp(Number(rec.amount))}** |`,
     `| Date received | ${longDate(rec.received_on)} |`,
     `| Received from | ${rec.payer_name} |`,
     `| Paid by | ${METHODS[rec.method]}${rec.payer_reference ? ` (reference ${rec.payer_reference})` : ''} |`,
-    `| For | ${where} |`,
-    ...(ctx.rent ? [`| Rent | ${gbp(ctx.rent)} per month |`] : []),
     ...(ctx.startDate ? [`| Intended move-in | ${longDate(ctx.startDate)} |`] : []),
     `| Deadline for agreement | ${longDate(deadline)} |`,
   ]
@@ -121,14 +119,12 @@ export function receiptLetter(rec: HoldingDeposit, ctx: DepositContext, recipien
     subject: `Holding deposit receipt ${rec.hold_no}`,
     salutation: `Dear ${first}`,
     body: [
-      `Thank you for your holding deposit for ${where}. This letter is your receipt — please keep it.`,
+      `Thank you for your holding deposit for ${where}${ctx.rent ? ` at ${gbp(ctx.rent)} per month` : ''}. This letter is your receipt — please keep it.`,
       rows.join('\n'),
       '## What happens to your holding deposit',
-      `We hold it in our client account. If the tenancy goes ahead, it will be put towards ${towards}, with your agreement.`,
-      `The deadline for agreement is ${longDate(deadline)} (15 days after we received it), unless we agree a different date with you in writing.`,
+      `We hold it in our client account. If the tenancy goes ahead, it will be put towards ${towards}, with your agreement. The deadline for agreement is ${longDate(deadline)} (15 days after we received it), unless we agree a different date with you in writing.`,
       `We will refund it in full within 7 days if the landlord decides not to go ahead, or if the tenancy agreement isn’t entered into by the deadline for a reason that isn’t yours.`,
-      `We may keep it if you give false or misleading information that reasonably affects the decision to let to you, if you don’t pass a Right to Rent check, if you decide not to go ahead, or if you don’t take all reasonable steps to enter into the tenancy agreement by the deadline. If we do, we will tell you why in writing within 7 days.`,
-      'These are your rights under the Tenant Fees Act 2019. If anything on this receipt is wrong, please reply and let us know.',
+      `We may keep it if you give false or misleading information that reasonably affects the decision to let to you, if you don’t pass a Right to Rent check, if you decide not to go ahead, or if you don’t take all reasonable steps to enter into the tenancy agreement by the deadline. If we do, we will tell you why in writing within 7 days. These are your rights under the Tenant Fees Act 2019; if anything on this receipt is wrong, please let us know.`,
     ].join('\n\n'),
     closing: 'Yours sincerely',
   }
