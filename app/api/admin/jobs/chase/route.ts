@@ -32,16 +32,23 @@ async function stalledJobs(s: ReturnType<typeof createServiceClient>, ids?: stri
   const today = todayIso()
   const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString()
   let q = s.from('maintenance_tickets')
-    .select('id, title, booked_date, booked_slot, approved_at, created_at, contractor_id, rooms(name), properties(name, address), people!contractor_id(id, first_name, last_name, full_name, company, email)')
+    .select('id, title, booked_date, booked_slot, approved_at, created_at, contractor_id, rooms(name), properties(name, address)')
     .eq('status', 'assigned').not('contractor_id', 'is', null).is('completed_at', null)
   if (ids?.length) q = q.in('id', ids)
-  const { data } = await q
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  // maintenance_tickets.contractor_id has no foreign key to people, so the contractor is looked up separately
+  const cIds = [...new Set(((data ?? []) as any[]).map(t => t.contractor_id))]
+  const { data: cs } = cIds.length
+    ? await s.from('people').select('id, first_name, last_name, full_name, company, email').in('id', cIds)
+    : { data: [] as any[] }
+  const byId = new Map(((cs ?? []) as any[]).map(c => [c.id, c]))
   const out: ChaseJob[] = []
   for (const t of (data ?? []) as any[]) {
     const overdue = !!t.booked_date && t.booked_date < today
     const notBooked = !t.booked_date && (t.approved_at ?? t.created_at) < twoDaysAgo
     if (!ids?.length && !overdue && !notBooked) continue
-    const c = t.people ?? {}
+    const c = byId.get(t.contractor_id) ?? {}
     const first = c.first_name || String(c.full_name || '').split(' ')[0] || 'there'
     const where = [t.rooms?.name, String(t.properties?.name || t.properties?.address || '').split('\n')[0]].filter(Boolean).join(', ')
     const job = `“${t.title || 'Maintenance job'}” at ${where}`
