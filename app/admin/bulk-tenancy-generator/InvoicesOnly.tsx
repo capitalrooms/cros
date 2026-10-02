@@ -69,8 +69,9 @@ function buildGroups(p: Props): Group[] {
     let g = map.get(key)
     if (!g) {
       const code = property ? (looksLikeAddress(property) ? p.propertyCode(property) : property.replace(/[^a-z0-9]/gi, '').toUpperCase()) : 'INV'
-      let number = `${code}${stamp}${isLandlord ? '' : '-T'}`
-      for (let i = 2; used.has(number); i++) number = `${code}${stamp}-${i}`
+      // Same pattern as Letters & Invoices: date, property code, then 01, 02… for more than one that day.
+      let number = `${stamp}${code}`
+      for (let i = 1; used.has(number); i++) number = `${stamp}${code}${String(i).padStart(2, '0')}`
       used.add(number)
       const prop = looksLikeAddress(property) ? p.tidy(property) : property
       const room = l.room_number != null ? `Room ${l.room_number}, ` : ''

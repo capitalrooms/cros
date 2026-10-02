@@ -438,7 +438,7 @@ export default function BulkTenancyGenerator() {
   const property = tidyAddress(invoiceRows[0]?.property_name ?? '')
   const today = new Date()
   const stamp = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
-  const invoiceNumber = property ? `${buildPaymentRef(property, null).slice(0, -2)}${stamp}` : `INV${stamp}`
+  const invoiceNumber = property ? `${stamp}${buildPaymentRef(property, null).slice(0, -2)}` : `${stamp}INV`
   const invoiceBody = () => ({
     landlordName: landlord ? landlordFormalNames(landlord as any) : '',
     addressLines: invoiceAddress.split(/\n|,/).map(x => x.trim()).filter(Boolean),

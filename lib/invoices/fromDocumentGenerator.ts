@@ -7,6 +7,7 @@ export interface DocInvoice {
   recipientName: string
   recipientAddress: string          // one line per row
   propertyAddress: string
+  propertyId?: string | null       // when the invoice is for one of our properties
   invoiceNumber: string
   invoiceDate: string               // YYYY-MM-DD
   title: string
@@ -31,10 +32,15 @@ export function invoiceFromBody(v: unknown, biz: PDFBizSettings): { input?: Land
   }, biz)
 }
 
-/** Default invoice number, same style as Bulk Agreements: a short code for the client plus today's date. */
-export function suggestInvoiceNumber(recipientName: string, date = new Date()): string {
+export const dateStamp = (date = new Date()) =>
+  `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
+
+/** Invoice numbers are the date then the property code, e.g. 20261002013REC; with no property, a short client code. */
+export function invoiceNumberFor(propertyCode: string | null | undefined, recipientName: string, date = new Date()): string {
+  return `${dateStamp(date)}${(propertyCode || '').replace(/[^a-z0-9]/gi, '').toUpperCase() || clientCode(recipientName)}`
+}
+
+function clientCode(recipientName: string): string {
   const words = recipientName.replace(/^(mr|mrs|ms|miss|dr|prof)\.?\s+/i, '').replace(/\b(ltd|limited|llp|plc)\b\.?/gi, '').split(/\s+/).filter(Boolean)
-  const code = (words.length > 1 ? words.map(w => w[0]).join('') : (words[0] ?? 'INV').slice(0, 3)).replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 4) || 'INV'
-  const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`
-  return `${code}${stamp}`
+  return (words.length > 1 ? words.map(w => w[0]).join('') : (words[0] ?? 'INV').slice(0, 3)).replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 4) || 'INV'
 }
