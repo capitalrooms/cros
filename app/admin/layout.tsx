@@ -102,7 +102,7 @@ function ProfileMenu() {
   )
 }
 
-const PHONE_TAB_ROOTS = ['/admin', '/admin/search', '/admin/properties', '/admin/money', '/admin/more']
+const PHONE_TAB_ROOTS = ['/admin', '/admin/search', '/admin/active-rooms', '/admin/money', '/admin/more']
 const isPhoneTabRoot = (p: string) => PHONE_TAB_ROOTS.includes(p)
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

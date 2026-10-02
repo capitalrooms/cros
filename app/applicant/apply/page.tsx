@@ -215,7 +215,8 @@ export default function ApplicantForm() {
       // Fast-track: go straight to reserve page. Standard: show review first.
       setTimeout(() => {
         if (fastTrack && roomId && propertyId) {
-          router.push(`/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}`)
+          // &a= lets the reserve page's "I've paid" button say who it is
+          router.push(`/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}${result.applicantId ? `&a=${result.applicantId}` : ''}`)
         } else {
           router.push(`/applicant/review?applicantId=${result.applicantId}`)
         }

@@ -118,18 +118,23 @@ export default function ReviewPage() {
               },
               {
                 n: '2',
-                title: 'Offer & documents',
-                body: "If you're successful, we'll send you an offer along with the tenancy agreement, renters' rights guide, and property certificates.",
+                title: 'Your offer',
+                body: "If you're successful, we'll email you an offer with a link to reserve the room.",
               },
               {
                 n: '3',
                 title: 'Holding deposit',
-                body: "You'll pay one week's rent as a holding deposit by bank transfer. This reserves the room for you while referencing is completed.",
+                body: "Lock it down! Pay one week's rent as a holding deposit by bank transfer and we'll take the room off the market for you.",
               },
               {
                 n: '4',
                 title: 'Referencing',
-                body: "We run standard referencing checks through our provider (Homeppl). Once those clear, the room is yours.",
+                body: "You'll get an email to start your referencing online through Homeppl — they have a handy online chat if you have questions.",
+              },
+              {
+                n: '5',
+                title: 'Signing & getting the keys',
+                body: "Passed the checks? We'll email the tenancy pack to review, then an Adobe Sign email to sign. On move-in day, meet us at the property for the grand tour and key handover.",
               },
             ].map(step => (
               <li key={step.n} className="flex gap-4">

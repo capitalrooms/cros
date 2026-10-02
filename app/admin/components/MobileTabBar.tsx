@@ -12,7 +12,7 @@ const TABS = [
     icon: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" /> },
   { href: '/admin/search', label: 'Search', match: (p: string) => p.startsWith('/admin/search'),
     icon: <><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></> },
-  { href: '/admin/properties', label: 'Properties', match: (p: string) => p.startsWith('/admin/properties') || p.startsWith('/admin/active-rooms'),
+  { href: '/admin/active-rooms', label: 'Properties', match: (p: string) => p.startsWith('/admin/properties') || p.startsWith('/admin/active-rooms'),
     icon: <><rect x="4" y="3" width="16" height="18" rx="1" /><path d="M8 7h2M14 7h2M8 11h2M14 11h2M10 21v-4h4v4" /></> },
   { href: '/admin/money', label: 'Money', match: (p: string) => p.startsWith('/admin/money') || FINANCE_ROUTES.some(r => p === r || p.startsWith(r + '/')),
     icon: <path d="M16 6.5a4.5 4.5 0 0 0-8 2.8V13m-2 0h9m-9 6h12M8 13c0 3-1 5-2 6" /> },

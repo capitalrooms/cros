@@ -26,6 +26,7 @@ import { getCommsLive } from '@/lib/comms'
 import { loadDepositContext, writeBios, landlordMessage, housemateMessage, holdingAmount, type DepositContext } from '@/lib/lettings/holdingDeposit'
 import { holdingDepositsFor, recordHoldingDeposit, fileHoldingReceipt, longDate, METHODS, type HoldingDeposit } from '@/lib/lettings/holdingReceipt'
 import { createIncomingTenancy, logTenancyEvent } from '@/lib/lettings/incomingTenancy'
+import { processGuideText, PROCESS_GUIDE_SIGNOFF } from '@/lib/lettings/processGuide'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -171,7 +172,7 @@ export async function POST(req: NextRequest) {
       if (!pdf) result.errors.push('Receipt not emailed: the PDF couldn’t be read')
       else {
         const first = (ctx.applicant.full_name || rec.payer_name).trim().split(/\s+/)[0]
-        const text = `Dear ${first},\n\nThank you — we have received your holding deposit of ${gbp(Number(rec.amount))} on ${longDate(rec.received_on)} for ${ctx.roomName}, ${ctx.propertyName}.\n\nYour receipt (${rec.hold_no}) is attached. It also explains what happens to your holding deposit from here. Please keep it.\n\nWe’ll be in touch about referencing shortly.`
+        const text = `Dear ${first},\n\nThank you for reserving ${ctx.roomName}, ${ctx.propertyName} — we’re so excited to welcome you on board! We have received your holding deposit of ${gbp(Number(rec.amount))} on ${longDate(rec.received_on)}, and the room is now off the market for you.\n\nYour receipt (${rec.hold_no}) is attached — please keep it. It also explains what happens to your holding deposit.\n\nSo, what happens now?\n\n${processGuideText(1)}\n\n${PROCESS_GUIDE_SIGNOFF}`
         const { ok, error } = await sendEmail(to, `Your holding deposit receipt — ${rec.hold_no}`, messageHtml(text), {
           req, attachments: [{ filename: `Holding deposit receipt ${rec.hold_no}.pdf`, content: pdf.toString('base64') }],
         })
