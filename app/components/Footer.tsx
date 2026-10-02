@@ -3,8 +3,10 @@
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
-export default function Footer() {
+export default function Footer({ embedded = false }: { embedded?: boolean }) {
   const pathname = usePathname()
+  // Admin draws its own copy at the end of its scrolling content (desktop), so the site-wide one stays out of it
+  if (pathname.startsWith('/admin') && !embedded) return null
   if (pathname === '/login' || pathname.startsWith('/landlord/onboard') || pathname.startsWith('/quote/') || pathname.startsWith('/pack/')) return null
 
   // Admin on a phone is a full-screen app (header, scrolling content, bottom tabs). A footer below it makes

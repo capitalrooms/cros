@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { blockAddress } from '@/lib/formatAddress'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -20,6 +21,7 @@ interface Room {
   tenant_name: string | null
   tenant_id: string | null
   tenancy_id: string | null                 // the current tenancy → its letting file
+  rent: number | null                       // the current tenancy's rent
   incoming: { tenancy_id: string; name: string; start_date: string } | null   // let agreed, moving in later
   move_out_date: string | null
   has_push: boolean
@@ -93,7 +95,7 @@ export default function AllUnitsPage() {
       supabase.from('properties').select('id, name, address, property_code, property_type'),
       supabase.from('rooms').select('id, name, unit_code, room_type, status, property_id'),
       supabase.from('tenancies')
-        .select('id, room_id, person_id, start_date, end_date, notice_received_date, people!person_id(id, first_name, last_name, full_name, email)')
+        .select('id, room_id, person_id, start_date, end_date, notice_received_date, rent_amount, people!person_id(id, first_name, last_name, full_name, email)')
         .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`),
       supabase.from('push_subscriptions').select('person_id').not('person_id', 'is', null),
     ])
@@ -102,7 +104,7 @@ export default function AllUnitsPage() {
 
     // each room's current tenant, and anyone let agreed to move in later (start date still to come)
     const today = new Date().toISOString().split('T')[0]
-    const tenancyByRoom: Record<string, { id: string; person_id: string; name: string; end_date: string | null }> = {}
+    const tenancyByRoom: Record<string, { id: string; person_id: string; name: string; end_date: string | null; rent: number | null }> = {}
     const incomingByRoom: Record<string, { tenancy_id: string; name: string; start_date: string }> = {}
     for (const t of tenanciesData || []) {
       const p = (t as any).people
@@ -113,7 +115,7 @@ export default function AllUnitsPage() {
         const cur = incomingByRoom[t.room_id]
         if (!cur || (t as any).start_date < cur.start_date) incomingByRoom[t.room_id] = { tenancy_id: (t as any).id, name, start_date: (t as any).start_date }
       // "Moves out" only once notice is recorded — a fixed-term end date alone doesn't mean they're leaving
-      } else tenancyByRoom[t.room_id] = { id: (t as any).id, person_id: t.person_id, name, end_date: (t as any).notice_received_date ? (t as any).end_date ?? null : null }
+      } else tenancyByRoom[t.room_id] = { id: (t as any).id, person_id: t.person_id, name, end_date: (t as any).notice_received_date ? (t as any).end_date ?? null : null, rent: (t as any).rent_amount != null ? Number((t as any).rent_amount) : null }
     }
 
     const roomsByProperty: Record<string, Room[]> = {}
@@ -125,6 +127,7 @@ export default function AllUnitsPage() {
         tenant_name: tenancy?.name ?? null,
         tenant_id: tenancy?.person_id ?? null,
         tenancy_id: tenancy?.id ?? null,
+        rent: tenancy?.rent ?? null,
         incoming: incomingByRoom[r.id] ?? null,
         move_out_date: tenancy?.end_date ?? null,
         has_push: tenancy ? pushSet.has(tenancy.person_id) : false,
@@ -184,36 +187,23 @@ export default function AllUnitsPage() {
   const occupied   = allRooms.filter(r => r.status === 'occupied').length
   const available  = allRooms.filter(r => r.status === 'available').length
   const onNotice   = allRooms.filter(r => r.status === 'on_notice').length
+  const letAgreed  = allRooms.filter(r => r.incoming).length
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero
+        title="All Units"
+        subtitle={<>{totalProperties} propert{totalProperties === 1 ? 'y' : 'ies'} · {totalRooms} room{totalRooms === 1 ? '' : 's'} · in address order · every name opens its letting file</>}
+        stats={[
+          { label: 'Occupied', value: occupied },
+          { label: 'Available', value: available, tone: 'good' },
+          { label: 'On notice', value: onNotice, tone: 'warn' },
+          { label: 'Let agreed', value: letAgreed, tone: 'info' },
+        ]}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-
-        {/* ── Header ── */}
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">All Units</h1>
-          <p className="mt-xs text-sm text-neutral-500">
-            {totalProperties} propert{totalProperties === 1 ? 'y' : 'ies'} · {totalRooms} room{totalRooms === 1 ? '' : 's'}
-          </p>
-        </div>
-
-        {/* ── Stats strip ── */}
-        <div className="grid grid-cols-3 gap-sm mb-xl">
-          <div className="rounded-xl bg-white border border-neutral-200 px-md py-sm text-center">
-            <p className="text-2xl font-bold text-neutral-900">{occupied}</p>
-            <p className="text-xs text-neutral-500 mt-0.5">Occupied</p>
-          </div>
-          <div className="rounded-xl bg-white border border-emerald-200 px-md py-sm text-center">
-            <p className="text-2xl font-bold text-emerald-600">{available}</p>
-            <p className="text-xs text-neutral-500 mt-0.5">Available</p>
-          </div>
-          <div className="rounded-xl bg-white border border-amber-200 px-md py-sm text-center">
-            <p className="text-2xl font-bold text-amber-600">{onNotice}</p>
-            <p className="text-xs text-neutral-500 mt-0.5">On notice</p>
-          </div>
-        </div>
 
         {/* ── Search ── */}
         <div className="relative mb-lg">
@@ -255,6 +245,7 @@ export default function AllUnitsPage() {
                   <th className="px-md py-sm text-[10px] font-semibold uppercase tracking-widest text-neutral-400 hidden sm:table-cell">Type</th>
                   <th className="px-md py-sm w-[110px] text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Status</th>
                   <th className="px-md py-sm text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Tenant</th>
+                  <th className="px-md py-sm w-[110px] text-right text-[10px] font-semibold uppercase tracking-widest text-neutral-400 hidden md:table-cell">Rent</th>
                   <th className="px-md py-sm w-[40px]"></th>
                 </tr>
               </thead>
@@ -265,8 +256,8 @@ export default function AllUnitsPage() {
                   return (
                     <Fragment key={property.id}>
                       {/* Property header */}
-                      <tr className="bg-neutral-900">
-                        <td colSpan={6} className="px-md py-sm">
+                      <tr className="bg-[#181614]">
+                        <td colSpan={7} className="px-md py-sm">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-sm">
                               {property.property_code && (
@@ -295,7 +286,7 @@ export default function AllUnitsPage() {
 
                       {isHmo && property.rooms.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="px-md py-sm pl-xl text-xs italic text-neutral-400 border-b border-neutral-100">
+                          <td colSpan={7} className="px-md py-sm pl-xl text-xs italic text-neutral-400 border-b border-neutral-100">
                             No rooms configured yet
                           </td>
                         </tr>
@@ -349,6 +340,9 @@ export default function AllUnitsPage() {
                               </Link>
                             )}
                           </td>
+                          <td className="px-md py-sm text-right tabular-nums text-neutral-600 hidden md:table-cell">
+                            {room.rent != null ? `£${room.rent.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
+                          </td>
                           <td className="px-md py-sm text-center">
                             {room.tenant_id && (
                               room.has_push
@@ -365,13 +359,6 @@ export default function AllUnitsPage() {
             </table>
           </div>
         )}
-
-        {/* ── Footer link to full property list ── */}
-        <div className="mt-lg text-center">
-          <Link href="/admin/active-rooms" className="text-xs text-neutral-400 hover:text-neutral-600 underline underline-offset-2">
-            View property cards →
-          </Link>
-        </div>
       </main>
     </div>
   )

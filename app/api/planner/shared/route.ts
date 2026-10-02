@@ -13,6 +13,7 @@ import { requireSignedIn, type Caller } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -94,15 +95,17 @@ export async function GET(req: NextRequest) {
     const board = (boards ?? []).find(b => b.id === want) ?? (boards ?? [])[0] ?? null
     const [{ data: people }, { data: properties }] = await Promise.all([
       s.from('people').select('id, first_name, last_name, full_name, company, role').in('role', ['cleaner', 'contractor', 'lettings', 'landlord']).order('first_name'),
-      s.from('properties').select('id, name').order('name'),
+      s.from('properties').select('id, name, address, property_code'),
     ])
     return NextResponse.json({
       office: true,
       boards: (boards ?? []).map(b => ({ id: b.id, title: b.title, kind: b.kind, member: name(b.people), role: b.people?.role, personId: b.member_person_id, open: ((open ?? []) as any[]).filter(o => o.board_id === b.id).length })),
       board: board ? { id: board.id, title: board.title, member: name(board.people), role: board.people?.role } : null,
       entries: board ? await loadBoard(s, board) : [],
-      people: ((people ?? []) as any[]).map(p => ({ id: p.id, name: name(p), role: p.role })),
-      properties: ((properties ?? []) as any[]).map(p => ({ id: p.id, name: String(p.name ?? '').split('\n')[0] })),
+      // staff first (cleaners, contractors, lettings), then landlords; properties in address order
+      people: ((people ?? []) as any[]).map(p => ({ id: p.id, name: name(p), role: p.role }))
+        .sort((a, b) => (a.role === 'landlord' ? 1 : 0) - (b.role === 'landlord' ? 1 : 0) || a.name.localeCompare(b.name)),
+      properties: sortPropertiesNumerically((properties ?? []) as any[]).map((p: any) => ({ id: p.id, name: String(p.name ?? '').split('\n')[0] })),
     })
   }
   const { data: board, error } = await s.from('planner_shared_boards').select('*').eq('member_person_id', caller.personId).is('archived_at', null).maybeSingle() as { data: any; error: any }

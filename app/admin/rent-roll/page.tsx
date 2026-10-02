@@ -14,6 +14,7 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import ExportButtons from '@/app/components/ExportButtons'
 import type { RentRoll, RollRoom } from '@/lib/finance/rentRoll'
@@ -42,8 +43,8 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
   const [roll, setRoll] = useState<RentRoll | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [open, setOpen] = useState<Record<string, boolean>>({})
   const [filter, setFilter] = useState<'all' | 'attention' | 'ready'>('all')
+  const [sel, setSel] = useState<string | null>(null)   // the property open on the right
 
   const load = useCallback(async (m: string) => {
     setLoading(true); setError('')
@@ -74,46 +75,50 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
   }))), [props])
   const prevAgent = roll?.source === 'previous_agent'
 
+  const selected = props.find(p => p.id === sel) ?? props[0] ?? null
+  const pick = (id: string) => {
+    setSel(id)
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) setTimeout(() => document.getElementById('rr-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+  }
+  const paidCount = (p: (typeof props)[number]) => p.rooms.filter(r => r.status === 'paid' || r.status === 'over' || r.status === 'collected_by_previous_agent').length
+
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Rent roll" />
-      <div className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-md flex flex-wrap items-start justify-between gap-md">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Rent roll</h1>
-            <p className="mt-xs text-sm text-neutral-500">Step 1 of the month: what’s due, what’s in, what’s missing. Then prepare each property’s statement, then the <Link href={`/admin/payment-run?month=${month}`} className="font-semibold text-neutral-900 underline">payment run</Link>.</p>
-          </div>
-          <div className="flex items-center gap-sm">
-            <button onClick={() => go(shift(month, -1))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" aria-label="Previous month">‹</button>
-            <input type="month" value={month} onChange={e => e.target.value && go(e.target.value)} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900" />
-            <button onClick={() => go(shift(month, 1))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" aria-label="Next month">›</button>
-            <Link href="/admin/bank-import" className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-bold text-white">Import bank CSV</Link>
-          </div>
-        </div>
-
+      <PageHero
+        eyebrow="Step 1 of 3 · monthly cycle"
+        title="Rent roll"
+        subtitle={<>{monthLabel(month)} — what’s due, what’s in, what’s missing. Then prepare each property’s statement, then the payment run.</>}
+        actions={<>
+          <button onClick={() => go(shift(month, -1))} className="rounded-xl border border-[#F6F3EC]/25 px-md py-xs text-sm text-[#F6F3EC]" aria-label="Previous month">‹</button>
+          <input type="month" value={month} onChange={e => e.target.value && go(e.target.value)} className="rounded-xl border border-[#F6F3EC]/25 bg-transparent px-md py-xs text-sm text-[#F6F3EC] [color-scheme:dark]" />
+          <button onClick={() => go(shift(month, 1))} className="rounded-xl border border-[#F6F3EC]/25 px-md py-xs text-sm text-[#F6F3EC]" aria-label="Next month">›</button>
+          <HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>
+        </>}
+        stats={roll ? [
+          { label: prevAgent ? 'Rent collected' : 'Rent due', value: gbp(prevAgent ? roll.totals.received : roll.totals.due) },
+          { label: 'Received', value: gbp(roll.totals.received), tone: 'good' },
+          { label: 'Missing', value: gbp(roll.totals.missing), tone: roll.totals.missing > 0 ? 'bad' : undefined },
+          { label: 'Ready for statements', value: gbp(roll.totals.ready), tone: 'warn' },
+        ] : undefined}
+        tabs={[
+          { label: '1 · Rent roll', href: `/admin/rent-roll?month=${month}`, active: true },
+          { label: '2 · Statements', href: '/admin/statements' },
+          { label: '3 · Payment run', href: `/admin/payment-run?month=${month}` },
+          { label: 'Bank import', href: '/admin/bank-import' },
+          { label: 'Arrears', href: '/admin/arrears' },
+          { label: 'Deposits', href: '/admin/deposits' },
+          { label: 'Client money', href: '/admin/client-money' },
+        ]}
+      />
+      <div className="mx-auto max-w-6xl px-lg py-lg">
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
         {prevAgent && <p className="mb-md rounded-xl border border-neutral-200 bg-white px-lg py-md text-sm text-neutral-600">{monthLabel(month)} is before CROS took over collecting rent ({shortDate(roll!.takeover)}). This shows the rent on the statements imported from the previous agent — they collected it and paid the landlords.</p>}
 
-        {roll && (
-          <div className="mb-md grid grid-cols-2 gap-sm md:grid-cols-4">
-            {[
-              { label: prevAgent ? 'Rent collected' : 'Rent due', value: gbp(prevAgent ? roll.totals.received : roll.totals.due), cls: 'text-neutral-900' },
-              { label: 'Received', value: gbp(roll.totals.received), cls: 'text-green-700' },
-              { label: 'Missing', value: gbp(roll.totals.missing), cls: roll.totals.missing > 0 ? 'text-red-700' : 'text-neutral-900' },
-              { label: 'Ready for statements', value: gbp(roll.totals.ready), cls: 'text-neutral-900' },
-            ].map(c => (
-              <div key={c.label} className="rounded-xl bg-white px-md py-sm">
-                <p className="text-xs text-neutral-500">{c.label}</p>
-                <p className={`text-xl font-bold tabular-nums ${c.cls}`}>{c.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
         <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
-          <div className="inline-flex rounded-lg bg-white p-0.5 text-xs font-semibold">
+          <div className="inline-flex rounded-xl bg-white p-0.5 text-xs font-semibold">
             {([['all', 'All properties'], ['attention', 'Needs attention'], ['ready', 'Ready for a statement']] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setFilter(k)} className={`rounded-md px-md py-xs ${filter === k ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>
+              <button key={k} onClick={() => setFilter(k)} className={`rounded-lg px-md py-xs ${filter === k ? 'bg-[#181614] text-white' : 'text-neutral-600'}`}>{l}</button>
             ))}
           </div>
           <ExportButtons title={`Rent roll ${monthLabel(month)}`} filename={`rent-roll-${month}`}
@@ -123,54 +128,69 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
             rows={exportRows} totals={roll ? { property: 'Total', due: roll.totals.due, received: roll.totals.received } : undefined} />
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-neutral-900 text-left text-xs font-bold text-white">
-              <tr>
-                <th className="px-md py-sm">Property / room</th><th className="px-md py-sm">Tenant · ref</th>
-                <th className="px-md py-sm text-right">Due</th><th className="px-md py-sm text-right">Received</th>
-                <th className="px-md py-sm">Date in</th><th className="px-md py-sm">Receipt · bank file</th><th className="px-md py-sm">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && <tr><td colSpan={7} className="px-md py-xl text-center text-neutral-500">Loading…</td></tr>}
-              {!loading && props.map(p => {
-                const isOpen = open[p.id] ?? true
-                const paid = p.rooms.filter(r => r.status === 'paid' || r.status === 'over' || r.status === 'collected_by_previous_agent').length
-                return [
-                  <tr key={p.id} className="border-t border-neutral-200 bg-neutral-50">
-                    <td className="px-md py-sm">
-                      <button onClick={() => setOpen({ ...open, [p.id]: !isOpen })} className="font-bold text-neutral-900" aria-expanded={isOpen}>{isOpen ? '▾' : '▸'} {p.name}</button>
-                      <span className="ml-sm text-xs text-neutral-500">{p.landlord}</span>
-                    </td>
-                    <td className="px-md py-sm text-xs text-neutral-600">{p.rooms.length} room{p.rooms.length === 1 ? '' : 's'} · {paid} paid</td>
-                    <td className="px-md py-sm text-right font-semibold tabular-nums">{prevAgent ? '' : gbp(p.due)}</td>
-                    <td className="px-md py-sm text-right font-semibold tabular-nums">{gbp(p.received)}</td>
-                    <td colSpan={2} className="px-md py-sm text-xs text-neutral-600">
-                      {p.statements.map(st => <span key={st.id} className="mr-sm whitespace-nowrap">{st.reference} · {st.state === 'paid' ? 'paid' : st.state}{st.source === 'import' ? ' (imported)' : ''}</span>)}
-                    </td>
-                    <td className="px-md py-sm">
-                      {!prevAgent && p.readyForStatement > 0
-                        ? <Link href={`/admin/statements/prepare?property=${p.id}&month=${month}`} className="whitespace-nowrap rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Prepare statement · {gbp(p.readyForStatement)}</Link>
-                        : !prevAgent ? <span className="text-xs text-neutral-400">Nothing new to pay over</span> : null}
-                    </td>
-                  </tr>,
-                  ...(isOpen ? p.rooms.map((r, i) => (
-                    <tr key={p.id + i} className="border-t border-neutral-100">
-                      <td className="px-md py-xs pl-xl text-neutral-900">{r.room}{r.chargeNo ? <span className="ml-sm font-mono text-[11px] text-neutral-400">{r.chargeNo}</span> : null}</td>
-                      <td className="px-md py-xs text-neutral-700">{r.tenancyId ? <Link href={`/admin/lettings/${r.tenancyId}?tab=money&from=${encodeURIComponent(`/admin/rent-roll?month=${month}`)}`} className="hover:text-blue-700 hover:underline">{r.tenant}</Link> : r.tenant}{r.reference ? <span className="ml-sm font-mono text-[11px] text-neutral-500">{r.reference}</span> : null}</td>
-                      <td className="px-md py-xs text-right tabular-nums">{gbp(r.due)}</td>
-                      <td className="px-md py-xs text-right tabular-nums">{gbp(r.received)}{r.difference != null && Math.abs(r.difference) >= 0.01 && r.received > 0 ? <span className={`block text-[11px] ${r.difference < 0 ? 'text-amber-700' : 'text-blue-700'}`}>{r.difference < 0 ? `${gbp(-r.difference)} short` : `${gbp(r.difference)} over`}</span> : null}</td>
-                      <td className="whitespace-nowrap px-md py-xs text-xs">{r.receipts.map(x => shortDate(x.date)).filter(Boolean).join(', ')}</td>
-                      <td className="px-md py-xs font-mono text-[11px] text-neutral-600">{r.receipts.map((x, k) => <span key={k} className="block">{[x.number, x.file].filter(Boolean).join(' · ') || x.how}</span>)}{r.statement ? <span className="block text-neutral-400">on {r.statement}</span> : null}</td>
-                      <td className="px-md py-xs"><span className={`whitespace-nowrap rounded-full px-sm py-0.5 text-[11px] font-semibold ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span></td>
-                    </tr>
-                  )) : []),
-                ]
-              })}
-              {!loading && roll && !props.length && <tr><td colSpan={7} className="px-md py-xl text-center text-sm text-neutral-500">Nothing to show for {monthLabel(month)} with this filter.</td></tr>}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(0,1fr)_420px]">
+          {/* ── Properties ── */}
+          <section className="overflow-hidden rounded-2xl bg-white">
+            <div className="grid grid-cols-[minmax(0,1fr)_90px_110px_110px] gap-sm border-b border-neutral-200 px-md py-sm text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+              <span>Property</span><span>Rooms</span><span className="text-right">{prevAgent ? '' : 'Due'}</span><span className="text-right">Received</span>
+            </div>
+            {loading && <p className="px-md py-xl text-center text-sm text-neutral-500">Loading…</p>}
+            {!loading && props.map(p => {
+              const on = selected?.id === p.id
+              return (
+                <button key={p.id} type="button" onClick={() => pick(p.id)} aria-pressed={on}
+                  className={`grid w-full grid-cols-[minmax(0,1fr)_90px_110px_110px] items-center gap-sm border-b border-neutral-100 px-md py-sm text-left text-sm ${on ? 'bg-[#181614] text-[#F6F3EC]' : 'hover:bg-neutral-50'}`}>
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">{p.name}</span>
+                    <span className={`block truncate text-xs ${on ? 'text-[#F6F3EC]/55' : 'text-neutral-500'}`}>{p.landlord}{p.missing > 0 ? ' · ' : ''}{p.missing > 0 && <span className={on ? 'text-[#F28B82]' : 'text-red-700'}>{gbp(p.missing)} missing</span>}{p.readyForStatement > 0 && !prevAgent ? <span className={on ? 'text-[#E8B06B]' : 'text-amber-700'}> · ready {gbp(p.readyForStatement)}</span> : null}</span>
+                  </span>
+                  <span className={`text-xs ${on ? 'text-[#F6F3EC]/70' : 'text-neutral-600'}`}>{paidCount(p)}/{p.rooms.length} paid</span>
+                  <span className="text-right tabular-nums">{prevAgent ? '' : gbp(p.due)}</span>
+                  <span className="text-right tabular-nums">{gbp(p.received)}</span>
+                </button>
+              )
+            })}
+            {!loading && roll && !props.length && <p className="px-md py-xl text-center text-sm text-neutral-500">Nothing to show for {monthLabel(month)} with this filter.</p>}
+          </section>
+
+          {/* ── The selected property ── */}
+          <aside id="rr-detail" className="h-fit space-y-md rounded-2xl bg-white p-lg lg:sticky lg:top-md">
+            {!selected ? <p className="text-sm text-neutral-500">Choose a property.</p> : <>
+              <div>
+                {selected.code && <p className="font-mono text-[11px] text-neutral-500">{selected.code}</p>}
+                <h2 className="text-xl font-extrabold text-neutral-900" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{selected.name}</h2>
+                <p className="text-sm text-neutral-600">{selected.landlord} · {selected.rooms.length} room{selected.rooms.length === 1 ? '' : 's'}{prevAgent ? '' : ` · ${gbp(selected.due)} due`} · {gbp(selected.received)} in</p>
+              </div>
+              <ul className="divide-y divide-neutral-100 rounded-xl bg-neutral-50">
+                {selected.rooms.map((r, i) => (
+                  <li key={i} className="px-md py-sm text-sm">
+                    <div className="flex items-baseline justify-between gap-sm">
+                      <span className="min-w-0"><b>{r.room}</b> · {r.tenancyId ? <Link href={`/admin/lettings/${r.tenancyId}?tab=money&from=${encodeURIComponent(`/admin/rent-roll?month=${month}`)}`} className="text-blue-700 hover:underline">{r.tenant}</Link> : r.tenant}</span>
+                      <span className="shrink-0 tabular-nums">{gbp(r.received)}{!prevAgent && r.due != null ? <span className="text-neutral-400"> / {gbp(r.due)}</span> : null}</span>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-sm gap-y-0.5 text-[11px] text-neutral-500">
+                      <span className={`rounded-full px-sm py-0.5 font-semibold ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span>
+                      {r.reference && <span className="font-mono">{r.reference}</span>}
+                      {r.chargeNo && <span className="font-mono">{r.chargeNo}</span>}
+                      {r.receipts.map((x, k) => <span key={k} className="font-mono">{[shortDate(x.date), x.number, x.file].filter(Boolean).join(' · ') || x.how}</span>)}
+                      {r.difference != null && Math.abs(r.difference) >= 0.01 && r.received > 0 && <span className={r.difference < 0 ? 'text-amber-700' : 'text-blue-700'}>{r.difference < 0 ? `${gbp(-r.difference)} short` : `${gbp(r.difference)} over`}</span>}
+                      {r.statement && <span>on {r.statement}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {selected.statements.length > 0 && (
+                <p className="text-xs text-neutral-600">Statements: {selected.statements.map(st => `${st.reference} · ${st.state === 'paid' ? 'paid' : st.state}${st.source === 'import' ? ' (imported)' : ''}`).join(' · ')}</p>
+              )}
+              {!prevAgent && (selected.readyForStatement > 0
+                ? <Link href={`/admin/statements/prepare?property=${selected.id}&month=${month}`} className="block rounded-xl bg-[#181614] py-sm text-center text-sm font-bold text-white hover:bg-black">Prepare statement · {gbp(selected.readyForStatement)}</Link>
+                : <p className="rounded-xl bg-neutral-50 py-sm text-center text-sm text-neutral-500">Nothing new to pay over</p>)}
+              <div className="grid grid-cols-2 gap-sm text-sm font-semibold">
+                <Link href={`/admin/properties/${selected.id}`} className="rounded-xl border border-neutral-300 py-xs text-center hover:bg-neutral-50">The property</Link>
+                <Link href="/admin/arrears" className="rounded-xl border border-neutral-300 py-xs text-center hover:bg-neutral-50">Arrears</Link>
+              </div>
+            </>}
+          </aside>
         </div>
         {roll && !prevAgent && roll.properties.some(p => p.rooms.some(r => r.status === 'no_charge')) && (
           <p className="mt-sm text-xs text-neutral-500">“No charge raised” — rent charges are raised automatically on the 1st. To raise them now, use <Link href="/admin/rent-charges" className="underline">Rent charges</Link>.</p>
