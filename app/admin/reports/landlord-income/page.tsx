@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const gbp = (n: number) => `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -59,12 +60,9 @@ export default function LandlordIncomeReport() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="Landlord Income Analysis" />
+      <PageHero eyebrow="Finance · Reports" title="Landlord Income Analysis" subtitle="Income and deductions per landlord over time." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Landlord Income Analysis</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Income and deductions per landlord over time.</p>
-        </div>
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg space-y-md">
           <div className="flex gap-sm">
             {(['tax', 'custom'] as const).map(m => (

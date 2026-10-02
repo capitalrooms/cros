@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const fmtDate = (s: string | null) => s ? new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -44,12 +45,9 @@ export default function MaintenanceReport() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="Maintenance Jobs" />
+      <PageHero eyebrow="Finance · Reports" title="Maintenance Jobs" subtitle="Job history with status, priority and contractor." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Maintenance Jobs</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Job history with status, priority and contractor.</p>
-        </div>
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg flex flex-wrap gap-md items-end">
           <div>
             <label className="block text-xs font-semibold text-neutral-500 mb-xs">From</label>

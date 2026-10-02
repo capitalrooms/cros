@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -286,15 +287,12 @@ export default function DocumentsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Compliance · Documents" title="Documents" subtitle="Upload, manage, and file documents — certificates, contracts, tenancy agreements, and more" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
           <div className="flex items-center justify-between mb-lg">
             <div>
-              <h1 className="text-2xl font-bold text-neutral-900">📁 Documents</h1>
-              <p className="mt-sm text-sm text-neutral-600">
-                Upload, manage, and file documents — certificates, contracts, tenancy agreements, and more
-              </p>
             </div>
             {badgeCount > 0 && (
               <div className="rounded-full bg-red-600 text-white px-md py-sm text-sm font-bold">

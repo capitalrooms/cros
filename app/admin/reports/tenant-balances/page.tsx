@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 
@@ -46,12 +47,9 @@ export default function TenantBalancesReport() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="Tenant Balances" />
+      <PageHero eyebrow="Finance · Reports" title="Tenant Balances" subtitle="Live arrears and credit per active tenant." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Tenant Balances</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Live arrears and credit per active tenant.</p>
-        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-md">
           <div className="bg-white rounded-2xl border border-neutral-200 px-lg py-md text-center">
             <p className="text-xl font-bold text-neutral-900">{rows?.length ?? '—'}</p>

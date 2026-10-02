@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const gbp = (n: number) => `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -35,12 +36,9 @@ export default function TenancyAnalysisReport() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="Tenancy Analysis" />
+      <PageHero eyebrow="Finance · Reports" title="Tenancy Analysis" subtitle="Active, on notice, void counts and monthly move chart." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Tenancy Analysis</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Active, on notice, void counts and monthly move chart.</p>
-        </div>
         {/* Summary tiles */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-md">
           {[

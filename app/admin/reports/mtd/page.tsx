@@ -3,6 +3,7 @@
 // landlord (or their accountant) for their quarterly update. Suggested categories only; the accountant confirms.
 import { useEffect, useMemo, useState } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import ExportButtons from '@/app/components/ExportButtons'
 import { adminFetch } from '@/lib/adminFetch'
@@ -32,9 +33,8 @@ export default function MtdReportPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="Making Tax Digital" />
+      <PageHero eyebrow="Finance · Reports" title="Making Tax Digital — quarterly figures" subtitle="Property income and expenses per landlord for each MTD quarter, in HMRC’s categories, from every landlord statement (cash basis). For the landlord or their accountant to submit — the categories are suggestions for them to confirm." />
       <div className="mx-auto max-w-6xl px-lg py-xl">
-        <h1 className="text-2xl font-bold text-neutral-900">Making Tax Digital — quarterly figures</h1>
-        <p className="mt-xs mb-md text-sm text-neutral-500">Property income and expenses per landlord for each MTD quarter, in HMRC’s categories, from every landlord statement (cash basis). For the landlord or their accountant to submit — the categories are suggestions for them to confirm.</p>
         <div className="mb-md flex flex-wrap items-center justify-between gap-sm">
           <div className="flex flex-wrap gap-sm">
             <select value={year} onChange={e => setYear(Number(e.target.value))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm">

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const gbp = (n: number | null) => n == null ? '—' : `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2 })}`
@@ -65,12 +66,9 @@ export default function RentDemandsReport() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="Rent Demands" />
+      <PageHero eyebrow="Finance · Reports" title="Rent Demands" subtitle="Rent due in a date range, with outstanding filter." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Rent Demands</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Rent due in a date range, with outstanding filter.</p>
-        </div>
         {/* Filters */}
         <div className="bg-white rounded-2xl border border-neutral-200 p-xl space-y-lg">
           

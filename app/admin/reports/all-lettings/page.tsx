@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const gbp = (n: number) => `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
@@ -30,12 +31,9 @@ export default function AllLettingsReport() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="All Lettings" />
+      <PageHero eyebrow="Finance · Reports" title="All Lettings" subtitle="Every tenancy with dates, rent, deposit and status." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">All Lettings</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Every tenancy with dates, rent, deposit and status.</p>
-        </div>
         <div className="flex flex-wrap gap-md items-center">
           <div className="flex rounded-lg border border-neutral-200 bg-white overflow-hidden">
             {(['active', 'ended', 'all'] as Filter[]).map(f => (

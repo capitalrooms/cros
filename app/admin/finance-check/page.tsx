@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -43,9 +44,9 @@ export default function FinanceCheckPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Finance health check" />
+      <PageHero eyebrow="Finance" title="Finance health check" />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Finance health check</h1>
           <p className="mt-xs text-sm text-neutral-600">{checks ? (problems ? `${problems} thing${problems === 1 ? '' : 's'} to sort so rent, statements and client money add up.` : 'Everything checks out.') : 'Checking…'}</p>
         </div>
         {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}

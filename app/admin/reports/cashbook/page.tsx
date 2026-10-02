@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const gbp = (n: number) => `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -29,12 +30,9 @@ export default function CashbookReport() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="Cashbook" />
+      <PageHero eyebrow="Finance · Reports" title="Cashbook" subtitle="All money in and out for a selected period." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Cashbook</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">All money in and out for a selected period.</p>
-        </div>
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg flex flex-wrap gap-md items-end">
           <div>
             <label className="block text-xs font-semibold text-neutral-500 mb-xs">From</label>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
@@ -247,14 +248,13 @@ export default function RentChargesPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Rent Charges" />
+      <PageHero eyebrow="Finance" title="Rent Charges" subtitle="Track, generate and mark rent payments by month" />
 
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Header */}
         <div className="mb-xl flex flex-wrap items-end justify-between gap-md">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Rent Charges</h1>
-            <p className="text-sm text-neutral-500 mt-xs">Track, generate and mark rent payments by month</p>
           </div>
           <div className="flex items-center gap-sm flex-wrap">
             <input

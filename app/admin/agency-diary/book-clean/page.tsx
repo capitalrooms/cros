@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
@@ -111,6 +112,7 @@ export default function BookCleanPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/appointments" />} />
+      <PageHero eyebrow="Management · Diary" title="Book Cleaner" subtitle="Select cleaning jobs to schedule." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <Link
@@ -121,12 +123,6 @@ export default function BookCleanPage() {
         </Link>
 
         {/* Header — Balanced Spacing */}
-        <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">
-            🧹 Book Cleaner
-          </h1>
-          <p className="text-base text-neutral-600">Select cleaning jobs to schedule.</p>
-        </div>
 
         {error && (
           <div className="mb-lg p-lg rounded-xl bg-red-100 border border-red-300 text-red-900">

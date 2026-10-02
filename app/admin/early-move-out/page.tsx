@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { displayName } from '@/lib/people'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -136,12 +137,11 @@ export default function AdminEarlyMoveOutPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Lettings" title="Early Move-Out Requests" subtitle="Tenant requests to end tenancies early" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Early Move-Out Requests</h1>
-            <p className="text-sm text-neutral-500 mt-xs">Tenant requests to end tenancies early</p>
           </div>
           <div className="flex gap-sm">
             {(['active', 'all'] as const).map(f => (

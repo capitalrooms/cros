@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const fmtDate = (s: string | null) => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
@@ -37,12 +38,9 @@ export default function UtilitiesReport() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/reports" />} title="Utility Expiry Dates" />
+      <PageHero eyebrow="Finance · Reports" title="Utility Expiry Dates" subtitle="Gas, electrical, fire detection cert expiries." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Utility Expiry Dates</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Gas, electrical, fire detection cert expiries.</p>
-        </div>
         <div className="flex flex-wrap gap-md items-center">
           <div className="flex rounded-lg border border-neutral-200 bg-white overflow-hidden">
             {([

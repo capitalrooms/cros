@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import DocUploadDrawer from '@/components/DocUploadDrawer'
 import DocViewDrawer from '@/components/DocViewDrawer'
@@ -74,12 +75,9 @@ export default function PropertyDocumentsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Portfolio" title="Property Documents" subtitle="Evacuation plans, house rules, safety info, tenancy agreements — click a property to upload" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">📁 Property Documents</h1>
-          <p className="text-sm text-neutral-500 mt-xs">Evacuation plans, house rules, safety info, tenancy agreements — click a property to upload</p>
-        </div>
 
         {/* Summary bar */}
         <div className="mb-lg flex flex-wrap gap-lg rounded-2xl border border-neutral-200 bg-white px-lg py-md items-center">

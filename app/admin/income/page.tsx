@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
@@ -399,13 +400,13 @@ export default function IncomeDashboard() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Finance" title="Agency Fee Income" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Header */}
         <div className="mb-xl flex flex-wrap items-end justify-between gap-md">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Agency Fee Income</h1>
             <p className="mt-xs text-sm text-neutral-500">
               {hasImports
                 ? `Actual income from ${importedMonths} imported 10ninety statements · Live estimate shown separately`

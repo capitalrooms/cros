@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { categoryLabel, categoryEmoji } from '@/lib/expense-categories'
 import type { ExtractedStatement } from '@/lib/ai-statement'
@@ -180,15 +181,11 @@ export default function StatementImportPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/statements" />} />
+      <PageHero eyebrow="Finance" title="Upload a month of statements" subtitle="Drop all of a month’s PDF statements at once — one per property. Each is read, matched to its property and checked; anything that doesn’t look right is held back for you to check before it’s saved." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Header */}
         <div className="mb-2xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Upload a month of statements</h1>
-          <p className="text-sm text-neutral-500 mt-xs">
-            Drop all of a month’s PDF statements at once — one per property. Each is read, matched to its property and
-            checked; anything that doesn’t look right is held back for you to check before it’s saved.
-          </p>
           <label className="mt-md flex items-start gap-sm rounded-xl bg-white p-md text-sm text-neutral-700 cursor-pointer">
             <input type="checkbox" checked={paidOutside} onChange={e => setPaidOutside(e.target.checked)} className="mt-[3px]" />
             <span><strong>Already paid to the landlords (by 10ninety).</strong> Recorded as paid on each statement’s date, so they never show as owed on Payouts. Untick only for statements CROS will pay.</span>

@@ -8,7 +8,8 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 export interface HeroStat { label: string; value: ReactNode; tone?: 'good' | 'warn' | 'info' | 'bad'; href?: string }
-export interface HeroTab { label: string; href: string; active?: boolean }
+/** A tab on the band's bottom edge: a link (href), or a button that switches the page's own view (onClick). */
+export interface HeroTab { label: ReactNode; href?: string; onClick?: () => void; active?: boolean; key?: string }
 
 const TONE: Record<string, string> = { good: 'text-[#6EAF8B]', warn: 'text-[#E8B06B]', info: 'text-[#8FB4F0]', bad: 'text-[#F28B82]' }
 
@@ -41,12 +42,13 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
         )}
         {tabs && tabs.length > 0 ? (
           <nav className="-mx-lg mt-md flex gap-0.5 overflow-x-auto px-lg" style={{ scrollbarWidth: 'none' }}>
-            {tabs.map(t => (
-              <Link key={t.href} href={t.href} prefetch={false}
-                className={`whitespace-nowrap rounded-t-xl px-md py-sm text-sm ${t.active ? 'bg-neutral-100 font-bold text-[#181614]' : 'text-[#F6F3EC]/65 hover:text-[#F6F3EC]'}`}>
-                {t.label}
-              </Link>
-            ))}
+            {tabs.map((t, i) => {
+              const cls = `whitespace-nowrap rounded-t-xl px-md py-sm text-sm ${t.active ? 'bg-neutral-100 font-bold text-[#181614]' : 'text-[#F6F3EC]/65 hover:text-[#F6F3EC]'}`
+              const k = t.key ?? t.href ?? String(i)
+              return t.href
+                ? <Link key={k} href={t.href} prefetch={false} className={cls}>{t.label}</Link>
+                : <button key={k} type="button" onClick={t.onClick} aria-pressed={!!t.active} className={cls}>{t.label}</button>
+            })}
           </nav>
         ) : <div className="h-lg" />}
       </div>

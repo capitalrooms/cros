@@ -4,6 +4,7 @@
 // edit, then download (to print or post) or email it to the tenants living there now.
 import { use, useCallback, useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { LONDON_COUNCILS } from '@/lib/councils/london'
@@ -90,9 +91,9 @@ export default function HmoNoticePage({ params }: { params: Promise<{ id: string
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={back} title="HMO licence notice" />
+      <PageHero eyebrow="Portfolio" title="HMO licence application notice" />
       <div className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-md">
-          <h1 className="text-2xl font-bold text-neutral-900">HMO licence application notice</h1>
           <p className="mt-xs text-sm text-neutral-600">{data.property.address}</p>
         </div>
 

@@ -549,7 +549,8 @@ export function NoticeTab({ file, patch }: { file: LettingFile; patch: Patch }) 
 
 // ── Activity ────────────────────────────────────────────────────────────────
 
-export function ActivityTab({ file }: { file: LettingFile }) {
+/** Everything that happened on this tenancy, newest first (Activity tab and the side panel). */
+export function activityItems(file: LettingFile) {
   const items: { at: string; text: string; who?: string | null }[] = []
   for (const e of file.events as any[]) items.push({ at: e.at, text: e.note, who: e.by_email })
   for (const h of file.holds as any[]) {
@@ -568,6 +569,11 @@ export function ActivityTab({ file }: { file: LettingFile }) {
   }
   if (file.applicant?.submitted_at) items.push({ at: file.applicant.submitted_at, text: 'Application received' })
   items.sort((a, b) => b.at.localeCompare(a.at))
+  return items
+}
+
+export function ActivityTab({ file }: { file: LettingFile }) {
+  const items = activityItems(file)
   return (
     <section className={card}>
       <h2 className="text-lg font-bold mb-sm">Activity</h2>

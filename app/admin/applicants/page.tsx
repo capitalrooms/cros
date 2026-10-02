@@ -128,6 +128,17 @@ export default function ApplicantsPage() {
     setAddForm(f => ({ ...f, room_id: keep }))
   }, [addForm.property_id, rooms])
 
+  // The Lettings overview links here with ?open=<applicant> — open that applicant's row
+  const openedFromLink = useRef(false)
+  useEffect(() => {
+    if (openedFromLink.current || !applicants.length) return
+    const id = new URLSearchParams(window.location.search).get('open')
+    if (!id || !applicants.some(a => a.id === id)) return
+    openedFromLink.current = true
+    setExpanded(id)
+    setTimeout(() => document.getElementById(`applicant-${id}`)?.scrollIntoView({ block: 'center' }), 100)
+  }, [applicants])
+
   // "+ Add letting" on a room page links here with ?add=1&property_id=…&room_id=… — open the form prefilled.
   const prefilled = useRef(false)
   useEffect(() => {
@@ -420,7 +431,7 @@ export default function ApplicantsPage() {
               const isConverted = applicant.pipeline_stage === 'converted'
 
               return (
-                <div key={applicant.id} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                <div key={applicant.id} id={`applicant-${applicant.id}`} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
                   {/* Row header */}
                   <button
                     className="w-full text-left px-lg py-md hover:bg-neutral-50 transition-colors"

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -139,6 +140,7 @@ export default function BookAppointmentPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/appointments" />} />
+      <PageHero eyebrow="Management · Diary" title="Book Appointment" subtitle="Create a new appointment for viewings, meetings, and inspections." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <Link
@@ -149,12 +151,6 @@ export default function BookAppointmentPage() {
         </Link>
 
         {/* Header — Balanced Spacing */}
-        <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">
-            📋 Book Appointment
-          </h1>
-          <p className="text-base text-neutral-600">Create a new appointment for viewings, meetings, and inspections.</p>
-        </div>
 
         {error && (
           <div className="mb-lg p-lg rounded-xl bg-red-100 border border-red-300 text-red-900">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -259,6 +260,7 @@ export default function AgencyDiaryPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/appointments" />} />
+      <PageHero eyebrow="Management · Diary" title="Agency Diary" subtitle="All property visits, maintenance jobs, and appointments in one place" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Back Button */}
@@ -270,14 +272,6 @@ export default function AgencyDiaryPage() {
         </Link>
 
         {/* Header — Subtitle Perfectly Centered */}
-        <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">
-            📅 Agency Diary
-          </h1>
-          <p className="text-base text-slate-600">
-            All property visits, maintenance jobs, and appointments in one place
-          </p>
-        </div>
 
         {/* Top Controls */}
         <div className="mb-3xl flex flex-wrap items-center gap-lg">
