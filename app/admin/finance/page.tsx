@@ -6,9 +6,10 @@
  * deals with it. Tools used less often are under "Other tools".
  */
 
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
@@ -45,14 +46,13 @@ const OTHER_TOOLS = [
   { label: 'Health check', href: '/admin/finance-check', note: 'Ledger and data checks' },
 ]
 
-export default function FinanceHomePage() {
-  return <Suspense fallback={null}><FinanceHomeScreen /></Suspense>
+export default function FinanceHomePage({ searchParams }: { searchParams: PageSearchParams }) {
+  return <FinanceHomeScreen initialMonth={one(use(searchParams).month)} />
 }
 
-function FinanceHomeScreen() {
+function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
   const router = useRouter()
-  const params = useSearchParams()
-  const [month, setMonth] = useState(params.get('month') || new Date().toISOString().slice(0, 7))
+  const [month, setMonth] = useState(initialMonth || new Date().toISOString().slice(0, 7))
   const [data, setData] = useState<Home | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

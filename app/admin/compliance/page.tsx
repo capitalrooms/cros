@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useRef, Suspense } from 'react'
+import { use, useEffect, useState, useRef } from 'react'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
@@ -705,13 +706,14 @@ function CertificatesTab({
 }
 
 // ─── Main page ───────────────────────────────────────────────────────────────
-function CompliancePageInner() {
+function CompliancePageInner({ tab }: { tab?: string }) {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<Tab>((searchParams.get('tab') as Tab) || 'certificates')
+  const [activeTab, setActiveTab] = useState<Tab>((tab as Tab) || 'certificates')
+  // The side menu links to ?tab=…; follow it when it changes without leaving the page.
+  useEffect(() => { if (tab) setActiveTab(tab as Tab) }, [tab])
   const [checksTypeFilter, setChecksTypeFilter] = useState<'all' | 'fire_door' | 'smoke_alarm'>('all')
   const [checksPropertyFilter, setChecksPropertyFilter] = useState<string>('all')
   const [properties, setProperties] = useState<Property[]>([])
@@ -1018,10 +1020,6 @@ function CompliancePageInner() {
   )
 }
 
-export default function CompliancePage() {
-  return (
-    <Suspense fallback={null}>
-      <CompliancePageInner />
-    </Suspense>
-  )
+export default function CompliancePage({ searchParams }: { searchParams: PageSearchParams }) {
+  return <CompliancePageInner tab={one(use(searchParams).tab)} />
 }

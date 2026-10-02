@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useState, use } from 'react'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
@@ -28,10 +28,10 @@ const TYPE_LABEL: Record<AgreementType, string> = { hmo: 'Multi-Let', single: 'S
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
-// ── Inner form (needs useSearchParams) ────────────────────────────────────────
+// ── Inner form ────────────────────────────────────────────────────────────────
 
-function ManagementAgreementForm() {
-  const params       = useSearchParams()
+function ManagementAgreementForm({ query }: { query: Record<string, string | string[] | undefined> }) {
+  const params       = { get: (k: string) => one(query[k]) ?? null }
   const onboardingId = params.get('onboardingId') ?? ''
 
   // Pre-fill from URL params (set when launched from onboarding pipeline)
@@ -532,19 +532,8 @@ function ManagementAgreementForm() {
   )
 }
 
-// ── Exported page (wraps in Suspense for useSearchParams) ─────────────────────
+// ── Exported page ─────────────────────────────────────────────────────────────
 
-export default function ManagementAgreementPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/admin/new-business" />} />
-        <main className="mx-auto max-w-6xl px-lg py-xl">
-          <p className="text-sm text-neutral-400 text-center py-xl">Loading…</p>
-        </main>
-      </div>
-    }>
-      <ManagementAgreementForm />
-    </Suspense>
-  )
+export default function ManagementAgreementPage({ searchParams }: { searchParams: PageSearchParams }) {
+  return <ManagementAgreementForm query={use(searchParams)} />
 }

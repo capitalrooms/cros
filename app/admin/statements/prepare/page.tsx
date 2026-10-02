@@ -9,9 +9,10 @@
  * Rent that arrives later goes on a follow-on statement — nothing is paid over twice.
  */
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
@@ -29,15 +30,13 @@ const ukDate = (d: string) => new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDat
 
 interface MadeStatement { id: string; statement_reference: string; statement_date: string; net_to_landlord: number; approved_at: string | null; paid_date: string | null; sent_at: string | null; source: string; payment_run_id: string | null }
 
-export default function PrepareStatementPage() {
-  return <Suspense fallback={null}><Prepare /></Suspense>
+export default function PrepareStatementPage({ searchParams }: { searchParams: PageSearchParams }) {
+  const sp = use(searchParams)
+  return <Prepare propertyId={one(sp.property) || ''} month={one(sp.month) || new Date().toISOString().slice(0, 7)} />
 }
 
-function Prepare() {
+function Prepare({ propertyId, month }: { propertyId: string; month: string }) {
   const router = useRouter()
-  const params = useSearchParams()
-  const propertyId = params.get('property') || ''
-  const month = params.get('month') || new Date().toISOString().slice(0, 7)
   const [draft, setDraft] = useState<StatementDraft | null>(null)
   const [property, setProperty] = useState<{ name: string; landlord: string } | null>(null)
   const [made, setMade] = useState<MadeStatement[]>([])

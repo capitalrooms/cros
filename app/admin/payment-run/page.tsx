@@ -7,9 +7,10 @@
  * CSV/PDF. The run closes when everything is ticked and it all adds up: rent = landlords + fees + expenses.
  */
 
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
@@ -23,14 +24,13 @@ const shift = (m: string, n: number) => { const [y, mo] = m.split('-').map(Numbe
 const ukDate = (d: string | null) => (d ? new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '')
 const sort = (s: string) => (s.length === 6 ? `${s.slice(0, 2)}-${s.slice(2, 4)}-${s.slice(4)}` : s)
 
-export default function PaymentRunPage() {
-  return <Suspense fallback={null}><PaymentRun /></Suspense>
+export default function PaymentRunPage({ searchParams }: { searchParams: PageSearchParams }) {
+  return <PaymentRun initialMonth={one(use(searchParams).month)} />
 }
 
-function PaymentRun() {
+function PaymentRun({ initialMonth }: { initialMonth?: string }) {
   const router = useRouter()
-  const params = useSearchParams()
-  const [month, setMonth] = useState(params.get('month') || new Date().toISOString().slice(0, 7))
+  const [month, setMonth] = useState(initialMonth || new Date().toISOString().slice(0, 7))
   const [v, setV] = useState<PaymentRunView | null>(null)
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
