@@ -58,6 +58,8 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
   const room = t.rooms ?? {}
   const applicantId = t.applicant_id ?? t.people?.applicant_id ?? null
 
+  // the move-in money is worked out alongside the other reads rather than after them
+  const packCtxP = loadPackContext(s, tenancyId).catch(e => { console.warn('letting file: move-in money not worked out', e); return null })
   const [landlordQ, holdQ, applicantQ, roomTenQ, account, docsQ, propDocsQ, eventsQ, packsQ, returnsQ] = await Promise.all([
     prop.landlord_id ? s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, phone').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     s.from('holding_deposits').select('*').or(`tenancy_id.eq.${tenancyId}${applicantId ? `,applicant_id.eq.${applicantId}` : ''}`).order('recorded_at'),
@@ -83,7 +85,7 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
   let money: ReturnType<typeof moneySummary> | null = null
   let moneyWarnings: string[] = []
   try {
-    const ctx = await loadPackContext(s, tenancyId)
+    const ctx = await packCtxP
     if (ctx) { money = moneySummary(ctx); moneyWarnings = ctx.warnings }
   } catch (e) { console.warn('letting file: move-in money not worked out', e) }
 

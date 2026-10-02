@@ -1,6 +1,9 @@
 {
   "buildCommand": "next build",
   "outputDirectory": ".next",
+  "regions": [
+    "dub1"
+  ],
   "functions": {
     "app/api/admin/bulk-tenancy-generator/route.ts": {
       "memory": 1024,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireStaff } from '@/lib/portalAuth'
 import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
+import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { senderFields } from '@/lib/email/sender'
@@ -21,7 +22,8 @@ async function sendEmail(to: string, subject: string, html: string, req: Request
 }
 
 export async function POST(request: Request) {
-  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const caller = await requireStaff(request as any)
+  if (!caller) return NextResponse.json({ error: 'Please sign in again' }, { status: 401 })
   // Use service client — this route is called from admin-only pages; service client
   // bypasses RLS and avoids the cookie-auth issue with the browser singleton client.
   const supabase = createServiceClient()
@@ -227,6 +229,10 @@ export async function POST(request: Request) {
         }),
       }])
       .then(({ error }) => { if (error) console.error('Audit record error:', error) })
+
+    // the letting file's activity
+    await logTenancyEvent(supabase, tenancyId, 'notice',
+      `Notice recorded (received ${noticeReceivedDate || 'today'}), moving out ${moveOutDate}${tenantEmailSent ? ' · checkout email sent to the tenant' : ' · no email to the tenant'}${cleanerEmailSent ? ' · cleaner told' : ''}`, caller.email)
 
     return Response.json({
       success: true,

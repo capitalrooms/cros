@@ -3,6 +3,7 @@ import { displayName } from '@/lib/people'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
@@ -167,7 +168,7 @@ export default function TenancyManagementPage() {
 
     try {
       const cleaner = cleaners.find((c) => c.id === noticeData.cleanerId)
-      const response = await fetch('/api/tenancies/set-on-notice', {
+      const response = await adminFetch('/api/tenancies/set-on-notice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
