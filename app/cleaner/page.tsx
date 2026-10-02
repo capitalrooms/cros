@@ -184,7 +184,7 @@ export default function CleanerDashboard() {
           setCleanerName(displayName(target))
           targetPersonId = asParam
         } else {
-          if (!data || data.assignment?.role !== 'cleaner') { router.push('/login'); return }
+          if (!data || data.assignment?.role !== 'cleaner') { router.push(isAdmin ? '/admin/people' : '/login'); return }
           setMe(data.assignment)
 
           const { data: personData } = await supabase

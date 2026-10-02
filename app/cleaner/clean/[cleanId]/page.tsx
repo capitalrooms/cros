@@ -91,7 +91,8 @@ export default function CleanDetailPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'cleaner') {
+      // cleaners, and the office (viewing as a cleaner from People)
+      if (!data || !['cleaner', 'administrator', 'admin'].includes(data.assignment?.role ?? '')) {
         router.push('/login')
         return
       }

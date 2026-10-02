@@ -51,7 +51,7 @@ async function stalledJobs(s: ReturnType<typeof createServiceClient>, ids?: stri
     const c = byId.get(t.contractor_id) ?? {}
     const first = c.first_name || String(c.full_name || '').split(' ')[0] || 'there'
     const where = [t.rooms?.name, String(t.properties?.name || t.properties?.address || '').split('\n')[0]].filter(Boolean).join(', ')
-    const job = `“${t.title || 'Maintenance job'}” at ${where}`
+    const job = `“${String(t.title || 'Maintenance job').trim()}” at ${where}`
     const message = overdue
       ? `Hi ${first}, how did the visit on ${day(t.booked_date)}${t.booked_slot ? ` (${slotLabel(t.booked_slot)})` : ''} go for ${job}? Please fill in the job sheet in the app, or rebook a new date if it still needs finishing — the tenants are told automatically.`
       : t.booked_date
