@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const supabase = createClient(
@@ -125,13 +126,8 @@ export default function InviteToApplyPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Invite to Apply" subtitle="Send a personalised application link by email or text after a viewing" />
       <div className="mx-auto max-w-6xl py-xl px-lg">
-        <div className="mb-lg">
-          <h1 className="text-2xl font-bold text-neutral-900">📨 Invite to Apply</h1>
-          <p className="text-sm text-neutral-500 mt-xs">
-            Send a personalised application link by email or SMS after a viewing.
-          </p>
-        </div>
 
         {/* Step 1 — Pick a viewing or enter manually */}
         <div className="bg-white rounded-xl border border-neutral-200 p-lg mb-lg">

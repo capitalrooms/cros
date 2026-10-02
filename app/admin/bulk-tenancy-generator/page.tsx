@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { landlordFormalNames, landlordName } from '@/lib/people'
 import { adminFetch } from '@/lib/adminFetch'
@@ -469,6 +470,7 @@ export default function BulkTenancyGenerator() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/let-only-properties" />} title="Bulk Agreement Generator" />
+      <PageHero title="Bulk Agreements" subtitle="Paste tenancy details to make the agreements, or landlord notes to make invoices" />
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* ── Step indicator ── */}

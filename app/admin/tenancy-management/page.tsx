@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -240,20 +241,19 @@ export default function TenancyManagementPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero
+        title="On Notice"
+        subtitle="Tenants who are leaving, their move-out dates, rescind requests and check-out cleans"
+        stats={[
+          { label: 'On notice', value: onNoticeTenancies.length, tone: 'warn' },
+          { label: 'Moving out in 14 days', value: onNoticeTenancies.filter((t: any) => t.end_date && t.end_date <= new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)).length, tone: 'bad' },
+          { label: 'Asking to stay', value: onNoticeTenancies.filter((t: any) => t.rescind_requested_at).length, tone: 'info' },
+          { label: 'Active tenancies', value: activeTenancies.length },
+        ]}
+        actions={<HeroButton href="/admin/cleaner-jobs">Cleaner jobs</HeroButton>}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-2xl flex items-start justify-between gap-md">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">👥 Tenancy Management</h1>
-            <p className="mt-sm text-sm text-neutral-600">View active tenancies and mark move-outs</p>
-          </div>
-          <Link
-            href="/admin/cleaner-jobs"
-            className="shrink-0 rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 flex items-center gap-xs"
-          >
-            🧹 Cleaner jobs
-          </Link>
-        </div>
 
         {message && (
           <div

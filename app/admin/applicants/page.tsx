@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import NameInput, { type NameValue, emptyName, toFullName } from '@/app/components/NameInput'
@@ -306,24 +307,19 @@ export default function ApplicantsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero
+        title="Applicants"
+        subtitle="From application to let agreed — recording the holding deposit creates the tenancy and opens its letting file"
+        stats={[
+          { label: 'Applied', value: applicants.filter(a => a.pipeline_stage === 'applied').length },
+          { label: 'Offer sent', value: applicants.filter(a => a.pipeline_stage === 'offer_sent').length, tone: 'warn' },
+          { label: 'Referencing', value: applicants.filter(a => ['referencing', 'referencing_passed', 'docs_uploaded'].includes(a.pipeline_stage)).length, tone: 'info' },
+          { label: 'Let agreed', value: applicants.filter(a => a.pipeline_stage === 'converted').length, tone: 'good' },
+        ]}
+        actions={<HeroButton primary onClick={() => setShowAdd(!showAdd)}>+ Add applicant</HeroButton>}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        {/* Header */}
-        <div className="mb-xl flex items-start justify-between gap-md flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Applicants</h1>
-            <p className="mt-xs text-sm text-neutral-500">
-              {applicants.filter(a => a.pipeline_stage !== 'converted').length} active · {applicants.filter(a => a.pipeline_stage === 'converted').length} let agreed
-            </p>
-          </div>
-          <button
-            onClick={() => setShowAdd(!showAdd)}
-            className="rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
-          >
-            + Add Applicant
-          </button>
-        </div>
-
         {/* Add form */}
         {showAdd && (
           <div className="mb-xl rounded-2xl border-2 border-neutral-900 bg-white p-lg">

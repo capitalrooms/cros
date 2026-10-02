@@ -8,6 +8,7 @@
 import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
@@ -20,10 +21,6 @@ const TABS = [
 ] as const
 type Tab = typeof TABS[number][0]
 
-const STAGE_STYLE: Record<string, string> = {
-  let_agreed: 'bg-amber-100 text-amber-900', live: 'bg-green-100 text-green-800', on_notice: 'bg-orange-100 text-orange-900',
-  ended: 'bg-neutral-200 text-neutral-700', fell_through: 'bg-red-100 text-red-800',
-}
 const STAGE_LABEL: Record<string, string> = { let_agreed: 'Let agreed', live: 'Live', on_notice: 'On notice', ended: 'Ended', fell_through: 'Fell through' }
 
 
@@ -84,55 +81,26 @@ function LettingFileScreen({ tenancyId, from, initialTab, done }: { tenancyId: s
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href={from} />} title="Letting file" />
+      <PageHero
+        eyebrow={<>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''} · {STAGE_LABEL[file.stage]} · {file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</>}
+        title={where}
+        subtitle={<>{file.tenant.formalName || file.tenant.name} · {file.stage === 'let_agreed' ? 'from' : 'since'} {day(tn.start_date)} · {gbp(tn.rent_amount)} pcm{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}</>}
+        stats={[
+          ...(file.liveHold ? [{ label: `Holding deposit · ${file.liveHold.status === 'applied' ? 'applied' : 'received'} ${day(file.liveHold.received_on)}`, value: gbp(file.liveHold.amount) }] : []),
+          ...(balanceDue != null && file.stage === 'let_agreed' ? [{ label: `Balance due by ${day(tn.start_date)}`, value: gbp(balanceDue), tone: 'warn' as const }] : []),
+          ...(file.account && file.stage !== 'let_agreed' ? [{ label: 'Rent account', value: file.account.balance > 0.004 ? `${gbp(file.account.balance)} owed` : file.account.balance < -0.004 ? `${gbp(-file.account.balance)} credit` : 'Clear', tone: (file.account.balance > 0.004 ? 'bad' : 'good') as 'bad' | 'good' }] : []),
+          { label: 'Deposit', value: gbp(tn.deposit_amount) },
+        ]}
+      />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
+        {file.stage === 'fell_through' && (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-sm text-sm text-red-800">Fell through {day(tn.let_cancelled_at)}: {tn.let_cancelled_reason}</p>
+        )}
         {banner && (
           <div className="flex items-start justify-between gap-md rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">
             <span>{banner}</span><button type="button" onClick={() => setBanner('')} className="text-green-700">×</button>
           </div>
         )}
-
-        {/* ── Header ── */}
-        <section className="rounded-2xl border border-neutral-200 bg-white p-lg">
-          <div className="flex flex-wrap items-start justify-between gap-lg">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-sm text-xs font-bold uppercase tracking-wider text-neutral-500">
-                <span>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''}</span>
-                <span className={`rounded-full px-sm py-0.5 normal-case tracking-normal ${STAGE_STYLE[file.stage]}`}>{STAGE_LABEL[file.stage]}</span>
-                <span className="rounded-full bg-neutral-100 px-sm py-0.5 normal-case tracking-normal text-neutral-600">{file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</span>
-              </div>
-              <h1 className="mt-xs text-2xl font-bold text-neutral-900 text-balance">{where}</h1>
-              <p className="mt-xs text-sm text-neutral-600">
-                {file.tenant.formalName || file.tenant.name} · {file.stage === 'let_agreed' ? 'from' : 'since'} {day(tn.start_date)} · {gbp(tn.rent_amount)} pcm{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}
-              </p>
-              {file.stage === 'fell_through' && (
-                <p className="mt-sm rounded-lg bg-red-50 px-md py-sm text-sm text-red-800">Fell through {day(tn.let_cancelled_at)}: {tn.let_cancelled_reason}</p>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-sm">
-              {file.liveHold && (
-                <div className="rounded-xl bg-neutral-50 px-md py-sm min-w-[140px]">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Holding deposit</p>
-                  <p className="text-lg font-bold tabular-nums text-neutral-900">{gbp(file.liveHold.amount)}</p>
-                  <p className="text-xs text-neutral-500">{file.liveHold.status === 'applied' ? 'applied' : 'received'} {day(file.liveHold.received_on)}</p>
-                </div>
-              )}
-              {balanceDue != null && file.stage === 'let_agreed' && (
-                <div className="rounded-xl bg-amber-50 px-md py-sm min-w-[140px]">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Balance due</p>
-                  <p className="text-lg font-bold tabular-nums text-amber-900">{gbp(balanceDue)}</p>
-                  <p className="text-xs text-amber-800">by move-in, {day(tn.start_date)}</p>
-                </div>
-              )}
-              {file.account && file.stage !== 'let_agreed' && (
-                <div className={`rounded-xl px-md py-sm min-w-[140px] ${file.account.balance > 0.004 ? 'bg-red-50' : 'bg-neutral-50'}`}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Rent account</p>
-                  <p className={`text-lg font-bold tabular-nums ${file.account.balance > 0.004 ? 'text-red-700' : 'text-neutral-900'}`}>{file.account.balance > 0.004 ? gbp(file.account.balance) : file.account.balance < -0.004 ? `${gbp(-file.account.balance)} credit` : 'Clear'}</p>
-                  <p className="text-xs text-neutral-500">{file.account.balance > 0.004 ? 'owed' : 'nothing owed'}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
 
         {/* ── Tabs ── */}
         <nav className="-mx-lg overflow-x-auto px-lg">

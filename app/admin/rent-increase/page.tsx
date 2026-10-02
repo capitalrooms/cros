@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -33,13 +34,19 @@ export default function RentReviewsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Rent Reviews" />
+      <PageHero
+        title="Rent Reviews"
+        subtitle="A Section 13 increase can take effect once a year — tenancies unchanged for 12 months or more are due"
+        stats={rows ? [
+          { label: 'Due a review', value: rows.filter(due).length, tone: 'warn' },
+          { label: 'Increase pending', value: rows.filter(r => r.pending).length, tone: 'info' },
+          { label: 'Tenancies', value: rows.length },
+        ] : undefined}
+        actions={<HeroButton href="/admin/rent-history">Correct last-changed dates</HeroButton>}
+      />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
-        <div className="flex flex-wrap items-end justify-between gap-md">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Rent reviews</h1>
-            <p className="text-sm text-neutral-500 mt-0.5">A Section 13 increase can take effect once a year. Tenancies unchanged for 12 months or more are due.</p>
-            <p className="text-xs text-neutral-500 mt-xs">“Last changed” is a date recorded here, a Section 13 increase, or otherwise the tenancy start. <Link href="/admin/rent-history" className="font-semibold underline">Correct last-changed dates →</Link> (check them against your emails)</p>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-md">
+          <p className="text-xs text-neutral-500">“Last changed” is a date recorded here, a Section 13 increase, or otherwise the tenancy start — check them against your emails.</p>
           <div className="inline-flex rounded-lg bg-white p-0.5 text-sm font-semibold">
             <button onClick={() => setDueOnly(true)} className={`rounded-md px-md py-xs ${dueOnly ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>Due {rows ? `(${rows.filter(due).length})` : ''}</button>
             <button onClick={() => setDueOnly(false)} className={`rounded-md px-md py-xs ${!dueOnly ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>All {rows ? `(${rows.length})` : ''}</button>
