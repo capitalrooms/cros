@@ -14,6 +14,7 @@ import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { loadLettingFile, stageOf, STEP_COLUMNS, STEP_NAMES, type StepKey } from '@/lib/lettings/lettingFile'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
+import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -136,6 +137,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
         .is('let_cancelled_at', null).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
       const status = !others?.length ? 'available' : others.some((o: any) => o.notice_received_date) ? 'on_notice' : 'occupied'
       await s.from('rooms').update({ status }).eq('id', t.room_id)
+      if (status !== 'occupied') {
+        const leaving = (others ?? []).find((o: any) => o.notice_received_date)
+        await alertLettingsRoomUp(s, t.room_id, { availableFrom: leaving?.end_date ?? null, why: `A let fell through (${reason}) — back on the market.` })
+      }
     }
     if (t.applicant_id) await s.from('applicants').update({ pipeline_stage: 'offer_sent', updated_at: new Date().toISOString() }).eq('id', t.applicant_id)
     await logTenancyEvent(s, tenancyId, 'cancelled', `Let fell through: ${reason}`, caller.email)

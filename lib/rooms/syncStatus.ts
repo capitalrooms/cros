@@ -9,12 +9,15 @@ export interface RoomStatusChange { roomId: string; room: string; property: stri
 
 export async function syncRoomStatuses(s: SupabaseClient, opts: { apply: boolean }): Promise<RoomStatusChange[]> {
   const today = new Date().toISOString().slice(0, 10)
-  const [{ data: rooms, error }, { data: lets, error: tErr }, { data: ended }] = await Promise.all([
+  const [{ data: rooms, error }, { data: lets, error: tErr }, { data: ended }, { data: incoming }] = await Promise.all([
     s.from('rooms').select('id, name, status, is_let_only, available_date, properties(name, letting_type)'),
     s.from('tenancies').select('room_id, start_date, end_date, notice_received_date')
       .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
     s.from('tenancies').select('room_id').lt('end_date', today).not('notice_received_date', 'is', null),
+    // let agreed: someone is moving in later (a let that fell through has an end date before its start)
+    s.from('tenancies').select('room_id').gt('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
   ])
+  const letAgreed = new Set(((incoming ?? []) as any[]).map(t => t.room_id))
   // A room is freed only after a real move-out: the room was on notice, or the ended tenancy had notice recorded.
   // An end date with no notice is usually a fixed-term end — the tenant carries on (periodic), so the room stays let
   // and Health Check asks a person to confirm. A room marked occupied with no tenancy at all is also left for a person.
@@ -28,7 +31,8 @@ export async function syncRoomStatuses(s: SupabaseClient, opts: { apply: boolean
     if (r.is_let_only || r.properties?.letting_type === 'let_only') continue
     const ts = current.get(r.id) ?? []
     let want: string
-    if (!ts.length) {
+    if (letAgreed.has(r.id)) want = 'occupied'   // let agreed: off the market, even while the outgoing tenant is still there
+    else if (!ts.length) {
       if (r.status === 'occupied' && !leftWithNotice.has(r.id)) continue
       want = 'available'
     }

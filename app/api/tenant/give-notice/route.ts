@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient, createServerClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
+import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFields } from '@/lib/email/sender'
 
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
 
   if (roomData?.room_id) {
     await supabase.from('rooms').update({ status: 'on_notice' }).eq('id', roomData.room_id)
+    await alertLettingsRoomUp(supabase, roomData.room_id, { availableFrom: intendedMoveOutDate, why: 'The tenant gave notice in the app.' })
   }
 
   // Notify admin by email

@@ -93,7 +93,7 @@ export default function AllUnitsPage() {
       supabase.from('properties').select('id, name, address, property_code, property_type'),
       supabase.from('rooms').select('id, name, unit_code, room_type, status, property_id'),
       supabase.from('tenancies')
-        .select('id, room_id, person_id, start_date, end_date, people!person_id(id, first_name, last_name, full_name, email)')
+        .select('id, room_id, person_id, start_date, end_date, notice_received_date, people!person_id(id, first_name, last_name, full_name, email)')
         .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`),
       supabase.from('push_subscriptions').select('person_id').not('person_id', 'is', null),
     ])
@@ -112,7 +112,8 @@ export default function AllUnitsPage() {
       if ((t as any).start_date > today) {
         const cur = incomingByRoom[t.room_id]
         if (!cur || (t as any).start_date < cur.start_date) incomingByRoom[t.room_id] = { tenancy_id: (t as any).id, name, start_date: (t as any).start_date }
-      } else tenancyByRoom[t.room_id] = { id: (t as any).id, person_id: t.person_id, name, end_date: (t as any).end_date ?? null }
+      // "Moves out" only once notice is recorded — a fixed-term end date alone doesn't mean they're leaving
+      } else tenancyByRoom[t.room_id] = { id: (t as any).id, person_id: t.person_id, name, end_date: (t as any).notice_received_date ? (t as any).end_date ?? null : null }
     }
 
     const roomsByProperty: Record<string, Room[]> = {}
@@ -332,7 +333,7 @@ export default function AllUnitsPage() {
                                   {room.tenancy_id
                                     ? <Link href={`/admin/lettings/${room.tenancy_id}?from=/admin/active-rooms`} onClick={e => e.stopPropagation()} className="text-neutral-800 font-medium hover:text-blue-700 hover:underline">{room.tenant_name}</Link>
                                     : <span className="text-neutral-800 font-medium">{room.tenant_name}</span>}
-                                  {room.status === 'on_notice' && room.move_out_date && (
+                                  {room.move_out_date && (
                                     <p className="text-[11px] text-amber-600 font-medium mt-0.5">
                                       Moves out {new Date(room.move_out_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </p>
