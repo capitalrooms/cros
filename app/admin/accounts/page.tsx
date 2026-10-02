@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import FinancialTrail from '@/app/components/FinancialTrail'
@@ -546,6 +547,7 @@ export default function AccountsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Finance" title="Agency Accounts" subtitle="Rent ledger · Landlord remittance · Management fee income · Arrears" />
 
       {/* Remittance modal */}
       {remittanceLandlord && (() => {
@@ -568,10 +570,6 @@ export default function AccountsPage() {
         {/* ── Page header ── */}
         <div className="mb-xl flex flex-wrap items-end justify-between gap-md">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Agency Accounts</h1>
-            <p className="mt-xs text-sm text-neutral-500">
-              Rent ledger · Landlord remittance · Management fee income · Arrears
-            </p>
           </div>
           {/* Month picker */}
           <div className="flex items-center gap-sm">

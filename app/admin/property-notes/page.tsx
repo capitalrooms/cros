@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -287,14 +288,9 @@ export default function PropertyNotesPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Portfolio" title="Property Notes" subtitle="Post updates to tenants, leave notes for the cleaner, or save internal admin observations." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Property Notes</h1>
-          <p className="mt-sm text-sm text-neutral-600">
-            Post updates to tenants, leave notes for the cleaner, or save internal admin observations.
-          </p>
-        </div>
 
         <div className="grid gap-lg md:grid-cols-3">
           {/* Left: form */}

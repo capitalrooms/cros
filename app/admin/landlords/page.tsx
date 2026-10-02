@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import { nameFields, displayName } from '@/lib/people'
@@ -301,12 +302,11 @@ export default function LandlordsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="People" title="Landlords" subtitle="Manage landlords, AML compliance, and notification settings" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-3xl flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Landlords</h1>
-            <p className="mt-sm text-sm text-neutral-600">Manage landlords, AML compliance, and notification settings</p>
           </div>
           <button
             onClick={() => setShowInviteForm(!showInviteForm)}

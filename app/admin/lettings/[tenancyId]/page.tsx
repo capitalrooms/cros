@@ -13,7 +13,7 @@ import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
-import { ProgressTab, TermsTab, MoneyTab, DocumentsTab, LettersTab, NoticeTab, ActivityTab, openPdf, gbp, day } from './parts'
+import { ProgressTab, TermsTab, MoneyTab, DocumentsTab, LettersTab, NoticeTab, ActivityTab, activityItems, openPdf, gbp, day } from './parts'
 
 const TABS = [
   ['progress', 'Progress'], ['terms', 'Terms'], ['money', 'Money'], ['documents', 'Documents'],
@@ -91,6 +91,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done }: { tenancyId: s
           ...(file.account && file.stage !== 'let_agreed' ? [{ label: 'Rent account', value: file.account.balance > 0.004 ? `${gbp(file.account.balance)} owed` : file.account.balance < -0.004 ? `${gbp(-file.account.balance)} credit` : 'Clear', tone: (file.account.balance > 0.004 ? 'bad' : 'good') as 'bad' | 'good' }] : []),
           { label: 'Deposit', value: gbp(tn.deposit_amount) },
         ]}
+        tabs={TABS.map(([k, label]) => ({ key: k, label: k === 'letters' && file.documents.length ? `${label} · ${file.documents.length}` : label, active: activeTab === k, onClick: () => setTab(k) }))}
       />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {file.stage === 'fell_through' && (
@@ -101,18 +102,6 @@ function LettingFileScreen({ tenancyId, from, initialTab, done }: { tenancyId: s
             <span>{banner}</span><button type="button" onClick={() => setBanner('')} className="text-green-700">×</button>
           </div>
         )}
-
-        {/* ── Tabs ── */}
-        <nav className="-mx-lg overflow-x-auto px-lg">
-          <div className="inline-flex gap-xs rounded-xl bg-white p-[3px] ring-1 ring-neutral-200 whitespace-nowrap">
-            {TABS.map(([k, label]) => (
-              <button key={k} type="button" onClick={() => setTab(k)}
-                className={`rounded-lg px-md py-xs text-sm font-semibold ${activeTab === k ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:text-neutral-900'}`}>
-                {label}{k === 'letters' && file.documents.length ? ` (${file.documents.length})` : ''}
-              </button>
-            ))}
-          </div>
-        </nav>
 
         <div className="grid grid-cols-1 gap-lg lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">
@@ -154,6 +143,39 @@ function LettingFileScreen({ tenancyId, from, initialTab, done }: { tenancyId: s
                 )}
               </ul>
             </section>
+            {activeTab !== 'letters' && (
+              <section className="rounded-2xl border border-neutral-200 bg-white p-md">
+                <div className="mb-sm flex items-baseline justify-between gap-sm">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Letters &amp; invoices</h2>
+                  <Link href={`/admin/document-generator?tenancy=${tenancyId}`} className="text-xs font-semibold text-blue-700 hover:underline">New</Link>
+                </div>
+                {file.documents.length ? (
+                  <ul className="space-y-xs text-sm">
+                    {(file.documents as any[]).slice(0, 4).map(d => (
+                      <li key={d.id} className="flex items-baseline justify-between gap-sm">
+                        <span className="min-w-0 truncate">{d.kind === 'letter' ? d.title : d.number} <span className="text-neutral-500">→ {d.recipient_name}</span></span>
+                        <span className={`shrink-0 text-xs ${d.emailed_at ? 'text-green-700' : 'text-neutral-500'}`}>{d.emailed_at ? 'Sent' : 'Draft'}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="text-xs text-neutral-500">Nothing made yet. New opens Letters &amp; Invoices with this tenant, room and property filled in.</p>}
+                {file.documents.length > 4 && <button type="button" onClick={() => setTab('letters')} className="mt-xs text-xs font-semibold text-blue-700 hover:underline">All {file.documents.length}</button>}
+              </section>
+            )}
+            {activeTab !== 'activity' && (() => {
+              const recent = activityItems(file).slice(0, 4)
+              return (
+                <section className="rounded-2xl border border-neutral-200 bg-white p-md">
+                  <h2 className="mb-sm text-xs font-bold uppercase tracking-wider text-neutral-500">Activity</h2>
+                  {recent.length ? (
+                    <ul className="space-y-xs text-sm">
+                      {recent.map((it, i) => <li key={i}><span className="tabular-nums text-neutral-500">{day(it.at)}</span> · {it.text}</li>)}
+                    </ul>
+                  ) : <p className="text-xs text-neutral-500">Nothing recorded yet.</p>}
+                  <button type="button" onClick={() => setTab('activity')} className="mt-xs text-xs font-semibold text-blue-700 hover:underline">Full activity</button>
+                </section>
+              )
+            })()}
             <section className="rounded-2xl border border-neutral-200 bg-white p-md">
               <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-sm">Go to</h2>
               <div className="flex flex-col gap-xs text-sm">

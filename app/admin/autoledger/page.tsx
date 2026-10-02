@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
@@ -71,13 +72,13 @@ export default function AutoLedgerPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/accounts" />} />
+      <PageHero eyebrow="Finance" title="AutoLedger" />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
 
         {/* Header */}
         <div>
           <div className="flex items-center gap-md mb-xs">
             <span className="text-3xl">⚡</span>
-            <h1 className="text-2xl font-bold text-neutral-900">AutoLedger</h1>
           </div>
           <p className="text-sm text-neutral-500">
             BCC any statement or expense email to <strong>{BCC_ADDRESS}</strong> and CROS automatically imports and categorises every line item — no manual entry needed.

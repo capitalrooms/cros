@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 
@@ -93,10 +94,9 @@ export default function AdminSettingsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar />
+      <PageHero eyebrow="Settings" title="System Settings" subtitle="Global controls for Capital Rooms. Changes take effect immediately — no redeploy needed." />
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <BackButton href="/admin" />
-        <h1 className="text-2xl font-bold text-neutral-900">System Settings</h1>
-        <p className="text-sm text-neutral-500 mb-xl">Global controls for Capital Rooms. Changes take effect immediately — no redeploy needed.</p>
 
         {banner && (
           <div className={`rounded-xl px-lg py-md mb-lg text-sm font-semibold border ${

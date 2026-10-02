@@ -9,8 +9,7 @@ import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
-import TenantCardBody from '@/app/components/TenantCardBody'
-import { sortPropertiesNumerically } from '@/lib/sortProperties';
+import { sortPropertiesNumerically, houseNumber } from '@/lib/sortProperties';
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef';
 
 interface Property { id: string; name: string; address: string }
@@ -54,12 +53,19 @@ export default function TenanciesManagementPage() {
   const [tenancies, setTenancies]     = useState<Tenancy[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showAdd, setShowAdd]         = useState(false);
-  const [showPast, setShowPast]       = useState(false);
   const [toast, setToast]             = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [noticeTenancy, setNoticeTenancy] = useState<Tenancy | null>(null);
   const [noticeDate, setNoticeDate]   = useState('');
   const [savingNotice, setSavingNotice] = useState(false);
-  const [view, setView] = useState<'all' | 'let_agreed' | 'live' | 'notice'>('all');   // All current · Let agreed · Live · On notice
+  const [view, setView] = useState<'all' | 'let_agreed' | 'live' | 'notice' | 'ended'>('all');   // All current · Let agreed · Live · On notice · Ended
+  const [q, setQ] = useState('');
+  const [menu, setMenu] = useState<string | null>(null);   // the row whose ⋯ menu is open
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('[data-row-menu]')) setMenu(null); };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [menu]);
 
   // ── Add form state ──────────────────────────────────────────────────────────
   const [selProp, setSelProp]         = useState('');
@@ -253,8 +259,25 @@ export default function TenanciesManagementPage() {
   const letAgreed = current.filter(t => t.start_date > today);
   const onNoticeList = current.filter(t => t.start_date <= today && isOnNotice(t));
   const liveList = current.filter(t => t.start_date <= today && !isOnNotice(t));
-  const active = view === 'notice' ? onNoticeList : view === 'let_agreed' ? letAgreed : view === 'live' ? liveList : current;
   const past   = tenancies.filter(t => !!t.end_date && t.end_date < today);
+  const active = view === 'notice' ? onNoticeList : view === 'let_agreed' ? letAgreed : view === 'live' ? liveList : view === 'ended' ? past : current;
+  const stageOf = (t: Tenancy) =>
+    t.end_date && t.end_date < today ? ((t as any).let_cancelled_at ? { key: 'ended', label: 'Fell through', cls: 'bg-red-50 text-red-700' } : { key: 'ended', label: 'Ended', cls: 'bg-neutral-100 text-neutral-500' })
+    : t.start_date > today ? { key: 'let_agreed', label: 'Let agreed', cls: 'bg-blue-50 text-blue-800' }
+    : isOnNotice(t) ? { key: 'notice', label: 'On notice', cls: 'bg-amber-50 text-amber-800' }
+    : { key: 'live', label: 'Live', cls: 'bg-green-50 text-green-800' };
+  const needle = q.trim().toLowerCase();
+  // ascending by house number, then room — the same order as All Units; ended ones newest first
+  const byAddress = (a: Tenancy, b: Tenancy) => {
+    const pa = { name: a.properties?.name, address: a.properties?.address }, pb = { name: b.properties?.name, address: b.properties?.address };
+    const ha = houseNumber(pa), hb = houseNumber(pb);
+    if (ha != null && hb != null && ha !== hb) return ha - hb;
+    return String(pa.name ?? '').localeCompare(String(pb.name ?? ''), undefined, { numeric: true }) || String(a.rooms?.name ?? '').localeCompare(String(b.rooms?.name ?? ''), undefined, { numeric: true });
+  };
+  const shown = active
+    .filter(t => !needle || [displayName(t), t.people?.email, t.rooms?.name, t.properties?.name, t.properties?.address].some(v => String(v ?? '').toLowerCase().includes(needle)))
+    .sort(view === 'ended' ? (a, b) => String(b.end_date).localeCompare(String(a.end_date)) : byAddress);
+  const shortDay = (iso: string | null | undefined) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC' }) : '—';
   const fileHref = (t: Tenancy) => `/admin/lettings/${t.id}?from=/admin/tenancies`;
   const filteredRooms = selProp ? rooms.filter(r => r.property_id === selProp) : [];
 
@@ -267,171 +290,80 @@ export default function TenanciesManagementPage() {
       )}
       <AppBar left={<BackButton href="/admin" />} />
       <PageHero
+        eyebrow="Lettings"
         title="Tenancies"
-        subtitle="Every tenancy, from let agreed to moved out — each one opens its letting file"
+        subtitle="Every tenancy, from let agreed to moved out. Each row opens its letting file."
         stats={[
           { label: 'Live', value: liveList.length },
           { label: 'Let agreed', value: letAgreed.length, tone: 'info' },
           { label: 'On notice', value: onNoticeList.length, tone: 'warn' },
-          { label: 'Past', value: past.length },
+          { label: 'Ended', value: past.length },
         ]}
         actions={<HeroButton primary onClick={() => setShowAdd(true)}>+ New tenancy</HeroButton>}
+        tabs={([['all', `All current · ${current.length}`], ['let_agreed', `Let agreed · ${letAgreed.length}`], ['live', `Live · ${liveList.length}`], ['notice', `On notice · ${onNoticeList.length}`], ['ended', `Ended · ${past.length}`]] as const)
+          .map(([k, label]) => ({ key: k, label, active: view === k, onClick: () => { setView(k); setMenu(null) } }))}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-lg flex items-center justify-between">
-          <div>
-            <div className="inline-flex rounded-xl bg-white p-[3px] ring-1 ring-neutral-200">
-              {([['all', `All current (${current.length})`], ['let_agreed', `Let agreed (${letAgreed.length})`], ['live', `Live (${liveList.length})`], ['notice', `On notice (${onNoticeList.length})`]] as const).map(([k, label]) => (
-                <button key={k} type="button" onClick={() => setView(k)}
-                  className={`rounded-lg px-md py-xs text-sm font-semibold ${view === k ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:text-neutral-900'}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
+        <div className="mb-md">
+          <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search by tenant, email, room or property…"
+            className="w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm" />
+        </div>
+
+        {shown.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
+            <p className="text-sm text-neutral-500">{q ? 'Nothing matches that search.' : view === 'let_agreed' ? 'No lets agreed right now. Recording a holding deposit in Applicants creates one.' : 'No tenancies here.'}</p>
           </div>
-        </div>
-
-        {/* ── Active + On Notice ── */}
-        <div className="space-y-md">
-          {active.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-              <p className="text-sm text-neutral-500">No active tenancies</p>
+        ) : (
+          <div className="rounded-2xl border border-neutral-200 bg-white">
+            <div className="hidden md:grid grid-cols-[minmax(0,1.3fr)_minmax(0,1.4fr)_120px_100px_120px_88px] gap-md border-b border-neutral-200 px-lg py-sm text-[11px] font-bold uppercase tracking-[0.06em] text-neutral-500">
+              <span>Tenant</span><span>Room</span><span>Dates</span><span className="text-right">Rent</span><span>Stage</span><span />
             </div>
-          ) : active.map(t => (
-            <div key={t.id} className="rounded-2xl border border-neutral-200 bg-white p-lg">
-              <div className="flex items-start justify-between gap-md">
-                <TenantCardBody
-                  name={displayName(t)}
-                  email={t.people?.email}
-                  roomName={t.rooms?.name}
-                  propertyName={t.properties?.name}
-                  propertyAddress={t.properties?.address}
-                  rentAmount={t.rent_amount}
-                  startDate={t.start_date}
-                  endDate={t.end_date}
-                  noticeReceivedDate={t.notice_received_date}
-                  onNotice={isOnNotice(t)}
-                  communicationPreference={t.communication_preference}
-                  optIns={{
-                    maintenance: t.opt_in_maintenance,
-                    viewings: t.opt_in_viewings,
-                    appointments: t.opt_in_appointments,
-                    cleaning: t.opt_in_cleaning,
-                  }}
-                  showPreferences={true}
-                />
-                <div className="flex shrink-0 flex-col items-stretch gap-sm min-w-[140px]">
-                  <Link href={fileHref(t)}
-                    className="rounded bg-blue-700 px-md py-sm text-center text-sm font-semibold text-white hover:bg-blue-600">
-                    {t.start_date > today ? 'Let agreed · file →' : 'Letting file →'}
-                  </Link>
-                  <Link href={`/admin/move-in/${t.id}`}
-                    className="rounded bg-neutral-900 px-md py-sm text-center text-sm font-semibold text-white hover:bg-neutral-700">
-                    Move-in pack
-                  </Link>
-                  <div className="flex gap-xs">
-                    <button onClick={() => downloadBalanceDemand(t.id, 'full')}
-                      className="flex-1 rounded border border-blue-200 bg-blue-50 px-sm py-sm text-[10px] font-semibold text-blue-800 hover:bg-blue-100 text-center leading-tight"
-                      title="Balance demand — full calendar month">
-                      💷 Full month
-                    </button>
-                    <button onClick={() => downloadBalanceDemand(t.id, 'prorata')}
-                      className="flex-1 rounded border border-blue-200 bg-blue-50 px-sm py-sm text-[10px] font-semibold text-blue-800 hover:bg-blue-100 text-center leading-tight"
-                      title="Balance demand — pro-rata days remaining">
-                      💷 Pro-rata
-                    </button>
-                  </div>
-                  {/* on notice only when notice has actually been recorded — a fixed-term end date isn't notice */}
-                  {isOnNotice(t) ? (
-                    <button onClick={() => handleCancelNotice(t)}
-                      className="rounded border border-neutral-400 px-md py-sm text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
-                      Cancel notice
-                    </button>
-                  ) : (
-                    <Link href={`/admin/properties/${t.property_id}?tab=units&room=${t.room_id}`}
-                      title="Opens the room, where Mark on notice sends the checkout email and works out the final rent"
-                      className="rounded bg-neutral-900 px-md py-sm text-center text-sm font-semibold text-white hover:bg-neutral-800">
-                      Record notice
+            <ul className="divide-y divide-neutral-100">
+              {shown.map(t => {
+                const st = stageOf(t)
+                const ended = view === 'ended'
+                return (
+                  <li key={t.id} className={`relative grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.4fr)_120px_100px_120px_88px] items-center gap-x-md gap-y-0.5 px-lg py-sm hover:bg-neutral-50 ${ended ? 'text-neutral-500' : ''}`}>
+                    <Link href={fileHref(t)} className="min-w-0 after:absolute after:inset-0 after:content-['']">
+                      <span className="block truncate text-sm font-semibold text-neutral-900">{displayName(t)}</span>
+                      <span className="block truncate text-xs text-neutral-500">{t.people?.email}</span>
                     </Link>
-                  )}
-                  <Link href={`/admin/rent-increase/${t.id}`}
-                    className="rounded border border-neutral-300 px-md py-sm text-center text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
-                    Rent review
-                  </Link>
-                  <button onClick={() => handleEndTenancy(t)}
-                    className="text-xs text-neutral-400 hover:text-red-600 text-center">
-                    End tenancy
-                  </button>
-                </div>
-              </div>
-              {/* Deposit + agreement type pills */}
-              {(t.deposit_amount || t.agreement_type) && (
-                <div className="mt-sm flex flex-wrap gap-xs pt-sm border-t border-neutral-100">
-                  {t.deposit_amount ? (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium border border-green-200">
-                      Deposit £{t.deposit_amount.toLocaleString()}
+                    <span className="hidden md:block min-w-0 text-sm">
+                      <span className="block truncate font-medium text-neutral-800">{t.rooms?.name}</span>
+                      <span className="block truncate text-xs text-neutral-500">{String(t.properties?.name ?? '').split('\n')[0]}</span>
                     </span>
-                  ) : null}
-                  {t.agreement_type ? (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-medium">
-                      {AGREEMENT_TYPES.find(a => a.value === t.agreement_type)?.label || t.agreement_type}
+                    <span className="hidden md:block text-xs text-neutral-600 tabular-nums">
+                      {st.key === 'let_agreed' ? `From ${shortDay(t.start_date)}` : `Since ${shortDay(t.start_date)}`}
+                      {t.end_date && <span className="block">{st.key === 'ended' ? 'Ended' : 'Out'} {shortDay(t.end_date)}</span>}
                     </span>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* ── Past tenancies ── */}
-        {past.length > 0 && (
-          <div className="mt-2xl">
-            <button onClick={() => setShowPast(v => !v)}
-              className="flex items-center gap-2 text-sm font-semibold text-neutral-500 hover:text-neutral-800 mb-md">
-              <span>{showPast ? '▼' : '▶'}</span>
-              Past tenancies ({past.length})
-            </button>
-            {showPast && (
-              <div className="space-y-md opacity-70">
-                {past.map(t => (
-                  <div key={t.id} className="rounded-2xl border border-neutral-200 bg-white p-lg">
-                    <div className="flex items-start justify-between gap-md">
-                      <TenantCardBody
-                        name={displayName(t)}
-                        email={t.people?.email}
-                        roomName={t.rooms?.name}
-                        propertyName={t.properties?.name}
-                        propertyAddress={t.properties?.address}
-                        rentAmount={t.rent_amount}
-                        startDate={t.start_date}
-                        endDate={t.end_date}
-                        onNotice={false}
-                        showPreferences={false}
-                      />
-                      <span className="flex shrink-0 flex-col items-end gap-xs">
-                        <span className="text-xs text-neutral-400 font-medium mt-1">{(t as any).let_cancelled_at ? 'Fell through' : 'Ended'}</span>
-                        <Link href={fileHref(t)} className="text-xs font-semibold text-blue-700 hover:underline">Letting file →</Link>
-                      </span>
-                    </div>
-                    {(t.deposit_amount || t.agreement_type) && (
-                      <div className="mt-sm flex flex-wrap gap-xs pt-sm border-t border-neutral-100">
-                        {t.deposit_amount ? (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium border border-green-200">
-                            Deposit £{t.deposit_amount.toLocaleString()}
-                          </span>
-                        ) : null}
-                        {t.agreement_type ? (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 font-medium">
-                            {AGREEMENT_TYPES.find(a => a.value === t.agreement_type)?.label || t.agreement_type}
-                          </span>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                    <span className="hidden md:block text-right text-sm tabular-nums text-neutral-800">£{Number(t.rent_amount || 0).toLocaleString('en-GB')}</span>
+                    <span className="hidden md:block"><span className={`inline-block rounded-full px-sm py-0.5 text-xs font-semibold ${st.cls}`}>{st.label}</span></span>
+                    <span data-row-menu className="relative z-10 flex items-center justify-end gap-xs">
+                      <span className={`md:hidden rounded-full px-sm py-0.5 text-[11px] font-semibold ${st.cls}`}>{st.label}</span>
+                      <button type="button" aria-label="More actions" onClick={() => setMenu(menu === t.id ? null : t.id)}
+                        className="rounded-lg px-sm py-xs text-lg leading-none text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900">⋯</button>
+                      {menu === t.id && (
+                        <div className="absolute right-0 top-full z-30 mt-1 w-56 overflow-hidden rounded-xl border border-neutral-200 bg-white py-xs text-sm shadow-lg">
+                          <Link href={fileHref(t)} className="block px-md py-xs font-semibold text-neutral-900 hover:bg-neutral-50">Open letting file</Link>
+                          {!ended && <>
+                            <Link href={`/admin/move-in/${t.id}`} className="block px-md py-xs hover:bg-neutral-50">Move-in pack</Link>
+                            <button type="button" onClick={() => { setMenu(null); downloadBalanceDemand(t.id, 'full') }} className="block w-full px-md py-xs text-left hover:bg-neutral-50">Balance demand · full month</button>
+                            <button type="button" onClick={() => { setMenu(null); downloadBalanceDemand(t.id, 'prorata') }} className="block w-full px-md py-xs text-left hover:bg-neutral-50">Balance demand · pro-rata</button>
+                            {isOnNotice(t)
+                              ? <button type="button" onClick={() => { setMenu(null); handleCancelNotice(t) }} className="block w-full px-md py-xs text-left hover:bg-neutral-50">Cancel notice</button>
+                              : st.key !== 'let_agreed' && <Link href={`/admin/properties/${t.property_id}?tab=units&room=${t.room_id}`} className="block px-md py-xs hover:bg-neutral-50">Record notice (opens the room)</Link>}
+                            {st.key !== 'let_agreed' && <Link href={`/admin/rent-increase/${t.id}`} className="block px-md py-xs hover:bg-neutral-50">Rent review</Link>}
+                            <button type="button" onClick={() => { setMenu(null); handleEndTenancy(t) }} className="block w-full border-t border-neutral-100 px-md py-xs text-left text-red-700 hover:bg-red-50">End tenancy</button>
+                          </>}
+                        </div>
+                      )}
+                    </span>
+                    <span className="col-span-2 md:hidden text-xs text-neutral-500 truncate">{t.rooms?.name} · {String(t.properties?.name ?? '').split('\n')[0]} · £{Number(t.rent_amount || 0).toLocaleString('en-GB')} · {st.key === 'let_agreed' ? 'from' : 'since'} {shortDay(t.start_date)}</span>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
         )}
       </main>

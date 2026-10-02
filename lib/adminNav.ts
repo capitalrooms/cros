@@ -45,6 +45,7 @@ export const ZONES: Zone[] = [
     id: 'lettings',
     emoji: '🔑',
     label: 'Lettings',
+    home: '/admin/lettings',
     routes: [
       '/admin/available-and-lettings',
       '/admin/applicants',
@@ -61,6 +62,7 @@ export const ZONES: Zone[] = [
       '/admin/rent-history',
     ],
     subnav: [
+      { emoji: '🧭', label: 'Overview',           href: '/admin/lettings' },
       { emoji: '👤', label: 'Applicants',         href: '/admin/applicants' },
       { emoji: '🔑', label: 'Available Rooms',    href: '/admin/available-and-lettings' },
       { emoji: '📄', label: 'Bulk Agreements',    href: '/admin/bulk-tenancy-generator' },

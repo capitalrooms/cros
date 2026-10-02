@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import PostcodeLookupWidget, { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
 
@@ -159,6 +160,7 @@ export default function PropertyAuditPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Portfolio" title="Address & postcode audit" subtitle="Some imported addresses may have incorrect or missing postcodes. Work through each property — look up the postcode, correct the address if needed, then confirm. You can do this gradually; your progress is saved after each confirmation." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
@@ -166,12 +168,6 @@ export default function PropertyAuditPage() {
         <div className="mb-xl">
           <p className="text-xs font-bold uppercase tracking-wide text-neutral-400 mb-xs">
             Properties & Units
-          </p>
-          <h1 className="text-2xl font-bold text-neutral-900">Address & postcode audit</h1>
-          <p className="text-sm text-neutral-500 mt-xs max-w-2xl">
-            Some imported addresses may have incorrect or missing postcodes. Work through each
-            property — look up the postcode, correct the address if needed, then confirm. You
-            can do this gradually; your progress is saved after each confirmation.
           </p>
         </div>
 

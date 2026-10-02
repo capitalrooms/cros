@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { fiveWeeksDeposit, oneWeekRent } from '@/lib/tenancy/deposit'
 
@@ -218,13 +219,13 @@ export default function CreateTenancyPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/applicants" />} />
+      <PageHero eyebrow="Lettings · Applicants" title="Set up tenancy" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Page title */}
         <div className="mb-xl">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Lettings → Applicants → Set up tenancy</p>
-          <h1 className="text-2xl font-bold text-neutral-900">Set up tenancy</h1>
         </div>
 
         {/* Applicant summary card */}

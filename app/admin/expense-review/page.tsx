@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import {
   PROPERTY_WIDE_CATEGORIES,
@@ -145,13 +146,10 @@ export default function ExpenseReviewPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/accounts" />} />
+      <PageHero eyebrow="Finance" title="Expense Review" subtitle="Assign categories to uncategorised expense lines. Changes are invisible to landlords — they just see correct data." />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
         <div className="flex items-start justify-between gap-lg">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Expense Review</h1>
-            <p className="text-sm text-neutral-500 mt-xs">
-              Assign categories to uncategorised expense lines. Changes are invisible to landlords — they just see correct data.
-            </p>
           </div>
           <div className="flex items-center gap-md shrink-0">
             {notice && <span className="text-sm text-emerald-600 font-medium">{notice}</span>}

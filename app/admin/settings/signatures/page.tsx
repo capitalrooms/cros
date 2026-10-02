@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
 import {
@@ -88,10 +89,9 @@ export default function SignaturesPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/settings" />} title="Email signatures" />
+      <PageHero eyebrow="Settings" title="Email signatures" subtitle="Make a Gmail signature in the Capital Rooms house style for anyone on the team. Pick the person, check their details, then copy it into Gmail." />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <header>
-          <h1 className="text-2xl font-bold text-neutral-900">Email signatures</h1>
-          <p className="text-sm text-neutral-500 mt-xs">Make a Gmail signature in the Capital Rooms house style for anyone on the team. Pick the person, check their details, then copy it into Gmail.</p>
         </header>
 
         <div className="grid gap-lg lg:grid-cols-[320px_1fr]">

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { withContractors } from '@/lib/contractors'
@@ -155,6 +156,7 @@ export default function BookMaintenancePage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/appointments" />} />
+      <PageHero eyebrow="Management · Diary" title="Book Maintenance Job" subtitle="Select approved jobs to schedule. You can book multiple jobs for the same date/time." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Back Link */}
@@ -166,14 +168,6 @@ export default function BookMaintenancePage() {
         </Link>
 
         {/* Header — Balanced Spacing */}
-        <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">
-            🔧 Book Maintenance Job
-          </h1>
-          <p className="text-base text-neutral-600">
-            Select approved jobs to schedule. You can book multiple jobs for the same date/time.
-          </p>
-        </div>
 
         {/* Error */}
         {error && (

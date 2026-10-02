@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 
@@ -90,12 +91,9 @@ export default function TenantSafetyChecksAdminPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Compliance" title="Tenant Safety Checks" subtitle="Monitor fire door and smoke alarm safety confirmations from tenants." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Tenant Safety Checks</h1>
-          <p className="mt-sm text-neutral-600">Monitor fire door and smoke alarm safety confirmations from tenants.</p>
-        </div>
 
         {/* Tabs */}
         <div className="mb-lg flex gap-md border-b border-neutral-300">
