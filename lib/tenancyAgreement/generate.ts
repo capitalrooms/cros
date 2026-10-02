@@ -2,11 +2,11 @@
 // as a PDF on the Capital Rooms letterhead. Shared by the download route and the send-to-landlord route.
 import path from 'path'
 import fs from 'fs'
-import { renderTenancyAgreementPdf, type BillsConfig } from '@/lib/tenancyAgreement/docxToLetterheadPdf'
+import { renderTenancyAgreementPdf, type BillsConfig, type CleaningConfig } from '@/lib/tenancyAgreement/docxToLetterheadPdf'
 import { fetchPDFBizSettings, type PDFBizSettings } from '@/lib/pdfLetterhead'
 import { firstRentPayment, ukLongDate } from '@/lib/tenancy/firstRent'
 
-export type AgreementInput = Record<string, unknown> & { template?: string; bills?: Partial<BillsConfig> }
+export type AgreementInput = Record<string, unknown> & { template?: string; bills?: Partial<BillsConfig>; cleaning?: CleaningConfig }
 
 export const DEFAULT_BILLS: BillsConfig = {
   water: 'landlord', gas: 'landlord', tv_licence: 'tenant', broadband: 'landlord',
@@ -77,7 +77,7 @@ export function agreementFileName(d: AgreementInput): string {
 }
 
 export async function generateTenancyAgreement(input: AgreementInput, biz?: PDFBizSettings): Promise<Buffer> {
-  const { template = 'apt-ns', bills: billsRaw, ...data } = input
+  const { template = 'apt-ns', bills: billsRaw, cleaning, ...data } = input
   const file = templateFile(template)
   const templatePath = path.join(process.cwd(), 'public', 'templates', file)
   if (!fs.existsSync(templatePath)) throw new Error(`Template not found: ${file}`)
@@ -98,6 +98,7 @@ export async function generateTenancyAgreement(input: AgreementInput, biz?: PDFB
     values,
     rewrites,
     bills: { ...DEFAULT_BILLS, ...(billsRaw || {}) },
+    cleaning,
     title: agreementFileName(input).replace(/\.pdf$/, ''),
     biz: settings,
     omitParagraphs: template === 'apt-base' ? [PARKING_CLAUSE] : [],

@@ -16,6 +16,9 @@ const PDFDocument = require('pdfkit') as typeof import('pdfkit')
 
 export type BillKey = 'water' | 'gas' | 'tv_licence' | 'broadband' | 'electricity' | 'telephone' | 'council_tax'
 export type BillsConfig = Record<BillKey, 'landlord' | 'tenant'>
+export type CleaningPayer = 'landlord' | 'tenant' | 'none'
+export type CleaningFrequency = 'weekly' | 'fortnightly' | 'twice_monthly' | 'monthly'
+export interface CleaningConfig { payer: CleaningPayer; frequency?: CleaningFrequency }
 
 const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 const LANDLORD_TEXT = 'The landlord is responsible'
@@ -24,7 +27,17 @@ const BILL_ROWS: [BillKey, string][] = [
   ['water', 'Water charges:'], ['gas', 'Gas:'], ['tv_licence', 'Television licence:'], ['broadband', 'Broadband:'],
   ['electricity', 'Electricity:'], ['telephone', 'Telephone:'], ['council_tax', 'Council tax:'],
 ]
-const BILL_LABEL_RE = /^(water charges|gas|television licen[cs]e|broadband|electricity|telephone|council tax):?$/i
+// Communal-area cleaning — an extra row under the bills, only when the caller sets it
+const CLEANING_LABEL = 'Cleaning (communal areas):'
+export const CLEANING_FREQUENCY: Record<CleaningFrequency, string> = {
+  weekly: 'once a week', fortnightly: 'every two weeks', twice_monthly: 'twice a month', monthly: 'once a month',
+}
+export function cleaningText(c: CleaningConfig): string {
+  if (c.payer === 'none') return 'No cleaner is provided'
+  const how = c.frequency ? ` — a cleaner ${CLEANING_FREQUENCY[c.frequency]}` : ''
+  return c.payer === 'landlord' ? `Included in the rent${how}` : `You and your fellow tenants pay${how}`
+}
+const BILL_LABEL_RE =/^(water charges|gas|television licen[cs]e|broadband|electricity|telephone|council tax):?$/i
 
 const COL_W = PAGE_W - MARGIN * 2
 const CONTENT_TOP = MARGIN + LOGO_H + 14
@@ -596,6 +609,7 @@ function blankPara(): Para {
 export interface RenderOptions {
   values: Record<string, string>
   bills: BillsConfig
+  cleaning?: CleaningConfig
   title: string
   biz: PDFBizSettings
   omitParagraphs?: RegExp[]
@@ -621,6 +635,11 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
   const dom = new DOMParser().parseFromString(docXml, 'text/xml')
   const body = dom.getElementsByTagNameNS(W_NS, 'body')[0] as unknown as El
   const blocks = normalise(new Parser(model, opts.values, opts.omitParagraphs, opts.rewrites).blocks(body))
+
+  const billRows: [string, string][] = [
+    ...BILL_ROWS.map(([key, label]): [string, string] => [label, opts.bills[key] === 'landlord' ? LANDLORD_TEXT : TENANT_TEXT]),
+    ...(opts.cleaning?.payer ? [[CLEANING_LABEL, cleaningText(opts.cleaning)] as [string, string]] : []),
+  ]
 
   const assets = loadPDFLetterheadAssets()
   const fontsDir = path.join(process.cwd(), 'public', 'fonts')
@@ -745,7 +764,7 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
     return bs.reduce((sum, b) => sum + (
       b.kind === 'p' ? measurePara(b, width) + b.boxes.reduce((s, bx) => s + measureBox(bx, width), 0)
       : b.kind === 'table' ? measureTable(b, width)
-      : b.kind === 'bills' ? BILL_ROWS.length * 17 + 8 : 0), 0)
+      : b.kind === 'bills' ? billRows.length * 17 + 8 : 0), 0)
   }
 
   function drawLine(l: Line, p: Para, x: number, top: number, width: number) {
@@ -862,12 +881,12 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
 
   function drawBills(x: number, width: number) {
     const labelW = 150, rowH = 17
-    ensure(rowH * BILL_ROWS.length + 8)
-    for (const [key, label] of BILL_ROWS) {
+    ensure(rowH * billRows.length + 8)
+    for (const [label, text] of billRows) {
       doc.font(FONT.reg).fontSize(BODY_PT).fillColor(BLACK).text(label, x, y + 4, { lineBreak: false })
       doc.save().lineWidth(0.5).rect(x + labelW, y, width - labelW, rowH).fillAndStroke('#F2F2F2', '#BFBFBF').restore()
       doc.font(FONT.reg).fontSize(BODY_PT).fillColor(BLACK)
-        .text(opts.bills[key] === 'landlord' ? LANDLORD_TEXT : TENANT_TEXT, x + labelW + 6, y + 4, { lineBreak: false })
+        .text(text, x + labelW + 6, y + 4, { lineBreak: false })
       y += rowH
     }
     y += 8

@@ -39,6 +39,10 @@ Each tenancy should be an object with these fields:
   charge_tenant_reference     — true if the text says this tenant is to be referenced / charged for referencing, else false
   charge_guarantor_signatory  — true if the text says this room has a guarantor to add as a signer (or charges for adding one), else false
   charge_guarantor_reference  — true if the text says this room's guarantor is to be referenced / charged for it, else false
+  cleaning_payer      — who pays for cleaning of the communal areas if the text says: "landlord" (included in the rent),
+                        "tenant" (tenants pay) or "none" (no cleaner); null if not mentioned. Use the same value on every row.
+  cleaning_frequency  — how often the cleaner comes if the text says: "weekly", "fortnightly" (every two weeks),
+                        "twice_monthly" (twice a month / twice monthly) or "monthly"; null if not mentioned.
 
 The text may also include notes about what to invoice the landlord, e.g. "£75 per room plus £25 on room 5
 for adding a guarantor as a signer". These are NOT tenancies — use them only to set the charge_* flags on the

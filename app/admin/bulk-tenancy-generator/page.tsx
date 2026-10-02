@@ -242,6 +242,13 @@ export default function BulkTenancyGenerator() {
     telephone: 'landlord', council_tax: 'landlord',
   })
 
+  // Communal cleaning — who pays for the cleaner and how often they come
+  type CleaningPayer = 'landlord' | 'tenant' | 'none'
+  type CleaningFrequency = 'weekly' | 'fortnightly' | 'twice_monthly' | 'monthly'
+  const CLEANING_PAYERS: [CleaningPayer, string][] = [['landlord', 'Landlord — included in rent'], ['tenant', 'Tenants pay'], ['none', 'No cleaner']]
+  const CLEANING_FREQUENCIES: [CleaningFrequency, string][] = [['weekly', 'Once a week'], ['fortnightly', 'Every two weeks'], ['twice_monthly', 'Twice a month'], ['monthly', 'Once a month']]
+  const [cleaning, setCleaning] = useState<{ payer: CleaningPayer; frequency: CleaningFrequency }>({ payer: 'landlord', frequency: 'weekly' })
+
   // Load landlords on mount
   useEffect(() => {
     supabase
@@ -309,6 +316,12 @@ export default function BulkTenancyGenerator() {
         landlord_id: selectedLandlordId || null,
       }))
       setRows(parsed)
+      // Cleaning mentioned in the notes ("landlord pays … cleaning twice monthly") pre-selects the cleaning choice
+      const withCleaning = (data.rows || []).find((r: any) => ['landlord', 'tenant', 'none'].includes(r.cleaning_payer))
+      if (withCleaning) {
+        const freq = ['weekly', 'fortnightly', 'twice_monthly', 'monthly'].includes(withCleaning.cleaning_frequency) ? withCleaning.cleaning_frequency : null
+        setCleaning(c => ({ payer: withCleaning.cleaning_payer, frequency: freq ?? c.frequency }))
+      }
       // Charges mentioned in the pasted notes pre-tick the invoice extras
       setInvoiceExtras(Object.fromEntries((data.rows || []).map((r: any) => [r._id, {
         tenant_reference: !!r.charge_tenant_reference,
@@ -348,6 +361,7 @@ export default function BulkTenancyGenerator() {
     const payload = {
       template: row.template,
       bills,
+      cleaning,
       tenant_name: tenantFullName || row.tenant_name || '',
       property_address: row.room_number ? `Room ${row.room_number}, ${tidyAddress(row.property_name)}` : tidyAddress(row.property_name),
       landlord_name: landlordFullName,
@@ -680,6 +694,39 @@ export default function BulkTenancyGenerator() {
                 ))}
               </div>
               <p className="text-[11px] text-neutral-400 mt-xs">Applies to every room. LL = landlord pays · T = tenant pays — click to switch.</p>
+
+              <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mt-md mb-sm">Cleaning (communal areas)</p>
+              <div className="flex flex-wrap items-center gap-xs">
+                <span className="text-[11px] font-semibold text-neutral-500 w-16">Who pays</span>
+                {CLEANING_PAYERS.map(([k, label]) => {
+                  const on = cleaning.payer === k
+                  return (
+                    <button key={k} type="button" onClick={() => setCleaning(c => ({ ...c, payer: k }))}
+                    className={`rounded-lg border px-sm py-xs text-xs font-medium transition-colors ${
+                      on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'
+                    }`}>
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+              {cleaning.payer !== 'none' && (
+                <div className="flex flex-wrap items-center gap-xs mt-xs">
+                  <span className="text-[11px] font-semibold text-neutral-500 w-16">How often</span>
+                  {CLEANING_FREQUENCIES.map(([k, label]) => {
+                    const on = cleaning.frequency === k
+                    return (
+                      <button key={k} type="button" onClick={() => setCleaning(c => ({ ...c, frequency: k }))}
+                      className={`rounded-lg border px-sm py-xs text-xs font-medium transition-colors ${
+                      on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'
+                    }`}>
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              <p className="text-[11px] text-neutral-400 mt-xs">Shown as a row under the bills in every agreement.</p>
             </div>
 
             {/* Header actions */}
@@ -1015,6 +1062,7 @@ export default function BulkTenancyGenerator() {
                 property={property}
                 tenantBills={billNames('tenant')}
                 landlordBills={billNames('landlord')}
+                cleaning={cleaning}
               />
             )}
           </div>
