@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import PageHero from '@/components/PageHero'
 import { getCurrentUser } from '@/lib/auth';
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 interface PropertyComplianceData {
@@ -233,24 +234,9 @@ export default function PropertyComplianceDashboard() {
   const selectedProp = properties.find((p) => p.property_id === selectedProperty);
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-lg">
+    <div className="min-h-screen bg-neutral-100">
+      <PageHero eyebrow="Compliance" title="Property compliance dashboard" subtitle="Fire door & smoke alarm checks organised by property and month" />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Property Compliance Dashboard</h1>
-            <p className="text-sm text-neutral-600 mt-xs">
-              Fire door & smoke alarm checks organised by property and month
-            </p>
-          </div>
-          <Link
-            href="/admin"
-            className="rounded-lg bg-neutral-200 px-md py-xs text-sm font-bold text-neutral-900 hover:bg-neutral-300"
-          >
-            ← Back
-          </Link>
-        </div>
-
         {/* Properties List */}
         <div className="space-y-md">
           <h2 className="text-lg font-bold text-neutral-900">Your Properties</h2>

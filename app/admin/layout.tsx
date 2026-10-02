@@ -123,6 +123,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const isActive = (href: string) => {
     const [itemPath, itemQuery] = href.split('?')
     const itemTab = itemQuery ? new URLSearchParams(itemQuery).get('tab') : null
+    // a letting file (/admin/lettings/<tenancy>) belongs under Tenancies, not the Lettings overview
+    if (itemPath === '/admin/lettings') return pathname === itemPath
+    if (itemPath === '/admin/tenancies' && pathname.startsWith('/admin/lettings/')) return true
     return itemTab ? pathname === itemPath && searchParams.get('tab') === itemTab : pathname === href || pathname.startsWith(itemPath + '/')
   }
   const railZone = onPropHub ? ZONES.find(z => z.id === 'portfolio') ?? null : activeZone

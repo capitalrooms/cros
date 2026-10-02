@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -245,6 +246,7 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/people" />} />
+      <PageHero eyebrow={`People · ${roleLabel}`} title={displayName} subtitle={[person.company, person.email, person.phone].filter(Boolean).join(' · ') || undefined} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
@@ -252,13 +254,10 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
         <div className="rounded-xl border border-neutral-200 bg-white px-xl py-lg mb-xl">
           <div className="flex items-start justify-between gap-lg">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">{roleLabel}</p>
-              <h1 className="text-2xl font-bold text-neutral-900">{displayName}</h1>
-              <p className="text-sm text-neutral-400 mt-xs">{person.email}</p>
-              {person.phone && <p className="text-sm text-neutral-400">{person.phone}</p>}
-              {person.company && <p className="text-sm text-neutral-500 mt-xs font-medium">{person.company}</p>}
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">Trades</p>
+              {(person.trade_types || []).length === 0 && <p className="text-sm text-neutral-500">None listed</p>}
               {(person.trade_types || []).length > 0 && (
-                <div className="flex flex-wrap gap-xs mt-md">
+                <div className="flex flex-wrap gap-xs">
                   {(person.trade_types as string[]).map(t => (
                     <span key={t} className="text-xs font-semibold px-sm py-xs rounded-full bg-blue-50 text-blue-800 border border-blue-100">{t}</span>
                   ))}

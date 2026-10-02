@@ -3,6 +3,7 @@
 // Email new certificates to everyone living in the house — each tenant gets their own copy.
 import { use, useCallback, useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -63,14 +64,10 @@ export default function SendHouseDocuments({ params }: { params: Promise<{ id: s
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href={`/admin/properties/${id}`} />} title="Send documents to the house" />
+      <PageHero eyebrow="Send documents to the house" title={data ? String(data.property.name ?? '').split('\n')[0] : 'Send documents'} subtitle={data?.property.address} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {!data ? (error ? <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p> : <p className="text-sm text-neutral-400">Loading…</p>) : (
           <>
-            <div>
-              <p className="text-sm text-neutral-500">Send documents to the house</p>
-              <h1 className="text-2xl font-bold text-neutral-900">{data.property.name}</h1>
-              <p className="text-sm text-neutral-600">{data.property.address}</p>
-            </div>
             {data.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{data.setupNeeded}</p>}
             {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}
             {notice && <p className="rounded-xl bg-green-50 px-md py-sm text-sm text-green-800">{notice}</p>}

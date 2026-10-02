@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { TIME_SLOTS, earliestBookableDate } from '@/lib/booking'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -157,6 +158,7 @@ export default function JobSheetPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/maintenance" />} title="Send job sheet" />
+      <PageHero eyebrow="Management · Maintenance" title="Send job sheet" subtitle="Pick the property and contractor, choose the jobs, and send one sheet." />
 
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 

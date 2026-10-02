@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import { FACT_LABELS, propertyDocLabel, type PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
@@ -347,6 +348,7 @@ function Page({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business/onboarding" />} title="AML review" />
+      <PageHero eyebrow="New business · Landlord onboarding" title="AML review" />
       <div className="mx-auto max-w-6xl px-lg py-xl">{children}</div>
     </div>
   )

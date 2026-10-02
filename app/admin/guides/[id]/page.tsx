@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 interface Guide {
@@ -320,6 +321,7 @@ export default function AdminGuideDetailPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-[80px]">
       <AppBar left={<BackButton href="/admin/guides" />} title="Edit Guide" />
+      <PageHero eyebrow="Compliance · Tenant guides" title={title || 'Edit guide'} />
 
       <main className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 

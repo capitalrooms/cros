@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromPeople, LandlordCardData, LandlordProperty } from '@/app/components/LandlordCard'
 import { landlordName } from '@/lib/people'
@@ -461,9 +462,17 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
     { id: 'notifications' as const, label: 'Notifications' },
   ]
 
+  const landlordName = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.full_name || person.company || person.email || 'Landlord'
+
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/people?tab=landlords" />} />
+      <PageHero
+        eyebrow="People · Landlord"
+        title={landlordName}
+        subtitle={[person.company && person.company !== landlordName ? person.company : null, person.email, person.phone].filter(Boolean).join(' · ') || undefined}
+        tabs={TABS.map(tab => ({ key: tab.id, label: tab.label, active: activeTab === tab.id, onClick: () => setActiveTab(tab.id) }))}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
@@ -483,18 +492,6 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
               </button>
             }
           />
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-xs mb-xl border-b border-neutral-200 overflow-x-auto">
-          {TABS.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`shrink-0 px-lg py-md text-sm font-semibold transition whitespace-nowrap ${
-                activeTab === tab.id ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-400 hover:text-neutral-700'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
         </div>
 
         {/* ══ OVERVIEW ══ */}

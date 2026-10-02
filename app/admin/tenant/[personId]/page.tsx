@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import TenantCard, { TenantCardTenant, TenantCardTenancy, tenantDisplayName } from '@/app/components/TenantCard'
 import EditPersonModal from '@/app/admin/components/EditPersonModal'
@@ -1049,9 +1050,29 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
 
   /* ══════════════════════════════════════════════════════════════════════ */
 
+  // the tenancy whose letting file the header opens: the current one, else the most recent
+  const fileTenancy = (tenancies.find(t => !t.end_date || t.end_date >= todayStr) ?? tenancies[0] ?? null) as any
+  const tenantName = [(tenant as any).first_name, (tenant as any).last_name].filter(Boolean).join(' ') || (tenant as any).full_name || (tenant as any).email || 'Tenant'
+
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/people?tab=tenants" />} />
+      <PageHero
+        eyebrow="People · Tenant"
+        title={tenantName}
+        subtitle={fileTenancy ? [fileTenancy.room?.name, String(fileTenancy.property?.name || fileTenancy.property?.address || '').split('\n')[0], fileTenancy.end_date && fileTenancy.end_date < todayStr ? `ended ${fmt(fileTenancy.end_date)}` : fileTenancy.start_date > todayStr ? `moving in ${fmt(fileTenancy.start_date)}` : `since ${fmt(fileTenancy.start_date)}`].filter(Boolean).join(' · ') : 'No tenancy yet'}
+        actions={fileTenancy ? <HeroButton primary href={`/admin/lettings/${fileTenancy.id}?from=${encodeURIComponent(`/admin/tenant/${tenant.id}`)}`}>Letting file →</HeroButton> : undefined}
+        tabs={[
+            { id: 'overview'        as const, label: 'Overview' },
+            { id: 'tenancy'         as const, label: 'Tenancy' },
+            { id: 'documents'       as const, label: `Documents${tenancyDocs.length ? ` (${tenancyDocs.length})` : ''}` },
+            { id: 'reference'       as const, label: `Reference${referenceHistory.length ? ` (${referenceHistory.length})` : ''}` },
+            { id: 'communications'  as const, label: `Communications (${communications.length})` },
+            { id: 'safety'          as const, label: `Safety Checks (${safetyChecks.length})` },
+            { id: 'history'         as const, label: 'Timeline' },
+            { id: 'payments'        as const, label: `Payments${paymentRows.length ? ` (${paymentRows.length})` : ''}` },
+          ].map(tab => ({ key: tab.id, label: tab.label, active: activeTab === tab.id, onClick: () => setActiveTab(tab.id) }))}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
@@ -1099,77 +1120,6 @@ export default function TenantProfilePage({ params }: { params: Promise<{ person
             </table>
           </div>
         )}
-
-        {/* ── Onboarding / lifecycle tracker ────────────────────────── */}
-        {currentTenancy && (() => {
-          const ct = currentTenancy as any
-          const hasRef = referenceHistory.length > 0
-          const depositProtected = !!(ct.deposit_scheme_ref)
-          const depositReceived = !!(ct.deposit_amount)
-          const movedIn = ct.start_date && ct.start_date <= todayStr
-          const steps: { label: string; done: boolean | null; key: string; notTracked?: boolean }[] = [
-            { label: 'Holding deposit',   done: !!ct.holding_deposit_received, key: 'holding' },
-            { label: 'Referencing',       done: hasRef,                        key: 'ref' },
-            { label: 'Agreement sent',    done: null, notTracked: true,        key: 'agreement' },
-            { label: 'Docs issued',       done: tenancyDocs.length > 0,        key: 'docs' },
-            { label: 'Monies received',   done: depositReceived,               key: 'monies' },
-            { label: 'Deposit protected', done: depositProtected,              key: 'deposit' },
-            { label: 'Keys issued',       done: null, notTracked: true,        key: 'keys' },
-            { label: 'Moved in',          done: movedIn,                       key: 'moved' },
-          ]
-          const outstanding = steps.filter(s => s.done === false).map(s => s.label)
-          return (
-            <div className="mb-xl rounded-xl border border-neutral-200 bg-white overflow-hidden">
-              <div className="px-xl py-md border-b border-neutral-100 flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Onboarding checklist</p>
-                {outstanding.length === 0
-                  ? <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-sm py-xs rounded-full">Complete</span>
-                  : <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-sm py-xs rounded-full">{outstanding.length} outstanding</span>
-                }
-              </div>
-              <div className="px-xl py-md flex flex-wrap gap-sm">
-                {steps.map((s, i) => (
-                  <div key={s.key} className="flex items-center gap-xs">
-                    {i > 0 && <span className="text-neutral-200 text-xs">›</span>}
-                    <span className={`text-xs font-semibold px-sm py-xs rounded-full border flex items-center gap-xs ${
-                      s.done === true  ? 'bg-green-50 text-green-800 border-green-200'
-                      : s.done === false ? 'bg-amber-50 text-amber-800 border-amber-200'
-                      : 'bg-neutral-100 text-neutral-400 border-neutral-200'
-                    }`}>
-                      {s.done === true ? '✓ ' : s.done === false ? '· ' : ''}{s.label}{s.notTracked ? ' (not tracked)' : ''}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {outstanding.length > 0 && (
-                <div className="px-xl pb-md">
-                  <p className="text-xs text-amber-700">Outstanding: {outstanding.join(', ')}. Deposit fields can be updated on the Tenancy tab.</p>
-                </div>
-              )}
-            </div>
-          )
-        })()}
-
-        {/* ── Tabs ──────────────────────────────────────────────────── */}
-        <div className="flex gap-xs mb-xl border-b border-neutral-200 overflow-x-auto">
-          {[
-            { id: 'overview'        as const, label: 'Overview' },
-            { id: 'tenancy'         as const, label: 'Tenancy' },
-            { id: 'documents'       as const, label: `Documents${tenancyDocs.length ? ` (${tenancyDocs.length})` : ''}` },
-            { id: 'reference'       as const, label: `Reference${referenceHistory.length ? ` (${referenceHistory.length})` : ''}` },
-            { id: 'communications'  as const, label: `Communications (${communications.length})` },
-            { id: 'safety'          as const, label: `Safety Checks (${safetyChecks.length})` },
-            { id: 'history'         as const, label: 'Timeline' },
-            { id: 'payments'        as const, label: `Payments${paymentRows.length ? ` (${paymentRows.length})` : ''}` },
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`shrink-0 px-lg py-md text-sm font-semibold transition whitespace-nowrap ${
-                activeTab === tab.id ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-400 hover:text-neutral-700'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
 
         {/* ══════════════════════════════════════════════════════════════ */}
         {/* OVERVIEW                                                      */}

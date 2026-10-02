@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter, useParams } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import LetOnlyContactsSection from '@/app/components/LetOnlyContactsSection'
@@ -141,36 +142,14 @@ export default function LetOnlyDetailPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href={backHref} />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-xl space-y-2xl">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-lg">
-          <div>
-            <div className="flex items-center gap-sm mb-xs">
-              <span className="rounded-full bg-purple-100 px-md py-xs text-xs font-semibold text-purple-700">
-                🔑 Let-only
-              </span>
-              {listing.is_active ? (
-                <span className="rounded-full bg-emerald-100 px-md py-xs text-xs font-semibold text-emerald-700">Active</span>
-              ) : (
-                <span className="rounded-full bg-neutral-200 px-md py-xs text-xs font-semibold text-neutral-500">Inactive</span>
-              )}
-            </div>
-            <h1 className="text-2xl font-bold text-neutral-900">{listing.address}</h1>
-            {listing.postcode && <p className="text-sm text-neutral-500 mt-xs">{listing.postcode}</p>}
-          </div>
-          <button
-            onClick={toggleActive}
-            disabled={saving}
-            className={`rounded-xl px-md py-sm text-sm font-semibold transition-colors shrink-0 ${
-              listing.is_active
-                ? 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-            }`}
-          >
-            {saving ? '…' : listing.is_active ? 'Mark inactive' : 'Mark active'}
-          </button>
-        </div>
+      <PageHero
+        eyebrow={<>Lettings · Let-only · <span className={listing.is_active ? 'text-[#6EAF8B]' : ''}>{listing.is_active ? 'Active' : 'Inactive'}</span></>}
+        title={listing.address}
+        subtitle={listing.postcode || undefined}
+        actions={<HeroButton onClick={saving ? undefined : toggleActive}>{saving ? '…' : listing.is_active ? 'Mark inactive' : 'Mark active'}</HeroButton>}
+      />
 
+      <main className="mx-auto max-w-6xl px-lg py-xl space-y-2xl">
         {banner && (
           <div className="rounded-xl bg-blue-50 border border-blue-200 px-lg py-sm text-sm text-blue-800">
             {banner}

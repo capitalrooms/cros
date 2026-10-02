@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { ICEBREAKER_QUESTIONS } from '@/lib/icebreaker'
@@ -706,17 +707,13 @@ export default function RoomDashboardPage({
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href={`/admin/properties/${propertyId}`} />} />
+      <PageHero
+        eyebrow={<><Link href="/admin/active-rooms" className="hover:underline">All Units</Link> · <Link href={`/admin/properties/${propertyId}`} className="hover:underline">{String(property.name ?? '').split('\n')[0]}</Link></>}
+        title={room.name}
+        subtitle={property.address}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-xs text-xs text-neutral-500 mb-lg font-medium">
-          <Link href="/admin/active-rooms" className="hover:text-neutral-700">All Units</Link>
-          <span>›</span>
-          <Link href={`/admin/properties/${propertyId}`} className="hover:text-neutral-700">{property.name}</Link>
-          <span>›</span>
-          <span className="text-neutral-700">{room.name}</span>
-        </nav>
 
         {/* ── Hero card ─────────────────────────────────────────────────────── */}
         <div className="mb-xl rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
@@ -736,10 +733,7 @@ export default function RoomDashboardPage({
             {/* Info */}
             <div className="p-lg flex flex-col gap-md">
               <div className="flex items-start justify-between gap-md flex-wrap">
-                <div>
-                  <h1 className="text-2xl font-bold text-neutral-900">{room.name}</h1>
-                  <p className="text-sm text-neutral-500 mt-xs">{property.name} · {property.address}</p>
-                </div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mt-xs">Status</p>
                 <span className={`inline-flex items-center gap-xs px-md py-xs rounded-full text-xs font-semibold shrink-0 mt-xs ${statusCls}`}>
                   <span className="w-1.5 h-1.5 rounded-full bg-current" />
                   {statusLabel}

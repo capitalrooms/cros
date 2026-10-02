@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -111,8 +112,8 @@ export default function CreateAcknowledgmentNotePage() {
         left={<BackButton href="/admin/acknowledgment-notes" />}
       />
 
+      <PageHero eyebrow="Compliance · Acknowledgment notes" title="Create acknowledgment note" />
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <h1 className="text-2xl font-bold text-neutral-900">📝 Create Acknowledgment Note</h1>
 
         <form onSubmit={handleSubmit} className="space-y-md">
           {/* Property Selection */}

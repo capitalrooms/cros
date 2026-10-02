@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatBooking } from '@/lib/booking';
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton';
 
 interface Ticket {
@@ -200,6 +201,7 @@ export default function CalendarPage() {
       <AppBar
         left={<BackButton href="/admin" />}
       />
+      <PageHero eyebrow="Management" title="Calendar" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Month navigation */}
