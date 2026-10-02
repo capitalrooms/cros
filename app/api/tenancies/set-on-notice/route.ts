@@ -8,6 +8,7 @@ import { getTemplate, render } from '@/lib/messageTemplate'
 import { senderFields } from '@/lib/email/sender'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+const ukDay = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 
 async function sendEmail(to: string, subject: string, html: string, req: Request) {
   const key = process.env.RESEND_API_KEY
@@ -232,7 +233,7 @@ export async function POST(request: Request) {
 
     // the letting file's activity
     await logTenancyEvent(supabase, tenancyId, 'notice',
-      `Notice recorded (received ${noticeReceivedDate || 'today'}), moving out ${moveOutDate}${tenantEmailSent ? ' · checkout email sent to the tenant' : ' · no email to the tenant'}${cleanerEmailSent ? ' · cleaner told' : ''}`, caller.email)
+      `Notice recorded (received ${ukDay(noticeReceivedDate || new Date().toISOString().slice(0, 10))}), moving out ${ukDay(moveOutDate)}${tenantEmailSent ? ' · checkout email sent to the tenant' : ' · no email to the tenant'}${cleanerEmailSent ? ' · cleaner told' : ''}`, caller.email)
 
     return Response.json({
       success: true,

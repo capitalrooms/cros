@@ -531,6 +531,15 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
   // opened from a list's "Mark on notice" (…?tab=notice&mark=1)
   useEffect(() => { if (startMarking && file.stage === 'live') openMarking() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function cancelNotice() {
+    const why = prompt('Cancel this notice? The tenancy carries on and the room shows as occupied again.\n\nWhy (optional, kept in the activity):')
+    if (why === null) return
+    setBusy(true); setErr(''); setDone('')
+    try { await patch({ action: 'cancel_notice', reason: why }); setDone('Notice cancelled — the tenancy carries on.') }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Could not cancel the notice') }
+    finally { setBusy(false) }
+  }
+
   async function confirmNotice(d: OnNoticeData) {
     const cleaner = cleaners.find(c => c.id === d.cleanerId)
     const r = await adminFetch('/api/tenancies/set-on-notice', {
@@ -567,11 +576,13 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
           <div><dt className={label}>Rent review due</dt><dd>{day(t.rent_review_date)}</dd></div>
         </dl>
         {done && <p className="rounded-xl border border-green-200 bg-green-50 px-md py-sm text-sm font-semibold text-green-800">{done}</p>}
+        {err && file.stage !== 'let_agreed' && <p className="text-sm text-red-700">{err}</p>}
         {(file.stage === 'live' || file.stage === 'on_notice') && (
           <div className="flex flex-wrap gap-sm pt-sm">
             {file.stage === 'live' && <button type="button" onClick={openMarking} className={btnDark}>Mark on notice</button>}
             <Link href={`/admin/rent-increase/${t.id}`} className={btn}>Rent review</Link>
             {file.stage === 'on_notice' && <Link href="/admin/deposits" className={btn}>Deposit return</Link>}
+            {file.stage === 'on_notice' && <button type="button" disabled={busy} onClick={cancelNotice} className={btn}>Cancel notice</button>}
           </div>
         )}
         {file.stage === 'live' && <p className="text-xs text-neutral-500">Mark on notice records the dates, works out the final rent, and lets you preview the checkout email before choosing whether to send it.</p>}
@@ -579,7 +590,7 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
 
       {marking && (
         <SetOnNoticeModal
-          tenancy={{ id: t.id, person: { name: file.tenant.name, email: file.tenant.email ?? '', phone: file.tenant.phone ?? '' }, room: { name: file.room.name }, property: { name: String(file.property.name ?? '').split('\n')[0], address: file.property.address ?? '' }, rent_amount: Number(t.rent_amount) || 0, rent_due_day: t.rent_due_day }}
+          tenancy={{ id: t.id, person: { name: file.tenant.name, email: file.tenant.email ?? '', phone: file.tenant.phone ?? '' }, room: { name: file.room.name }, property: { name: String(file.property.name ?? '').split('\n')[0], address: [String(file.property.name ?? '').split('\n')[0], file.property.address].filter(Boolean).join(', ') }, rent_amount: Number(t.rent_amount) || 0, rent_due_day: t.rent_due_day }}
           cleaners={cleaners}
           contractors={contractors}
           onClose={() => setMarking(false)}
