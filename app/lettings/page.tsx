@@ -723,6 +723,7 @@ export default function LettingsPage() {
       {/* ── Tab content ────────────────────────────────────────────────────── */}
       <main className="mx-auto max-w-2xl px-lg pb-3xl">
         <div className="pt-md"><EnableNotifications /></div>
+        <a href="/planner" className="mt-sm flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🗂️ With Capital Rooms — notes, jobs &amp; photos<span aria-hidden="true">›</span></a>
 
         {/* ── VIEWINGS ─────────────────────────────────────────────────────── */}
         {activeTab === 'viewings' && (

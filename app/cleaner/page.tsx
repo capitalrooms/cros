@@ -737,6 +737,7 @@ export default function CleanerDashboard() {
         {activeTab === 'today' && (
           <div className="pt-lg pb-sm">
             <EnableNotifications />
+            <a href="/planner" className="mt-sm flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🗂️ With Capital Rooms — notes, jobs &amp; photos<span aria-hidden="true">›</span></a>
           </div>
         )}
 

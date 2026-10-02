@@ -448,6 +448,10 @@ export default function PlannerPage() {
     <div className="flex flex-col" style={{ height: '100vh', background: '#faf9f7', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <AppBar left={<BackButton href="/admin" />} />
 
+      <a href="/admin/planner/shared" className="flex items-center justify-between gap-md border-b border-neutral-200 bg-white px-lg py-sm text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
+        <span>🗂️ Shared planner — boards with your cleaners, contractors and lettings team</span><span aria-hidden="true">›</span>
+      </a>
+
       {/* ── Mobile top bar ── */}
       <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b" style={{ background: '#f2f0ec', borderColor: '#e5e2db' }}>
         <button onClick={() => setShowMobileSidebar(true)}
