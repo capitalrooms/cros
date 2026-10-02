@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 
   const { data: jobs } = await supabase
     .from('maintenance_tickets')
-    .select('id, category, booked_slot, contractor_id, arrived_at, status')
+    .select('id, title, category, booked_slot, contractor_id, arrived_at, status, rooms(name), properties(name, address)')
     .eq('booked_date', today)
     .eq('status', 'assigned')
     .not('contractor_id', 'is', null)
@@ -46,12 +46,14 @@ export async function GET(req: Request) {
   let nudged = 0
   for (const j of jobs || []) {
     const slot = slotLabel(j.booked_slot)
+    const jj = j as any
+    const where = [jj.rooms?.name, String(jj.properties?.name || jj.properties?.address || '').split('\n')[0]].filter(Boolean).join(', ')
     const nudgeBody = nudgeTpl
       ? render(nudgeTpl.template_text, { slot })
-      : `Your ${slot} job today — tap to confirm you're on track, or reschedule.`
+      : `You're booked today${slot ? ` at ${slot}` : ''} for ${jj.title || jj.category || 'a job'}${where ? ` at ${where}` : ''}. If you can't make this time, please rebook in the app so the tenants are updated.`
     await push({
       personId: j.contractor_id,
-      title: 'Still on time?',
+      title: `Today${slot ? ` · ${slot}` : ''}: you're booked in`,
       body: nudgeBody,
       url: `/contractor/job/${j.id}`,
       tag: `nudge-${j.id}`,

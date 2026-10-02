@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireStaff } from '@/lib/portalAuth'
+import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { senderFields } from '@/lib/email/sender'
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
       .eq('id', roomId)
 
     if (roomError) { console.error('Error updating room:', roomError); throw roomError }
+    await alertLettingsRoomUp(supabase, roomId, { availableFrom: moveOutDate, why: 'Notice recorded — ready to market.' })
 
     // 2b. Update asking rent for remarketing (non-blocking — column may not exist yet)
     if (newAskingRent && !isNaN(Number(newAskingRent)) && Number(newAskingRent) > 0) {

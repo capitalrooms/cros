@@ -17,6 +17,7 @@ import DesktopRightRail from '@/app/components/DesktopRightRail'
 import LettingsQuickNotify, { type NotifyMode } from './LettingsQuickNotify'
 import ViewingSheet, { notifyLetOnlyContacts } from './ViewingSheet'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
+import EnableNotifications from '@/app/components/EnableNotifications'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -298,6 +299,10 @@ export default function LettingsPage() {
 
       const role = data.assignment?.role
       if (!['lettings', 'administrator', 'admin'].includes(role)) { router.push('/login'); return }
+
+      // a notification link can open a tab (?tab=available)
+      const tabParam = searchParams.get('tab')
+      if (tabParam && ['viewings', 'available', 'leads', 'let'].includes(tabParam)) setActiveTab(tabParam as Tab)
 
       // View-as impersonation — admin only
       const asParam = searchParams.get('as')
@@ -715,6 +720,7 @@ export default function LettingsPage() {
 
       {/* ── Tab content ────────────────────────────────────────────────────── */}
       <main className="mx-auto max-w-2xl px-lg pb-3xl">
+        <div className="pt-md"><EnableNotifications /></div>
 
         {/* ── VIEWINGS ─────────────────────────────────────────────────────── */}
         {activeTab === 'viewings' && (

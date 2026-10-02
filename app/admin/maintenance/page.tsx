@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatBooking, TIME_SLOTS, earliestBookableDate, bookingLeadTimeNote } from '@/lib/booking';
 import AppBar from '@/components/AppBar'
+import ChaseContractors from './ChaseContractors'
 import BackButton from '@/app/components/BackButton'
 
 interface Ticket {
@@ -639,6 +640,8 @@ export default function MaintenanceDashboard() {
             </Link>
           </div>
         </div>
+
+        <ChaseContractors />
 
         {error && (
           <div className="mb-md rounded-xl border border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">
