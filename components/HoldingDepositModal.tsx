@@ -110,10 +110,10 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
       body: JSON.stringify({ applicantId, action: 'outcome', holdingId: rec.id, ...outcome }),
     })
     const d = await res.json().catch(() => ({}))
-    setSending(false)
-    if (!res.ok) { setError(d.error ?? 'Could not save that'); return }
+    if (!res.ok) { setSending(false); setError(d.error ?? 'Could not save that'); return }
+    await load()   // keeps "Saving…" showing until the record reads back with its new status
     setOutcome(null)
-    await load()
+    setSending(false)
   }
 
   async function viewReceipt(docId: string) {
@@ -180,7 +180,7 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
                         <p className="text-[11px] text-neutral-500">This is final — the record and the reason are kept. To correct a mistake, reverse it and record it again.</p>
                         <div className="flex gap-sm">
                           <button type="button" onClick={() => setOutcome(null)} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-semibold">Cancel</button>
-                          <button type="button" disabled={sending || !outcome.reason.trim()} onClick={() => saveOutcome(r)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white disabled:opacity-40">Save</button>
+                          <button type="button" disabled={sending || !outcome.reason.trim()} onClick={() => saveOutcome(r)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white disabled:opacity-40">{sending ? 'Saving…' : 'Save'}</button>
                         </div>
                       </div>
                     )}
