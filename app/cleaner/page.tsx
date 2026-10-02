@@ -75,7 +75,7 @@ function CleanCard({ c, onClick }: { c: any; onClick: () => void }) {
       <div className="min-w-0 flex-1">
         <p className="font-bold text-neutral-900 truncate">{c.properties?.name}</p>
         <p className="text-sm text-neutral-500">
-          {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
+          {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : c.status !== 'completed' ? ' · time to confirm' : ''}
         </p>
         {c.properties?.clean_frequency_weeks && (
           <p className="text-xs text-neutral-400 mt-xs">
@@ -602,7 +602,7 @@ export default function CleanerDashboard() {
                   >
                     <div style={{ fontWeight: 700, fontSize: 12, color: '#181614', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.properties?.name || 'Clean'}</div>
                     <div style={{ fontSize: 10.5, color: '#59544C', marginTop: 2 }}>
-                      📅 {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}
+                      📅 {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : c.status !== 'completed' ? ' · time to confirm' : ''}
                     </div>
                   </div>
                 </a>

@@ -5,7 +5,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
-import { TIME_SLOTS, earliestBookableDate, slotLabel } from '@/lib/booking'
+import { TIME_SLOTS, earliestBookableDate, bookingLeadTimeNote, slotLabel } from '@/lib/booking'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import JobCompletion from '@/app/components/JobCompletion'
@@ -30,10 +30,9 @@ interface Job {
   properties: { name: string; address: string; lat: number | null; lng: number | null; key_safe_code?: string | null }
   rooms?: { name: string }
   location?: string
-  return_visit_needed?: boolean | null
-  return_visit_reason?: string | null
-  return_visit_date_estimate?: string | null
-  return_visit_notes?: string | null
+  return_needed?: boolean | null       // a return visit is needed (columns: return_needed / return_date / return_reason)
+  return_reason?: string | null
+  return_date?: string | null
   duration_estimate_label?: string | null
   duration_estimate_minutes?: number | null
   // Quote fields
@@ -93,6 +92,7 @@ export default function JobDetailPage() {
   const [returnReason, setReturnReason] = useState('')
   const [returnDate, setReturnDate] = useState('')
   const [returnUncertain, setReturnUncertain] = useState(false)
+  const [returnSlot, setReturnSlot] = useState('')
   const [areaInstruction, setAreaInstruction] = useState('')
   const [savingReturn, setSavingReturn] = useState(false)
 
@@ -225,6 +225,12 @@ export default function JobDetailPage() {
 
   async function handleReschedule() {
     if (!job || !bookDate || !bookSlot) return
+    // a new day needs the usual notice (24h for bedroom access); running late on the same day doesn't
+    const earliest = earliestBookableDate(job.location ?? job.rooms?.name, job.priority)
+    if (reReason !== 'Running late — same day' && bookDate !== job.booked_date && bookDate < earliest) {
+      alert(`${bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)} The earliest new date is ${new Date(earliest).toLocaleDateString('en-GB')}.`)
+      return
+    }
     setBusy('reschedule')
     try {
       await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
@@ -400,21 +406,29 @@ export default function JobDetailPage() {
     }
   }
 
+  // Need to come back: book the return visit (date + slot, with 24h notice for bedroom access) and tell the
+  // tenants — or, when the date isn't known yet (waiting on parts), keep the job open as Ongoing.
   async function handleNeedToReturn() {
     if (!job) return
     if (!returnReason.trim()) { alert('Please add a reason.'); return }
-    if (!returnUncertain && !returnDate) { alert('Please pick a return date, or tick "Not sure yet".'); return }
+    if (!returnUncertain && (!returnDate || !returnSlot)) { alert('Pick a date and time slot for the return visit, or tick "Not sure yet".'); return }
+    const earliest = earliestBookableDate(job.location ?? job.rooms?.name, job.priority)
+    if (!returnUncertain && returnDate < earliest) { alert(`${bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)} The earliest date is ${new Date(earliest).toLocaleDateString('en-GB')}.`); return }
+    const reason = [returnReason.trim(), areaInstruction.trim() ? `Area: ${areaInstruction.trim()}` : ''].filter(Boolean).join(' — ')
     setSavingReturn(true)
     try {
-      await patch({
-        return_visit_needed: true,
-        return_visit_reason: returnReason,
-        return_visit_date_estimate: returnUncertain ? null : returnDate || null,
-        return_visit_notes: areaInstruction || null,
-        status: 'in_progress',
-      })
+      if (returnUncertain) {
+        await patch({ return_needed: true, return_reason: reason, return_date: null, status: 'in_progress' })
+        alert('Logged — the office can see it. The job stays open until you book the return visit.')
+      } else {
+        // a fresh visit: booked, and they'll tap "I've arrived" again on the day
+        await patch({ return_needed: true, return_reason: reason, return_date: returnDate, booked_date: returnDate, booked_slot: returnSlot, arrived_at: null, status: 'assigned' })
+        notify('/api/notify-booking')
+        const when = new Date(returnDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+        pushTenants(`Your contractor needs to come back to finish the repair: ${when}, ${slotLabel(returnSlot)}.`)
+        alert('✅ Return visit booked — the tenants have been told.')
+      }
       setShowReturnFlow(false)
-      alert('Logged — admin has been notified. The job stays open until you return.')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -930,12 +944,14 @@ export default function JobDetailPage() {
                   ) : (
                     <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md space-y-md">
                       <p className="text-sm font-bold text-neutral-900">Move this visit</p>
+                      {reReason !== 'Running late — same day' && <p className="text-[11px] text-neutral-500">{bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)}</p>}
                       <div className="grid gap-md sm:grid-cols-2">
                         <div>
                           <label className="block text-xs font-medium text-neutral-700 mb-xs">New date</label>
                           <input
                             type="date"
                             value={bookDate}
+                            min={reReason === 'Running late — same day' ? new Date().toISOString().split('T')[0] : earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
                             onChange={(e) => setBookDate(e.target.value)}
                             className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
                           />
@@ -1088,14 +1104,14 @@ export default function JobDetailPage() {
                 </div>
 
                 {/* Two paths forward (only available after before photo) */}
-                {job.before_photo && !job.return_visit_needed && (
+                {!job.return_needed && (
                   <div className="space-y-sm">
-                    {/* Path A: Mark complete */}
-                    <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
+                    {/* Path A: Mark complete (once there's a before photo) */}
+                    {job.before_photo && <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
                       className="w-full rounded-lg bg-green-700 text-white font-bold py-md hover:bg-green-800 disabled:opacity-40">
                       {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
-                    </button>
-                    {!job.after_photo && !notes.trim() && (
+                    </button>}
+                    {job.before_photo && !job.after_photo && !notes.trim() && (
                       <p className="text-center text-xs text-neutral-400">Take an after photo or add notes first.</p>
                     )}
 
@@ -1107,7 +1123,7 @@ export default function JobDetailPage() {
                         if (suggested) setReturnReason(suggested)
                       }}
                         className="w-full rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-900 font-semibold py-md hover:bg-amber-100 transition text-sm">
-                        🔄 Need to return to finish
+                        🔄 Need to come back
                       </button>
                     ) : (
                       <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-lg space-y-md">
@@ -1139,15 +1155,23 @@ export default function JobDetailPage() {
 
                         {/* Return date */}
                         <div>
-                          <label className="text-xs font-semibold text-amber-800 block mb-xs">Return date</label>
+                          <label className="text-xs font-semibold text-amber-800 block mb-xs">Return visit</label>
                           <label className="flex items-center gap-sm text-sm text-amber-900 mb-sm cursor-pointer">
                             <input type="checkbox" checked={returnUncertain} onChange={(e) => setReturnUncertain(e.target.checked)} className="rounded" />
                             Not sure yet (e.g. waiting on delivery)
                           </label>
                           {!returnUncertain && (
-                            <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)}
-                              min={new Date().toISOString().split('T')[0]}
-                              className="w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                            <div className="grid gap-sm sm:grid-cols-2">
+                              <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)}
+                                min={earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
+                                className="w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                              <select value={returnSlot} onChange={(e) => setReturnSlot(e.target.value)}
+                                className="w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <option value="">Time slot…</option>
+                                {TIME_SLOTS.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+                              </select>
+                              <p className="sm:col-span-2 text-[11px] text-amber-800">{bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)} The tenants are told the new time.</p>
+                            </div>
                           )}
                         </div>
 
@@ -1169,7 +1193,7 @@ export default function JobDetailPage() {
 
                         <button onClick={handleNeedToReturn} disabled={savingReturn}
                           className="w-full rounded-lg bg-amber-500 text-white font-bold py-md hover:bg-amber-600 disabled:opacity-40 text-sm">
-                          {savingReturn ? 'Saving…' : '🔄 Log return visit needed'}
+                          {savingReturn ? 'Saving…' : returnUncertain ? '🔄 Log return visit needed' : '🔄 Book return visit & tell tenants'}
                         </button>
                       </div>
                     )}
@@ -1177,12 +1201,12 @@ export default function JobDetailPage() {
                 )}
 
                 {/* Already flagged as return needed */}
-                {job.return_visit_needed && (
+                {job.return_needed && (
                   <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-lg">
                     <p className="font-bold text-amber-900 text-sm mb-xs">🔄 In progress — return visit needed</p>
-                    {job.return_visit_reason && <p className="text-xs text-amber-800 mb-xs">Reason: {job.return_visit_reason}</p>}
-                    {job.return_visit_date_estimate && <p className="text-xs text-amber-800 mb-xs">Return date: {new Date(job.return_visit_date_estimate).toLocaleDateString('en-GB')}</p>}
-                    {!job.return_visit_date_estimate && <p className="text-xs text-amber-600">Return date: not yet confirmed</p>}
+                    {job.return_reason && <p className="text-xs text-amber-800 mb-xs">Reason: {job.return_reason}</p>}
+                    {job.return_date && <p className="text-xs text-amber-800 mb-xs">Return date: {new Date(job.return_date).toLocaleDateString('en-GB')}</p>}
+                    {!job.return_date && <p className="text-xs text-amber-600">Return date: not yet booked — use “Need to come back” to book it</p>}
                     <div className="mt-md border-t border-amber-200 pt-md">
                       <p className="text-xs font-semibold text-amber-800 mb-sm">Ready to finish now?</p>
                       <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}

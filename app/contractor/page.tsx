@@ -29,9 +29,9 @@ interface Job {
   rooms?: { name: string }
   contractor_id?: string
   completed_at?: string
-  return_visit_needed?: boolean
-  return_visit_reason?: string
-  return_visit_date_estimate?: string
+  return_needed?: boolean
+  return_reason?: string
+  return_date?: string
   // Quote fields
   quote_requested?: boolean
   quote_amount?: number | null
@@ -87,10 +87,10 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
           <p className="text-sm text-neutral-500 truncate">
             {category}{job.rooms?.name ? ` · ${job.rooms.name}` : ''}
           </p>
-          {variant === 'ongoing' && job.return_visit_reason && (
+          {variant === 'ongoing' && job.return_reason && (
             <p className="text-xs text-amber-700 font-semibold mt-xs">
-              {job.return_visit_reason}
-              {job.return_visit_date_estimate ? ` · Return ${job.return_visit_date_estimate}` : ''}
+              {job.return_reason}
+              {job.return_date ? ` · Return ${job.return_date}` : ''}
             </p>
           )}
           {job.booked_date && variant !== 'ongoing' && (
@@ -284,7 +284,7 @@ export default function ContractorDashboard() {
 
   const nonQuote    = jobs.filter(j => !quoteJobIds.has(j.id))
 
-  const ongoing     = nonQuote.filter(j => j.return_visit_needed === true || j.status === 'in_progress')
+  const ongoing     = nonQuote.filter(j => (j.return_needed === true && !j.booked_date) || j.status === 'in_progress')
   const ongoingIds  = new Set(ongoing.map(j => j.id))
 
   const overdue     = nonQuote.filter(j => j.booked_date && isDatePast(j.booked_date) && !ongoingIds.has(j.id))
@@ -308,7 +308,7 @@ export default function ContractorDashboard() {
     { key: 'today',   label: 'Today' },
     { key: 'quotes',  label: 'Quotes',   badge: pendingQuotes.length },
     { key: 'ongoing', label: 'Ongoing',  badge: ongoing.length },
-    { key: 'waiting', label: 'Waiting',  badge: needsAttention },
+    { key: 'waiting', label: 'Overdue / to book',  badge: needsAttention },
     { key: 'booked',  label: 'Booked' },
     { key: 'done',    label: 'Done' },
   ]
@@ -347,7 +347,7 @@ export default function ContractorDashboard() {
             { key: 'today',   label: 'Today' },
             { key: 'quotes',  label: 'Quotes',  badge: pendingQuotes.length  },
             { key: 'ongoing', label: 'Ongoing', badge: ongoing.length        },
-            { key: 'waiting', label: 'Waiting', badge: needsAttention        },
+            { key: 'waiting', label: 'Overdue / to book', badge: needsAttention },
             { key: 'booked',  label: 'Booked'  },
             { key: 'done',    label: 'Done'    },
           ]
@@ -831,6 +831,16 @@ export default function ContractorDashboard() {
           {activeTab === 'today' && (
             <div className="pt-sm space-y-sm">
               <div className="pt-sm pb-sm"><EnableNotifications /></div>
+              {/* visits that have passed (or still need a date) shouldn't hide behind another tab */}
+              {needsAttention > 0 && (
+                <button type="button" onClick={() => goToTab('waiting')}
+                  className="flex w-full items-center justify-between gap-md rounded-2xl border border-red-200 bg-red-50 px-lg py-md text-left">
+                  <span className="text-sm font-bold text-red-800">
+                    ⚠️ {[overdue.length ? `${overdue.length} visit${overdue.length === 1 ? '' : 's'} need logging or rebooking` : '', toSchedule.length ? `${toSchedule.length} job${toSchedule.length === 1 ? '' : 's'} to book` : ''].filter(Boolean).join(' · ')}
+                  </span>
+                  <span className="text-sm font-bold text-red-800">›</span>
+                </button>
+              )}
               {dayJobs.length === 0 ? (
                 <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
                   <p className="text-sm font-medium text-neutral-400">
