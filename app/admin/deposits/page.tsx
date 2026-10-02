@@ -2,6 +2,7 @@
 
 // Deposits: protected within 30 days, prescribed information served, never over 5 weeks' rent.
 import { Fragment, useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
@@ -79,7 +80,7 @@ export default function DepositsPage() {
                 {rows.map(r => (
                   <Fragment key={r.tenancyId}>
                     <tr className="align-top">
-                      <td className="px-md py-sm"><span className="font-semibold text-neutral-900">{r.tenant}</span><span className="block text-xs text-neutral-500">{r.room}, {r.property}</span></td>
+                      <td className="px-md py-sm"><Link href={`/admin/lettings/${r.tenancyId}?tab=money&from=/admin/deposits`} className="font-semibold text-neutral-900 hover:text-blue-700 hover:underline">{r.tenant}</Link><span className="block text-xs text-neutral-500">{r.room}, {r.property}</span></td>
                       <td className="px-md py-sm text-neutral-700 whitespace-nowrap">{d(r.startDate)}{r.status !== 'protected' && r.deadline ? <span className="block text-xs text-neutral-500">deadline {d(r.deadline)}</span> : null}</td>
                       <td className="px-md py-sm text-right tabular-nums">{r.deposit ? gbp(r.deposit) : '—'}{r.overCap && <span className="block text-[11px] font-semibold text-red-700">over the {gbp(r.cap)} cap</span>}</td>
                       <td className="px-md py-sm text-xs text-neutral-700">{r.protectedAt || r.schemeRef ? <>{r.scheme || 'Scheme'}{r.schemeRef ? ` · ${r.schemeRef}` : ''}<br />{d(r.protectedAt)}</> : '—'}</td>

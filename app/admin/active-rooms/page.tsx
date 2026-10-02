@@ -19,6 +19,8 @@ interface Room {
   status: string | null
   tenant_name: string | null
   tenant_id: string | null
+  tenancy_id: string | null                 // the current tenancy → its letting file
+  incoming: { tenancy_id: string; name: string; start_date: string } | null   // let agreed, moving in later
   move_out_date: string | null
   has_push: boolean
   property_id: string
@@ -76,7 +78,7 @@ export default function AllUnitsPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || (data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin')) {
+      if (!data || !['administrator', 'admin', 'lettings'].includes(data.assignment?.role ?? '')) {
         router.push('/login')
         return
       }
@@ -91,20 +93,26 @@ export default function AllUnitsPage() {
       supabase.from('properties').select('id, name, address, property_code, property_type'),
       supabase.from('rooms').select('id, name, unit_code, room_type, status, property_id'),
       supabase.from('tenancies')
-        .select('room_id, person_id, end_date, people!person_id(id, first_name, last_name, full_name, email)')
+        .select('id, room_id, person_id, start_date, end_date, people!person_id(id, first_name, last_name, full_name, email)')
         .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`),
       supabase.from('push_subscriptions').select('person_id').not('person_id', 'is', null),
     ])
 
     const pushSet = new Set((pushData || []).map((p: any) => p.person_id))
 
-    const tenancyByRoom: Record<string, { person_id: string; name: string; end_date: string | null }> = {}
+    // each room's current tenant, and anyone let agreed to move in later (start date still to come)
+    const today = new Date().toISOString().split('T')[0]
+    const tenancyByRoom: Record<string, { id: string; person_id: string; name: string; end_date: string | null }> = {}
+    const incomingByRoom: Record<string, { tenancy_id: string; name: string; start_date: string }> = {}
     for (const t of tenanciesData || []) {
       const p = (t as any).people
       const name = p
         ? [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || '—'
         : '—'
-      tenancyByRoom[t.room_id] = { person_id: t.person_id, name, end_date: (t as any).end_date ?? null }
+      if ((t as any).start_date > today) {
+        const cur = incomingByRoom[t.room_id]
+        if (!cur || (t as any).start_date < cur.start_date) incomingByRoom[t.room_id] = { tenancy_id: (t as any).id, name, start_date: (t as any).start_date }
+      } else tenancyByRoom[t.room_id] = { id: (t as any).id, person_id: t.person_id, name, end_date: (t as any).end_date ?? null }
     }
 
     const roomsByProperty: Record<string, Room[]> = {}
@@ -115,6 +123,8 @@ export default function AllUnitsPage() {
         status: r.status,
         tenant_name: tenancy?.name ?? null,
         tenant_id: tenancy?.person_id ?? null,
+        tenancy_id: tenancy?.id ?? null,
+        incoming: incomingByRoom[r.id] ?? null,
         move_out_date: tenancy?.end_date ?? null,
         has_push: tenancy ? pushSet.has(tenancy.person_id) : false,
         property_id: r.property_id,
@@ -308,15 +318,20 @@ export default function AllUnitsPage() {
                             {roomTypeBadge(room.room_type)}
                           </td>
                           <td className="px-md py-sm">
-                            <span className={`inline-flex items-center rounded-full px-sm py-0.5 text-[11px] font-semibold ${statusStyle(room.status)}`}>
-                              {statusLabel(room.status)}
-                            </span>
+                            {/* empty now but let agreed: say so, rather than "Occupied" */}
+                            {!room.tenant_name && room.incoming
+                              ? <span className="inline-flex items-center rounded-full px-sm py-0.5 text-[11px] font-semibold bg-amber-100 text-amber-900">Let agreed</span>
+                              : <span className={`inline-flex items-center rounded-full px-sm py-0.5 text-[11px] font-semibold ${statusStyle(room.status)}`}>
+                                  {statusLabel(room.status)}
+                                </span>}
                           </td>
                           <td className="px-md py-sm">
                             {room.tenant_name
                               ? (
                                 <div>
-                                  <span className="text-neutral-800 font-medium">{room.tenant_name}</span>
+                                  {room.tenancy_id
+                                    ? <Link href={`/admin/lettings/${room.tenancy_id}?from=/admin/active-rooms`} onClick={e => e.stopPropagation()} className="text-neutral-800 font-medium hover:text-blue-700 hover:underline">{room.tenant_name}</Link>
+                                    : <span className="text-neutral-800 font-medium">{room.tenant_name}</span>}
                                   {room.status === 'on_notice' && room.move_out_date && (
                                     <p className="text-[11px] text-amber-600 font-medium mt-0.5">
                                       Moves out {new Date(room.move_out_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -324,8 +339,14 @@ export default function AllUnitsPage() {
                                   )}
                                 </div>
                               )
-                              : <span className="text-neutral-400 italic text-xs">Vacant</span>
+                              : !room.incoming && <span className="text-neutral-400 italic text-xs">Vacant</span>
                             }
+                            {room.incoming && (
+                              <Link href={`/admin/lettings/${room.incoming.tenancy_id}?from=/admin/active-rooms`} onClick={e => e.stopPropagation()}
+                                className="mt-0.5 inline-flex items-center rounded-full bg-amber-100 px-sm py-0.5 text-[11px] font-semibold text-amber-900 hover:bg-amber-200">
+                                Let agreed · {room.incoming.name.split(' ')[0]} from {new Date(room.incoming.start_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                              </Link>
+                            )}
                           </td>
                           <td className="px-md py-sm text-center">
                             {room.tenant_id && (

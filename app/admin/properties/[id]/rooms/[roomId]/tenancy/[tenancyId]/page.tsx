@@ -1,11 +1,10 @@
 'use client'
 
-// Redirects to the canonical tenant profile at /admin/tenant/[personId]
-// All admin paths that used to link here now arrive at one unified view.
+// Old room › tenancy links: every tenancy now has one page, its letting file at /admin/lettings/[tenancyId].
+// Back from there returns to this room on its property.
 
 import { useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 
@@ -15,26 +14,11 @@ export default function TenancyRedirectPage({
   params: Promise<{ id: string; roomId: string; tenancyId: string }>
 }) {
   const router = useRouter()
-  const { tenancyId, id } = use(params)
+  const { tenancyId, id, roomId } = use(params)
 
   useEffect(() => {
-    async function redirect() {
-      const supabase = createClient()
-      const { data: tenancy } = await supabase
-        .from('tenancies')
-        .select('person_id')
-        .eq('id', tenancyId)
-        .single()
-
-      if (tenancy?.person_id) {
-        router.replace(`/admin/tenant/${tenancy.person_id}?tab=tenancy`)
-      } else {
-        // Fallback: go to the property page if we can't find the person
-        router.replace(`/admin/properties/${id}`)
-      }
-    }
-    redirect()
-  }, [tenancyId, id, router])
+    router.replace(`/admin/lettings/${tenancyId}?from=${encodeURIComponent(`/admin/properties/${id}?tab=units&room=${roomId}`)}`)
+  }, [tenancyId, id, roomId, router])
 
   return (
     <div className="min-h-screen bg-neutral-100">

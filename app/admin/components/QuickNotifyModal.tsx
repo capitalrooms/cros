@@ -115,6 +115,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
             .from('tenancies')
             .select('person_id')
             .in('room_id', roomIds)
+            .lte('start_date', today)   // not tenants who haven't moved in yet
             .or(`end_date.is.null,end_date.gte.${today}`)
           setRecipientCount(new Set((tenancies || []).map((t: any) => t.person_id)).size)
         } else if (recipientType === 'room' && roomId) {
@@ -123,6 +124,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
             .from('tenancies')
             .select('person_id')
             .eq('room_id', roomId)
+            .lte('start_date', today)   // not tenants who haven't moved in yet
             .or(`end_date.is.null,end_date.gte.${today}`)
           setRecipientCount(new Set((data || []).map((t: any) => t.person_id)).size)
         } else if (recipientType === 'cleaners') {

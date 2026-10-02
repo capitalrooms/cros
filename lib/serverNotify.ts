@@ -68,6 +68,7 @@ export async function activeTenantIds(
       .from('tenancies')
       .select('person_id')
       .eq('room_id', roomId)
+      .lte('start_date', today)   // not tenants who haven't moved in yet
       .or(`end_date.is.null,end_date.gte.${today}`)
     return [...new Set((data || []).map((t: any) => t.person_id).filter(Boolean))]
   }
@@ -84,6 +85,7 @@ export async function activeTenantIds(
     .from('tenancies')
     .select('person_id')
     .in('room_id', roomIds)
+    .lte('start_date', today)   // not tenants who haven't moved in yet
     .or(`end_date.is.null,end_date.gte.${today}`)
   return [...new Set((data || []).map((t: any) => t.person_id).filter(Boolean))]
 }

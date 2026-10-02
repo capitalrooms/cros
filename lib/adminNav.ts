@@ -53,6 +53,7 @@ export const ZONES: Zone[] = [
       '/admin/let-only-properties',
       '/admin/bulk-tenancy-generator',
       '/admin/tenancies',
+      '/admin/lettings',
       '/admin/move-in',
       '/admin/tenancy-management',
       '/admin/rent-increase',

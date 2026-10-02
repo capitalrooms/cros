@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
         .from('tenancies')
         .select('id, person_id, room_id, property_id')
         .is('notice_received_date', null)
+        .lte('start_date', today)   // not tenants who haven't moved in yet
         .or(`end_date.is.null,end_date.gte.${today}`);
       tenancies = data;
     }

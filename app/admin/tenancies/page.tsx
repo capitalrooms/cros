@@ -58,7 +58,7 @@ export default function TenanciesManagementPage() {
   const [noticeTenancy, setNoticeTenancy] = useState<Tenancy | null>(null);
   const [noticeDate, setNoticeDate]   = useState('');
   const [savingNotice, setSavingNotice] = useState(false);
-  const [view, setView] = useState<'all' | 'notice'>('all');   // All current · On notice
+  const [view, setView] = useState<'all' | 'let_agreed' | 'live' | 'notice'>('all');   // All current · Let agreed · Live · On notice
 
   // ── Add form state ──────────────────────────────────────────────────────────
   const [selProp, setSelProp]         = useState('');
@@ -84,7 +84,7 @@ export default function TenanciesManagementPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser();
-      if (!data || (data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin')) {
+      if (!data || !['administrator', 'admin', 'lettings'].includes(data.assignment?.role ?? '')) {
         router.push('/login'); return;
       }
       await loadData();
@@ -249,9 +249,12 @@ export default function TenanciesManagementPage() {
 
   const today = new Date().toISOString().slice(0, 10);
   const current = tenancies.filter(t => !t.end_date || t.end_date >= today);
-  const onNoticeList = current.filter(isOnNotice);
-  const active = view === 'notice' ? onNoticeList : current;
+  const letAgreed = current.filter(t => t.start_date > today);
+  const onNoticeList = current.filter(t => t.start_date <= today && isOnNotice(t));
+  const liveList = current.filter(t => t.start_date <= today && !isOnNotice(t));
+  const active = view === 'notice' ? onNoticeList : view === 'let_agreed' ? letAgreed : view === 'live' ? liveList : current;
   const past   = tenancies.filter(t => !!t.end_date && t.end_date < today);
+  const fileHref = (t: Tenancy) => `/admin/lettings/${t.id}?from=/admin/tenancies`;
   const filteredRooms = selProp ? rooms.filter(r => r.property_id === selProp) : [];
 
   return (
@@ -268,10 +271,10 @@ export default function TenanciesManagementPage() {
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Tenancies</h1>
             <p className="mt-sm text-sm text-neutral-600">
-              {current.length} current · {onNoticeList.length} on notice · {past.length} past
+              {current.length} current · {letAgreed.length} let agreed · {onNoticeList.length} on notice · {past.length} past · each one opens its letting file
             </p>
             <div className="mt-md inline-flex rounded-xl bg-white p-[3px] ring-1 ring-neutral-200">
-              {([['all', `All current (${current.length})`], ['notice', `On notice (${onNoticeList.length})`]] as const).map(([k, label]) => (
+              {([['all', `All current (${current.length})`], ['let_agreed', `Let agreed (${letAgreed.length})`], ['live', `Live (${liveList.length})`], ['notice', `On notice (${onNoticeList.length})`]] as const).map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setView(k)}
                   className={`rounded-lg px-md py-xs text-sm font-semibold ${view === k ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:text-neutral-900'}`}>
                   {label}
@@ -315,6 +318,10 @@ export default function TenanciesManagementPage() {
                   showPreferences={true}
                 />
                 <div className="flex shrink-0 flex-col items-stretch gap-sm min-w-[140px]">
+                  <Link href={fileHref(t)}
+                    className="rounded bg-blue-700 px-md py-sm text-center text-sm font-semibold text-white hover:bg-blue-600">
+                    {t.start_date > today ? 'Let agreed · file →' : 'Letting file →'}
+                  </Link>
                   <Link href={`/admin/move-in/${t.id}`}
                     className="rounded bg-neutral-900 px-md py-sm text-center text-sm font-semibold text-white hover:bg-neutral-700">
                     Move-in pack
@@ -398,7 +405,10 @@ export default function TenanciesManagementPage() {
                         onNotice={false}
                         showPreferences={false}
                       />
-                      <span className="text-xs text-neutral-400 font-medium mt-1 shrink-0">Ended</span>
+                      <span className="flex shrink-0 flex-col items-end gap-xs">
+                        <span className="text-xs text-neutral-400 font-medium mt-1">{(t as any).let_cancelled_at ? 'Fell through' : 'Ended'}</span>
+                        <Link href={fileHref(t)} className="text-xs font-semibold text-blue-700 hover:underline">Letting file →</Link>
+                      </span>
                     </div>
                     {(t.deposit_amount || t.agreement_type) && (
                       <div className="mt-sm flex flex-wrap gap-xs pt-sm border-t border-neutral-100">

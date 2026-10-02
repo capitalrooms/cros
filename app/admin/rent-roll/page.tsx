@@ -158,7 +158,7 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
                   ...(isOpen ? p.rooms.map((r, i) => (
                     <tr key={p.id + i} className="border-t border-neutral-100">
                       <td className="px-md py-xs pl-xl text-neutral-900">{r.room}{r.chargeNo ? <span className="ml-sm font-mono text-[11px] text-neutral-400">{r.chargeNo}</span> : null}</td>
-                      <td className="px-md py-xs text-neutral-700">{r.tenant}{r.reference ? <span className="ml-sm font-mono text-[11px] text-neutral-500">{r.reference}</span> : null}</td>
+                      <td className="px-md py-xs text-neutral-700">{r.tenancyId ? <Link href={`/admin/lettings/${r.tenancyId}?tab=money&from=${encodeURIComponent(`/admin/rent-roll?month=${month}`)}`} className="hover:text-blue-700 hover:underline">{r.tenant}</Link> : r.tenant}{r.reference ? <span className="ml-sm font-mono text-[11px] text-neutral-500">{r.reference}</span> : null}</td>
                       <td className="px-md py-xs text-right tabular-nums">{gbp(r.due)}</td>
                       <td className="px-md py-xs text-right tabular-nums">{gbp(r.received)}{r.difference != null && Math.abs(r.difference) >= 0.01 && r.received > 0 ? <span className={`block text-[11px] ${r.difference < 0 ? 'text-amber-700' : 'text-blue-700'}`}>{r.difference < 0 ? `${gbp(-r.difference)} short` : `${gbp(r.difference)} over`}</span> : null}</td>
                       <td className="whitespace-nowrap px-md py-xs text-xs">{r.receipts.map(x => shortDate(x.date)).filter(Boolean).join(', ')}</td>

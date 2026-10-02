@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
 
   const { doc, error, status } = await saveDocument({
     id: b.id, pdf: rendered.pdf, fields: rendered.fields, recipientEmail: b.recipientEmail, callerEmail: caller.email,
+    tenancyId: typeof b.tenancyId === 'string' && /^[0-9a-f-]{36}$/i.test(b.tenancyId) ? b.tenancyId : null,
   })
   if (!doc) return NextResponse.json({ error }, { status: status ?? 500 })
   if (b.respond === 'json') return NextResponse.json({ doc })

@@ -32,12 +32,30 @@ export async function GET(req: NextRequest) {
   const failed = [people, props, rooms, jobs].find(r => r.error)
   if (failed) return NextResponse.json({ error: failed.error!.message }, { status: 500 })
 
+  // a tenant opens their letting file — the current tenancy, else the incoming one, else the latest
+  const tenantIds = (people.data ?? []).filter((p: any) => p.role === 'tenant').map((p: any) => p.id)
+  const { data: tens } = tenantIds.length
+    ? await s.from('tenancies').select('id, person_id, start_date, end_date, rooms(name), properties(name)').in('person_id', tenantIds).order('start_date', { ascending: false })
+    : { data: [] as any[] }
+  const today = new Date().toISOString().slice(0, 10)
+  const fileFor = new Map<string, any>()
+  for (const id of tenantIds) {
+    const mine = ((tens ?? []) as any[]).filter(t => t.person_id === id)
+    const pick = mine.find(t => t.start_date <= today && (!t.end_date || t.end_date >= today)) ?? mine.find(t => t.start_date > today && (!t.end_date || t.end_date >= today)) ?? mine[0]
+    if (pick) fileFor.set(id, pick)
+  }
+
   const hits: SearchHit[] = [
-    ...(people.data ?? []).map((p: any) => ({
-      id: p.id, kind: 'person' as const,
-      title: [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
-      detail: [p.role, p.email].filter(Boolean).join(' · '), href: personHref(p.id, p.role),
-    })),
+    ...(people.data ?? []).map((p: any) => {
+      const t = fileFor.get(p.id)
+      return {
+        id: p.id, kind: 'person' as const,
+        title: [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
+        detail: t ? [t.start_date > today ? 'Let agreed' : t.end_date && t.end_date < today ? 'Past tenant' : 'Tenant', [t.rooms?.name, t.properties?.name].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
+          : [p.role, p.email].filter(Boolean).join(' · '),
+        href: t ? `/admin/lettings/${t.id}?from=/admin/search` : personHref(p.id, p.role),
+      }
+    }),
     ...(props.data ?? []).map((p: any) => ({
       id: p.id, kind: 'property' as const, title: p.name || p.address, detail: [p.address, p.postcode].filter(Boolean).join(', '), href: `/admin/properties/${p.id}`,
     })),

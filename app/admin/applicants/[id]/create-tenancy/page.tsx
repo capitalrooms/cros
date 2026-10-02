@@ -151,9 +151,9 @@ export default function CreateTenancyPage() {
 
       if (!res.ok && res.status !== 409) throw new Error(data.error || 'Conversion failed')
 
-      // Navigate to tenant profile
-      const personId = data.personId
-      if (personId) router.push(`/admin/tenant/${personId}`)
+      // open the new tenancy's letting file (or the tenant, if no tenancy could be made)
+      if (data.tenancyId) router.push(`/admin/lettings/${data.tenancyId}?from=/admin/applicants`)
+      else if (data.personId) router.push(`/admin/tenant/${data.personId}`)
       else router.push('/admin/applicants')
 
     } catch (e: any) {

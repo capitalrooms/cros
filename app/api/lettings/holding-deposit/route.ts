@@ -25,6 +25,7 @@ import { insertNotifications, activeTenantIds, dispatchChannels, tryPush } from 
 import { getCommsLive } from '@/lib/comms'
 import { loadDepositContext, writeBios, landlordMessage, housemateMessage, holdingAmount, type DepositContext } from '@/lib/lettings/holdingDeposit'
 import { holdingDepositsFor, recordHoldingDeposit, fileHoldingReceipt, longDate, METHODS, type HoldingDeposit } from '@/lib/lettings/holdingReceipt'
+import { createIncomingTenancy, logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
 
   if (b.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 
-  const result: { recorded: boolean; holdNo?: string; receiptDocumentId?: string; receipt?: string; landlord?: string; housemates?: string; errors: string[] } = { recorded: false, errors: [] }
+  const result: { recorded: boolean; holdNo?: string; tenancyId?: string; receiptDocumentId?: string; receipt?: string; landlord?: string; housemates?: string; errors: string[] } = { recorded: false, errors: [] }
 
   // 1. The official record: a new one, or the one already on file
   let rec: HoldingDeposit
@@ -130,8 +131,23 @@ export async function POST(req: NextRequest) {
     }).eq('id', ctx.applicant.id)
     if (aErr) result.errors.push(`Recorded as ${rec.hold_no}, but the applicant’s stage wasn’t moved on: ${aErr.message}`)
     if (ctx.offerId) await s.from('offers').update({ status: 'deposit_paid', updated_at: new Date().toISOString() }).eq('id', ctx.offerId)
+
+    // let agreed: the incoming tenancy is created now, with its future start date, and its letting file opens
+    const inc = await createIncomingTenancy(s, ctx.applicant.id, {
+      start_date: ctx.startDate ?? undefined,
+      rent_amount: ctx.rent ?? undefined,
+      holding_deposit_received: Number(rec.amount),
+    }, caller.email)
+    if (inc.tenancyId) {
+      result.tenancyId = inc.tenancyId
+      const { error: linkErr } = await s.from('holding_deposits').update({ tenancy_id: inc.tenancyId, person_id: inc.personId }).eq('id', rec.id)
+      if (linkErr) result.errors.push(`Holding deposit not linked to the tenancy: ${linkErr.message}`)
+      if (inc.alreadyConverted) await s.from('tenancies').update({ holding_deposit_received: Number(rec.amount) }).eq('id', inc.tenancyId)
+      await logTenancyEvent(s, inc.tenancyId, 'holding_deposit', `Holding deposit ${rec.hold_no} ${gbp(Number(rec.amount))} received ${longDate(rec.received_on)}`, caller.email)
+    } else result.errors.push(`Recorded as ${rec.hold_no}, but the tenancy wasn’t created: ${inc.error ?? 'no room or property on the application'}`)
   }
   result.holdNo = rec.hold_no
+  if (!result.tenancyId && rec.tenancy_id) result.tenancyId = rec.tenancy_id
 
   // 2. The receipt is always filed (it's part of the record); emailing it is optional
   if (!rec.receipt_document_id) {
@@ -140,6 +156,7 @@ export async function POST(req: NextRequest) {
     else result.errors.push(`Receipt not filed: ${filed.error}`)
   }
   result.receiptDocumentId = rec.receipt_document_id ?? undefined
+  if (rec.receipt_document_id && result.tenancyId) await s.from('generated_documents').update({ tenancy_id: result.tenancyId }).eq('id', rec.receipt_document_id)
 
   if (b.receipt?.send) {
     const to = emails(b.receipt.to)
@@ -206,8 +223,9 @@ export async function POST(req: NextRequest) {
   if (staffIds.length) {
     const title = '💷 Holding deposit received'
     const body = `${ctx.applicant.full_name} — ${ctx.roomName}, ${ctx.propertyName} · ${gbp(Number(rec.amount))} (${rec.hold_no}). Offer completed; referencing next.`
-    await insertNotifications(s, staffIds, { title, body, type: 'lettings', link: '/admin/applicants' })
-    await tryPush(staffIds, title, body, '/admin/applicants')
+    const link = result.tenancyId ? `/admin/lettings/${result.tenancyId}` : '/admin/applicants'
+    await insertNotifications(s, staffIds, { title, body, type: 'lettings', link })
+    await tryPush(staffIds, title, body, link)
   }
 
   return NextResponse.json(result)

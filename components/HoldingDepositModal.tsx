@@ -11,7 +11,7 @@ import { adminFetch } from '@/lib/adminFetch'
 interface Props {
   applicantId: string
   onClose: () => void
-  onDone: (summary: string) => void
+  onDone: (summary: string, tenancyId?: string) => void
 }
 
 interface HoldRecord {
@@ -94,7 +94,7 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
       if (d.receipt) parts.push(`receipt emailed to ${d.receipt}`)
       if (d.landlord) parts.push(`landlord emailed (${d.landlord})`)
       if (d.housemates) parts.push(`${d.housemates} told`)
-      onDone(`${parts.join(' · ')}${d.errors?.length ? ` · ⚠️ ${d.errors.join('; ')}` : ''}`)
+      onDone(`${parts.join(' · ')}${d.errors?.length ? ` · ⚠️ ${d.errors.join('; ')}` : ''}`, d.recorded ? d.tenancyId : undefined)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not record the holding deposit')
     } finally {
@@ -249,7 +249,7 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
               )}
             </section>
 
-            {!current && <p className="text-xs text-neutral-500">Nothing is emailed unless ticked above. You and the lettings team get an in-app confirmation; the applicant moves on to referencing.</p>}
+            {!current && <p className="text-xs text-neutral-500">Nothing is emailed unless ticked above. Recording it agrees the let: the incoming tenancy is created and its letting file opens. You and the lettings team get an in-app confirmation.</p>}
 
             <div className="flex gap-md">
               <button onClick={onClose} disabled={sending} className="flex-1 rounded-xl border border-neutral-300 py-md text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{current ? 'Close' : 'Cancel'}</button>

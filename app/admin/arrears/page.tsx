@@ -139,6 +139,7 @@ export default function ArrearsPage() {
                           <div className="flex flex-wrap justify-end gap-sm">
                             <button disabled={busy === r.key} onClick={() => letter(r)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white disabled:opacity-40 whitespace-nowrap">{busy === r.key ? 'Building…' : 'Arrears letter'}</button>
                             {r.tenancyId && <button onClick={() => downloadPdf(`/api/admin/tenancies/${r.tenancyId}/statement-of-account`, `Statement of account ${r.tenant}.pdf`).catch(e => alert(e.message))} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-bold text-neutral-800 whitespace-nowrap">Statement of account</button>}
+                            {r.tenancyId && <Link href={`/admin/lettings/${r.tenancyId}?tab=money&from=/admin/arrears`} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-bold text-neutral-800">Letting file</Link>}
                             {r.personId && <Link href={`/admin/tenant/${r.personId}`} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-bold text-neutral-800">Tenant</Link>}
                             {r.phone && <a href={`tel:${r.phone}`} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-bold text-neutral-800">Call</a>}
                           </div>

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
+import { createIncomingTenancy } from '@/lib/lettings/incomingTenancy'
 
 /**
  * POST /api/applicants/[id]/convert
  *
- * Converts an applicant into a tenant (people row).
- * If a people row with the same email already exists, links to it.
- * Otherwise creates a new people row carrying across the applicant's details.
- * Sets applicants.converted_person_id and people.applicant_id.
+ * Converts an applicant into a tenant: links or creates their person record and creates the incoming tenancy
+ * (lib/lettings/incomingTenancy — the same step the holding deposit takes). Body: optional tenancy overrides.
  */
 export async function POST(req: NextRequest, { params: paramsPromise }: { params: Promise<{ id: string }> }) {
   const params = await paramsPromise
@@ -19,167 +18,15 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   }
 
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-  // Fetch full applicant record
-  const { data: applicant, error: aErr } = await sb
-    .from('applicants')
-    .select('*, rooms(name, current_asking_rent), properties(name, address)')
-    .eq('id', params.id)
-    .single()
-
-  if (aErr || !applicant) return NextResponse.json({ error: 'Applicant not found' }, { status: 404 })
-  if (applicant.pipeline_stage === 'converted') {
-    return NextResponse.json({ error: 'Already converted', personId: applicant.converted_person_id }, { status: 409 })
-  }
-
-  // Optional overrides from request body (room_id, move_in_date, rent)
   const body = await req.json().catch(() => ({}))
-
-  // Check if a people row already exists for this email
-  const { data: existing } = await sb
-    .from('people')
-    .select('id')
-    .eq('email', applicant.email)
-    .maybeSingle()
-
-  let personId: string
-
-  if (existing) {
-    // Link the existing person to this applicant
-    const { error: updateErr } = await sb
-      .from('people')
-      .update({ applicant_id: applicant.id, updated_at: new Date().toISOString() })
-      .eq('id', existing.id)
-    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
-    personId = existing.id
-  } else {
-    // Build name parts from full_name
-    const nameParts = applicant.full_name.trim().split(/\s+/)
-    const firstName = nameParts[0] || ''
-    const lastName  = nameParts.slice(1).join(' ') || ''
-
-    const { data: created, error: createErr } = await sb
-      .from('people')
-      .insert({
-        email:         applicant.email,
-        first_name:    firstName,
-        last_name:     lastName,
-        full_name:     applicant.full_name,
-        phone:         applicant.phone         || null,
-        date_of_birth: applicant.date_of_birth || null,
-        occupation:    applicant.profession    || null,
-        role:          'tenant',
-        property_id:   body.property_id || applicant.property_id,
-        room_id:       body.room_id     || applicant.room_id,
-        applicant_id:  applicant.id,
-        using_app:     false,
-      })
-      .select('id')
-      .single()
-
-    if (createErr || !created) return NextResponse.json({ error: createErr?.message || 'Failed to create tenant' }, { status: 500 })
-    personId = created.id
-  }
-
-  // ── Create tenancy row ───────────────────────────────────────────────────────
-  // Only create if one doesn't already exist for this person + room (idempotent).
-  const roomId      = body.room_id      || applicant.room_id
-  const propertyId  = body.property_id  || applicant.property_id
-  const today       = new Date().toISOString().slice(0, 10)
-  const startDate   = body.start_date   || applicant.preferred_start_date || today
-  const rentAmount  = body.rent_amount  || applicant.rooms?.current_asking_rent || null
-  const rentDueDay  = body.rent_due_day || 1
-
-  let tenancyId: string | null = null
-  if (roomId && propertyId) {
-    const { data: existingTenancy } = await sb
-      .from('tenancies')
-      .select('id')
-      .eq('person_id', personId)
-      .eq('room_id', roomId)
-      .is('notice_received_date', null)
-      .maybeSingle()
-
-    if (!existingTenancy) {
-      // Mark room occupied
-      await sb.from('rooms').update({ status: 'occupied' }).eq('id', roomId)
-
-      const { data: newTenancy, error: tenancyErr } = await sb
-        .from('tenancies')
-        .insert({
-          person_id:              personId,
-          room_id:                roomId,
-          property_id:            propertyId,
-          start_date:             startDate,
-          end_date:               body.end_date               || null,
-          rent_amount:            rentAmount,
-          rent_due_day:           rentDueDay,
-          rent_frequency:         body.rent_frequency         || 'monthly',
-          rent_in_advance:        body.rent_in_advance        || 1,
-          deposit_amount:         body.deposit_amount         ?? null,
-          deposit_held_by:        body.deposit_held_by        || 'agent',
-          deposit_scheme_ref:     body.deposit_scheme_ref     || null,
-          holding_deposit_received: body.holding_deposit_received ?? null,
-          agreement_type:         body.agreement_type         || 'assured_periodic',
-          is_periodic:            body.is_periodic            ?? true,
-          // amount: blank = property's usual fee, 0 = no fee; a number passed through as an override
-          letting_fee_charged:    typeof body.letting_fee_charged === 'number' ? body.letting_fee_charged : body.letting_fee_charged === false ? 0 : null,
-          notice_period_months:   body.notice_period_months   ?? 2,
-          lease_reference:        body.lease_reference        || null,
-          payment_reference:      body.payment_reference      || null,
-          office_notes:           body.office_notes           || null,
-          rent_review_date:       body.rent_review_date       || null,
-        })
-        .select('id')
-        .single()
-
-      if (tenancyErr) {
-        console.warn('convert: tenancy insert failed', tenancyErr.message)
-      } else {
-        tenancyId = newTenancy?.id || null
-      }
-    } else {
-      tenancyId = existingTenancy.id
-    }
-  }
-
-  // ── Carry pre-tenancy applicant documents across to property_documents ────────
-  // Any references, right-to-rent checks etc. filed before they became a tenant
-  // are now promoted to property_documents linked to their person + tenancy.
-  if (propertyId) {
-    const { data: appDocs } = await sb
-      .from('applicant_documents')
-      .select('*')
-      .eq('applicant_id', applicant.id)
-
-    if (appDocs?.length) {
-      const rows = appDocs.map((d: any) => ({
-        property_id:        propertyId,
-        document_type:      d.doc_type,
-        file_name:          d.file_name,
-        storage_url:        d.storage_url,
-        description:        d.description || null,
-        visible_to_tenants: false,
-        uploaded_by:        personId,
-        ...(tenancyId ? { tenancy_id: tenancyId } : {}),
-      }))
-      const { error: copyErr } = await sb.from('property_documents').insert(rows)
-      if (copyErr) console.warn('convert: could not carry applicant docs across', copyErr.message)
-    }
-  }
-
-  // Mark applicant as converted
-  await sb.from('applicants').update({
-    pipeline_stage:       'converted',
-    converted_person_id:  personId,
-    reviewed_at:          new Date().toISOString(),
-    updated_at:           new Date().toISOString(),
-  }).eq('id', applicant.id)
+  const r = await createIncomingTenancy(sb, params.id, body, user.email ?? null)
+  if (r.alreadyConverted) return NextResponse.json({ error: 'Already converted', personId: r.personId, tenancyId: r.tenancyId }, { status: 409 })
+  if (r.error) return NextResponse.json({ error: r.error, personId: r.personId }, { status: r.status ?? 500 })
 
   return NextResponse.json({
     success: true,
-    personId,
-    tenancyId,
-    message: `${applicant.full_name} converted to tenant`,
+    personId: r.personId,
+    tenancyId: r.tenancyId,
+    message: 'Converted to tenant',
   })
 }
