@@ -257,6 +257,22 @@ export default function CleanDetailPage() {
         extra_charge_note: extraChargeNote || null,
         products_cost: productsCost ? Number(productsCost) : null,
       })
+      // Pencil in the next clean two weeks on, unless one is already booked — the cleaner confirms the exact time
+      // nearer the day, once they know their schedule. Nothing is sent to tenants for a pencilled clean.
+      const today = new Date().toISOString().split('T')[0]
+      const { data: ahead } = await supabase.from('cleans').select('id').eq('property_id', clean.property_id)
+        .gt('clean_date', today).neq('status', 'cancelled').limit(1)
+      if (!ahead?.length) {
+        const next = new Date(); next.setDate(next.getDate() + 14)
+        await supabase.from('cleans').insert({
+          property_id: clean.property_id,
+          cleaner_id: clean.cleaner_id,
+          clean_date: next.toISOString().split('T')[0],
+          clean_time: null,
+          status: 'scheduled',
+          admin_note: 'Pencilled in two weeks after the last clean — confirm the exact time nearer the day.',
+        })
+      }
       if (issue.trim()) {
         await supabase.from('maintenance_tickets').insert({
           title: issue.trim(),
