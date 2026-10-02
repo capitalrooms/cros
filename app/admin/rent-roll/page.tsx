@@ -7,9 +7,10 @@
  * the payment run (step 3). Months before CROS took over collecting show what the previous agent's statements say.
  */
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
@@ -31,14 +32,13 @@ const STATUS: Record<RollRoom['status'], { label: string; cls: string }> = {
   collected_by_previous_agent: { label: 'Collected by previous agent', cls: 'bg-neutral-100 text-neutral-600' },
 }
 
-export default function RentRollPage() {
-  return <Suspense fallback={null}><RentRollScreen /></Suspense>
+export default function RentRollPage({ searchParams }: { searchParams: PageSearchParams }) {
+  return <RentRollScreen initialMonth={one(use(searchParams).month)} />
 }
 
-function RentRollScreen() {
+function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
   const router = useRouter()
-  const params = useSearchParams()
-  const [month, setMonth] = useState(params.get('month') || new Date().toISOString().slice(0, 7))
+  const [month, setMonth] = useState(initialMonth || new Date().toISOString().slice(0, 7))
   const [roll, setRoll] = useState<RentRoll | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
