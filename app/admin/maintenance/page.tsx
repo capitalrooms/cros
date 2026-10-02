@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatBooking, TIME_SLOTS, earliestBookableDate, bookingLeadTimeNote } from '@/lib/booking';
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import ChaseContractors from './ChaseContractors'
 import BackButton from '@/app/components/BackButton'
 
@@ -617,13 +618,12 @@ export default function MaintenanceDashboard() {
       <AppBar
         left={<BackButton href="/admin" />}
       />
+      <PageHero title="Maintenance" subtitle={<>Approve, assign, and batch repairs across all properties</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Page heading */}
         <div className="mb-3xl flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Maintenance Jobs</h1>
-            <p className="mt-sm text-sm text-neutral-600">Approve, assign, and batch repairs across all properties</p>
           </div>
           <div className="flex gap-sm shrink-0">
             <Link

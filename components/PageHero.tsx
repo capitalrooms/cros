@@ -7,7 +7,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
-export interface HeroStat { label: string; value: ReactNode; tone?: 'good' | 'warn' | 'info' | 'bad' }
+export interface HeroStat { label: string; value: ReactNode; tone?: 'good' | 'warn' | 'info' | 'bad'; href?: string }
 export interface HeroTab { label: string; href: string; active?: boolean }
 
 const TONE: Record<string, string> = { good: 'text-[#6EAF8B]', warn: 'text-[#E8B06B]', info: 'text-[#8FB4F0]', bad: 'text-[#F28B82]' }
@@ -28,12 +28,15 @@ export default function PageHero({ title, subtitle, eyebrow, stats, actions, tab
         </div>
         {stats && stats.length > 0 && (
           <div className={`mt-md grid gap-sm ${stats.length >= 4 ? 'grid-cols-2 sm:grid-cols-4' : stats.length === 3 ? 'grid-cols-3' : stats.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            {stats.map(s => (
-              <div key={s.label} className="rounded-2xl px-md py-sm" style={{ backgroundColor: 'rgba(246,243,236,0.07)' }}>
+            {stats.map(s => {
+              const body = <>
                 <p className={`text-xl font-bold tabular-nums sm:text-2xl ${s.tone ? TONE[s.tone] : ''}`} style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{s.value}</p>
                 <p className="text-[11px] uppercase tracking-[0.06em] text-[#F6F3EC]/55">{s.label}</p>
-              </div>
-            ))}
+              </>
+              return s.href
+                ? <Link key={s.label} href={s.href} prefetch={false} className="block rounded-2xl px-md py-sm transition-opacity hover:opacity-80" style={{ backgroundColor: 'rgba(246,243,236,0.07)' }}>{body}</Link>
+                : <div key={s.label} className="rounded-2xl px-md py-sm" style={{ backgroundColor: 'rgba(246,243,236,0.07)' }}>{body}</div>
+            })}
           </div>
         )}
         {tabs && tabs.length > 0 ? (

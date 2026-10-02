@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase';
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton';
 import Link from 'next/link';
 import { AcknowledgmentNoteSchema, validateInput } from '@/lib/validation-schemas';
@@ -231,14 +232,11 @@ export default function AcknowledgmentNotesPage() {
           </Link>
         }
       />
+      <PageHero title="Acknowledgments" subtitle={<>Notes that require active tenant confirmation. Auto-files after 7 days if unacknowledged.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="flex items-center justify-between mb-lg">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Acknowledgment Notes</h1>
-            <p className="text-sm text-neutral-600 mt-sm">
-              Notes that require active tenant confirmation. Auto-files after 7 days if unacknowledged.
-            </p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}

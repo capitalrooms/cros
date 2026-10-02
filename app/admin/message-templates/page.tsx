@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { createClient } from '@/lib/supabase'
@@ -580,17 +581,12 @@ export default function MessageTemplatesPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Message Templates" subtitle={<>Every automated message the system sends — grouped by purpose. Templates marked <strong>✏️ Editable</strong> can be changed here; changes take effect on the next send without a code deploy.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Page header */}
         <div className="mb-2xl">
-          <h1 className="text-2xl font-bold text-neutral-900">✉️ Message Templates</h1>
-          <p className="mt-sm text-sm text-neutral-600">
-            Every automated message the system sends — grouped by purpose.
-            Templates marked <strong>✏️ Editable</strong> can be changed here;
-            changes take effect on the next send without a code deploy.
-          </p>
 
           {/* Summary chips */}
           <div className="mt-lg flex flex-wrap gap-sm">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const GREETING_PRESETS = [
@@ -90,13 +91,10 @@ export default function AcquisitionEmailPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
+      <PageHero title="Introduction Email" subtitle={<>Personalised introduction email sent directly to a prospective landlord. The template is fixed — only the name, greeting, and headshot swap per send.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">✉️ Send Acquisition Email</h1>
-          <p className="text-sm text-neutral-500 mt-xs">
-            Personalised introduction email sent directly to a prospective landlord. The template is fixed — only the name, greeting, and headshot swap per send.
-          </p>
         </div>
 
         {step === 'sent' ? (

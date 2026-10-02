@@ -75,6 +75,13 @@ export default function ApplicantForm() {
   const [studyYear, setStudyYear] = useState('')
   const [guarantorConfirmed, setGuarantorConfirmed] = useState(false)
 
+  // Guarantor (Homeppl's affordability: yearly income 30 × the monthly rent, or savings of 36 × held for 3 months;
+  // a guarantor needs 36 × the monthly rent a year)
+  const [guarantorNeeded, setGuarantorNeeded] = useState<'' | 'no' | 'yes' | 'not_sure'>('')
+  const [guarantorName, setGuarantorName] = useState('')
+  const [guarantorEmail, setGuarantorEmail] = useState('')
+  const [guarantorPhone, setGuarantorPhone] = useState('')
+
   useEffect(() => {
     if (!roomId || !propertyId) {
       setError('Invalid application link. Missing room or property ID.')
@@ -116,9 +123,10 @@ export default function ApplicantForm() {
     if (!advertiserRent) return { status: 'unknown' as const }
     const parsedSalary = parseSalaryLow(salary)
     if (!parsedSalary) return { status: 'unknown' as const }
-    const minSalary = advertiserRent * 30
-    const minSavings = advertiserRent * 6
-    const guarantorMinSalary = advertiserRent * 36
+    const rent = rentOfferType === 'below_asking' && offeredRent ? offeredRent : advertiserRent
+    const minSalary = rent * 30
+    const minSavings = rent * 36
+    const guarantorMinSalary = rent * 36
     const fmt = (n: number) => `£${Math.round(n).toLocaleString()}`
     if (parsedSalary >= minSalary) {
       return {
@@ -129,7 +137,7 @@ export default function ApplicantForm() {
     if (parsedSalary >= Math.round(minSalary * 0.8)) {
       return {
         status: 'borderline' as const,
-        message: `Your salary is slightly below the usual threshold of ${fmt(minSalary)}/yr. A referencing agent may approve it, but you may be asked for 6 months' rent in savings (${fmt(minSavings)}) or a UK guarantor earning at least ${fmt(guarantorMinSalary)}/yr.`,
+        message: `Your salary is slightly below the usual threshold of ${fmt(minSalary)}/yr. You may be asked to show savings of ${fmt(minSavings)} (held for at least 3 months) or to add a UK guarantor earning at least ${fmt(guarantorMinSalary)}/yr.`,
         minSavings: fmt(minSavings),
         guarantorMinSalary: fmt(guarantorMinSalary),
       }
@@ -138,7 +146,7 @@ export default function ApplicantForm() {
       status: 'fail' as const,
       message: `Based on the salary entered, you are unlikely to pass standard referencing for this room (threshold: ${fmt(minSalary)}/yr). To proceed you will need one of the following:`,
       options: [
-        `6 months' rent in savings — ${fmt(minSavings)}`,
+        `Savings of ${fmt(minSavings)}, held for at least 3 months`,
         `A UK-based guarantor earning at least ${fmt(guarantorMinSalary)}/yr`,
       ],
     }
@@ -152,6 +160,19 @@ export default function ApplicantForm() {
     // Validate required fields
     if (!firstName || !lastName || !email || !profession || !bio) {
       setError('Please fill in all required fields')
+      setLoading(false)
+      return
+    }
+
+    // Guarantor: asked of everyone; details needed when they'll use one (students always)
+    const needsGuarantorDetails = guarantorNeeded === 'yes' || isStudent
+    if (!guarantorNeeded && !isStudent) {
+      setError('Please tell us whether you will need a guarantor')
+      setLoading(false)
+      return
+    }
+    if (needsGuarantorDetails && (!guarantorName.trim() || !guarantorPhone.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guarantorEmail.trim()))) {
+      setError('Please add your guarantor’s full name, mobile number and email address')
       setLoading(false)
       return
     }
@@ -198,6 +219,10 @@ export default function ApplicantForm() {
           previousAddresses: previousAddresses.filter((a) => a.address.trim()),
           roomId,
           propertyId,
+          guarantorNeeded: isStudent ? 'yes' : guarantorNeeded,
+          guarantorName: needsGuarantorDetails ? guarantorName : '',
+          guarantorEmail: needsGuarantorDetails ? guarantorEmail : '',
+          guarantorPhone: needsGuarantorDetails ? guarantorPhone : '',
         }),
       })
 
@@ -775,7 +800,7 @@ export default function ApplicantForm() {
                     )}
                     {(aff.status === 'fail' || aff.status === 'borderline') && (
                       <p className="mt-sm text-xs opacity-80">
-                        Salary threshold: 30× monthly rent. Guarantor threshold: 36× monthly rent. You can still submit your application — our team will be in touch about next steps.
+                        Salary threshold: 30× monthly rent. Savings: 36× monthly rent, held 3 months. Guarantor: 36× monthly rent a year. You can still submit your application — our team will be in touch about next steps.
                       </p>
                     )}
                   </div>
@@ -798,6 +823,60 @@ export default function ApplicantForm() {
               )}
             </div>
           </div>
+
+          {/* Guarantor */}
+          {(() => {
+            const rent = rentOfferType === 'below_asking' && offeredRent ? offeredRent : advertiserRent
+            const fmt = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
+            const income = rent ? fmt(rent * 30) : '30 × the monthly rent'
+            const savings = rent ? fmt(rent * 36) : '36 × the monthly rent'
+            const gIncome = rent ? fmt(rent * 36) : '36 × the monthly rent'
+            const showDetails = guarantorNeeded === 'yes' || isStudent
+            const field = 'w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900'
+            return (
+              <div className="bg-white rounded-lg p-lg border border-neutral-200">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-xs">Will you need a guarantor? {!isStudent && <span className="text-red-500">*</span>}</h2>
+                <p className="text-sm text-neutral-600 mb-md">
+                  To pass referencing for this room you’ll need to show <strong>earnings of at least {income} a year</strong>, or <strong>savings of at least {savings}</strong> held for 3 months or more.
+                  If not, a UK guarantor earning at least <strong>{gIncome} a year</strong> can support your application.
+                </p>
+                {isStudent ? (
+                  <p className="mb-md rounded-xl bg-amber-50 border border-amber-200 px-md py-sm text-sm text-amber-900">As a student you’ll need a guarantor — please add their details below.</p>
+                ) : (
+                  <div className="space-y-sm mb-md">
+                    {([
+                      ['no', `No — I earn ${income}+ a year or have ${savings}+ in savings`],
+                      ['yes', 'Yes — I’ll have a guarantor'],
+                      ['not_sure', 'Not sure yet'],
+                    ] as const).map(([v, l]) => (
+                      <label key={v} className="flex items-start gap-sm cursor-pointer text-sm text-neutral-900">
+                        <input type="radio" name="guarantorNeeded" value={v} checked={guarantorNeeded === v} onChange={() => setGuarantorNeeded(v)} className="mt-0.5 h-4 w-4" />
+                        <span>{l}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {showDetails && (
+                  <div className="grid gap-md sm:grid-cols-3">
+                    <div className="sm:col-span-3">
+                      <label className="block text-sm font-medium text-neutral-900 mb-xs">Guarantor’s full name <span className="text-red-500">*</span></label>
+                      <input type="text" value={guarantorName} onChange={e => setGuarantorName(e.target.value)} autoComplete="off" className={field} />
+                    </div>
+                    <div className="sm:col-span-1">
+                      <label className="block text-sm font-medium text-neutral-900 mb-xs">Mobile <span className="text-red-500">*</span></label>
+                      <input type="tel" value={guarantorPhone} onChange={e => setGuarantorPhone(e.target.value)} autoComplete="off" className={field} />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-neutral-900 mb-xs">Email <span className="text-red-500">*</span></label>
+                      <input type="email" value={guarantorEmail} onChange={e => setGuarantorEmail(e.target.value)} autoComplete="off" className={field} />
+                    </div>
+                    <p className="sm:col-span-3 text-xs text-neutral-500">We’ll pass these to our referencing provider, Homeppl, who will contact your guarantor directly. Please let them know to expect it.</p>
+                  </div>
+                )}
+                {guarantorNeeded === 'not_sure' && !isStudent && <p className="text-xs text-neutral-500">That’s fine — we’ll talk it through with you before referencing starts.</p>}
+              </div>
+            )
+          })()}
 
           {/* Rental Preferences */}
           <div className="bg-white rounded-lg p-lg border border-neutral-200">

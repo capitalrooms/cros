@@ -38,6 +38,13 @@ export async function POST(request: Request) {
       rent_offer_type:      data.rentOfferType        || 'asking',
       offered_rent:         data.offeredRent          || null,
       previous_addresses:   data.previousAddresses    || [],
+      // guarantor (migration 202) — only sent when the applicant answered
+      ...(data.guarantorNeeded ? {
+        guarantor_needed: ['no', 'yes', 'not_sure'].includes(data.guarantorNeeded) ? data.guarantorNeeded : 'not_sure',
+        guarantor_name:   String(data.guarantorName ?? '').trim().slice(0, 160) || null,
+        guarantor_email:  String(data.guarantorEmail ?? '').trim().slice(0, 200) || null,
+        guarantor_phone:  String(data.guarantorPhone ?? '').trim().slice(0, 40) || null,
+      } : {}),
       pipeline_stage:       'applied',
       submitted_at:         new Date().toISOString(),
       updated_at:           new Date().toISOString(),
@@ -52,13 +59,21 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     let applicantId: string
+    // before migration 202 the guarantor columns don't exist: save without them, keeping the details in the notes
+    const withoutGuarantor = (p: Record<string, unknown>) => {
+      const { guarantor_needed, guarantor_name, guarantor_email, guarantor_phone, ...rest } = p as any
+      const note = guarantor_needed ? `Guarantor: ${guarantor_needed}${guarantor_name ? ` — ${guarantor_name}` : ''}${guarantor_phone ? `, ${guarantor_phone}` : ''}${guarantor_email ? `, ${guarantor_email}` : ''}` : ''
+      return note ? { ...rest, admin_notes: note } : rest
+    }
+    const missingColumn = (e: { code?: string; message?: string } | null) => !!e && (e.code === '42703' || e.code === 'PGRST204' || /guarantor_/.test(e.message ?? ''))
 
     if (existing) {
       // Update the existing row (carries forward viewing_id, offer_id, etc.)
-      const { error } = await supabase
+      let { error } = await supabase
         .from('applicants')
         .update(payload)
         .eq('id', existing.id)
+      if (missingColumn(error)) ({ error } = await supabase.from('applicants').update(withoutGuarantor(payload)).eq('id', existing.id))
 
       if (error) {
         console.error('Error updating applicant:', error)
@@ -73,11 +88,12 @@ export async function POST(request: Request) {
         property_id: data.propertyId,
         viewing_id:  data.viewingId || null,
       }
-      const { data: created, error } = await supabase
+      let { data: created, error } = await supabase
         .from('applicants')
         .insert(insertPayload)
         .select('id')
         .single()
+      if (missingColumn(error)) ({ data: created, error } = await supabase.from('applicants').insert(withoutGuarantor(insertPayload)).select('id').single())
 
       if (error || !created) {
         console.error('Error inserting applicant:', error)

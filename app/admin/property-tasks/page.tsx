@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
@@ -550,6 +551,8 @@ export default function PropertyTasksPage() {
           </button>
         }
       />
+      <PageHero title="Property Tasks" subtitle="To-dos for each property — who’s responsible, when it’s due, and whether it’s done"
+        actions={<HeroButton primary onClick={() => setShowAdd(true)}>+ Add task</HeroButton>} />
 
       {/* Add task modal */}
       {showAdd && (

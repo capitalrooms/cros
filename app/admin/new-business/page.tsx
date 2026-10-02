@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { SERVICE_TYPES } from '@/lib/newBusiness/serviceTypes'
@@ -49,10 +50,9 @@ export default function NewBusinessPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="New Business" subtitle={<>Win landlords, send terms, and take them through AML to a signed agreement.</>} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <header className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">New business</h1>
-          <p className="text-sm text-neutral-500 mt-xs">Win landlords, send terms, and take them through AML to a signed agreement.</p>
         </header>
 
         {/* Needs you */}

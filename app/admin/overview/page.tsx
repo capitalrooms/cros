@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 
@@ -93,14 +94,11 @@ export default function OverviewPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Property Audit" subtitle={<>Real-time snapshot of Capital Rooms platform status</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Header */}
         <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">System Overview</h1>
-          <p className="mt-sm text-sm text-neutral-600">
-            Real-time snapshot of Capital Rooms platform status
-          </p>
         </div>
 
         {/* KPIs */}

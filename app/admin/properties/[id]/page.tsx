@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import UnitsTab from './components/UnitsTab'
@@ -257,6 +258,12 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           </button>
         }
       />
+      <PageHero
+        eyebrow={[property.property_code, property.property_type === 'hmo' ? 'HMO' : property.property_type === 'single' || property.property_type === 'single_let' ? 'Single let' : property.property_type, property.letting_type === 'let_only' ? 'Let only' : 'Fully managed'].filter(Boolean).join(' · ')}
+        title={property.name || '—'}
+        subtitle={String(property.address || '').split('\n').join(', ')}
+        actions={<HeroButton onClick={() => setShowQuickNotify(true)}>📢 Quick Notify</HeroButton>}
+      />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
@@ -295,7 +302,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                   ) : (
                     <>
-                      <h1 className="text-2xl font-bold text-neutral-900">🏠 {property.name || '—'}</h1>
+                      <h2 className="text-lg font-bold text-neutral-900">{property.name || '—'}</h2>
                       <button onClick={() => setEditingName(true)} className="opacity-0 group-hover:opacity-100 transition text-neutral-400 hover:text-neutral-700 text-xs">✏️</button>
                     </>
                   )}

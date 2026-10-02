@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -84,11 +85,10 @@ export default function CommunicationsHubPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="All Messages" subtitle={<>Every message, every channel, one filterable place.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-lg text-center">
-          <h1 className="text-2xl font-bold text-neutral-900">Communications Hub</h1>
-          <p className="mt-xs text-sm text-neutral-500">Every message, every channel, one filterable place.</p>
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">

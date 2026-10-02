@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 interface Guide {
@@ -154,6 +155,7 @@ export default function AdminGuidesPage() {
         left={<BackButton href="/admin" />}
         title="Tenant Guides"
       />
+      <PageHero title="Tenant Guides" subtitle={<>Create and manage guides shown to tenants in the app.</>} />
 
       {showNew && (
         <NewGuideModal onClose={() => setShowNew(false)} onCreated={handleCreated} />
@@ -162,10 +164,6 @@ export default function AdminGuidesPage() {
       <main className="max-w-6xl mx-auto px-lg py-xl">
         <div className="flex items-center justify-between mb-xl">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Tenant Guides</h1>
-            <p className="text-sm text-neutral-500 mt-xs">
-              Create and manage guides shown to tenants in the app.
-            </p>
           </div>
           <button
             onClick={() => setShowNew(true)}

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -150,11 +151,10 @@ export default function ComplianceLogsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Inspection Logs" subtitle={<>Fire door and smoke alarm checks across your properties.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Compliance Logs</h1>
-          <p className="mt-sm text-neutral-600">Fire door and smoke alarm checks across your properties.</p>
         </div>
 
         {error && (

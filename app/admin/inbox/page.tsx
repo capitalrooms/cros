@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
 import PurchaseReview from '@/app/components/PurchaseReview'
@@ -171,15 +172,11 @@ export default function InboxPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Document inbox" subtitle={<>Documents forwarded by email land here. Review the AI&apos;s suggestion and file each one, or assign it yourself. Nothing is filed until you confirm.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Document inbox</h1>
-            <p className="mt-sm text-sm text-neutral-600">
-              Documents forwarded by email land here. Review the AI&apos;s suggestion and file each one, or
-              assign it yourself. Nothing is filed until you confirm.
-            </p>
           </div>
           <Link href="/admin/ai-upload" className="shrink-0 rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">
             ⬆ Upload

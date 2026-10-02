@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult } from '@/app/components/DocReview'
 import PhotoReview from '@/app/components/PhotoReview'
@@ -202,14 +203,11 @@ export default function AIUploadPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="AI Doc Scanner" subtitle={<>Drop in certificates, tenancy agreements, contact sheets, utility bills, invoices and receipts — plus property photos. The AI reads documents, tells you what they are, and files once you confirm. For photos, you&apos;ll confirm which property they belong to (and assign rooms now or later on the property&apos;s Photos tab).</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="flex items-start justify-between gap-md">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">⚡ AI File Scanner</h1>
-            <p className="mt-sm text-sm text-neutral-600">
-              Drop in certificates, tenancy agreements, contact sheets, utility bills, invoices and receipts — plus property photos. The AI reads documents, tells you what they are, and files once you confirm. For photos, you&apos;ll confirm which property they belong to (and assign rooms now or later on the property&apos;s Photos tab).
-            </p>
           </div>
           <Link href="/admin/inbox" className="shrink-0 rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">
             📥 Inbox
