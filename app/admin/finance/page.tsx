@@ -13,6 +13,9 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import HeroMonthPicker from '@/components/HeroMonthPicker'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import ExportButtons from '@/app/components/ExportButtons'
 
@@ -25,7 +28,6 @@ interface Home {
 
 const gbp = (n: number | null | undefined) => (n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const monthLabel = (m: string) => new Date(m + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-const shift = (m: string, n: number) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7) }
 
 const TONE: Record<Todo['tone'], { dot: string; label: string }> = {
   red: { dot: 'bg-red-600', label: 'Urgent' },
@@ -80,15 +82,9 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Finance" />
+      <PageHero eyebrow="Finance" title={monthLabel(month)} subtitle="The month at a glance: rent roll, statements, then the payment run"
+        actions={<HeroMonthPicker month={month} onChange={go} />} tabs={financeTabs('home', month)} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-lg flex flex-wrap items-center justify-between gap-md">
-          <h1 className="text-2xl font-bold text-neutral-900">{monthLabel(month)}</h1>
-          <div className="flex items-center gap-sm">
-            <button onClick={() => go(shift(month, -1))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" aria-label="Previous month">‹</button>
-            <input type="month" value={month} onChange={e => e.target.value && go(e.target.value)} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900" />
-            <button onClick={() => go(shift(month, 1))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" aria-label="Next month">›</button>
-          </div>
-        </div>
 
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
 

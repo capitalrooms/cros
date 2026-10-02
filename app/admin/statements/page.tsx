@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { genStatementRef } from '@/lib/references'
@@ -363,12 +365,10 @@ export default function AdminStatementsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Step 2 of 3 · monthly cycle" title="Landlord statements"
+        subtitle="Room by room — rent, the fee at that property and any expenses. The totals roll up onto the landlord's page; upload a PDF to fill it in."
+        tabs={financeTabs('statements')} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <h1 className="text-2xl font-bold text-neutral-900">Landlord statements</h1>
-        <p className="mt-sm text-sm text-neutral-600">
-          Enter a statement room by room — rent per room, the fee at that property, and any expenses. The totals roll up
-          automatically and populate that property's landlord page. Upload a PDF to auto-fill it all.
-        </p>
 
         {error && <div className="mt-lg rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{error}</div>}
         {notice && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">✅ {notice}</div>}

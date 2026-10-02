@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { paymentFit, FIT_CLASS } from '@/lib/payments/fit'
 
@@ -155,12 +157,8 @@ export default function BankImportPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Bank Import" />
 
+      <PageHero title="Bank import" subtitle="Import a bank statement CSV — each payment is matched to its rent by the reference" tabs={financeTabs('bank')} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
-
-        <div className="mb-xl">
-          <h1 className="text-2xl font-bold text-neutral-900">Bank Import</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Import a bank statement CSV to match transactions.</p>
-        </div>
 
         {/* Gap detection banner */}
         {!batchesLoading && (() => {

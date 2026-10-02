@@ -4,6 +4,8 @@
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -58,11 +60,15 @@ export default function DepositsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Deposits" />
+      <PageHero title="Deposits" subtitle="Protected, with the prescribed information served, within 30 days of the tenancy starting — never more than 5 weeks’ rent"
+        stats={rows ? [
+          { label: STATUS.overdue[0], value: counts.overdue || 0, tone: counts.overdue ? 'bad' : undefined },
+          { label: STATUS.due[0], value: counts.due || 0, tone: counts.due ? 'warn' : undefined },
+          { label: STATUS.protected[0], value: counts.protected || 0, tone: 'good' },
+          { label: STATUS.no_deposit[0], value: counts.no_deposit || 0 },
+        ] : undefined}
+        tabs={financeTabs('deposits')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Deposits</h1>
-          <p className="mt-xs text-sm text-neutral-600">Each deposit must be protected, and the prescribed information given to the tenant, within 30 days of the tenancy starting. Deposits can’t exceed 5 weeks’ rent.</p>
-        </div>
         {setup && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{setup}</p>}
         {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}
         {rows && (

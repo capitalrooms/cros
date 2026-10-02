@@ -17,6 +17,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import ExportButtons, { type ExportColumn } from '@/app/components/ExportButtons'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -196,14 +198,11 @@ export default function ExpensesPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Expenses" />
+      <PageHero title="Expenses" subtitle="Money spent on a property that comes off the landlord’s statement — each is numbered (EXP…) and never deleted; mistakes are voided"
+        stats={[{ label: 'To come off statements', value: pending.length, tone: pending.length ? 'warn' : undefined }]}
+        actions={<HeroButton primary onClick={() => { setShowForm(true); setDups(null); setFormError('') }}>+ Add expense</HeroButton>}
+        tabs={financeTabs('expenses')} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-lg flex flex-wrap items-start justify-between gap-md">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Expenses</h1>
-            <p className="mt-xs text-sm text-neutral-500">Money spent on a property that comes off the landlord’s statement. Each one is numbered (EXP…) and never deleted — mistakes are voided.</p>
-          </div>
-          <button onClick={() => { setShowForm(true); setDups(null); setFormError('') }} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white">+ Add expense</button>
-        </div>
 
         {notice && <p className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-md text-sm font-semibold text-green-800">{notice}</p>}
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}

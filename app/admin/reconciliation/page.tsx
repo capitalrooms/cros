@@ -18,6 +18,8 @@ import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import FinancialTrail from '@/app/components/FinancialTrail'
 
@@ -265,15 +267,10 @@ export default function ReconciliationPage() {
   return (
     <>
       <AppBar left={<BackButton href="/admin" />} title="Reconciliation" />
+      <PageHero title="Bank & matching" subtitle="Match money in to rent, and check statement lines imported by AutoLedger — confirming one marks that rent as paid"
+        actions={<HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>}
+        tabs={financeTabs('bank')} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
-
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Payment reconciliation</h1>
-          <p className="text-sm text-neutral-500 mt-xs">
-            Review statement room lines imported by AutoLedger. Confirm each one to mark the corresponding rent charge as paid.
-          </p>
-        </div>
 
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-lg py-md text-sm text-red-700">{error}</div>
