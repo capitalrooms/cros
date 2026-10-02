@@ -162,7 +162,7 @@ export const ZONES: Zone[] = [
     id: 'people',
     emoji: '👥',
     label: 'People',
-    routes: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords'],
+    routes: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord', '/admin/contractor'],
     subnav: [
       { emoji: '👷', label: 'Contractors',  href: '/admin/people?tab=contractors' },
       { emoji: '🤝', label: 'Landlords',    href: '/admin/people?tab=landlords' },

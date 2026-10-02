@@ -126,6 +126,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     // a letting file (/admin/lettings/<tenancy>) belongs under Tenancies, not the Lettings overview
     if (itemPath === '/admin/lettings') return pathname === itemPath
     if (itemPath === '/admin/tenancies' && pathname.startsWith('/admin/lettings/')) return true
+    // a person's page sits under their list in People
+    if (itemQuery && itemPath === '/admin/people') {
+      const t = new URLSearchParams(itemQuery).get('tab')
+      if (pathname.startsWith('/admin/tenant/')) return t === 'tenants'
+      if (pathname.startsWith('/admin/landlord/')) return t === 'landlords'
+      if (pathname.startsWith('/admin/contractor/')) return t === 'contractors'
+    }
     return itemTab ? pathname === itemPath && searchParams.get('tab') === itemTab : pathname === href || pathname.startsWith(itemPath + '/')
   }
   const railZone = onPropHub ? ZONES.find(z => z.id === 'portfolio') ?? null : activeZone
