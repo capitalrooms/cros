@@ -14,6 +14,8 @@
  *   landlord_phone, bank_account_name, bank_name, bank_sort_code,
  *   bank_account_number, payment_reference: string
  *   bills?: Partial<BillsConfig>
+ *   cleaning?: { payer: 'landlord' | 'tenant' | 'none', frequency?: 'weekly' | 'fortnightly' | 'twice_monthly' | 'monthly' }
+ *              (adds a cleaning row under the bills)
  * }
  */
 

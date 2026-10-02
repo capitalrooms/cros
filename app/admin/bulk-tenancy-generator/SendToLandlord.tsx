@@ -24,6 +24,7 @@ interface Props {
   property: string
   tenantBills: string[]
   landlordBills: string[]
+  cleaning?: { payer: 'landlord' | 'tenant' | 'none'; frequency?: 'weekly' | 'fortnightly' | 'twice_monthly' | 'monthly' }
 }
 
 interface Preview { key: string; label: string; url?: string; error?: string; busy?: boolean }
@@ -32,6 +33,14 @@ const DEFAULT_CC = 'harry@capitalrooms.co.uk'
 const list = (xs: string[]) => xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
 const splitEmails = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean)
 const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
+const CLEANING_HOW_OFTEN = { weekly: 'once a week', fortnightly: 'every two weeks', twice_monthly: 'twice a month', monthly: 'once a month' } as const
+function cleaningSentence(c: NonNullable<Props['cleaning']>): string {
+  if (c.payer === 'none') return 'no cleaner is provided.'
+  const how = c.frequency ? ` ${CLEANING_HOW_OFTEN[c.frequency]}` : ''
+  return c.payer === 'landlord'
+    ? `you provide a cleaner for the communal areas${how}, included in the rent.`
+    : `your tenants pay for a cleaner for the communal areas${how}.`
+}
 
 function suggestedMessage(p: Props, withInvoice: boolean): string {
   const n = p.agreements.length
@@ -45,7 +54,7 @@ function suggestedMessage(p: Props, withInvoice: boolean): string {
     `Dear ${p.greetingName},`,
     `Please find attached the ${n} proposed tenancy agreement${n === 1 ? '' : 's'}${p.property ? ` for ${p.property}` : ''}:`,
     p.agreements.map(a => `• ${a.summary}`).join('\n'),
-    bills,
+    p.cleaning ? `${bills} The agreement${n === 1 ? ' says' : 's say'} ${cleaningSentence(p.cleaning)}` : bills,
     `Please have a read through and let me know if anything needs changing. When you are happy, we will send ${n === 1 ? 'it' : 'them'} to your tenants for signature.`,
     ...(withInvoice ? [`Our invoice for preparing the agreements (${p.invoiceTotal}) is also attached.`] : []),
     'Kind regards,',
