@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 
 interface ReportLink {
@@ -76,6 +78,7 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Reports" />
+      <PageHero title="Reports" subtitle="Financial, property and tenancy reports" tabs={financeTabs('reports')} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
         <Section title="Financial" items={FINANCIAL} />
         <Section title="Property management" items={PROPERTY} />

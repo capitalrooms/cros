@@ -14,13 +14,15 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import HeroMonthPicker from '@/components/HeroMonthPicker'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import ExportButtons from '@/app/components/ExportButtons'
 import type { PaymentRunView } from '@/lib/finance/paymentRun'
 
 const gbp = (n: number | null | undefined) => (n == null ? '' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const monthLabel = (m: string) => new Date(m + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-const shift = (m: string, n: number) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7) }
 const ukDate = (d: string | null) => (d ? new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '')
 const sort = (s: string) => (s.length === 6 ? `${s.slice(0, 2)}-${s.slice(2, 4)}-${s.slice(4)}` : s)
 
@@ -74,19 +76,10 @@ function PaymentRun({ initialMonth }: { initialMonth?: string }) {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Payment run" />
+      <PageHero eyebrow="Step 3 of 3 · monthly cycle" title={<>Payment run {run ? <span className="font-mono text-lg text-[#F6F3EC]/55">{run.runNo}</span> : null}</>}
+        subtitle="Pay landlords, then move our fees and the expenses we paid out to the office account"
+        actions={<HeroMonthPicker month={month} onChange={go} />} tabs={financeTabs('payment-run', month)} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-md flex flex-wrap items-start justify-between gap-md">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Payment run {run ? <span className="font-mono text-lg text-neutral-500">{run.runNo}</span> : null}</h1>
-            <p className="mt-xs text-sm text-neutral-500">Step 3: pay landlords, then move our fees and the expenses we paid out to the office account. Statements come from the <Link href={`/admin/rent-roll?month=${month}`} className="font-semibold text-neutral-900 underline">rent roll</Link>.</p>
-          </div>
-          <div className="flex items-center gap-sm">
-            <button onClick={() => go(shift(month, -1))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" aria-label="Previous month">‹</button>
-            <input type="month" value={month} onChange={e => e.target.value && go(e.target.value)} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900" />
-            <button onClick={() => go(shift(month, 1))} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" aria-label="Next month">›</button>
-          </div>
-        </div>
-
         {notice && <p className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-md text-sm font-semibold text-green-800">{notice}</p>}
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
         {!v && !error && <p className="text-sm text-neutral-500">Loading…</p>}

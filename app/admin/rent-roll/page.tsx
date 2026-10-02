@@ -14,6 +14,8 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
+import HeroMonthPicker from '@/components/HeroMonthPicker'
+import { financeTabs } from '@/lib/financeTabs'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import ExportButtons from '@/app/components/ExportButtons'
@@ -21,7 +23,6 @@ import type { RentRoll, RollRoom } from '@/lib/finance/rentRoll'
 
 const gbp = (n: number | null | undefined) => (n == null ? '' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const monthLabel = (m: string) => new Date(m + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-const shift = (m: string, n: number) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7) }
 const shortDate = (d: string | null) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '')
 
 const STATUS: Record<RollRoom['status'], { label: string; cls: string }> = {
@@ -90,9 +91,7 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
         title="Rent roll"
         subtitle={<>{monthLabel(month)} — what’s due, what’s in, what’s missing. Then prepare each property’s statement, then the payment run.</>}
         actions={<>
-          <button onClick={() => go(shift(month, -1))} className="rounded-xl border border-[#F6F3EC]/25 px-md py-xs text-sm text-[#F6F3EC]" aria-label="Previous month">‹</button>
-          <input type="month" value={month} onChange={e => e.target.value && go(e.target.value)} className="rounded-xl border border-[#F6F3EC]/25 bg-transparent px-md py-xs text-sm text-[#F6F3EC] [color-scheme:dark]" />
-          <button onClick={() => go(shift(month, 1))} className="rounded-xl border border-[#F6F3EC]/25 px-md py-xs text-sm text-[#F6F3EC]" aria-label="Next month">›</button>
+          <HeroMonthPicker month={month} onChange={go} />
           <HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>
         </>}
         stats={roll ? [
@@ -101,15 +100,7 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
           { label: 'Missing', value: gbp(roll.totals.missing), tone: roll.totals.missing > 0 ? 'bad' : undefined },
           { label: 'Ready for statements', value: gbp(roll.totals.ready), tone: 'warn' },
         ] : undefined}
-        tabs={[
-          { label: '1 · Rent roll', href: `/admin/rent-roll?month=${month}`, active: true },
-          { label: '2 · Statements', href: '/admin/statements' },
-          { label: '3 · Payment run', href: `/admin/payment-run?month=${month}` },
-          { label: 'Bank import', href: '/admin/bank-import' },
-          { label: 'Arrears', href: '/admin/arrears' },
-          { label: 'Deposits', href: '/admin/deposits' },
-          { label: 'Client money', href: '/admin/client-money' },
-        ]}
+        tabs={financeTabs('rent-roll', month)}
       />
       <div className="mx-auto max-w-6xl px-lg py-lg">
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}

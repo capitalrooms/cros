@@ -4,6 +4,8 @@
 import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import type { ArrearsRow } from '@/app/api/admin/arrears/route'
@@ -65,27 +67,15 @@ export default function ArrearsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/rent-charges" />} title="Arrears" />
+      <PageHero title="Arrears" subtitle="Rent overdue or part paid, by tenancy — “in arrears since” is the due date of the oldest unpaid rent"
+        stats={[
+          { label: `Owed · ${totals.tenants} tenanc${totals.tenants === 1 ? 'y' : 'ies'}`, value: gbp(totals.owed), tone: totals.owed > 0 ? 'bad' : undefined },
+          { label: '3+ months (Ground 8)', value: totals.legal, tone: totals.legal ? 'bad' : undefined },
+          { label: '2+ months — act now', value: totals.approaching, tone: totals.approaching ? 'warn' : undefined },
+          { label: 'Under 2 months', value: totals.tenants - totals.legal - totals.approaching },
+        ]}
+        tabs={financeTabs('arrears')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Arrears</h1>
-          <p className="mt-xs text-sm text-neutral-500">Rent charges marked overdue or part paid, grouped by tenancy. “In arrears since” is the due date of the oldest unpaid rent.</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-md sm:grid-cols-4">
-          {[
-            ['Owed in total', gbp(totals.owed), `${totals.tenants} tenanc${totals.tenants === 1 ? 'y' : 'ies'}`],
-            ['3+ months owed', String(totals.legal), 'Ground 8 threshold'],
-            ['2+ months owed', String(totals.approaching), 'Act before it reaches 3'],
-            ['Under 2 months', String(totals.tenants - totals.legal - totals.approaching), 'Chase and remind'],
-          ].map(([k, v, n], i) => (
-            <div key={k} className="rounded-2xl border border-neutral-200 bg-white px-lg py-md">
-              <p className="text-xs uppercase tracking-wide text-neutral-500">{k}</p>
-              <p className={`mt-xs text-2xl font-bold tabular-nums ${i === 1 && totals.legal ? 'text-red-700' : i === 2 && totals.approaching ? 'text-amber-700' : 'text-neutral-900'}`}>{v}</p>
-              <p className="mt-xs text-xs text-neutral-400">{n}</p>
-            </div>
-          ))}
-        </div>
-
         {totals.legal > 0 && (
           <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-900">
             {totals.legal} tenanc{totals.legal === 1 ? 'y owes' : 'ies owe'} at least three months’ rent — the level at which Ground 8 possession can be sought.
