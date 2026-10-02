@@ -43,6 +43,7 @@ const placeholders = (l: FormalLetter | null) =>
   l ? Array.from(new Set(`${l.recipientName}\n${l.recipientAddress}\n${l.subject}\n${l.salutation}\n${l.body}`.match(/\[[^\]\n]{2,60}\]/g) ?? [])) : []
 
 const input = 'w-full rounded-lg border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-400'
+const narrow = 'rounded-lg border border-neutral-200 bg-white px-sm py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-400'
 const label = 'block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs'
 
 // ─── Recipient picker ─────────────────────────────────────────────────────────
@@ -300,6 +301,7 @@ export default function DocumentGenerator() {
 
   const split = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean)
   const gaps = docType === 'invoice' ? unpriced : placeholders(letter)
+  const worthChecking = docType === 'invoice' ? missing.filter(m => !/\bprice\b/i.test(m)) : missing
 
   async function send() {
     if (docType === 'letter' ? !letter : !invoice) return
@@ -444,11 +446,11 @@ export default function DocumentGenerator() {
         {/* ═══ STEP 2: CHECK AND SEND ═══ */}
         {step === 'check' && (docType === 'invoice' ? invoice : letter) && (
           <div className="space-y-lg">
-            {(gaps.length > 0 || missing.length > 0) && (
+            {(gaps.length > 0 || worthChecking.length > 0) && (
               <div className="p-md bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
                 <p className="font-semibold mb-xs">{gaps.length ? 'Fill in before sending:' : 'Worth checking:'}</p>
                 <ul className="list-disc pl-5 space-y-0.5">
-                  {(gaps.length ? gaps : missing).map(m => <li key={m}>{m}</li>)}
+                  {(gaps.length ? gaps : worthChecking).map(m => <li key={m}>{m}</li>)}
                 </ul>
               </div>
             )}
@@ -493,9 +495,9 @@ export default function DocumentGenerator() {
                         </div>
                         <input className={input} value={it.detail ?? ''} placeholder="Detail (optional), e.g. Room 3 — Jane Smith" onChange={e => updateItem(i, { detail: e.target.value })} />
                         <div className="flex items-center gap-xs">
-                          <input type="number" min={1} className={`${input} w-20`} value={it.qty} onChange={e => updateItem(i, { qty: Math.max(1, Number(e.target.value) || 1) })} />
-                          <span className="text-sm text-neutral-500">× £</span>
-                          <input type="number" step="0.01" className={`${input} w-32 ${it.unitPrice == null ? 'border-amber-400 bg-amber-50' : ''}`} value={it.unitPrice ?? ''} placeholder="Price"
+                          <input type="number" min={1} className={`${narrow} w-16 shrink-0`} value={it.qty} onChange={e => updateItem(i, { qty: Math.max(1, Number(e.target.value) || 1) })} />
+                          <span className="text-sm text-neutral-500 shrink-0 whitespace-nowrap">× £</span>
+                          <input type="number" step="0.01" className={`${narrow} w-28 shrink-0 ${it.unitPrice == null ? 'border-amber-400 bg-amber-50' : ''}`} value={it.unitPrice ?? ''} placeholder="Price"
                             onChange={e => updateItem(i, { unitPrice: e.target.value === '' ? null : Number(e.target.value) })} />
                           <span className="ml-auto text-sm font-semibold text-neutral-900 tabular-nums">{it.unitPrice == null ? '—' : money((Number(it.qty) || 0) * Number(it.unitPrice))}</span>
                         </div>
