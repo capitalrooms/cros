@@ -34,6 +34,7 @@ const TONE: Record<Todo['tone'], { dot: string; label: string }> = {
 }
 
 const OTHER_TOOLS = [
+  { label: 'Raise an invoice', href: '/admin/document-generator?mode=invoice', note: 'Type what to charge; get our standard invoice' },
   { label: 'Bank import', href: '/admin/bank-import', note: 'Upload a bank CSV' },
   { label: 'Rent charges', href: '/admin/rent-charges', note: 'Every charge raised' },
   { label: 'Fee income', href: '/admin/income', note: 'Management and letting fees' },
