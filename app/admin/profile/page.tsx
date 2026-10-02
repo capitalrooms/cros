@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 const SALUTATIONS = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Mx']
@@ -272,21 +273,9 @@ export default function AdminProfilePage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero eyebrow="Your profile" title={displayName || firstName || 'My Profile'} subtitle={`${roleLabel[role] || role} · ${email}`} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-
-        {/* ── Header ── */}
-        <div className="flex items-center gap-lg mb-2xl">
-          <Avatar name={displayName || firstName || email} />
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">
-              {displayName || firstName || 'My Profile'}
-            </h1>
-            <p className="text-sm text-neutral-500 mt-xs">
-              {roleLabel[role] || role} · {email}
-            </p>
-          </div>
-        </div>
 
         <form onSubmit={handleSave} className="space-y-lg">
 

@@ -17,6 +17,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import StatementSend from '@/app/admin/statements/StatementSend'
 import type { StatementDraft } from '@/lib/statements/draft'
@@ -105,11 +106,9 @@ function Prepare({ propertyId, month }: { propertyId: string; month: string }) {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href={`/admin/rent-roll?month=${month}`} />} title="Prepare statement" />
+      <PageHero eyebrow={`Finance · Statement · ${monthLabel(month)}`} title={property?.name ?? 'Statement'}
+        subtitle={<>{property?.landlord} · step 2: check, make, approve — then it goes in the <Link href={`/admin/payment-run?month=${month}`} className="font-semibold text-[#F6F3EC] underline">payment run</Link>.</>} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-md">
-          <h1 className="text-2xl font-bold text-neutral-900">{property?.name ?? 'Statement'}</h1>
-          <p className="mt-xs text-sm text-neutral-500">{property?.landlord} · {monthLabel(month)} · step 2: check, make, approve — then it goes in the <Link href={`/admin/payment-run?month=${month}`} className="font-semibold text-neutral-900 underline">payment run</Link>.</p>
-        </div>
 
         {notice && <p className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-md text-sm font-semibold text-green-800">{notice}</p>}
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}

@@ -226,7 +226,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {/* ── Dark header ── */}
-      <div className="bg-neutral-900 text-white">
+      <div className="bg-[#181614] text-white">
         <AppBar left={<BackButton href="/admin/people" />} />
         <div className="mx-auto max-w-6xl px-lg pb-0 pt-lg">
           <div className="flex items-start justify-between gap-lg mb-lg">
@@ -234,7 +234,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
               <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">
                 {meta.emoji} {meta.label}
               </p>
-              <h1 className="text-2xl font-bold text-neutral-900">{name}</h1>
+              <h1 className="text-2xl font-extrabold text-white" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{name}</h1>
               <p className="text-sm text-neutral-400 mt-xs">{person.email}</p>
             </div>
             <div className="flex items-start gap-sm shrink-0">

@@ -4,6 +4,7 @@
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { firstRentPayment, ukLongDate } from '@/lib/tenancy/firstRent'
@@ -142,12 +143,8 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/tenancies" />} title="Move-in pack" />
+      <PageHero eyebrow="Lettings · Move-in pack" title={c.tenant.formalName} subtitle={`${c.address} · ${c.tenant.email || 'no email'}${c.landlordName ? ` · landlord ${c.landlordName}` : ''}`} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
-        <div>
-          <p className="text-sm text-neutral-500">Move-in pack</p>
-          <h1 className="text-2xl font-bold text-neutral-900">{c.tenant.formalName}</h1>
-          <p className="text-sm text-neutral-600">{c.address} · {c.tenant.email || 'no email'}{c.landlordName ? ` · landlord ${c.landlordName}` : ''}</p>
-        </div>
 
         {data.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{data.setupNeeded}</p>}
         {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}

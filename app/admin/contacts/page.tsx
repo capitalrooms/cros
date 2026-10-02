@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppBar from '@/components/AppBar'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -160,19 +161,9 @@ export default function ContactsPage() {
         left={<BackButton href="/admin" />}
       />
 
+      <PageHero eyebrow="People" title="Contacts" subtitle="Contractors, cleaners, and landlords assigned to properties"
+        actions={<HeroButton primary onClick={() => setShowAddForm(!showAddForm)}>+ Add Contact</HeroButton>} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-3xl flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Contacts</h1>
-            <p className="mt-sm text-sm text-neutral-600">Contractors, cleaners, and landlords assigned to properties</p>
-          </div>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-800"
-          >
-            + Add Contact
-          </button>
-        </div>
 
         {/* Add Contact Form */}
         {showAddForm && (

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -228,14 +229,8 @@ export default function RentIncreasePage() {
   if (step === 'form') return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href={`/admin/tenant/${tenancy.person ? (tenancy as any).person_id || '' : ''}`} />} />
+      <PageHero eyebrow="Lettings · Section 13 rent increase notice" title={person?.full_name ?? 'Rent review'} subtitle={[tenancy.room?.name, tenancy.property?.address].filter(Boolean).join(' · ')} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-xl">
-          <p className="text-xs font-bold uppercase tracking-wide text-neutral-400 mb-xs">Section 13 — Rent Increase Notice</p>
-          <h1 className="text-2xl font-bold text-neutral-900">{person?.full_name}</h1>
-          <p className="text-sm text-neutral-500 mt-xs">
-            {tenancy.room?.name} · {tenancy.property?.address}
-          </p>
-        </div>
 
         {/* Current tenancy summary */}
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg mb-xl">

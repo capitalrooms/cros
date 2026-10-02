@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton';
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 const MAINTENANCE_CATEGORIES = [
@@ -210,6 +211,7 @@ export default function NewJobPage() {
           </Link>
         }
       />
+      <PageHero eyebrow="Management · Maintenance" title="New job" subtitle="Log a single job for a property or room." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="rounded-2xl border border-neutral-200 bg-white p-xl">

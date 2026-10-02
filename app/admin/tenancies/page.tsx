@@ -339,7 +339,7 @@ export default function TenanciesManagementPage() {
                     </span>
                     <span className="hidden md:block text-right text-sm tabular-nums text-neutral-800">£{Number(t.rent_amount || 0).toLocaleString('en-GB')}</span>
                     <span className="hidden md:block"><span className={`inline-block rounded-full px-sm py-0.5 text-xs font-semibold ${st.cls}`}>{st.label}</span></span>
-                    <span data-row-menu className="relative z-10 flex items-center justify-end gap-xs">
+                    <span data-row-menu className={`relative ${menu === t.id ? 'z-40' : 'z-10'} flex items-center justify-end gap-xs`}>
                       <span className={`md:hidden rounded-full px-sm py-0.5 text-[11px] font-semibold ${st.cls}`}>{st.label}</span>
                       <button type="button" aria-label="More actions" onClick={() => setMenu(menu === t.id ? null : t.id)}
                         className="rounded-lg px-sm py-xs text-lg leading-none text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900">⋯</button>
