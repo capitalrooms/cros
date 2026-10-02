@@ -52,14 +52,16 @@ interface AvailableRoom {
 }
 
 interface LetRoom {
-  id: string
+  id: string                  // the tenancy — each one opens its letting file
   name: string
   property_id: string
   property_name: string
   property_address: string
-  current_asking_rent: number | null
+  rent: number | null         // the tenancy's rent
   tenant_name: string | null
   tenant_email: string | null
+  state: 'let' | 'on_notice' | 'let_agreed'
+  date: string | null         // moves out (on notice) or moves in (let agreed)
 }
 
 interface BookingRoom {
@@ -264,31 +266,30 @@ export default function LettingsPage() {
 
     setAvailableRooms(allAvailable)
 
-    // Currently let rooms (occupied, with tenant info via people table)
+    // Every current and incoming tenancy, by property — each opens its letting file
+    const today = new Date().toISOString().slice(0, 10)
     const { data: letData } = await supabase
-      .from('rooms')
-      .select('id, name, property_id, current_asking_rent, properties(name, address), tenancies(end_date, people!person_id(full_name, first_name, last_name, email))')
-      .eq('status', 'occupied')
-      .order('name', { ascending: true })
+      .from('tenancies')
+      .select('id, start_date, end_date, notice_received_date, rent_amount, property_id, rooms(name), properties(name, address), people!person_id(full_name, first_name, last_name, email)')
+      .or(`end_date.is.null,end_date.gte.${today}`)
 
-    const letMapped: LetRoom[] = (letData || []).map((room: any) => {
-      // current tenant = the tenancy with no end date (or the latest one)
-      const tList = (room.tenancies || []) as any[]
-      const tenant = (tList.find(t => !t.end_date) ?? tList[0])?.people ?? null
-      const tName = tenant
-        ? tenant.full_name || [tenant.first_name, tenant.last_name].filter(Boolean).join(' ') || null
-        : null
+    const letMapped: LetRoom[] = (letData || []).map((t: any) => {
+      const p = t.people
+      const incoming = t.start_date > today
       return {
-        id: room.id,
-        name: room.name,
-        property_id: room.property_id,
-        property_name: room.properties?.name || 'Unknown',
-        property_address: room.properties?.address || '',
-        current_asking_rent: room.current_asking_rent,
-        tenant_name: tName,
-        tenant_email: tenant?.email || null,
-      }
-    })
+        id: t.id,
+        name: t.rooms?.name || 'Room',
+        property_id: t.property_id,
+        property_name: t.properties?.name || 'Unknown',
+        property_address: t.properties?.address || '',
+        rent: t.rent_amount != null ? Number(t.rent_amount) : null,
+        tenant_name: p ? [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || null : null,
+        tenant_email: p?.email || null,
+        state: incoming ? 'let_agreed' : t.notice_received_date ? 'on_notice' : 'let',
+        date: incoming ? t.start_date : t.notice_received_date ? t.end_date : null,
+      } as LetRoom
+    }).sort((a, b) => (a.property_address || a.property_name).localeCompare(b.property_address || b.property_name, undefined, { numeric: true })
+      || a.name.localeCompare(b.name, undefined, { numeric: true }) || (a.state === 'let_agreed' ? 1 : -1))
     setLetRooms(letMapped)
   }, [supabase])
 
@@ -586,13 +587,13 @@ export default function LettingsPage() {
             )}
             {activeTab === 'let' && (
               <div>
-                <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: '0 0 16px', color: '#181614' }}>{letRooms.length} room{letRooms.length !== 1 ? 's' : ''} let</h2>
+                <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: '0 0 16px', color: '#181614' }}>{letRooms.filter(r => r.state !== 'let_agreed').length} rooms let · {letRooms.filter(r => r.state === 'let_agreed').length} let agreed</h2>
                 {letRooms.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center"><p className="text-sm text-neutral-400">No rooms currently let</p></div>
                 ) : (
                   <div className="space-y-sm">
                     {letRooms.map(room => (
-                      <Link key={room.id} href={`/admin/properties/${room.property_id}`} className="block rounded-2xl bg-white border border-neutral-200 p-lg hover:border-neutral-900 transition-colors shadow-sm">
+                      <Link key={room.id} href={`/admin/lettings/${room.id}?from=/lettings`} className="block rounded-2xl bg-white border border-neutral-200 p-lg hover:border-neutral-900 transition-colors shadow-sm">
                         <div className="flex items-start justify-between gap-md">
                           <div className="min-w-0 flex-1">
                             <p className="font-bold text-neutral-900">{room.name}</p>
@@ -600,8 +601,9 @@ export default function LettingsPage() {
                             {room.tenant_name && <p className="text-xs text-neutral-400 mt-sm">👤 {room.tenant_name}</p>}
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="text-base font-black text-neutral-900">{room.current_asking_rent ? `£${room.current_asking_rent.toLocaleString()}` : '—'}</p>
+                            <p className="text-base font-black text-neutral-900">{room.rent ? `£${room.rent.toLocaleString()}` : '—'}</p>
                             <p className="text-xs text-neutral-400">pcm</p>
+                            <LetBadge room={room} />
                           </div>
                         </div>
                       </Link>
@@ -911,7 +913,7 @@ export default function LettingsPage() {
           <div className="pt-lg">
             <div className="flex items-center justify-between mb-lg">
               <h2 className="text-base font-bold text-neutral-900">
-                {letRooms.length} room{letRooms.length !== 1 ? 's' : ''} currently let
+                {letRooms.filter(r => r.state !== 'let_agreed').length} rooms let · {letRooms.filter(r => r.state === 'let_agreed').length} let agreed
               </h2>
             </div>
 
@@ -924,7 +926,7 @@ export default function LettingsPage() {
                 {letRooms.map(room => (
                   <Link
                     key={room.id}
-                    href={`/admin/properties/${room.property_id}`}
+                    href={`/admin/lettings/${room.id}?from=/lettings`}
                     className="block rounded-2xl bg-white border border-neutral-200 p-lg hover:border-neutral-900 transition-colors shadow-sm"
                   >
                     <div className="flex items-start justify-between gap-md">
@@ -937,10 +939,10 @@ export default function LettingsPage() {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-base font-black text-neutral-900">
-                          {room.current_asking_rent ? `£${room.current_asking_rent.toLocaleString()}` : '—'}
+                          {room.rent ? `£${room.rent.toLocaleString()}` : '—'}
                         </p>
                         <p className="text-xs text-neutral-400">pcm</p>
-                        <span className="mt-xs inline-block rounded-full bg-green-100 px-sm py-0.5 text-xs font-bold text-green-700">Let</span>
+                        <LetBadge room={room} />
                       </div>
                     </div>
                   </Link>
@@ -1426,4 +1428,13 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
       </div>
     </div>
   )
+}
+
+// Let, on notice (moving out) or let agreed (moving in) — on each tenancy in the Let tab
+function LetBadge({ room }: { room: LetRoom }) {
+  const d = room.date ? new Date(`${room.date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''
+  const [cls, text] = room.state === 'let_agreed' ? ['bg-amber-100 text-amber-900', `Let agreed${d ? ` · in ${d}` : ''}`]
+    : room.state === 'on_notice' ? ['bg-orange-100 text-orange-900', `On notice${d ? ` · out ${d}` : ''}`]
+    : ['bg-green-100 text-green-700', 'Let']
+  return <span className={`mt-xs inline-block rounded-full px-sm py-0.5 text-xs font-bold ${cls}`}>{text}</span>
 }
