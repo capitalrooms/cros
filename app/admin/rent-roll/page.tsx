@@ -131,22 +131,22 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
         <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(0,1fr)_420px]">
           {/* ── Properties ── */}
           <section className="overflow-hidden rounded-2xl bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_90px_110px_110px] gap-sm border-b border-neutral-200 px-md py-sm text-[11px] font-bold uppercase tracking-wide text-neutral-500">
-              <span>Property</span><span>Rooms</span><span className="text-right">{prevAgent ? '' : 'Due'}</span><span className="text-right">Received</span>
+            <div className="grid grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[minmax(0,1fr)_90px_110px_110px] gap-sm border-b border-neutral-200 px-md py-sm text-[11px] font-bold uppercase tracking-wide text-neutral-500">
+              <span>Property</span><span className="hidden sm:block">Rooms</span><span className="hidden sm:block text-right">{prevAgent ? '' : 'Due'}</span><span className="text-right">Received</span>
             </div>
             {loading && <p className="px-md py-xl text-center text-sm text-neutral-500">Loading…</p>}
             {!loading && props.map(p => {
               const on = selected?.id === p.id
               return (
                 <button key={p.id} type="button" onClick={() => pick(p.id)} aria-pressed={on}
-                  className={`grid w-full grid-cols-[minmax(0,1fr)_90px_110px_110px] items-center gap-sm border-b border-neutral-100 px-md py-sm text-left text-sm ${on ? 'bg-[#181614] text-[#F6F3EC]' : 'hover:bg-neutral-50'}`}>
+                  className={`grid w-full grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[minmax(0,1fr)_90px_110px_110px] items-center gap-sm border-b border-neutral-100 px-md py-sm text-left text-sm ${on ? 'bg-[#181614] text-[#F6F3EC]' : 'hover:bg-neutral-50'}`}>
                   <span className="min-w-0">
                     <span className="block truncate font-semibold">{p.name}</span>
                     <span className={`block truncate text-xs ${on ? 'text-[#F6F3EC]/55' : 'text-neutral-500'}`}>{p.landlord}{p.missing > 0 ? ' · ' : ''}{p.missing > 0 && <span className={on ? 'text-[#F28B82]' : 'text-red-700'}>{gbp(p.missing)} missing</span>}{p.readyForStatement > 0 && !prevAgent ? <span className={on ? 'text-[#E8B06B]' : 'text-amber-700'}> · ready {gbp(p.readyForStatement)}</span> : null}</span>
                   </span>
-                  <span className={`text-xs ${on ? 'text-[#F6F3EC]/70' : 'text-neutral-600'}`}>{paidCount(p)}/{p.rooms.length} paid</span>
-                  <span className="text-right tabular-nums">{prevAgent ? '' : gbp(p.due)}</span>
-                  <span className="text-right tabular-nums">{gbp(p.received)}</span>
+                  <span className={`hidden sm:block text-xs ${on ? 'text-[#F6F3EC]/70' : 'text-neutral-600'}`}>{paidCount(p)}/{p.rooms.length} paid</span>
+                  <span className="hidden sm:block text-right tabular-nums">{prevAgent ? '' : gbp(p.due)}</span>
+                  <span className="text-right tabular-nums">{gbp(p.received)}<span className={`block text-[11px] sm:hidden ${on ? 'text-[#F6F3EC]/55' : 'text-neutral-500'}`}>{prevAgent ? '' : `of ${gbp(p.due)} · `}{paidCount(p)}/{p.rooms.length} paid</span></span>
                 </button>
               )
             })}
