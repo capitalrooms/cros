@@ -137,7 +137,8 @@ function Prepare({ propertyId, month }: { propertyId: string; month: string }) {
           </div>
         )}
 
-        {!draft && !error && <p className="text-sm text-neutral-500">Working it out…</p>}
+        {!propertyId && <div className={`${card} px-lg py-xl text-center text-sm text-neutral-600`}>Choose the property to prepare a statement for from the <Link href={`/admin/rent-roll?month=${month}`} className="font-semibold underline">rent roll</Link>.</div>}
+        {propertyId && !draft && !error && <p className="text-sm text-neutral-500">Working it out…</p>}
         {nothing && <div className={`${card} px-lg py-xl text-center text-sm text-neutral-600`}>Nothing new to put on a statement — every payment received has been paid over, and no expenses or fees are due.{made.length ? ' If more rent arrives, come back and a follow-on statement will take just that.' : ''}</div>}
 
         {draft && view && !nothing && (
