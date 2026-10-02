@@ -287,6 +287,8 @@ export interface PDFSender {
   jobTitle?:    string | null
   /** Direct line shown below job title — from people.direct_phone */
   directPhone?: string | null
+  /** Their handwritten signature (people.signature_url) — drawn in place of the pen icon */
+  signatureImg?: Buffer | null
 }
 
 /**
@@ -331,14 +333,21 @@ export function drawPDFSignOff(
   penImg?:  Buffer,
   fontReg:  string = 'Helvetica',
   fontBold: string = 'Helvetica-Bold',
+  closing:  string = 'Yours sincerely,',
 ): number {
   doc.save().font(fontReg).fontSize(9.5).fillColor(BLACK)
-    .text('Yours sincerely,', MARGIN, y)
+    .text(closing, MARGIN, y)
     .restore()
 
   y += 12
 
-  if (penImg && penImg.length > 0) {
+  if (sender.signatureImg && sender.signatureImg.length > 0) {
+    // Scaled to fit 150 × 45 pt, keeping its proportions
+    const img = doc.openImage(sender.signatureImg)
+    const scale = Math.min(150 / img.width, 45 / img.height)
+    doc.image(img, MARGIN, y + 2, { width: img.width * scale, height: img.height * scale })
+    y += img.height * scale + 8
+  } else if (penImg && penImg.length > 0) {
     // Hand/pen silhouette image — square source (980 × 980 px), draw at 40 × 40 pt
     const PEN_SIZE = 40
     doc.image(penImg, MARGIN, y, { width: PEN_SIZE, height: PEN_SIZE })
