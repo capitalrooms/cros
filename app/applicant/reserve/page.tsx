@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { PROCESS_GUIDE, PROCESS_GUIDE_SIGNOFF } from '@/lib/lettings/processGuide'
 
 const ACCOUNT_NAME = 'Capital Rooms Ltd'
 const SORT_CODE = '20-18-93'
@@ -130,11 +131,13 @@ export default function ReservePage() {
           <div className="bg-white rounded-2xl border-2 border-neutral-900 p-lg mb-lg">
             {paidState === 'done' ? (
               <div className="text-center">
-                <div className="text-3xl mb-xs">✅</div>
-                <p className="text-base font-bold text-neutral-900">Thanks, we&apos;ve been told</p>
-                <p className="text-sm text-neutral-600 mt-xs">
-                  We&apos;ll check it has reached our account and confirm by email. The room is held for you while we do.
+                <div className="text-4xl mb-sm">🎉</div>
+                <p className="text-lg font-bold text-neutral-900">Thank you for reserving {roomName ? roomName : 'your room'}!</p>
+                <p className="text-sm text-neutral-700 mt-xs">
+                  We&apos;re so excited to welcome you on board. We&apos;ll check your holding deposit has reached our account
+                  and confirm by email with your receipt — the room is held for you while we do.
                 </p>
+                <p className="text-sm text-neutral-600 mt-sm">Here&apos;s what happens now 👇</p>
               </div>
             ) : (
               <>
@@ -161,28 +164,29 @@ export default function ReservePage() {
           </div>
         )}
 
-        {/* What happens next */}
+        {/* So, what happens now? — our guide to the process, from securing the room to moving in */}
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg mb-lg">
-          <h2 className="text-base font-bold text-neutral-900 mb-md">What happens next</h2>
+          <h2 className="text-base font-bold text-neutral-900">So, what happens now?</h2>
+          <p className="text-xs text-neutral-500 mb-md">The process from securing, to moving!</p>
           <ol className="space-y-md">
-            {[
-              { n: '1', t: 'Make the transfer', d: 'Send £' + (weekly != null ? gbp(weekly) : '—') + ' to the account above using the reference shown.' },
-              { n: '2', t: 'Let us know', d: applicantId ? 'Press “I’ve paid the holding deposit” above once it has gone.' : 'Message or email us once sent — a screenshot of the confirmation helps us confirm quickly.' },
-              { n: '3', t: 'Room reserved', d: 'We take the room off the market as soon as payment is confirmed.' },
-              { n: '4', t: 'Online referencing', d: 'We\'ll get you started with our referencing provider, Homeppl, straight away.' },
-              { n: '5', t: 'Sign & move in', d: 'Once references pass, we\'ll issue the tenancy agreement and get you a move-in date.' },
-            ].map(step => (
-              <li key={step.n} className="flex gap-md">
-                <span className="shrink-0 w-6 h-6 rounded-full bg-neutral-900 text-white text-xs font-bold flex items-center justify-center">
-                  {step.n}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900">{step.t}</p>
-                  <p className="text-xs text-neutral-500 leading-relaxed">{step.d}</p>
-                </div>
-              </li>
-            ))}
+            {PROCESS_GUIDE.map((step, i) => {
+              const done = i === 0 && paidState === 'done'
+              return (
+                <li key={step.title} className="flex gap-md">
+                  <span className={`shrink-0 w-8 h-8 rounded-full text-base flex items-center justify-center ${done ? 'bg-green-100' : 'bg-neutral-100'}`} aria-hidden="true">
+                    {done ? '✅' : step.icon}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-900">{step.title}{done ? ' — done!' : ''}</p>
+                    <p className="text-xs text-neutral-600 leading-relaxed">
+                      {i === 0 && weekly != null ? `Send £${gbp(weekly)} to the account above using the reference shown${applicantId ? ', then press “I’ve paid the holding deposit”' : ', then let us know'}. We’ll take the room off the market and reserve it for you.` : step.body}
+                    </p>
+                  </div>
+                </li>
+              )
+            })}
           </ol>
+          <p className="text-xs text-neutral-600 mt-md">{PROCESS_GUIDE_SIGNOFF}</p>
         </div>
 
         {/* Holding deposit terms — Tenant Fees Act 2019, Schedule 2 */}

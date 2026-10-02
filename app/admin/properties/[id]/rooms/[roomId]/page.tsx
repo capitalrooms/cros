@@ -711,7 +711,7 @@ export default function RoomDashboardPage({
 
         {/* Breadcrumb */}
         <nav className="flex items-center gap-xs text-xs text-neutral-500 mb-lg font-medium">
-          <Link href="/admin/properties" className="hover:text-neutral-700">Properties</Link>
+          <Link href="/admin/active-rooms" className="hover:text-neutral-700">All Units</Link>
           <span>›</span>
           <Link href={`/admin/properties/${propertyId}`} className="hover:text-neutral-700">{property.name}</Link>
           <span>›</span>
