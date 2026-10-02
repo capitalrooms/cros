@@ -54,6 +54,11 @@ export default function ApplicantForm() {
 
   // Rent
   const [advertiserRent, setAdvertisedRent] = useState<number | null>(null)
+  // the room's asking rent — for the rent question, the affordability check and the guarantor figures
+  useEffect(() => {
+    if (!roomId) return
+    fetch(`/api/applicant/room/${roomId}`).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.monthly) setAdvertisedRent(Number(d.monthly)) }).catch(() => {})
+  }, [roomId])
   const [rentOfferType, setRentOfferType] = useState('asking') // 'asking' or 'below_asking'
   const [offeredRent, setOfferedRent] = useState<number | null>(null)
 
@@ -215,6 +220,7 @@ export default function ApplicantForm() {
           roomRequirements,
           roomConditions,
           rentOfferType,
+          advertisedRent: advertiserRent,
           offeredRent: rentOfferType === 'below_asking' ? offeredRent : null,
           previousAddresses: previousAddresses.filter((a) => a.address.trim()),
           roomId,
