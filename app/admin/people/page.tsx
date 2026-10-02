@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import EditPersonModal from '../components/EditPersonModal'
 import { displayName, landlordName, nameFields } from '@/lib/people'
@@ -361,13 +362,10 @@ export default function PeopleManagement() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="People" subtitle={<>Manage tenants, contractors, cleaners, landlords, and administrators across all properties</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
-          <h1 className="text-2xl font-bold text-neutral-900">👥 People</h1>
-          <p className="text-sm text-neutral-600 mb-lg">
-            Manage tenants, contractors, cleaners, landlords, and administrators across all properties
-          </p>
 
           {error && (
             <div className="mb-md rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-900">

@@ -61,7 +61,7 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
   const [landlordQ, holdQ, applicantQ, roomTenQ, account, docsQ, propDocsQ, eventsQ, packsQ, returnsQ] = await Promise.all([
     prop.landlord_id ? s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, phone').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     s.from('holding_deposits').select('*').or(`tenancy_id.eq.${tenancyId}${applicantId ? `,applicant_id.eq.${applicantId}` : ''}`).order('recorded_at'),
-    applicantId ? s.from('applicants').select('id, full_name, email, phone, submitted_at, created_at, offer_id, profession, preferred_start_date').eq('id', applicantId).maybeSingle() : Promise.resolve({ data: null }),
+    applicantId ? s.from('applicants').select('*').eq('id', applicantId).maybeSingle() : Promise.resolve({ data: null }),
     t.room_id ? s.from('tenancies').select('id, start_date, end_date, notice_received_date, let_cancelled_at, people!person_id(id, first_name, last_name, full_name)').eq('room_id', t.room_id).neq('id', tenancyId) : Promise.resolve({ data: [] }),
     t.room_id && t.start_date ? tenantAccount(s, tenancyId).catch(() => null) : Promise.resolve(null),
     s.from('generated_documents').select('id, kind, number, title, recipient_name, total, created_at, emailed_at, emailed_to').eq('tenancy_id', tenancyId).is('deleted_at', null).order('created_at', { ascending: false }),

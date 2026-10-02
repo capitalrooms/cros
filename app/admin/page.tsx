@@ -1,4 +1,5 @@
 'use client'
+import PageHero from '@/components/PageHero'
 
 import { useEffect, useState, Component, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
@@ -279,39 +280,17 @@ function AdminDashboard() {
 
   return (
     <div>
+      <PageHero
+        title={<>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {adminName}</>}
+        subtitle={<>{dayLabel}{kpiUrgent > 0 && <span className="text-[#F28B82]"> · {kpiUrgent} urgent {kpiUrgent === 1 ? 'item needs' : 'items need'} action</span>}</>}
+        stats={[
+          { label: 'Properties', value: kpiProperties, href: '/admin/active-rooms' },
+          { label: 'Available rooms', value: kpiAvailRooms, href: '/admin/available-and-lettings', tone: kpiAvailRooms > 0 ? 'good' : undefined },
+          { label: 'Active tenancies', value: kpiActiveTen, href: '/admin/tenancies' },
+          { label: 'Urgent actions', value: kpiUrgent, href: '/admin/property-compliance-dashboard', tone: kpiUrgent > 0 ? 'bad' : undefined },
+        ]}
+      />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
-
-        {/* ── Greeting ── */}
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">
-            Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {adminName}
-          </h1>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            {dayLabel}
-            {kpiUrgent > 0 && (
-              <span className="ml-2 text-red-600 font-medium">
-                · {kpiUrgent} urgent {kpiUrgent === 1 ? 'item needs' : 'items need'} action
-              </span>
-            )}
-          </p>
-        </div>
-
-        {/* ── KPI strip ── */}
-        <div className="grid grid-cols-4 gap-sm">
-          {[
-            { label: 'Properties',       value: kpiProperties, href: '/admin/active-rooms',              red: false },
-            { label: 'Available rooms',  value: kpiAvailRooms, href: '/admin/available-and-lettings',    red: kpiAvailRooms === 0 },
-            { label: 'Active tenancies', value: kpiActiveTen,  href: '/admin/tenancies',                 red: false },
-            { label: 'Urgent actions',   value: kpiUrgent,     href: '/admin/property-compliance-dashboard', red: kpiUrgent > 0 },
-          ].map(k => (
-            <Link key={k.label} href={k.href} className="block">
-              <div className="rounded-xl bg-white border border-neutral-200 p-md hover:border-neutral-300 hover:shadow-sm transition-all">
-                <p className={`text-3xl font-black tabular-nums ${k.red ? 'text-red-500' : 'text-neutral-900'}`}>{k.value}</p>
-                <p className="text-xs text-neutral-500 mt-xs">{k.label}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
 
         {/* Demo mode banner */}
         {commsLive === false && (

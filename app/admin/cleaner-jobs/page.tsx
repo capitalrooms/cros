@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -129,13 +130,10 @@ export default function CleanerJobsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Cleaning" subtitle={<>Move-out cleans raised from Set on Notice — assign, track and reassign</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
-          <h1 className="text-2xl font-bold text-neutral-900">🧹 Cleaner Jobs</h1>
-          <p className="mt-sm text-sm text-neutral-600">
-            Move-out cleans raised from Set on Notice — assign, track and reassign
-          </p>
         </div>
 
         {/* Alert banner for unassigned jobs */}

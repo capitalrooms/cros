@@ -57,6 +57,10 @@ interface Applicant {
   date_of_birth?: string | null
   linkedin_url?: string | null
   previous_addresses?: unknown
+  guarantor_needed?: 'no' | 'yes' | 'not_sure' | null   // migration 202
+  guarantor_name?: string | null
+  guarantor_email?: string | null
+  guarantor_phone?: string | null
   rooms?: { name: string; current_asking_rent: number | null }
   properties?: { name: string; address: string }
   viewings?: { viewing_date: string; viewing_slot: string | null }
@@ -460,6 +464,7 @@ export default function ApplicantsPage() {
                   {/* Expanded detail */}
                   {isOpen && (
                     <div className="border-t border-neutral-100 px-lg py-md space-y-md">
+                      <DetailsToCopy a={applicant} />
                       {/* Pipeline progress bar */}
                       <div>
                         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Pipeline</p>
@@ -765,5 +770,52 @@ function CopyButton({ label, value }: { label: string; value: string }) {
     >
       {copied ? '✓ Copied' : `📋 ${label}`}
     </button>
+  )
+}
+
+// Everything the office needs to copy out — into Homeppl, an email or a call — with a Copy on each line and one for
+// all of it. (The row above is a button, and browsers don't let you select text inside a button.)
+function DetailsToCopy({ a }: { a: Applicant }) {
+  const room = (a.rooms as any), prop = (a.properties as any)
+  const rent = a.rent_offer_type === 'below_asking' && a.offered_rent ? a.offered_rent : a.advertised_rent ?? room?.current_asking_rent ?? null
+  const dob = a.date_of_birth ? new Date(a.date_of_birth + 'T12:00:00').toLocaleDateString('en-GB') : ''
+  const start = a.preferred_start_date ? new Date(a.preferred_start_date + 'T12:00:00').toLocaleDateString('en-GB') : ''
+  const rows: [string, string][] = [
+    ['Full name', a.full_name ?? ''],
+    ['Email', a.email ?? ''],
+    ['Mobile', a.phone ?? ''],
+    ['Date of birth', dob],
+    ['Current address', a.current_address ?? ''],
+    ['Work', [a.profession, a.salary ? `salary ${a.salary}` : ''].filter(Boolean).join(' · ')],
+    ['Room', [room?.name, prop?.address || prop?.name].filter(Boolean).join(', ')],
+    ['Rent · start', [rent ? `£${Number(rent).toLocaleString('en-GB', { minimumFractionDigits: 2 })} pcm` : '', start ? `from ${start}` : ''].filter(Boolean).join(' · ')],
+  ]
+  const g = a.guarantor_needed
+  if (g) rows.push(['Guarantor', g === 'no' ? 'Not needed' : g === 'not_sure' && !a.guarantor_name ? 'Not sure yet' : [a.guarantor_name, a.guarantor_phone, a.guarantor_email].filter(Boolean).join(' · ')])
+  const all = rows.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join('\n')
+  return (
+    <div className="rounded-xl bg-neutral-50 px-md py-sm">
+      <div className="mb-xs flex items-center justify-between gap-sm">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Details to copy</p>
+        <CopyButton label="Copy all" value={all} />
+      </div>
+      <dl className="divide-y divide-neutral-200/70 select-text">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex items-baseline gap-md py-1.5 text-sm">
+            <dt className="w-32 shrink-0 text-xs text-neutral-500">{k}</dt>
+            <dd className="min-w-0 flex-1 break-words text-neutral-900">{v || <span className="text-neutral-400">—</span>}</dd>
+            {v ? <CopyLink value={v} /> : null}
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+}
+
+function CopyLink({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button type="button" onClick={async e => { e.stopPropagation(); try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1200) } catch { window.prompt('Copy:', value) } }}
+      className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">{copied ? 'Copied' : 'Copy'}</button>
   )
 }

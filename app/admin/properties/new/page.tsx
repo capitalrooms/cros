@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 // CouncilInfoModal is now managed inside PostcodeLookupWidget
@@ -265,10 +266,10 @@ export default function NewPropertyPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/active-rooms" />} />
+      <PageHero title="Add Property" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="pt-md mb-md">
-          <h1 className="text-2xl font-bold text-neutral-900">🏠 Create Property</h1>
         </div>
 
         {error && (

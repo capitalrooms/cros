@@ -7,6 +7,7 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -839,13 +840,10 @@ function CompliancePageInner({ tab }: { tab?: string }) {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Compliance" subtitle={<>Certificates, safety checks, and compliance dashboard across all properties</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
-          <h1 className="text-2xl font-bold text-neutral-900">🛡️ Compliance</h1>
-          <p className="mt-sm text-sm text-neutral-600 mb-lg">
-            Certificates, safety checks, and compliance dashboard across all properties
-          </p>
 
           <div className="flex gap-sm border-b border-neutral-300">
             <button

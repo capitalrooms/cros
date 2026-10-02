@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import { blockAddress } from '@/lib/formatAddress'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
@@ -70,12 +71,11 @@ export default function QuickNotifyPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Quick Notify" subtitle={<>Select a property to send messages to tenants, cleaners, or contractors</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="space-y-2xl">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Quick Notify</h1>
-            <p className="text-sm text-neutral-500">Select a property to send messages to tenants, cleaners, or contractors</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-md">

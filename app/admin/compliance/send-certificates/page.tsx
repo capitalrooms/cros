@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -54,10 +55,9 @@ export default function CertificateRound() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/compliance" />} title="Certificate round" />
+      <PageHero title="Send Certificates" subtitle={<>Every house, with the certificates uploaded since the date below. Each tenant gets their own email for their house, with a link to each certificate and when it’s next due.</>} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Send this year’s certificates</h1>
-          <p className="mt-xs text-sm text-neutral-600">Every house, with the certificates uploaded since the date below. Each tenant gets their own email for their house, with a link to each certificate and when it’s next due.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-sm rounded-2xl bg-white p-md text-sm">

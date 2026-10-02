@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { ValuationData, ValuationType, PriceRow, RefurbItem } from '@/lib/valuations/ValuationDocument'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -282,13 +283,10 @@ export default function ValuationsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/new-business" />} />
+      <PageHero title="Valuations" subtitle={<>Generate a Capital Rooms branded valuation letter. Fill in the form, preview, then export as PDF.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-2xl">
-          <h1 className="text-2xl font-bold text-neutral-900">📄 Rental Valuation Letter</h1>
-          <p className="mt-sm text-sm text-neutral-500">
-            Generate a Capital Rooms branded valuation letter. Fill in the form, preview, then export as PDF.
-          </p>
         </div>
 
         {/* Step tabs */}

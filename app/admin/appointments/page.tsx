@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -262,14 +263,11 @@ export default function AppointmentsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
+      <PageHero title="Diary" subtitle={<>Drag appointments to reschedule. Click a time slot to book a new visit.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Header — Balanced Spacing */}
         <div className="mb-3xl">
-          <h1 className="text-2xl font-bold text-neutral-900">📅 Property Calendar</h1>
-          <p className="mt-sm text-sm text-neutral-600">
-            Drag appointments to reschedule. Click a time slot to book a new visit.
-          </p>
         </div>
 
         {/* Week navigation */}

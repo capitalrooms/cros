@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromOnboarding } from '@/app/components/LandlordCard'
 import { adminFetch } from '@/lib/adminFetch'
@@ -262,13 +263,12 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
+      <PageHero title="Onboarding & AML" subtitle={<>Every landlord from first enquiry to signed agreement. Open a record to review their AML checks.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Title row */}
         <div className="flex items-center justify-between mb-xl">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Onboarding &amp; AML</h1>
-            <p className="text-sm text-neutral-500 mt-xs">Every landlord from first enquiry to signed agreement. Open a record to review their AML checks.</p>
           </div>
           <button
             onClick={() => { setShowAdd(true); setAddResult(null) }}
