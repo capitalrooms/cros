@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 
 import { ZONES, type Zone } from '@/lib/adminNav'
 import MobileTabBar from './components/MobileTabBar'
+import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <span>⚡</span>
               <span className="hidden sm:inline">Quick Notify</span>
             </Link>
+            <StaffNotificationBell />
             <ProfileMenu />
           </div>
         </div>

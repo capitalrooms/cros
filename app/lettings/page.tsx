@@ -14,6 +14,9 @@ import StatTile from '@/app/components/StatTile'
 import SendOfferForm from '@/components/SendOfferForm'
 import MultiDayDiaryGrid, { type DiaryJob } from '@/app/components/MultiDayDiaryGrid'
 import DesktopRightRail from '@/app/components/DesktopRightRail'
+import LettingsQuickNotify, { type NotifyMode } from './LettingsQuickNotify'
+import ViewingSheet, { notifyLetOnlyContacts } from './ViewingSheet'
+import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +65,7 @@ interface BookingRoom {
   id: string
   name: string
   property_id: string
+  status: string | null
   properties: { id: string; name: string } | null
 }
 
@@ -193,6 +197,8 @@ export default function LettingsPage() {
   const [banner, setBanner] = useState('')
 
   const [showSettings, setShowSettings] = useState(false)
+  const [quickNotify, setQuickNotify] = useState<{ mode: NotifyMode; propertyId?: string; viewingId?: string } | null>(null)
+  const [sheetViewingId, setSheetViewingId] = useState<string | null>(null)
 
   const DEFAULT_NOTIF_PREFS = {
     viewing_booked: true,
@@ -324,7 +330,7 @@ export default function LettingsPage() {
 
       const { data: roomsData } = await supabase
         .from('rooms')
-        .select('id, name, property_id, properties(id, name)')
+        .select('id, name, property_id, status, properties(id, name)')
       // Sort: extract leading house number numerically, then alphabetically by address, then room number
       const sortedRooms = ((roomsData as any) || []).sort((a: any, b: any) => {
         const pa = a.properties?.name || ''
@@ -381,10 +387,13 @@ export default function LettingsPage() {
       })
       if (error) throw new Error(error.message)
 
+      // Tell the house (push + email) and any let-only contacts, and report what actually went out
+      const told: string[] = []
+      let notTold = ''
       if (viewingForm.notifyTenants && room?.property_id) {
         const msg = viewingForm.notifyMessage ||
           defaultNotifyMsg(room.properties?.name || '', viewingForm.viewing_date, viewingForm.viewing_slot)
-        await fetch('/api/admin/quick-notify-lettings', {
+        const res = await fetch('/api/admin/quick-notify-lettings', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -393,7 +402,13 @@ export default function LettingsPage() {
             message: msg,
             notification_type: 'viewing',
           }),
-        }).catch(() => {})
+        }).catch(() => null)
+        const d = await res?.json().catch(() => ({}))
+        if (res?.ok && d?.success !== false) told.push(d?.recipientCount ? `${d.recipientCount} tenant${d.recipientCount === 1 ? '' : 's'} notified` : 'no current tenants to notify')
+        else notTold = ` — tenants NOT notified${d?.error || d?.message ? ` (${d.error || d.message})` : ''}`
+      }
+      if (viewingForm.notifyTenants && await notifyLetOnlyContacts(viewingForm.room_id, 'booked', viewingForm.viewing_date, viewingForm.viewing_slot, room?.name ?? '', name)) {
+        told.push('let-only contacts emailed')
       }
 
       setAddingViewing(false)
@@ -402,8 +417,8 @@ export default function LettingsPage() {
       setSelectedDay(viewingForm.viewing_date)
       setActiveTab('viewings')
       await loadData()
-      setBanner(viewingForm.notifyTenants ? '✅ Viewing booked & tenants notified' : '✅ Viewing booked')
-      setTimeout(() => setBanner(''), 4000)
+      setBanner(`✅ Viewing booked${told.length ? ` · ${told.join(' · ')}` : ''}${notTold}`)
+      setTimeout(() => setBanner(''), notTold ? 10000 : 5000)
     } catch (err) {
       setBanner(err instanceof Error ? err.message : 'Failed to book viewing')
     } finally {
@@ -426,6 +441,20 @@ export default function LettingsPage() {
       sublabel: v.visitor_name ? `${v.visitor_name}${v.rooms?.name ? ` · ${v.rooms.name}` : ''}` : (v.rooms?.name ?? ''),
       isOverdue: new Date(v.viewing_date + 'T00:00:00') < new Date(new Date().toDateString()),
     }))
+
+  // Properties (from every room) and upcoming viewings, for Quick Notify and the viewing sheet
+  const notifyProperties = Array.from(new Map(bookingRooms
+    .filter(r => r.properties?.name)
+    .map(r => [r.property_id, { id: r.property_id, name: r.properties!.name }])).values())
+  const notifyViewings = viewings.map(v => ({
+    id: v.id, viewing_date: v.viewing_date, viewing_slot: v.viewing_slot,
+    visitor_name: v.visitor_name, visitor_email: v.visitor_email, visitor_phone: v.visitor_phone,
+    property_id: v.property_id, property_name: v.properties?.name ?? '',
+  }))
+  const sheetViewing = (() => {
+    const v = viewings.find(x => x.id === sheetViewingId)
+    return v ? { ...notifyViewings.find(x => x.id === v.id)!, room_id: v.room_id, room_name: v.rooms?.name ?? '' } : null
+  })()
 
   const viewingCountByDay: Record<string, number> = {}
   for (const v of viewings) {
@@ -485,7 +514,10 @@ export default function LettingsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
           {/* Dark hero */}
           <div style={{ background: '#181614', color: '#F6F3EC', padding: '26px 32px 22px' }}>
-            <h1 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, margin: '0 0 3px', fontWeight: 800 }}>Diary &amp; Leads</h1>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h1 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, margin: '0 0 3px', fontWeight: 800 }}>Diary &amp; Leads</h1>
+              <StaffNotificationBell />
+            </div>
             <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,243,236,0.6)' }}>
               {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
@@ -509,16 +541,28 @@ export default function LettingsPage() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                   <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: '#181614' }}>Viewings Diary</h2>
-                  <button
-                    onClick={() => { setViewingForm(blankViewingForm(todayISO())); setAddingViewing(true) }}
-                    style={{ background: '#4B6358', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                  >+ Book viewing</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => setQuickNotify({ mode: 'tenants' })}
+                      style={{ background: 'white', color: '#181614', border: '1px solid #D8D2C4', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    >⚡ Quick Notify</button>
+                    <button
+                      onClick={() => { setViewingForm(blankViewingForm(todayISO())); setAddingViewing(true) }}
+                      style={{ background: '#4B6358', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                    >+ Book viewing</button>
+                  </div>
                 </div>
+                {banner && !addingViewing && (
+                  <div className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">{banner}</div>
+                )}
+                <p style={{ fontSize: 12, color: '#59544C', margin: '0 0 10px' }}>Click an empty slot to book a viewing, or a viewing to move it or message people.</p>
                 <MultiDayDiaryGrid
                   jobs={lettingsDiaryJobs}
                   startHour={9}
                   endHour={20}
                   todayISO={todayISO()}
+                  onSlotClick={(date, time) => { setViewingForm(blankViewingForm(date, `${time}:00`)); setAddingViewing(true) }}
+                  onJobClick={id => setSheetViewingId(id)}
                 />
               </div>
             )}
@@ -621,6 +665,8 @@ export default function LettingsPage() {
         eyebrow="Lettings"
         heading="Diary & Leads"
         topRight={
+          <div className="flex items-center gap-xs">
+          <StaffNotificationBell />
           <button
             onClick={async () => { await signOut(); router.push('/login') }}
             className="flex items-center gap-xs text-sm font-medium text-white/60 hover:text-white transition-colors px-sm py-xs rounded-lg hover:bg-white/10"
@@ -628,6 +674,7 @@ export default function LettingsPage() {
             <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true"><path d="M3 1.5h5.5a.5.5 0 0 1 .5.5v2h1V2A1.5 1.5 0 0 0 8.5.5H3A1.5 1.5 0 0 0 1.5 2v11A1.5 1.5 0 0 0 3 14.5h5.5A1.5 1.5 0 0 0 10 13v-2H9v2a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V2A.5.5 0 0 1 3 1.5z" fill="currentColor"/><path d="M6 7.5a.5.5 0 0 1 .5-.5H13a.5.5 0 0 1 0 1H6.5A.5.5 0 0 1 6 7.5zm5.146-2.646a.5.5 0 0 1 .708.708L9.707 7.5l2.147 2.146a.5.5 0 0 1-.708.708l-2.5-2.5a.5.5 0 0 1 0-.708l2.5-2.5z" fill="currentColor"/></svg>
             Log out
           </button>
+          </div>
         }
       >
         <div className="grid grid-cols-3 gap-sm">
@@ -702,11 +749,18 @@ export default function LettingsPage() {
               >Next ›</button>
             </div>
 
-            {/* Always-present add button */}
-            <button
-              onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
-              className="w-full mb-lg rounded-2xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
-            >+ Book viewing</button>
+            {/* Always-present actions */}
+            <div className="grid grid-cols-2 gap-sm mb-sm">
+              <button
+                onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
+                className="rounded-2xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
+              >+ Book viewing</button>
+              <button
+                onClick={() => setQuickNotify({ mode: 'tenants' })}
+                className="rounded-2xl border border-neutral-300 bg-white py-md text-sm font-bold text-neutral-900 hover:bg-neutral-50 transition-colors"
+              >⚡ Quick Notify</button>
+            </div>
+            <p className="text-xs text-neutral-500 mb-lg text-center">Tap an empty time to book · tap a viewing to move it or message people</p>
 
             {/* 15-minute time grid: 9am – 8pm */}
             {(() => {
@@ -772,7 +826,10 @@ export default function LettingsPage() {
                           {slotViewings.map(v => (
                             <div
                               key={v.id}
+                              role="button"
+                              onClick={e => { e.stopPropagation(); setSheetViewingId(v.id) }}
                               style={{
+                                cursor: 'pointer',
                                 background: '#DCE6DE',
                                 borderLeft: '3px solid #4B6358',
                                 borderRadius: 7,
@@ -978,7 +1035,9 @@ export default function LettingsPage() {
 
       </main>
 
-      {/* ── Modals ─────────────────────────────────────────────────────────── */}
+      </div>
+
+      {/* ── Modals — outside the mobile-only wrapper so they open on desktop too ── */}
 
       {addingViewing && (
         <BookViewingModal
@@ -991,7 +1050,40 @@ export default function LettingsPage() {
           onSave={handleCreateViewing}
         />
       )}
-      </div>
+
+      {sheetViewing && (
+        <ViewingSheet
+          viewing={sheetViewing}
+          senderName={name}
+          onClose={() => setSheetViewingId(null)}
+          onChanged={async summary => {
+            setSheetViewingId(null)
+            await loadData()
+            setBanner(summary)
+            setTimeout(() => setBanner(''), 8000)
+          }}
+          onQuickNotify={mode => {
+            setSheetViewingId(null)
+            setQuickNotify({ mode, propertyId: sheetViewing.property_id ?? undefined, viewingId: sheetViewing.id })
+          }}
+        />
+      )}
+
+      {quickNotify && (
+        <LettingsQuickNotify
+          properties={notifyProperties}
+          viewings={notifyViewings}
+          initialMode={quickNotify.mode}
+          initialPropertyId={quickNotify.propertyId}
+          initialViewingId={quickNotify.viewingId}
+          onClose={() => setQuickNotify(null)}
+          onSent={summary => {
+            setQuickNotify(null)
+            setBanner(summary)
+            setTimeout(() => setBanner(''), 8000)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1123,6 +1215,15 @@ interface BookViewingModalProps {
 }
 
 function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose, onSave }: BookViewingModalProps) {
+  const [propertyId, setPropertyId] = useState(() => bookingRooms.find(r => r.id === form.room_id)?.property_id ?? '')
+  // bookingRooms is already sorted by address, so properties keep that order
+  const propertyOptions = Array.from(bookingRooms.reduce((m, r) => {
+    const p = m.get(r.property_id) ?? { id: r.property_id, name: r.properties?.name || 'Unnamed property', available: 0 }
+    if (r.status === 'available') p.available++
+    return m.set(r.property_id, p)
+  }, new Map<string, { id: string; name: string; available: number }>()).values())
+  const roomOptions = bookingRooms.filter(r => r.property_id === propertyId)
+    .sort((a, b) => Number(b.status === 'available') - Number(a.status === 'available'))
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-lg"
@@ -1142,30 +1243,49 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
         )}
 
         <div className="space-y-md">
-          {/* Room */}
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">
-              Room <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={form.room_id}
-              onChange={e => {
-                const room = bookingRooms.find(r => r.id === e.target.value)
-                setForm(f => ({
-                  ...f,
-                  room_id: e.target.value,
-                  notifyMessage: defaultNotifyMsg(room?.properties?.name || '', f.viewing_date, f.viewing_slot),
-                }))
-              }}
-              className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
-            >
-              <option value="">Select a room…</option>
-              {bookingRooms.map(r => (
-                <option key={r.id} value={r.id}>
-                  {r.properties?.name ? `${r.properties.name} — ${r.name}` : r.name}
-                </option>
-              ))}
-            </select>
+          {/* Property, then room — available rooms first */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">
+                Property <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={propertyId}
+                onChange={e => {
+                  setPropertyId(e.target.value)
+                  const rooms = bookingRooms.filter(r => r.property_id === e.target.value)
+                  // One room (or one available room) → pick it straight away
+                  const only = rooms.length === 1 ? rooms[0] : rooms.filter(r => r.status === 'available').length === 1 ? rooms.find(r => r.status === 'available') : undefined
+                  setForm(f => ({
+                    ...f,
+                    room_id: only?.id ?? '',
+                    notifyMessage: defaultNotifyMsg(rooms[0]?.properties?.name || '', f.viewing_date, f.viewing_slot),
+                  }))
+                }}
+                className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
+              >
+                <option value="">Select a property…</option>
+                {propertyOptions.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}{p.available ? ` · ${p.available} available` : ''}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">
+                Room <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={form.room_id}
+                disabled={!propertyId}
+                onChange={e => setForm(f => ({ ...f, room_id: e.target.value }))}
+                className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900 disabled:bg-neutral-50 disabled:text-neutral-400"
+              >
+                <option value="">{propertyId ? 'Select a room…' : 'Choose the property first'}</option>
+                {roomOptions.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}{r.status === 'available' ? ' · available' : ''}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Date + Time */}
@@ -1180,7 +1300,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
                 onChange={e => setForm(f => ({
                   ...f,
                   viewing_date: e.target.value,
-                  notifyMessage: defaultNotifyMsg(bookingRooms.find(r => r.id === f.room_id)?.properties?.name || '', e.target.value, f.viewing_slot),
+                  notifyMessage: defaultNotifyMsg(propertyOptions.find(p => p.id === propertyId)?.name || '', e.target.value, f.viewing_slot),
                 }))}
                 className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
               />
@@ -1193,7 +1313,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
                 onChange={e => setForm(f => ({
                   ...f,
                   viewing_slot: e.target.value,
-                  notifyMessage: defaultNotifyMsg(bookingRooms.find(r => r.id === f.room_id)?.properties?.name || '', f.viewing_date, e.target.value),
+                  notifyMessage: defaultNotifyMsg(propertyOptions.find(p => p.id === propertyId)?.name || '', f.viewing_date, e.target.value),
                 }))}
                 className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
               />

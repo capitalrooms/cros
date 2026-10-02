@@ -8,6 +8,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import NameInput, { type NameValue, emptyName, toFullName } from '@/app/components/NameInput'
+import HoldingDepositModal from '@/components/HoldingDepositModal'
 
 const STAGES = [
   { key: 'invited',            label: 'Invited',            color: 'bg-neutral-100 text-neutral-600',  dot: 'bg-neutral-400' },
@@ -83,6 +84,8 @@ export default function ApplicantsPage() {
 
   // Stage advance
   const [advancing, setAdvancing] = useState<string | null>(null)
+  const [depositFor, setDepositFor] = useState<string | null>(null)
+  const [depositBanner, setDepositBanner] = useState('')
 
   // Accept offer & send reserve email
   const [acceptingSending, setAcceptingSending] = useState<string | null>(null)
@@ -654,13 +657,27 @@ export default function ApplicantsPage() {
                       <div className="flex flex-wrap gap-sm pt-xs border-t border-neutral-100">
                         {/* Links */}
                         <a href={`mailto:${applicant.email}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">✉ Email</a>
+                        <CopyButton label="Copy email" value={applicant.email} />
                         {applicant.phone && (
-                          <a href={`tel:${applicant.phone}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">📱 Call</a>
+                          <>
+                            <a href={`tel:${applicant.phone}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">📱 Call</a>
+                            <CopyButton label={`Copy ${applicant.phone}`} value={applicant.phone} />
+                          </>
                         )}
                         {applicant.converted_person_id && (
                           <a href={`/admin/tenant/${applicant.converted_person_id}`} className="text-xs font-semibold border border-blue-200 text-blue-700 rounded-lg px-md py-sm hover:bg-blue-50">
                             View tenant profile →
                           </a>
+                        )}
+
+                        {/* Holding deposit — records it and tells the landlord and housemates (after review) */}
+                        {!isConverted && ['applied', 'offer_sent', 'referencing'].includes(applicant.pipeline_stage) && (
+                          <button
+                            onClick={() => setDepositFor(applicant.id)}
+                            className="text-xs font-semibold border border-green-700 text-green-800 rounded-lg px-md py-sm hover:bg-green-50"
+                          >
+                            💷 Holding deposit received
+                          </button>
                         )}
 
                         {/* Accept offer — only shown on 'applied' stage */}
@@ -707,6 +724,41 @@ export default function ApplicantsPage() {
           </div>
         )}
       </main>
+
+      {depositFor && (
+        <HoldingDepositModal
+          applicantId={depositFor}
+          onClose={() => setDepositFor(null)}
+          onDone={summary => {
+            setApplicants(prev => prev.map(a => a.id === depositFor && ['applied', 'offer_sent'].includes(a.pipeline_stage) ? { ...a, pipeline_stage: 'referencing' as Stage } : a))
+            setDepositFor(null)
+            setDepositBanner(summary)
+          }}
+        />
+      )}
+      {depositBanner && (
+        <div className="fixed bottom-lg left-1/2 -translate-x-1/2 z-50 max-w-xl rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800 shadow-lg">
+          {depositBanner}
+          <button onClick={() => setDepositBanner('')} className="ml-md text-green-700">×</button>
+        </div>
+      )}
     </div>
+  )
+}
+
+// Copies to the clipboard (e.g. to paste into the referencing provider) and says so for a moment
+function CopyButton({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={async e => {
+        e.stopPropagation()
+        try { await navigator.clipboard.writeText(value); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { window.prompt('Copy:', value) }
+      }}
+      className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50"
+    >
+      {copied ? '✓ Copied' : `📋 ${label}`}
+    </button>
   )
 }

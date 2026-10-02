@@ -11,8 +11,24 @@ export default function ReservePage() {
   const params = useSearchParams()
   const roomId = params.get('roomId')
   const propertyId = params.get('propertyId')
+  const applicantId = params.get('a')   // on links from our emails, so "I've paid" knows who you are
   const [room, setRoom] = useState<any>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [paidNote, setPaidNote] = useState('')
+  const [paidState, setPaidState] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+
+  async function confirmPaid() {
+    setPaidState('sending')
+    try {
+      const res = await fetch('/api/applicant/confirm-deposit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicantId, screenshotNote: paidNote.trim() || undefined }),
+      })
+      setPaidState(res.ok ? 'done' : 'error')
+    } catch {
+      setPaidState('error')
+    }
+  }
 
   useEffect(() => {
     if (!roomId) return
@@ -109,13 +125,49 @@ export default function ReservePage() {
           )}
         </div>
 
+        {/* I've paid */}
+        {applicantId && (
+          <div className="bg-white rounded-2xl border-2 border-neutral-900 p-lg mb-lg">
+            {paidState === 'done' ? (
+              <div className="text-center">
+                <div className="text-3xl mb-xs">✅</div>
+                <p className="text-base font-bold text-neutral-900">Thanks, we&apos;ve been told</p>
+                <p className="text-sm text-neutral-600 mt-xs">
+                  We&apos;ll check it has reached our account and confirm by email. The room is held for you while we do.
+                </p>
+              </div>
+            ) : (
+              <>
+                <h2 className="text-base font-bold text-neutral-900 mb-xs">Sent the holding deposit?</h2>
+                <p className="text-sm text-neutral-600 mb-md">Let us know here as soon as the transfer has gone, so we can take the room off the market.</p>
+                <input
+                  value={paidNote}
+                  onChange={e => setPaidNote(e.target.value)}
+                  placeholder="Optional: bank, time sent or anything we should know"
+                  className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm mb-md"
+                />
+                <button
+                  onClick={confirmPaid}
+                  disabled={paidState === 'sending'}
+                  className="w-full rounded-xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-800 disabled:opacity-50"
+                >
+                  {paidState === 'sending' ? 'Letting them know…' : "✓ I've paid the holding deposit"}
+                </button>
+                {paidState === 'error' && (
+                  <p className="text-sm text-red-700 mt-sm">That didn&apos;t go through. Please email or call us to let us know you&apos;ve paid.</p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* What happens next */}
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg mb-lg">
           <h2 className="text-base font-bold text-neutral-900 mb-md">What happens next</h2>
           <ol className="space-y-md">
             {[
               { n: '1', t: 'Make the transfer', d: 'Send £' + (weekly != null ? gbp(weekly) : '—') + ' to the account above using the reference shown.' },
-              { n: '2', t: 'Let us know', d: 'Message or email us once sent — a screenshot of the confirmation helps us confirm quickly.' },
+              { n: '2', t: 'Let us know', d: applicantId ? 'Press “I’ve paid the holding deposit” above once it has gone.' : 'Message or email us once sent — a screenshot of the confirmation helps us confirm quickly.' },
               { n: '3', t: 'Room reserved', d: 'We take the room off the market as soon as payment is confirmed.' },
               { n: '4', t: 'Online referencing', d: 'We\'ll get you started with our referencing provider, Homeppl, straight away.' },
               { n: '5', t: 'Sign & move in', d: 'Once references pass, we\'ll issue the tenancy agreement and get you a move-in date.' },
