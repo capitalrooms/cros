@@ -4,10 +4,12 @@
 // documents open as PDFs; nothing is sent from this page — sending happens in the move-in pack, Letters & Invoices
 // or the holding deposit, each with its own review.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
+import SetOnNoticeModal, { type OnNoticeData } from '@/app/components/SetOnNoticeModal'
+import { createClient } from '@/lib/supabase'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
 
 type Patch = (body: Record<string, unknown>) => Promise<void>
@@ -503,11 +505,51 @@ export function LettersTab({ file }: { file: LettingFile }) {
 
 // ── Notice & renewal ────────────────────────────────────────────────────────
 
-export function NoticeTab({ file, patch }: { file: LettingFile; patch: Patch }) {
+type Person = { id: string; name: string; email?: string; phone?: string }
+const pname = (p: any) => p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email
+
+export function NoticeTab({ file, patch, reload, startMarking }: { file: LettingFile; patch: Patch; reload: () => Promise<void>; startMarking?: boolean }) {
   const t = file.tenancy
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [marking, setMarking] = useState(false)
+  const [cleaners, setCleaners] = useState<Person[]>([])
+  const [contractors, setContractors] = useState<Person[]>([])
+  const [done, setDone] = useState('')
+
+  async function openMarking() {
+    setMarking(true); setDone('')
+    const sb = createClient()
+    const [{ data: cl }, { data: co }] = await Promise.all([
+      sb.from('people').select('id, first_name, last_name, full_name, email, phone').eq('role', 'cleaner').order('first_name'),
+      sb.from('people').select('id, first_name, last_name, full_name, email').eq('role', 'contractor').order('first_name'),
+    ])
+    setCleaners(((cl ?? []) as any[]).map(p => ({ id: p.id, name: pname(p), email: p.email, phone: p.phone })))
+    setContractors(((co ?? []) as any[]).map(p => ({ id: p.id, name: pname(p), email: p.email })))
+  }
+  // opened from a list's "Mark on notice" (…?tab=notice&mark=1)
+  useEffect(() => { if (startMarking && file.stage === 'live') openMarking() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function confirmNotice(d: OnNoticeData) {
+    const cleaner = cleaners.find(c => c.id === d.cleanerId)
+    const r = await adminFetch('/api/tenancies/set-on-notice', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tenancyId: t.id, roomId: file.room.id, propertyId: file.property.id, roomName: file.room.name, propertyAddress: file.property.address || file.property.name || '',
+        moveOutDate: d.moveOutDate, noticeReceivedDate: d.noticeReceivedDate, rentDueDay: d.rentDueDay, newAskingRent: d.newAskingRent,
+        emailTenant: d.emailTenant, tenantEmail: file.tenant.email, tenantName: file.tenant.name, checkoutEmailHtml: d.checkoutEmailHtml,
+        emailCleaner: d.emailCleaner, cleanerId: d.cleanerId, cleanerEmail: cleaner?.email, cleanerName: cleaner?.name,
+        notesForLettings: d.notesForLettings, pendingJobs: d.pendingJobs ?? [], jobContractorId: d.jobContractorId,
+        proRataAmount: d.proRataAmount, proRataDays: d.proRataDays, dailyRate: d.dailyRate, monthlyRent: t.rent_amount,
+      }),
+    })
+    const res = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(res.error ?? 'Could not mark on notice')
+    setMarking(false)
+    setDone(`On notice — moving out ${day(d.moveOutDate)}.${res.emailsSent?.tenant ? ' Checkout email sent to the tenant.' : ' No email went to the tenant.'}${res.emailsSent?.cleaner ? ' Cleaner told.' : ''} The lettings team has been alerted.`)
+    await reload()
+  }
   async function fellThrough() {
     if (!confirm('Mark this let as fallen through? It’s kept on record, comes off every current list, and the room goes back on the market. Deal with the holding deposit (refund or retain) separately.')) return
     setBusy(true); setErr('')
@@ -524,15 +566,27 @@ export function NoticeTab({ file, patch }: { file: LettingFile; patch: Patch }) 
           <div><dt className={label}>Last rent change</dt><dd>{t.last_rent_change_date ? `${day(t.last_rent_change_date)} (was ${gbp(t.previous_rent_amount)})` : '—'}</dd></div>
           <div><dt className={label}>Rent review due</dt><dd>{day(t.rent_review_date)}</dd></div>
         </dl>
+        {done && <p className="rounded-xl border border-green-200 bg-green-50 px-md py-sm text-sm font-semibold text-green-800">{done}</p>}
         {(file.stage === 'live' || file.stage === 'on_notice') && (
           <div className="flex flex-wrap gap-sm pt-sm">
-            {file.stage === 'live' && <Link href={`/admin/properties/${file.property.id}?tab=units&room=${file.room.id}`} className={btnDark}>Record notice</Link>}
+            {file.stage === 'live' && <button type="button" onClick={openMarking} className={btnDark}>Mark on notice</button>}
             <Link href={`/admin/rent-increase/${t.id}`} className={btn}>Rent review</Link>
             {file.stage === 'on_notice' && <Link href="/admin/deposits" className={btn}>Deposit return</Link>}
           </div>
         )}
-        {file.stage === 'live' && <p className="text-xs text-neutral-500">Record notice opens the room, where Mark on notice sends the checkout email and works out the final rent.</p>}
+        {file.stage === 'live' && <p className="text-xs text-neutral-500">Mark on notice records the dates, works out the final rent, and lets you preview the checkout email before choosing whether to send it.</p>}
       </section>
+
+      {marking && (
+        <SetOnNoticeModal
+          tenancy={{ id: t.id, person: { name: file.tenant.name, email: file.tenant.email ?? '', phone: file.tenant.phone ?? '' }, room: { name: file.room.name }, property: { name: String(file.property.name ?? '').split('\n')[0], address: file.property.address ?? '' }, rent_amount: Number(t.rent_amount) || 0, rent_due_day: t.rent_due_day }}
+          cleaners={cleaners}
+          contractors={contractors}
+          onClose={() => setMarking(false)}
+          onConfirm={confirmNotice}
+          initialMoveOutDate={t.end_date ?? undefined}
+        />
+      )}
 
       {file.stage === 'let_agreed' && (
         <section className={`${card} space-y-sm border-red-200`}>

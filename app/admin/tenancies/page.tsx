@@ -352,7 +352,7 @@ export default function TenanciesManagementPage() {
                             <button type="button" onClick={() => { setMenu(null); downloadBalanceDemand(t.id, 'prorata') }} className="block w-full px-md py-xs text-left hover:bg-neutral-50">Balance demand · pro-rata</button>
                             {isOnNotice(t)
                               ? <button type="button" onClick={() => { setMenu(null); handleCancelNotice(t) }} className="block w-full px-md py-xs text-left hover:bg-neutral-50">Cancel notice</button>
-                              : st.key !== 'let_agreed' && <Link href={`/admin/properties/${t.property_id}?tab=units&room=${t.room_id}`} className="block px-md py-xs hover:bg-neutral-50">Record notice (opens the room)</Link>}
+                              : st.key !== 'let_agreed' && <Link href={`/admin/lettings/${t.id}?tab=notice&mark=1&from=/admin/tenancies`} className="block px-md py-xs hover:bg-neutral-50">Mark on notice</Link>}
                             {st.key !== 'let_agreed' && <Link href={`/admin/rent-increase/${t.id}`} className="block px-md py-xs hover:bg-neutral-50">Rent review</Link>}
                             <button type="button" onClick={() => { setMenu(null); handleEndTenancy(t) }} className="block w-full border-t border-neutral-100 px-md py-xs text-left text-red-700 hover:bg-red-50">End tenancy</button>
                           </>}

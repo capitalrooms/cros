@@ -31,10 +31,10 @@ export default function LettingFilePage({ params, searchParams }: { params: Prom
   const { tenancyId } = use(params)
   const sp = use(searchParams)
   const t = one(sp.tab)
-  return <LettingFileScreen tenancyId={tenancyId} from={safeFrom(one(sp.from))} initialTab={TABS.some(x => x[0] === t) ? t as Tab : undefined} done={one(sp.done)} />
+  return <LettingFileScreen tenancyId={tenancyId} from={safeFrom(one(sp.from))} initialTab={TABS.some(x => x[0] === t) ? t as Tab : undefined} done={one(sp.done)} mark={one(sp.mark) === '1'} />
 }
 
-function LettingFileScreen({ tenancyId, from, initialTab, done }: { tenancyId: string; from: string; initialTab?: Tab; done?: string }) {
+function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenancyId: string; from: string; initialTab?: Tab; done?: string; mark?: boolean }) {
   const [file, setFile] = useState<LettingFile | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<Tab | null>(initialTab ?? null)
@@ -110,7 +110,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done }: { tenancyId: s
             {activeTab === 'money' && <MoneyTab file={file} />}
             {activeTab === 'documents' && <DocumentsTab file={file} />}
             {activeTab === 'letters' && <LettersTab file={file} />}
-            {activeTab === 'notice' && <NoticeTab file={file} patch={patch} />}
+            {activeTab === 'notice' && <NoticeTab file={file} patch={patch} reload={load} startMarking={mark} />}
             {activeTab === 'activity' && <ActivityTab file={file} />}
           </div>
 

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import { genTenancyRefs } from '@/lib/references'
 import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
@@ -530,7 +531,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   async function handleConfirmOnNotice(noticeData: OnNoticeData) {
     if (!onNoticeForRoom) return
     const cleaner = cleaners.find(c => c.id === noticeData.cleanerId)
-    const res = await fetch('/api/tenancies/set-on-notice', {
+    const res = await adminFetch('/api/tenancies/set-on-notice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -771,6 +772,14 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       </td>
                       <td className="px-lg py-md text-right">
                         <div className="flex items-center justify-end gap-sm">
+                          {room.currentTenant && room.tenancyId && !room.tenancyNoticeReceivedDate && (
+                            <button
+                              onClick={(e) => openOnNotice(room, e)}
+                              className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs hover:bg-amber-100 transition-colors whitespace-nowrap"
+                            >
+                              Mark on notice
+                            </button>
+                          )}
                           {room.currentTenant && room.tenancyNoticeReceivedDate && (
                             <button
                               onClick={(e) => openQuickEditNotice(room, e)}
@@ -881,6 +890,12 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                           className="text-xs font-semibold text-neutral-600 border border-neutral-200 rounded-lg px-sm py-xs hover:bg-neutral-50 transition">
                           Rent review
                         </button>
+                        {!selectedRoom.tenancyNoticeReceivedDate && selectedRoom.tenancyId && (
+                          <button onClick={(e) => openOnNotice(selectedRoom, e)}
+                            className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs hover:bg-amber-100 transition">
+                            Mark on notice
+                          </button>
+                        )}
                         {selectedRoom.tenancyNoticeReceivedDate && (
                           <button onClick={(e) => openQuickEditNotice(selectedRoom, e)}
                             className="text-xs font-semibold text-neutral-600 border border-neutral-200 rounded-lg px-sm py-xs hover:bg-neutral-50 transition">
