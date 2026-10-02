@@ -19,6 +19,15 @@ import { letterFromBody, signerForRequest } from '@/lib/letters/letterFromReques
 import { invoiceFromBody } from '@/lib/invoices/fromDocumentGenerator'
 import { generateLandlordInvoice } from '@/lib/invoices/landlordInvoice'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { createServiceClient } from '@/lib/supabase'
+
+// The saved copy (Letters & Invoices list) records when and to whom it was emailed. Best effort: the email has gone.
+async function markEmailed(documentId: unknown, to: string[]) {
+  if (typeof documentId !== 'string' || !documentId) return
+  await createServiceClient().from('generated_documents')
+    .update({ emailed_at: new Date().toISOString(), emailed_to: to, recipient_email: to.join(', ') }).eq('id', documentId)
+    .then(({ error }) => { if (error) console.error('document-generator send: could not mark emailed', error.message) })
+}
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -59,6 +68,7 @@ export async function POST(req: NextRequest) {
     const invoiceFile = `Invoice ${input.invoiceNumber}.pdf`
     const sent = await sendEmail(to, subject, messageHtml(message), { req, cc, attachments: [{ filename: invoiceFile, content: invoicePdf.toString('base64') }] })
     if (!sent.ok) return NextResponse.json({ error: `The email was not sent: ${sent.error ?? 'unknown error'}` }, { status: 502 })
+    await markEmailed(b.documentId, to)
     return NextResponse.json({ ok: true, to, cc, attachment: invoiceFile, sentAt: new Date().toISOString() })
   }
 
@@ -80,5 +90,6 @@ export async function POST(req: NextRequest) {
     req, cc, attachments: [{ filename, content: pdf.toString('base64') }],
   })
   if (!ok) return NextResponse.json({ error: `The email was not sent: ${sendError ?? 'unknown error'}` }, { status: 502 })
+  await markEmailed(b.documentId, to)
   return NextResponse.json({ ok: true, to, cc, attachment: filename, sentAt: new Date().toISOString() })
 }

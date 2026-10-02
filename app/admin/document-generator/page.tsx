@@ -10,7 +10,8 @@ import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { formalName, landlordFormalNames } from '@/lib/people'
 import type { FormalLetter } from '@/lib/letters/formalLetter'
-import { suggestInvoiceNumber, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
+import { invoiceNumberFor, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
+import SavedDocuments from './SavedDocuments'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,8 @@ interface Person {
   joint_first_name?: string | null
   home_address: string | null
 }
+
+interface PropertyOption { id: string; name: string; address: string | null; property_code: string | null }
 
 interface Recipient { personId: string | null; name: string; address: string; email: string; role: string }
 interface Signer { name: string; jobTitle: string; directPhone: string; includeSignature: boolean }
@@ -94,6 +97,11 @@ export default function DocumentGenerator() {
   const [docType, setDocType] = useState<DocType>(() =>
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'invoice' ? 'invoice' : 'letter')
   const [invoice, setInvoice] = useState<DocInvoice | null>(null)
+  const [properties, setProperties] = useState<PropertyOption[]>([])
+  const [numberAuto, setNumberAuto] = useState(true)      // number follows date + property until edited by hand
+  const [savedId, setSavedId] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [saveNote, setSaveNote] = useState('')
   const [people, setPeople] = useState<Person[]>([])
 
   // Step 1
@@ -127,6 +135,8 @@ export default function DocumentGenerator() {
   useEffect(() => {
     supabase.from('people').select('*').neq('role', 'inactive').order('last_name', { ascending: true })
       .then(({ data }) => setPeople((data as Person[]) || []))
+    supabase.from('properties').select('id, name, address, property_code').order('name')
+      .then(({ data }) => setProperties((data as PropertyOption[]) || []))
     supabase.auth.getSession().then(({ data: { session } }) => {
       const e = session?.user?.email ?? ''
       setCc(c => c || e)
@@ -169,6 +179,7 @@ export default function DocumentGenerator() {
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setError(d.error ?? 'Could not draft the letter'); return }
       setLetter(d.letter)
+      if (!redraft) { setSavedId(null); setSaveNote('') }
       setMissing(d.missing ?? [])
       setHasSignature(!!d.signer?.hasSignature)
       if (!redraft) {
@@ -186,6 +197,31 @@ export default function DocumentGenerator() {
     }
   }
 
+  // First free number for that day and property: 20261002013REC, then 20261002013REC01…
+  async function freeNumber(propertyId: string | null | undefined, date: string, name: string) {
+    const code = properties.find(p => p.id === propertyId)?.property_code
+    const base = invoiceNumberFor(code, name || 'Invoice', new Date(`${date}T12:00:00`))
+    const r = await adminFetch(`/api/admin/documents/generated?next=${encodeURIComponent(base)}`).catch(() => null)
+    const d = r && r.ok ? await r.json().catch(() => ({})) : {}
+    return (d.number as string) || base
+  }
+  const matchProperty = (text: string) => {
+    const t = text.toLowerCase()
+    return t ? properties.find(p => {
+      const street = p.name.split(/[,\n]/)[0].trim().toLowerCase()
+      return street.length > 4 && t.includes(street)
+    }) : undefined
+  }
+  async function renumber(next: Partial<DocInvoice>) {
+    if (!invoice) return
+    const merged = { ...invoice, ...next }
+    updateInvoice(next)
+    if (numberAuto) {
+      const n = await freeNumber(merged.propertyId, merged.invoiceDate, merged.recipientName)
+      setInvoice(v => (v ? { ...v, invoiceNumber: n } : v))
+    }
+  }
+
   async function draftInv(redraft: boolean) {
     if (!instructions.trim()) return
     setDrafting(true); setError(null)
@@ -200,13 +236,18 @@ export default function DocumentGenerator() {
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setError(d.error ?? 'Could not prepare the invoice'); return }
-      const number = invoice?.invoiceNumber || suggestInvoiceNumber(recipient.name || 'Invoice')
+      const today = new Date().toISOString().slice(0, 10)
+      const matched = redraft ? undefined : matchProperty(`${d.invoice.propertyAddress} ${instructions}`)
+      const propertyId = redraft ? invoice?.propertyId ?? null : matched?.id ?? null
+      const number = redraft && invoice ? invoice.invoiceNumber : await freeNumber(propertyId, today, recipient.name)
+      if (!redraft) { setSavedId(null); setNumberAuto(true); setSaveNote('') }
       setInvoice(prev => ({
-        recipientName: prev?.recipientName ?? recipient.name,
-        recipientAddress: prev?.recipientAddress ?? recipient.address,
-        propertyAddress: d.invoice.propertyAddress || prev?.propertyAddress || '',
+        recipientName: prev && redraft ? prev.recipientName : recipient.name,
+        recipientAddress: prev && redraft ? prev.recipientAddress : recipient.address,
+        propertyAddress: matched ? (matched.address || matched.name).replace(/\n/g, ', ') : d.invoice.propertyAddress || (redraft ? prev?.propertyAddress : '') || '',
+        propertyId,
         invoiceNumber: number,
-        invoiceDate: prev?.invoiceDate ?? new Date().toISOString().slice(0, 10),
+        invoiceDate: prev && redraft ? prev.invoiceDate : today,
         title: d.invoice.title,
         items: d.invoice.items,
       }))
@@ -263,10 +304,33 @@ export default function DocumentGenerator() {
     return () => clearTimeout(t)
   }, [previewKey, step])
 
+  // Saves the document to the list (or updates the saved copy) and returns its id.
+  async function saveDoc(respond: 'json' | 'pdf') {
+    return adminFetch('/api/admin/documents/generated', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: docType, id: savedId, recipientEmail: to || recipient.email, respond,
+        ...(docType === 'invoice' ? { invoice } : { letter, signer: signerBody() }) }),
+    })
+  }
+
   async function downloadPdf() {
     if (docType === 'letter' ? !letter : !invoice) return
     setDownloading(true)
     try {
+      const saved = await saveDoc('pdf')
+      if (saved.ok) {
+        const id = saved.headers.get('X-Document-Id')
+        if (id) setSavedId(id)
+        const name = decodeURIComponent(saved.headers.get('content-disposition')?.match(/filename\*=UTF-8''([^;]+)/)?.[1] ?? 'Document.pdf')
+        const url = URL.createObjectURL(await saved.blob())
+        const a = document.createElement('a'); a.href = url; a.download = name; a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 5000)
+        setSaveNote('Saved to your letters & invoices below.'); setRefreshKey(k => k + 1)
+        return
+      }
+      const err = await saved.json().catch(() => ({}))
+      if (saved.status !== 503) { alert(err.error ?? 'Could not save the document'); return }
+      setSaveNote(`${err.error ?? 'Not saved'} — downloaded without saving.`)
       const res = docType === 'invoice'
         ? await adminFetch('/api/admin/document-generator/invoice', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -309,20 +373,26 @@ export default function DocumentGenerator() {
     if (!window.confirm(`Email this ${docType === 'invoice' ? `invoice (${money(invoiceTotal)})` : 'letter'} to ${recipients.join(', ')}${split(cc).length ? ` (cc ${split(cc).join(', ')})` : ''}?`)) return
     setSending(true); setSendResult(null)
     try {
+      let documentId = savedId
+      const saved = await saveDoc('json')
+      const sd = await saved.json().catch(() => ({}))
+      if (saved.ok && sd.doc?.id) { documentId = sd.doc.id; setSavedId(sd.doc.id) }
+      else if (saved.status !== 503) { setSendResult({ ok: false, text: `${sd.error ?? 'Could not save the document'}. Nothing was sent.` }); return }
       const res = await adminFetch('/api/admin/document-generator/send', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: recipients, cc: split(cc), subject: emailSubject, message: emailMessage, ...(docType === 'invoice' ? { invoice } : { letter, signer: signerBody() }) }),
+        body: JSON.stringify({ to: recipients, cc: split(cc), subject: emailSubject, message: emailMessage, documentId, ...(docType === 'invoice' ? { invoice } : { letter, signer: signerBody() }) }),
       })
       const d = await res.json().catch(() => ({}))
       setSendResult(res.ok
         ? { ok: true, text: `Sent to ${d.to.join(', ')}${d.cc?.length ? `, cc ${d.cc.join(', ')}` : ''} with ${d.attachment} attached` }
         : { ok: false, text: d.error ?? 'The email was not sent' })
+      setRefreshKey(k => k + 1)
     } finally { setSending(false) }
   }
 
   function startAgain() {
     if (!window.confirm('Start a new document? The current draft will be cleared.')) return
-    setStep('write'); setLetter(null); setInvoice(null); setInstructions(''); setRecipient(EMPTY_RECIPIENT); setMissing([])
+    setStep('write'); setLetter(null); setInvoice(null); setSavedId(null); setNumberAuto(true); setSaveNote(''); setInstructions(''); setRecipient(EMPTY_RECIPIENT); setMissing([])
     setChanges(''); setError(null); setSendResult(null); setEmailMessage(''); setTo('')
   }
 
@@ -468,9 +538,10 @@ export default function DocumentGenerator() {
                   </div>
                   <div>
                     <label className={label}>Invoice number</label>
-                    <input className={`${input} font-mono`} value={invoice.invoiceNumber} onChange={e => updateInvoice({ invoiceNumber: e.target.value })} />
+                    <input className={`${input} font-mono`} value={invoice.invoiceNumber} onChange={e => { setNumberAuto(false); updateInvoice({ invoiceNumber: e.target.value }) }} />
+                    {!numberAuto && <button type="button" className="text-[11px] text-neutral-500 underline mt-xs" onClick={() => { setNumberAuto(true); renumber({}) }}>Use the automatic number</button>}
                     <label className={`${label} mt-md`}>Invoice date</label>
-                    <input type="date" className={input} value={invoice.invoiceDate} onChange={e => updateInvoice({ invoiceDate: e.target.value })} />
+                    <input type="date" className={input} value={invoice.invoiceDate} onChange={e => renumber({ invoiceDate: e.target.value })} />
                   </div>
                 </div>
                 <div className="grid gap-md sm:grid-cols-2">
@@ -480,7 +551,14 @@ export default function DocumentGenerator() {
                   </div>
                   <div>
                     <label className={label}>Property (optional)</label>
-                    <input className={input} value={invoice.propertyAddress} onChange={e => updateInvoice({ propertyAddress: e.target.value })} />
+                    <select className={input} value={invoice.propertyId ?? ''} onChange={e => {
+                      const p = properties.find(x => x.id === e.target.value)
+                      renumber({ propertyId: p?.id ?? null, propertyAddress: p ? (p.address || p.name).replace(/\n/g, ', ') : '' })
+                    }}>
+                      <option value="">Not one of our properties</option>
+                      {properties.map(p => <option key={p.id} value={p.id}>{p.name.split('\n')[0]}{p.property_code ? ` · ${p.property_code}` : ''}</option>)}
+                    </select>
+                    {!invoice.propertyId && <input className={`${input} mt-xs`} value={invoice.propertyAddress} placeholder="Address to show (optional)" onChange={e => updateInvoice({ propertyAddress: e.target.value })} />}
                   </div>
                 </div>
                 <div>
@@ -606,6 +684,7 @@ export default function DocumentGenerator() {
                     {downloading ? 'Creating…' : 'Download PDF'}
                   </button>
                 </div>
+                {saveNote && <p className="text-xs text-green-700 mb-sm">{saveNote}</p>}
                 {previewErr && <p className="text-sm text-red-700 mb-sm">{previewErr}</p>}
                 {previewUrl
                   ? <iframe title="Preview" src={previewUrl} className="w-full flex-1 min-h-[720px] rounded border border-neutral-200" />
@@ -660,6 +739,10 @@ export default function DocumentGenerator() {
             </div>
           </div>
         )}
+
+        <div className="mt-xl">
+          <SavedDocuments refreshKey={refreshKey} />
+        </div>
       </div>
     </div>
   )
