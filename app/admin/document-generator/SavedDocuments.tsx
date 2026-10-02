@@ -6,7 +6,7 @@ import { adminFetch } from '@/lib/adminFetch'
 
 interface Doc {
   id: string
-  kind: 'invoice' | 'letter'
+  kind: 'invoice' | 'letter' | 'receipt'
   number: string | null
   title: string
   recipient_name: string
@@ -23,7 +23,7 @@ const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDig
 export default function SavedDocuments({ refreshKey }: { refreshKey: number }) {
   const [docs, setDocs] = useState<Doc[] | null>(null)
   const [setupNeeded, setSetupNeeded] = useState(false)
-  const [filter, setFilter] = useState<'all' | 'invoice' | 'letter'>('all')
+  const [filter, setFilter] = useState<'all' | Doc['kind']>('all')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
@@ -52,7 +52,7 @@ export default function SavedDocuments({ refreshKey }: { refreshKey: number }) {
   }
 
   async function remove(doc: Doc) {
-    const name = doc.kind === 'invoice' ? `invoice ${doc.number}` : `letter “${doc.title}”`
+    const name = doc.kind === 'invoice' ? `invoice ${doc.number}` : doc.kind === 'receipt' ? `receipt ${doc.number}` : `letter “${doc.title}”`
     if (!window.confirm(`Delete ${name} to ${doc.recipient_name}? It disappears from this list; a copy is kept on record.`)) return
     setBusy(doc.id + 'delete')
     const r = await adminFetch(`/api/admin/documents/generated?id=${doc.id}`, { method: 'DELETE' })
@@ -72,7 +72,7 @@ export default function SavedDocuments({ refreshKey }: { refreshKey: number }) {
         <h2 className="font-semibold text-neutral-900">Your letters &amp; invoices</h2>
         <div className="flex flex-wrap items-center gap-sm">
           <div className="inline-flex rounded-lg border border-neutral-200 p-0.5 bg-neutral-50">
-            {([['all', 'All'], ['invoice', 'Invoices'], ['letter', 'Letters']] as const).map(([v, l]) => (
+            {([['all', 'All'], ['invoice', 'Invoices'], ['letter', 'Letters'], ['receipt', 'Receipts']] as const).map(([v, l]) => (
               <button key={v} type="button" onClick={() => setFilter(v)}
                 className={`rounded-md px-sm py-0.5 text-xs font-semibold ${filter === v ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>{l}</button>
             ))}
@@ -107,8 +107,8 @@ export default function SavedDocuments({ refreshKey }: { refreshKey: number }) {
                 <tr key={d.id} className="align-top">
                   <td className="py-sm pr-sm whitespace-nowrap text-neutral-600 tabular-nums">{when(d.created_at)}</td>
                   <td className="py-sm pr-sm">
-                    <p className="font-semibold text-neutral-900">{d.kind === 'invoice' ? `🧾 ${d.number}` : `✉️ ${d.title}`}</p>
-                    {d.kind === 'invoice' && d.title && <p className="text-xs text-neutral-500">{d.title}</p>}
+                    <p className="font-semibold text-neutral-900">{d.kind === 'letter' ? `✉️ ${d.title}` : `🧾 ${d.number}`}</p>
+                    {d.kind !== 'letter' && d.title && <p className="text-xs text-neutral-500">{d.title}</p>}
                   </td>
                   <td className="py-sm pr-sm text-neutral-700">{d.recipient_name}</td>
                   <td className="py-sm pr-sm text-right tabular-nums">{d.total != null ? money(Number(d.total)) : '—'}</td>

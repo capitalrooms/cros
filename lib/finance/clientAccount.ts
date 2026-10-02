@@ -3,11 +3,13 @@
 //
 // Cash book (money through the client account since CROS took over collecting):
 //   + rent received            + money in we couldn't match yet (suspense)      ± opening balances / corrections
+//   + holding deposits still held (until they are applied, refunded or retained)
 //   − paid to landlords        − moved to the office account (fees + expenses transfers)
 // Who it belongs to:
 //   landlords — split into: rent paid in advance by tenants · rent not yet on a statement · statements approved and
 //               waiting to be paid · floats held
 //   the office — fees and expenses on statements, not yet transferred
+//   applicants — holding deposits held (migration 198)
 //   unidentified — bank receipts not yet matched to anyone (suspense)
 // The two totals are built from the same records, so they must agree; the bank balance is the independent check.
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -19,7 +21,7 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 export interface BreakdownLine { key: string; label: string; amount: number; detail?: string }
 export interface ClientAccountPosition {
   asAt: string; start: string
-  cashbook: { rentIn: number; suspenseIn: number; adjustments: number; paidToLandlords: number; toOffice: number; total: number }
+  cashbook: { rentIn: number; suspenseIn: number; holdingIn: number; adjustments: number; paidToLandlords: number; toOffice: number; total: number }
   breakdown: BreakdownLine[]
   breakdownTotal: number
   landlords: { landlordId: string | null; name: string; balance: number; advance: number; awaitingStatement: number; awaitingPayment: number; float: number }[]
@@ -31,12 +33,13 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   const { start } = ledger
   const D = ledger.asAt
   const demo = await demoPropertyIds(s)
-  const [props, charges, statements, transfers, bank] = await Promise.all([
+  const [props, charges, statements, transfers, bank, holding] = await Promise.all([
     s.from('properties').select('id, landlord_id'),
     s.from('rent_charges').select('property_id, charge_month, amount_received, remitted_amount, received_date, voided').gte('charge_month', start).gt('amount_received', 0),
     s.from('landlord_statements').select('*').gte('statement_date', start).lte('statement_date', D),
     s.from('office_transfers').select('amount, transferred_on, voided_at').lte('transferred_on', D),
-    s.from('bank_transactions').select('amount, status, transaction_date').in('status', ['unmatched', 'possible_duplicate']).gte('transaction_date', start).lte('transaction_date', D),
+    s.from('bank_transactions').select('id, amount, status, transaction_date').in('status', ['unmatched', 'possible_duplicate']).gte('transaction_date', start).lte('transaction_date', D),
+    s.from('holding_deposits').select('amount, received_on, status, outcome_on, bank_transaction_id, property_id').lte('received_on', D),
   ])
   const landlordOf = new Map(((props.data ?? []) as any[]).map(p => [p.id, p.landlord_id as string | null]))
   const real = <T extends { property_id?: string }>(rows: T[] | null) => (rows ?? []).filter(r => !demo.has(r.property_id ?? ''))
@@ -47,9 +50,13 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   const rentIn = sum('rent_in')
   const paidToLandlords = -sum('payout')
   const adjustments = r2(ledger.entries.filter(e => e.source === 'adjustment').reduce((t, e) => t + e.amount, 0))
-  const suspenseIn = r2(((bank.data ?? []) as any[]).reduce((t, b) => t + Math.max(0, Number(b.amount || 0)), 0))
+  // a holding deposit is held from the day it arrived until its outcome date (table missing before 198 → none)
+  const held = real(holding.error ? [] : holding.data as any[]).filter(h => h.status === 'held' || String(h.outcome_on || '') > D)
+  const holdingIn = r2(held.reduce((t, h) => t + Number(h.amount || 0), 0))
+  const holdingBank = new Set(held.map(h => h.bank_transaction_id).filter(Boolean))
+  const suspenseIn = r2(((bank.data ?? []) as any[]).filter(b => !holdingBank.has(b.id)).reduce((t, b) => t + Math.max(0, Number(b.amount || 0)), 0))
   const toOffice = r2(((transfers.data ?? []) as any[]).filter(t => !t.voided_at).reduce((t, x) => t + Number(x.amount || 0), 0))
-  const cashTotal = r2(rentIn + suspenseIn + adjustments - paidToLandlords - toOffice)
+  const cashTotal = r2(rentIn + suspenseIn + holdingIn + adjustments - paidToLandlords - toOffice)
 
   // who it belongs to
   const sts = real(statements.data as any[])
@@ -78,13 +85,14 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
     { key: 'awaitingPayment', label: 'Statements made, waiting to be paid to landlords', amount: L('awaitingPayment') },
     { key: 'advance', label: 'Rent paid in advance by tenants', amount: L('advance') },
     { key: 'float', label: 'Floats held for landlords', amount: L('float') },
+    { key: 'holding', label: 'Holding deposits held for applicants', amount: holdingIn, detail: held.length ? `${held.length} held` : undefined },
     { key: 'office', label: 'Our fees and expenses, not yet moved to the office account', amount: officeDue },
     { key: 'suspense', label: 'Money in that isn’t matched to anyone yet (suspense)', amount: suspenseIn, detail: 'Match these in Reconciliation' },
   ]
   const breakdownTotal = r2(breakdown.reduce((t, b) => t + b.amount, 0))
   return {
     asAt: D, start,
-    cashbook: { rentIn, suspenseIn, adjustments, paidToLandlords, toOffice, total: cashTotal },
+    cashbook: { rentIn, suspenseIn, holdingIn, adjustments, paidToLandlords, toOffice, total: cashTotal },
     breakdown, breakdownTotal, landlords, agrees: Math.round((breakdownTotal - cashTotal) * 100) === 0,
   }
 }

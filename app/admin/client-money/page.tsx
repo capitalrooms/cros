@@ -113,7 +113,7 @@ export default function ClientMoneyPage() {
                     <tr key={b.key}><td className="py-sm text-neutral-800">{b.label}{b.detail && b.amount ? <span className="ml-sm text-xs text-amber-700">{b.detail}</span> : null}</td><td className="py-sm text-right tabular-nums font-semibold">{gbp(b.amount)}</td></tr>
                   ))}
                   <tr className="border-t-2 border-neutral-900"><td className="py-sm font-bold">Total held</td><td className="py-sm text-right font-bold tabular-nums">{gbp(data.position.breakdownTotal)}</td></tr>
-                  <tr><td className="py-xs text-xs text-neutral-500">Cash book: rent in {gbp(data.position.cashbook.rentIn)} + unmatched in {gbp(data.position.cashbook.suspenseIn)} + adjustments {gbp(data.position.cashbook.adjustments)} − paid to landlords {gbp(data.position.cashbook.paidToLandlords)} − moved to the office {gbp(data.position.cashbook.toOffice)}</td>
+                  <tr><td className="py-xs text-xs text-neutral-500">Cash book: rent in {gbp(data.position.cashbook.rentIn)} + unmatched in {gbp(data.position.cashbook.suspenseIn)}{data.position.cashbook.holdingIn ? <> + holding deposits {gbp(data.position.cashbook.holdingIn)}</> : null} + adjustments {gbp(data.position.cashbook.adjustments)} − paid to landlords {gbp(data.position.cashbook.paidToLandlords)} − moved to the office {gbp(data.position.cashbook.toOffice)}</td>
                     <td className={`py-xs text-right text-xs font-semibold ${data.position.agrees ? 'text-green-700' : 'text-red-700'}`}>{data.position.agrees ? '✓ agrees' : '✗ doesn’t agree — tell support'}</td></tr>
                 </tbody>
               </table>

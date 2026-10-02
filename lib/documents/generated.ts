@@ -1,6 +1,6 @@
 // Every letter or invoice made on Letters & Invoices is saved: the PDF in the private finance-docs bucket and a
-// row in generated_documents (migration 197). "Delete" hides it from the list but keeps both (finance records
-// are never destroyed). Server-only.
+// row in generated_documents (migration 197); holding deposit receipts (198) are filed here too. "Delete" hides it
+// from the list but keeps both (finance records are never destroyed). Server-only.
 import { createServiceClient } from '@/lib/supabase'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { generateLandlordInvoice } from '@/lib/invoices/landlordInvoice'
@@ -11,9 +11,11 @@ import { letterFromBody, signerForRequest } from '@/lib/letters/letterFromReques
 export const DOCS_BUCKET = 'finance-docs'
 const TABLE = 'generated_documents'
 
+export type DocKind = 'invoice' | 'letter' | 'receipt'
+
 export interface GeneratedDocument {
   id: string
-  kind: 'invoice' | 'letter'
+  kind: DocKind
   number: string | null
   title: string
   recipient_name: string
@@ -29,7 +31,7 @@ export interface GeneratedDocument {
 }
 
 export interface DocFields {
-  kind: 'invoice' | 'letter'
+  kind: DocKind
   number: string | null
   title: string
   recipient_name: string
@@ -42,7 +44,9 @@ export const isMissingTable = (e: { code?: string; message?: string } | null) =>
   !!e && (e.code === '42P01' || e.code === 'PGRST205' || /generated_documents/.test(e.message ?? '') && /does not exist|schema cache/.test(e.message ?? ''))
 
 export const fileNameFor = (d: Pick<GeneratedDocument, 'kind' | 'number' | 'title' | 'recipient_name'>) =>
-  d.kind === 'invoice' ? `Invoice ${d.number}.pdf` : letterFileName({ subject: d.title, recipientName: d.recipient_name })
+  d.kind === 'invoice' ? `Invoice ${d.number}.pdf`
+    : d.kind === 'receipt' ? letterFileName({ subject: `Receipt ${d.number ?? ''}`.trim(), recipientName: d.recipient_name })
+    : letterFileName({ subject: d.title, recipientName: d.recipient_name })
 
 /** Renders the PDF for a letter or invoice from the page; returns it with the details to store, or an error. */
 export async function renderDocument(kind: string, body: { invoice?: unknown; letter?: unknown; signer?: unknown }, callerEmail: string): Promise<{ pdf: Buffer; fields: DocFields } | { error: string }> {
