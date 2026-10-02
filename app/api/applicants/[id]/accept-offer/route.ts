@@ -54,7 +54,7 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
   const firstName = applicant.full_name?.split(' ')[0] || 'there'
   const roomName = room?.name || 'the room'
   const propAddress = property?.address || property?.name || ''
-  const reserveUrl = `${APP_URL}/applicant/reserve?roomId=${applicant.room_id}&propertyId=${applicant.property_id}`
+  const reserveUrl = `${APP_URL}/applicant/reserve?roomId=${applicant.room_id}&propertyId=${applicant.property_id}&a=${applicant.id}`
 
   // the same "search is over" email as Send Offer Letter — one version everywhere
   const html = await buildSearchIsOverEmail({

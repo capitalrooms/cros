@@ -532,9 +532,13 @@ export default function ApplicantForm() {
 
           {/* Tell Us About Yourself */}
           <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
+            <h2 className="text-lg font-semibold text-neutral-900 mb-xs">
               Tell Us About Yourself
             </h2>
+            <p className="text-sm text-neutral-500 mb-lg">
+              We share this with the landlord. If you take the room, we also send your future housemates a short hello
+              (your first name, what you do and your interests), never your surname, contact or financial details.
+            </p>
 
             <div className="space-y-md">
               <div>

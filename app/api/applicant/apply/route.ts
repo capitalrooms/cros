@@ -1,4 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
+import { insertNotifications, tryPush } from '@/lib/serverNotify'
+import { STAFF_ROLES } from '@/lib/portalAuth'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -82,6 +84,20 @@ export async function POST(request: Request) {
         return Response.json({ error: 'Failed to submit application' }, { status: 500 })
       }
       applicantId = created.id
+    }
+
+    // Tell the office and lettings team — in their notification bell and as a push. Never blocks the application.
+    try {
+      const { data: room } = await supabase.from('rooms').select('name, properties(name)').eq('id', data.roomId).maybeSingle() as { data: any }
+      const { data: staff } = await supabase.from('people').select('id').in('role', STAFF_ROLES)
+      const ids = (staff ?? []).map((p: any) => p.id)
+      const below = data.rentOfferType === 'below_asking' && data.offeredRent ? ` — offering £${Number(data.offeredRent).toLocaleString('en-GB')} pcm` : ''
+      const title = '📝 New offer received'
+      const body = `${data.fullName} has applied for ${[room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'}${below}.`
+      await insertNotifications(supabase, ids, { title, body, type: 'lettings', link: '/admin/applicants' }, { propertyId: data.propertyId ?? null, roomId: data.roomId })
+      await tryPush(ids, title, body, '/admin/applicants')
+    } catch (e) {
+      console.error('apply: staff notification failed', e)
     }
 
     return Response.json({ success: true, applicantId, message: 'Application submitted successfully' }, { status: 201 })

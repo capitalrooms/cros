@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { buildEmail } from '@/lib/emailWrapper'
 import { sendEmail } from '@/lib/sendEmail'
+import { messageHtml } from '@/lib/email/messageHtml'
 import { senderFor } from '@/lib/email/sender'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { generateTenancyAgreement, agreementFileName, type AgreementInput } from '@/lib/tenancyAgreement/generate'
@@ -28,21 +29,8 @@ export const maxDuration = 60
 const MAX_AGREEMENTS = 30
 const MAX_ATTACH_BYTES = 30 * 1024 * 1024   // Resend allows 40 MB per email after encoding
 
-const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
 const emails = (v: unknown) => Array.from(new Set((Array.isArray(v) ? v : []).map(e => String(e).trim().toLowerCase()).filter(Boolean)))
-
-// Plain-text message → email HTML: blank lines split paragraphs, "•"/"-" lines become a list.
-function messageHtml(text: string): string {
-  const P = 'margin:0 0 16px;font-size:15px;color:#333;line-height:1.6'
-  return text.replace(/\r/g, '').trim().split(/\n\s*\n/).map(block => {
-    const lines = block.split('\n')
-    if (lines.every(l => /^\s*[•\-*]\s+/.test(l))) {
-      return `<ul style="margin:0 0 16px;padding-left:20px;font-size:15px;color:#333;line-height:1.7">${lines.map(l => `<li>${esc(l.replace(/^\s*[•\-*]\s+/, ''))}</li>`).join('')}</ul>`
-    }
-    return `<p style="${P}">${lines.map(esc).join('<br>')}</p>`
-  }).join('\n')
-}
 
 export async function POST(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

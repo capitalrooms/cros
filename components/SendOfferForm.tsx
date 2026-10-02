@@ -2,6 +2,24 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import HoldingDepositModal from '@/components/HoldingDepositModal'
+
+interface RecentOffer {
+  id: string
+  applicantId: string | null
+  name: string
+  room: string
+  property: string
+  sentAt: string
+  state: 'sent' | 'completed' | 'claimed' | 'paid'
+}
+
+const OFFER_STATE: Record<RecentOffer['state'], { label: string; cls: string }> = {
+  sent:      { label: 'Offer sent — waiting for their application', cls: 'bg-neutral-700 text-neutral-200' },
+  completed: { label: 'Offer completed',                             cls: 'bg-blue-500/20 text-blue-200' },
+  claimed:   { label: 'Offer completed · they say deposit paid — check bank', cls: 'bg-amber-500/20 text-amber-200' },
+  paid:      { label: 'Offer completed · holding deposit paid',     cls: 'bg-green-500/20 text-green-300' },
+}
 
 interface Room {
   id: string
@@ -29,7 +47,17 @@ export default function SendOfferForm() {
   const [error,           setError]           = useState('')
   const [success,         setSuccess]         = useState('')
 
+  const [recent,          setRecent]          = useState<RecentOffer[]>([])
+  const [depositFor,      setDepositFor]      = useState<string | null>(null)
+
   const wrapperRef = useRef<HTMLDivElement>(null)
+
+  async function loadRecent() {
+    const res = await fetch('/api/lettings/holding-deposit').catch(() => null)
+    const d = await res?.json().catch(() => null)
+    if (res?.ok && d?.offers) setRecent(d.offers)
+  }
+  useEffect(() => { loadRecent() }, [])
 
   useEffect(() => {
     async function load() {
@@ -142,7 +170,8 @@ export default function SendOfferForm() {
       const result = await res.json()
       if (!res.ok) { setError(result.error || 'Failed to send offer'); setSending(false); return }
 
-      setSuccess(`✓ Offer sent to ${applicantEmail}`)
+      setSuccess(`✓ Offer sent to ${applicantEmail} — it shows below and updates when they apply and pay`)
+      loadRecent()
       clearSelection()
       setCustomRoomDesc(''); setCustomAddress('')
       setApplicantEmail(''); setApplicantName('')
@@ -334,6 +363,38 @@ export default function SendOfferForm() {
           {sending ? 'Sending…' : '📧 Send offer letter'}
         </button>
       </form>
+
+      {/* Recent offers and where each has got to */}
+      {recent.length > 0 && (
+        <div className="mt-xl">
+          <h3 className="text-sm font-bold text-white/80 uppercase tracking-wide mb-sm">Recent offers</h3>
+          <div className="space-y-xs">
+            {recent.map(o => (
+              <div key={o.id} className="flex flex-wrap items-center gap-sm rounded-xl bg-neutral-800 border border-neutral-700 px-md py-sm">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-white truncate">{o.name}</p>
+                  <p className="text-xs text-neutral-400 truncate">{[o.room, o.property].filter(Boolean).join(' · ')} · sent {new Date(o.sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                </div>
+                <span className={`rounded-full px-sm py-0.5 text-xs font-semibold ${OFFER_STATE[o.state].cls}`}>{OFFER_STATE[o.state].label}</span>
+                {o.state !== 'paid' && o.applicantId && (
+                  <button type="button" onClick={() => setDepositFor(o.applicantId)}
+                    className="rounded-lg bg-green-600 hover:bg-green-700 px-sm py-xs text-xs font-bold text-white">
+                    💷 Holding deposit received
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {depositFor && (
+        <HoldingDepositModal
+          applicantId={depositFor}
+          onClose={() => setDepositFor(null)}
+          onDone={summary => { setDepositFor(null); setSuccess(summary); loadRecent() }}
+        />
+      )}
     </div>
   )
 }

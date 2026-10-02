@@ -30,6 +30,8 @@ interface Props {
   todayISO?: string
   /** called when an empty slot is clicked — receives iso date + hour string like "09:00" */
   onSlotClick?: (date: string, time: string) => void
+  /** called when a job without an href is clicked */
+  onJobClick?: (id: string) => void
   /** starting day offset (0 = start from today) */
   dayOffset?: number
 }
@@ -71,6 +73,7 @@ export default function MultiDayDiaryGrid({
   endHour = 19,
   todayISO,
   onSlotClick,
+  onJobClick,
   dayOffset = 0,
 }: Props) {
   const today = todayISO ?? todayISOFn()
@@ -204,7 +207,9 @@ export default function MultiDayDiaryGrid({
                     )
                     return j.href
                       ? <Link key={j.id} href={j.href} className="block">{block}</Link>
-                      : <div key={j.id}>{block}</div>
+                      : onJobClick
+                        ? <button key={j.id} type="button" className="block w-full text-left" onClick={e => { e.stopPropagation(); onJobClick(j.id) }}>{block}</button>
+                        : <div key={j.id}>{block}</div>
                   })}
                 </div>
               )

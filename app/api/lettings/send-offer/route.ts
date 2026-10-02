@@ -137,6 +137,7 @@ export async function POST(request: Request) {
     }
 
     const offerId = offer?.[0]?.id
+    let applicantId: string | null = null
 
     // Upsert applicants row linked to this offer (best-effort, table may not be deployed yet)
     try {
@@ -149,6 +150,7 @@ export async function POST(request: Request) {
 
       const newStage = data.requestDeposit ? 'offer_sent' : 'offer_sent'
       if (existing) {
+        applicantId = existing.id
         await supabase.from('applicants').update({
           offer_id:       offerId,
           pipeline_stage: newStage,
@@ -169,6 +171,7 @@ export async function POST(request: Request) {
           })
           .select('id')
           .single()
+        applicantId = created?.id ?? null
         if (created && offerId) {
           await supabase.from('offers').update({ applicant_id: created.id }).eq('id', offerId)
         }
@@ -208,7 +211,7 @@ export async function POST(request: Request) {
         weekly_rent:              String(weekly.toLocaleString()),
         payment_ref:              payRef,
         apply_url:                applicationUrl,
-        reserve_url:              `${appUrl}/applicant/reserve?roomId=${data.roomId}&propertyId=${data.propertyId}`,
+        reserve_url:              `${appUrl}/applicant/reserve?roomId=${data.roomId}&propertyId=${data.propertyId}${applicantId ? `&a=${applicantId}` : ''}`,
       }
       subject   = render(tpl.subject_line, tokenVars)
       emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars), request)
