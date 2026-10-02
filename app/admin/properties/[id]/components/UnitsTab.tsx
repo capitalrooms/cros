@@ -122,6 +122,8 @@ function statusPill(room: RoomRow) {
 /* ─── Component ──────────────────────────────────────────── */
 
 export default function UnitsTab({ propertyId, bedrooms, initialRoomId, propertyName, propertyAddress, propertyCode }: UnitsTabProps) {
+  // a tenancy's letting file; Back returns to this room on this property
+  const lettingFile = (tenancyId: string) => `/admin/lettings/${tenancyId}?from=${encodeURIComponent(`/admin/properties/${propertyId}?tab=units&room=${selectedRoom?.id ?? ''}`)}`
   const router = useRouter()
   const supabase = createClient()
 
@@ -242,6 +244,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
           .from('tenancies')
           .select('id, person_id, start_date, end_date, notice_received_date, rent_amount, people!person_id(id, full_name, first_name, last_name, email)')
           .eq('room_id', room.id)
+          .lte('start_date', today)   // the tenant living there now — not someone let agreed to move in later
           .or(`end_date.is.null,end_date.gte.${today}`)
           .order('end_date', { ascending: false, nullsFirst: true })
           .limit(1)
@@ -583,6 +586,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
       supabase.from('tenancies').select(TENANCY_SELECT)
         .eq('room_id', room.id)
         .gt('start_date', today)
+        .or(`end_date.is.null,end_date.gte.${today}`)   // not a let that fell through
         .order('start_date', { ascending: true })
         .limit(1).maybeSingle(),
       // Past tenancies: ended before today
@@ -868,9 +872,9 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       </div>
 
                       <div className="flex gap-sm flex-wrap">
-                        <button onClick={() => router.push(`/admin/tenant/${selectedRoom.tenancy!.person?.id}?tab=tenancy`)}
-                          className="text-xs font-semibold text-neutral-600 border border-neutral-200 rounded-lg px-sm py-xs hover:bg-neutral-50 transition">
-                          Tenancy details
+                        <button onClick={() => router.push(lettingFile(selectedRoom.tenancy!.id))}
+                          className="text-xs font-semibold text-white bg-blue-700 border border-blue-700 rounded-lg px-sm py-xs hover:bg-blue-600 transition">
+                          Letting file →
                         </button>
                         {/* the same Rent Review screen as the Lettings → Rent Reviews list */}
                         <button onClick={() => router.push(`/admin/rent-increase/${selectedRoom.tenancy!.id}`)}
@@ -925,12 +929,10 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                                   {pt.rent_amount ? ` · £${pt.rent_amount.toLocaleString()} pcm` : ''}
                                 </p>
                               </div>
-                              {pt.person && (
-                                <button
-                                  onClick={() => router.push(`/admin/tenant/${pt.person!.id}`)}
-                                  className="text-xs text-neutral-500 border border-neutral-200 rounded px-sm py-xs hover:bg-neutral-100 flex-shrink-0"
-                                >Profile →</button>
-                              )}
+                              <button
+                                onClick={() => router.push(lettingFile(pt.id))}
+                                className="text-xs text-neutral-500 border border-neutral-200 rounded px-sm py-xs hover:bg-neutral-100 flex-shrink-0"
+                              >File →</button>
                             </div>
                           )
                         })}
@@ -952,6 +954,8 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                           </p>
                           <p className="text-xs text-neutral-400">{selectedRoom.nextTenancy.person.email}</p>
                         </div>
+                        <button onClick={() => router.push(lettingFile(selectedRoom.nextTenancy!.id))}
+                          className="ml-auto text-xs font-semibold text-white bg-blue-700 rounded-lg px-sm py-xs hover:bg-blue-600 transition whitespace-nowrap">Letting file →</button>
                       </div>
                       <div className="grid grid-cols-2 gap-sm mt-md">
                         <div className="bg-emerald-50 rounded-lg px-sm py-xs">

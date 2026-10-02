@@ -71,6 +71,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
       .from('tenancies')
       .select('person_id')
       .eq('property_id', propertyId)
+      .lte('start_date', today)   // not tenants who haven't moved in yet
       .or(`end_date.is.null,end_date.gte.${today}`)
 
     const personIds = [...new Set((tenancyData || []).map((t: any) => t.person_id).filter(Boolean))]

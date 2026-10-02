@@ -17,7 +17,7 @@ const STAGES = [
   { key: 'referencing',        label: 'Referencing',        color: 'bg-violet-50 text-violet-700',     dot: 'bg-violet-500' },
   { key: 'referencing_passed', label: 'Ref. passed',        color: 'bg-sky-50 text-sky-700',           dot: 'bg-sky-500' },
   { key: 'docs_uploaded',      label: 'Docs uploaded',      color: 'bg-teal-50 text-teal-700',         dot: 'bg-teal-600' },
-  { key: 'converted',          label: 'Converted ✓',        color: 'bg-green-50 text-green-700',       dot: 'bg-green-500' },
+  { key: 'converted',          label: 'Let agreed ✓',        color: 'bg-green-50 text-green-700',       dot: 'bg-green-500' },
 ] as const
 
 type Stage = typeof STAGES[number]['key']
@@ -86,6 +86,7 @@ export default function ApplicantsPage() {
   const [advancing, setAdvancing] = useState<string | null>(null)
   const [depositFor, setDepositFor] = useState<string | null>(null)
   const [depositBanner, setDepositBanner] = useState('')
+  const [lettingFiles, setLettingFiles] = useState<Record<string, string>>({})   // applicant id → their tenancy's letting file
 
   // Accept offer & send reserve email
   const [acceptingSending, setAcceptingSending] = useState<string | null>(null)
@@ -146,6 +147,11 @@ export default function ApplicantsPage() {
     ])
 
     setApplicants((aData || []) as Applicant[])
+    const letAgreed = (aData || []).filter((a: any) => a.pipeline_stage === 'converted').map((a: any) => a.id)
+    if (letAgreed.length) {
+      const { data: ts } = await sb.from('tenancies').select('id, applicant_id').in('applicant_id', letAgreed).is('let_cancelled_at', null)
+      setLettingFiles(Object.fromEntries((ts || []).map((t: any) => [t.applicant_id, t.id])))
+    }
     setProperties(sortPropertiesNumerically(pData || []))
     setRooms(rData || [])
 
@@ -223,11 +229,8 @@ export default function ApplicantsPage() {
       if (!res.ok) { alert(data.error || 'Conversion failed'); return }
       setApplicants(prev => prev.map(a => a.id === applicant.id ? { ...a, pipeline_stage: 'converted', converted_person_id: data.personId } : a))
       // Next step after referencing: the move-in pack (agreement, check-in balance, certificates, guides)
-      if (data.tenancyId) {
-        if (confirm(`Converted! Prepare their move-in pack now?`)) router.push(`/admin/move-in/${data.tenancyId}`)
-      } else if (confirm(`Converted! Go to their tenant profile now?`)) {
-        router.push(`/admin/tenant/${data.personId}`)
-      }
+      if (data.tenancyId) { setLettingFiles(m => ({ ...m, [applicant.id]: data.tenancyId })); router.push(`/admin/lettings/${data.tenancyId}?from=/admin/applicants`) }
+      else if (confirm(`Converted! Go to their tenant profile now?`)) router.push(`/admin/tenant/${data.personId}`)
     } finally {
       setConverting(null)
     }
@@ -310,7 +313,7 @@ export default function ApplicantsPage() {
           <div>
             <h1 className="text-2xl font-bold text-neutral-900">Applicants</h1>
             <p className="mt-xs text-sm text-neutral-500">
-              {applicants.filter(a => a.pipeline_stage !== 'converted').length} active · {applicants.filter(a => a.pipeline_stage === 'converted').length} converted
+              {applicants.filter(a => a.pipeline_stage !== 'converted').length} active · {applicants.filter(a => a.pipeline_stage === 'converted').length} let agreed
             </p>
           </div>
           <button
@@ -664,7 +667,11 @@ export default function ApplicantsPage() {
                             <CopyButton label={`Copy ${applicant.phone}`} value={applicant.phone} />
                           </>
                         )}
-                        {applicant.converted_person_id && (
+                        {lettingFiles[applicant.id] ? (
+                          <a href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`} className="text-xs font-semibold border border-blue-700 bg-blue-700 text-white rounded-lg px-md py-sm hover:bg-blue-600">
+                            Open letting file →
+                          </a>
+                        ) : applicant.converted_person_id && (
                           <a href={`/admin/tenant/${applicant.converted_person_id}`} className="text-xs font-semibold border border-blue-200 text-blue-700 rounded-lg px-md py-sm hover:bg-blue-50">
                             View tenant profile →
                           </a>
@@ -729,9 +736,11 @@ export default function ApplicantsPage() {
         <HoldingDepositModal
           applicantId={depositFor}
           onClose={() => setDepositFor(null)}
-          onDone={summary => {
-            setApplicants(prev => prev.map(a => a.id === depositFor && ['applied', 'offer_sent'].includes(a.pipeline_stage) ? { ...a, pipeline_stage: 'referencing' as Stage } : a))
+          onDone={(summary, tenancyId) => {
             setDepositFor(null)
+            // let agreed: the tenancy now exists — straight to its letting file
+            if (tenancyId) { router.push(`/admin/lettings/${tenancyId}?from=/admin/applicants&done=${encodeURIComponent(summary)}`); return }
+            setApplicants(prev => prev.map(a => a.id === depositFor && ['applied', 'offer_sent'].includes(a.pipeline_stage) ? { ...a, pipeline_stage: 'referencing' as Stage } : a))
             setDepositBanner(summary)
           }}
         />

@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 
 export interface TodayItem {
   id: string
-  kind: 'job_approve' | 'quote_review' | 'rent_overdue' | 'aml_review' | 'viewing' | 'appointment' | 'certificate' | 'move_out'
+  kind: 'job_approve' | 'quote_review' | 'rent_overdue' | 'aml_review' | 'viewing' | 'appointment' | 'certificate' | 'move_out' | 'move_in'
   group: 'needs_you' | 'today' | 'coming_up'
   title: string
   detail: string
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const items: TodayItem[] = []
   const start = await ledgerStart(s)   // before this, the previous agent collected rent — not our arrears
 
-  const [jobs, quotes, charges, onboarding, viewings, appts, props, moveOuts, multiQuotes] = await Promise.all([
+  const [jobs, quotes, charges, onboarding, viewings, appts, props, moveOuts, multiQuotes, moveIns] = await Promise.all([
     s.from('maintenance_tickets').select('id, title, priority, created_at, room_id, rooms(name), properties(name, address)')
       .eq('status', 'reported').is('approved_at', null).or('on_hold.is.null,on_hold.eq.false').order('created_at', { ascending: true }),
     s.from('maintenance_tickets').select('id, title, quote_amount, quote_submitted_at, rooms(name), properties(name, address)')
@@ -60,6 +60,9 @@ export async function GET(req: NextRequest) {
       .not('notice_received_date', 'is', null).gte('end_date', today).lte('end_date', in14),
     // Prices back from the multi-contractor quote requests (table from migration 184 — empty until it's run)
     s.from('maintenance_quotes').select('ticket_id, amount, maintenance_tickets(id, title, rooms(name), properties(name, address))').eq('status', 'submitted'),
+    // let agreed, moving in within the fortnight (a let that fell through has an end date before its start)
+    s.from('tenancies').select('id, start_date, end_date, agreement_signed_at, move_in_monies_received_at, rooms(name), properties(name, address), people!person_id(first_name, last_name, full_name)')
+      .gte('start_date', today).lte('start_date', in14).or(`end_date.is.null,end_date.gte.${today}`),
   ])
 
   const pr = (p: string | null) => (p === 'urgent' ? 0 : p === 'high' ? 1 : 2)
@@ -146,7 +149,18 @@ export async function GET(req: NextRequest) {
     items.push({
       id: `move-${t.id}`, kind: 'move_out', group: 'coming_up', rank: 80 + left / 100,
       title: `Move-out · ${who}`, detail: `${where(t.rooms, t.properties)} · in ${left} day${left === 1 ? '' : 's'}`,
-      tag: { text: `${left}d`, tone: 'grey' }, href: `/admin/tenancy-management`,
+      tag: { text: `${left}d`, tone: 'grey' }, href: `/admin/lettings/${t.id}?tab=notice&from=/admin`,
+    })
+  }
+  for (const t of (moveIns.data ?? []) as any[]) {
+    const who = [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
+    const left = days(today, t.start_date)
+    // still to do before they can move in — from the letting file (migration 199; blank until it's run)
+    const todo = [t.agreement_signed_at === null ? 'agreement' : '', t.move_in_monies_received_at === null ? 'monies' : ''].filter(Boolean)
+    items.push({
+      id: `movein-${t.id}`, kind: 'move_in', group: left <= 3 && todo.length ? 'needs_you' : 'coming_up', rank: (left <= 3 && todo.length ? 40 : 79) + left / 100,
+      title: `Move-in · ${who}`, detail: `${where(t.rooms, t.properties)} · ${left === 0 ? 'today' : `in ${left} day${left === 1 ? '' : 's'}`}${todo.length ? ` · still to do: ${todo.join(', ')}` : ''}`,
+      tag: { text: left === 0 ? 'Today' : `${left}d`, tone: todo.length && left <= 3 ? 'amber' : 'green' }, href: `/admin/lettings/${t.id}?from=/admin`,
     })
   }
 

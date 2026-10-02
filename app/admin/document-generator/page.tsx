@@ -103,6 +103,13 @@ export default function DocumentGenerator() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [saveNote, setSaveNote] = useState('')
   const [people, setPeople] = useState<Person[]>([])
+  // opened from a letting file (?tenancy=…): the tenant is filled in and what's made is filed with that tenancy
+  const [tenancyId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    const v = new URLSearchParams(window.location.search).get('tenancy')
+    return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null
+  })
+  const [forTenancy, setForTenancy] = useState('')
 
   // Step 1
   const [recipient, setRecipient] = useState<Recipient>(EMPTY_RECIPIENT)
@@ -134,7 +141,15 @@ export default function DocumentGenerator() {
 
   useEffect(() => {
     supabase.from('people').select('*').neq('role', 'inactive').order('last_name', { ascending: true })
-      .then(({ data }) => setPeople((data as Person[]) || []))
+      .then(({ data }) => {
+        setPeople((data as Person[]) || [])
+        if (!tenancyId) return
+        supabase.from('tenancies').select('person_id, rooms(name), properties(name)').eq('id', tenancyId).maybeSingle().then(({ data: t }) => {
+          const p = ((data as Person[]) || []).find(x => x.id === (t as any)?.person_id)
+          if (p) pickPerson(p)
+          setForTenancy([(t as any)?.rooms?.name, (t as any)?.properties?.name].filter(Boolean).join(', '))
+        })
+      })
     supabase.from('properties').select('id, name, address, property_code').order('name')
       .then(({ data }) => setProperties((data as PropertyOption[]) || []))
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -308,7 +323,7 @@ export default function DocumentGenerator() {
   async function saveDoc(respond: 'json' | 'pdf') {
     return adminFetch('/api/admin/documents/generated', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: docType, id: savedId, recipientEmail: to || recipient.email, respond,
+      body: JSON.stringify({ kind: docType, id: savedId, recipientEmail: to || recipient.email, respond, tenancyId,
         ...(docType === 'invoice' ? { invoice } : { letter, signer: signerBody() }) }),
     })
   }
@@ -400,8 +415,15 @@ export default function DocumentGenerator() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin/communications" />} title="Letters & Invoices" />
+      <AppBar left={<BackButton href={tenancyId ? `/admin/lettings/${tenancyId}?tab=letters` : '/admin/communications'} />} title="Letters & Invoices" />
       <div className="mx-auto max-w-6xl px-lg py-xl">
+
+        {tenancyId && (
+          <p className="mb-lg rounded-xl border border-blue-200 bg-blue-50 px-lg py-sm text-sm text-blue-900">
+            For the letting file{forTenancy ? ` — ${forTenancy}` : ''}. What you make here is filed there too.{' '}
+            <a href={`/admin/lettings/${tenancyId}?tab=letters`} className="font-semibold underline">Back to the letting file</a>
+          </p>
+        )}
 
         {/* Step indicator */}
         <div className="flex flex-wrap items-center gap-3 mb-xl">

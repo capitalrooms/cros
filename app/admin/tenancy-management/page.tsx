@@ -293,6 +293,7 @@ export default function TenancyManagementPage() {
                       endDate={tenancy.end_date}
                       noticeReceivedDate={tenancy.notice_received_date}
                     />
+                    <Link href={`/admin/lettings/${tenancy.id}?from=/admin/tenancy-management`} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Letting file →</Link>
                     <div className="shrink-0">
                       <button
                         onClick={() => handleSetOnNotice(tenancy)}
@@ -349,6 +350,7 @@ export default function TenancyManagementPage() {
                           endDate={tenancy.end_date}
                           noticeReceivedDate={tenancy.notice_received_date}
                         />
+                        <Link href={`/admin/lettings/${tenancy.id}?tab=notice&from=/admin/tenancy-management`} className="mt-xs inline-block text-xs font-semibold text-blue-700 hover:underline">Letting file →</Link>
                         {tenancy.notice_received_date && (
                           <p className="text-xs text-neutral-500 mt-xs">
                             Notice given: {formatDate(tenancy.notice_received_date)}

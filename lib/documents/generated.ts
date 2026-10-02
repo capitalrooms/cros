@@ -83,6 +83,7 @@ export async function saveDocument(opts: {
   fields: DocFields
   recipientEmail?: string | null
   callerEmail: string
+  tenancyId?: string | null      // made from a letting file: filed with that tenancy (migration 199)
 }): Promise<{ doc?: GeneratedDocument; error?: string; status?: number }> {
   const s = createServiceClient()
   const id = opts.id && /^[0-9a-f-]{36}$/i.test(opts.id) ? opts.id : crypto.randomUUID()
@@ -98,7 +99,7 @@ export async function saveDocument(opts: {
   if (upErr) return { error: `Could not save the PDF: ${upErr.message}`, status: 500 }
 
   const now = new Date().toISOString()
-  const row = { id, ...opts.fields, recipient_email: opts.recipientEmail || null, storage_path: path, updated_at: now }
+  const row = { id, ...opts.fields, recipient_email: opts.recipientEmail || null, storage_path: path, updated_at: now, ...(opts.tenancyId ? { tenancy_id: opts.tenancyId } : {}) }
   const { data: existing } = await s.from(TABLE).select('id').eq('id', id).maybeSingle()
   const q = existing
     ? s.from(TABLE).update(row).eq('id', id)

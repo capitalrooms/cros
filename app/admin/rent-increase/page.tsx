@@ -77,7 +77,10 @@ export default function RentReviewsPage() {
                       {r.onNotice && <span className="ml-sm rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">On notice</span>}
                     </td>
                     <td className="px-lg py-sm text-right">
-                      <Link href={`/admin/rent-increase/${r.tenancyId}`} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-semibold text-white hover:bg-neutral-700 whitespace-nowrap">Review rent</Link>
+<span className="inline-flex items-center gap-sm">
+                        <Link href={`/admin/lettings/${r.tenancyId}?tab=notice&from=/admin/rent-increase`} className="text-xs font-semibold text-blue-700 hover:underline whitespace-nowrap">File</Link>
+                        <Link href={`/admin/rent-increase/${r.tenancyId}`} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-semibold text-white hover:bg-neutral-700 whitespace-nowrap">Review rent</Link>
+                      </span>
                     </td>
                   </tr>
                 ))}
