@@ -84,9 +84,11 @@ export const ZONES: Zone[] = [
       '/admin/planner',
       '/admin/maintenance',
       '/admin/cleaner-jobs',
+      '/admin/emergencies',
     ],
     subnav: [
       { emoji: '🧹', label: 'Cleaning',      href: '/admin/cleaner-jobs' },
+      { emoji: '🚨', label: 'Emergencies',   href: '/admin/emergencies' },
       { emoji: '📅', label: 'Diary',         href: '/admin/appointments' },
       { emoji: '🔧', label: 'Maintenance',   href: '/admin/maintenance' },
       { emoji: '🗂️', label: 'Planner',       href: '/admin/planner' },
