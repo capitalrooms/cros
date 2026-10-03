@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import AppBar from '@/components/AppBar';
 import BackButton from '@/app/components/BackButton';
+import { KINDS, kindFrom } from '@/lib/emergencies/guide';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -250,70 +251,6 @@ function getTenantNote(desc: string, cat: string, loc: string) {
   return TENANT_RESPONSIBILITY_NOTES.find(r => r.match(desc, cat, loc)) || null;
 }
 
-// ── Emergency guidance ────────────────────────────────────────────────────────
-
-const EMERGENCY_GUIDE: Record<string, { title: string; steps: string[] }> = {
-  gas: {
-    title: '🚨 Possible gas leak',
-    steps: [
-      'Stop using all appliances immediately.',
-      'Do NOT use any light switches or phones inside.',
-      'Open windows and doors for ventilation.',
-      'Turn off gas at the meter if you can do so safely.',
-      'Get everyone outside.',
-      'Call National Gas Emergency: 0800 111 999',
-    ],
-  },
-  flooding: {
-    title: '💧 Active water leak / flooding',
-    steps: [
-      'Turn off the water at the main stopcock (usually under the kitchen sink or outside).',
-      'If water is near electrics: turn off the power at the fuse box if it\'s safe to reach.',
-      'Mop up water to prevent slipping and further damage.',
-      'Take photos of the damage.',
-      'Call us immediately — report below to log it too.',
-    ],
-  },
-  electrical: {
-    title: '⚡ Electrical emergency',
-    steps: [
-      'Do NOT touch the affected area.',
-      'If safe to do so: switch off the main power at the fuse box.',
-      'Do NOT use water anywhere near the fault.',
-      'If there is fire or smoke: evacuate and call 999.',
-      'Call a qualified electrician immediately.',
-    ],
-  },
-  fire: {
-    title: '🔥 Fire',
-    steps: [
-      'EVACUATE IMMEDIATELY. Do not stop to collect belongings.',
-      'Activate the fire alarm on your way out.',
-      'Call 999 and ask for Fire Service.',
-      'Do NOT use lifts. Close doors behind you.',
-      'Go to the assembly point and do NOT re-enter.',
-    ],
-  },
-  security: {
-    title: '🔓 Security breach',
-    steps: [
-      'If someone is in the property: leave safely and call 999.',
-      'If a door or window can\'t be secured: block it temporarily and call us now.',
-      'Do NOT confront anyone — get to safety first.',
-    ],
-  },
-};
-
-function getEmergencyType(desc: string, cat: string): keyof typeof EMERGENCY_GUIDE | null {
-  const d = desc.toLowerCase();
-  if (/gas leak|smell gas|gas smell/i.test(d)) return 'gas';
-  if (/flood|water pour|water gush|ceiling drip/i.test(d)) return 'flooding';
-  if (/spark|electric shock|burning smell|wire|electric fire/i.test(d) || cat === 'electrical') return 'electrical';
-  if (/fire|flame|smoke alarm/i.test(d)) return 'fire';
-  if (cat === 'safety' && /break.in|broken lock|can.t lock/i.test(d)) return 'security';
-  return null;
-}
-
 // ── Label scan helper ─────────────────────────────────────────────────────────
 
 async function scanLabel(file: File): Promise<LabelData> {
@@ -388,6 +325,9 @@ function ReportWizardContent() {
   const [labelData, setLabelData] = useState<LabelData>({});
   const [labelScanState, setLabelScanState] = useState<'idle' | 'scanning' | 'done'>('idle');
   const [urgency, setUrgency] = useState<UrgencyLevel>('routine');
+  // emergencies: is it contained until morning? and what CROS did about it (shown on the done screen)
+  const [controlled, setControlled] = useState<boolean | null>(null);
+  const [emStatus, setEmStatus] = useState<string | null>(null);
   const [triageResult, setTriageResult] = useState<{ tip: string; steps: string[] } | null>(null);
   const [triageExpanded, setTriageExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -524,8 +464,9 @@ function ReportWizardContent() {
       const shortDesc = description.slice(0, 70) + (description.length > 70 ? '…' : '');
       const title = primaryAns ? `${primaryAns} — ${shortDesc}` : shortDesc;
 
-      const finalUrgency = checkAutoUrgent() ? 'urgent' : urgency;
-      const priority = finalUrgency === 'emergency' ? 'high' : finalUrgency === 'urgent' ? 'medium' : 'low';
+      // an emergency stays an emergency — the auto check only ever raises routine reports to urgent
+      const finalUrgency = urgency === 'emergency' ? 'emergency' : checkAutoUrgent() ? 'urgent' : urgency;
+      const priority = finalUrgency === 'emergency' ? 'emergency' : finalUrgency === 'urgent' ? 'medium' : 'low';
 
       const { data: ticketData, error: ticketErr } = await supabase
         .from('maintenance_tickets')
@@ -561,6 +502,19 @@ function ReportWizardContent() {
             }]);
           }
         }
+      }
+
+      // emergencies: CROS texts the emergency contractors (or gives 999 advice / books the morning) straight away
+      if (ticketId && finalUrgency === 'emergency') {
+        try {
+          const r = await fetch('/api/emergencies/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionData.session.access_token}` },
+            body: JSON.stringify({ ticketId, kind: emKind, controlled: !!controlled }),
+          });
+          const d = await r.json().catch(() => ({}));
+          setEmStatus(r.ok ? (d.status ?? 'collecting') : 'failed');
+        } catch { setEmStatus('failed'); }
       }
 
       if (ticketId) {
@@ -617,8 +571,9 @@ function ReportWizardContent() {
   const progress = step === 'done' ? 100 : stepIdx >= 0 ? Math.round(((stepIdx + 1) / STEPS_ORDER.length) * 100) : 0;
 
   // Emergency
-  const emergencyType = urgency === 'emergency' ? getEmergencyType(description, categoryId) : null;
-  const emergencyGuide = emergencyType ? EMERGENCY_GUIDE[emergencyType] : null;
+  const emKind = urgency === 'emergency' ? kindFrom(description, `${categoryId} ${categoryLabel}`) : null;
+  const emInfo = emKind ? KINDS[emKind] : null;
+  const needsControlAnswer = !!emInfo?.trade && controlled === null;
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -980,15 +935,31 @@ function ReportWizardContent() {
                 ))}
               </div>
 
-              {urgency === 'emergency' && emergencyGuide && (
+              {urgency === 'emergency' && emInfo && (
                 <div style={{ marginTop: 16, padding: '16px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FECACA' }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#B91C1C', marginBottom: 8 }}>{emergencyGuide.title}</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#B91C1C', marginBottom: 8 }}>🚨 {emInfo.label}</p>
+                  {emInfo.callServices && <p style={{ fontSize: 14, fontWeight: 700, color: '#7F1D1D', marginBottom: 8 }}>{emInfo.callServices}</p>}
+                  <p style={{ fontSize: 12, fontWeight: 600, color: '#B91C1C', marginBottom: 4 }}>Do this now:</p>
                   <ol style={{ paddingLeft: 18, margin: 0 }}>
-                    {emergencyGuide.steps.map((s, i) => (
+                    {emInfo.steps.map((s, i) => (
                       <li key={i} style={{ fontSize: 13, color: '#7F1D1D', marginBottom: 4 }}>{s}</li>
                     ))}
                   </ol>
-                  <p style={{ fontSize: 12, color: '#B91C1C', marginTop: 12, fontWeight: 600 }}>👇 Also submit below so we have a record</p>
+                  {emInfo.trade && (
+                    <div style={{ marginTop: 14 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: '#181614', marginBottom: 8 }}>Right now, is it under control?</p>
+                      {([[true, 'Yes — it’s contained until morning'], [false, 'No — it’s still happening / not safe']] as const).map(([v, l]) => (
+                        <button key={String(v)} type="button" onClick={() => setControlled(v)}
+                          style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', marginBottom: 6, borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                            border: controlled === v ? '2px solid #B91C1C' : '1.5px solid #FECACA', background: controlled === v ? '#fff' : '#FFF7F7', color: '#181614' }}>
+                          {l}
+                        </button>
+                      ))}
+                      <p style={{ fontSize: 12, color: '#7F1D1D', marginTop: 4 }}>
+                        {controlled === false ? 'We’ll text our emergency contractors as soon as you submit, and tell you who’s coming.' : controlled === true ? 'We’ll arrange someone first thing — tell us straight away if it gets worse.' : 'This tells us whether to send someone tonight.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1001,7 +972,7 @@ function ReportWizardContent() {
               <button
                 style={{ ...nextBtn, marginTop: 20, background: loading ? '#9CA3AF' : '#181614', cursor: loading ? 'not-allowed' : 'pointer' }}
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || (urgency === 'emergency' && needsControlAnswer)}
               >
                 {loading ? 'Submitting…' : 'Submit report'}
               </button>
@@ -1013,9 +984,13 @@ function ReportWizardContent() {
         {step === 'done' && (
           <div style={{ ...card, textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#181614', marginBottom: 8 }}>Report submitted</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#181614', marginBottom: 8 }}>{emStatus && emStatus !== 'failed' ? 'We’re on it' : 'Report submitted'}</h2>
             <p style={{ fontSize: 14, color: '#6B7280', lineHeight: 1.6, marginBottom: 32 }}>
-              We'll review it and be in touch to arrange a visit. You'll get a notification when a contractor is booked.
+              {emStatus === 'collecting' ? 'We’re sorry you’re dealing with this. We’re texting our emergency contractors now and will let you know who is coming and when — usually within 15 minutes. Keep following the steps until they arrive.'
+                : emStatus === 'morning' ? 'Thanks for making it safe. We’ll arrange someone first thing in the morning. If it gets worse, report it again as “still happening”.'
+                : emStatus === 'call_999' ? `${emInfo?.callServices ?? 'Please call the emergency services.'} We’ve told the office.`
+                : emStatus === 'failed' ? 'Your report is in, but we couldn’t start the emergency call-out automatically — the office has your report. If it’s not safe, call us.'
+                : 'We\'ll review it and be in touch to arrange a visit. You\'ll get a notification when a contractor is booked.'}
             </p>
             <button style={{ ...nextBtn, maxWidth: 240, margin: '0 auto' }} onClick={() => router.push('/tenant')}>
               Back to dashboard
