@@ -62,7 +62,13 @@ async function load(s: S, id: string) {
     .eq('id', id).maybeSingle() as { data: any }
   return data
 }
-const addressOf = (em: any) => [em.rooms?.name, firstLine(em.properties?.name), firstLine(em.properties?.address) !== firstLine(em.properties?.name) ? String(em.properties?.address ?? '').replace(/\n/g, ', ') : '', em.properties?.postcode].filter(Boolean).join(', ')
+const addressOf = (em: any) => {
+  const name = firstLine(em.properties?.name)
+  const addr = String(em.properties?.address ?? '').split(/\n|,\s*/).map(x => x.trim()).filter(x => x && x.toLowerCase() !== name.toLowerCase())
+  const pc = String(em.properties?.postcode ?? '').replace(/\s+/g, '').toUpperCase()
+  const hasPc = !!pc && addr.some(x => x.replace(/\s+/g, '').toUpperCase().includes(pc))
+  return [em.rooms?.name, name, ...addr, hasPc ? '' : em.properties?.postcode].filter(Boolean).join(', ')
+}
 // before someone is confirmed, contractors only see the street and postcode district
 const areaOf = (em: any) => {
   const street = firstLine(em.properties?.name).replace(/^(flat|room|unit)\s*\w+,?\s*/i, '').replace(/^\d+[a-z]?\s+/i, '')
@@ -375,10 +381,23 @@ export async function report(s: S, t: string, a: {
   }
   if (a.outcome === 'cant_attend') {
     await s.from('emergency_responses').update({ outcome: 'cant_attend', outcome_note: note, stood_down_at: now, reported_at: now }).eq('id', r.id)
-    await s.from('emergencies').update({ status: 'collecting', chosen_response_id: null, updated_at: now }).eq('id', em.id)
+    const wave = (em.wave ?? 1) + 1
+    await s.from('emergencies').update({ status: 'collecting', chosen_response_id: null, wave, window_ends_at: new Date(Date.now() + set.windowMin * 60000).toISOString(), updated_at: now }).eq('id', em.id)
     await log(s, em.id, 'dropped', `${name} can no longer attend${note ? ` — “${note}”` : ''}. Finding someone else.`, name)
-    await alertOffice(s, em, `⚠️ Contractor dropped out — ${firstLine(em.properties?.name)}`, `${name} can’t make it. CROS is going to the next person who said yes, or asking again.`, true)
-    await decide(s, em.id, `${name} dropped out`)
+    // ask again everyone who said yes before — they were stood down when this contractor was confirmed
+    const { data: before } = await s.from('emergency_responses').select('id, token, contractor_id, people!contractor_id(phone, first_name, last_name, full_name, company)')
+      .eq('emergency_id', em.id).eq('answer', 'yes').neq('id', r.id).is('outcome', null) as { data: any[] | null }
+    const reasked: string[] = []
+    for (const o of before ?? []) {
+      await s.from('emergency_responses').update({ answer: null, answered_at: null, eta_at: null, call_out_fee: null, stood_down_at: null, wave }).eq('id', o.id)
+      const sms = await sendSms(o.people?.phone, `CAPITAL ROOMS EMERGENCY: the contractor booked for ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)} can't make it now. Can you still come? Tap to answer: ${link(o.token)}`)
+      await sendServerPush({ personId: o.contractor_id, title: '🚨 Can you still come?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${o.token}`, tag: `emergency-${em.id}` })
+      reasked.push(`${pname(o.people)}${sms.ok ? '' : ` (text failed: ${sms.error})`}`)
+    }
+    if (reasked.length) await log(s, em.id, 'dispatch', `Asked again: ${reasked.join(', ')} (they said yes earlier)`)
+    const fresh = await dispatchWave(s, await load(s, em.id), wave)
+    await alertOffice(s, em, `⚠️ Contractor dropped out — ${firstLine(em.properties?.name)}`, `${name} can’t make it. CROS has asked ${reasked.length + fresh ? `${reasked.length + fresh} contractor${reasked.length + fresh === 1 ? '' : 's'} again` : 'no one — there’s no one else on the list'}; it confirms the soonest in ${set.windowMin} minutes.`, true)
+    if (!reasked.length && !fresh) await decide(s, em.id, `${name} dropped out`)
     return { ok: true }
   }
 
