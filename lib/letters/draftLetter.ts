@@ -31,7 +31,9 @@ Staff give you rough notes on what they want to say; you turn them into a finish
 Writing style
 - British English, plain and courteous; professional but not stiff. Short paragraphs. Write as "we" for the company.
 - Say everything the notes ask for, in a sensible order: why we are writing, the details, what happens next or what we need from them, and a line inviting questions.
-- Use only the facts in the notes and the recipient details. Never invent figures, dates, names, addresses, legal clauses or policies. Where the letter needs a fact the notes did not give, write a short placeholder in square brackets, e.g. [effective date], and list it in "missing".
+- Use only the facts in the notes, the recipient details and our contact details. Never invent figures, dates, names, addresses, legal clauses or policies. Where the letter needs a fact the notes did not give, write a short placeholder in square brackets, e.g. [effective date], and list it in "missing".
+- Our own phone number, email and office address are given in <our_contact_details>. Use them exactly whenever the letter tells the reader how to reach us — never a placeholder for them. The recipient's own address is already printed above the letter; don't repeat it or leave a placeholder for it in the body (refer to "your room" or "the property" instead, or name it from the recipient details).
+- Keep placeholders to facts only the sender can know (a date, an amount, a name). If a sentence would only exist to hold a placeholder and the notes don't need it, leave the sentence out.
 - Legal or regulatory points (notices, deposits, fees under the Tenant Fees Act, etc.): state what the notes say accurately; do not add legal claims of your own.
 - Closing: "Yours sincerely" when the recipient is addressed by name, "Yours faithfully" for "Dear Sir or Madam". Use "Kind regards" only if the notes ask for a friendlier letter.
 - Salutation: use the title and surname for a formal letter ("Dear Mr Smith"); a first name only if the notes use one or ask for a friendlier tone.
@@ -51,8 +53,10 @@ export interface DraftInput {
   instructions: string
   kind?: string
   recipient: { name?: string; address?: string; role?: string }
-  signer: { name: string; jobTitle?: string | null }
+  signer: { name: string; jobTitle?: string | null; directPhone?: string | null }
   company: string
+  /** Our own contact details, so a "get in touch" line never needs a placeholder */
+  contact?: { phone?: string | null; email?: string | null; address?: string | null }
   current?: FormalLetter | null
   changes?: string
 }
@@ -71,6 +75,12 @@ export async function draftLetter(input: DraftInput): Promise<{ draft: LetterDra
     `Write ${KIND_HINTS[input.kind ?? ''] ?? KIND_HINTS.letter}.`,
     `<recipient>\n${recipient}\n</recipient>`,
     `<signed_by>${signer.name || 'a member of staff'}${signer.jobTitle ? `, ${signer.jobTitle}` : ''}, ${input.company}</signed_by>`,
+    `<our_contact_details>\n${[
+      input.contact?.phone ? `Phone: ${input.contact.phone}` : '',
+      signer.directPhone ? `${signer.name || 'The signer'}'s direct line: ${signer.directPhone}` : '',
+      input.contact?.email ? `Email: ${input.contact.email}` : '',
+      input.contact?.address ? `Office: ${input.contact.address}` : '',
+    ].filter(Boolean).join('\n') || 'Not given — say "please get in touch with us" without a number or address'}\n</our_contact_details>`,
     `<notes>\n${input.instructions}\n</notes>`,
     ...(current ? [
       `<current_draft>\nSubject: ${current.subject}\nSalutation: ${current.salutation}\n\n${current.body}\n\nClosing: ${current.closing}\n</current_draft>`,

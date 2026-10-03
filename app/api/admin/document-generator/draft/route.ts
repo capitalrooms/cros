@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       instructions, kind: b.kind, current, changes: String(b.changes ?? '').trim(),
       recipient: { name: r.name, address: r.address, role: r.role },
       signer, company: biz.company_name,
+      contact: { phone: biz.phone, email: biz.email, address: [biz.address_line1, biz.city, biz.postcode].filter(Boolean).join(', ') },
     })
     if ('failed' in out) return NextResponse.json({ error: FAILED[out.failed] }, { status: 422 })
     const d = out.draft

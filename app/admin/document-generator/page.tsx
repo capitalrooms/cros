@@ -90,6 +90,17 @@ function PersonPicker({ people, onPick }: { people: Person[]; onPick: (p: Person
   )
 }
 
+function GapFill({ gap, onFill }: { gap: string; onFill: (v: string) => void }) {
+  const [v, setV] = useState('')
+  return (
+    <form className="flex flex-wrap items-center gap-sm" onSubmit={e => { e.preventDefault(); onFill(v) }}>
+      <span className="w-48 shrink-0 font-mono text-xs text-amber-900">{gap}</span>
+      <input className={`${narrow} min-w-0 flex-1`} value={v} onChange={e => setV(e.target.value)} placeholder={gap.slice(1, -1)} />
+      <button type="submit" disabled={!v.trim()} className="rounded-lg bg-neutral-900 px-md py-sm text-xs font-bold text-white disabled:opacity-40">Fill in</button>
+    </form>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DocumentGenerator() {
@@ -381,6 +392,14 @@ export default function DocumentGenerator() {
 
   const split = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean)
   const gaps = docType === 'invoice' ? unpriced : placeholders(letter)
+  // a [placeholder] filled in from the box above the letter: replaced wherever it appears
+  function fillGap(gap: string, value: string) {
+    if (!letter || !value.trim()) return
+    const put = (t: string) => t.split(gap).join(value.trim())
+    updateLetter({ recipientName: put(letter.recipientName), recipientAddress: put(letter.recipientAddress), subject: put(letter.subject), salutation: put(letter.salutation), body: put(letter.body) })
+    if (emailSubject.includes(gap)) setEmailSubject(put(emailSubject))
+    if (emailMessage.includes(gap)) setEmailMessage(put(emailMessage))
+  }
   const worthChecking = docType === 'invoice' ? missing.filter(m => !/\bprice\b/i.test(m)) : missing
 
   async function send() {
@@ -540,7 +559,15 @@ export default function DocumentGenerator() {
         {/* ═══ STEP 2: CHECK AND SEND ═══ */}
         {step === 'check' && (docType === 'invoice' ? invoice : letter) && (
           <div className="space-y-lg">
-            {(gaps.length > 0 || worthChecking.length > 0) && (
+            {docType === 'letter' && gaps.length > 0 ? (
+              <div className="p-md bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
+                <p className="font-semibold">Fill in before sending</p>
+                <p className="text-xs text-amber-800 mb-sm">The notes didn’t say these. Type each one and press Fill in — it goes in everywhere it appears. To drop one instead, edit the letter below or ask for a redraft without it.</p>
+                <div className="space-y-xs">
+                  {gaps.map(g => <GapFill key={g} gap={g} onFill={v => fillGap(g, v)} />)}
+                </div>
+              </div>
+            ) : (gaps.length > 0 || worthChecking.length > 0) && (
               <div className="p-md bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
                 <p className="font-semibold mb-xs">{gaps.length ? 'Fill in before sending:' : 'Worth checking:'}</p>
                 <ul className="list-disc pl-5 space-y-0.5">
