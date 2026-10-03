@@ -1,4 +1,5 @@
 'use client'
+import { adminFetch } from '@/lib/adminFetch'
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -125,7 +126,23 @@ export default function AIUploadPage() {
     return publicUrl
   }
 
-  async function handleFiles(files: FileList | null) {
+  // A certificate handed over from Capture (?capture=<item>): fetch the original and scan it as if it had been dropped here
+  const fromCapture = useRef(false)
+  useEffect(() => {
+    if (loading || fromCapture.current) return
+    const id = new URLSearchParams(window.location.search).get('capture')
+    if (!id) return
+    fromCapture.current = true
+    ;(async () => {
+      const r = await adminFetch(`/api/admin/capture?file=${encodeURIComponent(id)}`)
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.url) { setError(d.error ?? 'Could not open the captured file'); return }
+      const blob = await (await fetch(d.url)).blob()
+      handleFiles([new File([blob], d.name || 'captured', { type: d.mime || blob.type })])
+    })()
+  }, [loading])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleFiles(files: FileList | File[] | null) {
     if (!files || files.length === 0) return
     setBusy(true)
     setBusyLabel(`Scanning ${files.length} file${files.length > 1 ? 's' : ''}…`)

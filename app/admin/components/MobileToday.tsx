@@ -60,6 +60,12 @@ export default function MobileToday() {
         {items && <p className="text-sm text-neutral-500 mt-0.5">{needs ? `${needs} thing${needs === 1 ? '' : 's'} need${needs === 1 ? 's' : ''} you` : 'Nothing needs you right now'}</p>}
       </header>
 
+      {/* photograph post, a room or a safety-check sheet — filed from the Capture inbox */}
+      <Link href="/admin/capture" className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-neutral-200">
+        <span><span className="block text-sm font-bold text-neutral-950">📷 Capture</span><span className="block text-xs text-neutral-500">Photo of post, a room or a check sheet → filed</span></span>
+        <span className="text-neutral-400">›</span>
+      </Link>
+
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error} <button className="underline ml-1" onClick={load}>Try again</button></div>}
       {!items && !error && <div className="space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-20 rounded-2xl bg-white animate-pulse" />)}</div>}
 

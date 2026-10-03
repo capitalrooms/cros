@@ -107,11 +107,13 @@ export const ZONES: Zone[] = [
       '/admin/sar',
       '/admin/guides',
       '/admin/ai-upload',
+      '/admin/capture',
       '/admin/inbox',
       '/admin/documents',
     ],
     subnav: [
       { emoji: '🤖', label: 'AI Doc Scanner',    href: '/admin/ai-upload' },
+      { emoji: '📷', label: 'Capture',           href: '/admin/capture' },
       { emoji: '📜', label: 'Certificates',      href: '/admin/compliance?tab=certificates' },
       { emoji: '📥', label: 'Doc Inbox',         href: '/admin/inbox' },
       { emoji: '📖', label: 'Inspection Logs',   href: '/admin/compliance-logs' },
