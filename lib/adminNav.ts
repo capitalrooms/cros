@@ -129,6 +129,7 @@ export const ZONES: Zone[] = [
     label: 'Finance',
     home: '/admin/finance',
     routes: [
+      '/admin/supplier-invoices',
       '/admin/finance',
       '/admin/rent-roll',
       '/admin/payment-run',
@@ -154,6 +155,7 @@ export const ZONES: Zone[] = [
       { emoji: '📋', label: 'Rent Roll',        href: '/admin/rent-roll' },
       { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },
       { emoji: '💸', label: 'Payment Run',      href: '/admin/payment-run' },
+      { emoji: '🧰', label: 'Contractor Invoices', href: '/admin/supplier-invoices' },
       { emoji: '🏦', label: 'Bank & Matching',  href: '/admin/reconciliation' },
       { emoji: '💷', label: 'Expenses',         href: '/admin/expense-log' },
       { emoji: '⏰', label: 'Arrears',          href: '/admin/arrears' },
