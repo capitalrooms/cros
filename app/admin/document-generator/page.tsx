@@ -180,7 +180,10 @@ export default function DocumentGenerator() {
         .eq('person_id', p.id).order('start_date', { ascending: false }).limit(1)
       const room = (data?.[0] as any)?.room
       const prop = room?.properties
-      address = [room?.name, prop?.address || prop?.name].filter(Boolean).join('\n')
+      // the property's name holds the street ("12 Saltwell Street"); its address field is often just town and postcode
+      const street = String(prop?.name ?? '').split('\n')[0].trim()
+      const rest = String(prop?.address ?? '').trim()
+      address = [room?.name, street && !rest.toLowerCase().includes(street.toLowerCase()) ? street : '', rest].filter(Boolean).join('\n')
     }
     setRecipient({
       personId: p.id, name, role: p.role ?? '',
