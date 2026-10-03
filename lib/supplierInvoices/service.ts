@@ -159,14 +159,8 @@ export async function send(s: S, personId: string, role: 'contractor' | 'cleaner
   const pdf = await pdfFor(s, sh, num, notes)
   const path = `${personId}/${num}.pdf`
   await s.storage.from(BUCKET).upload(path, pdf, { contentType: 'application/pdf', upsert: true })
-  const to = [sh.client.email].filter(Boolean) as string[]
-  const cc = sh.prof.email && isEmail(sh.prof.email) && !to.includes(sh.prof.email) ? [sh.prof.email] : []
-  let sent: { ok: boolean; error?: string } = { ok: false, error: 'No email address for the client' }
-  if (to.length) {
-    sent = await sendEmail(to, `Invoice ${num} from ${sh.prof.tradingName}`, `<p>Please find attached invoice <strong>${num}</strong> from ${sh.prof.tradingName} for <strong>£${sh.total.toFixed(2)}</strong>, due ${new Date(`${sh.due}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.</p>${sh.propertyLine ? `<p>Property: ${sh.propertyLine}</p>` : ''}<p>Any questions, reply to this email to reach ${sh.prof.tradingName}.</p>`,
-      { req, cc, replyTo: sh.prof.email || undefined, signature: false, attachments: [{ filename: `Invoice-${num}.pdf`, content: pdf.toString('base64') }] } as any)
-  }
-  await s.from('supplier_invoices').update({ pdf_path: path, sent_at: sent.ok ? new Date().toISOString() : null, sent_to: sent.ok ? [...to, ...cc] : null }).eq('id', inv.id)
+  const out = await emailInvoice(s, { number: num, total: sh.total, due: sh.due, propertyLine: sh.propertyLine, tradingName: sh.prof.tradingName, supplierEmail: sh.prof.email, clientEmail: sh.client.email, pdf }, req)
+  await s.from('supplier_invoices').update({ pdf_path: path, sent_at: out.sentTo.length ? new Date().toISOString() : null, sent_to: out.sentTo.length ? out.sentTo : null }).eq('id', inv.id)
   if (d.toCapitalRooms) {
     const { data: office } = await s.from('people').select('id').in('role', ['administrator', 'admin'])
     const ids = ((office ?? []) as any[]).map(p => p.id)
@@ -174,5 +168,29 @@ export async function send(s: S, personId: string, role: 'contractor' | 'cleaner
     await insertNotifications(s, ids, { title, body, type: 'finance', link: '/admin/supplier-invoices' })
     await sendServerPush({ personIds: ids, title, body, url: '/admin/supplier-invoices', tag: `inv-${inv.id}` })
   }
-  return { ok: true, id: inv.id, number: num, emailed: sent.ok, emailError: sent.ok ? null : sent.error }
+  return { ok: true, id: inv.id, number: num, emailed: out.clientOk, emailError: out.clientOk ? null : out.error, copyOk: out.copyOk }
+}
+
+/** The client gets the invoice; the supplier gets a copy in a separate email, so a bad copy address never stops the client's. */
+export async function emailInvoice(s: S, v: { number: number; total: number; due: string; propertyLine?: string | null; tradingName: string; supplierEmail?: string | null; clientEmail?: string | null; pdf: Buffer }, req: Request) {
+  const attachments = [{ filename: `Invoice-${v.number}.pdf`, content: v.pdf.toString('base64') }]
+  const dueText = new Date(`${v.due}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const sentTo: string[] = []
+  let clientOk = false, error: string | null = 'No email address for the client'
+  if (v.clientEmail && isEmail(v.clientEmail)) {
+    const r = await sendEmail(v.clientEmail, `Invoice ${v.number} from ${v.tradingName}`,
+      `<p>Please find attached invoice <strong>${v.number}</strong> from ${v.tradingName} for <strong>£${Number(v.total).toFixed(2)}</strong>, due ${dueText}.</p>${v.propertyLine ? `<p>Property: ${v.propertyLine}</p>` : ''}<p>Any questions, reply to this email to reach ${v.tradingName}.</p>`,
+      { req, replyTo: v.supplierEmail && isEmail(v.supplierEmail) ? v.supplierEmail : undefined, signature: false, attachments } as any)
+    clientOk = r.ok; error = r.ok ? null : r.error ?? 'Email failed'
+    if (r.ok) sentTo.push(v.clientEmail)
+  }
+  let copyOk = false
+  if (v.supplierEmail && isEmail(v.supplierEmail) && v.supplierEmail !== v.clientEmail) {
+    const r = await sendEmail(v.supplierEmail, `Your copy: invoice ${v.number} — £${Number(v.total).toFixed(2)}`,
+      `<p>Here’s your copy of invoice <strong>${v.number}</strong>${clientOk ? ` — it has been emailed to ${v.clientEmail}` : ' — it has NOT been emailed to the client yet'}. Keep it for your records.</p>`,
+      { req, signature: false, attachments } as any)
+    copyOk = r.ok
+    if (r.ok) sentTo.push(v.supplierEmail)
+  }
+  return { clientOk, copyOk, error, sentTo }
 }

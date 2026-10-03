@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSignedIn } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { gate, profileFor, shape, pdfFor, send, BUCKET } from '@/lib/supplierInvoices/service'
+import { gate, profileFor, shape, pdfFor, send, emailInvoice, BUCKET } from '@/lib/supplierInvoices/service'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 export const runtime = 'nodejs'
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     role: c.role, gate: g, profile, jobs, cleans,
     invoices: ((invoices ?? []) as any[]).map(i => ({ id: i.id, number: i.number, client: i.client_name, total: i.total, date: i.issue_date, status: i.status, emailed: !!i.sent_at, ours: i.to_capital_rooms, property: firstLine(i.properties?.name) })),
-    properties: sortPropertiesNumerically((props ?? []) as any[]).map((p: any) => ({ id: p.id, name: firstLine(p.name) })),
+    properties: sortPropertiesNumerically((props ?? []) as any[]).map((p: any) => ({ id: p.id, name: /^(flat|room|unit|apartment)\s*\w+$/i.test(firstLine(p.name)) ? String(p.name).split('\n').slice(0, 2).join(', ') : firstLine(p.name) })),
   })
 }
 
@@ -115,6 +115,16 @@ export async function POST(req: NextRequest) {
     if (sh.error) return NextResponse.json(sh, { status: 400 })
     const pdf = await pdfFor(s, sh, sh.prof.nextNumber, b.draft?.notes)
     return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf' } })
+  }
+  if (b.action === 'resend') {
+    const { data: inv } = await s.from('supplier_invoices').select('*, properties(name)').eq('id', String(b.id ?? '')).maybeSingle() as { data: any }
+    if (!inv || inv.supplier_id !== c.personId || !inv.pdf_path || inv.status === 'void') return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const { data: file } = await s.storage.from(BUCKET).download(inv.pdf_path)
+    if (!file) return NextResponse.json({ error: 'The PDF has gone' }, { status: 404 })
+    const prof = await profileFor(s, c.personId)
+    const out = await emailInvoice(s, { number: inv.number, total: Number(inv.total), due: inv.due_date, propertyLine: inv.properties?.name ? firstLine(inv.properties.name) : null, tradingName: prof.tradingName, supplierEmail: prof.email, clientEmail: inv.client_email, pdf: Buffer.from(await file.arrayBuffer()) }, req)
+    if (out.sentTo.length) await s.from('supplier_invoices').update({ sent_at: new Date().toISOString(), sent_to: out.sentTo }).eq('id', inv.id)
+    return out.clientOk ? NextResponse.json({ ok: true, copyOk: out.copyOk }) : NextResponse.json({ error: out.error ?? 'Email failed' }, { status: 400 })
   }
   if (b.action === 'send') {
     const out: any = await send(s, c.personId, c.role, b.draft ?? {}, req)

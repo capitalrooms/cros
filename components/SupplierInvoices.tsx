@@ -5,6 +5,7 @@
 // under their own name and logo; sent to the client with a copy to them. Data: /api/supplier/invoices.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 
 type Tab = 'new' | 'list' | 'details'
 interface Line { key: string; description: string; where: string; labour: string; parts: string; partsPaid: boolean; ticketId?: string; cleanId?: string; propertyId?: string; date?: string; receipt?: string | null }
@@ -65,7 +66,7 @@ export default function SupplierInvoices({ viewAs }: { viewAs?: string | null })
       </div>
       {!data.gate.enabled && <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">{data.gate.why}</p>}
       {tab === 'new' && data.gate.enabled && (data.role === 'cleaner' ? <CleanerNew data={data} post={post} done={() => { load(); setTab('list') }} /> : <ContractorNew data={data} post={post} done={() => { load(); setTab('list') }} />)}
-      {tab === 'list' && <List data={data} headers={headers} />}
+      {tab === 'list' && <List data={data} headers={headers} post={post} reload={load} />}
       {tab === 'details' && <Details data={data} post={post} saved={() => { load(); setTab('new') }} />}
     </div>
   )
@@ -129,7 +130,7 @@ function SendBar({ draft, post, done }: { draft: () => any; post: (b: Record<str
   async function send() {
     if (!confirm('Send this invoice now? It gets its number and is emailed to the client, with a copy to you.')) return
     setBusy('send'); setMsg('')
-    try { const d = await post({ action: 'send', draft: draft() }); alert(`Invoice ${d.number} sent${d.emailed ? '' : ` — but the email didn’t go (${d.emailError}). It’s saved in My invoices.`}`); done() }
+    try { const d = await post({ action: 'send', draft: draft() }); alert(`Invoice ${d.number} ${d.emailed ? 'sent' : `saved — but the email to the client didn’t go (${d.emailError}). Fix the address and use “Email it again” in My invoices.`}${d.emailed && d.copyOk === false ? ' (your copy couldn’t be emailed — check your email in My details)' : ''}`); done() }
     catch (e) { setMsg(e instanceof Error ? e.message : 'Could not send') } finally { setBusy('') }
   }
   return (
@@ -148,7 +149,8 @@ function SendBar({ draft, post, done }: { draft: () => any; post: (b: Record<str
 function ContractorNew({ data, post, done }: { data: any; post: (b: Record<string, unknown>) => Promise<any>; done: () => void }) {
   const [ours, setOurs] = useState(true)
   const [propertyId, setPropertyId] = useState('')
-  const [client, setClient] = useState({ name: '', email: '', address: '' })
+  const [client, setClient] = useState({ company: '', email: '', address: '' })
+  const [contact, setContact] = useState<NameValue>(emptyName())
   const [lines, setLines] = useState<Line[]>([])
   const [notes, setNotes] = useState('')
   const jobs = (data.jobs as any[]).filter(j => !propertyId || j.propertyId === propertyId)
@@ -176,7 +178,8 @@ function ContractorNew({ data, post, done }: { data: any; post: (b: Record<strin
           </label>
         ) : (
           <div className="space-y-2">
-            <input className={input} value={client.name} onChange={e => setClient({ ...client, name: e.target.value })} placeholder="Client name" />
+            <NameInput value={contact} onChange={setContact} label="Client (the person)" inputClass={input} />
+            <input className={input} value={client.company} onChange={e => setClient({ ...client, company: e.target.value })} placeholder="Company name (if it’s a business — optional)" />
             <input className={input} type="email" value={client.email} onChange={e => setClient({ ...client, email: e.target.value })} placeholder="Client email (to send it)" />
             <textarea rows={2} className={input} value={client.address} onChange={e => setClient({ ...client, address: e.target.value })} placeholder="Client address" />
           </div>
@@ -199,7 +202,7 @@ function ContractorNew({ data, post, done }: { data: any; post: (b: Record<strin
       {lines.length > 0 && <>
         <textarea rows={2} className={input} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Note on the invoice (optional)" />
         <Totals lines={lines} vat={data.profile.vatRegistered} />
-        <SendBar post={post} done={done} draft={() => ({ toCapitalRooms: ours, propertyId: ours ? propertyId : null, client: ours ? undefined : client, lines: toDraftLines(lines), notes })} />
+        <SendBar post={post} done={done} draft={() => ({ toCapitalRooms: ours, propertyId: ours ? propertyId : null, client: ours ? undefined : { name: client.company.trim() || toFullName(contact), email: client.email, address: [client.company.trim() && toFullName(contact) ? `FAO ${toFullName(contact)}` : '', client.address].filter(Boolean).join('\n') }, lines: toDraftLines(lines), notes })} />
       </>}
     </div>
   )
@@ -248,7 +251,10 @@ function CleanerNew({ data, post, done }: { data: any; post: (b: Record<string, 
 
 // ── my invoices / my details ─────────────────────────────────────────────────
 
-function List({ data, headers }: { data: any; headers: Record<string, string> }) {
+function List({ data, headers, post, reload }: { data: any; headers: Record<string, string>; post: (b: Record<string, unknown>) => Promise<any>; reload: () => Promise<void> }) {
+  async function resend(id: string) {
+    try { await post({ action: 'resend', id }); alert('Emailed'); reload() } catch (e) { alert(e instanceof Error ? e.message : 'Could not email it') }
+  }
   async function open(id: string) {
     const win = window.open('', '_blank')
     const r = await fetch(`/api/supplier/invoices?pdf=${id}`, { headers })
@@ -262,7 +268,10 @@ function List({ data, headers }: { data: any; headers: Record<string, string> })
         <li key={i.id} className="flex items-center justify-between gap-3 px-4 py-3">
           <span className="min-w-0"><span className="font-semibold text-neutral-900">No. {i.number} · {gbp(Number(i.total))}</span>
             <span className="block truncate text-xs text-neutral-500">{i.client}{i.property ? ` · ${i.property}` : ''} · {day(i.date)} · {i.status === 'paid' ? 'paid' : i.status === 'approved' ? 'approved' : i.status === 'void' ? 'void' : i.emailed ? 'sent' : 'saved (not emailed)'}</span></span>
-          <button type="button" className={btn} onClick={() => open(i.id)}>PDF</button>
+          <span className="flex shrink-0 gap-2">
+            {!i.emailed && i.status !== 'void' && <button type="button" className={btn} onClick={() => resend(i.id)}>Email it again</button>}
+            <button type="button" className={btn} onClick={() => open(i.id)}>PDF</button>
+          </span>
         </li>
       ))}
     </ul>
