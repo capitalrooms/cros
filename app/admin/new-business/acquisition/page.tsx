@@ -1,5 +1,6 @@
 'use client'
 
+import NameInput, { emptyName, type NameValue } from '@/app/components/NameInput'
 import { useState, useEffect, useRef } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
@@ -14,6 +15,7 @@ const GREETING_PRESETS = [
 
 export default function AcquisitionEmailPage() {
   const [firstName, setFirstName]     = useState('')
+  const [recipient, setRecipient]     = useState<NameValue>(emptyName())   // the greeting uses the first name
   const [email, setEmail]             = useState('')
   const [greeting, setGreeting]       = useState(GREETING_PRESETS[0])
   const [customGreeting, setCustomGreeting] = useState('')
@@ -144,10 +146,9 @@ export default function AcquisitionEmailPage() {
                 <>
                   <div className="bg-white rounded-2xl border border-neutral-200 p-lg space-y-md">
                     <h2 className="text-sm font-bold text-neutral-900">Recipient</h2>
-                    <div>
-                      <label className={lbl}>First name *</label>
-                      <input value={firstName} onChange={e => setFirstName(e.target.value)} className={inp} placeholder="e.g. James" />
-                    </div>
+                    <NameInput value={{ ...recipient, first_name: firstName }} required titleRequired
+                      onChange={n => { setRecipient(n); setFirstName(n.first_name) }}
+                      inputClass={inp} labelClass={lbl} />
                     <div>
                       <label className={lbl}>Email address *</label>
                       <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inp} placeholder="james@example.com" />

@@ -17,6 +17,10 @@ export async function POST(request: Request) {
 
     const payload = {
       full_name:            data.fullName,
+      salutation:           typeof data.salutation === 'string' ? data.salutation.slice(0, 10) || null : null,
+      first_name:           typeof data.firstName === 'string' ? data.firstName.slice(0, 80) || null : null,
+      middle_name:          typeof data.middleName === 'string' ? data.middleName.slice(0, 120) || null : null,
+      last_name:            typeof data.lastName === 'string' ? data.lastName.slice(0, 80) || null : null,
       email:                data.email,
       phone:                data.phone                || null,
       date_of_birth:        data.dateOfBirth          || null,

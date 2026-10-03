@@ -15,6 +15,7 @@ export type Salutation = typeof SALUTATIONS[number]
 interface PersonLike {
   salutation?: string | null
   first_name?: string | null
+  middle_name?: string | null
   last_name?: string | null
   full_name?: string | null
   name?: string | null   // keep for TS compat with any stale types
@@ -33,10 +34,17 @@ export function displayName(person: PersonLike | null | undefined): string {
   return person.full_name || person.name || person.company || '—'
 }
 
-/** Formal display name — includes salutation if present. E.g. "Mr Oliver Wells". */
+/** Full legal name — first, middle and surname (no title). E.g. "Oliver James Wells". */
+export function legalName(person: PersonLike | null | undefined): string {
+  if (!person) return '—'
+  if (person.first_name) return [person.first_name, person.middle_name, person.last_name].filter(Boolean).join(' ')
+  return displayName(person)
+}
+
+/** Formal name for letters and agreements — title, first, middle and surname. E.g. "Mr Oliver James Wells". */
 export function formalName(person: PersonLike | null | undefined): string {
   if (!person) return '—'
-  const base = displayName(person)
+  const base = legalName(person)
   if (!person.salutation || base === '—') return base
   return `${person.salutation} ${base}`
 }
@@ -87,11 +95,13 @@ export function firstName(person: PersonLike | null | undefined): string {
  * Writes both first_name/last_name (new) AND full_name (existing column) so
  * any code not yet updated still works.
  */
-export function nameFields(first: string, last: string) {
-  const full = [first.trim(), last.trim()].filter(Boolean).join(' ')
+/** The name columns to save. Pass middle only from forms that ask for it (otherwise it's left as it is). */
+export function nameFields(first: string, last: string, middle?: string | null) {
+  const full = [first.trim(), (middle ?? '').trim(), last.trim()].filter(Boolean).join(' ')
   return {
     first_name: first.trim() || null,
     last_name:  last.trim()  || null,
     full_name:  full || null,
+    ...(middle !== undefined ? { middle_name: (middle ?? '').trim() || null } : {}),
   }
 }

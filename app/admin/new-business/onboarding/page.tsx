@@ -1,5 +1,6 @@
 'use client'
 
+import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/components/NameInput'
 import { useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
@@ -99,6 +100,7 @@ export default function OnboardingPage() {
 
   // Add modal state
   const [addName, setAddName] = useState('')
+  const [addNm, setAddNm] = useState<NameValue>(emptyName())
   const [addEmail, setAddEmail] = useState('')
   const [addPhone, setAddPhone] = useState('')
   const [addSending, setAddSending] = useState(false)
@@ -140,20 +142,20 @@ export default function OnboardingPage() {
   }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleAdd() {
-    if (!addName.trim() || !addEmail.trim()) return
+    if (!addNm.salutation || !addNm.first_name.trim() || !addNm.last_name.trim() || !addEmail.trim()) return
     setAddSending(true)
     setAddResult(null)
     const r = await adminFetch('/api/landlord-onboarding', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name: addName, email: addEmail, phone: addPhone }),
+      body: JSON.stringify({ full_name: addName, salutation: addNm.salutation, first_name: addNm.first_name.trim(), last_name: addNm.last_name.trim(), email: addEmail, phone: addPhone }),
     })
     const d = await r.json()
     if (!r.ok) {
       setAddResult({ ok: false, msg: d.error ?? 'Failed' })
     } else {
       setAddResult({ ok: true, msg: d.emailSent ? `Welcome pack sent to ${addEmail}` : 'Record created (email failed — check Resend config)' })
-      setAddName(''); setAddEmail(''); setAddPhone('')
+      setAddName(''); setAddNm(emptyName()); setAddEmail(''); setAddPhone('')
       load()
     }
     setAddSending(false)
@@ -291,10 +293,8 @@ export default function OnboardingPage() {
               ) : null}
 
               <div className="space-y-md">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Full name *</label>
-                  <input value={addName} onChange={e => setAddName(e.target.value)} className={inp} placeholder="e.g. James Smith" />
-                </div>
+                <NameInput value={addNm} required titleRequired onChange={n => { setAddNm(n); setAddName(toLegalName(n)) }}
+                  inputClass={inp} labelClass="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs" />
                 <div>
                   <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Email *</label>
                   <input type="email" value={addEmail} onChange={e => setAddEmail(e.target.value)} className={inp} placeholder="james@example.com" />
@@ -314,7 +314,7 @@ export default function OnboardingPage() {
                 {!addResult?.ok && (
                   <button
                     onClick={handleAdd}
-                    disabled={addSending || !addName.trim() || !addEmail.trim()}
+                    disabled={addSending || !addNm.salutation || !addNm.first_name.trim() || !addNm.last_name.trim() || !addEmail.trim()}
                     className="flex-1 rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40"
                   >
                     {addSending ? 'Sending…' : 'Add & Send Welcome Pack'}

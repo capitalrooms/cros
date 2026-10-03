@@ -13,9 +13,10 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import NameInput from '@/app/components/NameInput'
 import BackButton from '@/app/components/BackButton'
 
-const SENSITIVE = ['first_name', 'last_name', 'company', 'home_address', 'company_number'] as const
+const SENSITIVE = ['salutation', 'first_name', 'last_name', 'company', 'home_address', 'company_number'] as const
 type SensitiveKey = typeof SENSITIVE[number]
 
 export default function LandlordProfilePage() {
@@ -26,6 +27,7 @@ export default function LandlordProfilePage() {
   const [status, setStatus]     = useState<{ type: 'ok' | 'request' | 'error'; msg: string } | null>(null)
 
   const [form, setForm] = useState({
+    salutation:     '',
     first_name:     '',
     last_name:      '',
     phone:          '',
@@ -47,6 +49,7 @@ export default function LandlordProfilePage() {
       if (!p) { setLoading(false); return }
       setPerson(p)
       setForm({
+        salutation:     p.salutation     || '',
         first_name:     p.first_name     || '',
         last_name:      p.last_name      || '',
         phone:          p.phone          || '',
@@ -92,7 +95,7 @@ export default function LandlordProfilePage() {
     if (hasSensitive) {
       const lines = Object.entries(sensitive).map(([k, v]) => {
         const label: Record<string, string> = {
-          first_name: 'First name', last_name: 'Last name',
+          salutation: 'Title', first_name: 'First name', last_name: 'Surname',
           company: 'Company', home_address: 'Home address', company_number: 'Company number',
         }
         return `${label[k] || k}: "${person[k] || '—'}" → "${v}"`
@@ -201,20 +204,10 @@ export default function LandlordProfilePage() {
               </p>
 
               <div className="space-y-lg">
-                <div className="grid grid-cols-2 gap-lg">
-                  <div>
-                    <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">First name</label>
-                    <input type="text" value={form.first_name}
-                      onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
-                      className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Last name</label>
-                    <input type="text" value={form.last_name}
-                      onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
-                      className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                  </div>
-                </div>
+                <NameInput value={{ salutation: form.salutation, first_name: form.first_name, last_name: form.last_name }}
+                  onChange={n => setForm(f => ({ ...f, salutation: n.salutation, first_name: n.first_name, last_name: n.last_name }))}
+                  inputClass="w-full px-md py-sm border border-neutral-200 rounded-lg bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  labelClass="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm" />
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Email</label>

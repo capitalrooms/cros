@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar'
+import NameInput from '@/app/components/NameInput'
+import { nameFields } from '@/lib/people'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
@@ -73,7 +75,9 @@ export default function TenanciesManagementPage() {
   const [personSearch, setPersonSearch] = useState('');
   const [personHits, setPersonHits]   = useState<PersonHit[]>([]);
   const [linkedPerson, setLinkedPerson] = useState<PersonHit | null>(null);
+  const [salutation, setSalutation]   = useState('');
   const [firstName, setFirstName]     = useState('');
+  const [middleName, setMiddleName]   = useState('');
   const [lastName, setLastName]       = useState('');
   const [email, setEmail]             = useState('');
   const [phone, setPhone]             = useState('');
@@ -123,7 +127,7 @@ export default function TenanciesManagementPage() {
     searchRef.current = setTimeout(async () => {
       const supabase = createClient();
       const { data } = await supabase.from('people')
-        .select('id, full_name, first_name, last_name, email, phone')
+        .select('id, full_name, salutation, first_name, middle_name, last_name, email, phone')
         .or(`full_name.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`)
         .in('role', ['tenant', 'applicant'])
         .limit(6);
@@ -133,6 +137,7 @@ export default function TenanciesManagementPage() {
 
   function pickPerson(p: PersonHit) {
     setLinkedPerson(p);
+    setSalutation((p as any).salutation || ''); setMiddleName((p as any).middle_name || '');
     setFirstName(p.first_name || '');
     setLastName(p.last_name || '');
     setEmail(p.email || '');
@@ -143,14 +148,14 @@ export default function TenanciesManagementPage() {
 
   function resetForm() {
     setSelProp(''); setSelRoom(''); setPersonSearch(''); setPersonHits([]);
-    setLinkedPerson(null); setFirstName(''); setLastName(''); setEmail('');
+    setLinkedPerson(null); setSalutation(''); setFirstName(''); setMiddleName(''); setLastName(''); setEmail('');
     setPhone(''); setStartDate(new Date().toISOString().split('T')[0]);
     setRent(''); setDeposit(''); setAgreementType('assured_periodic');
   }
 
   async function handleCreate() {
-    if (!selRoom || !firstName || !email) {
-      showToast('Room, first name and email are required', 'error'); return;
+    if (!selRoom || !salutation || !firstName.trim() || !lastName.trim() || !email) {
+      showToast('Room, title, first name, surname and email are required', 'error'); return;
     }
     try {
       const supabase = createClient();
@@ -162,14 +167,12 @@ export default function TenanciesManagementPage() {
         if (existing) {
           personId = existing.id;
           await supabase.from('people').update({
-            first_name: firstName, last_name: lastName, phone,
-            full_name: [firstName, lastName].filter(Boolean).join(' '),
+            salutation: salutation || null, ...nameFields(firstName, lastName, middleName), phone,
           }).eq('id', personId);
         } else {
           const { data: newP, error: pErr } = await supabase.from('people').insert([{
-            first_name: firstName, last_name: lastName, email: email.trim().toLowerCase(),
+            salutation: salutation || null, ...nameFields(firstName, lastName, middleName), email: email.trim().toLowerCase(),
             phone, role: 'tenant',
-            full_name: [firstName, lastName].filter(Boolean).join(' '),
           }]).select().single();
           if (pErr) throw pErr;
           personId = newP.id;
@@ -429,15 +432,11 @@ export default function TenanciesManagementPage() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1">First name *</label>
-                    <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1">Last name</label>
-                    <input type="text" value={lastName} onChange={e => setLastName(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
+                  <div className="col-span-2">
+                    <NameInput required titleRequired withMiddle
+                      value={{ salutation, first_name: firstName, middle_name: middleName, last_name: lastName }}
+                      onChange={n => { setSalutation(n.salutation); setFirstName(n.first_name); setMiddleName(n.middle_name ?? ''); setLastName(n.last_name) }}
+                      inputClass="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm" labelClass="block text-xs font-medium text-neutral-600 mb-1" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-neutral-600 mb-1">Email *</label>

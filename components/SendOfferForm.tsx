@@ -1,5 +1,6 @@
 'use client'
 
+import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/components/NameInput'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
@@ -40,6 +41,7 @@ export default function SendOfferForm() {
   const [customAddress,   setCustomAddress]   = useState('')      // e.g. "45 Bermondsey Street"
   const [applicantEmail,  setApplicantEmail]  = useState('')
   const [applicantName,   setApplicantName]   = useState('')
+  const [applicantNm,     setApplicantNm]     = useState<NameValue>(emptyName())
   const [advertisedRent,  setAdvertisedRent]  = useState('')
   const [moveInDate,      setMoveInDate]      = useState('')
   const [requestDeposit,  setRequestDeposit]  = useState(false)
@@ -147,7 +149,7 @@ export default function SendOfferForm() {
             customRoomDesc: customRoomDesc.trim() || 'Room',
             customAddress:  customAddress.trim(),
             applicantEmail,
-            applicantName,
+            applicantName, salutation: applicantNm.salutation, firstName: applicantNm.first_name.trim(), lastName: applicantNm.last_name.trim(),
             advertisedRent:  parseFloat(advertisedRent),
             moveInDate:      moveInDate || null,
             requestDeposit,
@@ -156,7 +158,7 @@ export default function SendOfferForm() {
             roomId:         selectedRoom!.id,
             propertyId:     selectedRoom!.property_id,
             applicantEmail,
-            applicantName,
+            applicantName, salutation: applicantNm.salutation, firstName: applicantNm.first_name.trim(), lastName: applicantNm.last_name.trim(),
             advertisedRent:  parseFloat(advertisedRent),
             moveInDate:      moveInDate || null,
             requestDeposit,
@@ -174,7 +176,7 @@ export default function SendOfferForm() {
       loadRecent()
       clearSelection()
       setCustomRoomDesc(''); setCustomAddress('')
-      setApplicantEmail(''); setApplicantName('')
+      setApplicantEmail(''); setApplicantName(''); setApplicantNm(emptyName())
       setAdvertisedRent(''); setMoveInDate('')
       setRequestDeposit(false)
     } catch {
@@ -296,13 +298,9 @@ export default function SendOfferForm() {
         <div className="grid grid-cols-2 gap-sm">
           <div>
             <label className="block text-sm font-medium text-white mb-xs">Applicant name</label>
-            <input
-              type="text"
-              value={applicantName}
-              onChange={e => setApplicantName(e.target.value)}
-              placeholder="Full name"
-              className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
+            <NameInput value={applicantNm} required titleRequired
+              onChange={n => { setApplicantNm(n); setApplicantName(toLegalName(n)) }}
+              inputClass="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" labelClass="block text-xs font-semibold text-neutral-400 mb-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-white mb-xs">Email <span className="text-red-400">*</span></label>

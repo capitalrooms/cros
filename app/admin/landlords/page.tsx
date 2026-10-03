@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/AppBar'
+import NameInput from '@/app/components/NameInput'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
@@ -96,6 +97,7 @@ export default function LandlordsPage() {
 
   const [formData, setFormData] = useState({
     email: '',
+    salutation: '',
     first_name: '',
     last_name: '',
     company: '',
@@ -167,8 +169,8 @@ export default function LandlordsPage() {
   }, [router]);
 
   async function handleAddLandlord() {
-    if (!formData.email || !formData.first_name) {
-      alert('Please fill in email and first name');
+    if (!formData.email || !formData.salutation || !formData.first_name.trim() || !formData.last_name.trim()) {
+      alert('Please fill in the title, first name, surname and email');
       return;
     }
 
@@ -177,7 +179,7 @@ export default function LandlordsPage() {
 
     const { data: landlord, error } = await supabase
       .from('people')
-      .insert({ email: formData.email, ...names, company: formData.company.trim() || null, role: 'landlord', landlord_comms_enabled: false })
+      .insert({ email: formData.email, salutation: formData.salutation || null, ...names, company: formData.company.trim() || null, role: 'landlord', landlord_comms_enabled: false })
       .select()
       .single();
 
@@ -188,7 +190,7 @@ export default function LandlordsPage() {
     }
 
     setSuccessMessage(`✓ Landlord added: ${names.full_name}`);
-    setFormData({ email: '', first_name: '', last_name: '', company: '', selectedProperties: [] });
+    setFormData({ email: '', salutation: '', first_name: '', last_name: '', company: '', selectedProperties: [] });
     setShowInviteForm(false);
 
     const { data: updated } = await supabase
@@ -325,17 +327,11 @@ export default function LandlordsPage() {
           <div className="mb-3xl rounded-2xl border-2 border-neutral-900 bg-white p-lg">
             <h2 className="text-lg font-bold text-neutral-900 mb-md">Add New Landlord</h2>
             <div className="grid gap-md md:grid-cols-3 mb-md">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-xs">First Name</label>
-                <input type="text" placeholder="John" value={formData.first_name}
-                  onChange={e => setFormData({ ...formData, first_name: e.target.value })}
-                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-xs">Last Name</label>
-                <input type="text" placeholder="Smith" value={formData.last_name}
-                  onChange={e => setFormData({ ...formData, last_name: e.target.value })}
-                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              <div className="md:col-span-3">
+                <NameInput required titleRequired
+                  value={{ salutation: formData.salutation, first_name: formData.first_name, last_name: formData.last_name }}
+                  onChange={n => setFormData({ ...formData, salutation: n.salutation, first_name: n.first_name, last_name: n.last_name })}
+                  inputClass="w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm" labelClass="block text-xs font-semibold text-neutral-700 mb-xs" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-xs">Email</label>
