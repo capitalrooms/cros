@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       emergency_lighting_test_date,
       landlord:people!properties_landlord_id_fkey(first_name, last_name)
     `)
+    .or('letting_type.is.null,letting_type.neq.let_only')
     .order('name')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -425,6 +425,7 @@ export default function PropertyTasksPage() {
     const { data: props } = await supabase
       .from('properties')
       .select(`id, name, ${CERT_CHECKS.map(c => c.field).join(', ')}`)
+      .or('letting_type.is.null,letting_type.neq.let_only')   // managed only
     const licencePending = await pendingLicenceIds(supabase)   // application with the council → not an alert
     const today  = new Date(); today.setHours(0,0,0,0)
     const alerts: CertAlert[] = []

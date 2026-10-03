@@ -10,6 +10,7 @@ import PageHero, { HeroButton } from '@/components/PageHero'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import UnitsTab from './components/UnitsTab'
+import RemoveProperty from './components/RemoveProperty'
 import PeopleTab from './components/PeopleTab'
 import MaintenanceTab from './components/MaintenanceTab'
 import LettingsTab from './components/LettingsTab'
@@ -428,6 +429,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-lg">Extended Details</p>
                 <ExtendedDetailsTab propertyId={id} propertyType={property.property_type} />
               </div>
+              <RemoveProperty propertyId={id} code={property.property_code ?? null} />
             </div>
           )}
 

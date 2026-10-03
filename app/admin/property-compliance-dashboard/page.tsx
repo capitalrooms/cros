@@ -58,6 +58,7 @@ export default function PropertyComplianceDashboard() {
       const { data: propertiesData } = await supabase
         .from('properties')
         .select('id, name')
+        .or('letting_type.is.null,letting_type.neq.let_only')   // managed only
         .order('name');
 
       const mapped = (propertiesData || []).map((p: any) => ({
