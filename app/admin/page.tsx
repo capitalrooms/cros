@@ -116,7 +116,7 @@ function AdminDashboard() {
         const [propsRes, roomsRes, tenRes, jobsRes, viewingsRes, apptRes] = await Promise.all([
           // Properties with compliance dates + room count + job count
           supabase.from('properties').select(
-            'id, name, address, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry, fire_detection_expiry, emergency_lighting_expiry, pat_test_expiry, fire_risk_assessment_expiry'
+            'id, name, address, letting_type, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry, fire_detection_expiry, emergency_lighting_expiry, pat_test_expiry, fire_risk_assessment_expiry'
           ),
           // Rooms with status + property_id
           supabase.from('rooms').select('id, property_id, status'),
@@ -144,7 +144,7 @@ function AdminDashboard() {
         let urgentCount = 0
         const licencePending = await pendingLicenceIds(supabase)   // application with the council → not urgent
 
-        for (const prop of props) {
+        for (const prop of props.filter((p: any) => p.letting_type !== 'let_only')) {   // certificate alerts: managed properties only
           for (const c of CERT_CHECKS) {
             const raw = (prop as any)[c.field]
             if (!raw) continue

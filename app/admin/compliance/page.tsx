@@ -775,7 +775,8 @@ function CompliancePageInner({ tab }: { tab?: string }) {
   useEffect(() => { loadAllLogs() }, [])
 
   async function loadProperties() {
-    const { data } = await supabase.from('properties').select('*').order('name')
+    // managed properties only — let-only ones are the landlord's to keep compliant
+    const { data } = await supabase.from('properties').select('*').or('letting_type.is.null,letting_type.neq.let_only').order('name')
     const sorted = sortPropertiesNumerically(data || [])
     setProperties(sorted)
     if (sorted.length > 0 && !logSelectedProperty) {

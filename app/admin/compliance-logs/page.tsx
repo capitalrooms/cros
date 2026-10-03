@@ -59,6 +59,7 @@ export default function ComplianceLogsPage() {
       const { data: propsData } = await supabase
         .from('properties')
         .select('id, name, address, property_type')
+        .or('letting_type.is.null,letting_type.neq.let_only')   // managed only
         .order('name')
       
       if (propsData) {

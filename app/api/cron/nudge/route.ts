@@ -92,6 +92,7 @@ export async function GET(req: Request) {
     const { data: props } = await supabase
       .from('properties')
       .select('id, name, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry')
+      .or('letting_type.is.null,letting_type.neq.let_only')   // managed only
     const licencePending = await pendingLicenceIds(supabase)
     const t0 = new Date(today).getTime()
     const names = new Set<string>()
