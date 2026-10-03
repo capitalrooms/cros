@@ -738,6 +738,7 @@ export default function CleanerDashboard() {
           <div className="pt-lg pb-sm">
             <EnableNotifications />
             <a href="/planner" className="mt-sm flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🗂️ With Capital Rooms — notes, jobs &amp; photos<span aria-hidden="true">›</span></a>
+            <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="mt-sm flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🧾 Invoice your cleans<span aria-hidden="true">›</span></a>
           </div>
         )}
 

@@ -832,6 +832,7 @@ export default function ContractorDashboard() {
             <div className="pt-sm space-y-sm">
               <div className="pt-sm pb-sm"><EnableNotifications /></div>
               <a href="/planner" className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🗂️ With Capital Rooms — notes, jobs &amp; photos<span aria-hidden="true">›</span></a>
+              <a href={`/contractor/invoices${asId ? `?as=${asId}` : ''}`} className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🧾 Invoices — make and send a professional invoice<span aria-hidden="true">›</span></a>
               {/* visits that have passed (or still need a date) shouldn't hide behind another tab */}
               {needsAttention > 0 && (
                 <button type="button" onClick={() => goToTab('waiting')}
