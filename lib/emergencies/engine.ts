@@ -239,6 +239,7 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
   const allowed = by === 'CROS' ? ['collecting', 'awaiting_office'] : OPEN
   const { data: r } = await s.from('emergency_responses').select('*, people!contractor_id(id, first_name, last_name, full_name, company, phone)').eq('id', responseId).eq('emergency_id', emId).maybeSingle() as { data: any }
   if (!r || !r.eta_at) return { error: 'That contractor hasn’t said when they can come' }
+  if (r.outcome === 'cant_attend') return { error: `${pname(r.people)} has said they can’t attend this one` }
   const before = await load(s, emId)
   const followup = new Date(new Date(r.eta_at).getTime() + set.followupMin * 60000).toISOString()
   const { data: won } = await s.from('emergencies').update({
