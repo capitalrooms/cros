@@ -2,6 +2,7 @@
 // Read from the records that already hold it — tenancy, holding deposits (198), move-in pack (187), rent charges,
 // the tenant's statement of account, generated documents, tenancy events (199) — so nothing is kept twice. Server-only (service client).
 
+import { formalName } from '@/lib/people'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPackContext, moneySummary } from '@/lib/movein/pack'
 import { tenantAccount } from '@/lib/finance/tenantAccount'
@@ -49,7 +50,7 @@ export function stageOf(t: { let_cancelled_at?: string | null; start_date?: stri
 export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
   const today = todayIso()
   const { data: t, error } = await s.from('tenancies')
-    .select('*, people!person_id(id, salutation, first_name, last_name, full_name, email, phone, occupation, right_to_rent_until, applicant_id), rooms(id, name, unit_code, status), properties(id, name, address, postcode, property_code, letting_type, landlord_id)')
+    .select('*, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email, phone, occupation, right_to_rent_until, applicant_id), rooms(id, name, unit_code, status), properties(id, name, address, postcode, property_code, letting_type, landlord_id)')
     .eq('id', tenancyId).maybeSingle() as { data: any; error: any }
   if (error) return { error: error.message }
   if (!t) return { error: 'Tenancy not found' }
@@ -109,7 +110,7 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
       tenancy: t,
       stage: stageOf(t, today),
       today,
-      tenant: { id: t.people?.id ?? t.person_id, name: name(t.people), formalName: [t.people?.salutation, name(t.people)].filter(Boolean).join(' '), email: t.people?.email ?? null, phone: t.people?.phone ?? null, occupation: t.people?.occupation ?? null, rightToRentUntil: t.people?.right_to_rent_until ?? null },
+      tenant: { id: t.people?.id ?? t.person_id, name: name(t.people), formalName: t.people ? formalName(t.people) : '', email: t.people?.email ?? null, phone: t.people?.phone ?? null, occupation: t.people?.occupation ?? null, rightToRentUntil: t.people?.right_to_rent_until ?? null },
       room: { id: room.id, name: room.name ?? '', unitCode: room.unit_code ?? null, status: room.status ?? null },
       property: { id: prop.id, name: prop.name ?? '', address: prop.address ?? '', postcode: prop.postcode ?? '', code: prop.property_code ?? null, lettingType: prop.letting_type ?? null },
       landlord: (landlordQ as any).data ? { id: (landlordQ as any).data.id, name: name((landlordQ as any).data), email: (landlordQ as any).data.email, phone: (landlordQ as any).data.phone } : null,

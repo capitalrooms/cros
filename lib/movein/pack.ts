@@ -6,7 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { firstRentPayment, parseTenancyDate, ukLongDate, type FirstRent } from '@/lib/tenancy/firstRent'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
-import { landlordFormalNames } from '@/lib/people'
+import { landlordFormalNames, formalName } from '@/lib/people'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
 import { generateTenancyAgreement } from '@/lib/tenancyAgreement/generate'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
@@ -78,7 +78,7 @@ const agreementDate = (d: Date) => `${ordinal(d.getDate())} ${d.toLocaleDateStri
 
 export async function loadPackContext(s: SupabaseClient, tenancyId: string): Promise<PackContext | null> {
   const { data: t } = await s.from('tenancies')
-    .select('id, start_date, rent_amount, rent_due_day, deposit_amount, holding_deposit_received, payment_reference, person_id, room_id, property_id, people!person_id(id, salutation, first_name, last_name, full_name, email), rooms(id, name)')
+    .select('id, start_date, rent_amount, rent_due_day, deposit_amount, holding_deposit_received, payment_reference, person_id, room_id, property_id, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email), rooms(id, name)')
     .eq('id', tenancyId).maybeSingle()
   if (!t) return null
   const { data: prop } = await s.from('properties').select('*').eq('id', (t as any).property_id).maybeSingle()
@@ -128,9 +128,10 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
     ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true })),
   ]
 
+  // formalName = title, first, middle and surname — it goes on the agreement
   return {
     tenancyId,
-    tenant: { id: p.id, name: tenantName, formalName: [p.salutation, tenantName].filter(Boolean).join(' '), firstName: p.first_name || tenantName.split(' ')[0], email: p.email || '' },
+    tenant: { id: p.id, name: tenantName, formalName: formalName(p) !== '—' ? formalName(p) : tenantName, firstName: p.first_name || tenantName.split(' ')[0], email: p.email || '' },
     room: { id: room.id, name: room.name || '' },
     property: { id: prop?.id, name: prop?.name || '', address: houseAddress, propertyId: prop?.id },
     lettingType: (prop as any)?.letting_type ?? null,
