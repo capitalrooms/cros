@@ -142,7 +142,7 @@ function Emergencies({ initialId, initialTab }: { initialId: string | null; init
 // ── one emergency ────────────────────────────────────────────────────────────
 
 function summary(em: any, rs: any[]) {
-  const answered = rs.filter(r => r.answer), yes = rs.filter(r => r.answer === 'yes' && r.eta_at)
+  const answered = rs.filter(r => r.answer), yes = rs.filter(r => r.answer === 'yes' && r.eta_at && r.outcome !== 'cant_attend')
   const chosen = rs.find(r => r.chosen)
   const soon = [...yes].sort((a, b) => a.eta_at.localeCompare(b.eta_at))[0]
   const asked = `${rs.length} asked, ${answered.length} answered${yes.length ? ` (${yes.length} can come)` : ''}`
@@ -202,11 +202,11 @@ function Detail({ d, act }: { d: any; act: (b: Record<string, unknown>) => Promi
                   <tr key={r.id} className={r.chosen ? 'bg-green-50' : ''}>
                     <td className="px-lg py-sm"><span className="font-semibold">{r.name}</span>{r.chosen && <span className="ml-xs rounded-full bg-green-600 px-sm py-0.5 text-[10px] font-bold text-white">COMING</span>}
                       <span className="block text-xs text-neutral-500">wave {r.wave} · {r.texted ? 'texted' : 'text failed'}{r.opened_at ? ' · opened' : ''}{r.phone ? <> · <a className="text-blue-700" href={`tel:${r.phone}`}>{r.phone}</a></> : ''}</span></td>
-                    <td className="py-sm">{r.answer === 'yes' ? 'Can come' : r.answer === 'no' ? 'Can’t' : r.stood_down_at ? '—' : 'Waiting'}{r.note ? <span className="block text-xs text-neutral-500">“{r.note}”</span> : null}</td>
+                    <td className="py-sm">{r.outcome === 'cant_attend' ? <span className="font-semibold text-red-700">Dropped out</span> : r.answer === 'yes' ? 'Can come' : r.answer === 'no' ? 'Can’t' : r.stood_down_at ? '—' : 'Waiting'}{r.note ? <span className="block text-xs text-neutral-500">“{r.note}”</span> : null}</td>
                     <td className="py-sm tabular-nums">{r.eta_at ? when(r.eta_at) : '—'}</td>
                     <td className="py-sm tabular-nums">{r.answer === 'yes' ? gbp(r.call_out_fee) : '—'}</td>
                     <td className="py-sm text-xs text-neutral-700">{r.outcome ? `${r.outcome.replace('_', ' ')}${r.part_needed ? ` · part: ${r.part_needed}` : ''}${r.fix_cost != null ? ` · fix ${gbp(r.fix_cost)}` : ''}${r.return_date ? ` · back ${r.return_date}` : ''}` : r.on_site_at ? `on site ${when(r.on_site_at)}` : '—'}</td>
-                    <td className="py-sm pr-lg text-right">{!closed && r.answer === 'yes' && !r.chosen && <button type="button" className={btn} onClick={() => { if (confirm(`Send ${r.name}${em.chosen_response_id ? ' instead' : ''}?`)) o('choose', { responseId: r.id }) }}>Send them</button>}</td>
+                    <td className="py-sm pr-lg text-right">{!closed && r.answer === 'yes' && !r.chosen && r.outcome !== 'cant_attend' && <button type="button" className={btn} onClick={() => { if (confirm(`Send ${r.name}${em.chosen_response_id ? ' instead' : ''}?`)) o('choose', { responseId: r.id }) }}>Send them</button>}</td>
                   </tr>
                 ))}
               </tbody>
