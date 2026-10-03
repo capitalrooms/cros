@@ -10,6 +10,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import EditPersonModal from '../components/EditPersonModal'
 import { displayName, landlordName, nameFields } from '@/lib/people'
+import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 type Tab = 'tenants' | 'staff' | 'landlords' | 'administrators'
@@ -87,7 +88,7 @@ export default function PeopleManagement() {
   // Add Person form
   const [showAddPerson, setShowAddPerson] = useState(false)
   const [formData, setFormData] = useState({
-    email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', last_name: '', phone: '',
+    email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', middle_name: '', last_name: '', phone: '',
     // Extended details
     date_of_birth: '', nationality: '', occupation: '', employer_name: '', annual_income: '',
     previous_address: '', how_heard: '',
@@ -104,6 +105,8 @@ export default function PeopleManagement() {
   // Landlords tab state
   const [landlords, setLandlords] = useState<Landlord[]>([])
   const [showAddLandlord, setShowAddLandlord] = useState(false)
+  const [emergencyNm, setEmergencyNm] = useState<NameValue>(emptyName())
+  const [guarantorNm, setGuarantorNm] = useState<NameValue>(emptyName())
   const [landlordForm, setLandlordForm] = useState({ email: '', salutation: '', first_name: '', last_name: '', company: '', company_number: '', selectedProperties: [] as string[] })
   const [landlord2Form, setLandlord2Form] = useState({ salutation: '', first_name: '', last_name: '', email: '' })
   const [hasJointLandlord, setHasJointLandlord] = useState(false)
@@ -216,7 +219,7 @@ export default function PeopleManagement() {
       const { error: err } = await supabase.from('people').insert([
         {
           email: formData.email,
-          ...nameFields(formData.first_name, formData.last_name),
+          ...nameFields(formData.first_name, formData.last_name, formData.role === 'tenant' ? formData.middle_name : undefined),
           salutation: formData.salutation || null,
           phone: formData.phone || null,
           date_of_birth: formData.date_of_birth || null,
@@ -231,8 +234,9 @@ export default function PeopleManagement() {
       if (err) throw err
 
       setSuccess(`User ${formData.email} added successfully`)
+      setEmergencyNm(emptyName()); setGuarantorNm(emptyName())
       setFormData({
-        email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', last_name: '', phone: '',
+        email: '', role: 'tenant', property_id: '', salutation: '', first_name: '', middle_name: '', last_name: '', phone: '',
         date_of_birth: '', nationality: '', occupation: '', employer_name: '', annual_income: '',
         previous_address: '', how_heard: '',
         emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relationship: '',
@@ -439,26 +443,11 @@ export default function PeopleManagement() {
                   {/* ── CORE DETAILS ── */}
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Identity</p>
-                    <div className="grid grid-cols-[110px_1fr_1fr] gap-md mb-md">
-                      <div>
-                        <label className="block text-xs font-semibold text-neutral-600 mb-xs">Salutation</label>
-                        <select value={formData.salutation} onChange={e => setFormData({ ...formData, salutation: e.target.value })}
-                          className="w-full rounded-lg border border-neutral-300 px-sm py-sm text-sm bg-white">
-                          <option value="">—</option>
-                          {['Mr','Mrs','Ms','Miss','Dr','Prof','Rev','Mx'].map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-neutral-600 mb-xs">First name <span className="text-red-500">*</span></label>
-                        <input type="text" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })}
-                          className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="Jane" required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-neutral-600 mb-xs">Last name <span className="text-red-500">*</span></label>
-                        <input type="text" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })}
-                          className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="Doe" required />
-                      </div>
-                    </div>
+                    <NameInput className="mb-md" required titleRequired withMiddle
+                      value={{ salutation: formData.salutation, first_name: formData.first_name, middle_name: formData.middle_name, last_name: formData.last_name }}
+                      onChange={n => setFormData({ ...formData, salutation: n.salutation, first_name: n.first_name, middle_name: n.middle_name ?? '', last_name: n.last_name })}
+                      inputClass="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm"
+                      labelClass="block text-xs font-semibold text-neutral-600 mb-xs" />
                     <div className="grid grid-cols-2 gap-md">
                       <div>
                         <label className="block text-xs font-semibold text-neutral-600 mb-xs">Email <span className="text-red-500">*</span></label>
@@ -552,10 +541,9 @@ export default function PeopleManagement() {
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Emergency contact</p>
                           <div className="grid grid-cols-3 gap-md">
-                            <div>
-                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Full name</label>
-                              <input type="text" value={formData.emergency_contact_name} onChange={e => setFormData({ ...formData, emergency_contact_name: e.target.value })}
-                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="Jane Smith" />
+                            <div className="col-span-3">
+                              <NameInput value={emergencyNm} onChange={n => { setEmergencyNm(n); setFormData({ ...formData, emergency_contact_name: toFullName(n) }) }}
+                                inputClass="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" labelClass="block text-xs font-semibold text-neutral-600 mb-xs" />
                             </div>
                             <div>
                               <label className="block text-xs font-semibold text-neutral-600 mb-xs">Phone</label>
@@ -574,10 +562,9 @@ export default function PeopleManagement() {
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Guarantor <span className="normal-case font-normal text-neutral-400">(if applicable)</span></p>
                           <div className="grid grid-cols-3 gap-md">
-                            <div>
-                              <label className="block text-xs font-semibold text-neutral-600 mb-xs">Full name</label>
-                              <input type="text" value={formData.guarantor_name} onChange={e => setFormData({ ...formData, guarantor_name: e.target.value })}
-                                className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" placeholder="John Doe" />
+                            <div className="col-span-3">
+                              <NameInput value={guarantorNm} onChange={n => { setGuarantorNm(n); setFormData({ ...formData, guarantor_name: toFullName(n) }) }} withMiddle
+                                inputClass="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" labelClass="block text-xs font-semibold text-neutral-600 mb-xs" />
                             </div>
                             <div>
                               <label className="block text-xs font-semibold text-neutral-600 mb-xs">Email</label>

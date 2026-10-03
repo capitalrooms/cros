@@ -10,6 +10,7 @@ interface Person {
   email: string
   salutation?: string
   first_name?: string
+  middle_name?: string | null
   last_name?: string
   full_name?: string
   name?: string  // kept for compat; live DB uses full_name
@@ -34,6 +35,7 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
   const [formData, setFormData] = useState({
     salutation: person.salutation || '',
     first_name: initFirst,
+    middle_name: person.middle_name || '',
     last_name: initLast,
     email: person.email || '',
     phone_number: person.phone || person.phone_number || '',
@@ -56,7 +58,7 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
     setError('')
     try {
       const supabase = createClient()
-      const names = nameFields(formData.first_name, formData.last_name)
+      const names = nameFields(formData.first_name, formData.last_name, formData.middle_name)
       // bank_details arrives with migration 183 — save everything else even before it exists
       const { error: err } = await withOptionalColumns(withNew => supabase
         .from('people')
@@ -97,20 +99,20 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
         <div className="space-y-md">
           {/* Salutation + Name */}
           <div>
-            <label className="block text-sm font-semibold text-neutral-700 mb-xs">Salutation</label>
+            <label className="block text-sm font-semibold text-neutral-700 mb-xs">Title</label>
             <select
               value={formData.salutation}
               onChange={(e) => setFormData({ ...formData, salutation: e.target.value })}
               className="w-full rounded-lg border border-neutral-300 px-md py-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             >
-              <option value="">— None —</option>
+              <option value="">Select…</option>
               {SALUTATIONS.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-md">
             <div>
               <label className="block text-sm font-semibold text-neutral-700 mb-xs">
-                First Name
+                First name
               </label>
               <input
                 type="text"
@@ -122,7 +124,19 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
             </div>
             <div>
               <label className="block text-sm font-semibold text-neutral-700 mb-xs">
-                Last Name
+                Middle name(s)
+              </label>
+              <input
+                type="text"
+                value={formData.middle_name}
+                onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
+                className="w-full rounded-lg border border-neutral-300 px-md py-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="If any"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-neutral-700 mb-xs">
+                Surname
               </label>
               <input
                 type="text"

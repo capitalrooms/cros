@@ -43,15 +43,25 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
   const { data: existing } = await sb.from('people').select('id').ilike('email', applicant.email).limit(1).maybeSingle()
   let personId: string
   if (existing) {
-    const { error } = await sb.from('people').update({ applicant_id: applicant.id, updated_at: new Date().toISOString() }).eq('id', existing.id)
+    // an existing person: fill in any name parts we didn't have, never overwrite ones the office set
+    const { data: cur } = await sb.from('people').select('salutation, first_name, middle_name, last_name').eq('id', existing.id).maybeSingle() as { data: any }
+    const fill: Record<string, unknown> = {}
+    if (!cur?.salutation && applicant.salutation) fill.salutation = applicant.salutation
+    if (!cur?.middle_name && applicant.middle_name) fill.middle_name = applicant.middle_name
+    if (!cur?.first_name && applicant.first_name) fill.first_name = applicant.first_name
+    if (!cur?.last_name && applicant.last_name) fill.last_name = applicant.last_name
+    const { error } = await sb.from('people').update({ applicant_id: applicant.id, ...fill, updated_at: new Date().toISOString() }).eq('id', existing.id)
     if (error) return { error: error.message, status: 500 }
     personId = existing.id
   } else {
+    // the application gives title / first / middle / surname (migration 206); older ones only a full name
     const nameParts = String(applicant.full_name || '').trim().split(/\s+/)
     const { data: created, error } = await sb.from('people').insert({
       email: applicant.email,
-      first_name: nameParts[0] || '',
-      last_name: nameParts.slice(1).join(' ') || '',
+      salutation: applicant.salutation || null,
+      first_name: applicant.first_name || nameParts[0] || '',
+      middle_name: applicant.middle_name || null,
+      last_name: applicant.last_name || nameParts.slice(1).join(' ') || '',
       full_name: applicant.full_name,
       phone: applicant.phone || null,
       date_of_birth: applicant.date_of_birth || null,

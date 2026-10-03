@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
             property_id:    propertyId,
             viewing_id:     viewingRow?.id || null,
             full_name:      visitorName,
+            ...(manual?.first_name ? { salutation: String(manual.salutation || '').slice(0, 10) || null, first_name: String(manual.first_name).slice(0, 80), last_name: String(manual.last_name || '').slice(0, 80) || null } : {}),
             email:          visitorEmail,
             phone:          visitorPhone || null,
             pipeline_stage: stage,

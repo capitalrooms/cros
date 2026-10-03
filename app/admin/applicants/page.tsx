@@ -8,7 +8,7 @@ import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
-import NameInput, { type NameValue, emptyName, toFullName } from '@/app/components/NameInput'
+import NameInput, { type NameValue, emptyName, toFullName, toLegalName } from '@/app/components/NameInput'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
 
 const STAGES = [
@@ -278,7 +278,11 @@ export default function ApplicantsPage() {
       const { data, error: err } = await sb
         .from('applicants')
         .insert({
-          full_name:      fullName.trim(),
+          full_name:      (toLegalName(addForm.name) || fullName).trim(),
+          salutation:     addForm.name.salutation || null,
+          first_name:     addForm.name.first_name.trim() || null,
+          middle_name:    addForm.name.middle_name?.trim() || null,
+          last_name:      addForm.name.last_name.trim() || null,
           email:          addForm.email.trim().toLowerCase(),
           phone:          addForm.phone.trim() || null,
           room_id:        addForm.room_id,
@@ -344,7 +348,7 @@ export default function ApplicantsPage() {
                 <NameInput
                   value={addForm.name}
                   onChange={n => setAddForm(f => ({ ...f, name: n, full_name: toFullName(n) }))}
-                  required
+                  required titleRequired withMiddle
                 />
               </div>
               <div>

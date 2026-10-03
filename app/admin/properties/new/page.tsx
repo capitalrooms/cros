@@ -1,5 +1,6 @@
 'use client'
 
+import NameInput from '@/app/components/NameInput'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -40,6 +41,7 @@ export default function NewPropertyPage() {
   const [landlordSearch, setLandlordSearch] = useState('')
   const [selectedLandlord, setSelectedLandlord] = useState<LandlordOption | null>(null)
   const [landlordMode, setLandlordMode] = useState<'search' | 'add_new'>('search')
+  const [newLLSalutation, setNewLLSalutation] = useState('')
   const [newLLFirstName, setNewLLFirstName] = useState('')
   const [newLLLastName, setNewLLLastName] = useState('')
   const [newLLEmail, setNewLLEmail] = useState('')
@@ -109,8 +111,8 @@ export default function NewPropertyPage() {
   })
 
   async function handleCreateNewLandlord() {
-    if (!newLLFirstName.trim() || !newLLEmail.trim()) {
-      setNewLLError('First name and email are required.')
+    if (!newLLSalutation || !newLLFirstName.trim() || !newLLLastName.trim() || !newLLEmail.trim()) {
+      setNewLLError('Title, first name, surname and email are required.')
       return
     }
     setSavingNewLL(true)
@@ -120,6 +122,7 @@ export default function NewPropertyPage() {
       const { data: ll, error: e } = await supabase
         .from('people')
         .insert({
+          salutation: newLLSalutation || null,
           first_name: newLLFirstName.trim(),
           last_name: newLLLastName.trim() || null,
           full_name: [newLLFirstName.trim(), newLLLastName.trim()].filter(Boolean).join(' '),
@@ -135,7 +138,7 @@ export default function NewPropertyPage() {
       setAllLandlords(prev => [...prev, ll])
       setSelectedLandlord(ll)
       setLandlordMode('search')
-      setNewLLFirstName(''); setNewLLLastName(''); setNewLLEmail(''); setNewLLPhone('')
+      setNewLLSalutation(''); setNewLLFirstName(''); setNewLLLastName(''); setNewLLEmail(''); setNewLLPhone('')
     } catch (err: any) {
       setNewLLError(err.message || 'Could not save landlord — try again.')
     } finally {
@@ -508,15 +511,10 @@ export default function NewPropertyPage() {
                       <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-md py-sm">{newLLError}</p>
                     )}
                     <div className="grid grid-cols-2 gap-md">
-                      <div>
-                        <label className={labelClass}>First name *</label>
-                        <input value={newLLFirstName} onChange={e => setNewLLFirstName(e.target.value)}
-                          placeholder="Cameron" className={smallInputClass} />
-                      </div>
-                      <div>
-                        <label className={labelClass}>Last name</label>
-                        <input value={newLLLastName} onChange={e => setNewLLLastName(e.target.value)}
-                          placeholder="Bennett" className={smallInputClass} />
+                      <div className="col-span-2">
+                        <NameInput required titleRequired value={{ salutation: newLLSalutation, first_name: newLLFirstName, last_name: newLLLastName }}
+                          onChange={n => { setNewLLSalutation(n.salutation); setNewLLFirstName(n.first_name); setNewLLLastName(n.last_name) }}
+                          inputClass={smallInputClass} labelClass={labelClass} />
                       </div>
                       <div>
                         <label className={labelClass}>Email *</label>

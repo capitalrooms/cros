@@ -165,6 +165,7 @@ export async function POST(request: Request) {
             room_id:        data.roomId,
             property_id:    data.propertyId,
             full_name:      data.applicantName || data.applicantEmail,
+            ...(data.firstName ? { salutation: String(data.salutation || '').slice(0, 10) || null, first_name: String(data.firstName).slice(0, 80), last_name: String(data.lastName || '').slice(0, 80) || null } : {}),
             email:          data.applicantEmail,
             pipeline_stage: newStage,
             offer_id:       offerId,

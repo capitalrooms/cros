@@ -38,7 +38,11 @@ export async function POST(req: NextRequest) {
   // Insert new row at stage 1
   const { data: row, error } = await svc()
     .from('landlord_onboarding')
-    .insert({ full_name: full_name_or_name.trim(), email: email.trim(), phone: phone?.trim() || null, created_by: created_by || null })
+    .insert({
+      full_name: full_name_or_name.trim(), email: email.trim(), phone: phone?.trim() || null, created_by: created_by || null,
+      // the name as the office typed it, ready in the landlord's own form
+      ...(body.first_name ? { form_data: { salutation: String(body.salutation || '').slice(0, 10), first_name: String(body.first_name).slice(0, 80), last_name: String(body.last_name || '').slice(0, 80) } } : {}),
+    })
     .select()
     .single()
 
@@ -50,7 +54,7 @@ export async function POST(req: NextRequest) {
   let emailError: string | undefined
 
   const onboardTpl = await getTemplate('landlord-onboarding-welcome')
-  const firstName = full_name_or_name.trim().split(' ')[0]
+  const firstName = String(body.first_name || full_name_or_name.trim().split(' ')[0])
   const welcomeSubject = onboardTpl?.subject_line
     ? render(onboardTpl.subject_line, { first_name: firstName })
     : 'Welcome to Capital Rooms — Getting Started'

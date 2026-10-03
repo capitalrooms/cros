@@ -1,5 +1,6 @@
 'use client'
 
+import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/components/NameInput'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
@@ -24,6 +25,7 @@ export default function InviteToApplyPage() {
   const [selected, setSelected] = useState<any | null>(null)
   const [manualMode, setManualMode] = useState(false)
   const [manual, setManual] = useState({ name: '', email: '', phone: '', property_id: '', room_id: '' })
+  const [manualNm, setManualNm] = useState<NameValue>(emptyName())
   const [method, setMethod] = useState<'email' | 'sms' | 'both'>('email')
   const [mode, setMode] = useState<'apply' | 'fasttrack' | 'reserve'>('apply')
   const [sending, setSending] = useState(false)
@@ -80,7 +82,7 @@ export default function InviteToApplyPage() {
   const contactPhone = manualMode ? manual.phone : selected?.visitor_phone
 
   const canSend = manualMode
-    ? manual.name.trim() && manual.room_id && (manual.email.trim() || manual.phone.trim())
+    ? manualNm.salutation && manualNm.first_name.trim() && manualNm.last_name.trim() && manual.room_id && (manual.email.trim() || manual.phone.trim())
     : !!selected
 
   const send = async () => {
@@ -89,7 +91,7 @@ export default function InviteToApplyPage() {
     setResult(null)
 
     const body = manualMode
-      ? { manual: { name: manual.name, email: manual.email, phone: manual.phone, room_id: manual.room_id, property_id: manual.property_id }, method, mode }
+      ? { manual: { name: manual.name, salutation: manualNm.salutation, first_name: manualNm.first_name.trim(), last_name: manualNm.last_name.trim(), email: manual.email, phone: manual.phone, room_id: manual.room_id, property_id: manual.property_id }, method, mode }
       : { viewingId: selected.id, method, mode }
 
     try {
@@ -199,15 +201,11 @@ export default function InviteToApplyPage() {
           {manualMode && (
             <div className="mt-md space-y-sm border border-neutral-200 rounded-lg p-md bg-neutral-50">
               <div className="grid grid-cols-2 gap-sm">
-                <div>
-                  <label className="text-xs font-medium text-neutral-600 block mb-xs">Name *</label>
-                  <input
-                    type="text"
-                    value={manual.name}
-                    onChange={e => setManual(m => ({ ...m, name: e.target.value }))}
-                    placeholder="e.g. Sarah Johnson"
-                    className="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
-                  />
+                <div className="col-span-2">
+                  <NameInput value={manualNm} required titleRequired
+                    onChange={n => { setManualNm(n); setManual(m => ({ ...m, name: toLegalName(n) })) }}
+                    inputClass="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
+                    labelClass="text-xs font-medium text-neutral-600 block mb-xs" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-neutral-600 block mb-xs">

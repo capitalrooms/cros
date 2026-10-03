@@ -9,6 +9,7 @@
  * Shows existing contacts + add/remove form. Used inside the let-only detail view.
  */
 
+import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 
@@ -31,6 +32,7 @@ export default function LetOnlyContactsSection({ listingId }: Props) {
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState('')
+  const [nm, setNm] = useState<NameValue>(emptyName())
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [roomInfo, setRoomInfo] = useState('')
@@ -60,7 +62,7 @@ export default function LetOnlyContactsSection({ listingId }: Props) {
       room_info: roomInfo.trim() || null,
     })
     if (err) { setError(err.message); setSaving(false); return }
-    setName(''); setEmail(''); setPhone(''); setRoomInfo('')
+    setName(''); setNm(emptyName()); setEmail(''); setPhone(''); setRoomInfo('')
     setAdding(false)
     setSaving(false)
     await loadContacts()
@@ -119,15 +121,10 @@ export default function LetOnlyContactsSection({ listingId }: Props) {
       {adding && (
         <div className="mt-sm rounded-xl border border-neutral-200 bg-white p-md space-y-sm">
           <div className="grid grid-cols-2 gap-sm">
-            <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-xs">Name *</label>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Full name"
-                className="w-full rounded-lg border border-neutral-300 px-sm py-xs text-sm text-neutral-900 focus:border-blue-500 outline-none"
-              />
+            <div className="col-span-2">
+              <NameInput value={nm} required onChange={n => { setNm(n); setName(toFullName(n)) }}
+                inputClass="w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900 focus:border-blue-500 outline-none"
+                labelClass="block text-xs font-medium text-neutral-600 mb-xs" />
             </div>
             <div>
               <label className="block text-xs font-medium text-neutral-600 mb-xs">Room</label>

@@ -1,5 +1,6 @@
 'use client'
 
+import NameInput, { emptyName, toFullName } from '@/app/components/NameInput'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 
@@ -22,7 +23,9 @@ export default function ApplicantForm() {
   const [success, setSuccess] = useState(false)
 
   // Personal info
+  const [salutation, setSalutation] = useState('')
   const [firstName, setFirstName] = useState('')
+  const [middleName, setMiddleName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -84,6 +87,7 @@ export default function ApplicantForm() {
   // a guarantor needs 36 × the monthly rent a year)
   const [guarantorNeeded, setGuarantorNeeded] = useState<'' | 'no' | 'yes' | 'not_sure'>('')
   const [guarantorName, setGuarantorName] = useState('')
+  const [guarantorNm, setGuarantorNm] = useState(emptyName())
   const [guarantorEmail, setGuarantorEmail] = useState('')
   const [guarantorPhone, setGuarantorPhone] = useState('')
 
@@ -163,7 +167,7 @@ export default function ApplicantForm() {
     setLoading(true)
 
     // Validate required fields
-    if (!firstName || !lastName || !email || !profession || !bio) {
+    if (!salutation || !firstName.trim() || !lastName.trim() || !email || !profession || !bio) {
       setError('Please fill in all required fields')
       setLoading(false)
       return
@@ -176,7 +180,7 @@ export default function ApplicantForm() {
       setLoading(false)
       return
     }
-    if (needsGuarantorDetails && (!guarantorName.trim() || !guarantorPhone.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guarantorEmail.trim()))) {
+    if (needsGuarantorDetails && (!guarantorNm.salutation || !guarantorNm.first_name.trim() || !guarantorNm.last_name.trim() || !guarantorPhone.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guarantorEmail.trim()))) {
       setError('Please add your guarantor’s full name, mobile number and email address')
       setLoading(false)
       return
@@ -201,7 +205,8 @@ export default function ApplicantForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullName: `${firstName.trim()} ${lastName.trim()}`.trim(),
+          fullName: [firstName, middleName, lastName].map(x => x.trim()).filter(Boolean).join(' '),
+          salutation, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
           email,
           phone,
           dateOfBirth,
@@ -358,34 +363,14 @@ export default function ApplicantForm() {
             </h2>
 
             <div className="space-y-md">
-              <div className="grid grid-cols-2 gap-md">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                    First name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="First name"
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                    Last name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Last name"
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                    required
-                  />
-                </div>
-              </div>
+              <NameInput
+                value={{ salutation, first_name: firstName, middle_name: middleName, last_name: lastName }}
+                onChange={n => { setSalutation(n.salutation); setFirstName(n.first_name); setMiddleName(n.middle_name ?? ''); setLastName(n.last_name) }}
+                required titleRequired withMiddle
+                inputClass="w-full px-md py-sm border border-neutral-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                labelClass="block text-sm font-medium text-neutral-900 mb-xs"
+              />
+              <p className="-mt-xs text-xs text-neutral-500">Your full legal name, as on your passport or ID — it goes on your tenancy agreement.</p>
 
               <div>
                 <label className="block text-sm font-medium text-neutral-900 mb-xs">
@@ -865,8 +850,7 @@ export default function ApplicantForm() {
                 {showDetails && (
                   <div className="grid gap-md sm:grid-cols-3">
                     <div className="sm:col-span-3">
-                      <label className="block text-sm font-medium text-neutral-900 mb-xs">Guarantor’s full name <span className="text-red-500">*</span></label>
-                      <input type="text" value={guarantorName} onChange={e => setGuarantorName(e.target.value)} autoComplete="off" className={field} />
+                      <NameInput value={guarantorNm} onChange={n => { setGuarantorNm(n); setGuarantorName(toFullName(n)) }} required titleRequired withMiddle label="Guarantor’s full name" inputClass={field} labelClass="block text-sm font-medium text-neutral-900 mb-xs" />
                     </div>
                     <div className="sm:col-span-1">
                       <label className="block text-sm font-medium text-neutral-900 mb-xs">Mobile <span className="text-red-500">*</span></label>

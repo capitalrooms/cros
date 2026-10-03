@@ -1,5 +1,5 @@
 'use client'
-import { displayName } from '@/lib/people'
+import { displayName, nameFields } from '@/lib/people'
 
 import { useState, useEffect, use, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import NameInput, { emptyName, type NameValue } from '@/app/components/NameInput'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -148,7 +149,7 @@ export default function RoomDashboardPage({
   const [showAssignTenant, setShowAssignTenant] = useState(false)
   const [assignBusy, setAssignBusy] = useState(false)
   const [assignError, setAssignError] = useState<string | null>(null)
-  const [newTenantName, setNewTenantName] = useState('')
+  const [newTenant, setNewTenant] = useState<NameValue>(emptyName())
   const [newTenantEmail, setNewTenantEmail] = useState('')
   const [newTenantPhone, setNewTenantPhone] = useState('')
   const [newTenancyStartDate, setNewTenancyStartDate] = useState(new Date().toISOString().slice(0, 10))
@@ -161,7 +162,7 @@ export default function RoomDashboardPage({
   const [newTenancyLeaseRef, setNewTenancyLeaseRef] = useState('')
   // Co-tenant (couples / joint tenants)
   const [showCoTenant, setShowCoTenant] = useState(false)
-  const [coTenantName, setCoTenantName] = useState('')
+  const [coTenant, setCoTenant] = useState<NameValue>(emptyName())
   const [coTenantEmail, setCoTenantEmail] = useState('')
   const [coTenantPhone, setCoTenantPhone] = useState('')
 
@@ -513,8 +514,8 @@ export default function RoomDashboardPage({
   // ─── assign tenant ─────────────────────────────────────────────────────────
 
   async function handleAssignTenant() {
-    if (!newTenantName.trim() || !newTenantEmail.trim() || !newTenancyStartDate) {
-      setAssignError('Name, email and start date are required.')
+    if (!newTenant.salutation || !newTenant.first_name.trim() || !newTenant.last_name.trim() || !newTenantEmail.trim() || !newTenancyStartDate) {
+      setAssignError('Title, first name, surname, email and start date are required.')
       return
     }
     setAssignBusy(true)
@@ -531,17 +532,16 @@ export default function RoomDashboardPage({
       if (existing) {
         personId = existing.id
         await supabase.from('people').update({
-          first_name: newTenantName.trim().split(' ')[0] || null,
-          last_name: newTenantName.trim().split(' ').slice(1).join(' ') || null,
+          salutation: newTenant.salutation || null,
+          ...nameFields(newTenant.first_name, newTenant.last_name, newTenant.middle_name ?? ''),
           phone: newTenantPhone.trim() || null,
         }).eq('id', personId)
       } else {
-        const nameParts = newTenantName.trim().split(' ')
         const { data: newPerson, error: pe } = await supabase
           .from('people')
           .insert({
-            first_name: nameParts[0] || newTenantName.trim(),
-            last_name: nameParts.slice(1).join(' ') || null,
+            salutation: newTenant.salutation || null,
+            ...nameFields(newTenant.first_name, newTenant.last_name, newTenant.middle_name ?? ''),
             email: newTenantEmail.trim().toLowerCase(),
             phone: newTenantPhone.trim() || null,
             role: 'tenant',
@@ -562,19 +562,17 @@ export default function RoomDashboardPage({
           .maybeSingle()
         if (existingCt) {
           coTenantId = existingCt.id
-          const ctParts = coTenantName.trim().split(' ')
           await supabase.from('people').update({
-            first_name: ctParts[0] || null,
-            last_name: ctParts.slice(1).join(' ') || null,
+            salutation: coTenant.salutation || null,
+            ...nameFields(coTenant.first_name, coTenant.last_name, coTenant.middle_name ?? ''),
             phone: coTenantPhone.trim() || null,
           }).eq('id', coTenantId)
         } else {
-          const ctParts = coTenantName.trim().split(' ')
           const { data: newCt, error: cte } = await supabase
             .from('people')
             .insert({
-              first_name: ctParts[0] || coTenantName.trim(),
-              last_name: ctParts.slice(1).join(' ') || null,
+              salutation: coTenant.salutation || null,
+              ...nameFields(coTenant.first_name, coTenant.last_name, coTenant.middle_name ?? ''),
               email: coTenantEmail.trim().toLowerCase(),
               phone: coTenantPhone.trim() || null,
               role: 'tenant',
@@ -616,7 +614,7 @@ export default function RoomDashboardPage({
 
       // Reset + reload
       setShowAssignTenant(false)
-      setNewTenantName('')
+      setNewTenant(emptyName())
       setNewTenantEmail('')
       setNewTenantPhone('')
       setNewTenancyRent('')
@@ -1008,11 +1006,10 @@ export default function RoomDashboardPage({
                           <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-md py-sm">{assignError}</p>
                         )}
                         <div className="grid gap-md sm:grid-cols-2">
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Full name *</label>
-                            <input value={newTenantName} onChange={e => setNewTenantName(e.target.value)}
-                              placeholder="Jane Smith"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                          <div className="sm:col-span-2">
+                            <NameInput value={newTenant} onChange={setNewTenant} required titleRequired withMiddle
+                              inputClass="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                              labelClass="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider" />
                           </div>
                           <div>
                             <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Email *</label>
@@ -1090,15 +1087,14 @@ export default function RoomDashboardPage({
                           <div className="border-t border-neutral-200 pt-md space-y-md">
                             <div className="flex items-center justify-between">
                               <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">Co-tenant</p>
-                              <button type="button" onClick={() => { setShowCoTenant(false); setCoTenantName(''); setCoTenantEmail(''); setCoTenantPhone('') }}
+                              <button type="button" onClick={() => { setShowCoTenant(false); setCoTenant(emptyName()); setCoTenantEmail(''); setCoTenantPhone('') }}
                                 className="text-xs text-neutral-400 hover:text-neutral-700">✕ Remove</button>
                             </div>
                             <div className="grid gap-md sm:grid-cols-2">
-                              <div>
-                                <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Full name</label>
-                                <input value={coTenantName} onChange={e => setCoTenantName(e.target.value)}
-                                  placeholder="Alex Smith"
-                                  className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                              <div className="sm:col-span-2">
+                                <NameInput value={coTenant} onChange={setCoTenant} withMiddle
+                                  inputClass="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                  labelClass="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider" />
                               </div>
                               <div>
                                 <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Email</label>

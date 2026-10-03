@@ -5,6 +5,8 @@
  * Used by contractor, cleaner, lettings, and (in a wrapper) landlord.
  */
 
+import NameInput from '@/app/components/NameInput'
+import { nameFields } from '@/lib/people'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -38,7 +40,9 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
   const [userRole, setUserRole] = useState('')
 
   const [form, setForm] = useState({
+    salutation: '',
     first_name: '',
+    middle_name: '',
     last_name:  '',
     phone:      '',
     job_title:    '',
@@ -72,7 +76,9 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
       if (!p) { setLoading(false); return }
       setPerson(p)
       setForm({
+        salutation: p.salutation || '',
         first_name: p.first_name || '',
+        middle_name: p.middle_name || '',
         last_name:  p.last_name  || '',
         phone:      p.phone      || '',
         job_title:    p.job_title    || '',
@@ -177,8 +183,8 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
     const { error: err } = await supabase
       .from('people')
       .update({
-        first_name: form.first_name.trim(),
-        last_name:  form.last_name.trim(),
+        salutation: form.salutation || null,
+        ...nameFields(form.first_name, form.last_name, userRole === 'tenant' ? form.middle_name : undefined),
         phone:      form.phone.trim() || null,
         // staff only: these fill the signature on emails they send
         ...(isStaff ? { job_title: form.job_title.trim() || null, direct_phone: form.direct_phone.trim() || null } : {}),
@@ -237,22 +243,11 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
           </div>
           <div className="px-xl py-xl space-y-lg">
 
-            <div className="grid grid-cols-2 gap-lg">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">First name</label>
-                <input type="text" value={form.first_name}
-                  onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
-                  placeholder="First name"
-                  className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Last name</label>
-                <input type="text" value={form.last_name}
-                  onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))}
-                  placeholder="Last name"
-                  className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-              </div>
-            </div>
+            <NameInput withMiddle={userRole === 'tenant'}
+              value={{ salutation: form.salutation, first_name: form.first_name, middle_name: form.middle_name, last_name: form.last_name }}
+              onChange={n => setForm(f => ({ ...f, salutation: n.salutation, first_name: n.first_name, middle_name: n.middle_name ?? '', last_name: n.last_name }))}
+              inputClass="w-full px-md py-sm border border-neutral-200 rounded-lg bg-white text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              labelClass="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm" />
 
             <div>
               <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Email</label>
