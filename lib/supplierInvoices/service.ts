@@ -88,7 +88,7 @@ export async function shape(s: S, personId: string, role: 'contractor' | 'cleane
 
   let property: any = null
   if (d.propertyId) {
-    const { data } = await s.from('properties').select('id, name, address, postcode').eq('id', d.propertyId).maybeSingle()
+    const { data } = await s.from('properties').select('id, name, address, postcode, letting_type').eq('id', d.propertyId).maybeSingle()
     property = data
   }
   const client = d.toCapitalRooms
@@ -101,7 +101,7 @@ export async function shape(s: S, personId: string, role: 'contractor' | 'cleane
   const vat = prof.vatRegistered ? r2((labourTotal + partsTotal) * 0.2) : 0
   const period = d.periodFrom && d.periodTo ? `${new Date(`${d.periodFrom}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(`${d.periodTo}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : null
   return {
-    prof, client, property, lines, issue, due: addDays(issue, prof.paymentDays), labourTotal, partsTotal, vat, total: r2(labourTotal + partsTotal + vat), period,
+    ours: !!d.toCapitalRooms, prof, client, property, lines, issue, due: addDays(issue, prof.paymentDays), labourTotal, partsTotal, vat, total: r2(labourTotal + partsTotal + vat), period,
     propertyLine: property ? [firstLine(property.name), String(property.address ?? '').replace(/\n/g, ', '), property.postcode].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ') : null,
   }
 }
@@ -119,6 +119,8 @@ export async function pdfFor(s: S, sh: any, number: number, notes?: string | nul
     lines: sh.lines.map((l: Line) => ({ description: l.description, where: l.where, labour: l.labour, parts: l.parts })),
     labourTotal: sh.labourTotal, partsTotal: sh.partsTotal, vat: sh.vat, total: sh.total,
     bank: { name: sh.prof.bankName, sortCode: sh.prof.sortCode, accountNo: sh.prof.accountNo }, notes: notes ?? null,
+    // our own managed houses get a plain invoice; everything else carries 'Powered by Capital Rooms'
+    poweredBy: !sh.ours || sh.property?.letting_type === 'let_only',
   })
 }
 

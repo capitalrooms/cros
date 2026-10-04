@@ -815,6 +815,9 @@ export default function JobDetailPage() {
                   <h3 className="font-bold text-green-800">✅ Completed</h3>
                   <p className="mt-xs text-sm text-green-700">This job is done and everyone's been notified.</p>
                 </div>
+                {!(job as any).supplier_invoice_id && (
+                  <a href={`/contractor/invoices?job=${job.id}${searchParams.get('as') ? `&as=${searchParams.get('as')}` : ''}`} className="flex items-center justify-between rounded-2xl bg-neutral-900 px-lg py-md text-sm font-bold text-white">🧾 Invoice this job — ready in a minute<span aria-hidden="true">›</span></a>
+                )}
                 {completionMessage && (
                   <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-lg">
                     <h3 className="font-bold text-blue-900 mb-md">Notifications Sent</h3>

@@ -16,6 +16,7 @@ export interface SupplierInvoicePdf {
   labourTotal: number; partsTotal: number; vat: number; total: number
   bank?: { name?: string | null; sortCode?: string | null; accountNo?: string | null } | null
   notes?: string | null
+  poweredBy?: boolean   // not for a Capital Rooms managed property (another client, or a let-only house): 'Powered by Capital Rooms' at the foot
 }
 
 const PALETTE = ['#1F4E79', '#2E6B4F', '#7A3E2E', '#4B3F72', '#2F5D62', '#8A5A00', '#5B4636', '#3D5A80']
@@ -122,6 +123,13 @@ export async function renderSupplierInvoice(d: SupplierInvoicePdf): Promise<Buff
   doc.text(`${pay}\nPayment due by ${day(d.dueDate)}.${d.vat ? '' : ' No VAT has been charged.'}`, M + 14, y + 26, { width: CW - 28, lineGap: 2 })
   y += 82
   if (d.notes) doc.font(REG).fontSize(9).fillColor(MUTED).text(d.notes, M, y, { width: CW })
+  if (d.poweredBy) {
+    const H = 841.89
+    doc.page.margins.bottom = 0   // the footer sits below the normal margin; without this the text would start a new page
+    doc.moveTo(M, H - 46).lineTo(W - M, H - 46).lineWidth(0.5).strokeColor(RULE).stroke()
+    doc.font(BOLD).fontSize(8).fillColor(MUTED).text('Powered by Capital Rooms', M, H - 38, { width: CW, align: 'center', lineBreak: false })
+    doc.font(REG).fontSize(7).fillColor(MUTED).text('Invoices made free with CROS · capitalrooms.co.uk', M, H - 27, { width: CW, align: 'center', lineBreak: false })
+  }
 
   doc.end()
   return done
