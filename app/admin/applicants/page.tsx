@@ -204,13 +204,13 @@ export default function ApplicantsPage() {
     return counts
   }, [applicants])
 
-  async function advanceStage(applicant: Applicant, newStage: Stage) {
+  async function advanceStage(applicant: Applicant, newStage: Stage, force = false) {
     setAdvancing(applicant.id)
     try {
       const res = await fetch(`/api/applicants/${applicant.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pipeline_stage: newStage }),
+        body: JSON.stringify({ pipeline_stage: newStage, ...(force ? { force: true } : {}) }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -727,6 +727,19 @@ export default function ApplicantsPage() {
                           >
                             {advancing === applicant.id ? 'Updating…' : `→ Mark as ${nextStage.label}`}
                           </button>
+                        )}
+
+                        {/* Move to any stage without sending anything (e.g. already referencing, offer agreed by phone) */}
+                        {!isConverted && (
+                          <label className="flex items-center gap-xs text-xs text-neutral-600">
+                            Stage
+                            <select value={applicant.pipeline_stage} disabled={advancing === applicant.id}
+                              onChange={e => { const to = e.target.value as Stage; if (to !== applicant.pipeline_stage && confirm(`Move ${applicant.full_name} to “${STAGES.find(x => x.key === to)?.label}”? No email is sent.`)) advanceStage(applicant, to, true) }}
+                              className="rounded-lg border border-neutral-300 bg-white px-sm py-xs text-xs font-semibold text-neutral-800">
+                              {STAGES.filter(x => x.key !== 'converted').map(x => <option key={x.key} value={x.key}>{x.label}</option>)}
+                            </select>
+                            <span className="text-neutral-400">(no email)</span>
+                          </label>
                         )}
 
                         {/* Set up tenancy */}

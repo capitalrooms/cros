@@ -189,8 +189,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <Link href="/admin/active-rooms" className="hidden md:flex text-xs text-white/45 hover:text-white/75 transition-colors items-center gap-1 whitespace-nowrap">
                   ← All Units
                 </Link>
-              ) : railZone && railZone.id !== 'dash' ? (
-                <span className="text-xs text-white/45 truncate hidden sm:block">{railZone.label}{activeSub ? ` › ${activeSub.label}` : ''}</span>
               ) : null}
             </div>
 
