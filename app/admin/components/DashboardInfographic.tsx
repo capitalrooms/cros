@@ -205,6 +205,7 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
           </div>
         </Tile>
 
+        <div className="grid min-w-0 content-start gap-md">
         <Tile title="Deposits" href="/admin/deposits" note={`${dep.withDeposit} tenancies with a deposit`}>
           <div className="grid gap-sm p-md text-[12.5px]">
             <div className="grid grid-cols-3 gap-sm">
@@ -216,6 +217,18 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
             <div className="flex justify-between border-t border-[#F0EEEA] pt-sm"><span className="text-neutral-500">Holding deposits held</span><b>{dep.holdingHeld} · {gbp2(dep.holdingAmount)}</b></div>
           </div>
         </Tile>
+
+        <Tile title="Waiting on you" note="by area">
+          <div className="grid py-1">
+            {d.waiting.length ? d.waiting.map(w => (
+              <Link key={w.label} href={w.href} className="flex items-center justify-between gap-sm border-t border-[#F0EEEA] px-md py-[7px] text-[12.5px] first:border-t-0 hover:bg-neutral-50">
+                <span>{w.label}</span><b className="text-[16px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-baloo-2, system-ui)', color: w.bad ? RED : INK }}>{w.count}</b>
+              </Link>
+            )) : <p className="px-md py-sm text-[12.5px] text-neutral-500">Nothing waiting.</p>}
+          </div>
+        </Tile>
+
+        </div>
 
         <Tile title="Certificates · every house, every type" href="/admin/compliance?tab=certificates" wide
           note={<span className="flex flex-wrap gap-x-md gap-y-1">{([['valid', 'Valid'], ['due', 'Due in 30 days'], ['expired', 'Expired'], ['missing', 'Not on file']] as const).map(([k, l]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block h-3 w-3 rounded-[3px]" style={{ background: CELL[k].bg }} />{l}</span>)}</span>}
@@ -236,16 +249,6 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
                 })}</tr>
               </tbody>
             </table>
-          </div>
-        </Tile>
-
-        <Tile title="Waiting on you" note="by area">
-          <div className="grid py-1">
-            {d.waiting.length ? d.waiting.map(w => (
-              <Link key={w.label} href={w.href} className="flex items-center justify-between gap-sm border-t border-[#F0EEEA] px-md py-[7px] text-[12.5px] first:border-t-0 hover:bg-neutral-50">
-                <span>{w.label}</span><b className="text-[16px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-baloo-2, system-ui)', color: w.bad ? RED : INK }}>{w.count}</b>
-              </Link>
-            )) : <p className="px-md py-sm text-[12.5px] text-neutral-500">Nothing waiting.</p>}
           </div>
         </Tile>
 
