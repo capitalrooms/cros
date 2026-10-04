@@ -1,4 +1,5 @@
-// Invoices by email (migration 208): Harry's mailbox forwards everything to invoices@inbound.capitalrooms.co.uk.
+// Invoices by email (migration 208): Harry's mailbox forwards everything to invoices@crisiionta.resend.app (Resend's
+// receiving domain — capitalrooms.co.uk's own mail is with Google, so Resend can't receive on it).
 // Each email is checked cheaply first; only what looks like a cost is read by the AI, and only real costs are kept —
 // everything else is dropped without being stored. A kept invoice waits in Capture with the AI's reading and a
 // suggestion (which property, or the company's own cost), learned from how earlier ones were filed. Nothing becomes
@@ -15,7 +16,7 @@ const FILES = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image
 const MONEY = /\b(invoice|receipt|bill|payment|paid|order|subscription|renewal|charge|amount due|total|£\s?\d)/i
 const NOT_COSTS = /\b(unsubscribe from|newsletter|webinar|your quote|quotation|delivered|out for delivery|password|verify your|sign in)\b/i
 
-export const INVOICE_ADDRESS = 'invoices@inbound.capitalrooms.co.uk'
+export const INVOICE_ADDRESS = 'invoices@crisiionta.resend.app'
 
 const plain = (html: string) => html.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ').replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>/gi, '\n').replace(/<[^>]+>/g, ' ')
   .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&pound;/g, '£').replace(/&#163;/g, '£').replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim()
@@ -76,8 +77,11 @@ export async function handleInvoiceEmail(s: SupabaseClient, emailData: any): Pro
   if (!atts.length && NOT_COSTS.test(subject)) return { kept: 0, skipped: ['not a cost'] }
 
   const { data: props } = await s.from('properties').select('id, name, address, postcode, letting_type, is_demo')
-  const managed = sortPropertiesNumerically(((props ?? []) as any[]).filter(p => !p.is_demo))
-  const plist = managed.map(p => ({ id: p.id, label: [String(p.name ?? '').split('\n')[0], String(p.address ?? '').replace(/\n/g, ', '), p.postcode].filter(Boolean).join(', ') + (p.letting_type === 'let_only' ? ' (let only — not managed)' : '') }))
+  const managed = sortPropertiesNumerically((props ?? []) as any[])
+  const plist = managed.map(p => ({ id: p.id, label: [String(p.name ?? '').split('\n')[0], String(p.address ?? '').replace(/\n/g, ', '), p.postcode].filter(Boolean).join(', ') + (p.letting_type === 'let_only' ? ' (let only — not managed)' : '') + (p.is_demo ? ' (demo house — practice only)' : '') }))
+  // a postcode printed on the invoice is a stronger match than any guess
+  const norm = (x: unknown) => String(x ?? '').toUpperCase().replace(/\s+/g, '')
+  const byPostcode = (text: string) => { const t = norm(text); const hits = managed.filter(p => norm(p.postcode).length >= 5 && t.includes(norm(p.postcode))); return hits.length === 1 ? hits[0].id as string : null }
   const { data: contractor } = await s.from('people').select('id, first_name, last_name, company').eq('email', from).in('role', ['contractor', 'cleaner']).maybeSingle()
 
   // the documents to look at: each PDF/image attached, or the email itself when nothing is attached
@@ -103,7 +107,8 @@ export async function handleInvoiceEmail(s: SupabaseClient, emailData: any): Pro
 
     // the suggestion: how this sender was filed before > a contractor of ours > the address on it > the AI's view
     const past = await history(s, from, read.supplier)
-    let propertyId = read.propertyId, belongs: string = read.belongs_to, why = read.reason
+    const pc = byPostcode(`${read.address} ${subject} ${text.slice(0, 4000)}`)
+    let propertyId = pc ?? read.propertyId, belongs: string = read.belongs_to, why = pc && pc !== read.propertyId ? `${read.reason} · matched to the property by its postcode` : read.reason
     if (past && past.times >= 2) { belongs = past.kind; if (past.kind === 'landlord' && !propertyId) propertyId = past.propertyId; why = `You filed the last ${past.times} from ${read.supplier || from} this way` }
     else if (contractor && belongs !== 'company') {
       belongs = 'landlord'

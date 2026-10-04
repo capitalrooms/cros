@@ -1,5 +1,5 @@
 // POST /api/webhooks/docs-inbound
-// Resend inbound webhook for docs@inbound.capitalrooms.co.uk (and invoices@ → Capture, lib/capture/email)
+// Resend inbound webhook for docs@crisiionta.resend.app (and invoices@ → Capture, lib/capture/email)
 // Normalises Resend's inbound payload, runs AI classification on each attachment,
 // stores in inbox_documents, and sends a smart admin email showing what was found
 // with a one-click link to review and file.

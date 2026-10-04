@@ -393,7 +393,7 @@ function CompanyTab({ data, reload }: { data: any; reload: () => Promise<void> }
 
 // ── forwarding invoices from your mailbox ─────────────────────────────────
 function EmailSetup({ data }: { data: any }) {
-  const addr = data.inboxAddress ?? 'invoices@inbound.capitalrooms.co.uk'
+  const addr = data.inboxAddress ?? 'invoices@crisiionta.resend.app'
   return (
     <section className={`${card} p-lg space-y-md max-w-3xl`}>
       <div>
