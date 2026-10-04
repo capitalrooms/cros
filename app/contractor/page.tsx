@@ -377,6 +377,10 @@ export default function ContractorDashboard() {
                   </button>
                 ))}
               </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                <a href={`/contractor/invoices${asId ? `?as=${asId}` : ''}`} style={{ display: 'block', padding: '9px 12px', borderRadius: 9, background: '#F6F3EC', color: '#181614', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>🧾 Invoices</a>
+                <a href="/planner" style={{ display: 'block', padding: '8px 12px', borderRadius: 9, color: 'rgba(246,243,236,0.8)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}>🗂️ With Capital Rooms</a>
+              </div>
               <div style={{ borderTop: '1px solid rgba(246,243,236,0.15)', paddingTop: 14, fontSize: 12, color: 'rgba(246,243,236,0.55)', display: 'flex', justifyContent: 'space-between' }}>
                 <a href="/contractor/profile" style={{ color: 'inherit', textDecoration: 'none' }}>⚙ Profile</a>
                 <button onClick={async () => { await signOut(); router.push('/login') }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>Sign out</button>

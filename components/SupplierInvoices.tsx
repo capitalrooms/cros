@@ -27,7 +27,7 @@ async function toDataUrl(file: File, max = 1600): Promise<string> {
   return c.toDataURL('image/jpeg', 0.8)
 }
 
-export default function SupplierInvoices({ viewAs }: { viewAs?: string | null }) {
+export default function SupplierInvoices({ viewAs, jobId }: { viewAs?: string | null; jobId?: string | null }) {
   const [data, setData] = useState<any>(null)
   const [err, setErr] = useState('')
   const [tab, setTab] = useState<Tab>('new')
@@ -65,7 +65,7 @@ export default function SupplierInvoices({ viewAs }: { viewAs?: string | null })
         ))}
       </div>
       {!data.gate.enabled && <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">{data.gate.why}</p>}
-      {tab === 'new' && data.gate.enabled && (data.role === 'cleaner' ? <CleanerNew data={data} post={post} done={() => { load(); setTab('list') }} /> : <ContractorNew data={data} post={post} done={() => { load(); setTab('list') }} />)}
+      {tab === 'new' && data.gate.enabled && (data.role === 'cleaner' ? <CleanerNew data={data} post={post} done={() => { load(); setTab('list') }} /> : <ContractorNew jobId={jobId} data={data} post={post} done={() => { load(); setTab('list') }} />)}
       {tab === 'list' && <List data={data} headers={headers} post={post} reload={load} />}
       {tab === 'details' && <Details data={data} post={post} saved={() => { load(); setTab('new') }} />}
     </div>
@@ -146,12 +146,14 @@ function SendBar({ draft, post, done }: { draft: () => any; post: (b: Record<str
 
 // ── contractor ───────────────────────────────────────────────────────────────
 
-function ContractorNew({ data, post, done }: { data: any; post: (b: Record<string, unknown>) => Promise<any>; done: () => void }) {
+function ContractorNew({ data, post, done, jobId }: { data: any; post: (b: Record<string, unknown>) => Promise<any>; done: () => void; jobId?: string | null }) {
+  // opened from a finished job (“Invoice this job”): that house, with the job already on the invoice
+  const startJob = jobId ? (data.jobs as any[]).find(j => j.id === jobId) : null
   const [ours, setOurs] = useState(true)
-  const [propertyId, setPropertyId] = useState('')
+  const [propertyId, setPropertyId] = useState<string>(startJob?.propertyId ?? '')
   const [client, setClient] = useState({ company: '', email: '', address: '' })
   const [contact, setContact] = useState<NameValue>(emptyName())
-  const [lines, setLines] = useState<Line[]>([])
+  const [lines, setLines] = useState<Line[]>(startJob ? [{ ...blank(), description: startJob.title, where: startJob.where, labour: startJob.price ? String(startJob.price) : '', ticketId: startJob.id, propertyId: startJob.propertyId }] : [])
   const [notes, setNotes] = useState('')
   const jobs = (data.jobs as any[]).filter(j => !propertyId || j.propertyId === propertyId)
   const added = new Set(lines.map(l => l.ticketId).filter(Boolean))
