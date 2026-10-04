@@ -315,7 +315,7 @@ export default function TenantDashboard() {
           .select('id, category, location, room_id, booked_date, booked_slot, status, arrived_at, rooms(name)')
           .eq('property_id', propId)
           .gte('booked_date', todayISO())
-          .neq('status', 'completed')
+          .not('status', 'in', '("completed","cancelled")')
           .order('booked_date') : Promise.resolve({ data: [] }),
 
         propId ? supabase
@@ -324,7 +324,7 @@ export default function TenantDashboard() {
           .eq('property_id', propId)
           .eq('notify_tenants', true)
           .gte('clean_date', todayISO())
-          .neq('status', 'completed') : Promise.resolve({ data: [] }),
+          .not('status', 'in', '("completed","cancelled")') : Promise.resolve({ data: [] }),
 
         // upcoming viewings at my house — dates, times and rooms only, never who is viewing
         propId ? supabase.rpc('cros_my_house_viewings') : Promise.resolve({ data: [] }),

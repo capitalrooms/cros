@@ -170,10 +170,11 @@ export const ZONES: Zone[] = [
     label: 'People',
     routes: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord', '/admin/contractor'],
     subnav: [
-      { emoji: '👷', label: 'Contractors',  href: '/admin/people?tab=contractors' },
-      { emoji: '🤝', label: 'Landlords',    href: '/admin/people?tab=landlords' },
-      { emoji: '👔', label: 'Staff',        href: '/admin/people?tab=staff' },
       { emoji: '👤', label: 'Tenants',      href: '/admin/people?tab=tenants' },
+      { emoji: '👷', label: 'Contractors',  href: '/admin/people?tab=contractors' },
+      { emoji: '🧹', label: 'Cleaners',     href: '/admin/people?tab=cleaners' },
+      { emoji: '🤝', label: 'Landlords',    href: '/admin/people?tab=landlords' },
+      { emoji: '👔', label: 'Office',       href: '/admin/people?tab=office' },
     ],
   },
   {

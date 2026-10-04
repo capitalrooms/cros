@@ -228,7 +228,7 @@ export default function ContractorDashboard() {
         .from('maintenance_tickets')
         .select('*, properties(name, address), rooms(name)')
         .eq('contractor_id', contractorId)
-        .neq('status', 'completed')
+        .not('status', 'in', '("completed","cancelled")')
         .order('booked_date', { ascending: true })
       // Quote requests don't assign the job, so they come from their own list and join the Quotes tab.
       let quoteJobsData: Job[] = []

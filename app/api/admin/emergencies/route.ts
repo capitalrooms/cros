@@ -27,6 +27,11 @@ export async function GET(req: NextRequest) {
   const caller = await requireStaff(req)
   if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = createServiceClient()
+  // just who is on the emergency list (People › Contractors)
+  if (req.nextUrl.searchParams.get('only') === 'list') {
+    const { data, error } = await s.from('emergency_contractors').select('person_id, trades, active, call_out_fee, hours_from, hours_to, backup_only')
+    return NextResponse.json(error ? { list: [], setupNeeded: missing(error) } : { list: data ?? [] })
+  }
   await tick(s).catch(() => null)
   const id = req.nextUrl.searchParams.get('id')
 
@@ -94,6 +99,21 @@ export async function POST(req: NextRequest) {
       active: b.active !== false, notes: String(b.notes ?? '').slice(0, 500) || null, updated_at: new Date().toISOString(),
     }, { onConflict: 'person_id' })
     return error ? NextResponse.json({ error: missing(error) ? 'Run migration 203 first' : error.message }, { status: 400 }) : NextResponse.json({ ok: true })
+  }
+  // the tick box on People › Contractors: on = on the list (trades from their profile, any time); off = paused, settings kept
+  if (b.action === 'toggle_contractor') {
+    const personId = String(b.personId ?? '')
+    const { data: cur } = await s.from('emergency_contractors').select('person_id').eq('person_id', personId).maybeSingle()
+    if (cur) {
+      const { error } = await s.from('emergency_contractors').update({ active: !!b.on, updated_at: new Date().toISOString() }).eq('person_id', personId)
+      return error ? NextResponse.json({ error: error.message }, { status: 400 }) : NextResponse.json({ ok: true })
+    }
+    if (!b.on) return NextResponse.json({ ok: true })
+    const { data: p } = await s.from('people').select('trade_types').eq('id', personId).maybeSingle() as { data: any }
+    const map = (t: string) => /plumb|drain|water|leak/i.test(t) ? 'plumbing' : /electr/i.test(t) ? 'electrical' : /gas|heat|boiler/i.test(t) ? 'heating' : /lock/i.test(t) ? 'locksmith' : /glaz|window/i.test(t) ? 'glazing' : /roof/i.test(t) ? 'roofing' : 'general'
+    const trades = [...new Set(((p?.trade_types ?? []) as string[]).map(map))]
+    const { error } = await s.from('emergency_contractors').insert({ person_id: personId, trades: trades.length ? trades : ['general'], active: true })
+    return error ? NextResponse.json({ error: missing(error) ? 'Run migration 203 first' : error.message }, { status: 400 }) : NextResponse.json({ ok: true, trades })
   }
   if (b.action === 'remove_contractor') {
     const { error } = await s.from('emergency_contractors').delete().eq('person_id', String(b.personId ?? ''))
