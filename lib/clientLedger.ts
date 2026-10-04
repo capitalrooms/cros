@@ -10,7 +10,7 @@
 // A landlord's balance is what the client account holds for them. It must never go below zero — that would
 // mean another client's money had been used.
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { demoPropertyIds } from '@/lib/demoProperties'
+import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 
 export type LedgerKind = 'rent_in' | 'fee' | 'expenses' | 'payout' | 'opening_balance' | 'correction' | 'rent_other' | 'expense_paid' | 'deposit_in' | 'deposit_out'
 export interface LedgerEntry {
@@ -45,7 +45,7 @@ export async function rentGraceDays(s: SupabaseClient): Promise<number> {
   return Number.isInteger(n) && n >= 0 && n <= 31 ? n : 5
 }
 
-export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?: string } = {}) {
+export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?: string; practice?: boolean } = {}) {
   const start = await ledgerStart(s)
   const asAt = opts.asAt || new Date().toISOString().slice(0, 10)
   const from = opts.from && opts.from > start ? opts.from : start
@@ -60,10 +60,11 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
   const propLandlord = new Map((props.data ?? []).map((p: any) => [p.id, p.landlord_id as string | null]))
   const propName = new Map((props.data ?? []).map((p: any) => [p.id, String(p.name || '').split('\n')[0]]))
   const inRange = (d: string | null | undefined) => !!d && d >= from && d <= asAt
+  const ok = inScope(demo, !!opts.practice)   // real books: demo houses out; practice: only them
 
   const entries: LedgerEntry[] = []
   for (const c of (charges.data ?? []) as any[]) {
-    if (c.voided || demo.has(c.property_id)) continue
+    if (c.voided || !ok(c.property_id)) continue
     const date = String(c.received_date || c.paid_at || c.charge_month).slice(0, 10)
     if (!inRange(date)) continue
     entries.push({
@@ -73,7 +74,7 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
     })
   }
   for (const st of (statements.data ?? []) as any[]) {
-    if (demo.has(st.property_id)) continue
+    if (!ok(st.property_id)) continue
     const where = propName.get(st.property_id) || ''
     const sd = String(st.statement_date || '').slice(0, 10)
     if (inRange(sd) && Number(st.management_fees)) entries.push({ date: sd, kind: 'fee', amount: -r2(Number(st.management_fees)), description: `Management fee · ${st.statement_reference} · ${where}`, landlordId: st.landlord_id, propertyId: st.property_id, reference: st.statement_reference, source: 'statement', sourceId: st.id })
@@ -84,7 +85,7 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
     if (inRange(pd) && paid) entries.push({ date: pd, kind: 'payout', amount: -r2(paid), description: `Paid to landlord · ${st.statement_reference} · ${where}`, landlordId: st.landlord_id, propertyId: st.property_id, reference: st.statement_reference, source: 'statement', sourceId: st.id })
   }
   for (const a of (adjustments.data ?? []) as any[]) {
-    if (a.voided_at || !inRange(a.entry_date)) continue
+    if (a.voided_at || !inRange(a.entry_date) || (a.property_id && !ok(a.property_id))) continue
     entries.push({ date: a.entry_date, kind: a.kind, amount: r2(Number(a.amount)), description: a.description, landlordId: a.landlord_id, propertyId: a.property_id, reference: a.reference, source: 'adjustment', sourceId: a.id })
   }
   entries.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount)

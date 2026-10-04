@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const month = req.nextUrl.searchParams.get('month') || new Date().toISOString().slice(0, 7)
   try {
-    return NextResponse.json(await buildRentRoll(createServiceClient(), month))
+    return NextResponse.json(await buildRentRoll(createServiceClient(), month, { practice: req.nextUrl.searchParams.get('practice') === '1' }))
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not load the rent roll' }, { status: 400 })
   }

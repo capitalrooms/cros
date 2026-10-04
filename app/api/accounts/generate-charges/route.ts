@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   // Bulk mode: every tenancy running this month (part months pro-rata; demo houses excluded) — shared with the cron
   try {
-    const result = await generateMonthCharges(service, chargeMonth)
+    const result = await generateMonthCharges(service, chargeMonth, { practice: body.practice === true })
     return NextResponse.json({ ok: true, ...result })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not raise the charges' }, { status: 500 })

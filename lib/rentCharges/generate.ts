@@ -1,4 +1,5 @@
-// Raise one month's rent charges for every tenancy running in that month (demo properties excluded).
+// Raise one month's rent charges for every tenancy running in that month (demo properties excluded — or, in practice
+// mode, only demo properties: their charges get practice numbers, migration 209).
 // Used by the "Generate charges" button and by the monthly cron, so it must be safe to run twice:
 // existing charges (room + month) are left alone.
 //
@@ -6,12 +7,12 @@
 //   • a tenancy starting after the 1st is charged from its start date (the same figure as its check-in balance)
 //   • a tenancy ending before the month's last day is charged up to its end date
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { demoPropertyIds } from '@/lib/demoProperties'
+import { demoPropertyIds, inScope, practiceReady, PRACTICE_NOT_READY } from '@/lib/demoProperties'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const dayMs = 86_400_000
 
-export async function generateMonthCharges(s: SupabaseClient, chargeMonth: string) {
+export async function generateMonthCharges(s: SupabaseClient, chargeMonth: string, opts: { practice?: boolean } = {}) {
   if (!/^\d{4}-\d{2}-01$/.test(chargeMonth)) throw new Error('Month must be the 1st, e.g. 2026-10-01')
   const [y, m] = chargeMonth.split('-').map(Number)
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
@@ -24,7 +25,9 @@ export async function generateMonthCharges(s: SupabaseClient, chargeMonth: strin
   if (error) throw new Error(error.message)
 
   const demo = await demoPropertyIds(s)
-  const live = (tenancies ?? []).filter((t: any) => !demo.has(t.property_id) && t.room_id && Number(t.rent_amount) > 0)
+  if (opts.practice && !(await practiceReady(s))) throw new Error(PRACTICE_NOT_READY)
+  const ok = inScope(demo, !!opts.practice)
+  const live = (tenancies ?? []).filter((t: any) => ok(t.property_id) && t.room_id && Number(t.rent_amount) > 0)
   const { genRentRef } = await import('@/lib/references')
 
   const rows = live.map((t: any) => {

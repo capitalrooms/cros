@@ -7,6 +7,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
 import { buildStatementDraft } from '@/lib/statements/draft'
 import { planFloat } from '@/lib/statements/float'
+import { practiceReady, PRACTICE_NOT_READY } from '@/lib/demoProperties'
 
 export const dynamic = 'force-dynamic'
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
   let d
   try { d = await buildStatementDraft(s, b.propertyId, b.month) } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not prepare the statement' }, { status: 400 }) }
 
+  const { data: pr } = await s.from('properties').select('is_demo').eq('id', b.propertyId).maybeSingle()
+  if (pr?.is_demo && !(await practiceReady(s))) return NextResponse.json({ error: PRACTICE_NOT_READY }, { status: 409 })
   if (!d.landlordId) return NextResponse.json({ error: 'This property has no landlord — add one before making a statement.' }, { status: 409 })
   if (d.feeWarnings.length) return NextResponse.json({ error: d.feeWarnings.join('. ') }, { status: 409 })
   const hold = new Set<string>(Array.isArray(b.holdExpenseIds) ? b.holdExpenseIds : [])

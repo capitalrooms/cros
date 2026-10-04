@@ -4,7 +4,7 @@
 // imported from the previous agent, so history still shows (marked as collected by them).
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ledgerStart } from '@/lib/clientLedger'
-import { demoPropertyIds } from '@/lib/demoProperties'
+import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 export type RoomStatus = 'paid' | 'part' | 'missing' | 'over' | 'no_charge' | 'collected_by_previous_agent'
@@ -29,7 +29,7 @@ const first = (s: unknown) => String(s || '').split('\n')[0]
 const who = (p: any) => (p ? [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || '' : '')
 const stateOf = (st: any): RollStatement['state'] => (st.paid_date ? 'paid' : st.approved_at ? 'approved' : 'draft')
 
-export async function buildRentRoll(s: SupabaseClient, month: string): Promise<RentRoll> {
+export async function buildRentRoll(s: SupabaseClient, month: string, opts: { practice?: boolean } = {}): Promise<RentRoll> {
   if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('Month must be YYYY-MM')
   const start = `${month}-01`
   const [y, m] = month.split('-').map(Number)
@@ -44,7 +44,7 @@ export async function buildRentRoll(s: SupabaseClient, month: string): Promise<R
       .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`),
     s.from('landlord_statements').select('*').gte('statement_date', start).lte('statement_date', end).order('statement_date'),
   ])
-  const properties = sortPropertiesNumerically(((props.data ?? []) as any[]).filter(p => !demo.has(p.id)))
+  const properties = sortPropertiesNumerically(((props.data ?? []) as any[]).filter(p => inScope(demo, !!opts.practice)(p.id)))
   const landlordIds = [...new Set(properties.map(p => p.landlord_id).filter(Boolean))]
   const { data: landlords } = landlordIds.length ? await s.from('people').select('id, first_name, last_name, full_name, company').in('id', landlordIds) : { data: [] as any[] }
   const landlordName = new Map(((landlords ?? []) as any[]).map(p => [p.id, p.company || who(p)]))

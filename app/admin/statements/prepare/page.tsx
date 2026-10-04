@@ -33,10 +33,10 @@ interface MadeStatement { id: string; statement_reference: string; statement_dat
 
 export default function PrepareStatementPage({ searchParams }: { searchParams: PageSearchParams }) {
   const sp = use(searchParams)
-  return <Prepare propertyId={one(sp.property) || ''} month={one(sp.month) || new Date().toISOString().slice(0, 7)} />
+  return <Prepare propertyId={one(sp.property) || ''} month={one(sp.month) || new Date().toISOString().slice(0, 7)} practice={one(sp.practice) === '1'} />
 }
 
-function Prepare({ propertyId, month }: { propertyId: string; month: string }) {
+function Prepare({ propertyId, month, practice }: { propertyId: string; month: string; practice: boolean }) {
   const router = useRouter()
   const [draft, setDraft] = useState<StatementDraft | null>(null)
   const [property, setProperty] = useState<{ name: string; landlord: string } | null>(null)
@@ -105,9 +105,10 @@ function Prepare({ propertyId, month }: { propertyId: string; month: string }) {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href={`/admin/rent-roll?month=${month}`} />} title="Prepare statement" />
+      <AppBar left={<BackButton href={`/admin/rent-roll?month=${month}${practice ? '&practice=1' : ''}`} />} title="Prepare statement" />
+      {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Nothing here is real money; every entry gets an X number (XRENT, XLS, XPAY…) and stays out of the real books.</div>}
       <PageHero eyebrow={`Finance · Statement · ${monthLabel(month)}`} title={property?.name ?? 'Statement'}
-        subtitle={<>{property?.landlord} · step 2: check, make, approve — then it goes in the <Link href={`/admin/payment-run?month=${month}`} className="font-semibold text-[#F6F3EC] underline">payment run</Link>.</>} />
+        subtitle={<>{property?.landlord} · step 2: check, make, approve — then it goes in the <Link href={`/admin/payment-run?month=${month}${practice ? '&practice=1' : ''}`} className="font-semibold text-[#F6F3EC] underline">payment run</Link>.</>} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
         {notice && <p className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-md text-sm font-semibold text-green-800">{notice}</p>}
