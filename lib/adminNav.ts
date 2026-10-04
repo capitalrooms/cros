@@ -20,7 +20,7 @@ export interface Zone {
   subnav: SubItem[]
 }
 
-export const ZONES: Zone[] = [
+const ZONES_AS_WRITTEN: Zone[] = [
   {
     id: 'dash',
     emoji: '🏠',
@@ -181,6 +181,7 @@ export const ZONES: Zone[] = [
     id: 'comms',
     emoji: '💬',
     label: 'Comms',
+    home: '/admin/communications',
     routes: [
       '/admin/communications',
       '/admin/document-generator',
@@ -212,3 +213,12 @@ export const ZONES: Zone[] = [
   },
 ]
 
+/**
+ * What the rail shows: Dashboard first, then every zone — and every list of pages inside a zone — in
+ * alphabetical order. Sorted here, in code, so adding a page can never put a list out of order (Harry's rule).
+ */
+const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label, 'en', { sensitivity: 'base' })
+export const ZONES: Zone[] = [
+  ...ZONES_AS_WRITTEN.filter(z => z.id === 'dash'),
+  ...ZONES_AS_WRITTEN.filter(z => z.id !== 'dash').sort(byLabel),
+].map(z => ({ ...z, subnav: [...z.subnav].sort(byLabel) }))

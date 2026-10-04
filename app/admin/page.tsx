@@ -270,9 +270,14 @@ function AdminDashboard() {
     load()
   }, [router])
 
+  // load inside the same dark band the dashboard uses, so nothing jumps when it arrives
   if (loading) return (
-    <div className="flex items-center justify-center min-h-[200px]">
-      <p className="text-sm text-neutral-400">Loading dashboard…</p>
+    <div>
+      <PageHero
+        title={<>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}</>}
+        subtitle={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        stats={['Properties', 'Available rooms', 'Active tenancies', 'Urgent actions'].map(label => ({ label, value: <span className="inline-block h-6 w-10 animate-pulse rounded bg-white/10" /> }))}
+      />
     </div>
   )
 
@@ -469,7 +474,7 @@ function usePhone() {
 
 export default function AdminDashboardWithBoundary() {
   const phone = usePhone()
-  if (phone === null) return null
+  if (phone === null) return <div className="min-h-[220px] bg-[#181614]" />
   return (
     <AdminErrorBoundary>
       {phone ? <MobileToday /> : <AdminDashboard />}
