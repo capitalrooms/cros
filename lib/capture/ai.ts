@@ -106,18 +106,18 @@ Don't invent entries. Put anything you couldn't read in "unreadable".` }], SHEET
 const BILL_SCHEMA = {
   type: 'object', additionalProperties: false,
   properties: {
-    supplier: { type: 'string' }, what_for: { type: 'string' }, amount: { type: 'number' }, due_date: { type: 'string' },
+    supplier: { type: 'string' }, what_for: { type: 'string' }, amount: { type: 'number' }, date: { type: 'string' }, due_date: { type: 'string' },
     period_from: { type: 'string' }, period_to: { type: 'string' }, account_number: { type: 'string' }, invoice_number: { type: 'string' },
     direct_debit: { type: 'boolean' }, address: { type: 'string' },
   },
-  required: ['supplier', 'what_for', 'amount', 'due_date', 'period_from', 'period_to', 'account_number', 'invoice_number', 'direct_debit', 'address'],
+  required: ['supplier', 'what_for', 'amount', 'date', 'due_date', 'period_from', 'period_to', 'account_number', 'invoice_number', 'direct_debit', 'address'],
 } as const
-export interface Bill { supplier: string; what_for: string; amount: number; due_date: string; period_from: string; period_to: string; account_number: string; invoice_number: string; direct_debit: boolean; address: string }
+export interface Bill { supplier: string; what_for: string; amount: number; date: string; due_date: string; period_from: string; period_to: string; account_number: string; invoice_number: string; direct_debit: boolean; address: string }
 
 /** The facts on a bill or invoice. Dates yyyy-mm-dd; "" / 0 when not shown. */
 export async function readBill(bytes: Buffer, mime: string): Promise<Bill> {
   return ask(AI_MODEL, [media(bytes, mime), { type: 'text', text:
-`Read this UK bill or invoice. supplier: the company billing. what_for: e.g. "Electricity", "Water", "Boiler repair". amount: the total to pay this time in pounds (0 if none). due_date / period_from / period_to: yyyy-mm-dd or "". account_number, invoice_number: as printed or "". direct_debit: true if it says it's paid by direct debit. address: the supply or property address on it, else "". Don't guess.` }], BILL_SCHEMA, 600)
+`Read this UK bill or invoice. supplier: the company billing. what_for: e.g. "Electricity", "Water", "Boiler repair". amount: the total to pay this time in pounds (0 if none). date: the invoice or bill date (when it was issued), yyyy-mm-dd or "". due_date / period_from / period_to: yyyy-mm-dd or "". account_number, invoice_number: as printed or "". direct_debit: true if it says it's paid by direct debit. address: the supply or property address on it, else "". Don't guess.` }], BILL_SCHEMA, 600)
 }
 
 // ── invoices by email (migration 208): is this a cost at all, what are the facts, and where does it belong ──

@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     s.from('company_documents').select('*').is('deleted_at', null).order('received_on', { ascending: false }).limit(100),
     s.from('capture_keys').select('id, label, created_at, last_used_at').eq('person_id', admin.personId).is('revoked_at', null),
     propertyList(s),
-    s.from('rooms').select('id, name, property_id').order('name'),
+    s.from('rooms').select('id, name, property_id').order('name').then(r => ({ ...r, data: ((r.data ?? []) as any[]).sort((a, b) => String(a.name).localeCompare(String(b.name), 'en', { numeric: true })) })),
   ]) as any[]
   if (error) return NextResponse.json(missing(error) ? { setupNeeded: true, items: [], recent: [], company: [], keys: [], properties, rooms: rooms ?? [], kinds: CAPTURE_KINDS } : { error: error.message }, { status: missing(error) ? 200 : 500 })
   const paths = ((items ?? []) as any[]).map(i => i.file_path)
