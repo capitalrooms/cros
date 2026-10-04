@@ -6,6 +6,7 @@
 // landlord payment is recorded and both transfers match to the penny.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadLedger, landlordBalances, ledgerStart } from '@/lib/clientLedger'
+import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const first = (s: unknown) => String(s || '').split('\n')[0]
@@ -25,6 +26,7 @@ export interface RunPayment {
 }
 export interface PaymentRunView {
   month: string
+  practice: boolean
   run: { id: string; runNo: string; status: 'open' | 'closed'; createdAt: string; closedAt: string | null } | null
   payments: RunPayment[]
   waiting: { id: string; reference: string; property: string; net: number; state: 'draft' | 'approved' }[]   // not in this run yet
@@ -46,12 +48,18 @@ function toRunStatement(st: any, propName: Map<string, string>): RunStatement {
   }
 }
 
-export async function loadPaymentRun(s: SupabaseClient, month: string): Promise<PaymentRunView> {
+// Practice mode (migration 209): practice runs and demo houses' statements only; the real run never sees them.
+export async function loadPaymentRun(s: SupabaseClient, month: string, opts: { practice?: boolean } = {}): Promise<PaymentRunView> {
+  const practice = !!opts.practice
   if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('Month must be YYYY-MM')
   const periodMonth = `${month}-01`
   const [y, m] = month.split('-').map(Number)
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
-  const { data: runRow } = await s.from('payment_runs').select('*').eq('period_month', periodMonth).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  // before migration 209 there's no is_practice column: every run is real
+  let runQ = await s.from('payment_runs').select('*').eq('period_month', periodMonth).eq('is_practice', practice).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  if (runQ.error && /is_practice/.test(runQ.error.message)) runQ = practice ? { data: null, error: null } as any : await s.from('payment_runs').select('*').eq('period_month', periodMonth).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const runRow = runQ.data
+  const ok = inScope(await demoPropertyIds(s), practice)
   const run = runRow ? { id: runRow.id, runNo: runRow.run_no, status: runRow.status, createdAt: runRow.created_at, closedAt: runRow.closed_at } : null
 
   const [{ data: inRun }, { data: notInRun }, { data: props }, { data: transfers }] = await Promise.all([
@@ -63,7 +71,7 @@ export async function loadPaymentRun(s: SupabaseClient, month: string): Promise<
   ])
   const propName = new Map(((props ?? []) as any[]).map(p => [p.id, first(p.name)]))
   const propById = new Map(((props ?? []) as any[]).map(p => [p.id, p]))
-  const sts = ((inRun ?? []) as any[])
+  const sts = ((inRun ?? []) as any[]).filter(x => ok(x.property_id))
   const landlordIds = [...new Set(sts.map(x => x.landlord_id).filter(Boolean))]
   const [{ data: people }, { data: banks }] = await Promise.all([
     landlordIds.length ? s.from('people').select('id, first_name, last_name, full_name, company').in('id', landlordIds) : Promise.resolve({ data: [] as any[] }),
@@ -79,7 +87,7 @@ export async function loadPaymentRun(s: SupabaseClient, month: string): Promise<
   }
 
   // client money held per landlord (payments are refused if more than is held)
-  const ledger = await loadLedger(s)
+  const ledger = await loadLedger(s, { practice })
   const held = new Map((await landlordBalances(s, ledger.entries)).map(b => [b.landlordId ?? 'none', r2(b.balance)]))
 
   const groups = new Map<string, RunPayment>()
@@ -120,15 +128,15 @@ export async function loadPaymentRun(s: SupabaseClient, month: string): Promise<
     ? { ok: true, message: `The run adds up: £${totals.rent.toFixed(2)} rent = £${totals.toLandlords.toFixed(2)} to landlords + £${totals.fees.toFixed(2)} fees + £${totals.expenses.toFixed(2)} expenses${floatNote}` }
     : { ok: false, message: 'The run doesn’t add up — contact support before paying anything' })
   const noBank = payments.filter(p => !p.bank)
-  if (noBank.length) checks.push({ ok: false, message: `No bank details for ${noBank.map(p => p.landlord).join(', ')}` })
+  if (noBank.length && !practice) checks.push({ ok: false, message: `No bank details for ${noBank.map(p => p.landlord).join(', ')}` })
   const over = payments.filter(p => !p.paid && p.held != null && p.amount > p.held + 0.005 && p.statements.some(x => (x.date ?? '') >= ledger.start))
   if (over.length) checks.push({ ok: false, message: `Not enough held for ${over.map(p => `${p.landlord} (£${p.amount.toFixed(2)} to pay, £${(p.held ?? 0).toFixed(2)} held)`).join('; ')}` })
   for (const t of tfs) if (t.recorded && Math.round((t.recorded.amount - t.expected) * 100) !== 0) checks.push({ ok: false, message: `The ${t.kind} transfer (£${t.recorded.amount.toFixed(2)}) doesn’t match what’s due (£${t.expected.toFixed(2)})` })
 
-  const waiting = ((notInRun ?? []) as any[]).map(x => ({ id: x.id, reference: x.statement_reference, property: propName.get(x.property_id) ?? '', net: r2(Number(x.net_to_landlord || 0)), state: (x.approved_at ? 'approved' : 'draft') as 'approved' | 'draft' }))
+  const waiting = ((notInRun ?? []) as any[]).filter(x => ok(x.property_id)).map(x => ({ id: x.id, reference: x.statement_reference, property: propName.get(x.property_id) ?? '', net: r2(Number(x.net_to_landlord || 0)), state: (x.approved_at ? 'approved' : 'draft') as 'approved' | 'draft' }))
   const canClose = !!run && run.status === 'open' && payments.length > 0 && payments.every(p => p.paid)
     && tfs.every(t => t.expected === 0 || (t.recorded && Math.round((t.recorded.amount - t.expected) * 100) === 0)) && checks.every(c => c.ok)
-  return { month, run, payments, waiting, transfers: tfs, totals, checks, canClose }
+  return { month, practice, run, payments, waiting, transfers: tfs, totals, checks, canClose }
 }
 
 /** A bank bulk-payment file for the landlord payments still to make (one line per landlord and account). */

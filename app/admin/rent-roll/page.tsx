@@ -35,10 +35,12 @@ const STATUS: Record<RollRoom['status'], { label: string; cls: string }> = {
 }
 
 export default function RentRollPage({ searchParams }: { searchParams: PageSearchParams }) {
-  return <RentRollScreen initialMonth={one(use(searchParams).month)} />
+  const sp = use(searchParams)
+  return <RentRollScreen initialMonth={one(sp.month)} practice={one(sp.practice) === '1'} />
 }
 
-function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
+function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; practice: boolean }) {
+  const P = practice ? '&practice=1' : ''
   const router = useRouter()
   const [month, setMonth] = useState(initialMonth || new Date().toISOString().slice(0, 7))
   const [roll, setRoll] = useState<RentRoll | null>(null)
@@ -49,11 +51,11 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
 
   const load = useCallback(async (m: string) => {
     setLoading(true); setError('')
-    const r = await adminFetch(`/api/admin/rent-roll?month=${m}`)
+    const r = await adminFetch(`/api/admin/rent-roll?month=${m}${P}`)
     const j = await r.json().catch(() => ({}))
     if (!r.ok) { setError(j.error || 'Could not load the rent roll'); setRoll(null) } else setRoll(j)
     setLoading(false)
-  }, [])
+  }, [P])
 
   useEffect(() => {
     (async () => {
@@ -63,7 +65,23 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
     })()
   }, [router, load, month])
 
-  const go = (m: string) => { setMonth(m); router.replace(`/admin/rent-roll?month=${m}`) }
+  const go = (m: string) => { setMonth(m); router.replace(`/admin/rent-roll?month=${m}${P}`) }
+  // practice only: raise the demo houses' rent for the month, and record a tenant's payment (as the bank import would)
+  const [busyPractice, setBusyPractice] = useState('')
+  async function raisePractice() {
+    setBusyPractice('raise')
+    const r = await adminFetch('/api/accounts/generate-charges', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month: `${month}-01`, practice: true }) })
+    const j = await r.json().catch(() => ({}))
+    setBusyPractice(''); if (!r.ok) setError(j.error || 'Could not raise the rent'); else load(month)
+  }
+  async function recordPractice(chargeId: string, due: number, received: number) {
+    const v = prompt('Practice payment received (£):', String(Math.max(0, Math.round((due - received) * 100) / 100)))
+    if (!v || !(Number(v) > 0)) return
+    setBusyPractice(chargeId)
+    const r = await adminFetch(`/api/admin/rent-charges/${chargeId}/pay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount_received: Number(v), payment_date: new Date().toISOString().slice(0, 10), payment_method: 'bank_transfer', payment_notes: 'Practice payment' }) })
+    const j = await r.json().catch(() => ({}))
+    setBusyPractice(''); if (!r.ok) setError(j.error || 'Could not record it'); else load(month)
+  }
   const props = useMemo(() => (roll?.properties ?? []).filter(p =>
     filter === 'all' ? true
       : filter === 'ready' ? p.readyForStatement > 0
@@ -86,13 +104,16 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Rent roll" />
+      {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Nothing here is real money; every entry gets an X number (XRENT, XLS, XPAY…) and stays out of the real books.</div>}
       <PageHero
-        eyebrow="Step 1 of 3 · monthly cycle"
+        eyebrow={practice ? 'PRACTICE · step 1 of 3 · monthly cycle' : 'Step 1 of 3 · monthly cycle'}
         title="Rent roll"
         subtitle={<>{monthLabel(month)} — what’s due, what’s in, what’s missing. Then prepare each property’s statement, then the payment run.</>}
         actions={<>
           <HeroMonthPicker month={month} onChange={go} />
-          <HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>
+          {practice
+            ? <><HeroButton primary onClick={raisePractice}>{busyPractice === 'raise' ? 'Raising…' : 'Raise this month’s practice rent'}</HeroButton><HeroButton href={`/admin/rent-roll?month=${month}`}>Leave practice</HeroButton></>
+            : <><HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton><HeroButton href={`/admin/rent-roll?month=${month}&practice=1`}>Practice mode</HeroButton></>}
         </>}
         stats={roll ? [
           { label: prevAgent ? 'Rent collected' : 'Rent due', value: gbp(prevAgent ? roll.totals.received : roll.totals.due) },
@@ -166,6 +187,7 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
                       {r.receipts.map((x, k) => <span key={k} className="font-mono">{[shortDate(x.date), x.number, x.file].filter(Boolean).join(' · ') || x.how}</span>)}
                       {r.difference != null && Math.abs(r.difference) >= 0.01 && r.received > 0 && <span className={r.difference < 0 ? 'text-amber-700' : 'text-blue-700'}>{r.difference < 0 ? `${gbp(-r.difference)} short` : `${gbp(r.difference)} over`}</span>}
                       {r.statement && <span>on {r.statement}</span>}
+                      {practice && r.chargeId && r.due != null && r.received < r.due && <button type="button" disabled={!!busyPractice} onClick={() => recordPractice(r.chargeId!, r.due!, r.received)} className="rounded-full border border-amber-400 bg-amber-50 px-sm py-0.5 font-semibold text-amber-900">{busyPractice === r.chargeId ? 'Recording…' : 'Record practice payment'}</button>}
                     </div>
                   </li>
                 ))}
@@ -174,7 +196,7 @@ function RentRollScreen({ initialMonth }: { initialMonth?: string }) {
                 <p className="text-xs text-neutral-600">Statements: {selected.statements.map(st => `${st.reference} · ${st.state === 'paid' ? 'paid' : st.state}${st.source === 'import' ? ' (imported)' : ''}`).join(' · ')}</p>
               )}
               {!prevAgent && (selected.readyForStatement > 0
-                ? <Link href={`/admin/statements/prepare?property=${selected.id}&month=${month}`} className="block rounded-xl bg-[#181614] py-sm text-center text-sm font-bold text-white hover:bg-black">Prepare statement · {gbp(selected.readyForStatement)}</Link>
+                ? <Link href={`/admin/statements/prepare?property=${selected.id}&month=${month}${P}`} className="block rounded-xl bg-[#181614] py-sm text-center text-sm font-bold text-white hover:bg-black">Prepare statement · {gbp(selected.readyForStatement)}</Link>
                 : <p className="rounded-xl bg-neutral-50 py-sm text-center text-sm text-neutral-500">Nothing new to pay over</p>)}
               <div className="grid grid-cols-2 gap-sm text-sm font-semibold">
                 <Link href={`/admin/properties/${selected.id}`} className="rounded-xl border border-neutral-300 py-xs text-center hover:bg-neutral-50">The property</Link>

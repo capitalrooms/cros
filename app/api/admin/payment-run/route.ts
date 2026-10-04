@@ -7,6 +7,7 @@
 // POST { action: 'transfer', month, kind, date, reference } record the fees or expenses transfer (amount = what's due)
 // POST { action: 'void_transfer', month, id, reason }      a transfer recorded by mistake (kept, marked void)
 // POST { action: 'close', month }                          close the run — only when everything is paid and matches
+// practice=1 (GET) / practice: true (POST): the practice run for demo houses (migration 209) — X numbers, no bank details, no bank file
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
@@ -21,8 +22,10 @@ export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const month = req.nextUrl.searchParams.get('month') || new Date().toISOString().slice(0, 7)
   try {
-    const view = await loadPaymentRun(createServiceClient(), month)
+    const practice = req.nextUrl.searchParams.get('practice') === '1'
+    const view = await loadPaymentRun(createServiceClient(), month, { practice })
     if (req.nextUrl.searchParams.get('export') === 'bank') {
+      if (practice) return NextResponse.json({ error: 'No bank file in practice mode — nothing real is paid' }, { status: 400 })
       return new NextResponse(bankFileCsv(view), { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': contentDisposition(`Landlord payments ${view.run?.runNo ?? month}.csv`) } })
     }
     return NextResponse.json(view)
@@ -38,7 +41,8 @@ export async function POST(req: NextRequest) {
   const month = String(b.month || '')
   if (!/^\d{4}-\d{2}$/.test(month)) return NextResponse.json({ error: 'Choose the month' }, { status: 400 })
   const s = createServiceClient()
-  const view = await loadPaymentRun(s, month)
+  const practice = b.practice === true
+  const view = await loadPaymentRun(s, month, { practice })
   const run = view.run
   const now = new Date().toISOString()
 
@@ -55,7 +59,7 @@ export async function POST(req: NextRequest) {
     if (b.action === 'open') {
       if (run && run.status === 'open') return NextResponse.json({ error: `${run.runNo} is already open for this month` }, { status: 409 })
       if (!view.waiting.some(w => w.state === 'approved')) return NextResponse.json({ error: 'No approved statements to pay yet — approve them first.' }, { status: 409 })
-      const { data: created, error } = await s.from('payment_runs').insert({ period_month: `${month}-01`, created_by: admin.personId }).select('id, run_no').single()
+      const { data: created, error } = await s.from('payment_runs').insert({ period_month: `${month}-01`, created_by: admin.personId, ...(practice ? { is_practice: true } : {}) }).select('id, run_no').single()
       if (error) throw new Error(error.message)
       const n = await attachReady(created.id)
       return NextResponse.json({ ok: true, message: `Started ${created.run_no} with ${n} statement${n === 1 ? '' : 's'}.` })
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
       const p = view.payments.find(x => x.key === b.key)
       if (!p) return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
       if (p.paid) return NextResponse.json({ error: 'Already recorded as paid' }, { status: 409 })
-      if (!p.bank) return NextResponse.json({ error: `Add bank details for ${p.landlord} first` }, { status: 409 })
+      if (!p.bank && !practice) return NextResponse.json({ error: `Add bank details for ${p.landlord} first` }, { status: 409 })
       const takeover = await ledgerStart(s)
       // client money rule: never pay a landlord more than is held for them (statements from the ledger start)
       if (p.held != null && p.amount > p.held + 0.005 && p.statements.some(x => (x.date ?? '') >= takeover))

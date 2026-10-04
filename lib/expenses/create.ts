@@ -8,6 +8,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { findDuplicates, type ExpenseLike } from '@/lib/expenses/duplicates'
 import { deductionMonth, monthName, closedMonths, firstOpenMonth, addMonths } from '@/lib/expenses/period'
+import { practiceReady, PRACTICE_NOT_READY } from '@/lib/demoProperties'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const isDate = (d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
@@ -57,8 +58,9 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
   if (!(amount > 0) || amount > 1_000_000) return { ok: false, status: 400, error: 'Enter the amount (more than £0)' }
   if (!isDate(e.expense_date)) return { ok: false, status: 400, error: 'Enter the date on the invoice or receipt' }
   if (e.expense_date > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) return { ok: false, status: 400, error: 'The date is in the future' }
-  const { data: prop } = await s.from('properties').select('id, name').eq('id', e.property_id).maybeSingle()
+  const { data: prop } = await s.from('properties').select('id, name, is_demo').eq('id', e.property_id).maybeSingle()
   if (!prop) return { ok: false, status: 404, error: 'Property not found' }
+  if ((prop as any).is_demo && !(await practiceReady(s))) return { ok: false, status: 409, error: PRACTICE_NOT_READY }
   if (e.source_ref) {
     const { data: already } = await s.from('recharge_expenses').select('txn_no').eq('source_ref', e.source_ref).maybeSingle()
     if (already) return { ok: false, status: 409, error: `This has already been added as ${already.txn_no ?? 'an expense'}` }

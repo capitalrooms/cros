@@ -27,10 +27,12 @@ const ukDate = (d: string | null) => (d ? new Date(d.slice(0, 10) + 'T12:00:00')
 const sort = (s: string) => (s.length === 6 ? `${s.slice(0, 2)}-${s.slice(2, 4)}-${s.slice(4)}` : s)
 
 export default function PaymentRunPage({ searchParams }: { searchParams: PageSearchParams }) {
-  return <PaymentRun initialMonth={one(use(searchParams).month)} />
+  const sp = use(searchParams)
+  return <PaymentRun initialMonth={one(sp.month)} practice={one(sp.practice) === '1'} />
 }
 
-function PaymentRun({ initialMonth }: { initialMonth?: string }) {
+function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practice: boolean }) {
+  const P = practice ? '&practice=1' : ''
   const router = useRouter()
   const [month, setMonth] = useState(initialMonth || new Date().toISOString().slice(0, 7))
   const [v, setV] = useState<PaymentRunView | null>(null)
@@ -41,7 +43,7 @@ function PaymentRun({ initialMonth }: { initialMonth?: string }) {
   const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
 
   const load = useCallback(async (m: string) => {
-    const r = await adminFetch(`/api/admin/payment-run?month=${m}`)
+    const r = await adminFetch(`/api/admin/payment-run?month=${m}${P}`)
     const j = await r.json().catch(() => ({}))
     if (!r.ok) setError(j.error || 'Could not load the payment run'); else setV(j)
   }, [])
@@ -53,11 +55,11 @@ function PaymentRun({ initialMonth }: { initialMonth?: string }) {
     })()
   }, [router, load, month])
 
-  const go = (m: string) => { setMonth(m); setV(null); router.replace(`/admin/payment-run?month=${m}`) }
+  const go = (m: string) => { setMonth(m); setV(null); router.replace(`/admin/payment-run?month=${m}${P}`) }
   async function act(body: Record<string, unknown>, confirmText?: string) {
     if (confirmText && !window.confirm(confirmText)) return
     setBusy(String(body.action) + (body.key ?? body.kind ?? '')); setError(''); setNotice('')
-    const r = await adminFetch('/api/admin/payment-run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month, ...body }) })
+    const r = await adminFetch('/api/admin/payment-run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month, ...body, ...(practice ? { practice: true } : {}) }) })
     const j = await r.json().catch(() => ({}))
     setBusy('')
     if (!r.ok) setError(j.error || 'Something went wrong'); else { setNotice(j.message); load(month) }
@@ -76,7 +78,8 @@ function PaymentRun({ initialMonth }: { initialMonth?: string }) {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} title="Payment run" />
-      <PageHero eyebrow="Step 3 of 3 · monthly cycle" title={<>Payment run {run ? <span className="font-mono text-lg text-[#F6F3EC]/55">{run.runNo}</span> : null}</>}
+      {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Nothing here is real money; every entry gets an X number (XRENT, XLS, XPAY…) and stays out of the real books.</div>}
+      <PageHero eyebrow={practice ? 'PRACTICE · step 3 of 3 · monthly cycle' : 'Step 3 of 3 · monthly cycle'} title={<>Payment run {run ? <span className="font-mono text-lg text-[#F6F3EC]/55">{run.runNo}</span> : null}</>}
         subtitle="Pay landlords, then move our fees and the expenses we paid out to the office account"
         actions={<HeroMonthPicker month={month} onChange={go} />} tabs={financeTabs('payment-run', month)} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
@@ -121,7 +124,7 @@ function PaymentRun({ initialMonth }: { initialMonth?: string }) {
                   <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
                     <h2 className="text-lg font-bold text-neutral-900">1 · Pay landlords <span className="text-sm font-normal text-neutral-500">{gbp(v.totals.paidToLandlords)} of {gbp(v.totals.toLandlords)} paid</span></h2>
                     <div className="flex flex-wrap items-center gap-sm">
-                      {!closed && v.payments.some(p => !p.paid) && <button onClick={() => downloadPdf(`/api/admin/payment-run?month=${month}&export=bank`, `Landlord payments ${run.runNo}.csv`)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Bank payment file</button>}
+                      {!closed && !practice && v.payments.some(p => !p.paid) && <button onClick={() => downloadPdf(`/api/admin/payment-run?month=${month}&export=bank`, `Landlord payments ${run.runNo}.csv`)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Bank payment file</button>}
                       <ExportButtons title={`Landlord payments ${run.runNo}`} subtitle={monthLabel(month)} filename={`landlord-payments-${run.runNo}`}
                         columns={[{ key: 'landlord', label: 'Landlord' }, { key: 'properties', label: 'Properties' }, { key: 'statements', label: 'Statements' }, { key: 'account', label: 'Account' }, { key: 'amount', label: 'Amount', money: true }, { key: 'status', label: 'Status' }, { key: 'payout', label: 'Payment no.' }]}
                         rows={payRows} totals={{ landlord: 'Total', amount: v.totals.toLandlords }} />
