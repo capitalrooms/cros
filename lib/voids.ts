@@ -1,6 +1,7 @@
 // Void rate: how long managed rooms sat empty over the last 3, 6 or 12 months.
 // Counted only from when CROS has a record for each room (its first recorded tenancy, or the day the room was
-// added if it has never had one) — older history isn't on file yet, so it is shown as "not on record", never as empty.
+// put on the market if it has never had one) — older history isn't on file yet, so it is shown as "not on record",
+// never as empty. A room with neither (a house still being refurbished) isn't counted at all.
 // When the records say empty but the room is still marked let (a tenancy ended and nothing was recorded after it),
 // those days are "check", not counted, and the room is listed so the records can be put right.
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -27,7 +28,7 @@ export interface VoidGroup { id: string; name: string; rooms: number; counted: n
 export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })) {
   const [{ data: props }, { data: rooms }, { data: tens }] = await Promise.all([
     s.from('properties').select('id, name, address, landlord_id, letting_type, is_demo'),
-    s.from('rooms').select('id, property_id, name, status, created_at, current_asking_rent, is_let_only'),
+    s.from('rooms').select('id, property_id, name, status, created_at, available_date, current_asking_rent, is_let_only'),
     s.from('tenancies').select('room_id, start_date, end_date, rent_amount, let_cancelled_at'),
   ]) as { data: any[] | null }[]
   const managed = new Map((props ?? []).filter(p => !p.is_demo && p.letting_type !== 'let_only').map(p => [p.id, p]))
@@ -47,8 +48,10 @@ export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDa
     const ts = (byRoom.get(r.id) ?? []).sort((a, b) => a.start_date.localeCompare(b.start_date))
     const firstStart = ts[0]?.start_date as string | undefined
     const marketed = r.status === 'available'
-    // never had a tenancy on record: counted from the day it was added only if it's actually up for letting
-    const knownFrom = firstStart && firstStart <= today ? firstStart : marketed ? String(r.created_at ?? today).slice(0, 10) : today
+    // only what's on file: a room with no tenancy on record counts only once it's on the market (from its
+    // available date); with neither (e.g. a house still being refurbished) it isn't counted at all
+    if (!(firstStart && firstStart <= today) && !marketed) continue
+    const knownFrom = firstStart && firstStart <= today ? firstStart : String(r.available_date || r.created_at || today).slice(0, 10)
     const lets = ts.map(t => [toDay(t.start_date), t.end_date ? toDay(t.end_date) + 1 : Infinity] as [number, number])
     for (let i = 1; i < ts.length; i++) {
       const prevEnd = ts[i - 1].end_date
@@ -61,8 +64,7 @@ export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDa
     if (!letOn(end - 1) && toDay(knownFrom) < end) { let d = end - 1; while (d > toDay(knownFrom) && !letOn(d - 1)) d--; emptyNowSince = toIso(d) }
     // records say empty, room says let → those trailing days are unconfirmed
     const checkFrom = emptyNowSince && !marketed ? toDay(emptyNowSince) : Infinity
-    const check = !ts.length && !marketed ? 'Marked let, but no tenants on file'
-      : emptyNowSince && !marketed ? `Marked let, but no tenancy on file since ${new Date(`${emptyNowSince}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : null
+    const check = emptyNowSince && !marketed ? `Marked let, but no tenancy on file since ${new Date(`${emptyNowSince}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : null
 
     const w = {} as VoidRoom['w']
     for (const m of VOID_WINDOWS) {
