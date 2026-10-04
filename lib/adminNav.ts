@@ -60,6 +60,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       '/admin/rent-increase',
       '/admin/early-move-out',
       '/admin/rent-history',
+      '/admin/voids',
     ],
     subnav: [
       { emoji: '🧭', label: 'Overview',           href: '/admin/lettings' },
@@ -71,6 +72,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '🔔', label: 'On Notice',          href: '/admin/tenancy-management' },
       { emoji: '📈', label: 'Rent Reviews',       href: '/admin/rent-increase' },
       { emoji: '🤝', label: 'Tenancies',          href: '/admin/tenancies' },
+      { emoji: '📉', label: 'Voids',              href: '/admin/voids' },
     ],
   },
   {

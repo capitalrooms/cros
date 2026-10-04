@@ -4,6 +4,7 @@
 // All figures come from /api/admin/dashboard; each tile opens the page that deals with it.
 
 import Link from 'next/link'
+import { useState } from 'react'
 
 export interface DashboardData {
   today: string
@@ -16,6 +17,7 @@ export interface DashboardData {
   deposits: { withDeposit: number; protected: number; prescribed: number; holdingHeld: number; holdingAmount: number }
   certs: { types: string[]; rows: { id: string; name: string; cells: string[] }[]; valid: number; due: number; expired: number; missing: number }
   waiting: { label: string; count: number; href: string; bad: boolean }[]
+  voids: { avgDaysToRelet: number | null; checks: number; windows: Record<string, { rate: number; lost: number; emptyDays: number; fullyOnRecord: number; rooms: number; byLandlord: { name: string; rate: number; lost: number; rooms: number }[] }> } | null
 }
 
 const INK = '#181614', CREAM = '#F6F3EC', LET = '#2F6B4F', NOTICE = '#E8A33A', EMPTY = '#6E95D2', RED = '#C8372D'
@@ -72,6 +74,35 @@ function Bars({ items, height = 96, highlight }: { items: { label: string; count
         )
       })}
     </svg>
+  )
+}
+
+
+function VoidTile({ v }: { v: NonNullable<DashboardData['voids']> }) {
+  const [m, setM] = useState<'3' | '6' | '12'>('12')
+  const w = v.windows[m]
+  const top = [...w.byLandlord].sort((a, b) => b.rate - a.rate || b.lost - a.lost).slice(0, 5)
+  const max = Math.max(1, ...top.map(l => l.rate))
+  return (
+    <Tile title="Voids" href="/admin/voids" note={<span className="flex gap-1">{(['3', '6', '12'] as const).map(k => <button key={k} type="button" onClick={() => setM(k)} className={`h-[22px] rounded-md px-sm text-[11px] font-semibold ${m === k ? 'bg-[#181614] text-[#F6F3EC]' : 'border border-[#E4E1DB] text-neutral-600'}`}>{k}m</button>)}</span>}
+      foot={<>{w.fullyOnRecord} of {w.rooms} rooms on record for the whole period; the rest count from their first tenancy.{v.checks > 0 && <> <Warn>{v.checks} room{v.checks === 1 ? '' : 's'} to check.</Warn></>}</>}>
+      <div className="grid gap-sm p-md text-[12px]">
+        <div className="grid grid-cols-3 gap-sm">
+          <div className="grid"><b className="text-[26px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-baloo-2, system-ui)', color: w.rate > 5 ? RED : INK }}>{w.rate}%</b><span className="text-[11.5px] text-neutral-500">void rate</span></div>
+          <div className="grid"><b className="text-[26px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-baloo-2, system-ui)' }}>{gbp0(w.lost)}</b><span className="text-[11.5px] text-neutral-500">rent lost</span></div>
+          <div className="grid"><b className="text-[26px] font-extrabold leading-none" style={{ fontFamily: 'var(--font-baloo-2, system-ui)' }}>{v.avgDaysToRelet ?? '—'}</b><span className="text-[11.5px] text-neutral-500">days to re-let</span></div>
+        </div>
+        <div className="grid gap-1 border-t border-[#F0EEEA] pt-sm">
+          {top.map(l => (
+            <div key={l.name} className="grid grid-cols-[minmax(0,1fr)_90px_44px] items-center gap-sm">
+              <span className="truncate">{l.name}</span>
+              <span className="h-2 overflow-hidden rounded-full bg-[#EFEDE9]"><i className="block h-full" style={{ width: `${l.rate / max * 100}%`, background: l.rate ? RED : 'transparent' }} /></span>
+              <span className="text-right font-semibold tabular-nums">{l.rate}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Tile>
   )
 }
 
@@ -181,6 +212,9 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
           </div>
         </Tile>
 
+        {d.voids && <VoidTile v={d.voids} />}
+
+        <div className="grid min-w-0 content-start gap-md">
         <Tile title="Repairs" href="/admin/maintenance" note={`${rep.open} open`}>
           <div className="grid gap-sm p-md text-[12px]">
             {(() => {
@@ -205,7 +239,6 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
           </div>
         </Tile>
 
-        <div className="grid min-w-0 content-start gap-md">
         <Tile title="Deposits" href="/admin/deposits" note={`${dep.withDeposit} tenancies with a deposit`}>
           <div className="grid gap-sm p-md text-[12.5px]">
             <div className="grid grid-cols-3 gap-sm">

@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import { ledgerStart } from '@/lib/clientLedger'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { loadVoids, VOID_WINDOWS } from '@/lib/voids'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
   const month = `${today.slice(0, 7)}-01`
   const in30 = addDays(today, 30), in7 = addDays(today, 7)
 
-  const [propsR, roomsR, tenR, chargesR, appsR, viewsR, jobsR, holdR, start] = await Promise.all([
+  const [propsR, roomsR, tenR, chargesR, appsR, viewsR, jobsR, holdR, start, voidsAll] = await Promise.all([
     s.from('properties').select(['id', 'name', 'address', 'letting_type', 'is_demo', 'landlord_id', 'has_gas', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')),
     s.from('rooms').select('id, property_id, name, status, is_let_only'),
     s.from('tenancies').select('id, room_id, property_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, deposit_amount, deposit_protected_at, deposit_protection_assumed, prescribed_info_served_at, last_rent_change_date, is_periodic'),
@@ -33,6 +34,7 @@ export async function GET(req: NextRequest) {
     s.from('maintenance_tickets').select('status, approved_at, on_hold, booked_date, created_at, completed_at'),
     s.from('holding_deposits').select('status, amount'),
     ledgerStart(s),
+    loadVoids(s, today).catch(() => null),
   ]) as any[]
   const err = [propsR, roomsR, tenR].find(r => r.error)
   if (err) return NextResponse.json({ error: err.error.message }, { status: 500 })
@@ -156,5 +158,9 @@ export async function GET(req: NextRequest) {
     deposits: { withDeposit: withDeposit.length, protected: protectedN, prescribed: withDeposit.filter(t => t.prescribed_info_served_at).length, holdingHeld: held.length, holdingAmount: round2(sum(held.map(h => Number(h.amount) || 0))) },
     certs: { ...certs, valid: flat.filter(c => c === 'valid').length, due: flat.filter(c => c === 'due').length, expired: flat.filter(c => c === 'expired').length, missing: flat.filter(c => c === 'missing').length },
     waiting,
+    voids: voidsAll ? {
+      avgDaysToRelet: voidsAll.avgDaysToRelet, checks: voidsAll.checks.length,
+      windows: Object.fromEntries(VOID_WINDOWS.map(m => { const x = voidsAll.summary[m]; return [m, { rate: x.rate, lost: x.lost, emptyDays: x.emptyDays, fullyOnRecord: x.fullyOnRecord, rooms: x.rooms, byLandlord: x.byLandlord.map((l: any) => ({ name: l.name, rate: l.rate, lost: l.lost, rooms: l.rooms })) }] })),
+    } : null,
   })
 }
