@@ -74,7 +74,9 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
     property_id: e.property_id, description, amount, expense_date: e.expense_date,
     notes: String(e.notes || '').trim() || null, created_by: opts.by,   // txn_no (EXP000123) is given by the database
     category: e.category || null, supplier: String(e.supplier || '').trim() || null, invoice_number: String(e.invoice_number || '').trim() || null,
-    room_id: e.room_id || null, deduct_month: e.deduct_month ? when.month : null,
+    // always the statement it was promised for (the message below), so a follow-on statement for an earlier month
+    // can't pick it up
+    room_id: e.room_id || null, deduct_month: when.month,
     invoice_path: e.invoice_path && String(e.invoice_path).startsWith('invoices/') ? e.invoice_path : null,
     invoice_name: e.invoice_name || null, share_invoice: !!e.share_invoice && !!e.invoice_path,
     paid_to_supplier_on: isDate(e.paid_to_supplier_on) ? e.paid_to_supplier_on : null,
