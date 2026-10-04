@@ -105,7 +105,8 @@ export default function AdminStatementsPage() {
     let { data, error: e } = await supabase.from('landlord_statements').select(cols + ', sent_at').order('statement_date', { ascending: false })
     if (e) ({ data, error: e } = await supabase.from('landlord_statements').select(cols).order('statement_date', { ascending: false }))  // before migration 185
     if (e) setError(`Could not load statements: ${e.message}`)
-    setStatements((data as any) || [])
+    // practice statements (XLS…, demo houses) live in practice mode, not in the real list
+    setStatements(((data as any) || []).filter((st: any) => !/^XLS/.test(st.statement_reference || '')))
   }
 
   useEffect(() => {

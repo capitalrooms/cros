@@ -1,3 +1,4 @@
+import { dropDemo } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
@@ -43,12 +44,16 @@ export async function GET(req: NextRequest) {
 
     supabase
       .from('bank_transactions')
-      .select('id, transaction_date, description, amount, matched_rent_charge_id, imported_at')
+      .select('*')
       .gte('transaction_date', from)
       .lte('transaction_date', to)
       .order('transaction_date', { ascending: true }),
   ])
 
+  // practice (demo houses, practice bank imports) never appear in the real cash book
+  chargesRes.data = await dropDemo(supabase as any, chargesRes.data as any[], (r: any) => r.room?.property?.id) as any
+  expensesRes.data = await dropDemo(supabase as any, expensesRes.data as any[], (r: any) => r.property?.id) as any
+  bankRes.data = (await dropDemo(supabase as any, bankRes.data as any[], (r: any) => r.property_id)).filter((r: any) => !r.is_practice) as any
   const receipts = (chargesRes.data || []).map((r: any) => ({
     type:        'receipt' as const,
     date:        r.paid_at?.slice(0, 10) || r.charge_month,

@@ -3,6 +3,7 @@
 // statement date — property income is on the cash basis by default. Expenses are sorted into HMRC's UK property
 // categories; these are suggestions for the landlord's accountant to confirm, not tax advice.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { dropDemo } from '@/lib/demoProperties'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
@@ -46,8 +47,9 @@ export async function mtdFigures(s: SupabaseClient, year: number, landlordId?: s
   const qs = mtdQuarters(year)
   let q = s.from('landlord_statements').select('*').gte('statement_date', qs[0].from).lte('statement_date', qs[3].to)
   if (landlordId) q = q.eq('landlord_id', landlordId)
-  const { data: sts, error } = await q
+  const { data: stsAll, error } = await q
   if (error) throw new Error(error.message)
+  const sts = await dropDemo(s, stsAll as any[], (x: any) => x.property_id)   // practice statements never reach HMRC figures
   const ids = [...new Set(((sts ?? []) as any[]).map(x => x.landlord_id).filter(Boolean))]
   const { data: people } = ids.length ? await s.from('people').select('id, first_name, last_name, full_name, company').in('id', ids) : { data: [] as any[] }
   const nameOf = new Map(((people ?? []) as any[]).map(p => [p.id, p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Landlord']))

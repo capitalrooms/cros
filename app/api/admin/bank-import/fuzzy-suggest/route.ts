@@ -20,6 +20,7 @@
  * Returns: { suggestion: SuggestionResult | null, confidence: string, reason: string }
  */
 
+import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { ledgerStart } from '@/lib/clientLedger'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
   // ── Load the transaction ────────────────────────────────────────────────────
   const { data: txn } = await service
     .from('bank_transactions')
-    .select('id, transaction_date, amount, description, extracted_ref, status')
+    .select('*')
     .eq('id', transaction_id)
     .single()
 
@@ -119,6 +120,10 @@ export async function POST(req: NextRequest) {
     .or(`end_date.is.null,end_date.gte.${today}`)
     .not('payment_reference', 'is', null)
 
+  // a practice payment is only ever suggested for a demo house's tenant, a real one never (migrations 209/210)
+  const okScope = inScope(await demoPropertyIds(service as any), !!(txn as any).is_practice)
+  const scoped = ((tenancies ?? []) as any[]).filter(t => okScope(t.rooms?.property_id))
+  tenancies?.splice(0, tenancies.length, ...scoped)
   if (!tenancies?.length) {
     return NextResponse.json({ suggestion: null, reason: 'No active tenancies found' })
   }

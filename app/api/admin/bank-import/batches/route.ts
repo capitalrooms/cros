@@ -15,9 +15,10 @@ export async function GET(req: NextRequest) {
 
   const { data: batches } = await supabase
     .from('bank_import_batches')
-    .select('id, filename, bank_name, period_from, period_to, transaction_count, credit_total, new_matched, new_unmatched, duplicates_skipped, possible_dupes, imported_at')
+    .select('*')
     .order('imported_at', { ascending: false })
     .limit(25)
 
-  return NextResponse.json({ batches: batches || [] })
+  const practice = req.nextUrl.searchParams.get('practice') === '1'
+  return NextResponse.json({ batches: ((batches || []) as any[]).filter(b => !!b.is_practice === practice) })
 }

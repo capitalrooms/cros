@@ -13,6 +13,12 @@ export async function practiceReady(s: SupabaseClient): Promise<boolean> {
 }
 export const PRACTICE_NOT_READY = 'Practice mode needs migration 209 first — until then a demo house’s entries would use real numbers'
 
+/** Leave demo (practice) houses' rows out of a real report or list — pid says where each row's property id is. */
+export async function dropDemo<T>(s: SupabaseClient, rows: T[] | null | undefined, pid: (r: T) => string | null | undefined): Promise<T[]> {
+  const demo = await demoPropertyIds(s)
+  return (rows ?? []).filter(r => !demo.has(pid(r) ?? ''))
+}
+
 export async function demoPropertyIds(s: SupabaseClient): Promise<Set<string>> {
   const { data, error } = await s.from('properties').select('id').eq('is_demo', true)
   if (error) return new Set()

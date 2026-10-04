@@ -1,3 +1,4 @@
+import { dropDemo } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
@@ -19,12 +20,12 @@ export async function GET(req: NextRequest) {
   // Two-step: find matching statement IDs first, then fetch LSR rows
   const { data: stmts, error: stmtErr } = await supabase
     .from('landlord_statements')
-    .select('id')
+    .select('id, property_id')
     .gte('period_end', from)
     .lte('period_end', to)
   if (stmtErr) return NextResponse.json({ error: stmtErr.message }, { status: 500 })
 
-  const stmtIds = (stmts || []).map((s: any) => s.id)
+  const stmtIds = (await dropDemo(supabase as any, stmts as any[], (r: any) => r.property_id)).map((s: any) => s.id)
   if (stmtIds.length === 0) return NextResponse.json({ from, to, properties: [], totals: { management_fee: 0, letting_fee: 0 } })
 
   const { data: lsrRows, error } = await supabase

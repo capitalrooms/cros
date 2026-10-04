@@ -1,3 +1,4 @@
+import { dropDemo } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
@@ -32,8 +33,9 @@ export async function GET(req: NextRequest) {
     .order('charge_month', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const realCharges = await dropDemo(supabase as any, charges as any[], (r: any) => r.room?.property?.id)
 
-  let rows = (charges || []) as any[]
+  let rows = realCharges as any[]
   if (search) {
     const q = search.toLowerCase()
     rows = rows.filter(r => {

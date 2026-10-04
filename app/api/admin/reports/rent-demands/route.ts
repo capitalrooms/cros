@@ -1,3 +1,4 @@
+import { dropDemo } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
   const { data: rawCharges, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   // rent_charges has no tenancy link — find the tenant occupying each room in that month
-  const charges = await attachTenancies(supabase as any, (rawCharges || []) as any[], 'person_id, people!person_id ( first_name, last_name )')
+  const charges = await attachTenancies(supabase as any, await dropDemo(supabase as any, rawCharges as any[], (r: any) => r.room?.properties?.id), 'person_id, people!person_id ( first_name, last_name )')
 
   const rows = (charges || [])
     .map((c: any) => {

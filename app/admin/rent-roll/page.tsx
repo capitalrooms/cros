@@ -112,7 +112,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
         actions={<>
           <HeroMonthPicker month={month} onChange={go} />
           {practice
-            ? <><HeroButton primary onClick={raisePractice}>{busyPractice === 'raise' ? 'Raising…' : 'Raise this month’s practice rent'}</HeroButton><HeroButton href={`/admin/rent-roll?month=${month}`}>Leave practice</HeroButton></>
+            ? <><HeroButton primary onClick={raisePractice}>{busyPractice === 'raise' ? 'Raising…' : 'Raise this month’s practice rent'}</HeroButton><HeroButton onClick={async () => { const r = await adminFetch('/api/admin/rent-roll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'practice_refs' }) }); const j = await r.json().catch(() => ({})); alert(r.ok ? `${j.filled} practice tenanc${j.filled === 1 ? 'y' : 'ies'} given a payment reference` : j.error); load(month) }}>Give practice tenants references</HeroButton><HeroButton href="/admin/bank-import?practice=1">Practice bank import</HeroButton><HeroButton href={`/admin/rent-roll?month=${month}`}>Leave practice</HeroButton></>
             : <><HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton><HeroButton href={`/admin/rent-roll?month=${month}&practice=1`}>Practice mode</HeroButton></>}
         </>}
         stats={roll ? [

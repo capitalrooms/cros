@@ -3,6 +3,7 @@
  * Returns all unmatched bank_transactions for the reconciliation queue.
  */
 
+import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
 
   const { data: transactions } = await supabase
     .from('bank_transactions')
-    .select('id, transaction_date, amount, description, extracted_ref, imported_at, batch_id, bank_import_batches(filename, bank_name)')
+    .select('*, bank_import_batches(filename, bank_name)')
     .eq('status', 'unmatched')
     .order('transaction_date', { ascending: false })
     .limit(200)
@@ -73,8 +74,11 @@ export async function GET(req: NextRequest) {
     }
   }).filter((t: any) => t.name)
 
+  // practice (?practice=1): practice lines and demo houses' tenants only; the real list never shows either
+  const practice = req.nextUrl.searchParams.get('practice') === '1'
+  const ok = inScope(await demoPropertyIds(supabase as any), practice)
   return NextResponse.json({
-    transactions: transactions || [],
-    tenancy_options: tenancyOptions,
+    transactions: ((transactions || []) as any[]).filter(t => !!t.is_practice === practice && (t.property_id ? ok(t.property_id) : true)),
+    tenancy_options: tenancyOptions.filter((t: any) => ok(t.property_id)),
   })
 }

@@ -21,6 +21,7 @@
  *   - Saves bank_sender_name to tenancy if not already set (same as import confirm)
  */
 
+import { demoPropertyIds } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
   // ── Race-condition re-checks ────────────────────────────────────────────────
   const { data: txn } = await service
     .from('bank_transactions')
-    .select('id, amount, description, status, dedup_hash, transaction_date')
+    .select('*')
     .eq('id', transaction_id)
     .single()
 
@@ -65,13 +66,16 @@ export async function POST(req: NextRequest) {
 
   const { data: charge } = await service
     .from('rent_charges')
-    .select('id, status, amount_due, amount_received, voided')
+    .select('id, status, amount_due, amount_received, voided, property_id')
     .eq('id', rent_charge_id)
     .single()
 
   if (!charge) return NextResponse.json({ error: 'Rent charge not found' }, { status: 404 })
   // A charge that's already paid is fine: the money rolls on to older arrears or the next months (lib/payments/apply)
   if ((charge as any).voided) return NextResponse.json({ error: 'That charge has been cleared — pick another month' }, { status: 409 })
+  // practice money only to a demo house's rent, and real money never to one (migrations 209/210)
+  if (!!(txn as any).is_practice !== (await demoPropertyIds(service as any)).has((charge as any).property_id ?? ''))
+    return NextResponse.json({ error: (txn as any).is_practice ? 'A practice payment can only go to a practice (demo) house' : 'Real money can’t go to a practice (demo) house' }, { status: 409 })
 
   // Claim the transaction first so two clicks (or two people) can't spend the same money twice
   const { data: claimed } = await service.from('bank_transactions')
