@@ -389,7 +389,67 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
           <button type="button" onClick={save} disabled={busy} className={btnDark}>{busy ? 'Saving…' : 'Save terms'}</button>
         </div>
       )}
+      {!edit && file.stage !== 'fell_through' && addedToday(file) && <WrongRoom file={file} patch={patch} />}
     </section>
+  )
+}
+
+const addedToday = (file: LettingFile) => !!(file.tenancy as any).created_at && new Date((file.tenancy as any).created_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) === todayIso()
+
+// Same day only: put on the wrong room (move it, references follow) or added by mistake (remove it from every list)
+function WrongRoom({ file, patch }: { file: LettingFile; patch: Patch }) {
+  const [open, setOpen] = useState<'' | 'move' | 'remove'>('')
+  const [rooms, setRooms] = useState<{ id: string; name: string; status: string | null; unit_code: string | null }[]>([])
+  const [to, setTo] = useState('')
+  const [oldRoom, setOldRoom] = useState<'available' | 'leave'>('available')
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    if (!open) return
+    createClient().from('rooms').select('id, name, status, unit_code').eq('property_id', file.property.id)
+      .then(({ data }) => setRooms(((data ?? []) as any[]).filter(r => r.id !== file.room.id).sort((a, b) => String(a.name).localeCompare(String(b.name), 'en', { numeric: true }))))
+  }, [open, file.property.id, file.room.id])
+  async function move() {
+    setBusy(true); setErr('')
+    try { await patch(open === 'remove' ? { action: 'remove_mistake', oldRoom, reason } : { action: 'move_room', roomId: to, oldRoom, reason }); setOpen('') }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Could not move the tenancy') }
+    finally { setBusy(false) }
+  }
+  const target = rooms.find(r => r.id === to)
+  if (!open) return (
+    <div className="flex flex-wrap items-center gap-sm border-t border-neutral-100 pt-md text-xs text-neutral-500">
+      <span>Added today by mistake? You can fix it until midnight:</span>
+      <button type="button" onClick={() => setOpen('move')} className={btn}>Move to the right room</button>
+      <button type="button" onClick={() => setOpen('remove')} className={`${btn} text-red-700`}>Remove it</button>
+    </div>
+  )
+  return (
+    <div className="space-y-sm rounded-xl border border-amber-300 bg-amber-50 p-md">
+      {open === 'move' ? (<>
+        <p className="text-sm font-bold text-neutral-900">Move this tenancy from {file.room.name} to…</p>
+        <select className={`${input} w-full`} value={to} onChange={e => setTo(e.target.value)}>
+          <option value="">Choose the room they actually moved into</option>
+          {rooms.map(r => <option key={r.id} value={r.id}>{r.name}{r.unit_code ? ` · ${r.unit_code}` : ''}{r.status ? ` · ${r.status.replace('_', ' ')}` : ''}</option>)}
+        </select>
+      </>) : (
+        <p className="text-sm font-bold text-neutral-900">Remove this tenancy? It stays on record as “added by mistake”, with its numbers, but drops off every list and is never charged.</p>
+      )}
+      <fieldset className="space-y-xs text-sm text-neutral-800">
+        <legend className={label}>And {file.room.name}?</legend>
+        <label className="flex items-center gap-sm"><input type="radio" checked={oldRoom === 'available'} onChange={() => setOldRoom('available')} />Work it out from its tenancies (empty if no one else is in it)</label>
+        <label className="flex items-center gap-sm"><input type="radio" checked={oldRoom === 'leave'} onChange={() => setOldRoom('leave')} />Leave it as it is: someone still lives there</label>
+      </fieldset>
+      <input className={`${input} w-full`} placeholder="Note for the record (optional)" value={reason} onChange={e => setReason(e.target.value)} />
+      {open === 'move' && target && <p className="text-xs text-neutral-600">The lease, deposit and payment references change to {target.name}’s. Nothing is sent to the tenant. If they already have the old payment reference, tell them the new one.</p>}
+      {err && <p className="text-sm text-red-700">{err}</p>}
+      <div className="flex gap-sm">
+        <button type="button" onClick={() => { setOpen(''); setErr('') }} disabled={busy} className={btn}>Cancel</button>
+        {open === 'move'
+          ? <button type="button" onClick={move} disabled={busy || !to} className={btnDark}>{busy ? 'Moving…' : target ? `Move to ${target.name}` : 'Move'}</button>
+          : <button type="button" onClick={move} disabled={busy} className="rounded-lg bg-red-700 px-md py-xs text-sm font-bold text-white hover:bg-red-600 disabled:opacity-40">{busy ? 'Removing…' : 'Remove tenancy'}</button>}
+      </div>
+    </div>
   )
 }
 
