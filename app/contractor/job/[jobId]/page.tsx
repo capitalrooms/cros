@@ -153,7 +153,7 @@ export default function JobDetailPage() {
           .from('maintenance_tickets')
           .select('id, title, description')
           .eq('merged_into_ticket_id', jobId)
-          .neq('status', 'completed')
+          .not('status', 'in', '("completed","cancelled")')
         if (merged && merged.length > 0) setMergedTickets(merged)
 
         // Pre-fill quote fields if already submitted

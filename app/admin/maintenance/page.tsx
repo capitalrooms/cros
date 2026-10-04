@@ -1,4 +1,5 @@
 'use client';
+import { adminFetch } from '@/lib/adminFetch';
 
 import { useState, useEffect, useRef } from 'react';
 import QuotesPanel from './QuotesPanel';
@@ -29,6 +30,8 @@ interface Ticket {
   approved_at: string | null;
   on_hold: boolean;
   hold_reason: string | null;
+  cancel_reason?: string | null;
+  cancelled_at?: string | null;
   cause: string | null;
   created_at: string;
   updated_at: string;
@@ -113,6 +116,14 @@ const PIPELINE: PipelineStage[] = [
     cardClass: 'border-neutral-200 opacity-70',
     match: (t: Ticket) => t.status === 'completed',
   },
+  {
+    key: 'cancelled',
+    title: 'Cancelled',
+    actionType: 'PASSIVE_TRACKING',
+    getHeaderClass: () => 'bg-neutral-300 text-neutral-700',
+    cardClass: 'border-neutral-200 opacity-60',
+    match: (t: Ticket) => t.status === 'cancelled',
+  },
 ];
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -120,6 +131,45 @@ const PRIORITY_COLORS: Record<string, string> = {
   medium: 'text-neutral-500',
   high: 'text-neutral-900',
 };
+
+const CANCEL_REASONS = ['Raised by mistake / duplicate', 'Tenant sorted it themselves', 'Not our responsibility (tenant damage or landlord arranging)', 'Covered by another job', 'Test job']
+
+/** Close off a job that won't go ahead — a reason is required and kept on the record (migration 207). */
+function CancelJobModal({ ticket, onClose, onDone }: { ticket: Ticket; onClose: () => void; onDone: () => Promise<void> }) {
+  const [reason, setReason] = useState('')
+  const [tellContractor, setTellContractor] = useState(!!ticket.contractor_id)
+  const [tellTenant, setTellTenant] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  async function go() {
+    setBusy(true); setErr('')
+    const r = await adminFetch('/api/admin/jobs/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: ticket.id, reason, tellContractor, tellTenant }) })
+    const d = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok) { setErr(d.error ?? 'Could not cancel it'); return }
+    await onDone()
+  }
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 p-lg sm:items-center" onClick={() => !busy && onClose()}>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-lg text-neutral-900 shadow-2xl" onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-bold">Cancel this job</h2>
+        <p className="text-sm text-neutral-600">{ticket.properties?.name?.split('\n')[0]}{ticket.rooms?.name ? ` · ${ticket.rooms.name}` : ''} — {ticket.title}</p>
+        <p className="mt-md text-xs font-bold uppercase tracking-wide text-neutral-500">Why? (kept on the record)</p>
+        <div className="mt-xs flex flex-wrap gap-xs">
+          {CANCEL_REASONS.map(r => <button key={r} type="button" onClick={() => setReason(r)} className={`rounded-full border px-sm py-0.5 text-xs ${reason === r ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700'}`}>{r}</button>)}
+        </div>
+        <textarea rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="Or write the reason" className="mt-sm w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+        {ticket.contractor_id && <label className="mt-sm flex items-center gap-sm text-sm"><input type="checkbox" checked={tellContractor} onChange={e => setTellContractor(e.target.checked)} /> Tell the contractor it’s cancelled</label>}
+        <label className="mt-xs flex items-center gap-sm text-sm"><input type="checkbox" checked={tellTenant} onChange={e => setTellTenant(e.target.checked)} /> Tell the tenant who reported it (with the reason)</label>
+        {err && <p className="mt-sm text-sm text-red-700">{err}</p>}
+        <div className="mt-md flex gap-sm">
+          <button type="button" onClick={onClose} disabled={busy} className="flex-1 rounded-xl border border-neutral-300 py-sm text-sm font-semibold">Keep the job</button>
+          <button type="button" onClick={go} disabled={busy || reason.trim().length < 4} className="flex-1 rounded-xl bg-red-700 py-sm text-sm font-bold text-white disabled:opacity-40">{busy ? 'Cancelling…' : 'Cancel job'}</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function MaintenanceDashboard() {
   const router = useRouter();
@@ -138,6 +188,7 @@ export default function MaintenanceDashboard() {
   const [bookSlot, setBookSlot] = useState('');
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
+  const [cancelFor, setCancelFor] = useState<Ticket | null>(null);
   const [batchDate, setBatchDate] = useState('');
   const [showBatchDialog, setShowBatchDialog] = useState(false);
 
@@ -619,6 +670,7 @@ export default function MaintenanceDashboard() {
         left={<BackButton href="/admin" />}
       />
       <PageHero title="Maintenance" subtitle={<>Approve, assign, and batch repairs across all properties</>} />
+      {cancelFor && <CancelJobModal ticket={cancelFor} onClose={() => setCancelFor(null)} onDone={async () => { setCancelFor(null); await fetchTickets() }} />}
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Page heading */}
@@ -879,8 +931,17 @@ export default function MaintenanceDashboard() {
                               Return visit needed
                             </p>
                           )}
+                          {col.key === 'cancelled' && ticket.cancel_reason && (
+                            <p className="mt-sm text-xs text-neutral-600">Cancelled{ticket.cancelled_at ? ` ${new Date(ticket.cancelled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}: {ticket.cancel_reason}</p>
+                          )}
                           {/* Add to Planner — available on non-completed tickets */}
-                          {col.key !== 'completed' && (
+                          {col.key !== 'completed' && col.key !== 'cancelled' && (
+                            <button type="button" onClick={e => { e.stopPropagation(); setCancelFor(ticket) }}
+                              className="mt-xs w-full text-[10px] font-semibold text-neutral-400 hover:text-red-600">
+                              Cancel job
+                            </button>
+                          )}
+                          {col.key !== 'completed' && col.key !== 'cancelled' && (
                             <button
                               onClick={e => { e.stopPropagation(); openAddToPlanner(ticket) }}
                               className="mt-sm w-full rounded-lg border border-dashed border-neutral-300 py-1 text-[10px] font-semibold text-neutral-400 hover:border-neutral-500 hover:text-neutral-700 transition-colors"

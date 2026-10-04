@@ -69,7 +69,7 @@ export async function GET(req: Request) {
     .from('cleans')
     .select('id, clean_time, cleaner_id, arrived_at, status')
     .eq('clean_date', today)
-    .neq('status', 'completed')
+    .not('status', 'in', '("completed","cancelled")')
     .not('cleaner_id', 'is', null)
     .is('arrived_at', null)
 

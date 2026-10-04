@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
       .select('id, title, category, status, booked_date')
       .eq('room_id', ticket.room_id)
       .neq('id', ticketId)
-      .neq('status', 'completed')
+      .not('status', 'in', '("completed","cancelled")')
       .order('created_at', { ascending: false })
       .limit(5)
     otherTickets = others || []

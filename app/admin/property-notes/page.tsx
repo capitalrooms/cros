@@ -176,7 +176,7 @@ export default function PropertyNotesPage() {
           .from('cleans')
           .select('id, clean_date')
           .eq('property_id', selectedProperty)
-          .neq('status', 'completed')
+          .not('status', 'in', '("completed","cancelled")')
           .gte('clean_date', today)
           .order('clean_date', { ascending: true })
           .limit(1)

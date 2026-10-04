@@ -1,23 +1,31 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { use, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
-import PageHero from '@/components/PageHero'
+import PageHero, { HeroButton } from '@/components/PageHero'
+import { adminFetch } from '@/lib/adminFetch'
+import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import BackButton from '@/app/components/BackButton'
 import EditPersonModal from '../components/EditPersonModal'
 import { displayName, landlordName, nameFields } from '@/lib/people'
 import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
-type Tab = 'tenants' | 'staff' | 'landlords' | 'administrators'
+type Tab = 'tenants' | 'contractors' | 'cleaners' | 'landlords' | 'office'
+const TAB_FROM_URL: Record<string, Tab> = { tenants: 'tenants', contractors: 'contractors', cleaners: 'cleaners', landlords: 'landlords', staff: 'office', office: 'office', administrators: 'office' }
 
 interface Person {
   id: string
   email: string
+  salutation?: string
+  phone?: string
+  company?: string
+  trade_types?: string[] | null
+  landlord_comms_enabled?: boolean
   first_name?: string
   last_name?: string
   full_name?: string
@@ -72,13 +80,21 @@ function NotifyBadge({ on }: { on: boolean }) {
   )
 }
 
-export default function PeopleManagement() {
+export default function PeopleManagement({ searchParams }: { searchParams: PageSearchParams }) {
+  const urlTab = TAB_FROM_URL[one(use(searchParams).tab) ?? ''] ?? 'tenants'
   const router = useRouter()
   const supabase = createClient()
 
   // Shared state
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<Tab>('tenants')
+  const [activeTab, setActiveTab] = useState<Tab>(urlTab)
+  useEffect(() => { setActiveTab(urlTab) }, [urlTab])   // the rail's People links
+  const [q, setQ] = useState('')
+  const [menu, setMenu] = useState<string | null>(null)
+  const [tenancyOf, setTenancyOf] = useState<Map<string, any>>(new Map())
+  const [ownedBy, setOwnedBy] = useState<Map<string, string[]>>(new Map())
+  const [emergency, setEmergency] = useState<Map<string, any>>(new Map())
+  const [ecBusy, setEcBusy] = useState('')
   const [people, setPeople] = useState<Person[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [notifyOn, setNotifyOn] = useState<Set<string>>(new Set())
@@ -123,7 +139,7 @@ export default function PeopleManagement() {
       }
 
       const { data: peopleData } = await supabase.from('people').select('*').order('created_at', { ascending: false })
-      const { data: propsData } = await supabase.from('properties').select('id, name, address')
+      const { data: propsData } = await supabase.from('properties').select('id, name, address, landlord_id')
       const { data: roomsData } = await supabase.from('rooms').select('id, name, property_id')
       const { data: subsData } = await supabase.from('push_subscriptions').select('person_id, email')
 
@@ -194,6 +210,17 @@ export default function PeopleManagement() {
         .order('statement_date', { ascending: false })
 
       setStatements((statementsData as any) || [])
+
+      // each tenant's current (or agreed) tenancy, each landlord's properties, who does emergency call-outs
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+      const { data: tens } = await supabase.from('tenancies').select('person_id, start_date, end_date, notice_received_date, let_cancelled_at, rooms(name), properties(id, name, address)')
+        .is('let_cancelled_at', null).or(`end_date.is.null,end_date.gte.${today}`).order('start_date')
+      setTenancyOf(new Map(((tens || []) as any[]).map(t => [t.person_id, t])))
+      const owned = new Map<string, string[]>()
+      for (const pr of sortPropertiesNumerically((propsData || []) as any[]) as any[]) if (pr.landlord_id) owned.set(pr.landlord_id, [...(owned.get(pr.landlord_id) ?? []), String(pr.name ?? '').split('\n')[0]])
+      setOwnedBy(owned)
+      const ec = await adminFetch('/api/admin/emergencies?only=list').then(r => r.json()).catch(() => ({ list: [] }))
+      setEmergency(new Map(((ec.list ?? []) as any[]).map(c => [c.person_id, c])))
 
       setLoading(false)
     }
@@ -351,85 +378,116 @@ export default function PeopleManagement() {
     }))
   }
 
+  async function toggleEmergency(personId: string, on: boolean) {
+    setEcBusy(personId)
+    const r = await adminFetch('/api/admin/emergencies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'toggle_contractor', personId, on }) })
+    const d = await r.json().catch(() => ({}))
+    setEcBusy('')
+    if (!r.ok) { setError(d.error ?? 'Could not change that'); return }
+    setEmergency(prev => { const n = new Map(prev); const cur = n.get(personId); n.set(personId, { ...(cur ?? { trades: d.trades ?? ['general'] }), person_id: personId, active: on }); return n })
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin" />} />
-        <p className="p-xl text-sm text-neutral-400">Loading…</p>
+        <PageHero eyebrow="People" title="People" subtitle="Loading…" />
       </div>
     )
   }
 
-  const staffPeople = people.filter((p) => p.role === 'contractor' || p.role === 'cleaner' || p.role === 'lettings')
-  const adminPeople = people.filter((p) => p.role === 'administrator')
+  const byRole = (...roles: string[]) => people.filter(p => roles.includes(p.role))
+  const tenants = byRole('tenant'), contractors = byRole('contractor'), cleaners = byRole('cleaner'), office = byRole('administrator', 'admin', 'lettings')
+  const needle = q.trim().toLowerCase()
+  const match = (p: any, extra = '') => !needle || [displayName(p), p.full_name, p.email, p.phone, p.company, extra].some(v => String(v ?? '').toLowerCase().includes(needle))
+  const firstLine = (v: unknown) => String(v ?? '').split('\n')[0]
+  const ecOn = (id: string) => !!emergency.get(id)?.active
+  const counts: Record<Tab, number> = { tenants: tenants.length, contractors: contractors.length, cleaners: cleaners.length, landlords: landlords.length, office: office.length }
+  const LABEL: Record<Tab, string> = { tenants: 'Tenants', contractors: 'Contractors', cleaners: 'Cleaners', landlords: 'Landlords', office: 'Office' }
+  const viewAs = (p: Person) => p.role === 'tenant' ? `/tenant?as=${p.id}` : p.role === 'contractor' ? `/contractor?as=${p.id}` : p.role === 'cleaner' ? `/cleaner?as=${p.id}` : p.role === 'lettings' ? `/lettings?as=${p.id}` : p.role === 'landlord' ? `/landlord?as=${p.id}` : null
+  const profile = (p: Person) => p.role === 'tenant' ? `/admin/tenant/${p.id}` : p.role === 'landlord' ? `/admin/landlord/${p.id}` : p.role === 'contractor' ? `/admin/contractor/${p.id}` : `/admin/person/${p.id}`
+  const startAdd = (role: string) => { setFormData({ ...formData, email: '', role, property_id: '', salutation: '', first_name: '', middle_name: '', last_name: '', phone: '' }); setShowAddPerson(true); setShowAddLandlord(false) }
+  const tone = (role: string) => role === 'tenant' ? 'bg-sky-100 text-sky-800' : role === 'contractor' ? 'bg-amber-100 text-amber-800' : role === 'cleaner' ? 'bg-teal-100 text-teal-800' : role === 'landlord' ? 'bg-violet-100 text-violet-800' : 'bg-neutral-200 text-neutral-800'
+  const initials = (p: any) => (displayName(p) !== '—' ? displayName(p) : p.email || '?').split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')
+
+  /** One person, one row: who, how to reach them, the details that matter for their role, and actions. */
+  const Row = ({ p, detail, extra }: { p: Person; detail?: React.ReactNode; extra?: React.ReactNode }) => (
+    <li className="relative grid grid-cols-[40px_minmax(0,1fr)_auto] md:grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1.2fr)_150px_auto] items-center gap-x-md gap-y-0.5 px-lg py-sm hover:bg-neutral-50">
+      <span className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${tone(p.role)}`}>{initials(p)}</span>
+      <Link href={profile(p)} className="min-w-0 after:absolute after:inset-0 after:content-['']">
+        <span className="block truncate text-sm font-semibold text-neutral-900">{p.role === 'landlord' ? landlordName(p as any) : [(p as any).salutation, displayName(p)].filter(x => x && x !== '—').join(' ') || p.email}</span>
+        <span className="block truncate text-xs text-neutral-500">{p.email}</span>
+      </Link>
+      <span className="hidden md:block min-w-0 text-sm text-neutral-700">{detail}</span>
+      <span className="hidden md:block text-xs tabular-nums text-neutral-600">{(p as any).phone || <span className="text-neutral-300">No phone</span>}</span>
+      <span className="relative z-10 flex items-center justify-end gap-xs" data-row-menu>
+        {extra}
+        <span title={notifyOn.has(p.id) ? 'Notifications on' : 'Notifications off'} className={`hidden sm:inline-block h-2 w-2 rounded-full ${notifyOn.has(p.id) ? 'bg-green-500' : 'bg-neutral-300'}`} />
+        <button type="button" aria-label="More" onClick={() => setMenu(menu === p.id ? null : p.id)} className="rounded-lg px-sm py-xs text-lg leading-none text-neutral-500 hover:bg-neutral-200">⋯</button>
+        {menu === p.id && (
+          <span className="absolute right-0 top-full z-40 mt-1 w-48 overflow-hidden rounded-xl border border-neutral-200 bg-white py-xs text-sm shadow-lg">
+            <Link href={profile(p)} className="block px-md py-xs font-semibold hover:bg-neutral-50">Open profile</Link>
+            {viewAs(p) && <Link href={viewAs(p)!} className="block px-md py-xs hover:bg-neutral-50">See their app (view as)</Link>}
+            {p.role !== 'landlord' && <button type="button" onClick={() => { setMenu(null); setSelectedPerson(p); setIsEditModalOpen(true) }} className="block w-full px-md py-xs text-left hover:bg-neutral-50">Edit name & contact</button>}
+            <button type="button" onClick={() => { setMenu(null); handleDeletePerson(p.id) }} className="block w-full border-t border-neutral-100 px-md py-xs text-left text-red-700 hover:bg-red-50">Delete…</button>
+          </span>
+        )}
+      </span>
+      {detail && <span className="col-start-2 col-span-2 md:hidden truncate text-xs text-neutral-600">{detail}</span>}
+    </li>
+  )
+  const List = ({ children, empty }: { children: React.ReactNode[]; empty: string }) => children.length
+    ? <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">{children}</ul>
+    : <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-500">{needle ? 'Nobody matches that search.' : empty}</div>
+
+  // tenants by property (from their tenancies), then anyone without a current tenancy
+  const tenantGroups = (() => {
+    const g = new Map<string, { name: string; address: string; rows: { p: Person; room: string; note: string }[] }>()
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    for (const p of tenants) {
+      const t = tenancyOf.get(p.id)
+      const key = t?.properties?.id ?? 'none'
+      if (!match(p, `${t?.rooms?.name ?? ''} ${t?.properties?.name ?? ''}`)) continue
+      if (!g.has(key)) g.set(key, { name: t ? firstLine(t.properties?.name) : 'No current tenancy', address: t ? String(t.properties?.address ?? '').replace(/\n/g, ', ') : 'Past tenants, applicants who became tenants, or not set up yet', rows: [] })
+      const note = !t ? '' : t.start_date > today ? `Moving in ${new Date(`${t.start_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : t.notice_received_date ? `On notice · out ${t.end_date ? new Date(`${t.end_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '?'}` : ''
+      g.get(key)!.rows.push({ p, room: t?.rooms?.name ?? '', note })
+    }
+    const groups = [...g.entries()].map(([id, v]) => ({ id, ...v }))
+    const real = sortPropertiesNumerically(groups.filter(x => x.id !== 'none').map(x => ({ ...x, name: x.name })) as any[]) as any[]
+    for (const x of real) x.rows.sort((a: any, b: any) => a.room.localeCompare(b.room, undefined, { numeric: true }))
+    return [...real, ...groups.filter(x => x.id === 'none')]
+  })()
 
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
+    <div className="min-h-screen bg-neutral-100 pb-3xl" onClick={e => { if (menu && !(e.target as HTMLElement).closest('[data-row-menu]')) setMenu(null) }}>
       <AppBar left={<BackButton href="/admin" />} />
-      <PageHero title="People" subtitle={<>Manage tenants, contractors, cleaners, landlords, and administrators across all properties</>} />
+      <PageHero
+        eyebrow="People"
+        title={LABEL[activeTab]}
+        subtitle={activeTab === 'tenants' ? 'Everyone renting from us, by property and room. Tap anyone for their profile.' : activeTab === 'contractors' ? 'Tick “Emergency call-outs” for anyone CROS may text out of hours — set their trades, hours and fee in Emergencies.' : activeTab === 'cleaners' ? 'Your cleaners.' : activeTab === 'landlords' ? 'Landlords and the properties they own with us.' : 'The office team: administrators and lettings.'}
+        stats={[
+          { label: 'Tenants', value: tenants.length },
+          { label: 'Contractors', value: contractors.length },
+          { label: 'Emergency call-outs', value: contractors.filter(c => ecOn(c.id)).length, tone: contractors.some(c => ecOn(c.id)) ? 'good' : 'warn' },
+          { label: 'Landlords', value: landlords.length },
+        ]}
+        actions={activeTab === 'tenants' ? <HeroButton primary onClick={() => startAdd('tenant')}>+ Register tenant</HeroButton>
+          : activeTab === 'landlords' ? <HeroButton primary onClick={() => { setShowAddLandlord(v => !v); setShowAddPerson(false) }}>+ Add landlord</HeroButton>
+          : <HeroButton primary onClick={() => startAdd(activeTab === 'contractors' ? 'contractor' : activeTab === 'cleaners' ? 'cleaner' : 'lettings')}>+ Add {activeTab === 'contractors' ? 'contractor' : activeTab === 'cleaners' ? 'cleaner' : 'office member'}</HeroButton>}
+        tabs={(['tenants', 'contractors', 'cleaners', 'landlords', 'office'] as Tab[]).map(t => ({ key: t, label: `${LABEL[t]} · ${counts[t]}`, active: activeTab === t, onClick: () => { setActiveTab(t); setShowAddPerson(false); setShowAddLandlord(false); setMenu(null); window.history.replaceState(null, '', `/admin/people?tab=${t}`) } }))}
+      />
 
-      <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-2xl">
+      <main className="mx-auto max-w-6xl px-lg py-xl space-y-md">
+        {error && <div className="rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-900">{error}</div>}
+        {success && <div className="rounded-xl border border-green-200 bg-green-50 p-md text-sm text-green-900">{success}</div>}
+        {landlordSuccessMessage && <div className="rounded-xl border border-green-200 bg-green-50 p-md text-sm text-green-900">{landlordSuccessMessage}</div>}
 
-          {error && (
-            <div className="mb-md rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-900">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="mb-md rounded-xl border border-green-200 bg-green-50 p-md text-sm text-green-900">
-              {success}
-            </div>
-          )}
+        <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${LABEL[activeTab].toLowerCase()} by name, email, phone${activeTab === 'tenants' ? ', room or property' : ''}…`}
+          className="w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm" />
 
-          {/* Tab buttons */}
-          <div className="flex gap-sm border-b border-neutral-300">
-            {(['tenants', 'staff', 'landlords', 'administrators'] as const).map((tab) => {
-              const labels = { tenants: '🏠 Tenants', staff: '👷 Staff', landlords: '🤝 Landlords', administrators: '⚙️ Admins' }
-              const counts = {
-                tenants: people.filter((p) => p.role === 'tenant').length,
-                staff: staffPeople.length,
-                landlords: landlords.length,
-                administrators: adminPeople.length,
-              }
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-lg py-md font-semibold transition ${
-                    activeTab === tab
-                      ? 'border-b-2 border-neutral-900 text-neutral-900'
-                      : 'text-neutral-500 hover:text-neutral-700'
-                  }`}
-                >
-                  {labels[tab]}
-                  {counts[tab] > 0 && (
-                    <span className="ml-sm inline-block rounded-full bg-neutral-900 text-white px-sm py-0 text-xs font-bold">
-                      {counts[tab]}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* TENANTS TAB */}
+        {/* ── add forms ── */}
         {activeTab === 'tenants' && (
-          <div className="space-y-lg">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-neutral-900">Tenants by property</h2>
-              <button
-                onClick={() => {
-                  setFormData({ email: '', role: 'tenant', property_id: '', first_name: '', last_name: '' })
-                  setShowAddPerson(true)
-                }}
-                className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
-              >
-                + Add Tenant
-              </button>
-            </div>
-
+          <>
             {showAddPerson && (
               <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
                 {/* Form header */}
@@ -606,211 +664,10 @@ export default function PeopleManagement() {
               </div>
             )}
 
-            {properties.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-                <p className="text-sm text-neutral-500">No tenants assigned yet</p>
-              </div>
-            ) : (
-              <div className="space-y-lg">
-                {properties.map((prop) => (
-                  <div key={prop.id} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-                    <div className="border-b border-neutral-200 bg-neutral-50 px-lg py-md">
-                      <h3 className="font-bold text-neutral-900">{prop.name}</h3>
-                      <p className="text-xs text-neutral-600 mt-xs">{prop.address}</p>
-                    </div>
-                    <div className="divide-y divide-neutral-200">
-                      {prop.rooms.length === 0 ? (
-                        <div className="px-lg py-md text-xs text-neutral-500">No rooms</div>
-                      ) : (
-                        prop.rooms.map((room) => (
-                          <div key={room.id}>
-                            <div className="px-lg py-md bg-neutral-50 text-xs font-semibold text-neutral-700">{room.name}</div>
-                            {room.tenants.map((tenant) => (
-                              <div key={tenant.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50 cursor-pointer"
-                                onClick={() => router.push(`/admin/tenant/${tenant.id}`)}>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium text-neutral-900">{displayName(tenant) || tenant.email}</p>
-                                  <p className="text-xs text-neutral-500">{(tenant.first_name || tenant.full_name) ? tenant.email : ''}</p>
-                                </div>
-                                <div className="flex shrink-0 items-center gap-sm">
-                                  <NotifyBadge on={notifyOn.has(tenant.id)} />
-                                  <Link
-                                    href={`/tenant?as=${tenant.id}`}
-                                    onClick={e => e.stopPropagation()}
-                                    title="View tenant dashboard as this person"
-                                    className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors"
-                                  >
-                                    👁
-                                  </Link>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleDeletePerson(tenant.id) }}
-                                    className="text-xs text-red-600 hover:text-red-700"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          </>
         )}
-
-        {/* STAFF TAB */}
-        {activeTab === 'staff' && (
-          <div className="space-y-lg">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-neutral-900">Contractors & Cleaners</h2>
-              <button
-                onClick={() => {
-                  setFormData({ email: '', role: 'contractor', property_id: '', salutation: '', first_name: '', last_name: '' })
-                  setShowAddPerson(true)
-                }}
-                className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
-              >
-                + Add Staff
-              </button>
-            </div>
-
-            {showAddPerson && (
-              <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
-                <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Staff Member</h3>
-                <form onSubmit={handleAddPerson} className="space-y-md">
-                  <div className="grid grid-cols-[100px_1fr_1fr] gap-md">
-                    <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Salutation</label>
-                      <select
-                        value={formData.salutation}
-                        onChange={(e) => setFormData({ ...formData, salutation: e.target.value })}
-                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm bg-white"
-                      >
-                        <option value="">—</option>
-                        {['Mr','Mrs','Ms','Miss','Dr','Prof','Rev','Mx'].map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">First Name</label>
-                      <input type="text" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} className="w-full rounded border border-neutral-300 px-md py-sm text-sm" placeholder="Jane" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Last Name</label>
-                      <input type="text" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} className="w-full rounded border border-neutral-300 px-md py-sm text-sm" placeholder="Doe" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-md">
-                    <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-neutral-700 mb-xs">Role</label>
-                      <select
-                        value={formData.role}
-                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                        className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
-                      >
-                        <option value="contractor">Contractor</option>
-                        <option value="cleaner">Cleaner</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex gap-md">
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-green-600 px-lg py-sm text-sm font-semibold text-white hover:bg-green-700"
-                    >
-                      Add Staff
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddPerson(false)}
-                      className="rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold hover:bg-neutral-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {staffPeople.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-                <p className="text-sm text-neutral-500">No staff members added yet</p>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-200">
-                {staffPeople.map((person) => (
-                  <div
-                    key={person.id}
-                    onClick={() => router.push(`/admin/person/${person.id}`)}
-                    className="w-full flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50 transition cursor-pointer"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-neutral-900">{displayName(person) || person.email}</p>
-                      <p className="text-xs text-neutral-500 mt-xs">
-                        {person.role === 'contractor' ? '👷 Contractor' : person.role === 'cleaner' ? '🧹 Cleaner' : '🔑 Lettings'}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-sm">
-                      <NotifyBadge on={notifyOn.has(person.id)} />
-                      <Link
-                        href={
-                          person.role === 'contractor' ? `/contractor?as=${person.id}` :
-                          person.role === 'cleaner'    ? `/cleaner?as=${person.id}` :
-                          person.role === 'lettings'   ? `/lettings?as=${person.id}` :
-                          `/admin/view-as/${person.id}`
-                        }
-                        onClick={e => e.stopPropagation()}
-                        title={`View ${person.role} dashboard as this person`}
-                        className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors"
-                      >
-                        👁
-                      </Link>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeletePerson(person.id) }}
-                        className="text-xs text-red-600 hover:text-red-700"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* LANDLORDS TAB */}
         {activeTab === 'landlords' && (
-          <div className="space-y-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-neutral-900">Landlords</h2>
-                <p className="text-sm text-neutral-600 mt-xs">Manage landlords and their assigned properties. Statements below.</p>
-              </div>
-              <button
-                onClick={() => setShowAddLandlord(!showAddLandlord)}
-                className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
-              >
-                + Add Landlord
-              </button>
-            </div>
-
-            {landlordSuccessMessage && (
-              <div className="rounded-xl bg-green-100 p-md text-sm text-green-700 font-semibold">{landlordSuccessMessage}</div>
-            )}
-
+          <>
             {showAddLandlord && (
               <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg">
                 <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Landlord</h3>
@@ -970,174 +827,77 @@ export default function PeopleManagement() {
               </div>
             )}
 
-            {landlords.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-                <p className="text-sm text-neutral-500">No landlords added yet</p>
-              </div>
-            ) : (
-              <div className="space-y-md">
-                {landlords.map((landlord) => (
-                  <div key={landlord.id}
-                    onClick={() => router.push(`/admin/landlord/${landlord.id}`)}
-                    className="rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-400 transition-colors cursor-pointer">
-                    <div className="flex items-start justify-between gap-md">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-base font-bold text-neutral-900">{landlordName(landlord) !== '—' ? landlordName(landlord) : landlord.email}</h3>
-                        <p className="text-sm text-neutral-600">{landlord.email}</p>
-                        <p className="text-xs text-neutral-500 mt-xs">
-                          Added {new Date(landlord.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-sm">
-                        <Link
-                          href={`/landlord?as=${landlord.id}`}
-                          onClick={e => e.stopPropagation()}
-                          title="View landlord dashboard as this person"
-                          className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors"
-                        >
-                          👁
-                        </Link>
-                        <span className="text-xs font-semibold text-neutral-700 bg-neutral-100 px-md py-xs rounded-full">
-                          Landlord
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-2xl pt-lg border-t border-neutral-200">
-              <h3 className="text-lg font-bold text-neutral-900 mb-md">Landlord Statements</h3>
-              <p className="text-sm text-neutral-600 mb-lg">
-                View all landlord statements. For detailed statement management and creation, use the full Statements page:
-              </p>
-              <Link
-                href="/admin/statements"
-                className="inline-block rounded-lg bg-neutral-900 px-lg py-md text-sm font-semibold text-white hover:bg-neutral-800"
-              >
-                → Manage Statements
-              </Link>
-
-              {statements.length === 0 ? (
-                <div className="mt-lg rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-                  <p className="text-sm text-neutral-500">No statements uploaded yet</p>
-                </div>
-              ) : (
-                <div className="mt-lg rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-200 max-h-[400px] overflow-y-auto">
-                  {statements.map((stmt) => (
-                    <div key={stmt.id} className="px-lg py-md hover:bg-neutral-50">
-                      <div className="flex items-start justify-between gap-md">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-neutral-900">{stmt.properties?.name || 'Unknown Property'}</p>
-                          <p className="text-xs text-neutral-600 mt-xs">Ref: {stmt.statement_reference}</p>
-                          <p className="text-xs text-neutral-500 mt-xs">
-                            {new Date(stmt.statement_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-bold text-neutral-900">£{stmt.net_to_landlord.toFixed(2)}</p>
-                          <p className="text-xs text-neutral-600">Net to landlord</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+          </>
+        )}
+        {showAddPerson && ['contractors', 'cleaners', 'office'].includes(activeTab) && (
+          <form onSubmit={handleAddPerson} className="rounded-2xl border border-neutral-200 bg-white p-lg space-y-md">
+            <h3 className="text-base font-bold text-neutral-900">Add {activeTab === 'contractors' ? 'a contractor' : activeTab === 'cleaners' ? 'a cleaner' : 'an office member'}</h3>
+            <NameInput required titleRequired
+              value={{ salutation: formData.salutation, first_name: formData.first_name, last_name: formData.last_name }}
+              onChange={n => setFormData({ ...formData, salutation: n.salutation, first_name: n.first_name, last_name: n.last_name })}
+              inputClass="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm" labelClass="block text-xs font-semibold text-neutral-600 mb-xs" />
+            <div className="grid gap-md sm:grid-cols-3">
+              <label className="block text-xs font-semibold text-neutral-600">Email *<input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="mt-xs w-full rounded-lg border border-neutral-300 px-md py-sm text-sm font-normal" /></label>
+              <label className="block text-xs font-semibold text-neutral-600">Mobile<input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="mt-xs w-full rounded-lg border border-neutral-300 px-md py-sm text-sm font-normal" placeholder="07…" /></label>
+              {activeTab === 'office' && (
+                <label className="block text-xs font-semibold text-neutral-600">Role<select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-normal"><option value="lettings">Lettings</option><option value="administrator">Administrator</option></select></label>
               )}
             </div>
-          </div>
-        )}
-
-        {/* ADMINISTRATORS TAB */}
-        {activeTab === 'administrators' && (
-          <div className="space-y-lg">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-neutral-900">Administrators</h2>
-              <button
-                onClick={() => {
-                  setFormData({ email: '', role: 'administrator', property_id: '', salutation: '', first_name: '', last_name: '' })
-                  setShowAddPerson(true)
-                }}
-                className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800"
-              >
-                + Add Admin
-              </button>
+            <div className="flex gap-sm">
+              <button type="submit" className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white">Add</button>
+              <button type="button" onClick={() => setShowAddPerson(false)} className="rounded-xl border border-neutral-300 px-lg py-sm text-sm font-semibold">Cancel</button>
             </div>
-
-            {showAddPerson && (
-              <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
-                <h3 className="text-lg font-bold text-neutral-900 mb-md">Add New Administrator</h3>
-                <form onSubmit={handleAddPerson} className="space-y-md">
-                  <div>
-                    <label className="block text-sm font-semibold text-neutral-700 mb-xs">Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full rounded border border-neutral-300 px-md py-sm text-sm"
-                    />
-                  </div>
-                  <div className="flex gap-md">
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-green-600 px-lg py-sm text-sm font-semibold text-white hover:bg-green-700"
-                    >
-                      Add Admin
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddPerson(false)}
-                      className="rounded-lg border border-neutral-300 px-lg py-sm text-sm font-semibold hover:bg-neutral-50"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-
-            {adminPeople.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-                <p className="text-sm text-neutral-500">No administrators added yet</p>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-200">
-                {adminPeople.map((person) => (
-                  <div key={person.id} className="flex items-center justify-between gap-md px-lg py-md hover:bg-neutral-50">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-neutral-900">{displayName(person) || person.email}</p>
-                      <p className="text-xs text-neutral-500">Administrator</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-md">
-                      <NotifyBadge on={notifyOn.has(person.id)} />
-                      <button
-                        onClick={() => handleDeletePerson(person.id)}
-                        className="text-xs text-red-600 hover:text-red-700"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          </form>
         )}
 
-        {/* Edit Person Modal */}
+        {/* ── lists ── */}
+        {activeTab === 'tenants' && (tenantGroups.length ? tenantGroups.map(g => (
+          <section key={g.id} className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+            <header className="flex items-baseline justify-between gap-md border-b border-neutral-100 bg-neutral-50 px-lg py-sm">
+              <span className="min-w-0"><span className="font-bold text-neutral-900">{g.name}</span><span className="ml-sm truncate text-xs text-neutral-500">{g.address}</span></span>
+              <span className="shrink-0 text-xs text-neutral-500">{g.rows.length} tenant{g.rows.length === 1 ? '' : 's'}</span>
+            </header>
+            <ul className="divide-y divide-neutral-100">
+              {g.rows.map(({ p, room, note }: any) => <Row key={p.id} p={p} detail={<>{room || <span className="text-neutral-400">—</span>}{note && <span className="ml-sm rounded-full bg-amber-50 px-sm py-0.5 text-[11px] font-semibold text-amber-800">{note}</span>}</>} />)}
+            </ul>
+          </section>
+        )) : <List empty="No tenants yet.">{[]}</List>)}
+
+        {activeTab === 'contractors' && (
+          <List empty="No contractors yet.">{contractors.filter(p => match(p, (p.trade_types ?? []).join(' '))).map(p => (
+            <Row key={p.id} p={p}
+              detail={(p.trade_types ?? []).length ? (p.trade_types ?? []).join(', ') : <span className="text-neutral-400">Trades not set</span>}
+              extra={
+                <label className={`hidden sm:flex cursor-pointer items-center gap-xs rounded-full border px-sm py-0.5 text-[11px] font-semibold ${ecOn(p.id) ? 'border-red-300 bg-red-50 text-red-800' : 'border-neutral-200 text-neutral-500'}`} title="CROS may text them for out-of-hours emergencies">
+                  <input type="checkbox" className="h-3 w-3" disabled={ecBusy === p.id} checked={ecOn(p.id)} onChange={e => toggleEmergency(p.id, e.target.checked)} />
+                  🚨 Emergency call-outs
+                </label>
+              } />
+          ))}</List>
+        )}
+        {activeTab === 'contractors' && contractors.some(c => ecOn(c.id)) && (
+          <p className="text-xs text-neutral-500">Set each one’s trades, hours, call-out fee and preference in <Link href="/admin/emergencies?tab=list" className="font-semibold text-blue-700 hover:underline">Emergencies › Emergency contractors</Link>. Without a mobile number they can’t be texted.</p>
+        )}
+
+        {activeTab === 'cleaners' && <List empty="No cleaners yet.">{cleaners.filter(p => match(p)).map(p => <Row key={p.id} p={p} detail="Cleaner" />)}</List>}
+
+        {activeTab === 'landlords' && (
+          <List empty="No landlords yet.">{(landlords as any[]).filter(p => match(p, (ownedBy.get(p.id) ?? []).join(' '))).map(p => (
+            <Row key={p.id} p={{ ...p, role: 'landlord' }}
+              detail={(ownedBy.get(p.id) ?? []).length ? <span title={(ownedBy.get(p.id) ?? []).join(', ')}>{(ownedBy.get(p.id) ?? []).slice(0, 2).join(', ')}{(ownedBy.get(p.id) ?? []).length > 2 ? ` +${(ownedBy.get(p.id) ?? []).length - 2} more` : ''}</span> : <span className="text-neutral-400">No properties linked</span>}
+              extra={<span className={`hidden sm:inline-block rounded-full px-sm py-0.5 text-[11px] font-semibold ${p.landlord_comms_enabled ? 'bg-green-50 text-green-800' : 'bg-neutral-100 text-neutral-500'}`} title="Landlord emails">{p.landlord_comms_enabled ? 'Comms on' : 'Comms off'}</span>} />
+          ))}</List>
+        )}
+        {activeTab === 'landlords' && <p className="text-xs text-neutral-500">Statements are in <Link href="/admin/statements" className="font-semibold text-blue-700 hover:underline">Finance › Statements</Link>.</p>}
+
+        {activeTab === 'office' && <List empty="No office team yet.">{office.filter(p => match(p)).map(p => <Row key={p.id} p={p} detail={p.role === 'lettings' ? 'Lettings' : 'Administrator'} />)}</List>}
+
         {selectedPerson && (
           <EditPersonModal
             person={selectedPerson}
             isOpen={isEditModalOpen}
-            onClose={() => {
-              setIsEditModalOpen(false)
-              setSelectedPerson(null)
-            }}
-            onSave={(updatedPerson) => {
-              setPeople(people.map(p => p.id === updatedPerson.id ? updatedPerson : p))
-              setIsEditModalOpen(false)
-              setSelectedPerson(null)
-            }}
+            onClose={() => { setIsEditModalOpen(false); setSelectedPerson(null) }}
+            onSave={(updatedPerson) => { setPeople(people.map(p => p.id === updatedPerson.id ? { ...p, ...updatedPerson } as Person : p)); setIsEditModalOpen(false); setSelectedPerson(null) }}
           />
         )}
       </main>

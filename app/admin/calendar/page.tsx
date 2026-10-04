@@ -50,7 +50,7 @@ export default function CalendarPage() {
       const { data: ticketsData } = await supabase
         .from('maintenance_tickets')
         .select('*, properties(name), rooms(name)')
-        .neq('status', 'completed')
+        .not('status', 'in', '("completed","cancelled")')
         .order('booked_date', { ascending: true, nullsFirst: false });
 
       // Fetch viewings
@@ -64,7 +64,7 @@ export default function CalendarPage() {
       const { data: cleansData } = await supabase
         .from('cleans')
         .select('id, clean_date, clean_time, status, property_id, cleaner_id, properties(name)')
-        .neq('status', 'completed')
+        .not('status', 'in', '("completed","cancelled")')
         .not('clean_date', 'is', null)
         .order('clean_date', { ascending: true });
 

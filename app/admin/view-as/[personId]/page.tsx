@@ -92,7 +92,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
           .from('maintenance_tickets')
           .select('id, title, status, booked_date, properties(name)')
           .eq('contractor_id', personId)
-          .neq('status', 'completed')
+          .not('status', 'in', '("completed","cancelled")')
           .order('booked_date', { ascending: true })
           .limit(20)
         setJobs((j || []) as Job[])
