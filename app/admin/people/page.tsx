@@ -411,8 +411,9 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   const initials = (p: any) => (displayName(p) !== '—' ? displayName(p) : p.email || '?').split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')
 
   /** One person, one row: who, how to reach them, the details that matter for their role, and actions. */
+  // plain functions, not components: defined inside the page, a component would be rebuilt (and lose clicks) on every change
   const Row = ({ p, detail, extra }: { p: Person; detail?: React.ReactNode; extra?: React.ReactNode }) => (
-    <li className="relative grid grid-cols-[40px_minmax(0,1fr)_auto] md:grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1.2fr)_150px_auto] items-center gap-x-md gap-y-0.5 px-lg py-sm hover:bg-neutral-50">
+    <li key={p.id} className="relative grid grid-cols-[40px_minmax(0,1fr)_auto] md:grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1.2fr)_150px_auto] items-center gap-x-md gap-y-0.5 px-lg py-sm hover:bg-neutral-50">
       <span className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${tone(p.role)}`}>{initials(p)}</span>
       <Link href={profile(p)} className="min-w-0 after:absolute after:inset-0 after:content-['']">
         <span className="block truncate text-sm font-semibold text-neutral-900">{p.role === 'landlord' ? landlordName(p as any) : [(p as any).salutation, displayName(p)].filter(x => x && x !== '—').join(' ') || p.email}</span>
@@ -436,7 +437,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       {detail && <span className="col-start-2 col-span-2 md:hidden truncate text-xs text-neutral-600">{detail}</span>}
     </li>
   )
-  const List = ({ children, empty }: { children: React.ReactNode[]; empty: string }) => children.length
+  const List = (children: React.ReactNode[], empty: string) => children.length
     ? <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">{children}</ul>
     : <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-500">{needle ? 'Nobody matches that search.' : empty}</div>
 
@@ -858,39 +859,37 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
               <span className="shrink-0 text-xs text-neutral-500">{g.rows.length} tenant{g.rows.length === 1 ? '' : 's'}</span>
             </header>
             <ul className="divide-y divide-neutral-100">
-              {g.rows.map(({ p, room, note }: any) => <Row key={p.id} p={p} detail={<>{room || <span className="text-neutral-400">—</span>}{note && <span className="ml-sm rounded-full bg-amber-50 px-sm py-0.5 text-[11px] font-semibold text-amber-800">{note}</span>}</>} />)}
+              {g.rows.map(({ p, room, note }: any) => Row({ p, detail: <>{room || <span className="text-neutral-400">—</span>}{note && <span className="ml-sm rounded-full bg-amber-50 px-sm py-0.5 text-[11px] font-semibold text-amber-800">{note}</span>}</> }))}
             </ul>
           </section>
-        )) : <List empty="No tenants yet.">{[]}</List>)}
+        )) : List([], 'No tenants yet.'))}
 
         {activeTab === 'contractors' && (
-          <List empty="No contractors yet.">{contractors.filter(p => match(p, (p.trade_types ?? []).join(' '))).map(p => (
-            <Row key={p.id} p={p}
-              detail={(p.trade_types ?? []).length ? (p.trade_types ?? []).join(', ') : <span className="text-neutral-400">Trades not set</span>}
-              extra={
-                <label className={`hidden sm:flex cursor-pointer items-center gap-xs rounded-full border px-sm py-0.5 text-[11px] font-semibold ${ecOn(p.id) ? 'border-red-300 bg-red-50 text-red-800' : 'border-neutral-200 text-neutral-500'}`} title="CROS may text them for out-of-hours emergencies">
-                  <input type="checkbox" className="h-3 w-3" disabled={ecBusy === p.id} checked={ecOn(p.id)} onChange={e => toggleEmergency(p.id, e.target.checked)} />
-                  🚨 Emergency call-outs
-                </label>
-              } />
-          ))}</List>
+          List(contractors.filter(p => match(p, (p.trade_types ?? []).join(' '))).map(p => Row({ p,
+            detail: (p.trade_types ?? []).length ? (p.trade_types ?? []).join(', ') : <span className="text-neutral-400">Trades not set</span>,
+            extra: (
+              <label className={`hidden sm:flex cursor-pointer items-center gap-xs rounded-full border px-sm py-0.5 text-[11px] font-semibold ${ecOn(p.id) ? 'border-red-300 bg-red-50 text-red-800' : 'border-neutral-200 text-neutral-500'}`} title="CROS may text them for out-of-hours emergencies">
+                <input type="checkbox" className="h-3 w-3" disabled={ecBusy === p.id} checked={ecOn(p.id)} onChange={e => toggleEmergency(p.id, e.target.checked)} />
+                🚨 Emergency call-outs
+              </label>
+            ),
+          })), 'No contractors yet.')
         )}
         {activeTab === 'contractors' && contractors.some(c => ecOn(c.id)) && (
           <p className="text-xs text-neutral-500">Set each one’s trades, hours, call-out fee and preference in <Link href="/admin/emergencies?tab=list" className="font-semibold text-blue-700 hover:underline">Emergencies › Emergency contractors</Link>. Without a mobile number they can’t be texted.</p>
         )}
 
-        {activeTab === 'cleaners' && <List empty="No cleaners yet.">{cleaners.filter(p => match(p)).map(p => <Row key={p.id} p={p} detail="Cleaner" />)}</List>}
+        {activeTab === 'cleaners' && List(cleaners.filter(p => match(p)).map(p => Row({ p, detail: 'Cleaner' })), 'No cleaners yet.')}
 
         {activeTab === 'landlords' && (
-          <List empty="No landlords yet.">{(landlords as any[]).filter(p => match(p, (ownedBy.get(p.id) ?? []).join(' '))).map(p => (
-            <Row key={p.id} p={{ ...p, role: 'landlord' }}
-              detail={(ownedBy.get(p.id) ?? []).length ? <span title={(ownedBy.get(p.id) ?? []).join(', ')}>{(ownedBy.get(p.id) ?? []).slice(0, 2).join(', ')}{(ownedBy.get(p.id) ?? []).length > 2 ? ` +${(ownedBy.get(p.id) ?? []).length - 2} more` : ''}</span> : <span className="text-neutral-400">No properties linked</span>}
-              extra={<span className={`hidden sm:inline-block rounded-full px-sm py-0.5 text-[11px] font-semibold ${p.landlord_comms_enabled ? 'bg-green-50 text-green-800' : 'bg-neutral-100 text-neutral-500'}`} title="Landlord emails">{p.landlord_comms_enabled ? 'Comms on' : 'Comms off'}</span>} />
-          ))}</List>
+          List((landlords as any[]).filter(p => match(p, (ownedBy.get(p.id) ?? []).join(' '))).map(p => Row({ p: { ...p, role: 'landlord' },
+            detail: (ownedBy.get(p.id) ?? []).length ? <span title={(ownedBy.get(p.id) ?? []).join(', ')}>{(ownedBy.get(p.id) ?? []).slice(0, 2).join(', ')}{(ownedBy.get(p.id) ?? []).length > 2 ? ` +${(ownedBy.get(p.id) ?? []).length - 2} more` : ''}</span> : <span className="text-neutral-400">No properties linked</span>,
+            extra: <span className={`hidden sm:inline-block rounded-full px-sm py-0.5 text-[11px] font-semibold ${p.landlord_comms_enabled ? 'bg-green-50 text-green-800' : 'bg-neutral-100 text-neutral-500'}`} title="Landlord emails">{p.landlord_comms_enabled ? 'Comms on' : 'Comms off'}</span>,
+          })), 'No landlords yet.')
         )}
         {activeTab === 'landlords' && <p className="text-xs text-neutral-500">Statements are in <Link href="/admin/statements" className="font-semibold text-blue-700 hover:underline">Finance › Statements</Link>.</p>}
 
-        {activeTab === 'office' && <List empty="No office team yet.">{office.filter(p => match(p)).map(p => <Row key={p.id} p={p} detail={p.role === 'lettings' ? 'Lettings' : 'Administrator'} />)}</List>}
+        {activeTab === 'office' && List(office.filter(p => match(p)).map(p => Row({ p, detail: p.role === 'lettings' ? 'Lettings' : 'Administrator' })), 'No office team yet.')}
 
         {selectedPerson && (
           <EditPersonModal
