@@ -31,10 +31,16 @@ export async function loadStatementForPdf(s: SupabaseClient, id: string): Promis
   // tenants still owing for the statement's month (CROS rent charges only)
   const stillOwed: { room: string; tenant: string; amount: number }[] = []
   if (statement.period_start) {
-    const { data: owed } = await s.from('rent_charges').select('amount_due, amount_received, voided, rooms(name), room_id').eq('property_id', statement.property_id).eq('charge_month', String(statement.period_start).slice(0, 7) + '-01')
+    const month = String(statement.period_start).slice(0, 7) + '-01'
+    const [{ data: owed }, { data: tens }] = await Promise.all([
+      s.from('rent_charges').select('amount_due, amount_received, voided, rooms(name), room_id').eq('property_id', statement.property_id).eq('charge_month', month),
+      s.from('tenancies').select('room_id, start_date, end_date, let_cancelled_at, people!person_id(first_name, last_name, full_name)').eq('property_id', statement.property_id).lte('start_date', String(statement.period_end || statement.period_start).slice(0, 10)).or(`end_date.is.null,end_date.gte.${month}`),
+    ])
+    // the tenant who was in the room that month (latest start), so the landlord sees who owes
+    const tenantIn = (roomId: string) => { const t = ((tens ?? []) as any[]).filter(x => x.room_id === roomId && !x.let_cancelled_at).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0]; return t ? [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || '' : '' }
     for (const c of (owed ?? []) as any[]) {
       const left = Math.round((Number(c.amount_due) - Number(c.amount_received || 0)) * 100) / 100
-      if (!c.voided && left > 0.004) stillOwed.push({ room: c.rooms?.name ?? 'Room', tenant: '', amount: left })
+      if (!c.voided && left > 0.004) stillOwed.push({ room: c.rooms?.name ?? 'Room', tenant: tenantIn(c.room_id), amount: left })
     }
   }
   const sharedInvoices = new Set(((exps ?? []) as any[]).filter(e => e.share_invoice && e.invoice_path).map(e => String(e.txn_no || e.reference || e.id)))
@@ -63,10 +69,11 @@ export async function renderStatementPdf({ statement: st, property, landlord, ex
       note: String(r.note || '').split(';').map((x: string) => x.trim()).filter((x: string) => x && !x.startsWith('fee:') && !x.startsWith('letting fee')).join('; ') || undefined,
     })),
     expenses: expenses.map(e => ({
-      number: e.number ?? null, date: e.date ? ukDate(String(e.date)) : '', description: String(e.description || 'Expense').replace(/\s*\((EXP\d+|EXP-[^)]+)\)$/, ''),
+      number: e.number ?? null, date: e.date ? ukDate(String(e.date)) : '', description: String(e.description || 'Expense').replace(/\s*\((X?EXP\d+|EXP-[^)]+)\)$/, ''),
       supplier: e.supplier ?? null, amount: Number(e.amount || 0), invoiceAttached: !!(e.number && extra?.sharedInvoices.has(String(e.number))),
     })),
     floatRetained: Number(st.float_retained || 0), floatUsed: Number(st.float_used || 0), floatBalance: extra?.floatBalance,
     stillOwed: extra?.stillOwed.length ? extra.stillOwed : undefined,
+    practice: /^X/.test(String(st.statement_reference || '')),
   })
 }
