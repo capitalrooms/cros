@@ -93,6 +93,10 @@ export default function ExpensesPage() {
     })()
   }, [router])
 
+  // bills and invoices waiting in Capture (photographed or emailed) — they become expenses only when filed there
+  const [toFile, setToFile] = useState<{ bills: number; emailed: number } | null>(null)
+  useEffect(() => { fetch('/api/admin/capture?count=1').then(r => r.json()).then(d => setToFile(d)).catch(() => {}) }, [])
+
   useEffect(() => {
     if (!form.property_id) { setRooms([]); return }
     createClient().from('rooms').select('id, name').eq('property_id', form.property_id).order('name')
@@ -204,6 +208,12 @@ export default function ExpensesPage() {
         tabs={financeTabs('expenses')} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
+        {toFile && toFile.bills > 0 && (
+          <a href="/admin/capture" className="mb-md flex items-center justify-between gap-sm rounded-xl border border-amber-300 bg-amber-50 px-lg py-sm text-sm text-amber-900 hover:bg-amber-100">
+            <span><b>{toFile.bills} bill{toFile.bills === 1 ? '' : 's'} or invoice{toFile.bills === 1 ? '' : 's'} waiting to be filed</b>{toFile.emailed ? ` (${toFile.emailed} emailed in)` : ''} — say which property and statement, or that it’s a company cost.</span>
+            <span className="font-semibold">Open Capture →</span>
+          </a>
+        )}
         {notice && <p className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-md text-sm font-semibold text-green-800">{notice}</p>}
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
 

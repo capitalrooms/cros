@@ -119,3 +119,59 @@ export async function readBill(bytes: Buffer, mime: string): Promise<Bill> {
   return ask(AI_MODEL, [media(bytes, mime), { type: 'text', text:
 `Read this UK bill or invoice. supplier: the company billing. what_for: e.g. "Electricity", "Water", "Boiler repair". amount: the total to pay this time in pounds (0 if none). due_date / period_from / period_to: yyyy-mm-dd or "". account_number, invoice_number: as printed or "". direct_debit: true if it says it's paid by direct debit. address: the supply or property address on it, else "". Don't guess.` }], BILL_SCHEMA, 600)
 }
+
+// ── invoices by email (migration 208): is this a cost at all, what are the facts, and where does it belong ──
+export const COMPANY_CATEGORIES = ['Software & subscriptions', 'Phone & internet', 'Office & stationery', 'Advertising & listings', 'Professional fees', 'Insurance', 'Bank & card charges', 'Travel', 'Training & memberships', 'Equipment', 'Other'] as const
+const INVOICE_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: {
+    is_cost: { type: 'boolean' }, doc_type: { type: 'string', enum: ['invoice', 'receipt', 'bill', 'credit_note', 'statement', 'order_confirmation', 'not_a_cost'] },
+    supplier: { type: 'string' }, what_for: { type: 'string' }, amount: { type: 'number' }, date: { type: 'string' }, due_date: { type: 'string' },
+    invoice_number: { type: 'string' }, already_paid: { type: 'boolean' }, address: { type: 'string' }, property_number: { type: 'string' }, room: { type: 'string' },
+    belongs_to: { type: 'string', enum: ['landlord', 'company', 'unsure'] }, company_category: { type: 'string', enum: [...COMPANY_CATEGORIES] },
+    reason: { type: 'string' }, confidence: { type: 'number' },
+  },
+  required: ['is_cost', 'doc_type', 'supplier', 'what_for', 'amount', 'date', 'due_date', 'invoice_number', 'already_paid', 'address', 'property_number', 'room', 'belongs_to', 'company_category', 'reason', 'confidence'],
+} as const
+export interface InvoiceRead {
+  is_cost: boolean; doc_type: string; supplier: string; what_for: string; amount: number; date: string; due_date: string; invoice_number: string
+  already_paid: boolean; address: string; propertyId: string | null; room: string; belongs_to: 'landlord' | 'company' | 'unsure'; company_category: string; reason: string; confidence: number
+}
+
+/** Read an emailed invoice/receipt (or the email itself): the facts, and whether it's a property cost or the company's. */
+export async function readInvoice(bytes: Buffer | null, mime: string, email: { from: string; subject: string; text: string }, properties: { id: string; label: string }[]): Promise<InvoiceRead> {
+  const list = properties.map((p, i) => `${i + 1}. ${p.label}`).join('\n')
+  const content: any[] = bytes ? [media(bytes, mime)] : []
+  content.push({ type: 'text', text:
+`A UK lettings and property-management company forwards ALL its email here. Decide if this is a cost the company has to account for, and read it exactly. Never guess a figure.
+
+Email from: ${email.from}
+Subject: ${email.subject}
+${bytes ? 'The attached document is above. ' : ''}Email text (may be cut short):
+${email.text.slice(0, 6000)}
+
+is_cost: true only for an invoice, bill, receipt or paid order for goods or services; false for newsletters, marketing, quotes, delivery updates, statements of account, personal email, anything else.
+doc_type: what it is.
+supplier: who is charging. what_for: a few words, e.g. "Boiler repair", "Zoom subscription", "Rightmove listing".
+amount: the total charged in pounds, VAT included (0 if not shown). credit notes: the amount as a positive number with doc_type credit_note.
+date: the invoice or payment date, yyyy-mm-dd. due_date: yyyy-mm-dd or "". invoice_number: as printed or "".
+already_paid: true if it says paid / payment received / receipt.
+address: a property address on it (supply or works address), else "".
+property_number: if that address matches one of the company's managed properties below, its number; else "".
+room: a room it names, e.g. "Room 3", else "".
+belongs_to: "landlord" if it's for work, supplies or utilities at one of those properties (charged to that property's landlord); "company" if it's the business's own cost (software, phone, advertising, accountant, office, travel, insurance for the business); "unsure" otherwise.
+company_category: the best fit if it's a company cost (else "Other").
+reason: a few words on how you decided. confidence: 0 to 1 that the amount and belongs_to are right.
+
+Managed properties:
+${list}` })
+  const out = await ask<any>(AI_MODEL_SMART, content, INVOICE_SCHEMA, 700)
+  const n = Number(out.property_number)
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(out.date) ? out.date : ''
+  return {
+    ...out, amount: Math.round(Math.abs(Number(out.amount) || 0) * 100) / 100, date,
+    due_date: /^\d{4}-\d{2}-\d{2}$/.test(out.due_date) ? out.due_date : '',
+    propertyId: n >= 1 && n <= properties.length ? properties[n - 1].id : null,
+    confidence: Math.max(0, Math.min(1, Number(out.confidence) || 0)),
+  }
+}

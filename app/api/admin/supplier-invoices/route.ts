@@ -2,7 +2,8 @@
  * /api/admin/supplier-invoices — invoices contractors and cleaners made in CROS (migration 205).
  *   GET               → { invoices, people, enabled }   to approve first
  *   GET ?pdf=<id>     → the PDF
- *   POST { action: 'approve', id, chargeLines?: number[] }  contractor: one expense on the property with the invoice attached;
+ *   POST { action: 'approve', id, chargeLines?: number[], deductMonth?, confirm_duplicate? }  (lib/expenses/create: same checks as every expense)
+ *    contractor: one expense on the property with the invoice attached;
  *                                                          cleaner: an expense per ticked line's property (others are ours)
  *   POST { action: 'paid', id } | { action: 'void', id, reason }   void frees its jobs / cleans to be invoiced again
  *   POST { action: 'setting', on } | { action: 'person', personId, on }
@@ -12,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { BUCKET } from '@/lib/supplierInvoices/service'
+import { addLandlordExpense, expenseDuplicates } from '@/lib/expenses/create'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -86,7 +88,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
   if (b.action === 'approve') {
-    if (inv.status !== 'sent') return NextResponse.json({ error: 'Already dealt with' }, { status: 409 })
+    if (inv.status !== 'sent' || inv.approved_at) return NextResponse.json({ error: 'Already dealt with' }, { status: 409 })
     // the PDF goes with the expense, as its invoice
     let invoicePath: string | null = null
     if (inv.pdf_path) {
@@ -111,16 +113,32 @@ export async function POST(req: NextRequest) {
         charge.set(l.propertyId, c)
       })
     }
+    if (!charge.size) return NextResponse.json({ error: 'Tick at least one line to charge to a property' }, { status: 400 })
+    const items = [...charge].map(([propertyId, c]) => ({
+      property_id: propertyId, description: `${inv.kind === 'cleaner' ? 'Cleaning' : 'Works'} — ${c.text.join('; ')}`.slice(0, 500), amount: r2(c.amount),
+      expense_date: inv.issue_date, supplier, invoice_number: String(inv.number), category: inv.kind === 'cleaner' ? 'cleaning' : 'maintenance_repair',
+      invoice_path: invoicePath, invoice_name: `Invoice-${inv.number}.pdf`, share_invoice: false, deduct_month: b.deductMonth || null,
+      notes: `From ${supplier}'s invoice ${inv.number} made in CROS`, source: 'supplier_invoice' as const, source_ref: `supplier_invoice:${inv.id}:${propertyId}`,
+    }))
+    // same checks as every expense (lib/expenses/create): show possible duplicates before anything is added
+    if (!b.confirm_duplicate) {
+      for (const it of items) {
+        const d = await expenseDuplicates(s, it)
+        if (d.length) return NextResponse.json({ duplicates: d }, { status: 409 })
+      }
+    }
+    // claim it, so a second click (or a second person) can't add the expenses twice
+    const { data: claimed } = await s.from('supplier_invoices').update({ approved_at: new Date().toISOString(), approved_by: admin.personId })
+      .eq('id', inv.id).eq('status', 'sent').is('approved_at', null).select('id')
+    if (!claimed?.length) return NextResponse.json({ error: 'Already being approved' }, { status: 409 })
     const ids: string[] = []
-    for (const [propertyId, c] of charge) {
-      const { data: e, error } = await s.from('recharge_expenses').insert({
-        property_id: propertyId, description: `${inv.kind === 'cleaner' ? 'Cleaning' : 'Works'} — ${c.text.join('; ')}`.slice(0, 500), amount: r2(c.amount),
-        expense_date: inv.issue_date, supplier, invoice_number: String(inv.number), category: inv.kind === 'cleaner' ? 'cleaning' : 'maintenance_repair',
-        invoice_path: invoicePath, invoice_name: `Invoice-${inv.number}.pdf`, share_invoice: false, created_by: admin.personId,
-        notes: `From ${supplier}'s invoice ${inv.number} made in CROS`,
-      }).select('id').single()
-      if (error) return NextResponse.json({ error: `Couldn’t add the expense: ${error.message}${ids.length ? ' (some were added — check Expenses)' : ''}` }, { status: 400 })
-      ids.push(e.id)
+    for (const it of items) {
+      const r = await addLandlordExpense(s, it, { by: admin.personId, confirmDuplicate: true })
+      if (r.ok) { ids.push(r.expense.id); continue }
+      const { data: had } = await s.from('recharge_expenses').select('id').eq('source_ref', it.source_ref).maybeSingle()
+      if (had) { ids.push(had.id); continue }   // added on an earlier try
+      await s.from('supplier_invoices').update({ approved_at: null, approved_by: null }).eq('id', inv.id)
+      return NextResponse.json({ error: `Couldn’t add the expense: ${r.error}${ids.length ? ' (the others were added — approving again finishes it without doubling up)' : ''}` }, { status: 400 })
     }
     await s.from('supplier_invoices').update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: admin.personId, expense_ids: ids }).eq('id', inv.id)
     return NextResponse.json({ ok: true, expenses: ids.length })
