@@ -9,7 +9,7 @@ import { useState } from 'react'
 export interface DashboardData {
   today: string
   portfolio: { managed: number; letOnly: number; landlords: number }
-  rooms: { total: number; let: number; notice: number; empty: number; byHouse: { id: string; name: string; let: number; notice: number; empty: number; other: number }[]; onNotice: { room: string; house: string; leaves: string | null; noticeRecorded: boolean; tenancyId: string | null }[] }
+  rooms: { total: number; let: number; notice: number; empty: number; check: number; checks: { room: string; house: string; houseId: string }[]; notCounted: { name: string; rooms: number }[]; byHouse: { id: string; name: string; let: number; notice: number; empty: number; other: number }[]; onNotice: { room: string; house: string; leaves: string | null; noticeRecorded: boolean; tenancyId: string | null }[] }
   rent: { roll: number; monthDue: number; monthIn: number; overdueAmount: number; overdueCount: number; min: number | null; max: number | null; median: number | null; average: number | null; increasesOnRecord: number; tenancies: number }
   ends: { buckets: { label: string; count: number; noNotice: number }[]; noNoticeSoon: number }
   lettings: { toFill: number; applied: number; offerSent: number; referencing: number; movingIn: number; nextMoveIn: string | null; viewingsNext7: number; avgStayMonths: number | null }
@@ -43,15 +43,15 @@ function Tile({ title, note, href, children, foot, wide }: { title: string; note
 const Warn = ({ children }: { children: React.ReactNode }) => <span className="font-semibold" style={{ color: RED }}>{children}</span>
 const Dot = ({ c }: { c: string }) => <i className="inline-block h-3 w-3 rounded-[3px]" style={{ background: c }} />
 
-function Donut({ let: l, notice, empty, total }: { let: number; notice: number; empty: number; total: number }) {
+function Donut({ let: l, notice, empty, check, total }: { let: number; notice: number; empty: number; check: number; total: number }) {
   const C = 2 * Math.PI * 42
   let off = 0
   const seg = (n: number, col: string) => { const L = total ? C * n / total : 0; const el = <circle key={col} r="42" cx="60" cy="60" fill="none" stroke={col} strokeWidth="16" strokeDasharray={`${L} ${C - L}`} strokeDashoffset={-off} transform="rotate(-90 60 60)" />; off += L; return el }
   return (
     <svg viewBox="0 0 120 120" width="124" height="124" role="img" aria-label={`${l} let, ${notice} on notice, ${empty} empty`}>
       <circle r="42" cx="60" cy="60" fill="none" stroke="#EFEDE9" strokeWidth="16" />
-      {seg(l, LET)}{seg(notice, NOTICE)}{seg(empty, EMPTY)}
-      <text x="60" y="60" textAnchor="middle" fontWeight="800" fontSize="24" fill={INK} style={{ fontFamily: 'var(--font-baloo-2, system-ui)' }}>{pct(l, total)}%</text>
+      {seg(l, LET)}{seg(notice, NOTICE)}{seg(empty, EMPTY)}{seg(check, '#CFCAC2')}
+      <text x="60" y="60" textAnchor="middle" fontWeight="800" fontSize="24" fill={INK} style={{ fontFamily: 'var(--font-baloo-2, system-ui)' }}>{pct(l + notice, total)}%</text>
       <text x="60" y="76" textAnchor="middle" fontSize="10" fill="#75706A">let</text>
     </svg>
   )
@@ -116,7 +116,7 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
   const r = d.rooms, rent = d.rent, rep = d.repairs, dep = d.deposits
   const dateLabel = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
   const kpis: { v: React.ReactNode; l: string; href: string; bad?: boolean }[] = [
-    { v: `${pct(r.let, r.total)}%`, l: `rooms let · ${r.let} of ${r.total}`, href: '/admin/active-rooms' },
+    { v: `${pct(r.let + r.notice, r.total)}%`, l: `rooms let · ${r.let + r.notice} of ${r.total}`, href: '/admin/active-rooms' },
     { v: r.notice, l: 'rooms on notice', href: '/admin/tenancies' },
     { v: r.empty, l: 'rooms empty', href: '/admin/available-and-lettings' },
     { v: gbp0(rent.roll), l: 'rent roll / month', href: '/admin/rent-roll' },
@@ -156,11 +156,15 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
       <main className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-md px-lg py-lg lg:grid-cols-3">
 
         <Tile title="Rooms" href="/admin/active-rooms" wide note={`${r.total} managed rooms · by house`}
-          foot={r.onNotice.length ? <>On notice: {r.onNotice.map((n, i) => <span key={i}>{i ? ' · ' : ''}{n.room}, {n.house} leaves <b>{day(n.leaves)}</b>{!n.noticeRecorded && <Warn> (no notice date recorded)</Warn>}</span>)}</> : 'No rooms on notice.'}>
+          foot={<div className="grid gap-1">
+            <span>{r.onNotice.length ? <>On notice: {r.onNotice.map((n, i) => <span key={i}>{i ? ' · ' : ''}{n.room}, {n.house} leaves <b>{day(n.leaves)}</b>{!n.noticeRecorded && <Warn> (no notice date recorded)</Warn>}</span>)}</> : 'No rooms on notice.'}</span>
+            {r.checks.length > 0 && <span>To check, marked let but no tenancy on file: {r.checks.map(c => `${c.room}, ${c.house}`).join(' · ')}</span>}
+            {r.notCounted.length > 0 && <span className="text-neutral-500">Not counted, no tenancy or listing on file: {r.notCounted.map(h => `${h.name} (${h.rooms} room${h.rooms === 1 ? '' : 's'})`).join(' · ')}</span>}
+          </div>}>
           <div className="grid grid-cols-1 items-center gap-md p-md sm:grid-cols-[150px_minmax(0,1fr)]">
             <div className="grid justify-items-center gap-sm">
-              <Donut let={r.let} notice={r.notice} empty={r.empty} total={r.total} />
-              <div className="flex flex-wrap justify-center gap-x-md gap-y-1 text-[11.5px] text-neutral-500"><span className="inline-flex items-center gap-1"><Dot c={LET} />Let {r.let}</span><span className="inline-flex items-center gap-1"><Dot c={NOTICE} />On notice {r.notice}</span><span className="inline-flex items-center gap-1"><Dot c={EMPTY} />Empty {r.empty}</span></div>
+              <Donut let={r.let} notice={r.notice} empty={r.empty} check={r.check} total={r.total} />
+              <div className="flex flex-wrap justify-center gap-x-md gap-y-1 text-[11.5px] text-neutral-500"><span className="inline-flex items-center gap-1"><Dot c={LET} />Let {r.let}</span><span className="inline-flex items-center gap-1"><Dot c={NOTICE} />On notice {r.notice}</span><span className="inline-flex items-center gap-1"><Dot c={EMPTY} />Empty {r.empty}</span>{r.check > 0 && <span className="inline-flex items-center gap-1"><Dot c="#CFCAC2" />To check {r.check}</span>}</div>
             </div>
             <div className="grid grid-cols-1 gap-x-lg gap-y-1.5 sm:grid-cols-2">
               {r.byHouse.map(h => (

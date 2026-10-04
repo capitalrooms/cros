@@ -47,18 +47,32 @@ export async function GET(req: NextRequest) {
   const roomIds = new Set(rooms.map(r => r.id))
   const propName = new Map(managed.map(p => [p.id, firstLine(p.name || p.address).replace(/,.*$/, '')]))
 
-  // ── Rooms ──
-  const isLet = (r: any) => r.status === 'occupied'
-  const isNotice = (r: any) => r.status === 'on_notice'
-  const isEmpty = (r: any) => r.status === 'available'
+  // ── Rooms: worked out from the records, not just the room's label ──
+  // let / on notice = a current tenancy · empty = on the market · check = last tenancy ended but still marked let
+  // not counted = no tenancy and no listing on file (e.g. a house still being refurbished)
   const tenancies = ((tenR.data ?? []) as any[]).filter(t => !t.let_cancelled_at)
   const current = tenancies.filter(t => roomIds.has(t.room_id) && (!t.start_date || t.start_date <= today) && (!t.end_date || t.end_date >= today))
+  const curByRoom = new Map(current.map(t => [t.room_id, t]))
+  const everLet = new Set(tenancies.filter(t => t.start_date && t.start_date <= today).map(t => t.room_id))
+  const state = (r: any): 'let' | 'notice' | 'empty' | 'check' | 'none' => {
+    const t = curByRoom.get(r.id)
+    if (t) return t.notice_received_date || r.status === 'on_notice' ? 'notice' : 'let'
+    if (r.status === 'available') return 'empty'
+    return everLet.has(r.id) ? 'check' : 'none'
+  }
+  const counted = rooms.filter(r => state(r) !== 'none')
+  const isLet = (r: any) => state(r) === 'let'
+  const isNotice = (r: any) => state(r) === 'notice'
+  const isEmpty = (r: any) => state(r) === 'empty'
+  const isCheck = (r: any) => state(r) === 'check'
   const byHouse = managed.map(p => {
-    const rs = rooms.filter(r => r.property_id === p.id)
-    return { id: p.id, name: propName.get(p.id)!, let: rs.filter(isLet).length, notice: rs.filter(isNotice).length, empty: rs.filter(isEmpty).length, other: rs.filter(r => !isLet(r) && !isNotice(r) && !isEmpty(r)).length }
+    const rs = counted.filter(r => r.property_id === p.id)
+    return { id: p.id, name: propName.get(p.id)!, let: rs.filter(isLet).length, notice: rs.filter(isNotice).length, empty: rs.filter(isEmpty).length, other: rs.filter(isCheck).length }
   }).filter(h => h.let + h.notice + h.empty + h.other > 0)
+  const notCounted = managed.map(p => ({ name: propName.get(p.id)!, rooms: rooms.filter(r => r.property_id === p.id && state(r) === 'none').length })).filter(h => h.rooms > 0)
+  const checks = rooms.filter(isCheck).map(r => ({ room: r.name, house: propName.get(r.property_id) ?? '', houseId: r.property_id }))
   const onNotice = rooms.filter(isNotice).map(r => {
-    const t = tenancies.filter(x => x.room_id === r.id && (!x.end_date || x.end_date >= today)).sort((a, b) => String(a.end_date ?? '9').localeCompare(String(b.end_date ?? '9')))[0]
+    const t = curByRoom.get(r.id)
     return { room: r.name, house: propName.get(r.property_id) ?? '', leaves: t?.end_date ?? null, noticeRecorded: !!t?.notice_received_date, tenancyId: t?.id ?? null }
   }).sort((a, b) => String(a.leaves ?? '9').localeCompare(String(b.leaves ?? '9')))
 
@@ -132,13 +146,14 @@ export async function GET(req: NextRequest) {
     { label: 'Jobs needing a contractor', count: repairs.needContractor, href: '/admin/maintenance', bad: false },
     { label: 'Rent overdue', count: overdue.length, href: '/admin/arrears', bad: false },
     { label: 'Notice dates missing', count: onNotice.filter(n => !n.noticeRecorded).length, href: '/admin/tenancies', bad: false },
+    { label: 'Rooms marked let with no tenancy', count: checks.length, href: '/admin/voids', bad: false },
     { label: 'Applicants in progress', count: (stages.applied ?? 0) + (stages.offer_sent ?? 0) + (stages.referencing ?? 0) + (stages.ref_passed ?? 0) + (stages.docs_uploaded ?? 0), href: '/admin/applicants', bad: false },
   ].filter(w => w.count > 0).sort((a, b) => Number(b.bad) - Number(a.bad) || b.count - a.count)
 
   return NextResponse.json({
     today,
     portfolio: { managed: managed.length, letOnly: live.length - managed.length, landlords: new Set(managed.map(p => p.landlord_id).filter(Boolean)).size },
-    rooms: { total: rooms.length, let: rooms.filter(isLet).length, notice: rooms.filter(isNotice).length, empty: rooms.filter(isEmpty).length, byHouse, onNotice },
+    rooms: { total: counted.length, let: counted.filter(isLet).length, notice: counted.filter(isNotice).length, empty: counted.filter(isEmpty).length, check: checks.length, byHouse, onNotice, checks, notCounted },
     rent: {
       roll: round2(sum(current.map(t => Number(t.rent_amount) || 0))),
       monthDue: round2(sum(thisMonth.map(c => Number(c.amount_due) || 0))), monthIn: round2(sum(thisMonth.map(c => Number(c.amount_received) || 0))),
@@ -148,7 +163,7 @@ export async function GET(req: NextRequest) {
     },
     ends: { buckets: ends, noNoticeSoon: endNoNotice.length },
     lettings: {
-      toFill: rooms.filter(isEmpty).length + rooms.filter(isNotice).length,
+      toFill: counted.filter(isEmpty).length + counted.filter(isNotice).length,
       applied: stages.applied ?? 0, offerSent: stages.offer_sent ?? 0, referencing: (stages.referencing ?? 0) + (stages.ref_passed ?? 0) + (stages.docs_uploaded ?? 0),
       movingIn: movingIn.length, nextMoveIn: movingIn[0]?.start_date ?? null,
       viewingsNext7: ((viewsR.data ?? []) as any[]).filter(v => v.viewing_status !== 'cancelled').length,
