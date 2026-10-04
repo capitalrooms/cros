@@ -16,6 +16,7 @@ export interface ModernStatement {
   expenses: { number: string | null; date: string; description: string; supplier: string | null; amount: number; invoiceAttached?: boolean }[]
   floatRetained?: number; floatUsed?: number; floatBalance?: number
   stillOwed?: { room: string; tenant: string; amount: number }[]
+  practice?: boolean   // a practice statement (XLS…, migration 209): marked on every page so it can't pass for a real one
 }
 
 const INK = '#141414', MUTED = '#6B6B6B', LINE = '#E4E2DE', TILE = '#F4F3F0', ACCENT = '#1F6F4A'
@@ -146,17 +147,33 @@ export async function renderModernStatement(d: ModernStatement): Promise<Buffer>
   }
 
   // ── How it adds up ──────────────────────────────────────────────────────
-  if (y > bottom - 60) { doc.addPage(); decorate(); y = MARGIN + LOGO_H + 20 }
-  doc.save().roundedRect(MARGIN, y, COL_W, 40, 8).fill(TILE).restore()
+  // the summary never starts a page on its own (that left an almost empty page 2): a boxed line if it fits,
+  // a plain line if only that fits, a new page only when neither does
   const parts = [`${gbp(rent)} rent`, `− ${gbp(fees)} fees`, `− ${gbp(exp)} expenses`, ...(fret ? [`− ${gbp(fret)} kept in float`] : []), ...(fuse ? [`+ ${gbp(fuse)} from float`] : [])]
-  doc.font(R).fontSize(9.5).fillColor(INK).text(`${parts.join('  ')}  =  `, MARGIN + 14, y + 14, { continued: true }).font(B).fillColor(ACCENT).text(`${gbp(net)} paid to you`)
-  y += 52
+  if (y + 40 <= bottom) {
+    doc.save().roundedRect(MARGIN, y, COL_W, 40, 8).fill(TILE).restore()
+    doc.font(R).fontSize(9.5).fillColor(INK).text(`${parts.join('  ')}  =  `, MARGIN + 14, y + 14, { continued: true }).font(B).fillColor(ACCENT).text(`${gbp(net)} paid to you`)
+    y += 52
+  } else if (y - 6 + 12 <= PAGE_H - FOOTER_BAND_H - 20) {   // room above the page number for one plain line
+    doc.font(R).fontSize(9).fillColor(INK).text(`${parts.join('  ')}  =  `, MARGIN, y - 6, { continued: true, lineBreak: false }).font(B).fillColor(ACCENT).text(`${gbp(net)} paid to you`, { lineBreak: false })
+    y += 18
+  } else {
+    doc.addPage(); decorate(); y = MARGIN + LOGO_H + 20
+    doc.save().roundedRect(MARGIN, y, COL_W, 40, 8).fill(TILE).restore()
+    doc.font(R).fontSize(9.5).fillColor(INK).text(`${parts.join('  ')}  =  `, MARGIN + 14, y + 14, { continued: true }).font(B).fillColor(ACCENT).text(`${gbp(net)} paid to you`)
+    y += 52
+  }
   if (d.floatBalance != null && (d.floatBalance > 0 || fret || fuse)) doc.font(R).fontSize(8.5).fillColor(MUTED).text(`Float held for this property: ${gbp(d.floatBalance)}.`, MARGIN, y)
 
   const range = doc.bufferedPageRange()
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(range.start + i)
     doc.font(R).fontSize(7.5).fillColor(MUTED).text(`${d.reference} · page ${i + 1} of ${range.count}`, MARGIN, PAGE_H - FOOTER_BAND_H - 16, { width: COL_W, align: 'right', lineBreak: false })
+    if (d.practice) {
+      doc.save().rotate(-35, { origin: [PAGE_W / 2, PAGE_H / 2] }).fillColor('#C8372D').opacity(0.14).font(B).fontSize(54)
+        .text('PRACTICE — NOT A REAL STATEMENT', 0, PAGE_H / 2 - 30, { width: PAGE_W, align: 'center', lineBreak: false }).restore()
+      doc.save().font(B).fontSize(8).fillColor('#C8372D').text('PRACTICE MODE — demo house, not real money. Never send.', MARGIN, MARGIN - 18, { width: COL_W, lineBreak: false }).restore()
+    }
   }
   doc.end()
   return done

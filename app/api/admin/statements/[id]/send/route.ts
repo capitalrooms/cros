@@ -26,6 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const data = await loadStatementForPdf(s, id)
   if (!data) return NextResponse.json({ error: 'Statement not found' }, { status: 404 })
   const { statement: st, property, landlord } = data
+  if (/^X/.test(String(st.statement_reference || ''))) return NextResponse.json({ error: 'This is a practice statement — it can’t be emailed to anyone' }, { status: 409 })
   const sender = await senderFor(req)
   const where = property?.name || property?.address || 'your property'
   const hello = landlord?.first_name ? `Dear ${landlord.first_name}${landlord.joint_first_name ? ` and ${landlord.joint_first_name}` : ''},` : 'Dear Landlord,'
