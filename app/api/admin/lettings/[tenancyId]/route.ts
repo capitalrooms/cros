@@ -7,6 +7,10 @@
  *   PATCH { action: 'terms', changes: {…} }      → edits the terms (rent, dates, deposit, reference only before move-in)
  *   PATCH { action: 'cancel', reason }           → the let fell through: kept on record, off every current list,
  *                                                 the room goes back on the market
+ *   PATCH { action: 'move_room', roomId, oldRoom: 'available'|'leave', reason? }
+ *                                               → put on the wrong room: moves it and its references to the right one
+ *   PATCH { action: 'remove_mistake', reason?, oldRoom? } → added by mistake: kept on record, off every list
+ *                                                 (both only on the day the tenancy was added)
  * Office and lettings staff only. Nothing here sends anything.
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -15,6 +19,8 @@ import { createServiceClient } from '@/lib/supabase'
 import { loadLettingFile, stageOf, STEP_COLUMNS, STEP_NAMES, type StepKey } from '@/lib/lettings/lettingFile'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
+import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
+import { roomCode } from '@/lib/references'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
   const { tenancyId } = await params
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient()
-  const { data: t } = await s.from('tenancies').select('id, room_id, start_date, end_date, notice_received_date, let_cancelled_at, applicant_id').eq('id', tenancyId).maybeSingle() as { data: any }
+  const { data: t } = await s.from('tenancies').select('id, room_id, start_date, end_date, notice_received_date, let_cancelled_at, applicant_id, created_at').eq('id', tenancyId).maybeSingle() as { data: any }
   if (!t) return NextResponse.json({ error: 'Tenancy not found' }, { status: 404 })
   const today = todayIso()
 
@@ -161,6 +167,90 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     }
     await logTenancyEvent(s, tenancyId, 'notice', `Notice cancelled (was moving out ${t.end_date ? new Date(`${t.end_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—'})${reason ? `: ${reason}` : ''}`, caller.email)
     return NextResponse.json({ ok: true })
+  }
+
+  // Put on the wrong room by mistake: move the tenancy (and its references) to the right one.
+  // Refused if the new room has someone in it for the same dates, or rent has already been charged on the old room.
+  // Only on the day it was added — after that charges, payments and statements may hang off it.
+  const addedToday = !!t.created_at && new Date(t.created_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) === today
+  if ((b.action === 'move_room' || b.action === 'remove_mistake') && !addedToday) return NextResponse.json({ error: 'A tenancy can only be moved or removed on the day it was added. After that, use notice or a new tenancy.' }, { status: 409 })
+
+  // Added by mistake (same day): kept on record with its numbers, but off every list and never counted
+  if (b.action === 'remove_mistake') {
+    if (t.let_cancelled_at) return NextResponse.json({ error: 'Already removed' }, { status: 409 })
+    const [{ data: charged }, { data: held }] = await Promise.all([
+      t.room_id && t.start_date ? s.from('rent_charges').select('id').eq('room_id', t.room_id).gte('charge_month', `${t.start_date.slice(0, 7)}-01`).eq('voided', false).gt('amount_received', 0) : Promise.resolve({ data: [] }),
+      s.from('holding_deposits').select('hold_no').eq('tenancy_id', tenancyId).neq('status', 'reversed'),
+    ]) as { data: any[] | null }[]
+    if (charged?.length) return NextResponse.json({ error: 'Rent has already been received against this room. Sort the payment first.' }, { status: 409 })
+    if (held?.length) return NextResponse.json({ error: `Holding deposit ${held[0].hold_no} is attached. Deal with it first.` }, { status: 409 })
+    const why = String(b.reason ?? '').trim().slice(0, 300)
+    const dayBefore = t.start_date ? new Date(Date.parse(`${t.start_date}T12:00:00Z`) - 86400000).toISOString().slice(0, 10) : today
+    const { error } = await s.from('tenancies').update({
+      let_cancelled_at: new Date().toISOString(), let_cancelled_by: caller.email, let_cancelled_reason: `Added by mistake${why ? `: ${why}` : ''}`, end_date: dayBefore,
+    }).eq('id', tenancyId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (t.room_id) {
+      const { data: others } = await s.from('tenancies').select('start_date, end_date, notice_received_date').eq('room_id', t.room_id).neq('id', tenancyId).is('let_cancelled_at', null)
+      const live = (others ?? []).filter((o: any) => o.start_date <= today && (!o.end_date || o.end_date >= today))
+      if (b.oldRoom !== 'leave') {
+        const status = live.length ? (live.some((o: any) => o.notice_received_date) ? 'on_notice' : 'occupied') : 'available'
+        await s.from('rooms').update({ status }).eq('id', t.room_id)
+      }
+    }
+    if (t.applicant_id) await s.from('applicants').update({ pipeline_stage: 'offer_sent', updated_at: new Date().toISOString() }).eq('id', t.applicant_id)
+    await logTenancyEvent(s, tenancyId, 'cancelled', `Removed — added by mistake${why ? `: ${why}` : ''}`, caller.email)
+    return NextResponse.json({ ok: true })
+  }
+
+  if (b.action === 'move_room') {
+    const toId = String(b.roomId ?? '')
+    if (t.let_cancelled_at) return NextResponse.json({ error: 'This let fell through — it can’t be moved' }, { status: 409 })
+    if (!toId || toId === t.room_id) return NextResponse.json({ error: 'Choose the room they actually moved into' }, { status: 400 })
+    const [{ data: from }, { data: to }] = await Promise.all([
+      s.from('rooms').select('id, name, property_id, properties(name)').eq('id', t.room_id).maybeSingle(),
+      s.from('rooms').select('id, name, property_id, status, properties(name, property_code)').eq('id', toId).maybeSingle(),
+    ]) as { data: any }[]
+    if (!to) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
+    const end = t.end_date ?? '9999-12-31'
+    const { data: clash } = await s.from('tenancies').select('id, start_date, end_date, people!person_id(first_name, last_name)').eq('room_id', toId).neq('id', tenancyId)
+      .is('let_cancelled_at', null).lte('start_date', end).or(`end_date.is.null,end_date.gte.${t.start_date}`)
+    if (clash?.length) {
+      const c = clash[0] as any
+      return NextResponse.json({ error: `${to.name} already has ${[c.people?.first_name, c.people?.last_name].filter(Boolean).join(' ') || 'a tenant'} from ${longDate(c.start_date)}${c.end_date ? ` to ${longDate(c.end_date)}` : ''}. Sort that tenancy out first.` }, { status: 409 })
+    }
+    if (t.room_id && t.start_date) {
+      const { data: charged } = await s.from('rent_charges').select('charge_month').eq('room_id', t.room_id).gte('charge_month', `${t.start_date.slice(0, 7)}-01`).eq('voided', false)
+      if (charged?.length) return NextResponse.json({ error: `Rent has already been charged on ${from?.name ?? 'the old room'} from ${longDate(charged[0].charge_month)}. Void those charges in the rent roll first, then move the tenancy.` }, { status: 409 })
+    }
+    const { data: cur } = await s.from('tenancies').select('lease_reference, deposit_reference, holding_deposit_reference, payment_reference').eq('id', tenancyId).single() as { data: any }
+    const code = to.properties?.property_code || ''
+    const { count } = await s.from('tenancies').select('id', { count: 'exact', head: true }).eq('room_id', toId)
+    const seq = String((count ?? 0) + 1).padStart(3, '0'), rc = roomCode(to.name ?? '')
+    const update: Record<string, unknown> = { room_id: toId, property_id: to.property_id, payment_reference: buildPaymentRef(to.properties?.name || '', to.name) }
+    if (code) Object.assign(update, { lease_reference: `T-${code}-${rc}-${seq}`, deposit_reference: `DEP-${code}-${rc}-${seq}`, holding_deposit_reference: `HD-${code}-${rc}-${seq}` })
+    const { error } = await s.from('tenancies').update(update).eq('id', tenancyId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    await s.from('holding_deposits').update({ room_id: toId, property_id: to.property_id }).eq('tenancy_id', tenancyId)
+    // the right room: lived in once the tenancy has started
+    if (t.start_date && t.start_date <= today) await s.from('rooms').update({ status: t.notice_received_date ? 'on_notice' : 'occupied', available_date: null }).eq('id', toId)
+    // the old room: what its other tenancies say, unless the office says someone still lives there
+    let oldNote = ''
+    if (t.room_id) {
+      const { data: others } = await s.from('tenancies').select('start_date, end_date, notice_received_date').eq('room_id', t.room_id).neq('id', tenancyId).is('let_cancelled_at', null)
+      const live = (others ?? []).filter((o: any) => o.start_date <= today && (!o.end_date || o.end_date >= today))
+      if (b.oldRoom !== 'leave') {
+        const status = live.length ? (live.some((o: any) => o.notice_received_date) ? 'on_notice' : 'occupied') : 'available'
+        const lastEnd = (others ?? []).map((o: any) => o.end_date).filter((d: string | null) => d && d < today).sort().pop()
+        const availableFrom = lastEnd ? new Date(Date.parse(`${lastEnd}T12:00:00Z`) + 86400000).toISOString().slice(0, 10) : today
+        await s.from('rooms').update(status === 'available' ? { status, available_date: availableFrom } : { status }).eq('id', t.room_id)
+        oldNote = ` · ${from?.name ?? 'Old room'} now ${status === 'available' ? `empty from ${longDate(availableFrom)}` : status.replace('_', ' ')}`
+      } else oldNote = ` · ${from?.name ?? 'Old room'} left as it was`
+    }
+    const why = String(b.reason ?? '').trim().slice(0, 300)
+    const refs = [cur?.payment_reference && `payment ref ${cur.payment_reference} → ${update.payment_reference}`, update.lease_reference && `${cur?.lease_reference ?? '—'} → ${update.lease_reference}`].filter(Boolean).join(', ')
+    await logTenancyEvent(s, tenancyId, 'terms', `Moved from ${from?.name ?? '—'} to ${to.name}${why ? ` (${why})` : ''} · ${refs}${oldNote}`, caller.email)
+    return NextResponse.json({ ok: true, paymentReference: update.payment_reference })
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
