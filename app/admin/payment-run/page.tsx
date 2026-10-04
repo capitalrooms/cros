@@ -100,6 +100,8 @@ function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practic
               </span>
               <span className="ml-auto flex gap-sm">
                 {!run && <button disabled={!!busy || !v.waiting.some(w => w.state === 'approved')} onClick={() => act({ action: 'open' })} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:bg-neutral-300">Start payment run</button>}
+                {/* the month's run is closed but a late (follow-on) statement has been approved since: a second run pays it */}
+                {run && closed && v.waiting.some(w => w.state === 'approved') && <button disabled={!!busy} onClick={() => act({ action: 'open' }, `Start another payment run for ${v.waiting.filter(w => w.state === 'approved').map(w => w.reference).join(', ')}? ${run.runNo} stays closed.`)} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white">Start another run for late payments</button>}
                 {run && !closed && v.waiting.some(w => w.state === 'approved') && <button disabled={!!busy} onClick={() => act({ action: 'add_ready' })} className="rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm font-semibold">Add newly approved</button>}
                 {run && !closed && <button disabled={!!busy || !v.canClose} onClick={() => act({ action: 'close' }, `Close ${run.runNo}? Everything is paid and transferred.`)} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:bg-neutral-300">Close run</button>}
               </span>
