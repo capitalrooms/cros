@@ -1,3 +1,4 @@
+import { dropDemo } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     propsByLandlord.get(p.landlord_id)!.push(p)
   }
 
-  const allPropIds = (props || []).map((p: any) => p.id)
+  const allPropIds = (await dropDemo(supabase as any, props as any[], (p: any) => p.id)).map((p: any) => p.id)
   if (allPropIds.length === 0) {
     return NextResponse.json({ from, to, landlords: filteredLandlords.map(l => ({ ...l, rent: 0, management_fees: 0, letting_fees: 0, expenses: 0, net: 0, properties: [] })), totals: { rent: 0, management_fees: 0, letting_fees: 0, expenses: 0, net: 0 } })
   }

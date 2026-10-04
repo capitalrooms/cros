@@ -14,6 +14,7 @@
  * Body: multipart/form-data with a 'file' field (CSV text file)
  */
 
+import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -53,6 +54,10 @@ export async function POST(req: NextRequest) {
   const file = form.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
 
+  // practice mode (migrations 209 + 210): a practice file only matches demo houses' tenants; a real file never does
+  const practice = form.get('practice') === '1'
+  if (practice) { const { error: pe } = await supabase.from('bank_transactions').select('is_practice').limit(1); if (pe) return NextResponse.json({ error: 'Practice bank imports need migration 210 first' }, { status: 409 }) }
+  const ok = inScope(await demoPropertyIds(supabase as any), practice)
   const csvText = await file.text()
   const parseResult = parseBankCSV(csvText)
 
@@ -104,6 +109,7 @@ export async function POST(req: NextRequest) {
   const tenancyByRef = new Map<string, TenancyInfo>()
   for (const t of (tenancies || []) as any[]) {
     if (!t.payment_reference) continue
+    if (!ok(t.rooms?.properties?.id)) continue
     tenancyByRef.set(t.payment_reference.toUpperCase(), {
       tenancy_id: t.id,
       person_id: t.person_id ?? null,

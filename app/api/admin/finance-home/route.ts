@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   try {
     const [roll, run, position, start, demo] = await Promise.all([buildRentRoll(s, month), loadPaymentRun(s, month), clientAccountPosition(s), ledgerStart(s), demoPropertyIds(s)])
     const [unmatched, overdue, recs, period, deposits] = await Promise.all([
-      s.from('bank_transactions').select('amount').eq('status', 'unmatched'),
+      s.from('bank_transactions').select('*').eq('status', 'unmatched'),
       s.from('rent_charges').select('room_id, property_id, charge_month, amount_due, amount_received, voided').in('status', ['overdue', 'partial']).gte('charge_month', start),
       s.from('client_reconciliations').select('as_at, difference').order('as_at', { ascending: false }).limit(1),
       s.from('finance_periods').select('status').eq('month', `${month}-01`).maybeSingle(),
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     const approvedWaiting = run.waiting.filter(w => w.state === 'approved')
     const toPay = run.payments.filter(p => !p.paid)
     const transfersDue = run.transfers.filter(t => t.expected > 0 && !t.recorded)
-    const unmatchedList = (unmatched.data ?? []) as any[]
+    const unmatchedList = ((unmatched.data ?? []) as any[]).filter(b => !b.is_practice && !demo.has(b.property_id ?? ''))   // practice lines out
     const arrears = ((overdue.data ?? []) as any[]).filter(c => !c.voided && !demo.has(c.property_id) && Number(c.amount_due) > Number(c.amount_received || 0))
     const arrearsTotal = r2(arrears.reduce((t, c) => t + Number(c.amount_due) - Number(c.amount_received || 0), 0))
     const longArrears = new Set(arrears.filter(c => (Date.parse(today) - Date.parse(c.charge_month)) / 86_400_000 >= 14).map(c => c.room_id)).size

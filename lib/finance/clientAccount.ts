@@ -37,8 +37,8 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
     s.from('properties').select('id, landlord_id'),
     s.from('rent_charges').select('property_id, charge_month, amount_received, remitted_amount, received_date, voided').gte('charge_month', start).gt('amount_received', 0),
     s.from('landlord_statements').select('*').gte('statement_date', start).lte('statement_date', D),
-    s.from('office_transfers').select('amount, transferred_on, voided_at').lte('transferred_on', D),
-    s.from('bank_transactions').select('id, amount, status, transaction_date').in('status', ['unmatched', 'possible_duplicate']).gte('transaction_date', start).lte('transaction_date', D),
+    s.from('office_transfers').select('*, payment_runs(is_practice)').lte('transferred_on', D),
+    s.from('bank_transactions').select('*').in('status', ['unmatched', 'possible_duplicate']).gte('transaction_date', start).lte('transaction_date', D),
     s.from('holding_deposits').select('amount, received_on, status, outcome_on, bank_transaction_id, property_id').lte('received_on', D),
   ])
   const landlordOf = new Map(((props.data ?? []) as any[]).map(p => [p.id, p.landlord_id as string | null]))
@@ -54,8 +54,9 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   const held = real(holding.error ? [] : holding.data as any[]).filter(h => h.status === 'held' || String(h.outcome_on || '') > D)
   const holdingIn = r2(held.reduce((t, h) => t + Number(h.amount || 0), 0))
   const holdingBank = new Set(held.map(h => h.bank_transaction_id).filter(Boolean))
-  const suspenseIn = r2(((bank.data ?? []) as any[]).filter(b => !holdingBank.has(b.id)).reduce((t, b) => t + Math.max(0, Number(b.amount || 0)), 0))
-  const toOffice = r2(((transfers.data ?? []) as any[]).filter(t => !t.voided_at).reduce((t, x) => t + Number(x.amount || 0), 0))
+  const suspenseIn = r2((((bank.data ?? []).filter((b: any) => !b.is_practice && !demo.has(b.property_id ?? ''))) as any[]).filter(b => !holdingBank.has(b.id)).reduce((t, b) => t + Math.max(0, Number(b.amount || 0)), 0))
+  // practice runs' transfers (migration 209) never count against the real client account
+  const toOffice = r2(((transfers.data ?? []) as any[]).filter(t => !t.voided_at && !t.payment_runs?.is_practice).reduce((t, x) => t + Number(x.amount || 0), 0))
   const cashTotal = r2(rentIn + suspenseIn + holdingIn + adjustments - paidToLandlords - toOffice)
 
   // who it belongs to

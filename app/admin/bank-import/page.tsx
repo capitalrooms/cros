@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AppBar from '@/components/AppBar'
-import PageHero from '@/components/PageHero'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { paymentFit, FIT_CLASS } from '@/lib/payments/fit'
@@ -65,6 +65,9 @@ const CATEGORY_STYLES: Record<Category, { bg: string; text: string; label: strin
 }
 
 export default function BankImportPage() {
+  // practice mode (?practice=1, migrations 209/210): matches demo houses only; every line gets an XRCPT number
+  const [practice] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('practice') === '1')
+  const P = practice ? '?practice=1' : ''
   const [file, setFile]           = useState<File | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [preview, setPreview]     = useState<PreviewResult | null>(null)
@@ -78,7 +81,7 @@ export default function BankImportPage() {
 
   // Load recent batches on mount
   useEffect(() => {
-    fetch('/api/admin/bank-import/batches')
+    fetch(`/api/admin/bank-import/batches${P}`)
       .then(r => r.json())
       .then(d => { setRecentBatches(d.batches || []); setBatchesLoading(false) })
       .catch(() => setBatchesLoading(false))
@@ -94,6 +97,7 @@ export default function BankImportPage() {
     try {
       const form = new FormData()
       form.append('file', f)
+      if (practice) form.append('practice', '1')
       const res  = await fetch('/api/admin/bank-import/preview', { method: 'POST', body: form })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Preview failed')
@@ -125,6 +129,7 @@ export default function BankImportPage() {
           bank_name:   preview.bank_name,
           period_from: preview.period_from,
           period_to:   preview.period_to,
+          ...(practice ? { practice: true } : {}),
         }),
       })
       const data = await res.json()
@@ -133,7 +138,7 @@ export default function BankImportPage() {
       setPreview(null)
       setFile(null)
       // Refresh batches
-      fetch('/api/admin/bank-import/batches').then(r => r.json()).then(d => setRecentBatches(d.batches || []))
+      fetch(`/api/admin/bank-import/batches${P}`).then(r => r.json()).then(d => setRecentBatches(d.batches || []))
     } catch (e) {
       setPreviewError(e instanceof Error ? e.message : 'Import failed')
     } finally {
@@ -157,7 +162,9 @@ export default function BankImportPage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Bank Import" />
 
-      <PageHero title="Bank import" subtitle="Import a bank statement CSV — each payment is matched to its rent by the reference" tabs={financeTabs('bank')} />
+      {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Every line in this file gets a practice receipt number (XRCPT) and stays out of the real books.</div>}
+      <PageHero eyebrow={practice ? 'PRACTICE' : undefined} title="Bank import" subtitle="Import a bank statement CSV — each payment is matched to its rent by the reference" tabs={financeTabs('bank')}
+        actions={practice ? <HeroButton href="/admin/bank-import">Leave practice</HeroButton> : <HeroButton href="/admin/bank-import?practice=1">Practice mode</HeroButton>} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 
         {/* Gap detection banner */}

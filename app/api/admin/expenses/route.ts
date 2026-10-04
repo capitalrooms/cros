@@ -11,6 +11,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
 import { closedMonths, firstOpenMonth } from '@/lib/expenses/period'
 import { addLandlordExpense } from '@/lib/expenses/create'
+import { demoPropertyIds } from '@/lib/demoProperties'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,10 @@ export async function GET(req: NextRequest) {
   if (to && isDate(to)) { logged = logged.lte('expense_date', to); imported = imported.lte('statement_date', to) }
   const [a, b] = await Promise.all([logged, imported])
   if (a.error) return NextResponse.json({ error: a.error.message }, { status: 500 })
+  // practice (demo houses) only with ?practice=1; the real list never shows them
+  const demo = await demoPropertyIds(s), practice = u.get('practice') === '1'
+  a.data = ((a.data ?? []) as any[]).filter(r => demo.has(r.property_id) === practice) as any
+  if (!b.error) b.data = ((b.data ?? []) as any[]).filter(r => demo.has(r.property_id) === practice) as any
 
   const rows = [
     ...((a.data ?? []) as any[]).map(e => ({

@@ -1,3 +1,4 @@
+import { dropDemo } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -13,15 +14,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // Active tenancies
-  const { data: tenancies } = await supabase
+  const { data: tenAll } = await supabase
     .from('tenancies')
     .select(`
-      id, room_id,
+      id, room_id, property_id,
       room:rooms ( name, properties ( name, address ) ),
       person:people!person_id ( first_name, last_name )
     `)
     .is('end_date', null)
 
+  const tenancies = await dropDemo(supabase as any, tenAll as any[], (t: any) => t.property_id)   // practice houses out
   if (!tenancies?.length) return NextResponse.json({ rows: [] })
 
   const roomIds = tenancies.map((t: any) => t.room_id)

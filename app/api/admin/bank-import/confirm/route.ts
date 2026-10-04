@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json()
   const { transactions, filename, bank_name, period_from, period_to, notes } = body
+  const practice = body.practice === true   // practice import: every line flagged → XRCPT numbers, kept out of the real lists
 
   if (!transactions?.length)
     return NextResponse.json({ error: 'No transactions to import' }, { status: 400 })
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       imported_by: person.id,
       imported_at: now,
       notes: notes || null,
+      ...(practice ? { is_practice: true } : {}),
     })
     .select('id')
     .single()
@@ -104,6 +106,7 @@ export async function POST(req: NextRequest) {
         matched_by:             txn.category === 'matched' ? person.id : null,
         imported_at:      now,
         imported_by:      person.id,
+        ...(practice ? { is_practice: true } : {}),
       }, { onConflict: 'dedup_hash', ignoreDuplicates: true })
       .select('id')
       .maybeSingle()
@@ -173,7 +176,7 @@ export async function POST(req: NextRequest) {
         const usedCorrectRef = txn.extracted_ref &&
           txn.extracted_ref.toUpperCase() === txn.expected_ref?.toUpperCase()
 
-        if (!usedCorrectRef && txn.tenant_person_id) {
+        if (!usedCorrectRef && txn.tenant_person_id && !practice) {
           try {
             const commsLive = await getCommsLive()
             if (commsLive) {

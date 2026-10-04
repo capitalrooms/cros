@@ -1,5 +1,6 @@
 // Expenses report: everything spent on each property in a period — expenses logged in CROS and the expense lines
 // on statements imported from the previous agent (so April–September 2026 show too). Voided expenses are left out.
+import { dropDemo } from '@/lib/demoProperties'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
@@ -24,6 +25,8 @@ export async function GET(req: NextRequest) {
       .gte('statement_date', from).lte('statement_date', to).is('recharge_expense_id', null).order('statement_date', { ascending: false }),
   ])
   if (logged.error) return NextResponse.json({ error: logged.error.message }, { status: 500 })
+  logged.data = await dropDemo(supabase as any, logged.data as any[], (r: any) => r.property?.id) as any
+  if (!imported.error) imported.data = await dropDemo(supabase as any, imported.data as any[], (r: any) => r.property?.id) as any
   const data = [
     ...((logged.data ?? []) as any[]).filter(r => !r.voided_at).map(r => ({ ...r, reference: r.txn_no ?? null })),
     ...((imported.error ? [] : imported.data ?? []) as any[]).map(r => ({ ...r, expense_date: r.statement_date, source: 'statement' })),
