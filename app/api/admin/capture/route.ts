@@ -1,11 +1,19 @@
 /**
  * /api/admin/capture — the capture inbox (migration 204): photos and paperwork from the office's phones.
  *   GET                                   → { items (waiting), recent (filed), properties, company, keys }
+ *   GET ?count=1                          → { waiting, bills, emailed }
  *   GET ?file=<itemId>                    → { url, name, mime } a short-lived link to the original (e.g. for the AI Doc Scanner)
  *   POST { action: 'upload_url', fileName, mime, size }          → { itemId, path, token }  upload straight to storage
  *   POST { action: 'look', id, thumb? (base64 jpeg) }            → { guess }   quick, cheap: what is it, which property
  *   POST { action: 'read', id, kind: 'safety_sheet'|'bill' }     → { rows | bill }   the full read, to check before filing
  *   POST { action: 'file', id, kind, propertyId?, roomId?, title, rows?, bill?, asExpense? }  → files it
+ *   POST { action: 'choices', id, propertyId, date, amount, description, invoiceNumber, roomId } → { choices, duplicates }
+ *        which statements a landlord expense could come off, and anything on record it might duplicate
+ *   POST { action: 'expense', id, as: 'landlord'|'company', amount, date, supplier, invoiceNumber, description,
+ *          propertyId?, roomId?, deductMonth?, shareInvoice?, category?, paidOn?, paidHow?, confirmDuplicate? }
+ *        → files a bill/receipt as a landlord expense (lib/expenses/create — the same checks as everywhere) or a
+ *          company expense (CEX number). The item is claimed first, so it can't be filed twice.
+ *   POST { action: 'void_company', docId, reason }   a company expense entered wrongly: kept, marked void
  *   POST { action: 'discard', id } | { action: 'handed_to_scanner', id }
  *   POST { action: 'new_key', label? } → { key } (shown once)  |  { action: 'revoke_key', keyId }
  * Administrators only.
@@ -15,7 +23,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
-import { quickLook, readSheet, readBill, CAPTURE_KINDS, type CaptureKind, type SheetRow } from '@/lib/capture/ai'
+import { quickLook, readSheet, readBill, CAPTURE_KINDS, COMPANY_CATEGORIES, type CaptureKind, type SheetRow } from '@/lib/capture/ai'
+import { addLandlordExpense, expenseDuplicates, statementChoices } from '@/lib/expenses/create'
+import { INVOICE_ADDRESS } from '@/lib/capture/email'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -42,6 +52,12 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req)
   if (!admin) return NextResponse.json({ error: 'Administrators only' }, { status: 403 })
   const s = createServiceClient()
+  // just the counts, for the Expenses page and the dashboard
+  if (req.nextUrl.searchParams.get('count')) {
+    const { data } = await s.from('capture_items').select('source, kind, guess').eq('status', 'new')
+    const rows = (data ?? []) as any[]
+    return NextResponse.json({ waiting: rows.length, bills: rows.filter(r => ['bill', 'receipt'].includes(r.guess?.kind)).length, emailed: rows.filter(r => r.source === 'email').length })
+  }
   const fileId = req.nextUrl.searchParams.get('file')
   if (fileId) {
     const { data: it } = await s.from('capture_items').select('*').eq('id', fileId).maybeSingle() as { data: any }
@@ -51,6 +67,9 @@ export async function GET(req: NextRequest) {
     const { data: signed } = await s.storage.from(BUCKET).createSignedUrl(row.file_path, 600)
     return NextResponse.json({ url: signed?.signedUrl ?? null, name: row.file_name, mime: row.mime })
   }
+  // an item claimed for filing more than 5 minutes ago that never finished (e.g. a dropped connection) goes back on the list;
+  // the expense and company-expense tables refuse a second copy of the same item, so this can't double anything
+  await s.from('capture_items').update({ status: 'new', filed_at: null }).eq('status', 'filing').lt('filed_at', new Date(Date.now() - 5 * 60_000).toISOString())
   const [{ data: items, error }, { data: recent }, { data: company }, { data: keys }, properties, { data: rooms }] = await Promise.all([
     s.from('capture_items').select('*').eq('status', 'new').order('created_at', { ascending: false }).limit(100),
     s.from('capture_items').select('id, file_name, kind, filed_to, filed_at, property_id, properties(name)').eq('status', 'filed').order('filed_at', { ascending: false }).limit(15),
@@ -71,6 +90,8 @@ export async function GET(req: NextRequest) {
     company: ((company ?? []) as any[]).map(c => ({ ...c, url: curl.get(c.file_path) ?? null })),
     keys: keys ?? [],
     properties, rooms: rooms ?? [], kinds: CAPTURE_KINDS,
+    categories: COMPANY_CATEGORIES, inboxAddress: INVOICE_ADDRESS,
+    gmail: await s.from('system_settings').select('value').eq('key', 'invoice_inbox_gmail').maybeSingle().then(({ data }) => { try { return data?.value ? JSON.parse(data.value) : null } catch { return null } }),
   })
 }
 
@@ -100,6 +121,13 @@ export async function POST(req: NextRequest) {
   if (b.action === 'revoke_key') {
     await s.from('capture_keys').update({ revoked_at: new Date().toISOString() }).eq('id', String(b.keyId ?? '')).eq('person_id', admin.personId)
     return NextResponse.json({ ok: true })
+  }
+
+  if (b.action === 'void_company') {
+    const reason = String(b.reason ?? '').trim().slice(0, 300)
+    if (!reason) return NextResponse.json({ error: 'Say why it’s being voided' }, { status: 400 })
+    const { error } = await s.from('company_documents').update({ voided_at: new Date().toISOString(), voided_by: admin.personId, void_reason: reason }).eq('id', String(b.docId ?? '')).is('voided_at', null)
+    return error ? NextResponse.json({ error: error.message }, { status: 400 }) : NextResponse.json({ ok: true })
   }
 
   const { data: item } = await s.from('capture_items').select('*').eq('id', String(b.id ?? '')).maybeSingle() as { data: any }
@@ -136,6 +164,67 @@ export async function POST(req: NextRequest) {
       if (b.kind === 'bill') return NextResponse.json({ bill: await readBill(o.bytes, o.mime) })
       return NextResponse.json({ error: 'Nothing to read for that' }, { status: 400 })
     } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not read it' }, { status: 500 }) }
+  }
+
+  // ── a bill or receipt as an expense ──
+  if (b.action === 'choices') {
+    const propertyId = String(b.propertyId ?? ''), date = isDate(b.date) ? String(b.date) : new Date().toISOString().slice(0, 10)
+    if (!propertyId) return NextResponse.json({ choices: [], duplicates: [] })
+    const [choices, duplicates] = await Promise.all([
+      statementChoices(s, propertyId, date),
+      Number(b.amount) > 0 ? expenseDuplicates(s, { property_id: propertyId, description: String(b.description ?? ''), amount: Number(b.amount), expense_date: date, invoice_number: b.invoiceNumber || null, room_id: b.roomId || null }) : Promise.resolve([]),
+    ])
+    return NextResponse.json({ choices, duplicates })
+  }
+  if (b.action === 'expense') {
+    const as = b.as === 'company' ? 'company' : b.as === 'landlord' ? 'landlord' : null
+    if (!as) return NextResponse.json({ error: 'Choose landlord or company expense' }, { status: 400 })
+    const amount = Math.round(Number(b.amount) * 100) / 100
+    if (!(amount > 0)) return NextResponse.json({ error: 'Enter the amount' }, { status: 400 })
+    if (!isDate(b.date)) return NextResponse.json({ error: 'Enter the date on the invoice' }, { status: 400 })
+    const supplier = String(b.supplier ?? '').trim().slice(0, 120), description = String(b.description ?? '').trim().slice(0, 300)
+    if (!description) return NextResponse.json({ error: 'Say what it was for' }, { status: 400 })
+    // claim it: only one person / click can file this item
+    const { data: claimed, error: claimErr } = await s.from('capture_items').update({ status: 'filing', filed_at: new Date().toISOString() }).eq('id', item.id).eq('status', 'new').select('id')
+    if (claimErr) return NextResponse.json({ error: /check constraint|column/i.test(claimErr.message) ? 'Run migration 208 first' : claimErr.message }, { status: 400 })
+    if (!claimed?.length) return NextResponse.json({ error: 'This has already been filed' }, { status: 409 })
+    const release = () => s.from('capture_items').update({ status: 'new', filed_at: null }).eq('id', item.id).eq('status', 'filing')
+    const kind = item.guess?.kind === 'receipt' ? 'receipt' : 'bill'
+    try {
+      if (as === 'landlord') {
+        const o = await original(s, item)
+        const ext = (item.file_name.split('.').pop() || (o.mime.includes('pdf') ? 'pdf' : 'jpg')).toLowerCase().slice(0, 5)
+        const invoicePath = `invoices/${new Date().toISOString().slice(0, 7)}/capture-${item.id}.${ext}`
+        const { error: upErr } = await s.storage.from('finance-docs').upload(invoicePath, o.bytes, { contentType: o.mime, upsert: true })
+        if (upErr) { await release(); return NextResponse.json({ error: `Couldn’t attach the invoice: ${upErr.message}` }, { status: 500 }) }
+        const r = await addLandlordExpense(s, {
+          property_id: String(b.propertyId ?? ''), room_id: b.roomId || null, description, amount, expense_date: b.date, supplier, invoice_number: String(b.invoiceNumber ?? '').trim() || null,
+          category: b.category || null, deduct_month: b.deductMonth || null, invoice_path: invoicePath, invoice_name: item.file_name, share_invoice: !!b.shareInvoice,
+          paid_to_supplier_on: isDate(b.paidOn) ? b.paidOn : null, supplier_payment_method: b.paidHow || null,
+          notes: item.source === 'email' ? `From an email${item.email_from ? ` from ${item.email_from}` : ''}${item.email_subject ? `: “${item.email_subject}”` : ''}` : 'Filed from Capture',
+          source: 'capture', source_ref: `capture:${item.id}`,
+        }, { by: admin.personId, confirmDuplicate: !!b.confirmDuplicate })
+        if (!r.ok) { await release(); return NextResponse.json(r.duplicates ? { duplicates: r.duplicates } : { error: r.error }, { status: r.status }) }
+        await done(kind, `recharge_expenses:${r.expense.id}`, { property_id: b.propertyId, room_id: b.roomId || null, bill: { ...(item.bill ?? {}), filedAs: 'landlord' } })
+        return NextResponse.json({ ok: true, filedTo: r.message })
+      }
+      // company expense: kept with the company's paperwork, numbered CEX
+      if (!b.confirmDuplicate) {
+        const { data: same } = await s.from('company_documents').select('cex_no, supplier, invoice_number, expense_date').eq('amount', amount).is('voided_at', null)
+        const hit = ((same ?? []) as any[]).find(x => (b.invoiceNumber && x.invoice_number === b.invoiceNumber) || (supplier && String(x.supplier ?? '').toLowerCase() === supplier.toLowerCase() && x.expense_date === b.date))
+        if (hit) { await release(); return NextResponse.json({ duplicates: [{ level: 'likely', reason: hit.invoice_number === b.invoiceNumber ? 'Same invoice number and amount' : 'Same supplier, date and amount', description: supplier, amount, date: hit.expense_date, where: hit.cex_no }] }, { status: 409 }) }
+      }
+      const category = (COMPANY_CATEGORIES as readonly string[]).includes(String(b.category)) ? String(b.category) : 'Other'
+      const { data: doc, error } = await s.from('company_documents').insert({
+        title: description, category: kind, file_path: item.file_path, file_name: item.file_name, mime: item.mime, received_on: new Date().toISOString().slice(0, 10),
+        amount, supplier: supplier || null, invoice_number: String(b.invoiceNumber ?? '').trim() || null, expense_date: b.date, expense_category: category,
+        paid_on: isDate(b.paidOn) ? b.paidOn : null, capture_item_id: item.id, created_by: admin.personId,
+        notes: item.source === 'email' && item.email_from ? `Emailed from ${item.email_from}` : null,
+      }).select('id, cex_no').single()
+      if (error) { await release(); return NextResponse.json({ error: missing(error) || /column/.test(error.message) ? 'Run migration 208 first' : error.message }, { status: 400 }) }
+      await done(kind, `company_documents:${doc.id}`, { bill: { ...(item.bill ?? {}), filedAs: 'company', filedCategory: category } })
+      return NextResponse.json({ ok: true, filedTo: `Company expense ${doc.cex_no ?? ''} — £${amount.toFixed(2)}, ${category}` })
+    } catch (e) { await release(); return NextResponse.json({ error: e instanceof Error ? e.message : 'Could not file it' }, { status: 500 }) }
   }
 
   // ── file it ──

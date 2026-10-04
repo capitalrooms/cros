@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const month = `${today.slice(0, 7)}-01`
   const in30 = addDays(today, 30), in7 = addDays(today, 7)
 
-  const [propsR, roomsR, tenR, chargesR, appsR, viewsR, jobsR, holdR, start, voidsAll] = await Promise.all([
+  const [propsR, roomsR, tenR, chargesR, appsR, viewsR, jobsR, holdR, start, voidsAll, captureR] = await Promise.all([
     s.from('properties').select(['id', 'name', 'address', 'letting_type', 'is_demo', 'landlord_id', 'has_gas', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')),
     s.from('rooms').select('id, property_id, name, status, is_let_only'),
     s.from('tenancies').select('id, room_id, property_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, deposit_amount, deposit_protected_at, deposit_protection_assumed, prescribed_info_served_at, last_rent_change_date, is_periodic'),
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
     s.from('holding_deposits').select('status, amount'),
     ledgerStart(s),
     loadVoids(s, today).catch(() => null),
+    s.from('capture_items').select('guess').eq('status', 'new'),
   ]) as any[]
   const err = [propsR, roomsR, tenR].find(r => r.error)
   if (err) return NextResponse.json({ error: err.error.message }, { status: 500 })
@@ -147,6 +148,8 @@ export async function GET(req: NextRequest) {
     { label: 'Rent overdue', count: overdue.length, href: '/admin/arrears', bad: false },
     { label: 'Notice dates missing', count: onNotice.filter(n => !n.noticeRecorded).length, href: '/admin/tenancies', bad: false },
     { label: 'Rooms marked let with no tenancy', count: checks.length, href: '/admin/voids', bad: false },
+    { label: 'Bills & invoices to file', count: ((captureR?.data ?? []) as any[]).filter(c => ['bill', 'receipt'].includes(c.guess?.kind)).length, href: '/admin/capture', bad: false },
+    { label: 'Other paperwork to file', count: ((captureR?.data ?? []) as any[]).filter(c => !['bill', 'receipt'].includes(c.guess?.kind)).length, href: '/admin/capture', bad: false },
     { label: 'Applicants in progress', count: (stages.applied ?? 0) + (stages.offer_sent ?? 0) + (stages.referencing ?? 0) + (stages.ref_passed ?? 0) + (stages.docs_uploaded ?? 0), href: '/admin/applicants', bad: false },
   ].filter(w => w.count > 0).sort((a, b) => Number(b.bad) - Number(a.bad) || b.count - a.count)
 

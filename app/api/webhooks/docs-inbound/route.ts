@@ -1,5 +1,5 @@
 // POST /api/webhooks/docs-inbound
-// Resend inbound webhook for docs@inbound.capitalrooms.co.uk
+// Resend inbound webhook for docs@inbound.capitalrooms.co.uk (and invoices@ → Capture, lib/capture/email)
 // Normalises Resend's inbound payload, runs AI classification on each attachment,
 // stores in inbox_documents, and sends a smart admin email showing what was found
 // with a one-click link to review and file.
@@ -11,6 +11,7 @@ import { Resend } from 'resend'
 import crypto from 'crypto'
 import { senderFieldsSdk } from '@/lib/email/sender'
 import { buildEmail } from '@/lib/emailWrapper'
+import { handleInvoiceEmail } from '@/lib/capture/email'
 
 // Give Vercel up to 5 minutes — fetching attachments + AI classification of multiple PDFs needs it
 export const maxDuration = 300
@@ -34,6 +35,7 @@ const ALLOWED_MIME = [
 
 export async function POST(req: NextRequest) {
   let body: any
+  let verified = false
   try {
     const rawBody = await req.text()
 
@@ -50,6 +52,7 @@ export async function POST(req: NextRequest) {
         const expected = `v1,${hmac}`
         const valid = svixSig.split(' ').some(s => crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected)))
         if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        verified = true
       }
     }
 
@@ -62,6 +65,14 @@ export async function POST(req: NextRequest) {
   const emailData = body.data ?? body
   const inboundEmailId: string = emailData.email_id || emailData.id || ''
   const recipient: string = (emailData.to?.[0] || '').toLowerCase()
+
+  // Invoices forwarded from the office mailbox → Capture (lib/capture/email). Money, so the signature is required.
+  if ((emailData.to ?? []).some((t: string) => String(t).toLowerCase().includes('invoices@'))) {
+    if (process.env.DOCS_INBOUND_WEBHOOK_SIGNING_SECRET && !verified) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const r = await handleInvoiceEmail(serviceClient(), emailData)
+    console.log('invoices-inbound: kept=%d skipped=%j', r.kept, r.skipped)
+    return NextResponse.json({ ok: true, ...r })
+  }
 
   // Only process emails addressed to docs@
   if (recipient && !recipient.includes('docs@')) {

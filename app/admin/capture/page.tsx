@@ -83,13 +83,13 @@ function Capture({ initialTab }: { initialTab: Tab }) {
       <PageHero
         eyebrow="Documents"
         title="Capture"
-        subtitle="Photos and paperwork from your phone: take a photo or pick from your camera roll, check what CROS thinks it is, and file it."
-        stats={[{ label: 'To file', value: items.length, tone: items.length ? 'warn' : undefined }, { label: 'Company post', value: (data?.company ?? []).length }]}
+        subtitle="Photos, paperwork and emailed invoices in one list: check what CROS thinks each is, and file it. Nothing becomes an expense until you file it here."
+        stats={[{ label: 'To file', value: items.length, tone: items.length ? 'warn' : undefined }, { label: 'Emailed invoices waiting', value: items.filter((i: any) => i.source === 'email').length }, { label: 'Company expenses', value: (data?.company ?? []).filter((c: any) => c.amount && !c.voided_at).length }]}
         actions={<>
           <HeroButton primary onClick={() => camRef.current?.click()}>📷 Take a photo</HeroButton>
           <HeroButton onClick={() => pickRef.current?.click()}>Choose photos or files</HeroButton>
         </>}
-        tabs={([['inbox', `To file${items.length ? ` · ${items.length}` : ''}`], ['company', 'Company post'], ['iphone', 'Share from iPhone']] as [Tab, string][]).map(([k, l]) => ({ key: k, label: l, active: tab === k, onClick: () => setTab(k) }))}
+        tabs={([['inbox', `To file${items.length ? ` · ${items.length}` : ''}`], ['company', 'Company post & expenses'], ['iphone', 'Email & iPhone']] as [Tab, string][]).map(([k, l]) => ({ key: k, label: l, active: tab === k, onClick: () => setTab(k) }))}
       />
       <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
       <input ref={pickRef} type="file" accept="image/*,application/pdf" multiple className="hidden" onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
@@ -117,22 +117,9 @@ function Capture({ initialTab }: { initialTab: Tab }) {
           </section>
         )}
 
-        {data && tab === 'company' && (
-          <section className={card}>
-            {(data.company ?? []).length ? (
-              <ul className="divide-y divide-neutral-100 text-sm">
-                {data.company.map((c: any) => (
-                  <li key={c.id} className="flex items-baseline justify-between gap-sm px-lg py-sm">
-                    <span className="min-w-0"><span className="font-semibold text-neutral-900">{c.title}</span><span className="block text-xs text-neutral-500">{c.category} · received {new Date(`${c.received_on}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}{c.notes ? ` · ${c.notes}` : ''}</span></span>
-                    {c.url && <a href={c.url} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Open</a>}
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="px-lg py-md text-sm text-neutral-500">No company post filed yet. Anything you capture that isn’t about one property can be filed here.</p>}
-          </section>
-        )}
+        {data && tab === 'company' && <CompanyTab data={data} reload={load} />}
 
-        {data && tab === 'iphone' && <IphoneSetup keys={data.keys ?? []} reload={load} />}
+        {data && tab === 'iphone' && <><EmailSetup data={data} /><IphoneSetup keys={data.keys ?? []} reload={load} /></>}
       </div>
     </div>
   )
@@ -154,6 +141,7 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
   const [bill, setBill] = useState<any>(null)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
+  const [mode, setMode] = useState<'landlord' | 'company' | 'document'>(it.bill?.belongs_to === 'landlord' ? 'landlord' : it.bill?.belongs_to === 'company' ? 'company' : 'document')
   useEffect(() => { if (guessRoom && !roomId) setRoomId(guessRoom.id) }, [guessRoom, roomId])
   const isImage = String(it.mime ?? '').startsWith('image/') || /\.(jpe?g|png|webp|gif|heic)$/i.test(it.file_name)
 
@@ -192,26 +180,26 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
           {isImage && it.url ? <img src={it.url} alt="" className="h-40 w-full object-cover" /> : <div className="flex h-40 items-center justify-center text-3xl">📄</div>}
         </a>
         <div className="min-w-0 space-y-sm">
-          <p className="text-xs text-neutral-500">{it.file_name} · {it.source === 'shortcut' ? 'shared from iPhone' : 'from your phone'} · {new Date(it.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</p>
+          <p className="text-xs text-neutral-500">{it.file_name} · {it.source === 'email' ? `emailed${it.email_from ? ` by ${it.email_from}` : ''}${it.email_subject ? ` — “${it.email_subject}”` : ''}` : it.source === 'shortcut' ? 'shared from iPhone' : 'from your phone'} · {new Date(it.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</p>
           {g.kind ? <p className="text-sm text-neutral-700">Looks like <strong>{kinds[g.kind] ?? g.kind}</strong>{g.title ? ` — ${g.title}` : ''}{g.reason ? <span className="text-neutral-500"> ({g.reason})</span> : null}</p> : <p className="text-sm text-neutral-500">Say what it is:</p>}
           <div className="flex flex-wrap gap-xs">
             {Object.entries(kinds).map(([k, l]) => (
               <button key={k} type="button" onClick={() => { setKind(k); setRows(null); setBill(null) }} className={`rounded-full border px-sm py-0.5 text-xs font-semibold ${kind === k ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700'}`}>{l}</button>
             ))}
           </div>
-          {kind && kind !== 'company_post' && (
+          {kind && kind !== 'company_post' && !((kind === 'bill' || kind === 'receipt') && mode === 'company') && (
             <div className="grid gap-sm sm:grid-cols-2">
               <select className={input} value={propertyId} onChange={e => { setPropertyId(e.target.value); setRoomId('') }}>
                 <option value="">{needsProperty ? 'Which property?' : 'Which property? (none = company post)'}</option>
                 {(data.properties ?? []).map((p: any) => <option key={p.id} value={p.id}>{p.name}{p.letOnly ? ' (let only)' : ''}</option>)}
               </select>
-              {kind === 'room_photo' && <select className={input} value={roomId} onChange={e => setRoomId(e.target.value)} disabled={!propertyId}>
-                <option value="">Which room?</option>
+              {(kind === 'room_photo' || ((kind === 'bill' || kind === 'receipt') && mode === 'landlord')) && <select className={input} value={roomId} onChange={e => setRoomId(e.target.value)} disabled={!propertyId}>
+                <option value="">{kind === 'room_photo' ? 'Which room?' : 'Room (optional)'}</option>
                 {roomsHere.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>}
             </div>
           )}
-          {kind && <input className={input} value={title} onChange={e => setTitle(e.target.value)} placeholder="A short name for it" />}
+          {kind && !((kind === 'bill' || kind === 'receipt') && mode !== 'document') && <input className={input} value={title} onChange={e => setTitle(e.target.value)} placeholder="A short name for it" />}
 
           {kind === 'safety_sheet' && (
             rows ? (
@@ -236,22 +224,191 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
               </div>
             ) : <button type="button" className={btn} disabled={!!busy} onClick={() => read('safety_sheet')}>{busy === 'read' ? 'Reading the sheet…' : 'Read the checks'}</button>
           )}
-          {kind === 'bill' && (
-            bill ? (
-              <p className="rounded-xl bg-neutral-50 p-sm text-xs text-neutral-700">{[bill.supplier, bill.what_for, bill.amount ? `£${Number(bill.amount).toFixed(2)}` : '', bill.period_from && bill.period_to ? `${bill.period_from} → ${bill.period_to}` : '', bill.account_number ? `account ${bill.account_number}` : '', bill.direct_debit ? 'paid by direct debit' : ''].filter(Boolean).join(' · ') || 'Nothing readable'} — saved with the document.</p>
-            ) : <button type="button" className={btn} disabled={!!busy} onClick={() => read('bill')}>{busy === 'read' ? 'Reading…' : 'Read the bill (supplier, amount, period, account)'}</button>
+          {(kind === 'bill' || kind === 'receipt') && !it.bill && !bill && (
+            <button type="button" className={btn} disabled={!!busy} onClick={() => read('bill')}>{busy === 'read' ? 'Reading…' : 'Read it (supplier, amount, date)'}</button>
+          )}
+          {(kind === 'bill' || kind === 'receipt') && (it.bill || bill) && (
+            <ExpensePanel it={it} data={data} read={it.bill ?? bill} propertyId={propertyId} roomId={roomId} mode={mode} setMode={setMode} reload={reload} />
           )}
           {kind === 'certificate' && <p className="text-xs text-neutral-600">Certificates are read in the AI Doc Scanner so the property’s expiry dates update.</p>}
 
           <div className="flex flex-wrap items-center gap-sm pt-xs">
             {kind === 'certificate'
               ? <button type="button" className={btnDark} onClick={toScanner}>Read it in the scanner →</button>
+              : ((kind === 'bill' || kind === 'receipt') && mode !== 'document') ? null
               : <button type="button" className={btnDark} disabled={!canFile || !!busy} onClick={file}>{busy === 'file' ? 'Filing…' : 'File it'}</button>}
             <button type="button" className={btn} disabled={!!busy} onClick={async () => { if (confirm('Discard this? It won’t be filed anywhere.')) { await post({ action: 'discard' }); reload() } }}>Discard</button>
             {msg && <span className={`text-sm ${msg.startsWith('✅') ? 'text-green-700' : 'text-red-700'}`}>{msg}</span>}
           </div>
         </div>
       </div>
+    </section>
+  )
+}
+
+// ── a bill or receipt: landlord expense, company expense, or just the document ─────────────
+// Everything is checked on the server (lib/expenses/create): duplicates, which statement, one expense per document.
+
+const gbp = (n: number) => `£${Number(n || 0).toFixed(2)}`
+function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reload }: {
+  it: any; data: any; read: any; propertyId: string; roomId: string; mode: 'landlord' | 'company' | 'document'; setMode: (m: 'landlord' | 'company' | 'document') => void; reload: () => Promise<void>
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const [amount, setAmount] = useState(read?.amount ? String(read.amount) : '')
+  const [date, setDate] = useState<string>(read?.date || read?.period_to || today)
+  const [supplier, setSupplier] = useState<string>(read?.supplier ?? '')
+  const [invoiceNumber, setInvoiceNumber] = useState<string>(read?.invoice_number ?? '')
+  const [description, setDescription] = useState<string>([read?.what_for, read?.supplier && read?.what_for ? '' : read?.supplier].filter(Boolean).join(' ') || '')
+  const [category, setCategory] = useState<string>(read?.company_category ?? 'Other')
+  const [paid, setPaid] = useState<boolean>(!!read?.already_paid || !!read?.direct_debit)
+  const [share, setShare] = useState(false)
+  const [choices, setChoices] = useState<{ month: string; label: string }[]>([])
+  const [deductMonth, setDeductMonth] = useState('')
+  const [dups, setDups] = useState<any[]>([])
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  // which statements it could come off, and anything already on record it might be — refreshed as the facts change
+  useEffect(() => {
+    if (mode !== 'landlord' || !propertyId) { setChoices([]); setDups([]); return }
+    const t = setTimeout(async () => {
+      const r = await adminFetch('/api/admin/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'choices', id: it.id, propertyId, date, amount: Number(amount), description, invoiceNumber, roomId }) })
+      const d = await r.json().catch(() => ({}))
+      setChoices(d.choices ?? []); setDups(d.duplicates ?? [])
+      setDeductMonth(m => (d.choices ?? []).some((c: any) => c.month === m) ? m : d.choices?.[0]?.month ?? '')
+    }, 400)
+    return () => clearTimeout(t)
+  }, [mode, propertyId, date, amount, description, invoiceNumber, roomId, it.id])
+
+  async function go(confirmDuplicate = false) {
+    setBusy(true); setMsg('')
+    try {
+      const r = await adminFetch('/api/admin/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        action: 'expense', id: it.id, as: mode, amount: Number(amount), date, supplier, invoiceNumber, description, propertyId, roomId: roomId || null,
+        deductMonth, shareInvoice: share, category, paidOn: paid ? date : null, paidHow: paid ? (read?.direct_debit ? 'direct_debit' : 'card') : null, confirmDuplicate,
+      }) })
+      const d = await r.json().catch(() => ({}))
+      if (r.status === 409 && d.duplicates) { setDups(d.duplicates); setMsg('Looks like one already on record — check below.'); return }
+      if (!r.ok) throw new Error(d.error ?? 'Could not file it')
+      setMsg(`✅ ${d.filedTo}`); setTimeout(reload, 1500)
+    } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not file it') } finally { setBusy(false) }
+  }
+
+  const amountChanged = read?.amount && Number(amount) !== Number(read.amount)
+  const ready = Number(amount) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(date) && description.trim() && (mode !== 'landlord' || (propertyId && deductMonth))
+  return (
+    <div className="space-y-sm rounded-xl border border-neutral-200 bg-neutral-50 p-sm">
+      {read?.reason && <p className="text-xs text-neutral-600">CROS suggests <b>{read.belongs_to === 'landlord' ? 'a landlord expense' : read.belongs_to === 'company' ? 'a company expense' : 'checking this'}</b> — {read.reason}{read.confidence != null ? ` (${Math.round(read.confidence * 100)}% sure)` : ''}</p>}
+      {read?.duplicate && <p className="rounded-lg bg-amber-100 px-sm py-xs text-xs font-semibold text-amber-900">⚠ {read.duplicate}</p>}
+      {read?.doc_type === 'credit_note' && <p className="rounded-lg bg-amber-100 px-sm py-xs text-xs font-semibold text-amber-900">This is a credit note (money back), not a cost. File it as a document and adjust the original by hand.</p>}
+      <div className="flex flex-wrap gap-xs">
+        {([['landlord', 'Landlord expense'], ['company', 'Company expense'], ['document', 'Just file the document']] as const).map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setMode(k)} disabled={k !== 'document' && read?.doc_type === 'credit_note'} className={`h-8 rounded-lg border px-md text-xs font-semibold disabled:opacity-40 ${mode === k ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-700'}`}>{l}</button>
+        ))}
+      </div>
+      {mode !== 'document' && (<>
+        <div className="grid gap-sm sm:grid-cols-4">
+          <label className="text-xs text-neutral-600">Amount (£)<input className={input} inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ''))} /></label>
+          <label className="text-xs text-neutral-600">Date on it<input type="date" className={input} value={date} onChange={e => setDate(e.target.value)} /></label>
+          <label className="text-xs text-neutral-600">Supplier<input className={input} value={supplier} onChange={e => setSupplier(e.target.value)} /></label>
+          <label className="text-xs text-neutral-600">Invoice no.<input className={input} value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} /></label>
+        </div>
+        <label className="block text-xs text-neutral-600">What it was for<input className={input} value={description} onChange={e => setDescription(e.target.value)} placeholder={mode === 'landlord' ? 'e.g. Boiler repair, Room 3' : 'e.g. Zoom subscription, October'} /></label>
+        {amountChanged && <p className="text-xs font-semibold text-amber-800">You changed the amount from {gbp(read.amount)} on the document — make sure that’s right.</p>}
+        <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={paid} onChange={e => setPaid(e.target.checked)} />Already paid {read?.direct_debit ? '(direct debit)' : '(by card or transfer)'}</label>
+      </>)}
+      {mode === 'landlord' && (
+        !propertyId ? <p className="text-xs font-semibold text-amber-800">Choose the property above.</p> : (<>
+          <fieldset className="space-y-xs">
+            <legend className="text-xs font-semibold text-neutral-700">Which statement does it come off?</legend>
+            {choices.map((c, i) => (
+              <label key={c.month} className="flex items-center gap-xs text-sm"><input type="radio" checked={deductMonth === c.month} onChange={() => setDeductMonth(c.month)} />{c.label}<span className="text-xs text-neutral-500">{i === 0 ? '· the next one to be paid' : '· the one after'}</span></label>
+            ))}
+          </fieldset>
+          <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={share} onChange={e => setShare(e.target.checked)} />Send the invoice to the landlord with the statement</label>
+        </>)
+      )}
+      {mode === 'company' && (
+        <label className="block text-xs text-neutral-600">Category<select className={input} value={category} onChange={e => setCategory(e.target.value)}>{(data.categories ?? []).map((c: string) => <option key={c}>{c}</option>)}</select></label>
+      )}
+      {dups.length > 0 && mode !== 'document' && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-sm text-xs text-amber-900">
+          <p className="font-semibold">Possibly already on record:</p>
+          {dups.map((d, i) => <p key={i}>• {gbp(d.amount)} {d.description} — {d.where} ({d.reason})</p>)}
+          <button type="button" className="mt-xs h-8 rounded-lg border border-amber-400 bg-white px-md font-semibold" disabled={busy || !ready} onClick={() => go(true)}>It’s a different cost — add it anyway</button>
+        </div>
+      )}
+      {mode !== 'document' && (
+        <div className="flex flex-wrap items-center gap-sm">
+          <button type="button" className={btnDark} disabled={busy || !ready} onClick={() => go(false)}>{busy ? 'Filing…' : mode === 'landlord' ? `Add ${amount ? gbp(Number(amount)) : ''} to the property’s expenses` : `Add ${amount ? gbp(Number(amount)) : ''} as a company expense`}</button>
+          {msg && <span className={`text-sm ${msg.startsWith('✅') ? 'text-green-700' : 'text-red-700'}`}>{msg}</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── company post and the company's own expenses ──────────────────────────
+function CompanyTab({ data, reload }: { data: any; reload: () => Promise<void> }) {
+  const rows: any[] = data.company ?? []
+  const exp = rows.filter(c => c.amount && !c.voided_at)
+  const total = exp.reduce((a, c) => a + Number(c.amount), 0)
+  function csv() {
+    const head = ['Number', 'Date', 'Supplier', 'What for', 'Category', 'Amount', 'Invoice no.', 'Paid on', 'Void']
+    const lines = rows.filter(c => c.amount).map(c => [c.cex_no, c.expense_date, c.supplier, c.title, c.expense_category, Number(c.amount).toFixed(2), c.invoice_number, c.paid_on, c.voided_at ? `void: ${c.void_reason}` : ''].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([[head.join(','), ...lines].join('\n')], { type: 'text/csv' })); a.download = `company-expenses-${new Date().toISOString().slice(0, 10)}.csv`; a.click()
+  }
+  async function voidIt(c: any) {
+    const reason = prompt(`Void ${c.cex_no}? It stays on record, marked void. Why?`)
+    if (!reason) return
+    const r = await adminFetch('/api/admin/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'void_company', docId: c.id, reason }) })
+    if (!r.ok) alert((await r.json().catch(() => ({}))).error ?? 'Could not void it')
+    reload()
+  }
+  return (
+    <section className={card}>
+      <div className="flex flex-wrap items-center justify-between gap-sm border-b border-neutral-100 px-lg py-sm">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Company expenses {exp.length ? `· ${exp.length} · £${total.toFixed(2)}` : ''} <span className="font-normal normal-case tracking-normal">(not VAT registered: amounts as paid)</span></h3>
+        {exp.length > 0 && <button type="button" className={btn} onClick={csv}>Download CSV</button>}
+      </div>
+      {rows.length ? (
+        <ul className="divide-y divide-neutral-100 text-sm">
+          {rows.map((c: any) => (
+            <li key={c.id} className={`flex items-baseline justify-between gap-sm px-lg py-sm ${c.voided_at ? 'opacity-50' : ''}`}>
+              <span className="min-w-0">
+                <span className="font-semibold text-neutral-900">{c.cex_no ? `${c.cex_no} · ` : ''}{c.title}</span>
+                <span className="block text-xs text-neutral-500">{c.amount ? `£${Number(c.amount).toFixed(2)} · ${c.expense_category ?? ''}${c.supplier ? ` · ${c.supplier}` : ''} · dated ${c.expense_date ?? '—'}` : `${c.category} · received ${new Date(`${c.received_on}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}{c.voided_at ? ` · VOID: ${c.void_reason}` : ''}{c.notes ? ` · ${c.notes}` : ''}</span>
+              </span>
+              <span className="flex shrink-0 gap-sm">
+                {c.url && <a href={c.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-700 hover:underline">Open</a>}
+                {c.cex_no && !c.voided_at && <button type="button" className="text-xs font-semibold text-red-700 hover:underline" onClick={() => voidIt(c)}>Void</button>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="px-lg py-md text-sm text-neutral-500">Nothing yet. Company costs you file from the list (emailed or photographed) appear here with a CEX number, ready for your accountant.</p>}
+    </section>
+  )
+}
+
+// ── forwarding invoices from your mailbox ─────────────────────────────────
+function EmailSetup({ data }: { data: any }) {
+  const addr = data.inboxAddress ?? 'invoices@inbound.capitalrooms.co.uk'
+  return (
+    <section className={`${card} p-lg space-y-md max-w-3xl`}>
+      <div>
+        <h2 className="text-lg font-bold text-neutral-900">Invoices by email</h2>
+        <p className="mt-xs text-sm text-neutral-600">Forward your email to <code className="rounded bg-neutral-100 px-1">{addr}</code>. CROS keeps only invoices, bills and receipts, and drops everything else without saving it. Each one waits under “To file”, read and with a suggestion, until you file it.</p>
+        <button type="button" className={`${btn} mt-xs`} onClick={() => navigator.clipboard.writeText(addr)}>Copy the address</button>
+      </div>
+      {data.gmail?.code && <p className="rounded-xl border border-amber-300 bg-amber-50 p-md text-sm text-amber-900">Gmail sent a confirmation code on {new Date(data.gmail.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}: <b className="font-mono text-base">{data.gmail.code}</b> — enter it in Gmail (step 3).</p>}
+      <ol className="list-decimal space-y-xs pl-lg text-sm text-neutral-800">
+        <li>In Gmail on a computer: <strong>Settings (cog) → See all settings → Forwarding and POP/IMAP</strong>.</li>
+        <li><strong>Add a forwarding address</strong> → paste <code className="rounded bg-neutral-100 px-1">{addr}</code> → Next → Proceed.</li>
+        <li>Gmail sends a code to that address — it appears in the yellow box on this page within a minute (refresh). Type it into Gmail and press <strong>Verify</strong>.</li>
+        <li>Choose <strong>Forward a copy of incoming mail to</strong> {addr} and <strong>keep Gmail’s copy in the Inbox</strong> → Save changes. (Or, to send only some: create a filter and choose “Forward it to” this address.)</li>
+        <li>Anything you forward by hand to the address works too.</li>
+      </ol>
     </section>
   )
 }

@@ -32,6 +32,12 @@ export default function SupplierInvoicesPage() {
   async function act(body: Record<string, unknown>) {
     const r = await adminFetch('/api/admin/supplier-invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const d = await r.json().catch(() => ({}))
+    // possible duplicate of an expense already on record: show it, and only go ahead if it's a different cost
+    if (r.status === 409 && d.duplicates?.length) {
+      const list = d.duplicates.map((x: any) => `• £${Number(x.amount).toFixed(2)} ${x.description} (${x.where}) — ${x.reason}`).join('\n')
+      if (confirm(`This looks like an expense already on record:\n\n${list}\n\nAdd it anyway? Only if it's a different cost.`)) return act({ ...body, confirm_duplicate: true })
+      return false
+    }
     if (!r.ok) { alert(d.error ?? 'Could not do that'); return false }
     await load(); return true
   }

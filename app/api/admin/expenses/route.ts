@@ -9,8 +9,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
-import { findDuplicates, type ExpenseLike } from '@/lib/expenses/duplicates'
-import { deductionMonth, monthName, closedMonths, firstOpenMonth } from '@/lib/expenses/period'
+import { closedMonths, firstOpenMonth } from '@/lib/expenses/period'
+import { addLandlordExpense } from '@/lib/expenses/create'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,53 +81,8 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdmin(req)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
-  const amount = r2(Number(b.amount))
-  const description = String(b.description || '').trim()
-  if (!b.property_id) return NextResponse.json({ error: 'Choose the property' }, { status: 400 })
-  if (!description) return NextResponse.json({ error: 'Say what the expense was for' }, { status: 400 })
-  if (!(amount > 0) || amount > 1_000_000) return NextResponse.json({ error: 'Enter the amount (more than £0)' }, { status: 400 })
-  if (!isDate(b.expense_date)) return NextResponse.json({ error: 'Enter the date on the invoice or receipt' }, { status: 400 })
-  if (b.expense_date > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) return NextResponse.json({ error: 'The date is in the future' }, { status: 400 })
-
-  const s = createServiceClient()
-  const { data: prop } = await s.from('properties').select('id, name, property_code').eq('id', b.property_id).maybeSingle()
-  if (!prop) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
-
-  // Duplicate check against everything on record for the property: logged expenses and past statement lines
-  if (!b.confirm_duplicate) {
-    const since = new Date(Date.parse(b.expense_date) - 400 * 86_400_000).toISOString().slice(0, 10)
-    const [ex, lines] = await Promise.all([
-      s.from('recharge_expenses').select('*').eq('property_id', b.property_id).gte('expense_date', since),
-      s.from('statement_line_items').select('id, description, amount, statement_date, recharge_expense_id, category_type').eq('property_id', b.property_id).gte('statement_date', since),
-    ])
-    const pool: ExpenseLike[] = [
-      ...((ex.data ?? []) as any[]).filter(e => !e.voided_at).map(e => ({ id: e.id, description: e.description, amount: Number(e.amount), date: e.expense_date, invoiceNumber: e.invoice_number ?? null, roomId: e.room_id ?? null, source: 'expense' as const, label: `${e.txn_no ?? e.reference ?? 'Expense'} · logged ${e.expense_date}` })),
-      ...((lines.data ?? []) as any[]).filter(l => !l.recharge_expense_id && Number(l.amount) > 0).map(l => ({ id: l.id, description: l.description, amount: Number(l.amount), date: l.statement_date, source: 'statement' as const, label: `on the statement dated ${l.statement_date}` })),
-    ]
-    const hits = findDuplicates({ description, amount, date: b.expense_date, invoiceNumber: b.invoice_number || null, roomId: b.room_id || null }, pool)
-    if (hits.length) return NextResponse.json({
-      duplicates: hits.slice(0, 3).map(h => ({ level: h.level, reason: h.reason, description: h.match.description, amount: h.match.amount, date: h.match.date, where: h.match.label })),
-    }, { status: 409 })
-  }
-
-  const when = await deductionMonth(s, b.property_id, b.expense_date, b.deduct_month || null)
-  const row: Record<string, unknown> = {
-    property_id: b.property_id, description, amount, expense_date: b.expense_date,
-    notes: String(b.notes || '').trim() || null, created_by: admin.personId,   // txn_no (EXP000123) is given by the database
-    category: b.category || null, supplier: String(b.supplier || '').trim() || null, invoice_number: String(b.invoice_number || '').trim() || null,
-    room_id: b.room_id || null, deduct_month: b.deduct_month ? when.month : null,
-    invoice_path: b.invoice_path && String(b.invoice_path).startsWith('invoices/') ? b.invoice_path : null,
-    invoice_name: b.invoice_name || null, share_invoice: !!b.share_invoice && !!b.invoice_path,
-    // how and when we paid the supplier (the audit trail for the money that comes back from the client account)
-    paid_to_supplier_on: /^\d{4}-\d{2}-\d{2}$/.test(b.paid_to_supplier_on || '') ? b.paid_to_supplier_on : null,
-    supplier_payment_method: ['card', 'bank_transfer', 'cash', 'direct_debit'].includes(b.supplier_payment_method) ? b.supplier_payment_method : null,
-    supplier_payment_ref: String(b.supplier_payment_ref || '').trim() || null,
-  }
-  const { data: expense, error } = await s.from('recharge_expenses').insert(row).select('*').single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  const where = String(prop.name || '').split('\n')[0]
-  return NextResponse.json({
-    expense, deductMonth: when.month,
-    message: `Added ${expense.txn_no ?? ''} — £${amount.toFixed(2)} will come off the ${monthName(when.month)} statement for ${where}.${when.adjusted ? ' (That month’s statement has already gone out, so it moves to the next one.)' : ''}`.replace('Added  —', 'Added —'),
-  })
+  // the same routine every route uses (lib/expenses/create): checks, duplicates, which statement, numbering
+  const r = await addLandlordExpense(createServiceClient(), { ...b, source: 'manual', source_ref: null }, { by: admin.personId, confirmDuplicate: !!b.confirm_duplicate })
+  if (!r.ok) return NextResponse.json(r.duplicates ? { duplicates: r.duplicates } : { error: r.error }, { status: r.status })
+  return NextResponse.json({ expense: r.expense, deductMonth: r.deductMonth, message: r.message })
 }
