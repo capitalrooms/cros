@@ -169,7 +169,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                 {/* the standard options: 1 month, 5 weeks (rent × 12 ÷ 52 × 5), or any other amount typed in */}
                 <span className="mt-xs flex flex-wrap gap-xs font-normal">
                   {([['1 month', live.rent], ['5 weeks', live.capDeposit]] as const).map(([label, amt]) => (
-                    <button key={label} type="button" disabled={!live.rent} onClick={() => setForm(f => ({ ...f, deposit_amount: amt.toFixed(2) }))}
+                    <button key={label} type="button" disabled={!live.rent} onClick={() => { setForm(f => ({ ...f, deposit_amount: amt.toFixed(2) })); setDirty(true) }}
                       className={`rounded-lg border px-sm py-xs text-xs font-semibold disabled:opacity-40 ${live.rent && Math.abs(live.dep - amt) < 0.005 ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800'}`}>
                       {label}{live.rent ? ` · ${gbp(amt)}` : ''}
                     </button>
