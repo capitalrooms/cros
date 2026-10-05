@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
-import Logo from '@/components/Logo'
+import PublicShell from '@/components/public/PublicShell'
 import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAddressString } from '@/app/components/AddressInput'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { missingFor, missingAll, isJoint, REQUIRED_SECTIONS, type SectionKey } from '@/lib/landlordOnboarding/requirements'
@@ -205,29 +205,13 @@ const COMPLIANCE_DOCS: { docType: string; label: string; regulation: string; hin
 
 // ── Shell ─────────────────────────────────────────────────────────────────────
 
-function Shell({ children }: { children: React.ReactNode }) {
+// The shared public frame (components/public/PublicShell) — same header and footer as every page we send out.
+// `wide` is the welcome overview (design "C", full width); the section editors keep a narrow reading column.
+function Shell({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
   return (
-    <div className="min-h-screen bg-neutral-100">
-      <nav className="bg-neutral-900 text-white border-b border-neutral-800 sticky top-0 z-50"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="mx-auto max-w-6xl py-md grid items-center gap-md"
-          style={{ gridTemplateColumns: '1fr auto 1fr', minHeight: 52,
-            paddingLeft: 'max(16px, env(safe-area-inset-left))',
-            paddingRight: 'max(16px, env(safe-area-inset-right))' }}>
-          <div />
-          <div className="justify-self-center">
-            <Logo variant="emblem" height={30} invert priority />
-          </div>
-          <div />
-        </div>
-      </nav>
-
-      <div className="mx-auto max-w-2xl px-4 py-10">{children}</div>
-
-      <div className="text-center py-8 text-xs text-neutral-400">
-        Capital Rooms Ltd &nbsp;·&nbsp; Member of The Property Ombudsman &nbsp;·&nbsp; ClientMoney Protect
-      </div>
-    </div>
+    <PublicShell label="Landlord onboarding">
+      {wide ? children : <div className="mx-auto max-w-2xl px-4 py-10">{children}</div>}
+    </PublicShell>
   )
 }
 
@@ -734,92 +718,98 @@ export default function LandlordOnboardPage() {
 
   // ── Progress overview ──────────────────────────────────────────────────────
   if (!activeSection) {
+    const required = SECTIONS.filter(s => !s.optional)
+    const reqDone = required.filter(s => saved.includes(s.key)).length
+    const progressText = saved.length === 0
+      ? 'Please complete each section below to register as a Capital Rooms landlord. Everything you enter is saved automatically, so you can close this page and come back to the same link at any time to carry on.'
+      : reqDone === required.length
+        ? 'All required sections are complete. The property documents section is optional — add any you have, then submit when ready.'
+        : `${reqDone} of ${required.length} required sections complete. Your progress is saved automatically — carry on where you left off.`
+    const agreementName = agreementType === 'rent_collection' ? 'Rent Collection Agreement' : 'Management Agreement'
+    const roman = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii']
     return (
-      <Shell>
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-neutral-900 mb-2">
-            {saved.length > 0 ? `Welcome back, ${firstName}` : `Welcome, ${firstName}`}
+      <Shell wide>
+        {/* Greeting — design "C": both lines on the left */}
+        <section className="mx-auto max-w-6xl px-6 pt-10 md:px-14 md:pt-14">
+          <h1 className="pub-serif pub-display pub-enter m-0">
+            <span className="pub-drift-l block">{saved.length > 0 ? 'Welcome back,' : 'Welcome,'}</span>
+            <span className="pub-drift-r block italic">{properCase(firstName)}</span>
           </h1>
-          <p className="text-sm text-neutral-500 leading-relaxed">
-            {(() => {
-              const required = SECTIONS.filter(s => !s.optional)
-              const reqDone  = required.filter(s => saved.includes(s.key)).length
-              if (saved.length === 0) return 'Please complete each section below to register as a Capital Rooms landlord. Everything you enter is saved automatically, so you can close this page and come back to the same link at any time to carry on.'
-              if (reqDone === required.length) return 'All required sections are complete. The property certificates section is optional — add any you have, then submit when ready.'
-              return `${reqDone} of ${required.length} required sections complete. Your progress is saved automatically — carry on where you left off.`
-            })()}
-          </p>
-        </div>
+        </section>
 
-        {/* Agreement note */}
-        <div className="bg-neutral-900 rounded-2xl p-6 mb-6 flex items-start gap-5">
-          <div className="text-3xl mt-0.5">📋</div>
-          <div className="flex-1">
-            <p className="text-white font-bold text-base mb-1">{agreementType === 'rent_collection' ? 'Rent Collection Agreement' : 'Management Agreement'}</p>
-            <p className="text-neutral-400 text-sm leading-relaxed">
-              Your {agreementType === 'rent_collection' ? 'rent collection' : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the
-              sections below. If you did not receive it or need any changes made, reply to Harry's email and he will
-              come back to you straight away.
+        {/* Picture + agreement */}
+        <section className="mx-auto grid max-w-6xl items-end gap-10 px-6 pt-10 md:grid-cols-2 md:gap-16 md:px-14 md:pt-16">
+          <div className="pub-arch pub-arch-open mx-auto aspect-[3/4] w-full max-w-[300px] md:max-w-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="pub-zoom" src="/illustrations/landlord-home.webp" alt="Illustration: a landlord working at home with London through the window" style={{ objectPosition: '14% 50%' }} />
+          </div>
+          <div className="flex flex-col gap-5 pb-2">
+            <p className="pub-eyebrow m-0">{agreementName}</p>
+            <p className="pub-serif m-0 text-[26px] leading-snug md:text-[32px]">
+              Your {agreementType === 'rent_collection' ? 'rent collection' : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the sections below.
             </p>
+            <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
+              If you did not receive it or need any changes made, reply to Harry’s email and he will come back to you straight away.
+            </p>
+            <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>{progressText}</p>
           </div>
-        </div>
+        </section>
 
-        {/* Section list */}
-        <div className="space-y-3 mb-8">
-          {SECTIONS.map(s => {
-            const isSaved = saved.includes(s.key)
-            return (
-              <button
-                key={s.key}
-                onClick={() => setActiveSection(s.key)}
-                className="w-full bg-white rounded-2xl border-2 border-neutral-200 p-5 text-left hover:border-neutral-400 transition flex items-center gap-4"
-              >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0 ${isSaved ? 'bg-green-100 text-green-700' : 'bg-neutral-100 text-neutral-500'}`}>
-                  {isSaved ? '✓' : s.emoji}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className={`text-sm font-bold ${isSaved ? 'text-neutral-700' : 'text-neutral-900'}`}>{s.label}</p>
-                    {s.optional && <span className="text-xs text-neutral-400 border border-neutral-200 rounded-full px-2 py-0.5 leading-none">Optional</span>}
-                  </div>
-                  <p className="text-xs text-neutral-400 mt-0.5">{isSaved ? 'Complete — tap to review or edit' : s.optional ? 'Optional — add certificates, plans, bills and other documents' : 'Not yet completed — your progress saves automatically'}</p>
-                </div>
-                <span className="text-neutral-300 text-lg">›</span>
-              </button>
-            )
-          })}
-        </div>
+        {/* The sections */}
+        <section className="mx-auto max-w-6xl px-6 pt-16 md:px-14 md:pt-24">
+          <p className="pub-eyebrow m-0 mb-3">{SECTIONS.length} sections · saves as you go</p>
+          <div style={{ borderTop: '1px solid #111' }}>
+            {SECTIONS.map((s, i) => {
+              const isSaved = saved.includes(s.key)
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => setActiveSection(s.key)}
+                  className="pub-rise flex w-full items-center gap-4 bg-transparent py-5 text-left md:gap-6"
+                  style={{ borderBottom: '1px solid #D9D5CD', color: '#111', minHeight: 64 }}
+                >
+                  <span className="pub-serif w-10 shrink-0 text-[26px] italic leading-none md:w-14 md:text-[32px]">{roman[i] ?? i + 1}.</span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="text-[17px] font-medium md:text-[19px]">{s.label}</span>
+                    <span className="text-[13px]" style={{ color: '#6F6B64' }}>
+                      {isSaved ? 'Complete — tap to review or edit' : s.optional ? 'Optional — add certificates, plans, bills and other documents' : 'Not yet completed — your progress saves automatically'}
+                    </span>
+                  </span>
+                  <span className="pub-eyebrow shrink-0" style={{ color: isSaved ? '#111' : '#6F6B64' }}>{isSaved ? 'Done ✓' : s.optional ? 'Optional' : 'Start →'}</span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
 
-        {saveMsg && (
-          <div className="rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm font-semibold px-5 py-3 mb-4">{saveMsg}</div>
-        )}
+        <section className="mx-auto max-w-6xl px-6 pb-16 pt-10 md:px-14">
+          {saveMsg && (
+            <p className="m-0 mb-6 text-[15px] font-medium" style={{ borderLeft: '2px solid #111', paddingLeft: 14 }}>{saveMsg}</p>
+          )}
 
-        {allSectionsSaved && (
-          <div>
-            <div className="rounded-xl bg-green-50 border border-green-200 p-4 mb-4 text-sm text-green-800">
-              <p className="font-semibold mb-1">✅ All sections complete</p>
-              <p>Please review your information above then submit to send it to the Capital Rooms compliance team.</p>
-            </div>
-            {submitError && (
-              <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-5 py-3 mb-4">
-                <p>{submitError}</p>
-                {submitMissing.map(m => (
-                  <div key={m.section} className="mt-2">
-                    <button onClick={() => setActiveSection(m.section)} className="font-semibold underline">{sectionLabel(m.section)}</button>
-                    <ul className="list-disc pl-5 mt-1">{m.items.map(i => <li key={i}>{i}</li>)}</ul>
-                  </div>
-                ))}
+          {allSectionsSaved && (
+            <div className="flex flex-col gap-5">
+              <div style={{ borderLeft: '1px solid #111', paddingLeft: 16 }}>
+                <p className="pub-serif m-0 text-[30px] leading-tight">All sections complete</p>
+                <p className="m-0 mt-1 text-[15px]" style={{ color: '#4A4741' }}>Please review your information above then submit to send it to the Capital Rooms compliance team.</p>
               </div>
-            )}
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full rounded-xl bg-neutral-900 text-white py-4 text-sm font-bold hover:bg-neutral-700 transition disabled:opacity-40"
-            >
-              {submitting ? 'Submitting…' : 'Submit my information →'}
-            </button>
-          </div>
-        )}
+              {submitError && (
+                <div className="text-[14px]" style={{ color: '#9B2C1F' }}>
+                  <p className="m-0">{submitError}</p>
+                  {submitMissing.map(m => (
+                    <div key={m.section} className="mt-2">
+                      <button onClick={() => setActiveSection(m.section)} className="font-semibold underline">{sectionLabel(m.section)}</button>
+                      <ul className="mt-1 list-disc pl-5">{m.items.map(i => <li key={i}>{i}</li>)}</ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={handleSubmit} disabled={submitting} className="pub-btn self-start">
+                {submitting ? 'Submitting…' : 'Submit my information'}
+              </button>
+            </div>
+          )}
+        </section>
       </Shell>
     )
   }

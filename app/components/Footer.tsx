@@ -7,7 +7,8 @@ export default function Footer({ embedded = false }: { embedded?: boolean }) {
   const pathname = usePathname()
   // Admin draws its own copy at the end of its scrolling content (desktop), so the site-wide one stays out of it
   if (pathname.startsWith('/admin') && !embedded) return null
-  if (pathname === '/login' || pathname.startsWith('/landlord/onboard') || pathname.startsWith('/quote/') || pathname.startsWith('/pack/')) return null
+  // public pages draw their own footer (components/public/PublicShell)
+  if (pathname === '/login' || pathname.startsWith('/landlord/onboard') || pathname.startsWith('/quote/') || pathname.startsWith('/pack/') || pathname.startsWith('/applicant/reserve')) return null
 
   // Admin on a phone is a full-screen app (header, scrolling content, bottom tabs). A footer below it makes
   // the whole page scroll, dragging the header under the status bar and the tabs off the bottom — so on

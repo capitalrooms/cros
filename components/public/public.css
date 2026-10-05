@@ -1,0 +1,59 @@
+/* The look of every page CROS sends to people outside the office (tenants, applicants, landlords).
+   One place: change it here and every public page follows. Chosen 5 Oct 2026 ("C", couture). */
+
+.pub {
+  --pub-serif: 'Instrument Serif';
+  --pub-sans: 'Instrument Sans';
+  background: #ffffff;
+  color: #111111;
+  font-family: var(--pub-sans), 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.pub-serif { font-family: var(--pub-serif), Georgia, serif; font-weight: 400; }
+.pub-eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #6F6B64; }
+.pub a.pub-link { color: #111111; text-decoration: underline; text-underline-offset: 3px; }
+.pub-btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 54px; padding: 0 34px;
+  border-radius: 999px; background: #111111; color: #ffffff; font-size: 15px; font-weight: 500; letter-spacing: .04em;
+  border: 0; cursor: pointer; text-decoration: none; transition: background .2s;
+}
+.pub-btn:hover { background: #333333; }
+.pub-btn:disabled { background: #B9B4AA; cursor: default; }
+.pub-btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px;
+  border-radius: 999px; border: 1px solid #111111; background: transparent; color: #111111; font-size: 14px; cursor: pointer;
+}
+.pub-input {
+  font: inherit; font-size: 17px; color: #111111; border: 0; border-bottom: 1px solid #111111; background: transparent;
+  min-height: 44px; padding: 0; border-radius: 0; outline: none; width: 100%; box-sizing: border-box;
+}
+.pub-input::placeholder { color: #A8A39A; }
+.pub-input:focus { border-bottom-width: 2px; }
+.pub :focus-visible { outline: 2px solid #111111; outline-offset: 3px; }
+
+/* Headlines scale with the screen so they never run off the edge */
+.pub-display { font-size: clamp(3.25rem, 15vw, 9.5rem); line-height: .98; letter-spacing: -.025em; overflow-wrap: break-word; }
+.pub-figure  { font-size: clamp(3.5rem, 17vw, 7.5rem); line-height: 1; letter-spacing: -.01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.pub-arch { overflow: hidden; border-radius: 999px 999px 0 0; background: #EFEBE3; }
+.pub-arch img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Movement: driven by scrolling, and only where the browser supports it (otherwise everything simply shows) */
+@keyframes pub-in { from { opacity: .3; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+.pub-enter { animation: pub-in 1.1s cubic-bezier(.2,.7,.2,1) both; }
+.pub-enter-2 { animation: pub-in 1.1s .2s cubic-bezier(.2,.7,.2,1) both; }
+@supports (animation-timeline: view()) {
+  .pub-drift-l { animation: pub-drift-l linear both; animation-timeline: scroll(root block); animation-range: 0 600px; }
+  .pub-drift-r { animation: pub-drift-r linear both; animation-timeline: scroll(root block); animation-range: 0 600px; }
+  @keyframes pub-drift-l { from { transform: translateX(0); } to { transform: translateX(-3vw); } }
+  @keyframes pub-drift-r { from { transform: translateX(0); } to { transform: translateX(3vw); } }
+  .pub-arch-open { animation: pub-arch linear both; animation-timeline: view(); animation-range: entry 0% cover 55%; }
+  @keyframes pub-arch { from { clip-path: inset(28% 18% 0 18% round 999px 999px 0 0); } to { clip-path: inset(0 0 0 0 round 999px 999px 0 0); } }
+  .pub-zoom { animation: pub-zoom linear both; animation-timeline: view(); }
+  @keyframes pub-zoom { from { transform: scale(1.2); } to { transform: scale(1); } }
+  .pub-rise { animation: pub-rise linear both; animation-timeline: view(); animation-range: entry 0% cover 22%; }
+  @keyframes pub-rise { from { opacity: .2; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pub-enter, .pub-enter-2, .pub-drift-l, .pub-drift-r, .pub-arch-open, .pub-zoom, .pub-rise { animation: none; }
+}
