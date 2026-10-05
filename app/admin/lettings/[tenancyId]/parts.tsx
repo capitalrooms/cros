@@ -389,16 +389,14 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
           <button type="button" onClick={save} disabled={busy} className={btnDark}>{busy ? 'Saving…' : 'Save terms'}</button>
         </div>
       )}
-      {!edit && file.stage !== 'fell_through' && addedToday(file) && <WrongRoom file={file} patch={patch} />}
+      {!edit && file.stage !== 'fell_through' && (file as any).undo?.ok && <WrongRoom file={file} patch={patch} />}
     </section>
   )
 }
 
-const addedToday = (file: LettingFile) => !!(file.tenancy as any).created_at && new Date((file.tenancy as any).created_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) === todayIso()
-
 // Same day only: put on the wrong room (move it, references follow) or added by mistake (remove it from every list)
 function WrongRoom({ file, patch }: { file: LettingFile; patch: Patch }) {
-  const [open, setOpen] = useState<'' | 'move' | 'remove'>('')
+  const [open, setOpen] = useState<'' | 'move' | 'delete'>('')
   const [rooms, setRooms] = useState<{ id: string; name: string; status: string | null; unit_code: string | null }[]>([])
   const [to, setTo] = useState('')
   const [oldRoom, setOldRoom] = useState<'available' | 'leave'>('available')
@@ -412,16 +410,24 @@ function WrongRoom({ file, patch }: { file: LettingFile; patch: Patch }) {
   }, [open, file.property.id, file.room.id])
   async function move() {
     setBusy(true); setErr('')
-    try { await patch(open === 'remove' ? { action: 'remove_mistake', oldRoom, reason } : { action: 'move_room', roomId: to, oldRoom, reason }); setOpen('') }
+    if (open === 'delete') {
+      if (reason.trim().length < 3) { setErr('Say why it’s being deleted'); setBusy(false); return }
+      const r = await adminFetch(`/api/admin/lettings/${file.tenancy.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', reason }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { setErr(d.error ?? 'Could not delete it'); setBusy(false); return }
+      window.location.href = '/admin/tenancies'
+      return
+    }
+    try { await patch({ action: 'move_room', roomId: to, oldRoom, reason }); setOpen('') }
     catch (e) { setErr(e instanceof Error ? e.message : 'Could not move the tenancy') }
     finally { setBusy(false) }
   }
   const target = rooms.find(r => r.id === to)
   if (!open) return (
     <div className="flex flex-wrap items-center gap-sm border-t border-neutral-100 pt-md text-xs text-neutral-500">
-      <span>Added today by mistake? You can fix it until midnight:</span>
+      <span>Entered by mistake? Nothing money-related is attached yet, so you can:</span>
       <button type="button" onClick={() => setOpen('move')} className={btn}>Move to the right room</button>
-      <button type="button" onClick={() => setOpen('remove')} className={`${btn} text-red-700`}>Remove it</button>
+      <button type="button" onClick={() => setOpen('delete')} className={`${btn} text-red-700`}>Delete tenancy</button>
     </div>
   )
   return (
@@ -433,21 +439,21 @@ function WrongRoom({ file, patch }: { file: LettingFile; patch: Patch }) {
           {rooms.map(r => <option key={r.id} value={r.id}>{r.name}{r.unit_code ? ` · ${r.unit_code}` : ''}{r.status ? ` · ${r.status.replace('_', ' ')}` : ''}</option>)}
         </select>
       </>) : (
-        <p className="text-sm font-bold text-neutral-900">Remove this tenancy? It stays on record as “added by mistake”, with its numbers, but drops off every list and is never charged.</p>
+        <p className="text-sm font-bold text-neutral-900">Delete this tenancy completely? It disappears from CROS. A full copy is kept in the audit log (who, when and why), and its numbers ({[(file.tenancy as any).letting_fee_no, (file.tenancy as any).deposit_no].filter(Boolean).join(', ') || 'none'}) are recorded as cancelled. The tenant’s contact record stays, ready to use again.</p>
       )}
       <fieldset className="space-y-xs text-sm text-neutral-800">
         <legend className={label}>And {file.room.name}?</legend>
         <label className="flex items-center gap-sm"><input type="radio" checked={oldRoom === 'available'} onChange={() => setOldRoom('available')} />Work it out from its tenancies (empty if no one else is in it)</label>
         <label className="flex items-center gap-sm"><input type="radio" checked={oldRoom === 'leave'} onChange={() => setOldRoom('leave')} />Leave it as it is: someone still lives there</label>
       </fieldset>
-      <input className={`${input} w-full`} placeholder="Note for the record (optional)" value={reason} onChange={e => setReason(e.target.value)} />
+      <input className={`${input} w-full`} placeholder={open === 'delete' ? 'Why is it being deleted? (required, kept in the audit log)' : 'Note for the record (optional)'} value={reason} onChange={e => setReason(e.target.value)} />
       {open === 'move' && target && <p className="text-xs text-neutral-600">The lease, deposit and payment references change to {target.name}’s. Nothing is sent to the tenant. If they already have the old payment reference, tell them the new one.</p>}
       {err && <p className="text-sm text-red-700">{err}</p>}
       <div className="flex gap-sm">
         <button type="button" onClick={() => { setOpen(''); setErr('') }} disabled={busy} className={btn}>Cancel</button>
         {open === 'move'
           ? <button type="button" onClick={move} disabled={busy || !to} className={btnDark}>{busy ? 'Moving…' : target ? `Move to ${target.name}` : 'Move'}</button>
-          : <button type="button" onClick={move} disabled={busy} className="rounded-lg bg-red-700 px-md py-xs text-sm font-bold text-white hover:bg-red-600 disabled:opacity-40">{busy ? 'Removing…' : 'Remove tenancy'}</button>}
+          : <button type="button" onClick={move} disabled={busy || reason.trim().length < 3} className="rounded-lg bg-red-700 px-md py-xs text-sm font-bold text-white hover:bg-red-600 disabled:opacity-40">{busy ? 'Deleting…' : 'Delete tenancy'}</button>}
       </div>
     </div>
   )

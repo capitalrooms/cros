@@ -3,6 +3,7 @@
 // the tenant's statement of account, generated documents, tenancy events (199) — so nothing is kept twice. Server-only (service client).
 
 import { formalName } from '@/lib/people'
+import { canUndoTenancy } from '@/lib/lettings/undo'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPackContext, moneySummary } from '@/lib/movein/pack'
 import { tenantAccount } from '@/lib/finance/tenantAccount'
@@ -131,6 +132,7 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
       outgoing: outgoing ? { id: outgoing.id, name: name(outgoing.people), personId: outgoing.people?.id, endDate: outgoing.end_date } : null,
       incoming: incomingNext ? { id: incomingNext.id, name: name(incomingNext.people), personId: incomingNext.people?.id, startDate: incomingNext.start_date } : null,
       depositReturn: (returnsQ as any).data ?? null,
+      undo: await canUndoTenancy(s, t, today),
     },
   }
 }
