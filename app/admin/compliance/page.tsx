@@ -126,6 +126,45 @@ const CERT_SCAN_TYPE: Partial<Record<CertKey, string>> = {
   license: 'hmo_licence',
 }
 
+
+// HMO licence applied for but not yet granted (migration 196): record the date and council reference straight from the
+// certificate grid. The Licence cell then shows "Applied <date>" and the property stops counting as expired/missing.
+function LicenceApplied({ propertyId, onSaved }: { propertyId: string; onSaved: () => void }) {
+  const [cur, setCur] = useState<{ on: string | null; ref: string | null } | null>(null)
+  const [on, setOn] = useState(new Date().toISOString().slice(0, 10))
+  const [ref, setRef] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  useEffect(() => {
+    createClient().from('properties').select('licence_application_submitted_at, licence_application_ref').eq('id', propertyId).maybeSingle()
+      .then(({ data }) => { const d: any = data; setCur({ on: d?.licence_application_submitted_at ?? null, ref: d?.licence_application_ref ?? null }); if (d?.licence_application_submitted_at) { setOn(d.licence_application_submitted_at); setRef(d.licence_application_ref ?? '') } })
+  }, [propertyId])
+  async function save(clear = false) {
+    if (!clear && (!/^\d{4}-\d{2}-\d{2}$/.test(on) || on > new Date().toISOString().slice(0, 10))) { setMsg('Enter the date the application was made (not in the future)'); return }
+    setBusy(true); setMsg('')
+    const { error } = await createClient().from('properties').update((clear ? { licence_application_submitted_at: null, licence_application_ref: null } : { licence_application_submitted_at: on, licence_application_ref: ref.trim() || null }) as never).eq('id', propertyId)
+    setBusy(false)
+    if (error) { setMsg(error.message); return }
+    setMsg(clear ? 'Cleared.' : 'Saved — the Licence cell now shows Applied.'); onSaved()
+  }
+  if (!cur) return null
+  return (
+    <div className="rounded-xl border border-blue-200 bg-blue-50 p-md space-y-sm">
+      <p className="text-sm font-bold text-blue-900">{cur.on ? 'Licence application recorded' : 'Applied for a licence? Record it here'}</p>
+      <div className="grid grid-cols-2 gap-sm">
+        <label className="text-xs font-semibold text-blue-900">Applied on<input type="date" value={on} max={new Date().toISOString().slice(0, 10)} onChange={e => setOn(e.target.value)} className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-sm py-xs text-sm text-neutral-900" /></label>
+        <label className="text-xs font-semibold text-blue-900">Council reference<input value={ref} onChange={e => setRef(e.target.value)} placeholder="optional" className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-sm py-xs text-sm text-neutral-900" /></label>
+      </div>
+      <div className="flex flex-wrap items-center gap-sm">
+        <button type="button" onClick={() => save()} disabled={busy} className="h-8 rounded-lg bg-blue-800 px-md text-xs font-bold text-white disabled:opacity-50">{busy ? 'Saving…' : cur.on ? 'Update' : 'Save application'}</button>
+        {cur.on && <button type="button" onClick={() => save(true)} disabled={busy} className="h-8 rounded-lg border border-blue-300 bg-white px-md text-xs font-semibold text-blue-900">Clear (licence granted or withdrawn)</button>}
+        {msg && <span className="text-xs text-blue-900">{msg}</span>}
+      </div>
+      <p className="text-[11px] text-blue-800">When the licence arrives, upload it below — its expiry replaces the application.</p>
+    </div>
+  )
+}
+
 function CertUploadDrawer({
   panel,
   onClose,
@@ -341,6 +380,7 @@ function CertUploadDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-lg py-lg space-y-lg">
+          {panel.certKey === 'license' && <LicenceApplied propertyId={panel.propertyId} onSaved={onSaved} />}
 
           {/* ── VIEW MODE ── */}
           {mode === 'view' && (
@@ -613,10 +653,10 @@ function CertificatesTab({
     if (appliedOn) {
       const d = new Date(appliedOn + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
       return (
-        <a href={`/admin/properties/${propertyId}?tab=compliance`} title={`Licence application made ${d} — waiting for the council`}
-          className="inline-flex flex-col items-center rounded px-sm py-[3px] text-xs font-medium min-w-[5rem] text-center leading-tight bg-blue-50 text-blue-800 hover:bg-blue-100">
+        <button type="button" onClick={() => onCellClick(propertyId, propertyName, certKey, expiry)} title={`Licence application made ${d} — waiting for the council. Click to update it or upload the licence.`}
+          className="inline-flex flex-col items-center rounded px-sm py-[3px] text-xs font-medium min-w-[5rem] text-center leading-tight bg-blue-50 text-blue-800 hover:bg-blue-100 cursor-pointer">
           <span className="text-[9px] font-bold uppercase tracking-wide opacity-70">Applied</span><span>{d}</span>
-        </a>
+        </button>
       )
     }
     const e = effectiveExpiry(certKey, expiry, date)
