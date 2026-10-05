@@ -19,6 +19,13 @@ export default function Home() {
 
   useEffect(() => {
     async function route() {
+      // a password-reset link that Supabase sent to the home page (its Site URL) instead of the reset page: forward it,
+      // keeping the sign-in part of the address, so the person can still set their new password
+      const h = window.location.hash
+      if (/type=recovery/.test(h) || /type=recovery/.test(window.location.search)) {
+        window.location.replace(`/auth/reset-password${window.location.search}${h}`)
+        return
+      }
       try {
         const data = await getCurrentUser()
         const role = data?.assignment?.role
