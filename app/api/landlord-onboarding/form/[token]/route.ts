@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   const { token } = await params
   const { data, error } = await svc()
     .from('landlord_onboarding')
-    .select('id, full_name, email, phone, stage, entity_type, property_count, form_data')
+    .select('id, full_name, email, phone, stage, entity_type, property_count, form_data, verified_at')
     .eq('token', token)
     .maybeSingle()
   if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -20,7 +20,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   const { __agreement, __review, ...form_data } = (data.form_data ?? {}) as Record<string, unknown>
   void __review
   const agreement_type = (__agreement as { agreementType?: string } | undefined)?.agreementType ?? null
-  return NextResponse.json({ row: { ...data, form_data, agreement_type } })
+  // "Reopen my form" is offered only while the submission waits for us (not yet verified)
+  const { verified_at, ...rest } = data as typeof data & { verified_at: string | null }
+  const can_reopen = rest.stage === 3 && !verified_at
+  return NextResponse.json({ row: { ...rest, form_data, agreement_type, can_reopen } })
 }
 
 // ── PATCH → save progress. draft=true is the background auto-save (does not mark the
@@ -72,6 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   if (existing.stage >= 3) return NextResponse.json({ error: 'Form already submitted' }, { status: 409 })
 
   let missing: { section: SectionKey; items: string[] }[] = []
+  let wasUpdate = false
   const now = new Date().toISOString()
   const result = await updateFormData(token, (current) => {
     const client = stripServerKeys(body.form_data)
@@ -84,6 +88,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     missing = missingAll(merged)
     if (missing.length) return { form_data: current } // no change; reported below
     merged.__sections_saved = ['type', 'identity', 'ownership', 'aml', 'bank', 'compliance', 'declaration']
+    // a reopened form sent again: keep every submission time, and tell the office it's an update
+    wasUpdate = !!current.__submitted_at
+    merged.__submissions = [...(Array.isArray(current.__submissions) ? current.__submissions as string[] : current.__submitted_at ? [current.__submitted_at as string] : []), now]
     merged.__submitted_at = now
     return {
       form_data: merged,
@@ -102,7 +109,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   after(async () => {
     let review = null
     try { review = await runSubmissionReview(existing.id) } catch (e) { console.error('onboarding review failed', e) }
-    try { await notifyOfficeOfSubmission(existing.id, review) } catch (e) { console.error('onboarding notify failed', e) }
+    try { await notifyOfficeOfSubmission(existing.id, review, wasUpdate) } catch (e) { console.error('onboarding notify failed', e) }
   })
 
   return NextResponse.json({ ok: true })

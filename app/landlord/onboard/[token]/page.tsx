@@ -141,6 +141,8 @@ const SECTIONS: { key: SectionKey; label: string; emoji: string; optional?: bool
   { key: 'declaration', label: 'Declaration',             emoji: '✍️' },
 ]
 
+const SECTION_ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii']
+
 // Compliance certificates — correct regulatory names
 const COMPLIANCE_DOCS: { docType: string; label: string; regulation: string; hint: string; hmoOnly?: boolean }[] = [
   {
@@ -368,9 +370,9 @@ function FileUpload({
   const uploaded = slot.files.length
 
   return (
-    <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50 p-5">
-      <p className="text-sm font-bold text-neutral-800 mb-1">{label}</p>
-      <p className="text-xs text-neutral-500 mb-4 leading-relaxed">{hint}</p>
+    <div className="py-5" style={{ borderTop: '1px solid #111', borderBottom: '1px solid #E4E0D8' }}>
+      <p className="text-[16px] font-semibold mb-1">{label}</p>
+      <p className="text-[13.5px] mb-4 leading-relaxed" style={{ color: '#6F6B64' }}>{hint}</p>
 
       {uploaded > 0 && (
         <div className="mb-3 space-y-1.5">
@@ -408,11 +410,11 @@ function FileUpload({
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={localUploading || scanning}
-        className="inline-flex items-center gap-2 text-sm font-semibold border border-neutral-300 bg-white text-neutral-700 rounded-xl px-4 py-2.5 hover:border-neutral-500 hover:bg-neutral-50 transition disabled:opacity-50"
+        className="pub-btn-ghost disabled:opacity-50"
       >
-        {localUploading ? '⏳ Uploading…' : scanning ? '⚙️ Scanning…' : uploaded > 0 ? '+ Upload another' : '📎 Choose file'}
+        {localUploading ? 'Uploading…' : scanning ? 'Reading it…' : uploaded > 0 ? '+ Upload another' : 'Take a photo or choose a file'}
       </button>
-      <span className="ml-3 text-xs text-neutral-400">Photo (JPEG, PNG, HEIC) or PDF · max 20 MB</span>
+      <span className="ml-3 text-xs" style={{ color: '#8A857C' }}>Photo (JPEG, PNG, HEIC) or PDF · max 20 MB</span>
 
       {localError && <p className="mt-2 text-xs text-red-600">{localError}</p>}
     </div>
@@ -421,10 +423,10 @@ function FileUpload({
 
 function YesNoButtons({ value, onChange }: { value: string; onChange: (v: 'yes' | 'no') => void }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="flex gap-3">
       {(['no', 'yes'] as const).map(v => (
-        <button key={v} type="button" onClick={() => onChange(v)}
-          className={`rounded-xl border-2 py-3 text-sm font-semibold transition ${value === v ? 'border-neutral-900 bg-neutral-50 text-neutral-900' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'}`}>
+        <button key={v} type="button" onClick={() => onChange(v)} aria-pressed={value === v}
+          className={`pub-pill ${value === v ? 'on' : ''}`}>
           {v === 'yes' ? 'Yes' : 'No'}
         </button>
       ))}
@@ -441,6 +443,9 @@ export default function LandlordOnboardPage() {
   const [loading, setLoading]                 = useState(true)
   const [notFound, setNotFound]               = useState(false)
   const [alreadySubmitted, setAlreadySubmitted] = useState(false)
+  const [canReopen, setCanReopen] = useState(false)
+  const [reopening, setReopening] = useState(false)
+  const [reopenError, setReopenError] = useState('')
   const [landlordName, setLandlordName]       = useState('')
   const [agreementType, setAgreementType]     = useState<string | null>(null)
   const [form, setForm]                       = useState<FormData>(blank())
@@ -490,7 +495,7 @@ export default function LandlordOnboardPage() {
         const nameParts = rawName.replace(SALUTATIONS, '').trim().split(/\s+/)
         setLandlordName(nameParts[0] || rawName)
         setAgreementType(d.row.agreement_type ?? null)
-        if (d.row.stage >= 3) { setAlreadySubmitted(true); return }
+        if (d.row.stage >= 3) { setAlreadySubmitted(true); setCanReopen(!!d.row.can_reopen); return }
 
         const restored: Partial<FormData> = d.row.form_data ?? {}
         if (d.row.entity_type)    restored.entity_type    = d.row.entity_type
@@ -667,9 +672,10 @@ export default function LandlordOnboardPage() {
   }
 
   // ── Styles ──
-  const inp  = 'w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900'
-  const lbl  = 'block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1.5'
-  const card = 'bg-white rounded-2xl border border-neutral-200 p-8 mb-6'
+  // the shared public look (components/public/public.css, design "C")
+  const inp  = 'pub-input'
+  const lbl  = 'pub-label mb-1'
+  const card = 'pub-rise pt-6 pb-10 mb-2'
 
   // ── Intro paragraphs per section ──
   const introText: Record<SectionKey, string> = {
@@ -685,30 +691,73 @@ export default function LandlordOnboardPage() {
   // ── Early states ──
   if (loading)          return <Shell><p className="text-neutral-400 text-sm text-center py-16">Loading your form…</p></Shell>
   if (notFound)         return <Shell><p className="text-red-500 text-sm font-medium text-center py-16">This link is invalid or has expired. Please contact Capital Rooms.</p></Shell>
-  if (alreadySubmitted) return (
-    <Shell>
-      <div className="text-center py-12">
-        <div className="text-5xl mb-5">✅</div>
-        <h2 className="text-xl font-bold text-neutral-900 mb-3">Information already received</h2>
-        <p className="text-sm text-neutral-500 max-w-sm mx-auto leading-relaxed">We have received your information and our team will be in touch shortly. No further action is needed.</p>
-        <p className="text-sm text-neutral-400 mt-6">Questions? <a href="mailto:harry@capitalrooms.co.uk" className="text-neutral-700 underline">harry@capitalrooms.co.uk</a></p>
-      </div>
-    </Shell>
-  )
-  if (done) return (
-    <Shell>
-      <div className="text-center py-12">
-        <div className="text-5xl mb-5">🎉</div>
-        <h2 className="text-xl font-bold text-neutral-900 mb-3">Thank you, {isJoint(form as never) && form.j_first_name ? `${properCase(form.first_name) || landlordName} & ${properCase(form.j_first_name)}` : properCase(form.first_name) || landlordName}!</h2>
-        <p className="text-sm text-neutral-500 leading-relaxed max-w-sm mx-auto">
-          Your information has been received. Our compliance team will review your submission and be in touch within 1–2 working days.
-        </p>
-        <p className="text-sm text-neutral-400 mt-6">
-          Questions? <a href="mailto:harry@capitalrooms.co.uk" className="underline text-neutral-700">harry@capitalrooms.co.uk</a>
-        </p>
-      </div>
-    </Shell>
-  )
+  // ── Thank you (just sent, or opening the link again later) — design "C", with "Reopen my form" ──
+  async function reopenForm() {
+    setReopening(true); setReopenError('')
+    try {
+      const r = await fetch(`/api/landlord-onboarding/form/${token}/reopen`, { method: 'POST' })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d.error || 'Could not reopen the form — please try again.')
+      window.location.reload()
+    } catch (e) {
+      setReopenError(e instanceof Error ? e.message : 'Could not reopen the form — please try again.')
+      setReopening(false)
+    }
+  }
+  if (alreadySubmitted || done) {
+    const thanksName = done
+      ? (isJoint(form as never) && form.j_first_name ? `${properCase(form.first_name) || landlordName} & ${properCase(form.j_first_name)}` : properCase(form.first_name) || landlordName)
+      : landlordName
+    const reopenable = done || canReopen
+    const SENT = ['About you', 'Identity', 'Property ownership', 'Background & source of funds', 'Banking & tax', 'Property documents', 'Declaration']
+    return (
+      <Shell wide>
+        <section className="mx-auto grid max-w-6xl items-end gap-10 px-6 pt-10 md:grid-cols-2 md:gap-16 md:px-14 md:pt-14">
+          <div className="flex flex-col gap-5">
+            <h1 className="pub-serif pub-display pub-enter m-0">
+              <span className="pub-drift-l block">Thank you,</span>
+              <span className="pub-drift-r block italic">{thanksName || 'there'}</span>
+            </h1>
+            <p className="pub-serif pub-enter-2 m-0 text-[24px] leading-snug md:text-[30px]">
+              {done
+                ? 'Your information has been received. Our compliance team will review your submission and be in touch within 1–2 working days.'
+                : 'We have received your information and our team will be in touch shortly. No further action is needed.'}
+            </p>
+          </div>
+          <div className="pub-arch pub-arch-open mx-auto aspect-[3/4] w-full max-w-[300px] md:max-w-[420px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="pub-zoom" src="/illustrations/landlord-home.webp" alt="Illustration: a landlord at home with London through the window" style={{ objectPosition: '14% 50%' }} />
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-6 pt-16 md:px-14 md:pt-20">
+          <div className="grid md:grid-cols-7">
+            {SENT.map((label, i) => (
+              <div key={label} className="pub-rise flex items-baseline gap-4 py-4 md:flex-col md:gap-1 md:pr-4" style={{ borderTop: i === 0 ? '1px solid #111' : '1px solid #D9D5CD' }}>
+                <span className="pub-serif w-10 text-[24px] italic leading-none md:text-[30px]">{SECTION_ROMAN[i]}.</span>
+                <span className="flex-1 text-[15px] font-medium">{label}</span>
+                <span className="pub-eyebrow">{i === 6 ? 'Signed' : 'Received'}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto flex max-w-6xl flex-col gap-3 px-6 pb-16 pt-14 md:px-14">
+          <p className="m-0 text-[15px]" style={{ color: '#4A4741' }}>Need to change something?</p>
+          {reopenable ? (
+            <>
+              <button type="button" onClick={reopenForm} disabled={reopening} className="pub-btn-ghost self-start disabled:opacity-50">{reopening ? 'Reopening…' : 'Reopen my form'}</button>
+              <p className="m-0 max-w-xl text-[13px] pub-muted">Everything you entered is kept. Make your change and send it again; we’ll see it as an update.</p>
+              {reopenError && <p className="pub-error max-w-xl">{reopenError}</p>}
+            </>
+          ) : (
+            <p className="m-0 max-w-xl text-[14px] pub-muted">We’ve already started checking your information, so email us with any changes and we’ll update it for you.</p>
+          )}
+          <p className="m-0 mt-4 text-[15px]">Questions? <a className="pub-link" href="mailto:harry@capitalrooms.co.uk">harry@capitalrooms.co.uk</a></p>
+        </section>
+      </Shell>
+    )
+  }
 
   const allSectionsSaved = REQUIRED_SECTIONS.every(k => saved.includes(k))
   const firstName = isJoint(form as never) && form.j_first_name
@@ -824,27 +873,14 @@ export default function LandlordOnboardPage() {
   function renderShell(_canSave: boolean, children: React.ReactNode) {
     return (
       <Shell>
-        {/* Back breadcrumb */}
-        <div className="flex items-center gap-3 mb-6">
-          <button
-            onClick={leaveSection}
-            className="text-sm font-semibold text-neutral-500 hover:text-neutral-800 transition"
-          >
-            ← Back
-          </button>
-          <span className="text-neutral-300">/</span>
-          <span className="text-sm font-semibold text-neutral-900">{currentDef.label}</span>
-        </div>
-
-        {/* Section intro */}
-        <div className="rounded-xl bg-white border border-neutral-200 px-6 py-4 mb-6 text-sm text-neutral-600 leading-relaxed">
-          {introText[activeSection!]}
-        </div>
+        <button onClick={leaveSection} className="pub-eyebrow mb-8 inline-flex min-h-[44px] items-center" style={{ color: '#111' }}>← All sections</button>
+        <h1 className="pub-h2 pub-enter mb-6"><i>{SECTION_ROMAN[SECTIONS.findIndex(s => s.key === activeSection)] ?? ''}.</i>{currentDef.label}</h1>
+        <p className="pub-intro mb-8">{introText[activeSection!]}</p>
 
         {children}
 
         {showMissing && sectionMissing.length > 0 && (
-          <div className="rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm px-5 py-4 mb-4">
+          <div className="pub-note mb-4" style={{ borderLeft: '2px solid #A86A12' }}>
             <p className="font-semibold mb-1">Still needed to complete this section:</p>
             <ul className="list-disc pl-5 space-y-0.5">{sectionMissing.map(i => <li key={i}>{i}</li>)}</ul>
             <p className="text-xs mt-2 text-amber-700">You can come back and finish this later using the same link — everything so far is saved.</p>
@@ -852,22 +888,16 @@ export default function LandlordOnboardPage() {
         )}
 
         {saveMsg && (
-          <div className={`rounded-xl text-sm font-semibold px-5 py-3 mb-4 border ${saveMsg.startsWith('✓') ? 'bg-green-50 border-green-200 text-green-700' : saveMsg.startsWith('Save failed') ? 'bg-red-50 border-red-200 text-red-700' : 'bg-neutral-50 border-neutral-200 text-neutral-700'}`}>{saveMsg}</div>
+          <p className={saveMsg.startsWith('Save failed') ? 'pub-error mb-4' : 'mb-4 text-[15px] font-medium'} style={saveMsg.startsWith('Save failed') ? undefined : { borderLeft: '2px solid #111', paddingLeft: 14 }}>{saveMsg}</p>
         )}
 
-        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-between mt-2">
-          <button onClick={leaveSection} className="rounded-xl border border-neutral-200 px-6 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition">
-            ← Back to overview
-          </button>
-          <button
-            onClick={() => saveSection(activeSection!)}
-            disabled={saving}
-            className="rounded-xl bg-neutral-900 text-white px-8 py-3 text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
+        <div className="flex flex-col-reverse sm:flex-row gap-3 justify-between mt-6">
+          <button onClick={leaveSection} className="pub-btn-ghost">← All sections</button>
+          <button onClick={() => saveSection(activeSection!)} disabled={saving} className="pub-btn">
             {saving ? 'Saving…' : 'Save & continue →'}
           </button>
         </div>
-        <p className="text-xs text-neutral-400 text-right mt-3 h-4">
+        <p className="text-xs text-right mt-3 h-4" style={{ color: '#6F6B64' }}>
           {autoStatus === 'saving' ? 'Saving…' : autoStatus === 'saved' ? '✓ All changes saved' : autoStatus === 'error' ? 'Not saved — check your connection' : ''}
         </p>
       </Shell>
@@ -879,33 +909,31 @@ export default function LandlordOnboardPage() {
     return (
       renderShell(!!(form.entity_type && form.property_count), <>
         <div className={card}>
-          <h2 className="text-base font-bold text-neutral-900 mb-6">Are you registering as an individual or a company?</h2>
+          <h2 className="pub-h3 mb-5">Are you registering as an individual or a company?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            {([['individual', '👤', 'Individual', 'Personal landlord — passport or driving licence required'], ['company', '🏢', 'Company', 'Ltd company, LLP, or partnership — company documents required']] as const).map(([val, emoji, label, desc]) => (
+            {([['individual', '👤', 'Individual', 'Personal landlord — passport or driving licence required'], ['company', '🏢', 'Company', 'Ltd company, LLP, or partnership — company documents required']] as const).map(([val, , label, desc]) => (
               <button key={val} onClick={() => set('entity_type', val)}
-                className={`text-left rounded-xl border-2 p-5 transition ${form.entity_type === val ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                <div className="text-2xl mb-2">{emoji}</div>
-                <p className="text-sm font-bold text-neutral-900 mb-1">{label}</p>
-                <p className="text-xs text-neutral-500">{desc}</p>
+                className="pub-choice" aria-pressed={form.entity_type === val}>
+                <span className={`pub-dot ${form.entity_type === val ? 'on' : ''}`} />
+                <span><span className="font-semibold">{label}</span><small>{desc}</small></span>
               </button>
             ))}
           </div>
 
           <h2 className="text-base font-bold text-neutral-900 mb-4">How many properties are you registering?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {([['single', '🏠', 'One property', 'Register a single property with Capital Rooms'], ['multiple', '🏘', 'Multiple properties', 'Register two or more properties at once']] as const).map(([val, emoji, label, desc]) => (
+            {([['single', '🏠', 'One property', 'Register a single property with Capital Rooms'], ['multiple', '🏘', 'Multiple properties', 'Register two or more properties at once']] as const).map(([val, , label, desc]) => (
               <button key={val} onClick={() => set('property_count', val)}
-                className={`text-left rounded-xl border-2 p-5 transition ${form.property_count === val ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                <div className="text-2xl mb-2">{emoji}</div>
-                <p className="text-sm font-bold text-neutral-900 mb-1">{label}</p>
-                <p className="text-xs text-neutral-500">{desc}</p>
+                className="pub-choice" aria-pressed={form.property_count === val}>
+                <span className={`pub-dot ${form.property_count === val ? 'on' : ''}`} />
+                <span><span className="font-semibold">{label}</span><small>{desc}</small></span>
               </button>
             ))}
           </div>
 
           {form.entity_type === 'individual' && (
             <div className="mt-8">
-              <h2 className="text-base font-bold text-neutral-900 mb-1">Is there a second landlord?</h2>
+              <h2 className="pub-h3 mb-1">Is there a second landlord?</h2>
               <p className="text-sm text-neutral-500 mb-4">For example a spouse, partner or relative who jointly owns the property and is named on the management agreement. We need identity documents for both of you.</p>
               <YesNoButtons value={form.joint} onChange={v => set('joint', v)} />
             </div>
@@ -929,7 +957,7 @@ export default function LandlordOnboardPage() {
         {isIndividual ? (
           <>
             <div className={card}>
-              <h2 className="text-base font-bold text-neutral-900 mb-6">Personal Details</h2>
+              <h2 className="pub-h3 mb-5">Personal Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className={lbl}>Title</label>
@@ -950,7 +978,7 @@ export default function LandlordOnboardPage() {
                 <div><label className={lbl}>Nationality *</label><input value={form.nationality} onChange={e => set('nationality', e.target.value)} className={inp} placeholder="e.g. British" /></div>
               </div>
 
-              <div className="mt-5 pt-5 border-t border-neutral-100">
+              <div className="mt-6 pt-6" style={{ borderTop: '1px solid #E4E0D8' }}>
                 <AddressInput
                   label="Residential Address"
                   required
@@ -961,7 +989,7 @@ export default function LandlordOnboardPage() {
                 />
               </div>
 
-              <div className="mt-5 pt-5 border-t border-neutral-100">
+              <div className="mt-6 pt-6" style={{ borderTop: '1px solid #E4E0D8' }}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div><label className={lbl}>Employer / occupation</label><input value={form.employer} onChange={e => set('employer', e.target.value)} className={inp} placeholder="e.g. Self-employed landlord" /></div>
                   <div><label className={lbl}>Contact phone *</label><input type="tel" value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} className={inp} placeholder="07700 900000" /></div>
@@ -971,8 +999,8 @@ export default function LandlordOnboardPage() {
             </div>
 
             <div className={card}>
-              <h2 className="text-base font-bold text-neutral-900 mb-2">Identity Documents</h2>
-              <p className="text-sm text-neutral-500 mb-6 leading-relaxed">
+              <h2 className="pub-h3 mb-2">Identity Documents</h2>
+              <p className="text-[15px] leading-relaxed mb-6" style={{ color: '#4A4741' }}>
                 Upload clear colour images or scans — JPEG, PNG or PDF format. Documents must be in date and fully legible. You can upload more than one file if needed.
               </p>
 
@@ -1031,8 +1059,8 @@ export default function LandlordOnboardPage() {
 
             {isJoint(form as never) && (
               <div className={card}>
-                <h2 className="text-base font-bold text-neutral-900 mb-1">Second landlord</h2>
-                <p className="text-sm text-neutral-500 mb-6">The same checks apply to each landlord named on the agreement.</p>
+                <h2 className="pub-h3 mb-1">Second landlord</h2>
+                <p className="text-[15px] mb-6" style={{ color: '#4A4741' }}>The same checks apply to each landlord named on the agreement.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className={lbl}>Title</label>
@@ -1050,7 +1078,7 @@ export default function LandlordOnboardPage() {
                   <div><label className={lbl}>Contact email</label><input type="email" value={form.j_contact_email} onChange={e => set('j_contact_email', e.target.value)} className={inp} /></div>
                 </div>
 
-                <div className="mt-5 pt-5 border-t border-neutral-100">
+                <div className="mt-6 pt-6" style={{ borderTop: '1px solid #E4E0D8' }}>
                   <label className="flex items-center gap-3 cursor-pointer mb-4">
                     <input type="checkbox" checked={form.j_same_address} onChange={e => set('j_same_address', e.target.checked)} className="w-4 h-4 rounded border-neutral-300" />
                     <span className="text-sm text-neutral-700">Lives at the same address as the first landlord</span>
@@ -1099,7 +1127,7 @@ export default function LandlordOnboardPage() {
         ) : (
           <>
             <div className={card}>
-              <h2 className="text-base font-bold text-neutral-900 mb-6">Company Details</h2>
+              <h2 className="pub-h3 mb-5">Company Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div><label className={lbl}>Company name *</label><input value={form.company_name} onChange={e => set('company_name', e.target.value)} className={inp} placeholder="e.g. Smith Properties Ltd" /></div>
                 <div><label className={lbl}>Company registration number *</label><input value={form.company_reg} onChange={e => set('company_reg', e.target.value)} className={inp} placeholder="e.g. 12345678" /></div>
@@ -1111,8 +1139,8 @@ export default function LandlordOnboardPage() {
             </div>
 
             <div className={card}>
-              <h2 className="text-base font-bold text-neutral-900 mb-2">Company Documents</h2>
-              <p className="text-sm text-neutral-500 mb-6 leading-relaxed">
+              <h2 className="pub-h3 mb-2">Company Documents</h2>
+              <p className="text-[15px] leading-relaxed mb-6" style={{ color: '#4A4741' }}>
                 Upload your company formation documents and identity documents for each director or beneficial owner holding 25% or more.
               </p>
               <div className="space-y-4">
@@ -1182,8 +1210,8 @@ export default function LandlordOnboardPage() {
             </div>
 
             <div className={card}>
-              <h2 className="text-base font-bold text-neutral-900 mb-2">Proof of Ownership</h2>
-              <p className="text-sm text-neutral-500 mb-6 leading-relaxed">
+              <h2 className="pub-h3 mb-2">Proof of Ownership</h2>
+              <p className="text-[15px] leading-relaxed mb-6" style={{ color: '#4A4741' }}>
                 Upload one or more of the following: a council tax bill or utility bill for the property, a Land Registry title document, or your purchase completion statement. This confirms your right to let the property.
               </p>
               <FileUpload
@@ -1219,8 +1247,8 @@ export default function LandlordOnboardPage() {
         ) : (
           <>
             <div className={card}>
-              <h2 className="text-base font-bold text-neutral-900 mb-2">Property Portfolio</h2>
-              <p className="text-sm text-neutral-500 mb-6">Enter each property you wish to register.</p>
+              <h2 className="pub-h3 mb-2">Property Portfolio</h2>
+              <p className="text-[15px] mb-6" style={{ color: '#4A4741' }}>Enter each property you wish to register.</p>
               {form.properties.map((p, i) => (
                 <div key={i} className="rounded-xl border border-neutral-100 bg-neutral-50 p-5 mb-4">
                   <p className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-4">Property {i + 1}</p>
@@ -1249,8 +1277,8 @@ export default function LandlordOnboardPage() {
             </div>
 
             <div className={card}>
-              <h2 className="text-base font-bold text-neutral-900 mb-2">Proof of Ownership</h2>
-              <p className="text-sm text-neutral-500 mb-6 leading-relaxed">
+              <h2 className="pub-h3 mb-2">Proof of Ownership</h2>
+              <p className="text-[15px] leading-relaxed mb-6" style={{ color: '#4A4741' }}>
                 Upload proof of ownership for each property in your portfolio. You can upload multiple files here — one per property if needed.
               </p>
               <FileUpload
@@ -1275,21 +1303,21 @@ export default function LandlordOnboardPage() {
     return (
       renderShell(true, <>
         <div className={card}>
-          <h2 className="text-base font-bold text-neutral-900 mb-1">Politically exposed persons</h2>
-          <p className="text-sm text-neutral-500 mb-5 leading-relaxed">
+          <h2 className="pub-h3 mb-1">Politically exposed persons</h2>
+          <p className="text-[15px] leading-relaxed mb-5" style={{ color: '#4A4741' }}>
             A politically exposed person (PEP) holds, or has held in the last 12 months, a prominent public role — for example a
             member of parliament, senior judge, ambassador, senior military officer, or board member of a state-owned business —
             in the UK or abroad. This also covers their close family and known close associates. Answering yes does not stop us
             working with you; it simply means we carry out some additional checks.
           </p>
-          <p className="text-sm font-semibold text-neutral-800 mb-3">{joint ? `Is ${firstLabel} a politically exposed person, or a family member or close associate of one?` : 'Are you a politically exposed person, or a family member or close associate of one?'} *</p>
+          <p className="text-[16px] font-semibold mb-3">{joint ? `Is ${firstLabel} a politically exposed person, or a family member or close associate of one?` : 'Are you a politically exposed person, or a family member or close associate of one?'} *</p>
           <YesNoButtons value={form.pep} onChange={v => set('pep', v)} />
           {form.pep === 'yes' && (
             <div className="mt-4"><label className={lbl}>Position held and country *</label><textarea rows={2} value={form.pep_details} onChange={e => set('pep_details', e.target.value)} className={inp} placeholder="e.g. Local councillor, Southwark, until 2024" /></div>
           )}
           {joint && (
             <div className="mt-6 pt-6 border-t border-neutral-100">
-              <p className="text-sm font-semibold text-neutral-800 mb-3">Is {form.j_first_name || 'the second landlord'} a politically exposed person, or a family member or close associate of one? *</p>
+              <p className="text-[16px] font-semibold mb-3">Is {form.j_first_name || 'the second landlord'} a politically exposed person, or a family member or close associate of one? *</p>
               <YesNoButtons value={form.j_pep} onChange={v => set('j_pep', v)} />
               {form.j_pep === 'yes' && (
                 <div className="mt-4"><label className={lbl}>Position held and country *</label><textarea rows={2} value={form.j_pep_details} onChange={e => set('j_pep_details', e.target.value)} className={inp} /></div>
@@ -1299,9 +1327,9 @@ export default function LandlordOnboardPage() {
         </div>
 
         <div className={card}>
-          <h2 className="text-base font-bold text-neutral-900 mb-1">Acting on behalf of someone else</h2>
-          <p className="text-sm text-neutral-500 mb-5 leading-relaxed">We need to know who ultimately owns or benefits from the property.</p>
-          <p className="text-sm font-semibold text-neutral-800 mb-3">Is anyone other than {joint ? 'the two of you' : 'yourself'} the owner of, or entitled to the rent from, the property — for example through a trust, nominee or on someone else's behalf? *</p>
+          <h2 className="pub-h3 mb-1">Acting on behalf of someone else</h2>
+          <p className="text-[15px] leading-relaxed mb-5" style={{ color: '#4A4741' }}>We need to know who ultimately owns or benefits from the property.</p>
+          <p className="text-[16px] font-semibold mb-3">Is anyone other than {joint ? 'the two of you' : 'yourself'} the owner of, or entitled to the rent from, the property — for example through a trust, nominee or on someone else's behalf? *</p>
           <YesNoButtons value={form.acting_for_other} onChange={v => set('acting_for_other', v)} />
           {form.acting_for_other === 'yes' && (
             <div className="mt-4"><label className={lbl}>Who, and how they are connected *</label><textarea rows={3} value={form.acting_for_details} onChange={e => set('acting_for_details', e.target.value)} className={inp} placeholder="Full name(s), relationship, and any trust or company name" /></div>
@@ -1309,8 +1337,8 @@ export default function LandlordOnboardPage() {
         </div>
 
         <div className={card}>
-          <h2 className="text-base font-bold text-neutral-900 mb-1">How the property was funded</h2>
-          <p className="text-sm text-neutral-500 mb-5 leading-relaxed">A short answer is fine. If the property was bought with a mortgage, just say so.</p>
+          <h2 className="pub-h3 mb-1">How the property was funded</h2>
+          <p className="text-[15px] leading-relaxed mb-5" style={{ color: '#4A4741' }}>A short answer is fine. If the property was bought with a mortgage, just say so.</p>
           <label className={lbl}>Main source of funds for buying the property *</label>
           <select value={form.source_of_funds} onChange={e => set('source_of_funds', e.target.value)} className={inp + ' mb-4'}>
             <option value="">Select…</option>
@@ -1322,7 +1350,7 @@ export default function LandlordOnboardPage() {
         </div>
 
         <div className={card}>
-          <h2 className="text-base font-bold text-neutral-900 mb-1">Where you live</h2>
+          <h2 className="pub-h3 mb-1">Where you live</h2>
           <label className={lbl}>Country of residence *</label>
           <input value={form.country_of_residence} onChange={e => set('country_of_residence', e.target.value)} className={inp} placeholder="e.g. United Kingdom" />
         </div>
@@ -1335,8 +1363,8 @@ export default function LandlordOnboardPage() {
     return (
       renderShell(!!(form.bank_name && form.account_number && form.sort_code), <>
         <div className={card}>
-          <h2 className="text-base font-bold text-neutral-900 mb-2">Bank & Tax Details</h2>
-          <p className="text-sm text-neutral-500 mb-6">Used to remit rental income and comply with HMRC reporting requirements. Accessible to Capital Rooms management only.</p>
+          <h2 className="pub-h3 mb-2">Bank & Tax Details</h2>
+          <p className="text-[15px] mb-6" style={{ color: '#4A4741' }}>Used to remit rental income and comply with HMRC reporting requirements. Accessible to Capital Rooms management only.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
             <div><label className={lbl}>Bank name *</label><input value={form.bank_name} onChange={e => set('bank_name', e.target.value)} className={inp} placeholder="e.g. Barclays" /></div>
             <div><label className={lbl}>Account holder name *</label><input value={form.account_holder} onChange={e => set('account_holder', e.target.value)} className={inp} placeholder="As it appears on the account" /></div>
@@ -1399,7 +1427,7 @@ export default function LandlordOnboardPage() {
     return (
       renderShell(form.declaration, <>
         <div className={card}>
-          <h2 className="text-base font-bold text-neutral-900 mb-6">Declaration</h2>
+          <h2 className="pub-h3 mb-5">Declaration</h2>
           <div className="text-sm text-neutral-600 mb-6 space-y-3 leading-relaxed">
             <p>By completing this form, I confirm that:</p>
             <ul className="list-disc pl-5 space-y-2">

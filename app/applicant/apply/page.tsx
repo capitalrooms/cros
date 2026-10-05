@@ -1,8 +1,13 @@
 'use client'
 
-import NameInput, { emptyName, toFullName } from '@/app/components/NameInput'
+// The application form an invited applicant fills in (the "Invite to apply" link). Look: the shared public frame
+// (components/public/PublicShell, design "C"). ?edit=<applicant id> reopens a sent application (from its thank-you
+// page) — loaded only with the email it was sent with, and only while we haven't moved it on — and sending it again
+// updates the same application.
+import NameInput, { emptyName, toFullName, parseFullName } from '@/app/components/NameInput'
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import PublicShell from '@/components/public/PublicShell'
 
 interface PreviousAddress {
   address: string
@@ -11,16 +16,51 @@ interface PreviousAddress {
   reasonLeft: string
 }
 
+const STANDARD = [
+  'You leave all communal spaces — kitchen, bathrooms, hallways, lounge — as you found them',
+  'You clear up after yourself without needing to be reminded',
+  'You try to resolve small issues yourself before reporting — and know when a professional is needed',
+  'You contribute fairly to communal supplies and shared upkeep',
+  'You understand the cleaner is here for deep cleans, not day-to-day tidying',
+  'When something isn\'t right, you raise it calmly and directly',
+]
+const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix']
+const emailKey = (id: string) => `cr-apply-email-${id}`
+
+// Small pieces in the house style — declared out here, never inside the form, so typing never remounts a field
+function Choice({ on, onClick, children, square }: { on: boolean; onClick: () => void; children: React.ReactNode; square?: boolean }) {
+  return (
+    <button type="button" className="pub-choice" onClick={onClick} aria-pressed={on}>
+      <span className={`pub-dot ${on ? 'on' : ''} ${square ? 'sq' : ''}`} />
+      <span>{children}</span>
+    </button>
+  )
+}
+function Section({ n, title, id, children }: { n: number; title: string; id: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className="pub-rise flex flex-col gap-5 pt-16">
+      <h2 className="pub-h2"><i>{ROMAN[n - 1]}.</i>{title}</h2>
+      {children}
+    </section>
+  )
+}
+
 export default function ApplicantForm() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const roomId = searchParams.get('roomId')
   const propertyId = searchParams.get('propertyId')
   const fastTrack = searchParams.get('fasttrack') === '1'
+  const editId = searchParams.get('edit')
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+
+  // Reopening a sent application
+  const [editState, setEditState] = useState<'none' | 'need-email' | 'loading' | 'ready' | 'refused'>(editId ? 'loading' : 'none')
+  const [editEmail, setEditEmail] = useState('')
+  const [editMsg, setEditMsg] = useState('')
 
   // Personal info
   const [salutation, setSalutation] = useState('')
@@ -96,6 +136,47 @@ export default function ApplicantForm() {
       setError('Invalid application link. Missing room or property ID.')
     }
   }, [roomId, propertyId])
+
+  // Reopen: load what was sent, using the email remembered from the thank-you page (or typed in)
+  async function loadForEdit(withEmail: string) {
+    if (!editId) return
+    setEditState('loading'); setEditMsg('')
+    try {
+      const res = await fetch('/api/applicant/application', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicantId: editId, email: withEmail.trim() }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (res.status === 403 || res.status === 409) { setEditState('refused'); setEditMsg(d.error || 'This application can no longer be changed online.'); return }
+      if (!res.ok) { setEditState('need-email'); setEditMsg(d.error || 'That email doesn’t match the application.'); return }
+      const a = d.application
+      setSalutation(a.salutation ?? ''); setFirstName(a.first_name ?? ''); setMiddleName(a.middle_name ?? ''); setLastName(a.last_name ?? '')
+      setEmail(a.email ?? ''); setPhone(a.phone ?? ''); setDateOfBirth(a.date_of_birth ?? ''); setCurrentAddress(a.current_address ?? '')
+      setProfession(a.profession ?? ''); setSalary(a.salary ?? ''); setLinkedinUrl(a.linkedin_url ?? ''); setProfessionDescription(a.profession_description ?? '')
+      setPreferredStartDate(a.preferred_start_date ?? ''); setPreferredTerm(a.preferred_term ?? '12 months')
+      setBio(a.bio ?? ''); setInterests(a.interests ?? ''); setSociability(a.sociability ?? 'flexible')
+      setHousePreferences(a.house_preferences ?? ''); setCommunicationStyle(a.communication_style ?? '')
+      setRoomRequirements(a.room_requirements ?? ''); setRoomConditions(a.room_conditions ?? '')
+      setRentOfferType(a.rent_offer_type === 'below_asking' ? 'below_asking' : 'asking'); setOfferedRent(a.offered_rent ? Number(a.offered_rent) : null)
+      if (Array.isArray(a.previous_addresses) && a.previous_addresses.length) setPreviousAddresses(a.previous_addresses)
+      if (a.guarantor_needed) setGuarantorNeeded(a.guarantor_needed)
+      if (a.guarantor_name) { setGuarantorName(a.guarantor_name); setGuarantorNm(parseFullName(a.guarantor_name)) }
+      setGuarantorEmail(a.guarantor_email ?? ''); setGuarantorPhone(a.guarantor_phone ?? '')
+      setStandardsAgreed(true)
+      try { sessionStorage.setItem(emailKey(editId), a.email ?? withEmail) } catch { /* private mode */ }
+      setEditState('ready')
+    } catch {
+      setEditState('need-email'); setEditMsg('We couldn’t load your application. Please check your connection and try again.')
+    }
+  }
+  useEffect(() => {
+    if (!editId) return
+    let remembered = ''
+    try { remembered = sessionStorage.getItem(emailKey(editId)) ?? '' } catch { /* private mode */ }
+    if (remembered) loadForEdit(remembered)
+    else setEditState('need-email')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId])
 
   const addPreviousAddress = () => {
     setPreviousAddresses([
@@ -234,6 +315,8 @@ export default function ApplicantForm() {
           guarantorName: needsGuarantorDetails ? guarantorName : '',
           guarantorEmail: needsGuarantorDetails ? guarantorEmail : '',
           guarantorPhone: needsGuarantorDetails ? guarantorPhone : '',
+          // reopened: update this application (checked against the email it was loaded with)
+          ...(editId && editState === 'ready' ? { editingId: editId, editingEmail: (() => { try { return sessionStorage.getItem(emailKey(editId)) ?? '' } catch { return '' } })() } : {}),
         }),
       })
 
@@ -245,8 +328,11 @@ export default function ApplicantForm() {
         return
       }
 
+      // remember the email for this application so "Reopen my application" can load it again on this device
+      try { if (result.applicantId) sessionStorage.setItem(emailKey(result.applicantId), email.trim()) } catch { /* private mode */ }
       setSuccess(true)
       setLoading(false)
+      window.scrollTo(0, 0)
 
       // Fast-track: go straight to reserve page. Standard: show review first.
       setTimeout(() => {
@@ -256,786 +342,344 @@ export default function ApplicantForm() {
         } else {
           router.push(`/applicant/review?applicantId=${result.applicantId}`)
         }
-      }, 2000)
+      }, 1600)
     } catch (err) {
       setError('An error occurred. Please try again.')
       setLoading(false)
     }
   }
 
+  const wrap = 'mx-auto max-w-6xl px-6 md:px-14'
+
   if (!roomId || !propertyId) {
     return (
-      <div className="min-h-screen bg-neutral-100 flex items-center justify-center px-lg">
-        <div className="bg-white rounded-lg p-lg border border-red-300 max-w-md">
-          <h1 className="text-lg font-bold text-red-700 mb-sm">Invalid Link</h1>
-          <p className="text-sm text-neutral-600">
-            This application link is missing required information. Please check
-            the link and try again.
-          </p>
-        </div>
-      </div>
+      <PublicShell label="Application">
+        <section className={`${wrap} py-20`}>
+          <h1 className="pub-serif m-0 text-[44px] leading-tight">This link isn’t complete</h1>
+          <p className="m-0 mt-4 max-w-xl text-[16px] pub-muted">This application link is missing required information. Please check the link and try again.</p>
+        </section>
+      </PublicShell>
     )
   }
 
   if (success) {
     return (
-      <div className="min-h-screen bg-neutral-100 flex items-center justify-center px-lg">
-        <div className="bg-white rounded-lg p-lg border border-green-300 max-w-md text-center">
-          <h1 className="text-lg font-bold text-green-700 mb-sm">
-            ✓ Details submitted
-          </h1>
-          <p className="text-sm text-neutral-600">
-            {fastTrack
-              ? 'Taking you to secure the room now…'
-              : "Thank you! We've received your details. Redirecting you now…"}
+      <PublicShell label="Application">
+        <section className={`${wrap} py-24`}>
+          <p className="pub-serif pub-display pub-enter m-0">Sent.</p>
+          <p className="m-0 mt-6 text-[18px] pub-muted">
+            {fastTrack ? 'Taking you to secure the room now…' : 'Thank you — we’ve received your details. Taking you to the next page…'}
           </p>
-        </div>
-      </div>
+        </section>
+      </PublicShell>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-neutral-100 py-xl px-lg">
-      <div className="mx-auto max-w-2xl">
-        {/* Header */}
-        <div className="bg-white rounded-lg p-lg mb-lg border border-neutral-200">
-          <h1 className="text-2xl font-bold text-neutral-900 mb-sm">
-            Tell Us About Yourself
-          </h1>
-          <p className="text-sm text-neutral-600">
-            Help us understand if this is a great fit. This should take less than 5 minutes.
-          </p>
-        </div>
+  // Reopening: confirm who you are first
+  if (editId && editState !== 'ready' && editState !== 'none') {
+    return (
+      <PublicShell label="Application">
+        <section className={`${wrap} py-16 md:py-24`}>
+          <h1 className="pub-serif pub-display m-0">Reopen your <span className="italic">application</span></h1>
+          {editState === 'loading' && <p className="m-0 mt-8 text-[17px] pub-muted">Loading your answers…</p>}
+          {editState === 'refused' && (
+            <div className="mt-8 flex max-w-xl flex-col gap-4">
+              <p className="m-0 text-[17px]">{editMsg}</p>
+              <p className="m-0 text-[15px] pub-muted">Email <a className="pub-link" href="mailto:management@capitalrooms.co.uk">management@capitalrooms.co.uk</a> with anything you’d like to change and we’ll update it for you.</p>
+            </div>
+          )}
+          {editState === 'need-email' && (
+            <form onSubmit={e => { e.preventDefault(); loadForEdit(editEmail) }} className="mt-8 flex max-w-xl flex-col gap-6">
+              <p className="m-0 text-[16px] pub-muted">To keep your details private, enter the email address you applied with.</p>
+              <label className="pub-label">Email
+                <input className="pub-input" type="email" required value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="your@email.com" />
+              </label>
+              {editMsg && <p className="pub-error">{editMsg}</p>}
+              <button type="submit" className="pub-btn self-start">Open my application</button>
+            </form>
+          )}
+        </section>
+      </PublicShell>
+    )
+  }
 
-        {/* The Capital Rooms Standard — pre-screening gate */}
-        <div className="bg-neutral-900 text-white rounded-2xl p-lg mb-lg border border-neutral-800">
-          <div className="flex items-center gap-sm mb-md">
-            <span className="text-xl">🏡</span>
-            <h2 className="text-lg font-bold tracking-tight">The Capital Rooms Standard</h2>
-          </div>
-          <p className="text-sm text-neutral-300 mb-md leading-relaxed">
-            Shared living works best when everyone plays their part. Our houses attract
-            people who are naturally considerate and self-motivated — the kind of
-            housemates others genuinely enjoy living with.
+  const guarantorFigures = (() => {
+    const rent = rentOfferType === 'below_asking' && offeredRent ? offeredRent : advertiserRent
+    const fmt = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
+    return {
+      income: rent ? fmt(rent * 30) : '30 × the monthly rent',
+      savings: rent ? fmt(rent * 36) : '36 × the monthly rent',
+      gIncome: rent ? fmt(rent * 36) : '36 × the monthly rent',
+    }
+  })()
+  const showGuarantorDetails = guarantorNeeded === 'yes' || isStudent
+  const aff = getAffordability()
+
+  return (
+    <PublicShell label={editState === 'ready' ? 'Editing your application' : 'Application'}>
+      {/* Greeting */}
+      <section className={`${wrap} pt-10 md:pt-14`}>
+        <h1 className="pub-serif pub-display pub-enter m-0">
+          <span className="pub-drift-l block">Tell us about</span>
+          <span className="pub-drift-r block italic">yourself.</span>
+        </h1>
+        <p className="pub-enter-2 m-0 mt-6 max-w-2xl text-[18px] leading-relaxed" style={{ color: '#4A4741' }}>
+          {editState === 'ready'
+            ? 'Your answers are all here. Change what you need, then send it again — it reaches us as an update to the same application.'
+            : 'Help us understand if this is a great fit. This should take less than 5 minutes.'}
+        </p>
+      </section>
+
+      {/* The Capital Rooms Standard — pre-screening gate */}
+      <section className={`${wrap} pt-12`}>
+        <div className="pub-rise flex flex-col gap-5 p-6 md:p-10" style={{ background: '#111', color: '#F3F0EA' }}>
+          <h2 className="pub-serif m-0 text-[32px] leading-tight md:text-[40px]">The Capital Rooms Standard</h2>
+          <p className="m-0 max-w-3xl text-[15px] leading-relaxed" style={{ color: '#C9C4BA' }}>
+            Shared living works best when everyone plays their part. Our houses attract people who are naturally considerate and self-motivated — the kind of housemates others genuinely enjoy living with.
           </p>
-          <ul className="space-y-sm mb-md">
-            {[
-              'You leave all communal spaces — kitchen, bathrooms, hallways, lounge — as you found them',
-              'You clear up after yourself without needing to be reminded',
-              'You try to resolve small issues yourself before reporting — and know when a professional is needed',
-              'You contribute fairly to communal supplies and shared upkeep',
-              'You understand the cleaner is here for deep cleans, not day-to-day tidying',
-              'When something isn\'t right, you raise it calmly and directly',
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-sm text-sm text-neutral-200">
-                <span className="text-green-400 mt-0.5 shrink-0">✓</span>
-                <span>{item}</span>
+          <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-2 md:gap-x-10">
+            {STANDARD.map((item, i) => (
+              <li key={item} className="flex gap-3 text-[14.5px] leading-relaxed">
+                <span className="pub-serif italic" style={{ color: '#C9B48E' }}>{ROMAN[i]}.</span>{item}
               </li>
             ))}
           </ul>
-          <p className="text-sm text-neutral-400 border-t border-neutral-700 pt-md mb-md">
-            If this sounds like you, we think you&apos;ll fit right in.
-          </p>
-          <label className={`flex items-start gap-sm cursor-pointer p-md rounded-xl transition-colors ${standardsAgreed ? 'bg-green-900/40 border border-green-700' : 'bg-neutral-800 border border-neutral-700'}`}>
-            <input
-              type="checkbox"
-              checked={standardsAgreed}
-              onChange={(e) => setStandardsAgreed(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-green-500"
-            />
-            <span className="text-sm text-neutral-100 leading-snug">
-              This sounds like me — I&apos;m ready to be a great housemate.
-            </span>
-          </label>
+          <p className="m-0 text-[14px]" style={{ color: '#C9C4BA' }}>If this sounds like you, we think you’ll fit right in.</p>
+          <button type="button" onClick={() => setStandardsAgreed(!standardsAgreed)} aria-pressed={standardsAgreed}
+            className="flex min-h-[52px] items-center gap-3 px-4 text-left text-[15px]"
+            style={{ border: '1px solid #F3F0EA', background: standardsAgreed ? '#F3F0EA' : 'transparent', color: standardsAgreed ? '#111' : '#F3F0EA' }}>
+            <span aria-hidden="true">{standardsAgreed ? '✓' : '○'}</span>
+            This sounds like me — I’m ready to be a great housemate.
+          </button>
         </div>
+      </section>
 
-        {error && (
-          <div className="mb-lg p-lg rounded-lg bg-red-100 border border-red-300 text-red-900 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-lg">
-          {/* Personal Information */}
-          <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
-              Personal Information
-            </h2>
-
-            <div className="space-y-md">
-              <NameInput
-                value={{ salutation, first_name: firstName, middle_name: middleName, last_name: lastName }}
-                onChange={n => { setSalutation(n.salutation); setFirstName(n.first_name); setMiddleName(n.middle_name ?? ''); setLastName(n.last_name) }}
-                required titleRequired withMiddle
-                inputClass="w-full px-md py-sm border border-neutral-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                labelClass="block text-sm font-medium text-neutral-900 mb-xs"
-              />
-              <p className="-mt-xs text-xs text-neutral-500">Your full legal name, as on your passport or ID — it goes on your tenancy agreement.</p>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-md">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+44 7700 900000"
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Current Address
-                </label>
-                <input
-                  type="text"
-                  value={currentAddress}
-                  onChange={(e) => setCurrentAddress(e.target.value)}
-                  placeholder="Where do you live now?"
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Work & Financial */}
-          <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <div className="flex items-center justify-between mb-lg">
-              <h2 className="text-lg font-semibold text-neutral-900">Work & Finances</h2>
-              {/* Student toggle */}
-              <label className="flex items-center gap-sm cursor-pointer select-none">
-                <span className="text-sm text-neutral-600">I&apos;m a student</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={isStudent}
-                  onClick={() => setIsStudent(!isStudent)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-900 ${isStudent ? 'bg-neutral-900' : 'bg-neutral-300'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isStudent ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
+      <form onSubmit={handleSubmit} className={`${wrap} pb-20`}>
+        <div className="mx-auto max-w-3xl">
+          <Section n={1} id="a1" title="Personal information">
+            <NameInput
+              value={{ salutation, first_name: firstName, middle_name: middleName, last_name: lastName }}
+              onChange={n => { setSalutation(n.salutation); setFirstName(n.first_name); setMiddleName(n.middle_name ?? ''); setLastName(n.last_name) }}
+              required titleRequired withMiddle
+              inputClass="pub-input"
+              labelClass="pub-label mb-1"
+            />
+            <p className="m-0 -mt-2 text-[13px] pub-muted">Your full legal name, as on your passport or ID — it goes on your tenancy agreement.</p>
+            <label className="pub-label">Email *
+              <input className="pub-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required />
+            </label>
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="pub-label">Phone
+                <input className="pub-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+44 7700 900000" />
+              </label>
+              <label className="pub-label">Date of birth
+                <input className="pub-input" type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} />
               </label>
             </div>
+            <label className="pub-label">Current address
+              <input className="pub-input" type="text" value={currentAddress} onChange={e => setCurrentAddress(e.target.value)} placeholder="Where do you live now?" />
+            </label>
+          </Section>
 
-            <div className="space-y-md">
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Profession {!isStudent && <span className="text-red-500">*</span>}
-                </label>
-                <input
-                  type="text"
-                  value={profession}
-                  onChange={(e) => setProfession(e.target.value)}
-                  placeholder={isStudent ? 'e.g., Student, Part-time barista' : 'e.g., Software Engineer, Marketing Manager'}
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  required={!isStudent}
-                />
-              </div>
-
-              {isStudent ? (
-                <>
-                  <div className="grid grid-cols-2 gap-md">
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-900 mb-xs">University</label>
-                      <input
-                        type="text"
-                        value={university}
-                        onChange={(e) => setUniversity(e.target.value)}
-                        placeholder="e.g., University of London"
-                        className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-neutral-900 mb-xs">Year of Study</label>
-                      <select
-                        value={studyYear}
-                        onChange={(e) => setStudyYear(e.target.value)}
-                        className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                      >
-                        <option value="">Select year</option>
-                        {['1st year','2nd year','3rd year','4th year','Masters','PhD','Foundation'].map(y => (
-                          <option key={y} value={y}>{y}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-900 mb-xs">Course / Subject</label>
-                    <input
-                      type="text"
-                      value={courseStudied}
-                      onChange={(e) => setCourseStudied(e.target.value)}
-                      placeholder="e.g., Computer Science, Business Management"
-                      className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                    />
-                  </div>
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-md">
-                    <p className="text-sm font-semibold text-amber-900 mb-xs">🎓 Student applications require a UK guarantor</p>
-                    <p className="text-sm text-amber-800">
-                      As a student, a UK-based guarantor earning at least{' '}
-                      <strong>£{advertiserRent ? Math.round(advertiserRent * 36).toLocaleString() : '---'}/yr</strong>{' '}
-                      will be required before we can proceed. This is typically a parent or guardian.
-                    </p>
-                    <label className="flex items-start gap-sm mt-md cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={guarantorConfirmed}
-                        onChange={(e) => setGuarantorConfirmed(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-amber-700"
-                      />
-                      <span className="text-sm text-amber-900">I have a UK guarantor who can meet this requirement</span>
-                    </label>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                    Salary (Annual)
+          <Section n={2} id="a2" title="Work & finances">
+            <button type="button" role="switch" aria-checked={isStudent} onClick={() => setIsStudent(!isStudent)} className={`pub-pill self-start ${isStudent ? 'on' : ''}`}>
+              I’m a student · {isStudent ? 'Yes' : 'No'}
+            </button>
+            <label className="pub-label">Profession{!isStudent && ' *'}
+              <input className="pub-input" type="text" value={profession} onChange={e => setProfession(e.target.value)}
+                placeholder={isStudent ? 'e.g., Student, Part-time barista' : 'e.g., Software Engineer, Marketing Manager'} required={!isStudent} />
+            </label>
+            {isStudent ? (
+              <>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <label className="pub-label">University
+                    <input className="pub-input" type="text" value={university} onChange={e => setUniversity(e.target.value)} placeholder="e.g., University of London" />
                   </label>
-                  <input
-                    type="text"
-                    value={salary}
-                    onChange={(e) => setSalary(e.target.value)}
-                    placeholder="e.g., £35,000 - £40,000"
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  />
+                  <label className="pub-label">Year of study
+                    <select className="pub-input" value={studyYear} onChange={e => setStudyYear(e.target.value)}>
+                      <option value="">Select year</option>
+                      {['1st year', '2nd year', '3rd year', '4th year', 'Masters', 'PhD', 'Foundation'].map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </label>
                 </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  LinkedIn Profile (optional)
+                <label className="pub-label">Course / Subject
+                  <input className="pub-input" type="text" value={courseStudied} onChange={e => setCourseStudied(e.target.value)} placeholder="e.g., Computer Science, Business Management" />
                 </label>
-                <input
-                  type="url"
-                  value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
-                  placeholder="https://linkedin.com/in/yourprofile"
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-          </div>
+                <div className="pub-note flex flex-col gap-2">
+                  <span>Student applications require a UK guarantor earning at least <strong>£{advertiserRent ? Math.round(advertiserRent * 36).toLocaleString('en-GB') : '---'}/yr</strong>. This is typically a parent or guardian.</span>
+                  <Choice square on={guarantorConfirmed} onClick={() => setGuarantorConfirmed(!guarantorConfirmed)}>I have a UK guarantor who can meet this requirement</Choice>
+                </div>
+              </>
+            ) : (
+              <label className="pub-label">Salary (annual)
+                <input className="pub-input" type="text" value={salary} onChange={e => setSalary(e.target.value)} placeholder="e.g., £35,000 - £40,000" />
+              </label>
+            )}
+            <label className="pub-label">LinkedIn profile (optional)
+              <input className="pub-input" type="url" value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/yourprofile" />
+            </label>
+          </Section>
 
-          {/* Tell Us About Yourself */}
-          <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-xs">
-              Tell Us About Yourself
-            </h2>
-            <p className="text-sm text-neutral-500 mb-lg">
+          <Section n={3} id="a3" title="About you">
+            <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
               We share this with the landlord. If you take the room, we also send your future housemates a short hello
               (your first name, what you do and your interests), never your surname, contact or financial details.
             </p>
+            <label className="pub-label">Bio *
+              <textarea className="pub-input" value={bio} onChange={e => setBio(e.target.value)} placeholder="Who are you? What do you do? (2-3 sentences)" required />
+            </label>
+            <label className="pub-label">Tell us more about your career
+              <textarea className="pub-input" value={professionDescription} onChange={e => setProfessionDescription(e.target.value)} placeholder="What do you do day-to-day? What are you passionate about in your work?" />
+            </label>
+            <label className="pub-label">Interests &amp; hobbies
+              <input className="pub-input" type="text" value={interests} onChange={e => setInterests(e.target.value)} placeholder="e.g., cooking, gaming, outdoor activities, reading" />
+            </label>
+          </Section>
 
-            <div className="space-y-md">
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Bio <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  placeholder="Who are you? What do you do? (2-3 sentences)"
-                  rows={4}
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Tell us more about your career
-                </label>
-                <textarea
-                  value={professionDescription}
-                  onChange={(e) => setProfessionDescription(e.target.value)}
-                  placeholder="What do you do day-to-day? What are you passionate about in your work?"
-                  rows={3}
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Interests & Hobbies
-                </label>
-                <input
-                  type="text"
-                  value={interests}
-                  onChange={(e) => setInterests(e.target.value)}
-                  placeholder="e.g., cooking, gaming, outdoor activities, reading"
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* What Are You Like to Live With */}
-          <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
-              What Are You Like to Live With?
-            </h2>
-
-            <div className="space-y-md">
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  How would you describe yourself?
-                </label>
-                <div className="grid grid-cols-3 gap-md">
-                  {['sociable', 'flexible', 'keep-to-self'].map((option) => (
-                    <label
-                      key={option}
-                      className={`flex items-center p-md border-2 rounded-lg cursor-pointer transition-all ${
-                        sociability === option
-                          ? 'border-neutral-900 bg-neutral-50'
-                          : 'border-neutral-200 hover:border-neutral-300'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="sociability"
-                        value={option}
-                        checked={sociability === option}
-                        onChange={(e) => setSociability(e.target.value)}
-                        className="w-4 h-4"
-                      />
-                      <span className="ml-sm text-sm font-medium text-neutral-900 capitalize">
-                        {option === 'keep-to-self'
-                          ? 'Keep to Myself'
-                          : option.charAt(0).toUpperCase() + option.slice(1)}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  What's important to you in a shared house?
-                </label>
-                <textarea
-                  value={housePreferences}
-                  onChange={(e) => setHousePreferences(e.target.value)}
-                  placeholder="e.g., quiet hours, cleanliness, cooking together, regular house meetings"
-                  rows={3}
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  How do you prefer to communicate and resolve issues?
-                </label>
-                <textarea
-                  value={communicationStyle}
-                  onChange={(e) => setCommunicationStyle(e.target.value)}
-                  placeholder="e.g., direct conversations, house meetings, group chat"
-                  rows={3}
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* About This Room */}
-          <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
-              About This Room
-            </h2>
-
-            <div className="space-y-md">
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  What do you need in this room?
-                </label>
-                <textarea
-                  value={roomRequirements}
-                  onChange={(e) => setRoomRequirements(e.target.value)}
-                  placeholder="e.g., natural light, quiet, space for WFH, double bed fit, storage"
-                  rows={3}
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                  Any specific conditions based on what you've seen?
-                </label>
-                <textarea
-                  value={roomConditions}
-                  onChange={(e) => setRoomConditions(e.target.value)}
-                  placeholder="e.g., needs accommodation for two people, needs to fit my equipment, concerned about noise from street"
-                  rows={3}
-                  className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Rent */}
-          <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
-              About the Rent
-            </h2>
-
-            <div className="space-y-md">
-              <div className="bg-neutral-50 p-md rounded-lg border border-neutral-200">
-                <p className="text-sm text-neutral-600">
-                  <span className="font-semibold text-neutral-900">
-                    The advertised rent for this room is £{advertiserRent ? advertiserRent.toFixed(0) : '---'}/month
-                  </span>
-                  <br />
-                  <span className="text-xs">(all bills included)</span>
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-900 mb-md">
-                  Your offer:
-                </label>
-                <div className="space-y-sm">
-                  <label className={`flex items-center p-md border-2 rounded-lg cursor-pointer transition-all ${
-                    rentOfferType === 'asking'
-                      ? 'border-neutral-900 bg-neutral-50'
-                      : 'border-neutral-200 hover:border-neutral-300'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="rentOfferType"
-                      value="asking"
-                      checked={rentOfferType === 'asking'}
-                      onChange={(e) => setRentOfferType(e.target.value)}
-                      className="w-4 h-4"
-                    />
-                    <span className="ml-sm text-sm font-medium text-neutral-900">
-                      Yes, I'm offering the advertised rent (£{advertiserRent ? advertiserRent.toFixed(0) : '---'})
-                    </span>
-                  </label>
-
-                  <label className={`flex items-center p-md border-2 rounded-lg cursor-pointer transition-all ${
-                    rentOfferType === 'below_asking'
-                      ? 'border-neutral-900 bg-neutral-50'
-                      : 'border-neutral-200 hover:border-neutral-300'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="rentOfferType"
-                      value="below_asking"
-                      checked={rentOfferType === 'below_asking'}
-                      onChange={(e) => setRentOfferType(e.target.value)}
-                      className="w-4 h-4"
-                    />
-                    <span className="ml-sm text-sm font-medium text-neutral-900">
-                      I'd like to make an offer below asking price
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Affordability calculator */}
-              {(() => {
-                const aff = getAffordability()
-                if (aff.status === 'unknown') return null
-                if (aff.status === 'student') return null
-                return (
-                  <div className={`rounded-xl p-md border text-sm ${
-                    aff.status === 'pass'
-                      ? 'bg-green-50 border-green-200 text-green-900'
-                      : aff.status === 'borderline'
-                      ? 'bg-amber-50 border-amber-200 text-amber-900'
-                      : 'bg-red-50 border-red-200 text-red-900'
-                  }`}>
-                    <p className="font-semibold mb-xs">
-                      {aff.status === 'pass' ? '✓ Referencing check' : aff.status === 'borderline' ? '⚠️ Referencing check' : '✗ Referencing check'}
-                    </p>
-                    <p className="leading-relaxed">{aff.message}</p>
-                    {aff.status === 'fail' && 'options' in aff && (
-                      <ul className="mt-sm space-y-xs">
-                        {aff.options.map((opt: string) => (
-                          <li key={opt} className="flex items-start gap-sm">
-                            <span className="shrink-0">→</span>
-                            <span>{opt}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {(aff.status === 'fail' || aff.status === 'borderline') && (
-                      <p className="mt-sm text-xs opacity-80">
-                        Salary threshold: 30× monthly rent. Savings: 36× monthly rent, held 3 months. Guarantor: 36× monthly rent a year. You can still submit your application — our team will be in touch about next steps.
-                      </p>
-                    )}
-                  </div>
-                )
-              })()}
-
-              {rentOfferType === 'below_asking' && (
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                    Your offer amount (£/month)
-                  </label>
-                  <input
-                    type="number"
-                    value={offeredRent || ''}
-                    onChange={(e) => setOfferedRent(e.target.value ? parseFloat(e.target.value) : null)}
-                    placeholder="e.g., 800"
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Guarantor */}
-          {(() => {
-            const rent = rentOfferType === 'below_asking' && offeredRent ? offeredRent : advertiserRent
-            const fmt = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
-            const income = rent ? fmt(rent * 30) : '30 × the monthly rent'
-            const savings = rent ? fmt(rent * 36) : '36 × the monthly rent'
-            const gIncome = rent ? fmt(rent * 36) : '36 × the monthly rent'
-            const showDetails = guarantorNeeded === 'yes' || isStudent
-            const field = 'w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900'
-            return (
-              <div className="bg-white rounded-lg p-lg border border-neutral-200">
-                <h2 className="text-lg font-semibold text-neutral-900 mb-xs">Will you need a guarantor? {!isStudent && <span className="text-red-500">*</span>}</h2>
-                <p className="text-sm text-neutral-600 mb-md">
-                  To pass referencing for this room you’ll need to show <strong>earnings of at least {income} a year</strong>, or <strong>savings of at least {savings}</strong> held for 3 months or more.
-                  If not, a UK guarantor earning at least <strong>{gIncome} a year</strong> can support your application.
-                </p>
-                {isStudent ? (
-                  <p className="mb-md rounded-xl bg-amber-50 border border-amber-200 px-md py-sm text-sm text-amber-900">As a student you’ll need a guarantor — please add their details below.</p>
-                ) : (
-                  <div className="space-y-sm mb-md">
-                    {([
-                      ['no', `No — I earn ${income}+ a year or have ${savings}+ in savings`],
-                      ['yes', 'Yes — I’ll have a guarantor'],
-                      ['not_sure', 'Not sure yet'],
-                    ] as const).map(([v, l]) => (
-                      <label key={v} className="flex items-start gap-sm cursor-pointer text-sm text-neutral-900">
-                        <input type="radio" name="guarantorNeeded" value={v} checked={guarantorNeeded === v} onChange={() => setGuarantorNeeded(v)} className="mt-0.5 h-4 w-4" />
-                        <span>{l}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-                {showDetails && (
-                  <div className="grid gap-md sm:grid-cols-3">
-                    <div className="sm:col-span-3">
-                      <NameInput value={guarantorNm} onChange={n => { setGuarantorNm(n); setGuarantorName(toFullName(n)) }} required titleRequired withMiddle label="Guarantor’s full name" inputClass={field} labelClass="block text-sm font-medium text-neutral-900 mb-xs" />
-                    </div>
-                    <div className="sm:col-span-1">
-                      <label className="block text-sm font-medium text-neutral-900 mb-xs">Mobile <span className="text-red-500">*</span></label>
-                      <input type="tel" value={guarantorPhone} onChange={e => setGuarantorPhone(e.target.value)} autoComplete="off" className={field} />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-neutral-900 mb-xs">Email <span className="text-red-500">*</span></label>
-                      <input type="email" value={guarantorEmail} onChange={e => setGuarantorEmail(e.target.value)} autoComplete="off" className={field} />
-                    </div>
-                    <p className="sm:col-span-3 text-xs text-neutral-500">We’ll pass these to our referencing provider, Homeppl, who will contact your guarantor directly. Please let them know to expect it.</p>
-                  </div>
-                )}
-                {guarantorNeeded === 'not_sure' && !isStudent && <p className="text-xs text-neutral-500">That’s fine — we’ll talk it through with you before referencing starts.</p>}
-              </div>
-            )
-          })()}
-
-          {/* Rental Preferences */}
-          <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <h2 className="text-lg font-semibold text-neutral-900 mb-lg">
-              Rental Preferences
-            </h2>
-
-            <div className="space-y-md">
-              <div className="grid grid-cols-2 gap-md">
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                    Preferred Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={preferredStartDate}
-                    onChange={(e) => setPreferredStartDate(e.target.value)}
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-neutral-900 mb-xs">
-                    Preferred Term
-                  </label>
-                  <select
-                    value={preferredTerm}
-                    onChange={(e) => setPreferredTerm(e.target.value)}
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                  >
-                    <option value="6 months">6 months</option>
-                    <option value="12 months">12 months</option>
-                    <option value="flexible">Flexible</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Rental History */}
-          <div className="bg-white rounded-lg p-lg border border-neutral-200">
-            <div className="flex items-center justify-between mb-lg">
-              <h2 className="text-lg font-semibold text-neutral-900">
-                Rental History
-              </h2>
-              <button
-                type="button"
-                onClick={addPreviousAddress}
-                className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
-              >
-                + Add address
-              </button>
-            </div>
-
-            <div className="space-y-lg">
-              {previousAddresses.map((addr, idx) => (
-                <div
-                  key={idx}
-                  className="p-md border border-neutral-200 rounded-lg space-y-md"
-                >
-                  <div className="flex items-center justify-between mb-md">
-                    <span className="text-sm font-medium text-neutral-600">
-                      Address {idx + 1}
-                    </span>
-                    {previousAddresses.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removePreviousAddress(idx)}
-                        className="text-xs text-red-600 hover:text-red-700 font-medium"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-
-                  <input
-                    type="text"
-                    placeholder="Address"
-                    value={addr.address}
-                    onChange={(e) =>
-                      updatePreviousAddress(idx, 'address', e.target.value)
-                    }
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                  />
-
-                  <div className="grid grid-cols-2 gap-md">
-                    <div>
-                      <label className="block text-xs text-neutral-500 mb-xs">Moved in</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Sept 2021"
-                        value={addr.movedIn}
-                        onChange={(e) =>
-                          updatePreviousAddress(idx, 'movedIn', e.target.value)
-                        }
-                        className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-neutral-500 mb-xs">Moved out</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. March 2023"
-                        value={addr.movedOut}
-                        onChange={(e) =>
-                          updatePreviousAddress(idx, 'movedOut', e.target.value)
-                        }
-                        className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <input
-                    type="text"
-                    placeholder="Why did you leave?"
-                    value={addr.reasonLeft}
-                    onChange={(e) =>
-                      updatePreviousAddress(idx, 'reasonLeft', e.target.value)
-                    }
-                    className="w-full px-md py-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 text-sm"
-                  />
-                </div>
+          <Section n={4} id="a4" title="What are you like to live with?">
+            <p className="pub-label m-0">How would you describe yourself?</p>
+            <div className="flex flex-wrap gap-2">
+              {(['sociable', 'flexible', 'keep-to-self'] as const).map(o => (
+                <button key={o} type="button" onClick={() => setSociability(o)} aria-pressed={sociability === o} className={`pub-pill ${sociability === o ? 'on' : ''}`}>
+                  {o === 'keep-to-self' ? 'Keep to Myself' : o.charAt(0).toUpperCase() + o.slice(1)}
+                </button>
               ))}
             </div>
-          </div>
-
-          {/* Privacy & Consent */}
-          <div className="bg-neutral-50 rounded-lg p-lg border border-neutral-200">
-            <label className="flex items-start gap-md cursor-pointer">
-              <input
-                type="checkbox"
-                checked={privacyConsent}
-                onChange={(e) => setPrivacyConsent(e.target.checked)}
-                className="w-5 h-5 mt-xs rounded border-neutral-300 focus:ring-2 focus:ring-neutral-900"
-                required
-              />
-              <div>
-                <span className="text-sm font-medium text-neutral-900">
-                  I accept the privacy policy
-                </span>
-                <p className="text-xs text-neutral-600 mt-xs">
-                  I understand that Capital Rooms will hold my data until my
-                  application is either accepted and progresses to tenancy, or
-                  rejected/withdrawn and deleted within 30 days.{' '}
-                  <a
-                    href="/applicant/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-neutral-900 hover:underline"
-                  >
-                    Read full privacy policy →
-                  </a>
-                </p>
-              </div>
+            <label className="pub-label">What’s important to you in a shared house?
+              <textarea className="pub-input" value={housePreferences} onChange={e => setHousePreferences(e.target.value)} placeholder="e.g., quiet hours, cleanliness, cooking together, regular house meetings" />
             </label>
-          </div>
+            <label className="pub-label">How do you prefer to communicate and resolve issues?
+              <textarea className="pub-input" value={communicationStyle} onChange={e => setCommunicationStyle(e.target.value)} placeholder="e.g., direct conversations, house meetings, group chat" />
+            </label>
+          </Section>
 
-          {/* Submit */}
-          <div className="flex gap-md">
-            <button
-              type="submit"
-              disabled={loading || !privacyConsent}
-              className="flex-1 py-md px-lg rounded-lg bg-neutral-900 text-white font-semibold hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Submitting...' : 'Submit Application'}
+          <Section n={5} id="a5" title="About this room">
+            <label className="pub-label">What do you need in this room?
+              <textarea className="pub-input" value={roomRequirements} onChange={e => setRoomRequirements(e.target.value)} placeholder="e.g., natural light, quiet, space for WFH, double bed fit, storage" />
+            </label>
+            <label className="pub-label">Any specific conditions based on what you’ve seen?
+              <textarea className="pub-input" value={roomConditions} onChange={e => setRoomConditions(e.target.value)} placeholder="e.g., needs accommodation for two people, needs to fit my equipment, concerned about noise from street" />
+            </label>
+          </Section>
+
+          <Section n={6} id="a6" title="About the rent">
+            <p className="m-0 text-[16px]">
+              The advertised rent for this room is <span className="pub-serif text-[28px]">£{advertiserRent ? advertiserRent.toFixed(0) : '---'}</span>/month <span className="pub-muted">(all bills included)</span>
+            </p>
+            <p className="pub-label m-0">Your offer</p>
+            <div>
+              <Choice on={rentOfferType === 'asking'} onClick={() => setRentOfferType('asking')}>Yes, I’m offering the advertised rent (£{advertiserRent ? advertiserRent.toFixed(0) : '---'})</Choice>
+              <Choice on={rentOfferType === 'below_asking'} onClick={() => setRentOfferType('below_asking')}>I’d like to make an offer below asking price</Choice>
+            </div>
+            {rentOfferType === 'below_asking' && (
+              <label className="pub-label max-w-xs">Your offer amount (£/month)
+                <input className="pub-input" type="number" value={offeredRent || ''} onChange={e => setOfferedRent(e.target.value ? parseFloat(e.target.value) : null)} placeholder="e.g., 800" />
+              </label>
+            )}
+            {(aff.status === 'pass' || aff.status === 'borderline' || aff.status === 'fail') && (
+              <div className="pub-note flex flex-col gap-2" style={{ borderLeft: `2px solid ${aff.status === 'pass' ? '#2F6B45' : aff.status === 'borderline' ? '#A86A12' : '#9B2C1F'}` }}>
+                <strong>Referencing check</strong>
+                <span>{aff.message}</span>
+                {aff.status === 'fail' && 'options' in aff && (
+                  <ul className="m-0 pl-5">{aff.options.map((o: string) => <li key={o}>{o}</li>)}</ul>
+                )}
+                {(aff.status === 'fail' || aff.status === 'borderline') && (
+                  <span className="text-[13px] pub-muted">Salary threshold: 30× monthly rent. Savings: 36× monthly rent, held 3 months. Guarantor: 36× monthly rent a year. You can still submit your application — our team will be in touch about next steps.</span>
+                )}
+              </div>
+            )}
+          </Section>
+
+          <Section n={7} id="a7" title={`Will you need a guarantor?${isStudent ? '' : ' *'}`}>
+            <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
+              To pass referencing for this room you’ll need to show <strong>earnings of at least {guarantorFigures.income} a year</strong>, or <strong>savings of at least {guarantorFigures.savings}</strong> held for 3 months or more.
+              If not, a UK guarantor earning at least <strong>{guarantorFigures.gIncome} a year</strong> can support your application.
+            </p>
+            {isStudent ? (
+              <p className="m-0 text-[15px]">As a student you’ll need a guarantor — please add their details below.</p>
+            ) : (
+              <div>
+                {([
+                  ['no', `No — I earn ${guarantorFigures.income}+ a year or have ${guarantorFigures.savings}+ in savings`],
+                  ['yes', 'Yes — I’ll have a guarantor'],
+                  ['not_sure', 'Not sure yet'],
+                ] as const).map(([v, l]) => (
+                  <Choice key={v} on={guarantorNeeded === v} onClick={() => setGuarantorNeeded(v)}>{l}</Choice>
+                ))}
+              </div>
+            )}
+            {showGuarantorDetails && (
+              <div className="flex flex-col gap-5 pt-2">
+                <NameInput value={guarantorNm} onChange={n => { setGuarantorNm(n); setGuarantorName(toFullName(n)) }} required titleRequired withMiddle label="Guarantor’s full name" inputClass="pub-input" labelClass="pub-label mb-1" />
+                <div className="grid gap-5 md:grid-cols-2">
+                  <label className="pub-label">Mobile *
+                    <input className="pub-input" type="tel" value={guarantorPhone} onChange={e => setGuarantorPhone(e.target.value)} autoComplete="off" />
+                  </label>
+                  <label className="pub-label">Email *
+                    <input className="pub-input" type="email" value={guarantorEmail} onChange={e => setGuarantorEmail(e.target.value)} autoComplete="off" />
+                  </label>
+                </div>
+                <p className="m-0 text-[13px] pub-muted">We’ll pass these to our referencing provider, Homeppl, who will contact your guarantor directly. Please let them know to expect it.</p>
+              </div>
+            )}
+            {guarantorNeeded === 'not_sure' && !isStudent && <p className="m-0 text-[15px] pub-muted">That’s fine — we’ll talk it through with you before referencing starts.</p>}
+          </Section>
+
+          <Section n={8} id="a8" title="Rental preferences">
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="pub-label">Preferred start date
+                <input className="pub-input" type="date" value={preferredStartDate} onChange={e => setPreferredStartDate(e.target.value)} />
+              </label>
+              <label className="pub-label">Preferred term
+                <select className="pub-input" value={preferredTerm} onChange={e => setPreferredTerm(e.target.value)}>
+                  <option value="6 months">6 months</option>
+                  <option value="12 months">12 months</option>
+                  <option value="flexible">Flexible</option>
+                </select>
+              </label>
+            </div>
+          </Section>
+
+          <Section n={9} id="a9" title="Rental history">
+            {previousAddresses.map((addr, idx) => (
+              <div key={idx} className="flex flex-col gap-5" style={{ borderTop: idx ? '1px solid #E4E0D8' : undefined, paddingTop: idx ? 20 : 0 }}>
+                <div className="flex items-center justify-between">
+                  <span className="pub-label">Address {idx + 1}</span>
+                  {previousAddresses.length > 1 && (
+                    <button type="button" onClick={() => removePreviousAddress(idx)} className="text-[13px] underline">Remove</button>
+                  )}
+                </div>
+                <input className="pub-input" type="text" placeholder="Address" aria-label={`Previous address ${idx + 1}`} value={addr.address} onChange={e => updatePreviousAddress(idx, 'address', e.target.value)} />
+                <div className="grid grid-cols-2 gap-5">
+                  <label className="pub-label">Moved in
+                    <input className="pub-input" type="text" placeholder="e.g. Sept 2021" value={addr.movedIn} onChange={e => updatePreviousAddress(idx, 'movedIn', e.target.value)} />
+                  </label>
+                  <label className="pub-label">Moved out
+                    <input className="pub-input" type="text" placeholder="e.g. March 2023" value={addr.movedOut} onChange={e => updatePreviousAddress(idx, 'movedOut', e.target.value)} />
+                  </label>
+                </div>
+                <input className="pub-input" type="text" placeholder="Why did you leave?" aria-label="Why did you leave?" value={addr.reasonLeft} onChange={e => updatePreviousAddress(idx, 'reasonLeft', e.target.value)} />
+              </div>
+            ))}
+            <button type="button" onClick={addPreviousAddress} className="pub-pill self-start">+ Add address</button>
+          </Section>
+
+          {/* Privacy & consent, then send */}
+          <section className="flex flex-col gap-5 pt-16">
+            <div style={{ borderTop: '1px solid #111' }}>
+              <Choice square on={privacyConsent} onClick={() => setPrivacyConsent(!privacyConsent)}>
+                <span className="font-semibold">I accept the privacy policy</span>
+                <small>I understand that Capital Rooms will hold my data until my application is either accepted and progresses to tenancy, or rejected/withdrawn and deleted within 30 days.</small>
+              </Choice>
+            </div>
+            <a className="pub-link text-[14px]" href="/applicant/privacy" target="_blank" rel="noopener noreferrer">Read full privacy policy →</a>
+            {error && <p className="pub-error">{error}</p>}
+            <button type="submit" disabled={loading || !privacyConsent} className="pub-btn self-start">
+              {loading ? 'Sending…' : editState === 'ready' ? 'Send my updated application' : 'Submit application'}
             </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </section>
+        </div>
+      </form>
+    </PublicShell>
   )
 }
