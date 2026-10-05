@@ -1,14 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
+import { agreedRent } from '@/lib/lettings/holdingDeposit'
+import { oneWeekRent } from '@/lib/tenancy/deposit'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-function weeklyRent(monthly: number) {
-  return Math.round((monthly * 12) / 52)
-}
 
 function buildRef(applicantName: string, roomName: string | null) {
   // e.g. "HARRY B · ROOM 5" → bank reference format
@@ -49,8 +48,10 @@ export async function GET(request: NextRequest) {
 
     if (room) {
       roomName = room.name || ''
-      monthly  = room.current_asking_rent || null
-      weekly   = monthly ? weeklyRent(monthly) : null
+      // the rent agreed on the offer, never the advert; one week = the legal holding-deposit cap
+      const { data: offer } = await supabase.from('offers').select('advertised_rent').eq('applicant_id', applicant.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      monthly  = await agreedRent(supabase as any, applicant, offer as any)
+      weekly   = monthly ? oneWeekRent(monthly) : null
       const prop = room.properties as any
       propAddress = prop?.address || prop?.name || ''
       propCode    = prop?.property_code || null

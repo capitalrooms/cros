@@ -6,6 +6,7 @@ import { senderFields } from '@/lib/email/sender'
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
+import { loadDepositContext } from '@/lib/lettings/holdingDeposit'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,9 +19,7 @@ const SORT_CODE = '20-18-93'
 const ACCOUNT_NUMBER = '40162574'
 const ACCOUNT_NAME = 'Capital Rooms Ltd'
 
-function weeklyRent(monthly: number) {
-  return Math.round((monthly * 12) / 52)
-}
+// (weekly rent = lib/tenancy/deposit oneWeekRent, to the penny — the old local version rounded to whole pounds)
 
 
 
@@ -48,8 +47,11 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
 
   const room = (applicant.rooms as any)
   const property = room?.properties
-  const monthly = room?.current_asking_rent || 0
-  const weekly = weeklyRent(monthly)
+  // the rent agreed on the offer (lib/lettings/holdingDeposit agreedRent) — never the advertised rent
+  const ctx = await loadDepositContext(supabase as any, applicantId)
+  const monthly = ctx?.rent ?? 0
+  if (!monthly) return NextResponse.json({ error: 'No agreed rent found for this applicant — send them an offer (Send Offer Letter) with the rent first. Nothing was emailed.' }, { status: 409 })
+  const weekly = oneWeekRent(monthly)
   const payRef = holdingDepositRef(property?.name || property?.address || null, room?.name || null)
   const firstName = applicant.full_name?.split(' ')[0] || 'there'
   const roomName = room?.name || 'the room'

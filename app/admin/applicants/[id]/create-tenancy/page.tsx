@@ -65,7 +65,7 @@ export default function CreateTenancyPage() {
       const user = await getCurrentUser()
       if (!user) { router.push('/login'); return }
 
-      const { data, error: err } = await supabase
+      const { data, error: err } = await (supabase as any)
         .from('applicants')
         .select('*, rooms(id, name, unit_code, current_asking_rent), properties(id, name, address, letting_fee_pct, letting_fee_flat)')
         .eq('id', applicantId)
@@ -81,7 +81,11 @@ export default function CreateTenancyPage() {
       if (propAny?.letting_fee_flat != null) setPropertyFeeFlat(Number(propAny.letting_fee_flat))
 
       // Pre-fill form from application
-      const agreedRent = data.offered_rent || data.rooms?.current_asking_rent || ''
+      // the AGREED rent: a lower offer we accepted, else the rent on the offer sent to them — never the advert
+      const { data: offerRow } = await supabase.from('offers').select('advertised_rent')
+        .or(`applicant_id.eq.${applicantId}${(data as any).offer_id ? `,id.eq.${(data as any).offer_id}` : ''}`)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      const agreedRent = ((data as any).rent_offer_type === 'below_asking' && data.offered_rent) ? data.offered_rent : ((offerRow as any)?.advertised_rent || data.offered_rent || '')
       setRent(agreedRent ? String(agreedRent) : '')
       if (data.preferred_start_date) setStartDate(data.preferred_start_date)
 

@@ -5,6 +5,7 @@
 // 2019 terms the applicant is owed in writing — and files it in Letters & Invoices. Emailing it is a separate,
 // optional step. Server-only.
 
+import { oneWeekRent } from '@/lib/tenancy/deposit'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { renderFormalLetter, type FormalLetter } from '@/lib/letters/formalLetter'
 import { signerForRequest } from '@/lib/letters/letterFromRequest'
@@ -56,7 +57,7 @@ export async function holdingDepositsFor(s: SupabaseClient, applicantId: string)
 }
 
 export interface RecordInput {
-  amount: unknown; receivedOn: unknown; method: unknown; payerName: unknown; payerReference?: unknown
+  amount: unknown; receivedOn: unknown; method: unknown; payerName: unknown; payerReference?: unknown; overCapConfirmed?: boolean
   applyTo?: unknown; notes?: unknown
 }
 
@@ -68,6 +69,9 @@ export async function recordHoldingDeposit(s: SupabaseClient, ctx: DepositContex
   const payerName = String(input.payerName ?? '').trim().slice(0, 160)
   if (!(amount > 0)) return { error: 'Enter the amount received', status: 400 }
   if (amount > 5000) return { error: 'That amount looks too large for a holding deposit — check it', status: 400 }
+  // the legal cap (Tenant Fees Act 2019): one week of the AGREED rent (lib/lettings/holdingDeposit agreedRent)
+  if (ctx.rent && amount > oneWeekRent(ctx.rent) + 0.005 && !input.overCapConfirmed)
+    return { error: `£${amount.toFixed(2)} is more than one week’s rent on the agreed £${ctx.rent.toFixed(2)} pcm — the legal cap is £${oneWeekRent(ctx.rent).toFixed(2)}. If the tenant really paid more, record it and refund the extra £${(amount - oneWeekRent(ctx.rent)).toFixed(2)} within 7 days.`, status: 409 }
   if (!ISO.test(receivedOn)) return { error: 'Enter the date the money was received', status: 400 }
   if (receivedOn > todayLondon()) return { error: 'The date received can’t be in the future', status: 400 }
   if (!(method in METHODS)) return { error: 'Choose how it was paid', status: 400 }
