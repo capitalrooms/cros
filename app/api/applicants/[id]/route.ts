@@ -1,3 +1,4 @@
+import { agreedRent } from '@/lib/lettings/holdingDeposit'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -29,7 +30,8 @@ export async function GET(_req: NextRequest, { params: paramsPromise }: { params
     .single()
 
   if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json(data)
+  // the agreed rent (offer / accepted lower offer / tenancy) — what every form should start from, never the advert
+  return NextResponse.json({ ...data, agreed_rent: await agreedRent(sb as any, data as any) })
 }
 
 // ── PATCH /api/applicants/[id] — advance stage or update notes ────────────────

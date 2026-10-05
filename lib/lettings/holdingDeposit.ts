@@ -29,6 +29,19 @@ export interface DepositContext {
   landlord: { id: string; greeting: string; email: string[]; name: string } | null
 }
 
+/**
+ * The rent agreed with this applicant — the one figure every offer email, holding deposit and agreement must use:
+ * a lower rent they offered and we accepted, else the rent typed on the offer you sent them, else the rent on their
+ * tenancy. NEVER the room's advertised rent (rooms are often let below the advert — Raphael Wassermann, 2 Oct 2026, was
+ * asked for a £950-based holding deposit on a £925 offer). Null when none is known: callers must stop and ask.
+ */
+export async function agreedRent(svc: SupabaseClient, a: { id: string; offered_rent?: number | null; rent_offer_type?: string | null; converted_person_id?: string | null; room_id?: string | null }, offer?: { advertised_rent?: number | null } | null): Promise<number | null> {
+  if (a.rent_offer_type === 'below_asking' && Number(a.offered_rent) > 0) return Number(a.offered_rent)
+  if (Number(offer?.advertised_rent) > 0) return Number(offer!.advertised_rent)
+  const { data: t } = await svc.from('tenancies').select('rent_amount').eq('applicant_id', a.id).is('let_cancelled_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  return Number((t as any)?.rent_amount) > 0 ? Number((t as any).rent_amount) : null
+}
+
 export async function loadDepositContext(svc: SupabaseClient, applicantId: string): Promise<DepositContext | null> {
   const { data: a } = await svc.from('applicants')
     .select('id, full_name, email, profession, bio, profession_description, interests, sociability, house_preferences, preferred_start_date, preferred_term, offered_rent, rent_offer_type, pipeline_stage, offer_id, converted_person_id, room_id, property_id, rooms(name, current_asking_rent), properties(name, address, bills_included, landlord_id)')
@@ -38,6 +51,7 @@ export async function loadDepositContext(svc: SupabaseClient, applicantId: strin
   // The offer this applicant came through: the linked one, else the latest for their email and room
   let offer: any = null
   if (a.offer_id) ({ data: offer } = await svc.from('offers').select('id, status, advertised_rent, move_in_date').eq('id', a.offer_id).maybeSingle())
+  if (!offer) ({ data: offer } = await svc.from('offers').select('id, status, advertised_rent, move_in_date').eq('applicant_id', a.id).order('created_at', { ascending: false }).limit(1).maybeSingle())
   if (!offer && a.email) {
     ({ data: offer } = await svc.from('offers').select('id, status, advertised_rent, move_in_date')
       .eq('room_id', a.room_id).ilike('applicant_email', a.email).order('created_at', { ascending: false }).limit(1).maybeSingle())
@@ -56,8 +70,8 @@ export async function loadDepositContext(svc: SupabaseClient, applicantId: strin
     }
   }
 
-  const rent = (a.rent_offer_type === 'below_asking' && a.offered_rent) ? Number(a.offered_rent)
-    : Number(offer?.advertised_rent ?? a.rooms?.current_asking_rent ?? 0) || null
+  // THE agreed rent (agreedRent below): never the room's advertised rent — Harry often lets below the advert
+  const rent = await agreedRent(svc, a, offer)
   return {
     applicant: a,
     roomName: a.rooms?.name ?? 'the room',

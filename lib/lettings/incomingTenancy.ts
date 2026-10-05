@@ -5,6 +5,7 @@
 // off the market, carries the applicant's documents across and marks the applicant converted. Idempotent: a second
 // call finds the same tenancy. Server-only (service client).
 
+import { agreedRent } from '@/lib/lettings/holdingDeposit'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { fiveWeeksDeposit } from '@/lib/tenancy/deposit'
@@ -80,9 +81,8 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
   const roomId = body.room_id || applicant.room_id
   const propertyId = body.property_id || applicant.property_id
   const today = new Date().toISOString().slice(0, 10)
-  const rentAmount = body.rent_amount
-    || (applicant.rent_offer_type === 'below_asking' && applicant.offered_rent ? Number(applicant.offered_rent) : null)
-    || applicant.advertised_rent || applicant.rooms?.current_asking_rent || null
+  // the agreed rent (lib/lettings/holdingDeposit agreedRent) — never the room's advertised rent
+  const rentAmount = body.rent_amount || await agreedRent(sb, applicant) || applicant.advertised_rent || null
   let tenancyId: string | null = null
   let created = false
   if (roomId && propertyId) {
