@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
   if (manual) {
     visitorName  = manual.name  || 'there'
-    firstName    = visitorName.split(' ')[0]
+    firstName    = visitorName.replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(' ')[0]   // "Hi Harry", not "Hi Mr"
     visitorEmail = manual.email || null
     visitorPhone = manual.phone || null
 
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     monthly      = (viewing.rooms as any)?.current_asking_rent || null
     weekly       = monthly ? weeklyRent(monthly) : null
     visitorName  = viewing.visitor_name || 'there'
-    firstName    = visitorName.split(' ')[0]
+    firstName    = visitorName.replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(' ')[0]   // "Hi Harry", not "Hi Mr"
     visitorEmail = viewing.visitor_email
     visitorPhone = viewing.visitor_phone
     roomId       = viewing.room_id
@@ -138,9 +138,12 @@ export async function POST(request: NextRequest) {
   }
 
   const payRef      = holdingDepositRef(propAddress || null, roomLabel)
-  const applyUrl    = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}` : `${APP_URL}/applicant/apply`
-  const fastUrl     = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}&fasttrack=1` : `${APP_URL}/applicant/apply?fasttrack=1`
-  const reserveUrl  = roomId && propertyId ? `${APP_URL}/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}` : `${APP_URL}/applicant/reserve`
+  // first name for the page's greeting ("Hi Harry, ready to lock it down?") — never a title, never "there"
+  const greetName   = String(visitorName || firstName || '').trim().replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(/\s+/)[0] ?? ''
+  const nameQ       = greetName && greetName.toLowerCase() !== 'there' ? `&name=${encodeURIComponent(greetName)}` : ''
+  const applyUrl    = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}${nameQ}` : `${APP_URL}/applicant/apply`
+  const fastUrl     = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}&fasttrack=1${nameQ}` : `${APP_URL}/applicant/apply?fasttrack=1`
+  const reserveUrl  = roomId && propertyId ? `${APP_URL}/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}${nameQ}` : `${APP_URL}/applicant/reserve`
   const isReserve   = mode === 'reserve'
   const isFastTrack = mode === 'fasttrack'
   const sendUrl     = isReserve ? reserveUrl : isFastTrack ? fastUrl : applyUrl

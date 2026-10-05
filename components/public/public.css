@@ -1,6 +1,10 @@
 /* The look of every page CROS sends to people outside the office (tenants, applicants, landlords).
    One place: change it here and every public page follows. Chosen 5 Oct 2026 ("C", couture). */
 
+/* The app paints html/body near-black (no white flash on login); public pages are white to the very top,
+   so the phone's status bar and the over-scroll area are white too. */
+html:has(.pub), body:has(.pub) { background-color: #ffffff; }
+
 .pub {
   --pub-serif: 'Instrument Serif';
   --pub-sans: 'Instrument Sans';
