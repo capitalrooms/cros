@@ -1,3 +1,4 @@
+import { authLink } from '@/lib/auth/links'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -49,13 +50,8 @@ export async function POST(req: NextRequest) {
     .eq('landlord_id', personId)
 
   // Generate magic link — lands at / which routes to /landlord by role
-  const { data: linkData } = await supabase.auth.admin.generateLink({
-    type: 'magiclink',
-    email: person.email,
-    options: { redirectTo: `${APP_URL}/` },
-  })
-
-  const signInLink = linkData?.properties?.action_link
+  // our own one-time link (lib/auth/links) — Supabase's action_link bounced via its Site URL (localhost)
+  const signInLink = await authLink(supabase as any, person.email, 'magiclink', '/')
     ?? `${APP_URL}/login?email=${encodeURIComponent(person.email)}`
 
   const firstName = getFirstName(person)

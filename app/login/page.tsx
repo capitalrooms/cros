@@ -90,12 +90,9 @@ function LoginForm() {
     if (!email) return
     setMagicLoading(true)
     setError('')
-    const supabase = createClient()
-    const appUrl   = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${appUrl}/tenant` },
-    })
+    // CROS sends the link itself (/api/auth/email-link) so it always opens the live site
+    const res = await fetch('/api/auth/email-link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) }).catch(() => null)
+    const err = !res || !res.ok
     setMagicLoading(false)
     if (err) {
       setError('Could not send sign-in link. Please try again or use your password.')
