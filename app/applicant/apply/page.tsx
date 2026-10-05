@@ -52,6 +52,9 @@ export default function ApplicantForm() {
   const propertyId = searchParams.get('propertyId')
   const fastTrack = searchParams.get('fasttrack') === '1'
   const editId = searchParams.get('edit')
+  // first name from the invite link, for the greeting
+  const greetName = (searchParams.get('name') ?? '').replace(/[^\p{L}\p{M}' -]/gu, '').trim().slice(0, 40)
+  const [roomInfo, setRoomInfo] = useState<{ name: string | null; property: string }>({ name: null, property: '' })
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -100,7 +103,7 @@ export default function ApplicantForm() {
   // the room's asking rent — for the rent question, the affordability check and the guarantor figures
   useEffect(() => {
     if (!roomId) return
-    fetch(`/api/applicant/room/${roomId}`).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.monthly) setAdvertisedRent(Number(d.monthly)) }).catch(() => {})
+    fetch(`/api/applicant/room/${roomId}`).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.monthly) setAdvertisedRent(Number(d.monthly)); if (d) setRoomInfo({ name: d.name ?? null, property: d.property ?? '' }) }).catch(() => {})
   }, [roomId])
   const [rentOfferType, setRentOfferType] = useState('asking') // 'asking' or 'below_asking'
   const [offeredRent, setOfferedRent] = useState<number | null>(null)
@@ -417,17 +420,31 @@ export default function ApplicantForm() {
 
   return (
     <PublicShell label={editState === 'ready' ? 'Editing your application' : 'Application'}>
-      {/* Greeting */}
-      <section className={`${wrap} pt-10 md:pt-14`}>
-        <h1 className="pub-serif pub-display pub-enter m-0">
-          <span className="pub-drift-l block">Tell us about</span>
-          <span className="pub-drift-r block italic">yourself.</span>
-        </h1>
-        <p className="pub-enter-2 m-0 mt-6 max-w-2xl text-[18px] leading-relaxed" style={{ color: '#4A4741' }}>
-          {editState === 'ready'
-            ? 'Your answers are all here. Change what you need, then send it again — it reaches us as an update to the same application.'
-            : 'Help us understand if this is a great fit. This should take less than 5 minutes.'}
-        </p>
+      {/* Greeting — the first thing they see from the invite link */}
+      <section className={`${wrap} grid items-end gap-10 pt-10 md:grid-cols-2 md:gap-16 md:pt-14`}>
+        <div className="flex flex-col gap-5">
+          {editState === 'ready' ? (
+            <h1 className="pub-serif pub-display pub-enter m-0">
+              <span className="pub-drift-l block">Your</span>
+              <span className="pub-drift-r block italic">application</span>
+            </h1>
+          ) : (
+            <h1 className="pub-serif pub-display pub-enter m-0">
+              <span className="pub-drift-l block">{greetName ? `Hi ${greetName},` : 'Hi there,'}</span>
+              <span className="pub-drift-r block italic">ready to lock it down?</span>
+            </h1>
+          )}
+          {(roomInfo.name || roomInfo.property) && <p className="pub-eyebrow pub-enter-2 m-0">{[roomInfo.name, roomInfo.property].filter(Boolean).join(' · ')}</p>}
+          <p className="pub-serif pub-enter-2 m-0 text-[24px] leading-snug md:text-[30px]">
+            {editState === 'ready'
+              ? 'Your answers are all here. Change what you need, then send it again — it reaches us as an update.'
+              : 'First, tell us about yourself. It takes less than 5 minutes, and helps us understand if this is a great fit.'}
+          </p>
+        </div>
+        <div className="pub-arch pub-arch-open mx-auto aspect-[3/4] w-full max-w-[300px] md:max-w-[420px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="pub-zoom" src="/illustrations/tenant-home.webp" alt="Illustration: relaxing at home" style={{ objectPosition: '9% 60%' }} />
+        </div>
       </section>
 
       {/* The Capital Rooms Standard — pre-screening gate */}

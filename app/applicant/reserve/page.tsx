@@ -45,7 +45,8 @@ export default function ReservePage() {
   const ref: string = room?.reference ?? 'HOLD'
   const propAddress: string = room?.property || ''
   const roomName: string | null = room?.name ?? null
-  const firstName: string | null = room?.firstName ?? null
+  // from their offer (?a=), else the invite link's ?name=
+  const firstName: string | null = room?.firstName ?? ((params.get('name') ?? '').replace(/[^\p{L}\p{M}' -]/gu, '').trim().slice(0, 40) || null)
   const gbp = (n: number | null) => n == null ? '' : n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const copy = async (text: string, key: string) => {
