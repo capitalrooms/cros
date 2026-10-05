@@ -255,7 +255,7 @@ export async function runSubmissionReview(onboardingId: string): Promise<Automat
   return review
 }
 
-export async function notifyOfficeOfSubmission(onboardingId: string, review: AutomatedReview | null) {
+export async function notifyOfficeOfSubmission(onboardingId: string, review: AutomatedReview | null, updated = false) {
   const { data: row } = await svc().from('landlord_onboarding').select('full_name, email').eq('id', onboardingId).single()
   if (!row) return
   const biz = await fetchPDFBizSettings()
@@ -266,8 +266,8 @@ export async function notifyOfficeOfSubmission(onboardingId: string, review: Aut
   const reasons = review?.reasons.slice(0, 8).map(r => `<li>${r}</li>`).join('') ?? ''
   await sendEmail(
     to,
-    `AML form submitted — ${row.full_name}${level ? ` (suggested ${level} risk)` : ''}`,
-    `<p style="margin:0 0 14px;font-size:15px;color:#333">${row.full_name} (${row.email}) has submitted their landlord onboarding and AML form.</p>
+    `AML form ${updated ? 'updated' : 'submitted'} — ${row.full_name}${level ? ` (suggested ${level} risk)` : ''}`,
+    `<p style="margin:0 0 14px;font-size:15px;color:#333">${row.full_name} (${row.email}) has ${updated ? 'reopened, changed and re-sent' : 'submitted'} their landlord onboarding and AML form.</p>
      ${level ? `<p style="margin:0 0 10px;font-size:15px"><strong>Suggested risk: <span style="color:${colour}">${level.toUpperCase()}</span></strong></p>` : '<p>The automatic checks could not run — open the record to run them.</p>'}
      ${reasons ? `<ul style="margin:0 0 14px;padding-left:18px;font-size:14px;color:#333">${reasons}</ul>` : ''}
      <p style="margin:0 0 14px;font-size:14px;color:#333">Review the documents and checks, confirm the risk level, then generate the AML report.</p>

@@ -27,7 +27,29 @@
   font: inherit; font-size: 17px; color: #111111; border: 0; border-bottom: 1px solid #111111; background: transparent;
   min-height: 44px; padding: 0; border-radius: 0; outline: none; width: 100%; box-sizing: border-box;
 }
+.pub-input { text-transform: none; letter-spacing: normal; }
+textarea.pub-input { min-height: 80px; padding-top: 10px; resize: vertical; line-height: 1.5; }
+select.pub-input { appearance: auto; }
 .pub-input::placeholder { color: #A8A39A; }
+
+/* Forms */
+.pub-label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #6F6B64; }
+.pub-h2 { font-family: var(--pub-serif), Georgia, serif; font-weight: 400; font-size: clamp(2rem, 7vw, 2.75rem); line-height: 1.05; margin: 0; }
+.pub-h2 i { margin-right: .25em; }
+.pub-h3 { font-family: var(--pub-serif), Georgia, serif; font-weight: 400; font-size: 1.6rem; margin: .5rem 0 0; }
+.pub-intro { margin: 0; font-size: 15px; line-height: 1.6; color: #4A4741; padding-left: 16px; border-left: 1px solid #111111; }
+.pub-muted { color: #6F6B64; }
+.pub-choice { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 15px 0; border: 0; border-bottom: 1px solid #E4E0D8;
+  background: none; color: #111111; font: inherit; font-size: 16px; text-align: left; cursor: pointer; line-height: 1.45; }
+.pub-choice small { display: block; font-size: 13.5px; color: #6F6B64; margin-top: 2px; }
+.pub-dot { flex: 0 0 18px; height: 18px; border-radius: 50%; border: 1px solid #111111; box-sizing: border-box; margin-top: 2px; }
+.pub-dot.on { background: #111111; box-shadow: inset 0 0 0 3px #ffffff; }
+.pub-dot.sq { border-radius: 3px; }
+.pub-pill { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; min-width: 96px; padding: 0 20px; border-radius: 999px;
+  border: 1px solid #111111; background: transparent; color: #111111; font: inherit; font-size: 15px; cursor: pointer; }
+.pub-pill.on { background: #111111; color: #ffffff; }
+.pub-note { margin: 0; padding: 14px 16px; background: #F4F1EB; font-size: 14px; line-height: 1.55; }
+.pub-error { margin: 0; padding: 14px 16px; border-left: 2px solid #9B2C1F; color: #9B2C1F; font-size: 14px; line-height: 1.5; background: #FBF1EE; }
 .pub-input:focus { border-bottom-width: 2px; }
 .pub :focus-visible { outline: 2px solid #111111; outline-offset: 3px; }
 

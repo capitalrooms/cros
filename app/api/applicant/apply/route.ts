@@ -54,13 +54,33 @@ export async function POST(request: Request) {
       updated_at:           new Date().toISOString(),
     }
 
-    // Upsert: match on email + room_id so clicking the link twice doesn't create duplicates
-    const { data: existing } = await supabase
-      .from('applicants')
-      .select('id')
-      .eq('email', data.email)
-      .eq('room_id', data.roomId)
-      .maybeSingle()
+    // Reopened from the thank-you page: update that application (the email it was opened with must match it).
+    // Otherwise upsert on email + room_id so clicking the link twice doesn't create duplicates.
+    let existing: { id: string; pipeline_stage: string | null } | null = null
+    if (data.editingId) {
+      const { data: row } = await supabase.from('applicants').select('id, email, room_id, pipeline_stage').eq('id', data.editingId).maybeSingle()
+      const r = row as any
+      if (!r || r.room_id !== data.roomId || String(r.email ?? '').trim().toLowerCase() !== String(data.editingEmail ?? '').trim().toLowerCase()) {
+        return Response.json({ error: 'We couldn’t match this to your application. Please email management@capitalrooms.co.uk.' }, { status: 403 })
+      }
+      if (!['invited', 'applied'].includes(String(r.pipeline_stage))) {
+        return Response.json({ error: 'We’ve already started working on your application, so it can no longer be changed online. Please email management@capitalrooms.co.uk with any changes.' }, { status: 409 })
+      }
+      existing = { id: r.id, pipeline_stage: r.pipeline_stage }
+    } else {
+      const { data: row } = await supabase
+        .from('applicants')
+        .select('id, pipeline_stage')
+        .eq('email', data.email)
+        .eq('room_id', data.roomId)
+        .maybeSingle()
+      existing = row as any
+    }
+    // never move an application backwards: once it's past "applied" (offer sent, referencing…), keep its stage
+    if (existing && !['invited', 'applied', null, ''].includes(existing.pipeline_stage as any)) {
+      delete (payload as any).pipeline_stage
+      delete (payload as any).submitted_at
+    }
 
     let applicantId: string
     // before migration 202 the guarantor columns don't exist: save without them, keeping the details in the notes
@@ -112,8 +132,8 @@ export async function POST(request: Request) {
       const { data: staff } = await supabase.from('people').select('id').in('role', STAFF_ROLES)
       const ids = (staff ?? []).map((p: any) => p.id)
       const below = data.rentOfferType === 'below_asking' && data.offeredRent ? ` — offering £${Number(data.offeredRent).toLocaleString('en-GB')} pcm` : ''
-      const title = '📝 New offer received'
-      const body = `${data.fullName} has applied for ${[room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'}${below}.`
+      const title = existing ? '✏️ Application updated' : '📝 New offer received'
+      const body = `${data.fullName} has ${existing ? 'updated their application' : 'applied'} for ${[room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'}${below}.`
       await insertNotifications(supabase, ids, { title, body, type: 'lettings', link: '/admin/applicants' }, { propertyId: data.propertyId ?? null, roomId: data.roomId })
       await tryPush(ids, title, body, '/admin/applicants')
     } catch (e) {
