@@ -29,6 +29,22 @@ async function activeTenancies(s: ReturnType<typeof svc>, demo: Set<string>) {
 const who = (t: any) => [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
 const where = (t: any) => `${t.rooms?.name ?? ''}, ${String(t.properties?.name || '').split('\n')[0]}`
 
+
+// Tenancies whose end date has no notice behind it and might really be carrying on. Leaves out anyone whose room
+// someone else has moved into since (they've gone — e.g. Marija, 4 Willis Rd Room 2, replaced by a new tenant), lets
+// that fell through, demo and let-only houses, and rooms already marked on notice or empty. Shared by the check and
+// "make rolling", so the button can never bring back a tenancy that has ended.
+async function endDatesToSort(s: any) {
+  const { data } = await s.from('tenancies')
+    .select('id, room_id, person_id, start_date, end_date, let_cancelled_at, rooms(name, status), properties(name, is_demo, letting_type), people!person_id(first_name, last_name)')
+    .not('end_date', 'is', null).is('notice_received_date', null).is('let_cancelled_at', null).order('end_date')
+  const rows = ((data ?? []) as any[]).filter(t => !t.properties?.is_demo && t.properties?.letting_type !== 'let_only' && t.rooms?.status !== 'on_notice' && t.rooms?.status !== 'available')
+  if (!rows.length) return []
+  const { data: inRooms } = await s.from('tenancies').select('id, room_id, start_date, let_cancelled_at').in('room_id', [...new Set(rows.map(t => t.room_id).filter(Boolean))])
+  const replaced = (t: any) => ((inRooms ?? []) as any[]).some(o => o.id !== t.id && !o.let_cancelled_at && o.room_id === t.room_id && o.start_date && o.start_date > t.start_date)
+  return rows.filter(t => !replaced(t))
+}
+
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = svc()
@@ -56,10 +72,7 @@ export async function GET(req: NextRequest) {
   const noFee = ((feeTens ?? []) as any[]).filter(t => !t.properties?.is_demo && t.properties?.letting_type !== 'let_only' && resolveFee(t, t.properties).source === 'none')
   // End dates with no notice: usually a fixed-term end entered with the tenancy. Since the Renters' Rights Act the
   // tenancy simply continues, but CROS would treat it as finished (no rent raised, shown as past) — so ask.
-  const { data: endNoNotice } = await s.from('tenancies')
-    .select('id, person_id, end_date, rooms(name, status), properties(name, is_demo, letting_type), people!person_id(first_name, last_name)')
-    .not('end_date', 'is', null).is('notice_received_date', null).order('end_date')
-  const fixedEnds = ((endNoNotice ?? []) as any[]).filter(t => !t.properties?.is_demo && t.properties?.letting_type !== 'let_only' && t.rooms?.status !== 'on_notice' && t.rooms?.status !== 'available')
+  const fixedEnds = await endDatesToSort(s)
   const realProps = (props.data ?? []).filter((p: any) => !demo.has(p.id))
   const letRooms = new Set(tens.map(t => t.room_id))
   const charged = new Set((charges.data ?? []).map((c: any) => c.room_id))
@@ -182,8 +195,7 @@ export async function POST(req: NextRequest) {
   if (b.action === 'make_rolling') {
     // clear the fixed-term end date on tenancies with no notice (same filter as the check above)
     const today = new Date().toISOString().slice(0, 10)
-    const { data } = await s.from('tenancies').select('id, room_id, rooms(status), properties(is_demo, letting_type)').not('end_date', 'is', null).is('notice_received_date', null)
-    const ids = ((data ?? []) as any[]).filter(t => !t.properties?.is_demo && t.properties?.letting_type !== 'let_only' && t.rooms?.status !== 'on_notice' && t.rooms?.status !== 'available').map(t => t.id)
+    const ids = (await endDatesToSort(s)).map((t: any) => t.id)
     if (ids.length) {
       const { error } = await s.from('tenancies').update({ end_date: null, is_periodic: true }).in('id', ids)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
