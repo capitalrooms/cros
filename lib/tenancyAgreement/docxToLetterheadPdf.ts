@@ -56,7 +56,7 @@ interface Para {
 }
 interface Cell { span: number; fill?: string; blocks: Block[]; skip: boolean }
 interface Table { kind: 'table'; cols: number[]; rows: Cell[][]; borders: boolean }
-type Block = Para | Table | { kind: 'bills' } | { kind: 'pagebreak' }
+type Block = Para | Table | { kind: 'bills'; texts: string[] } | { kind: 'pagebreak' }
 
 // ── XML helpers ──────────────────────────────────────────────────────────────
 
@@ -549,9 +549,12 @@ function deepTexts(bs: Block[]): string[] {
     : b.kind === 'table' ? b.rows.flatMap(r => r.flatMap(c => deepTexts(c.blocks))) : [])
 }
 
+// The template's answers box (a floating table beside the bill labels). Answers may carry extra words —
+// the managed template says "The landlord is responsible for the communal areas" for the TV licence.
+const billsBoxTexts = (b: Box) => deepTexts(b.blocks).map(t => t.trim()).filter(Boolean)
 function isBillsBox(b: Box): boolean {
-  const texts = deepTexts(b.blocks).map(t => t.trim()).filter(Boolean)
-  return texts.length >= 5 && texts.every(t => t === LANDLORD_TEXT || t === TENANT_TEXT)
+  const texts = billsBoxTexts(b)
+  return texts.length >= 5 && texts.every(t => t.startsWith(LANDLORD_TEXT) || t.startsWith(TENANT_TEXT))
 }
 
 function normalise(blocks: Block[]): Block[] {
@@ -569,8 +572,9 @@ function normalise(blocks: Block[]): Block[] {
     if (b.kind === 'p') {
       if (b.boxes.some(isBillsBox)) {
         flushEmpty()
+        const texts = billsBoxTexts(b.boxes.find(isBillsBox)!)
         b.boxes = b.boxes.filter(x => !isBillsBox(x))
-        out.push({ kind: 'bills' })
+        out.push({ kind: 'bills', texts })
         dropBillLabels = true
         if (BILL_LABEL_RE.test(paraText(b).trim())) continue
       }
@@ -609,6 +613,8 @@ function blankPara(): Para {
 export interface RenderOptions {
   values: Record<string, string>
   bills: BillsConfig
+  /** Use the template's own answers for the bills (the managed agreement as Harry wrote it), not `bills` */
+  billsFromTemplate?: boolean
   cleaning?: CleaningConfig
   title: string
   biz: PDFBizSettings
@@ -636,10 +642,13 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
   const body = dom.getElementsByTagNameNS(W_NS, 'body')[0] as unknown as El
   const blocks = normalise(new Parser(model, opts.values, opts.omitParagraphs, opts.rewrites).blocks(body))
 
-  const billRows: [string, string][] = [
-    ...BILL_ROWS.map(([key, label]): [string, string] => [label, opts.bills[key] === 'landlord' ? LANDLORD_TEXT : TENANT_TEXT]),
+  // Bills table rows: label | answer. From the caller's settings, or (billsFromTemplate) the template's own answers.
+  const billRowsFor = (texts: string[] = []): [string, string][] => [
+    ...BILL_ROWS.map(([key, label], i): [string, string] => [label,
+      opts.billsFromTemplate && texts[i] ? texts[i] : opts.bills[key] === 'landlord' ? LANDLORD_TEXT : TENANT_TEXT]),
     ...(opts.cleaning?.payer ? [[CLEANING_LABEL, cleaningText(opts.cleaning)] as [string, string]] : []),
   ]
+  const billsHeight = (texts?: string[]) => billRowsFor(texts).length * 17 + 8
 
   const assets = loadPDFLetterheadAssets()
   const fontsDir = path.join(process.cwd(), 'public', 'fonts')
@@ -764,7 +773,7 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
     return bs.reduce((sum, b) => sum + (
       b.kind === 'p' ? measurePara(b, width) + b.boxes.reduce((s, bx) => s + measureBox(bx, width), 0)
       : b.kind === 'table' ? measureTable(b, width)
-      : b.kind === 'bills' ? billRows.length * 17 + 8 : 0), 0)
+      : b.kind === 'bills' ? billsHeight(b.texts) : 0), 0)
   }
 
   function drawLine(l: Line, p: Para, x: number, top: number, width: number) {
@@ -797,7 +806,7 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
     if (!paraText(p).trim()) { y += measurePara(p, width); return }
     const lines = layout(p, width)
     if (flow) {
-      const heading = p.runs.every(r => r.bold || !r.text.trim()) && paraText(p).length < 90
+      const heading = isHeading(p)
       // keep headings with what follows; avoid a lone first line at the foot of a page
       ensure(p.before + (heading ? lines[0].height * lines.length + 30 : lines[0].height * Math.min(2, lines.length)))
     }
@@ -808,6 +817,8 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
     }
     lines.forEach((l, i) => {
       if (flow && y + l.height > CONTENT_BOTTOM) newPage()
+      // no lone last line at the top of the next page: take the line before it over too
+      else if (flow && lines.length >= 3 && i === lines.length - 2 && y + l.height + lines[i + 1].height > CONTENT_BOTTOM) newPage()
       if (i === 0 && p.label) {
         const lx = Math.max(x - 18, x + p.indLeft - p.hanging)
         doc.font(fontFor(p.label)).fontSize(p.label.size).fillColor(p.label.color).text(p.label.text, lx, y, { lineBreak: false })
@@ -857,9 +868,11 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
 
   function drawTable(t: Table, x: number, width: number) {
     const widths = colWidths(t, width)
-    for (const row of t.rows) {
+    t.rows.forEach((row, ri) => {
       const rh = rowHeight(row, widths)
-      if (y + rh > CONTENT_BOTTOM) newPage()
+      // a table's first row (its headings) never ends a page without the row under it
+      const withNext = ri === 0 && t.rows.length > 1 ? rowHeight(t.rows[1], widths) : 0
+      if (y + rh + withNext > CONTENT_BOTTOM && y > CONTENT_TOP + 1) newPage()
       let cx = x
       row.forEach((c, i) => {
         const cw = cellWidth(row, i, widths)
@@ -875,12 +888,13 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
         cx += cw
       })
       y += rh
-    }
+    })
     y += 4
   }
 
-  function drawBills(x: number, width: number) {
+  function drawBills(x: number, width: number, texts: string[]) {
     const labelW = 150, rowH = 17
+    const billRows = billRowsFor(texts)
     ensure(rowH * billRows.length + 8)
     for (const [label, text] of billRows) {
       doc.font(FONT.reg).fontSize(BODY_PT).fillColor(BLACK).text(label, x, y + 4, { lineBreak: false })
@@ -892,6 +906,16 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
     y += 8
   }
 
+  // A heading: all bold and short, or a short line with no closing punctuation (not a list item) —
+  // e.g. "Condition of the property", "Heat your Home". Kept with what follows it.
+  const isHeading = (p: Para) => {
+    const text = paraText(p).trim()
+    // numbered headings ("9.0 Pets") count; bullet points never do
+    if (!text || (p.label && !/\d/.test(p.label.text))) return false
+    if (p.runs.every(r => r.bold || !r.text.trim()) && text.length < 90) return true
+    return text.length < 60 && !/[.,;:!?)]$/.test(text) && !/^[•\-–]/.test(text)
+  }
+
   const isTitle = (b: Block | undefined) =>
     !!b && b.kind === 'p' && b.align === 'center' && b.runs.length > 0 && b.runs.every(r => r.bold || !r.text.trim())
 
@@ -899,12 +923,32 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
 
   function drawBlocks(bs: Block[], x: number, width: number, flow: boolean) {
     bs.forEach((b, i) => {
-      // Keep a heading and the table/box that follows it on one page when they fit on a page.
-      if (flow && b.kind === 'p' && paraText(b).trim() && !b.boxes.length) {
-        const next = bs.slice(i + 1).find(hasContent)
-        const nextH = next?.kind === 'table' ? measureTable(next, width) : 0
-        const h = measurePara(b, width) + nextH
-        if (nextH && h < PAGE_CAPACITY && y + h > CONTENT_BOTTOM) newPage()
+      // Keep things that belong together on one page (when they fit on a page):
+      //  · a paragraph and its own box (e.g. the payment details box);
+      //  · a heading, or a lead-in ending ":", with the table / box / bills that follow it;
+      //  · a heading or lead-in with at least the first lines of the paragraph that follows.
+      if (flow && b.kind === 'p' && paraText(b).trim()) {
+        const own = measurePara(b, width) + b.boxes.reduce((s, bx) => s + measureBox(bx, width), 0)
+        if (b.boxes.length && own < PAGE_CAPACITY && y + own > CONTENT_BOTTOM) newPage()
+        if (!b.boxes.length) {
+          const nextIdx = bs.findIndex((x, j) => j > i && hasContent(x))
+          const next = nextIdx > 0 ? bs[nextIdx] : undefined
+          // blank lines between this and the next block take space too
+          const gap = nextIdx > 0 ? bs.slice(i + 1, nextIdx).reduce((sum, x) => sum + (x.kind === 'p' ? measurePara(x, width) : 0), 0) : 0
+          const text = paraText(b).trim()
+          const heading = isHeading(b)
+          const leadIn = /:$/.test(text) && text.length < 160
+          let nextH = 0
+          if (next?.kind === 'table') nextH = measureTable(next, width)
+          else if (next?.kind === 'bills') nextH = billsHeight(next.texts)
+          else if (next?.kind === 'p' && (heading || leadIn)) {
+            const boxesH = next.boxes.reduce((s, bx) => s + measureBox(bx, width), 0)
+            const firstLines = paraText(next).trim() ? layout(next, width).slice(0, 3).reduce((s, l) => s + l.height, 0) + next.before : 0
+            nextH = boxesH && (leadIn || heading) ? measurePara(next, width) + boxesH : firstLines
+          }
+          const h = own + gap + nextH
+          if (nextH && (heading || leadIn || next?.kind === 'table') && h < PAGE_CAPACITY && y + h > CONTENT_BOTTOM) newPage()
+        }
       }
       if (flow && b.kind === 'table') {
         const h = measureTable(b, width)
@@ -918,7 +962,7 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
         }
         return
       }
-      if (b.kind === 'bills') { drawBills(x, width); return }
+      if (b.kind === 'bills') { drawBills(x, width, b.texts); return }
       if (b.kind === 'table') { drawTable(b, x, width); return }
       if (flow && y <= CONTENT_TOP + 1 && !paraText(b).trim() && !b.boxes.length) return
       drawPara(b, x, width, flow)
