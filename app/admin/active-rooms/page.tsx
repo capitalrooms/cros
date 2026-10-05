@@ -75,6 +75,7 @@ export default function AllUnitsPage() {
   const supabase = createClient()
   const [loading, setLoading]       = useState(true)
   const [properties, setProperties] = useState<Property[]>([])
+  const [letOnlyCount, setLetOnlyCount] = useState(0)
   const [query, setQuery]           = useState('')
 
   useEffect(() => {
@@ -92,7 +93,7 @@ export default function AllUnitsPage() {
 
   async function loadData() {
     const [{ data: propsData }, { data: roomsData }, { data: tenanciesData }, { data: pushData }] = await Promise.all([
-      supabase.from('properties').select('id, name, address, property_code, property_type'),
+      supabase.from('properties').select('id, name, address, property_code, property_type, letting_type'),
       supabase.from('rooms').select('id, name, unit_code, room_type, status, property_id'),
       supabase.from('tenancies')
         .select('id, room_id, person_id, start_date, end_date, notice_received_date, rent_amount, people!person_id(id, first_name, last_name, full_name, email)')
@@ -136,7 +137,9 @@ export default function AllUnitsPage() {
       })
     }
 
-    const merged: Property[] = (propsData || []).map((p: any) => ({
+    // our managed portfolio only — let-only houses live in Lettings › Let-Only, not here
+    setLetOnlyCount((propsData || []).filter((p: any) => p.letting_type === 'let_only').length)
+    const merged: Property[] = (propsData || []).filter((p: any) => p.letting_type !== 'let_only').map((p: any) => ({
       id: p.id, name: p.name, address: p.address,
       property_code: p.property_code, property_type: p.property_type,
       rooms: (roomsByProperty[p.id] || [])
@@ -194,7 +197,7 @@ export default function AllUnitsPage() {
       <AppBar left={<BackButton href="/admin" />} />
       <PageHero
         title="All Units"
-        subtitle={<>{totalProperties} propert{totalProperties === 1 ? 'y' : 'ies'} · {totalRooms} room{totalRooms === 1 ? '' : 's'} · in address order · every name opens its letting file</>}
+        subtitle={<>{totalProperties} managed propert{totalProperties === 1 ? 'y' : 'ies'} · {totalRooms} room{totalRooms === 1 ? '' : 's'} · in address order · every name opens its letting file{letOnlyCount > 0 && <> · <a href="/admin/let-only-properties" className="underline">{letOnlyCount} let-only house{letOnlyCount === 1 ? '' : 's'} →</a></>}</>}
         stats={[
           { label: 'Occupied', value: occupied },
           { label: 'Available', value: available, tone: 'good' },
