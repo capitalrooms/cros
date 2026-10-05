@@ -90,7 +90,9 @@ export async function GET(req: NextRequest) {
     { label: 'Later', count: current.filter(t => t.end_date && t.end_date.slice(0, 7) > months[2]).length, noNotice: 0 },
     { label: 'No end', count: current.filter(t => !t.end_date).length, noNotice: 0 },
   ]
-  const endNoNotice = current.filter(t => t.end_date && t.end_date <= addDays(today, 60) && !t.notice_received_date && t.is_periodic)
+  // someone else already lined up for (or in) the room means this tenant is leaving — not one to sort
+  const succeeded = (t: any) => tenancies.some(o => o.id !== t.id && o.room_id === t.room_id && o.start_date && o.start_date > t.start_date)
+  const endNoNotice = current.filter(t => t.end_date && t.end_date <= addDays(today, 60) && !t.notice_received_date && t.is_periodic && !succeeded(t))
 
   // ── Lettings ──
   const stages: Record<string, number> = {}
