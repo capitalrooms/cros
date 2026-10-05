@@ -10,7 +10,8 @@
  *   PATCH { action: 'move_room', roomId, oldRoom: 'available'|'leave', reason? }
  *                                               → put on the wrong room: moves it and its references to the right one
  *   PATCH { action: 'remove_mistake', reason?, oldRoom? } → added by mistake: kept on record, off every list
- *                                                 (both only on the day the tenancy was added)
+ *   PATCH { action: 'delete', reason }            → entered in error: deleted, full copy in the finance audit log (admins)
+ *                                                 (all three only on the day it was added or while nothing financial is attached)
  * Office and lettings staff only. Nothing here sends anything.
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -21,6 +22,7 @@ import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { roomCode } from '@/lib/references'
+import { canUndoTenancy } from '@/lib/lettings/undo'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -171,9 +173,36 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
 
   // Put on the wrong room by mistake: move the tenancy (and its references) to the right one.
   // Refused if the new room has someone in it for the same dates, or rent has already been charged on the old room.
-  // Only on the day it was added — after that charges, payments and statements may hang off it.
-  const addedToday = !!t.created_at && new Date(t.created_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) === today
-  if ((b.action === 'move_room' || b.action === 'remove_mistake') && !addedToday) return NextResponse.json({ error: 'A tenancy can only be moved or removed on the day it was added. After that, use notice or a new tenancy.' }, { status: 409 })
+  // Only while it's safe: on the day it was added, or while nothing money-related hangs off it (lib/lettings/undo)
+  if (b.action === 'move_room' || b.action === 'remove_mistake' || b.action === 'delete') {
+    const { data: full } = await s.from('tenancies').select('*').eq('id', tenancyId).single()
+    const chk = await canUndoTenancy(s, full, today)
+    if (!chk.ok) return NextResponse.json({ error: `This tenancy can’t be ${b.action === 'move_room' ? 'moved' : 'deleted'} because ${chk.reasons.join(', ') || 'it has already been removed'}. End it with notice instead, or ask the office to unwind the money first.` }, { status: 409 })
+  }
+
+  // Delete a tenancy entered in error — gone from CROS completely (like 10ninety's delete). Only when nothing financial
+  // hangs off it (checked above). A full copy goes to the finance audit log first — who, when, why, and the LETF/DEP
+  // numbers it had — so the gap in those number series is explained and the record could be put back.
+  if (b.action === 'delete') {
+    if (!['administrator', 'admin'].includes(String((caller as any).role))) return NextResponse.json({ error: 'Only an administrator can delete a tenancy' }, { status: 403 })
+    const reason = String(b.reason ?? '').trim().slice(0, 300)
+    if (reason.length < 3) return NextResponse.json({ error: 'Say why it’s being deleted — it’s kept in the audit log' }, { status: 400 })
+    const { data: full } = await s.from('tenancies').select('*, people!person_id(first_name, last_name, email), rooms(name), properties(name)').eq('id', tenancyId).single() as { data: any }
+    const { error: logErr } = await s.from('finance_audit_log').insert({
+      table_name: 'tenancies', row_id: tenancyId, action: 'delete', actor: caller.email,
+      old_row: { ...full, deleted_reason: reason, cancelled_numbers: [full?.letting_fee_no, full?.deposit_no].filter(Boolean) },
+    })
+    if (logErr) return NextResponse.json({ error: `Not deleted — couldn’t write the audit copy first (${logErr.message})` }, { status: 500 })
+    const { error } = await s.from('tenancies').delete().eq('id', tenancyId)
+    if (error) return NextResponse.json({ error: `Couldn’t delete: ${error.message}` }, { status: 400 })
+    if (t.room_id) {
+      const { data: others } = await s.from('tenancies').select('start_date, end_date, notice_received_date').eq('room_id', t.room_id).is('let_cancelled_at', null)
+      const live = (others ?? []).filter((o: any) => o.start_date <= today && (!o.end_date || o.end_date >= today))
+      await s.from('rooms').update({ status: live.length ? (live.some((o: any) => o.notice_received_date) ? 'on_notice' : 'occupied') : 'available' }).eq('id', t.room_id)
+    }
+    if (t.applicant_id) await s.from('applicants').update({ pipeline_stage: 'offer_sent', updated_at: new Date().toISOString() }).eq('id', t.applicant_id)
+    return NextResponse.json({ ok: true, deleted: true, message: `Deleted. A copy is in the audit log${full?.letting_fee_no || full?.deposit_no ? ` (numbers ${[full?.letting_fee_no, full?.deposit_no].filter(Boolean).join(', ')} cancelled)` : ''}.` })
+  }
 
   // Added by mistake (same day): kept on record with its numbers, but off every list and never counted
   if (b.action === 'remove_mistake') {
