@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 
 function ResetPasswordContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const token = searchParams.get('token')
+  // The link in the reset email signs this browser in for recovery only (Supabase puts the session in the address;
+  // lib/supabase picks it up). The new password is saved with Supabase's login service — no CROS data needed.
+  const [ready, setReady] = useState<'checking' | 'yes' | 'no'>('checking')
+  const token = ready === 'no' ? null : 'session'
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -15,52 +18,39 @@ function ResetPasswordContent() {
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    if (!token) {
-      setError('Invalid reset link. No token provided.')
-    }
-  }, [token])
+    const supabase = createClient()
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => { if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN')) setReady('yes') })
+    ;(async () => {
+      const url = new URL(window.location.href)
+      const code = url.searchParams.get('code')
+      if (code) await supabase.auth.exchangeCodeForSession(code).catch(() => null)
+      const err = new URLSearchParams(window.location.hash.slice(1)).get('error_description') || url.searchParams.get('error_description')
+      if (err) { setError(err.replace(/\+/g, ' ')); setReady('no'); return }
+      for (let i = 0; i < 10; i++) {
+        const { data } = await supabase.auth.getSession()
+        if (data.session) { setReady('yes'); return }
+        await new Promise(r => setTimeout(r, 300))
+      }
+      setReady('no')
+    })()
+    return () => sub.subscription.unsubscribe()
+  }, [])
 
   async function handleResetPassword(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    if (password !== confirmPassword) { setError('Passwords do not match'); return }
+    if (password.length < 10) { setError('Use at least 10 characters'); return }
     setLoading(true)
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
-    }
-
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters')
-      setLoading(false)
-      return
-    }
-
-    try {
-      const res = await fetch('/api/auth/reset-password-confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        setError(data.error || 'Failed to reset password')
-        setLoading(false)
-        return
-      }
-
-      setSuccess(true)
-      setTimeout(() => {
-        router.push('/login')
-      }, 2000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-      setLoading(false)
-    }
+    const supabase = createClient()
+    const { error: upErr } = await supabase.auth.updateUser({ password })
+    if (upErr) { setError(upErr.message || 'Could not save the new password'); setLoading(false); return }
+    await supabase.auth.signOut().catch(() => null)
+    setSuccess(true)
+    setTimeout(() => router.push('/login'), 2000)
   }
+
+  if (ready === 'checking') return <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-sm text-white/70">Checking your reset link…</div>
 
   if (!token) {
     return (
@@ -68,7 +58,7 @@ function ResetPasswordContent() {
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl p-lg md:p-2xl shadow-2xl">
             <div className="mb-lg rounded-xl bg-red-50 border border-red-200 p-md text-sm text-red-700">
-              Invalid reset link. Please request a new password reset.
+              {error || 'This reset link has expired or was already used.'} Ask for a new one with “Forgot password” on the login page.
             </div>
             <button
               onClick={() => router.push('/login')}
