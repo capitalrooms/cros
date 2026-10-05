@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getNewTenantCommsLive } from '@/lib/comms'
 import twilio from 'twilio'
 
 export const runtime = 'nodejs'
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const user = await getCurrentUser(supabase)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const live = await getCommsLive()
+    const live = await getNewTenantCommsLive()   // the viewer isn't a tenant yet
     if (!live) return NextResponse.json({ error: 'Tenant comms are paused' }, { status: 503 })
 
     const body = await req.json()

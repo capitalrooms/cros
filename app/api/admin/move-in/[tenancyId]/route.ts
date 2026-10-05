@@ -3,7 +3,7 @@
 //   { start_date?, rent_amount?, rent_due_day?, deposit_amount?, holding_deposit_received?, payment_reference? }
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getNewTenantCommsLive } from '@/lib/comms'
 import { loadPackContext, moneySummary } from '@/lib/movein/pack'
 import { svc, packLink, defaultPackSubject, defaultPackMessage } from '@/lib/movein/email'
 
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ tena
   return NextResponse.json({
     context: { ...ctx, summary: moneySummary(ctx) },
     packs: (packs ?? []).map((p: any) => ({ ...p, link: packLink(p.token) })),
-    commsLive: await getCommsLive(),
+    commsLive: await getNewTenantCommsLive(),   // move-in packs go to new tenants: allowed while tenant messages are paused
     defaults: { subject: defaultPackSubject(ctx), message: defaultPackMessage(ctx) },
     setupNeeded: tableMissing ? 'Run migration 187 in Supabase to send packs.' : null,
   })
