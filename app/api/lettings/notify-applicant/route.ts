@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import { requireStaff } from '@/lib/portalAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getNewTenantCommsLive } from '@/lib/comms'
 import { getSmsSignOff } from '@/lib/auth'
 import { sendEmail } from '@/lib/sendEmail'
 import { messageHtml } from '@/lib/email/messageHtml'
@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
   if (!message) return NextResponse.json({ error: 'Write a message' }, { status: 400 })
   if (message.length > 1000) return NextResponse.json({ error: 'Keep the message under 1,000 characters' }, { status: 400 })
   if (!wantSms && !wantEmail) return NextResponse.json({ error: 'Choose text or email' }, { status: 400 })
-  if (!(await getCommsLive())) return NextResponse.json({ error: 'Messages are paused at the moment (comms switch is off)' }, { status: 503 })
+  // the person coming to a viewing isn't a tenant yet — allowed while tenant messages are paused
+  if (!(await getNewTenantCommsLive())) return NextResponse.json({ error: 'Messages are paused at the moment (comms switch is off)' }, { status: 503 })
 
   const svc = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
   const { data: v } = await svc.from('viewings')

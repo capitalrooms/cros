@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { requireAdmin } from '@/lib/adminAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getNewTenantCommsLive } from '@/lib/comms'
 import { sendEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFor } from '@/lib/email/sender'
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   const cc = split(b.cc)
   if (action === 'test') to = [sender.replyTo]
   if (action === 'send') {
-    if (!(await getCommsLive())) return NextResponse.json({ error: 'Tenant messages are paused (Settings). Send a test to yourself, or create the link and send it from your own email.' }, { status: 409 })
+    if (!(await getNewTenantCommsLive())) return NextResponse.json({ error: 'Tenant messages are paused (Settings). Send a test to yourself, or create the link and send it from your own email.' }, { status: 409 })
     const bad = [...to, ...cc].find(e => !EMAIL.test(e))
     if (bad) return NextResponse.json({ error: `“${bad}” isn’t a valid email address.` }, { status: 400 })
   }

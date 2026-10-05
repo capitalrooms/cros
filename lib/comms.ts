@@ -43,6 +43,17 @@ export async function getCommsLive(): Promise<boolean> {
   return process.env.TENANT_COMMS_LIVE === 'true'
 }
 
+/**
+ * Onboarding and pre-tenancy messages to NEW tenants and applicants — the move-in pack, the viewing confirmation
+ * and updates to the person coming to a viewing. These are always allowed (Harry, 5 Oct 2026): the master switch
+ * above exists to stop people who already live in our houses being messaged, and these people don't yet.
+ * Anything that reaches current tenants (housemates, notices, certificates, house documents, Quick Notify…)
+ * must keep using getCommsLive().
+ */
+export async function getNewTenantCommsLive(): Promise<boolean> {
+  return true
+}
+
 /** Roles that are internal staff — always allowed to receive notifications. */
 const STAFF_ROLES = new Set(['administrator', 'admin', 'contractor', 'cleaner', 'lettings'])
 export function isStaffRole(role: string | null | undefined): boolean {
