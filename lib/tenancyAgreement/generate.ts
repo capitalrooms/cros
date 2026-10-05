@@ -98,6 +98,8 @@ export async function generateTenancyAgreement(input: AgreementInput, biz?: PDFB
     values,
     rewrites,
     bills: { ...DEFAULT_BILLS, ...(billsRaw || {}) },
+    // the managed agreement keeps Harry's own answers (e.g. TV licence: "for the communal areas") unless bills are given
+    billsFromTemplate: template === 'apt-cr' && !billsRaw,
     cleaning,
     title: agreementFileName(input).replace(/\.pdf$/, ''),
     biz: settings,
