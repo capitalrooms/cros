@@ -1,22 +1,33 @@
-// POST /api/auth/forgot-password { email } — Supabase emails a reset link to that address (and only there).
-// Never returns the link, never says whether the email has an account, and needs no database lookup — so it
-// works even when the data API is down. The link opens /auth/reset-password, which sets the new password.
-// (Replaces an older version that showed the reset link on screen to whoever typed the email — anyone could
-// have reset anyone's password — and kept its codes in server memory, which Vercel clears.)
+// POST /api/auth/forgot-password { email } — CROS emails a one-time reset link (lib/auth/links) to that address only.
+// Never returns the link, never says whether the email has an account. At most one email per address per 2 minutes.
+// (Older versions showed the link on screen to whoever asked, then relied on Supabase's own email — whose Site URL
+// sent people to localhost.)
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceClient } from '@/lib/supabase'
 import { validateEmail } from '@/lib/validation'
-import { logAudit, getClientIp } from '@/lib/auditLog'
+import { getClientIp } from '@/lib/auditLog'
+import { authLink } from '@/lib/auth/links'
+import { sendEmail } from '@/lib/sendEmail'
 
 const SAME = { success: true, message: 'If that email has a CROS account, a reset link is on its way. Check your inbox (and spam).' }
 
 export async function POST(request: NextRequest) {
-  const { email } = await request.json().catch(() => ({}))
-  if (!email || !validateEmail(String(email))) return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 })
-  const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
-  const auth = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } })
-  const { error } = await auth.auth.resetPasswordForEmail(String(email).trim().toLowerCase(), { redirectTo: `${origin}/auth/reset-password` })
-  if (error) console.error('forgot-password:', error.message)   // rate limits etc. — the same answer either way
-  await logAudit({ userId: 'unknown', action: 'password_reset_requested', details: `Reset requested for ${String(email).trim().toLowerCase()}`, ipAddress: getClientIp(request.headers) }).catch(() => null)
+  const { email: raw } = await request.json().catch(() => ({}))
+  const email = String(raw ?? '').trim().toLowerCase()
+  if (!email || !validateEmail(email)) return NextResponse.json({ error: 'Enter a valid email address' }, { status: 400 })
+  const s = createServiceClient()
+  const since = new Date(Date.now() - 2 * 60_000).toISOString()
+  const { data: recent } = await s.from('audit_logs').select('id').eq('action', 'password_reset_requested').eq('details', email).gte('created_at', since).limit(1)
+  if (recent?.length) return NextResponse.json(SAME)
+  await s.from('audit_logs').insert({ user_id: 'unknown', action: 'password_reset_requested', details: email, ip_address: getClientIp(request.headers) })
+  const link = await authLink(s, email, 'recovery')
+  if (link) {
+    const r = await sendEmail(email, 'Reset your Capital Rooms password', `
+      <p style="margin:0 0 14px;font-size:15px;color:#1c1917;">Someone asked to reset the password for this Capital Rooms account.</p>
+      <p style="margin:0 0 22px;"><a href="${link}" style="display:inline-block;background:#181614;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;">Choose a new password</a></p>
+      <p style="margin:0 0 8px;font-size:13px;color:#57534e;">The link works once and expires within the hour.</p>
+      <p style="margin:0;font-size:13px;color:#57534e;">If this wasn’t you, ignore this email — your password stays as it is.</p>`, { signature: false })
+    if (!r.ok) console.error('forgot-password email:', r.error)
+  }
   return NextResponse.json(SAME)
 }
