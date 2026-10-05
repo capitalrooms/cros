@@ -43,8 +43,12 @@ export async function GET(req: NextRequest) {
   if (URL && ANON) {
     // Key validity — a dead key fails silently in normal use, so test it explicitly
     try {
-      const anonStatus = await status('people?select=id&limit=1', ANON)
-      add('anon key authenticates', anonStatus !== 401, 'error', anonStatus === 401 ? 'rejected by Supabase' : undefined)
+      // a 401 with "permission denied" (42501) means the key was accepted and the privacy rules (migration 192) kept an
+      // anonymous visitor out of people — correct. Only a 401 about the key or token itself (e.g. PGRST301/303) is a failure.
+      const res = await fetch(`${URL}/rest/v1/people?select=id&limit=1`, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` }, cache: 'no-store' })
+      const body = res.status === 401 ? await res.json().catch(() => ({})) : {}
+      const rejected = res.status === 401 && body?.code !== '42501'
+      add('anon key authenticates', !rejected, 'error', rejected ? `rejected by Supabase${body?.message ? `: ${body.message}` : ''}` : undefined)
     } catch { add('anon key authenticates', false, 'error', 'request failed') }
 
     if (SERVICE) {
