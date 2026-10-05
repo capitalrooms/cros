@@ -3,16 +3,15 @@
 import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/components/NameInput'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// the shared, signed-in client (lib/supabase) — a separate client here had no sign-in, so since the privacy rules
+// (migration 192) it saw no properties, rooms or viewings
+const supabase = createClient()
 
 export default function InviteToApplyPage() {
   const searchParams = useSearchParams()
