@@ -14,6 +14,7 @@ import { landlordName } from '@/lib/people'
 import { adminFetch } from '@/lib/adminFetch'
 import RentCollectionFields from '../RentCollectionFields'
 import { RENT_COLLECTION_DEFAULTS, rentCollectionProblems, rentCollectionTermsFrom, type RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
+import { DEFAULT_NOTICE_MONTHS, DEFAULT_MINIMUM_TERM_MONTHS, NOTICE_OPTIONS, TERM_OPTIONS, durationTermsFrom, durationSentence } from '@/lib/managementAgreement/durationTerms'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -145,6 +146,8 @@ export default function SendWelcomePage() {
   const [floatAmount,     setFloatAmount]     = useState(FEE_DEFAULTS.hmo.floatAmount)
   const [epcCost,         setEpcCost]         = useState(FEE_DEFAULTS.hmo.epcCost)
   const [inventoryNote,   setInventoryNote]   = useState('')
+  const [noticeMonths,    setNoticeMonths]    = useState(DEFAULT_NOTICE_MONTHS)
+  const [minimumTermMonths, setMinimumTermMonths] = useState(DEFAULT_MINIMUM_TERM_MONTHS)
   const [extraProperties, setExtraProperties] = useState<string[]>([])
   const [rcTerms,         setRcTerms]         = useState<RentCollectionTerms>(RENT_COLLECTION_DEFAULTS)
 
@@ -208,6 +211,7 @@ export default function SendWelcomePage() {
       floatAmount:     propType === 'hmo' ? floatAmount : undefined,
       epcCost,
       commencementDate: commenceDate,
+      ...durationTermsFrom({ noticeMonths, minimumTermMonths }),
       inventoryNote:   isRC ? undefined : inventoryNote.trim() || undefined,
       rentCollection:  isRC ? rentCollectionTermsFrom(rcTerms) : undefined,
     }
@@ -517,7 +521,7 @@ export default function SendWelcomePage() {
           </Card>
 
           {/* Dates */}
-          <Card title="Dates">
+          <Card title="Dates & term">
             <div className="grid grid-cols-2 gap-md">
               <div>
                 <label className={lbl}>Agreement date</label>
@@ -527,7 +531,20 @@ export default function SendWelcomePage() {
                 <label className={lbl}>Proposed commencement</label>
                 <input type="date" value={commenceDate} onChange={e => setCommenceDate(e.target.value)} className={smInp} />
               </div>
+              <div>
+                <label className={lbl}>Notice period</label>
+                <select value={noticeMonths} onChange={e => setNoticeMonths(Number(e.target.value))} className={smInp}>
+                  {NOTICE_OPTIONS.map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={lbl}>Minimum term</label>
+                <select value={minimumTermMonths} onChange={e => setMinimumTermMonths(Number(e.target.value))} className={smInp}>
+                  {TERM_OPTIONS.map(n => <option key={n} value={n}>{n === 0 ? 'None (notice any time)' : `${n} months`}</option>)}
+                </select>
+              </div>
             </div>
+            <p className="mt-sm text-xs text-neutral-500">{durationSentence({ noticeMonths, minimumTermMonths })}</p>
           </Card>
 
           {isRC && (

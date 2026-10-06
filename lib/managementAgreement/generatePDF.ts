@@ -15,6 +15,7 @@ import {
 } from '@/lib/pdfLetterhead'
 import type { RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
 import { generateRentCollectionAgreementPDF } from '@/lib/managementAgreement/rentCollectionPDF'
+import { durationSentence } from '@/lib/managementAgreement/durationTerms'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,8 @@ export interface ManagementAgreementData {
   floatAmount?: number                      // HMO: 500, single: omit
   epcCost: number                           // 75 or 100
   commencementDate: string                  // ISO date
+  noticeMonths?: number                     // termination notice; default 3 (lib/managementAgreement/durationTerms)
+  minimumTermMonths?: number                // no notice in the first N months; 0 = none; default 12
   inventoryNote?: string                    // optional free text
   // Client's nominated account for rent remittance (added once confirmed through onboarding)
   nominatedAccount?: { accountName: string; bankName?: string; sortCode: string; accountNumber: string }
@@ -274,7 +277,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
       `The Client hereby appoints the Agent as sole and exclusive managing agent for ${prop} with effect from the commencement date. The Agent accepts such appointment on the terms and conditions set out in this agreement.`)
 
     drawClause('2', 'Duration',
-      `This agreement shall continue until terminated by either party giving not less than three (3) calendar months' written notice, such notice not to be given during the first twelve months of the agreement. Termination does not affect any tenancy in place at the date of termination which shall continue to be managed by the Agent until its lawful termination.`)
+      `${durationSentence(data)} Termination does not affect any tenancy in place at the date of termination which shall continue to be managed by the Agent until its lawful termination.`)
 
     drawClause('3', 'Agent\'s Authority',
       `The Client authorises the Agent to: (a) market and let the Property at such rent and on such terms as the Agent considers appropriate; (b) collect rent and other sums payable by tenants; (c) instruct contractors and tradespeople for maintenance and repair work up to the pre-authorised expenditure limit; (d) serve statutory and other notices; and (e) take such other actions as are reasonably necessary for the management of the Property.`)
