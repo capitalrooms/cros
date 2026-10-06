@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase'
 import { landlordName } from '@/lib/people'
 import RentCollectionFields from '../RentCollectionFields'
 import { RENT_COLLECTION_DEFAULTS, rentCollectionProblems, rentCollectionTermsFrom, type RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
+import { DEFAULT_NOTICE_MONTHS, DEFAULT_MINIMUM_TERM_MONTHS, NOTICE_OPTIONS, TERM_OPTIONS, durationTermsFrom, durationSentence } from '@/lib/managementAgreement/durationTerms'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,8 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
   const [epcCost,        setEpcCost]        = useState(DEFAULTS.hmo.epcCost)
   const [commencementDate, setCommencementDate] = useState(today())
   const [inventoryNote,  setInventoryNote]  = useState('')
+  const [noticeMonths,   setNoticeMonths]   = useState(DEFAULT_NOTICE_MONTHS)
+  const [minimumTermMonths, setMinimumTermMonths] = useState(DEFAULT_MINIMUM_TERM_MONTHS)
   const [rcTerms,        setRcTerms]        = useState<RentCollectionTerms>(RENT_COLLECTION_DEFAULTS)
   const isRC = agreementType === 'rent_collection'
 
@@ -130,7 +133,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
 
   function snapshot() {
     return { agreementType, agreementDate, entityType, clientTitle, clientFirst, clientLast, hasJointLandlord, client2Title, client2First, client2Last,
-      companyName, companyReg, companyCountry, clientAddrValue, propAddresses, managementFee, letFee, floatAmount, epcCost, commencementDate, inventoryNote, rcTerms, pickedLandlordId }
+      companyName, companyReg, companyCountry, clientAddrValue, propAddresses, managementFee, letFee, floatAmount, epcCost, commencementDate, noticeMonths, minimumTermMonths, inventoryNote, rcTerms, pickedLandlordId }
   }
   async function openSaved(id: string) {
     setError(null); setSuccess(false)
@@ -153,6 +156,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
     if (f.epcCost != null) setEpcCost(f.epcCost)
     if (f.commencementDate) setCommencementDate(f.commencementDate)
     setInventoryNote(f.inventoryNote ?? '')
+    { const t = durationTermsFrom(f); setNoticeMonths(t.noticeMonths); setMinimumTermMonths(t.minimumTermMonths) }   // older saves: 3 / 12
     if (f.rcTerms) setRcTerms(f.rcTerms)
     setPickedLandlordId(f.pickedLandlordId ?? '')
     setSavedId(id)
@@ -239,6 +243,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
       floatAmount:    agreementType === 'hmo' ? floatAmount : undefined,
       epcCost,
       commencementDate,
+      ...durationTermsFrom({ noticeMonths, minimumTermMonths }),
       inventoryNote:  isRC ? undefined : inventoryNote.trim() || undefined,
       rentCollection: isRC ? rentCollectionTermsFrom(rcTerms) : undefined,
       onboardingId:   onboardingId || undefined,
@@ -361,7 +366,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
 
           {/* ── Dates ───────────────────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
-            <h2 className="text-sm font-bold text-neutral-900 mb-md">Dates</h2>
+            <h2 className="text-sm font-bold text-neutral-900 mb-md">Dates &amp; term</h2>
             <div className="grid grid-cols-2 gap-md">
               <div>
                 <label className={label}>Agreement date</label>
@@ -371,7 +376,20 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
                 <label className={label}>Commencement date</label>
                 <input type="date" value={commencementDate} onChange={e => setCommencementDate(e.target.value)} className={inp} />
               </div>
+              <div>
+                <label className={label}>Notice period</label>
+                <select value={noticeMonths} onChange={e => setNoticeMonths(Number(e.target.value))} className={inp}>
+                  {NOTICE_OPTIONS.map(n => <option key={n} value={n}>{n} {n === 1 ? 'month' : 'months'}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={label}>Minimum term</label>
+                <select value={minimumTermMonths} onChange={e => setMinimumTermMonths(Number(e.target.value))} className={inp}>
+                  {TERM_OPTIONS.map(n => <option key={n} value={n}>{n === 0 ? 'None (notice any time)' : `${n} months`}</option>)}
+                </select>
+              </div>
             </div>
+            <p className="mt-sm text-xs text-neutral-500">{durationSentence({ noticeMonths, minimumTermMonths })}</p>
           </div>
 
           {/* ── Client ──────────────────────────────────────────────────────── */}

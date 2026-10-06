@@ -14,6 +14,7 @@ import {
 } from '@/lib/pdfLetterhead'
 import type { ManagementAgreementData } from '@/lib/managementAgreement/generatePDF'
 import { rentCollectionTermsFrom } from '@/lib/managementAgreement/rentCollectionTerms'
+import { durationSentence } from '@/lib/managementAgreement/durationTerms'
 
 const COL_W = PAGE_W - MARGIN * 2
 const LIGHT = '#f8f8f8'
@@ -166,7 +167,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
       `The Client remains the manager of ${prop} and the tenants' main point of contact, and is responsible for the matters set out in Schedule 3, including maintenance, repairs, complaints, emergencies, rent queries and arrears, contractors, house rules, notices and all other tenancy and day-to-day management matters. The Client shall present itself to tenants as the manager of ${prop} and shall not hold the Agent out to tenants or third parties as the managing agent.`)
 
     clause('Duration',
-      `This agreement shall continue until terminated by either party giving not less than three (3) calendar months' written notice, such notice not to be given during the first twelve months of the agreement.`)
+      durationSentence(data))
 
     clause('Rent Collection',
       `Tenants shall pay rent into the Agent's designated client account. The Agent shall record all rent received against each property and tenancy. The Agent may contact tenants about payment details and the accounting of rent, but shall not chase or recover arrears, which remain the Client's responsibility. The Agent shall tell the Client of any rent not received or short-paid in each monthly statement, and sooner where practicable.`)
