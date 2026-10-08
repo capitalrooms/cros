@@ -90,7 +90,17 @@ interface TenancyOption {
   property_name: string | null
   property_id: string | null
   rent_amount: number | null
+  sender_name?: string | null
+  when?: string | null          // 'moving in …' / 'left …' — not a current tenant
   charge: { id: string; month: string; amount_due: number; amount_received?: number; status: string } | null
+}
+
+/** Tenancies whose name, room, house, reference, bank name or rent match every word typed (best first). */
+function searchOptions(opts: TenancyOption[], q: string, amount: number): TenancyOption[] {
+  const words = q.toLowerCase().replace(/£/g, '').split(/\s+/).filter(Boolean)
+  const hay = (o: TenancyOption) => [o.name, o.room_name, o.property_name, o.payment_reference, o.sender_name, o.rent_amount != null ? String(o.rent_amount) : ''].join(' ').toLowerCase()
+  const list = words.length ? opts.filter(o => words.every(w => hay(o).includes(w))) : opts.filter(o => o.rent_amount != null && Math.abs(Number(o.rent_amount) - amount) <= Math.max(5, amount * 0.05))
+  return list.slice(0, 8)
 }
 
 interface FuzzySuggestion {
@@ -111,7 +121,8 @@ export default function ReconciliationPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [rows, setRows]       = useState<LSRRow[]>([])
-  const [tab, setTab]         = useState<Tab>('pending')
+  // ?tab=unmatched (from Bank import) opens straight on the payments to match
+  const [tab, setTab]         = useState<Tab>(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'unmatched' ? 'unmatched' as Tab : 'pending')
   const [busy, setBusy]       = useState<Record<string, boolean>>({})
   const [rejectTarget, setRejectTarget] = useState<string | null>(null)
   const [rejectNote, setRejectNote]     = useState('')
@@ -125,6 +136,8 @@ export default function ReconciliationPage() {
   const [allocating, setAllocating] = useState<Record<string, boolean>>({})
   const [manualPick, setManualPick] = useState<Record<string, string>>({}) // txn_id → tenancy_id
   const [allocateNote, setAllocateNote] = useState<Record<string, string>>({})
+  const [pickQuery, setPickQuery] = useState<Record<string, string>>({}) // txn_id → what's typed in the search
+  const [setAside, setSetAside] = useState<{ id: string; transaction_date: string; amount: number; description: string }[]>([])
 
   const load = useCallback(async () => {
     const supabase = createClient()
@@ -145,10 +158,13 @@ export default function ReconciliationPage() {
   const loadUnmatched = useCallback(async () => {
     setUnmatchedLoading(true)
     try {
-      const res = await fetch('/api/admin/bank-import/unmatched')
+      const res = await fetch(`/api/admin/bank-import/unmatched${new URLSearchParams(window.location.search).get('practice') === '1' ? '?practice=1' : ''}`)
       const json = await res.json()
       setUnmatchedTxns(json.transactions || [])
+      // suggest a tenant for each line straight away (payer's saved bank name, name likeness, rent amount) — never allocates
+      for (const t of ((json.transactions || []) as UnmatchedTxn[]).slice(0, 30)) getFuzzySuggestion(t.id)
       setTenancyOptions(json.tenancy_options || [])
+      setSetAside(json.set_aside || [])
     } finally {
       setUnmatchedLoading(false)
     }
@@ -187,10 +203,7 @@ export default function ReconciliationPage() {
       rent_charge_id: tenancyOption.charge?.id ?? null,
       tenant_name: tenancyOption.name,
     } : null)
-    if (!option?.rent_charge_id) {
-      setError('No unpaid charge found for this tenant — generate a charge first in Rent Charges.')
-      return
-    }
+    if (!option) return   // no charge yet is fine: the server raises the rent for the month the money arrived
     setAllocating(prev => ({ ...prev, [txnId]: true }))
     setError('')
     try {
@@ -213,6 +226,24 @@ export default function ReconciliationPage() {
       setManualPick(prev => { const n = { ...prev }; delete n[txnId]; return n })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Allocation failed')
+    } finally {
+      setAllocating(prev => ({ ...prev, [txnId]: false }))
+    }
+  }
+
+  async function moveLine(txnId: string, action: 'set_aside' | 'restore') {
+    setAllocating(prev => ({ ...prev, [txnId]: true }))
+    setError('')
+    try {
+      const res = await fetch('/api/admin/bank-import/set-aside', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transaction_id: txnId, action }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'That didn’t save')
+      await loadUnmatched()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'That didn’t save')
     } finally {
       setAllocating(prev => ({ ...prev, [txnId]: false }))
     }
@@ -512,9 +543,14 @@ export default function ReconciliationPage() {
                         <p className="text-xs text-amber-700 mt-xs">Reference found but no matching tenancy: <code className="font-bold">{txn.extracted_ref}</code></p>
                       )}
                     </div>
-                    <p className="text-xs text-neutral-400 shrink-0">
-                      {txn.bank_import_batches?.filename ?? ''}
-                    </p>
+                    <div className="flex shrink-0 items-center gap-md">
+                      <p className="text-xs text-neutral-400">{txn.bank_import_batches?.filename ?? ''}</p>
+                      <button type="button" disabled={isBusy} onClick={() => moveLine(txn.id, 'set_aside')}
+                        className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-semibold text-neutral-700 hover:bg-neutral-100 disabled:opacity-40"
+                        title="Not a rent payment (a holding deposit, a landlord's top-up…) — take it out of this list">
+                        Not rent — set aside
+                      </button>
+                    </div>
                   </div>
 
                   <div className="px-xl py-lg space-y-md">
@@ -572,7 +608,13 @@ export default function ReconciliationPage() {
                                 {isBusy ? 'Saving…' : '✓ Confirm this match'}
                               </button>
                             ) : (
-                              <p className="text-xs text-amber-700">No unpaid charge — generate one in Rent Charges first</p>
+                              <button
+                                disabled={isBusy}
+                                onClick={() => allocate(txn.id, null, suggestion.suggestion, 'fuzzy_confirmed')}
+                                className="rounded-lg bg-neutral-900 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 disabled:opacity-50 whitespace-nowrap"
+                              >
+                                {isBusy ? 'Saving…' : '✓ Confirm (raises this month’s rent)'}
+                              </button>
                             )}
                             <button
                               onClick={() => setSuggestions(prev => { const n = { ...prev }; delete n[txn.id]; return n })}
@@ -594,20 +636,40 @@ export default function ReconciliationPage() {
                     {/* Manual allocation */}
                     <div className="flex items-end gap-sm flex-wrap">
                       <div className="flex-1 min-w-0">
-                        <label className="block text-xs text-neutral-500 mb-xs">Allocate to tenant manually</label>
-                        <select
-                          value={pickedId ?? ''}
-                          onChange={e => setManualPick(prev => ({ ...prev, [txn.id]: e.target.value }))}
-                          className="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
-                        >
-                          <option value="">— Select tenant —</option>
-                          {tenancyOptions.map(opt => (
-                            <option key={opt.tenancy_id} value={opt.tenancy_id}>
-                              {opt.name} · {opt.room_name} · {opt.property_name}
-                              {opt.charge ? (opt.charge.status === 'paid' ? ' · paid up' : ` · ${new Date(opt.charge.month + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })} owes £${(Number(opt.charge.amount_due) - Number(opt.charge.amount_received || 0)).toFixed(2)}`) : ' · no rent charge yet'}
-                            </option>
-                          ))}
-                        </select>
+                        <label className="block text-xs text-neutral-500 mb-xs" htmlFor={`find-${txn.id}`}>Match to a tenant yourself</label>
+                        {pickedOption ? (
+                          <div className="flex items-center justify-between gap-sm rounded-lg border border-neutral-900 bg-white px-md py-sm text-sm">
+                            <span className="min-w-0 truncate"><b>{pickedOption.name}</b> · {pickedOption.room_name} · {pickedOption.property_name}{pickedOption.when ? ` · ${pickedOption.when}` : ''}</span>
+                            <button type="button" onClick={() => setManualPick(prev => { const n = { ...prev }; delete n[txn.id]; return n })} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Change</button>
+                          </div>
+                        ) : (
+                          <>
+                            <input
+                              id={`find-${txn.id}`}
+                              type="search"
+                              placeholder="Search name, room, house, reference or rent"
+                              value={pickQuery[txn.id] ?? ''}
+                              onChange={e => setPickQuery(prev => ({ ...prev, [txn.id]: e.target.value }))}
+                              className="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-400"
+                            />
+                            {(() => {
+                              const found = searchOptions(tenancyOptions, pickQuery[txn.id] ?? '', Number(txn.amount))
+                              return (
+                                <div className="mt-xs rounded-lg border border-neutral-200 divide-y divide-neutral-100 bg-white">
+                                  {!(pickQuery[txn.id] ?? '').trim() && <p className="px-md py-xs text-[11px] font-semibold uppercase tracking-wider text-neutral-400">{found.length ? 'Rent close to this amount' : 'Type to search every tenant'}</p>}
+                                  {found.map(opt => (
+                                    <button key={opt.tenancy_id} type="button" onClick={() => setManualPick(prev => ({ ...prev, [txn.id]: opt.tenancy_id }))}
+                                      className="flex w-full items-baseline justify-between gap-md px-md py-sm text-left text-sm hover:bg-neutral-50">
+                                      <span className="min-w-0"><b>{opt.name}</b> · {opt.room_name} · {opt.property_name}{opt.when ? <span className="text-amber-700"> · {opt.when}</span> : null}<span className="block text-xs text-neutral-500">Ref {opt.payment_reference || '—'}{opt.sender_name ? ` · pays as ${opt.sender_name}` : ''}</span></span>
+                                      <span className="shrink-0 text-xs tabular-nums text-neutral-600">{opt.rent_amount != null ? `£${Number(opt.rent_amount).toFixed(2)} pcm` : ''}</span>
+                                    </button>
+                                  ))}
+                                  {(pickQuery[txn.id] ?? '').trim() && !found.length && <p className="px-md py-sm text-xs text-neutral-500">Nobody matches “{pickQuery[txn.id]}”.</p>}
+                                </div>
+                              )
+                            })()}
+                          </>
+                        )}
                       </div>
                       <input
                         type="text"
@@ -617,7 +679,7 @@ export default function ReconciliationPage() {
                         className="rounded-lg border border-neutral-300 px-md py-sm text-sm w-44 focus:outline-none focus:ring-2 focus:ring-neutral-400"
                       />
                       <button
-                        disabled={!pickedId || !pickedOption?.charge || isBusy}
+                        disabled={!pickedOption || isBusy}
                         onClick={() => pickedOption && allocate(txn.id, pickedOption, null, 'manual')}
                         className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-40 whitespace-nowrap"
                       >
@@ -629,13 +691,27 @@ export default function ReconciliationPage() {
                       return <p className={`text-xs font-semibold ${FIT_CLASS[fit.tone]}`}>{fit.label}</p>
                     })()}
                     {pickedOption && !pickedOption.charge && (
-                      <p className="text-xs text-amber-700">This tenant has no rent charge from when CROS took over rent yet. <a href="/admin/rent-charges" className="underline">Raise charges first →</a></p>
+                      <p className="text-xs text-neutral-600">No rent raised for this tenant yet — allocating raises the rent for {new Date(txn.transaction_date + 'T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} and puts this payment against it.</p>
                     )}
                   </div>
                 </div>
               )
             })}
           </div>
+        )}
+
+        {tab === 'unmatched' && setAside.length > 0 && (
+          <details className="rounded-xl border border-neutral-200 bg-white">
+            <summary className="cursor-pointer px-xl py-md text-sm font-semibold text-neutral-700">Set aside as not rent ({setAside.length})</summary>
+            <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
+              {setAside.map(t => (
+                <li key={t.id} className="flex items-center justify-between gap-md px-xl py-sm text-sm">
+                  <span className="min-w-0"><b>£{Number(t.amount).toFixed(2)}</b> <span className="text-xs text-neutral-500">{new Date(t.transaction_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span><span className="block truncate font-mono text-xs text-neutral-600">{t.description}</span></span>
+                  <button type="button" disabled={allocating[t.id]} onClick={() => moveLine(t.id, 'restore')} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline disabled:opacity-40">Put back to match</button>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
       </div>

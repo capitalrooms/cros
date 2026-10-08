@@ -26,19 +26,28 @@ export async function GET(req: NextRequest) {
     .eq('status', 'unmatched')
     .order('transaction_date', { ascending: false })
     .limit(200)
+  // lines set aside as not rent (they can be put back)
+  const { data: setAside } = await supabase
+    .from('bank_transactions')
+    .select('id, transaction_date, amount, description, is_practice, property_id, matched_at')
+    .eq('status', 'ignored')
+    .order('transaction_date', { ascending: false })
+    .limit(100)
 
-  // Also fetch active tenancies with unpaid charges for the manual picker
+  // Tenancies to match against: everyone current, moving in within 60 days, or moved out in the last 120 days
+  // (arrears and final payments still arrive) — with or without a payment reference
   const today = new Date().toISOString().split('T')[0]
+  const shift = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const { data: tenancies } = await supabase
     .from('tenancies')
     .select(`
-      id, room_id, person_id, rent_amount, payment_reference,
+      id, room_id, person_id, rent_amount, payment_reference, start_date, end_date, let_cancelled_at, bank_sender_name,
       people:people!person_id(id, first_name, last_name),
       rooms(id, name, properties(id, name))
     `)
-    .lte('start_date', today)
-    .or(`end_date.is.null,end_date.gte.${today}`)
-    .not('payment_reference', 'is', null)
+    .lte('start_date', shift(60))
+    .or(`end_date.is.null,end_date.gte.${shift(-120)}`)
+    .is('let_cancelled_at', null)
 
   // Oldest unpaid charge per room (from when CROS took over rent; cleared charges don't count). A tenant who is
   // all paid up gets their latest charge instead — money put there rolls on to the next month (lib/payments/apply).
@@ -70,6 +79,8 @@ export async function GET(req: NextRequest) {
       property_name: t.rooms?.properties?.name ?? null,
       property_id: t.rooms?.properties?.id ?? null,
       rent_amount: t.rent_amount,
+      sender_name: t.bank_sender_name ?? null,
+      when: t.start_date > today ? `moving in ${t.start_date}` : t.end_date && t.end_date < today ? `left ${t.end_date}` : null,
       charge: charge ? { id: charge.id, month: charge.charge_month, amount_due: charge.amount_due, amount_received: charge.amount_received, status: charge.status } : null,
     }
   }).filter((t: any) => t.name)
@@ -80,5 +91,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     transactions: ((transactions || []) as any[]).filter(t => !!t.is_practice === practice && (t.property_id ? ok(t.property_id) : true)),
     tenancy_options: tenancyOptions.filter((t: any) => ok(t.property_id)),
+    set_aside: ((setAside || []) as any[]).filter(t => !!t.is_practice === practice && (t.property_id ? ok(t.property_id) : true)),
   })
 }
