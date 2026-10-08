@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
+import DocUploadDrawer from '@/components/DocUploadDrawer'
 import SetOnNoticeModal, { type OnNoticeData } from '@/app/components/SetOnNoticeModal'
 import { createClient } from '@/lib/supabase'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
@@ -48,6 +49,50 @@ const label = 'text-[11px] font-bold uppercase tracking-wider text-neutral-500'
 const input = 'rounded-lg border border-neutral-300 px-sm py-xs text-sm text-neutral-900 bg-white'
 const btn = 'rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40'
 const btnDark = 'rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-40'
+
+// ── Documents for one step, filed against this tenancy (and so this tenant) ─
+
+const DOC_LABEL: Record<string, string> = {
+  reference_report: 'Referencing report', employment_letter: 'Employment / income letter', id_proof: 'Passport or ID',
+  right_to_rent: 'Right to Rent check', tenancy_agreement: 'Signed agreement', deposit_certificate: 'Deposit certificate',
+  inventory: 'Inventory / check-in report', other: 'Other document',
+}
+
+function StepDocs({ file, types, reload, disabled }: { file: LettingFile; types: string[]; reload: () => Promise<void>; disabled?: boolean }) {
+  const [uploading, setUploading] = useState<string | null>(null)
+  const filed = file.files.filter((d: any) => types.includes(d.document_type))
+  return (
+    <div className="rounded-xl border border-neutral-200 px-md py-sm space-y-xs">
+      <p className={label}>Documents · {file.tenant.name}</p>
+      {filed.length ? (
+        <ul className="divide-y divide-neutral-100 text-sm">
+          {filed.map((d: any) => (
+            <li key={d.id} className="flex items-baseline justify-between gap-md py-xs">
+              <span className="min-w-0"><span className="font-semibold break-all">{d.file_name}</span><span className="block text-xs text-neutral-500">{DOC_LABEL[d.document_type] ?? String(d.document_type ?? '').replace(/_/g, ' ')} · {day(d.uploaded_at)}</span></span>
+              {/^https?:/.test(d.storage_url ?? '') && <a href={d.storage_url} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Open</a>}
+            </li>
+          ))}
+        </ul>
+      ) : <p className="text-xs text-neutral-500">Nothing uploaded for this step yet.</p>}
+      {!disabled && (
+        <div className="flex flex-wrap gap-xs pt-xs">
+          {types.map(ty => <button key={ty} type="button" className={btn} onClick={() => setUploading(ty)}>+ {DOC_LABEL[ty] ?? ty}</button>)}
+        </div>
+      )}
+      {uploading && (
+        <DocUploadDrawer
+          title={`${file.tenant.name} · ${[file.room.name, file.property.name].filter(Boolean).join(', ')}`}
+          subtitle={`Upload ${(DOC_LABEL[uploading] ?? 'a document').toLowerCase()}`}
+          propertyId={file.property.id}
+          tenancyId={file.tenancy.id}
+          defaultType={uploading}
+          onClose={() => setUploading(null)}
+          onUploaded={() => { reload() }}
+        />
+      )}
+    </div>
+  )
+}
 
 // ── A step that is ticked off with a date ───────────────────────────────────
 
@@ -200,10 +245,11 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
               ].join('\n'))}>Copy all for Homeppl</button>
               <Tick title="Sent to Homeppl" step="referencing_sent" value={t.referencing_sent_at} patch={patch} disabled={ended} />
               <Tick title="Referencing passed" help="Add any guarantor in the tenant’s profile." step="referencing_passed" value={t.referencing_passed_at} patch={patch} disabled={ended} />
+              <StepDocs file={file} types={['reference_report', 'employment_letter']} reload={reload} disabled={ended} />
             </>
           )}
 
-          {step === 'right_to_rent' && <RightToRent file={file} patch={patch} disabled={ended} />}
+          {step === 'right_to_rent' && <RightToRent file={file} patch={patch} disabled={ended} reload={reload} />}
 
           {step === 'agreement' && (
             <>
@@ -217,7 +263,8 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
                 <p className="text-sm text-neutral-700">Move-in pack sent {day(file.pack.sent_at)}{file.pack.first_viewed_at ? ` · opened ${day(file.pack.first_viewed_at)}` : ' · not opened yet'}{file.pack.confirmed_at ? ` · read and confirmed ${day(file.pack.confirmed_at)}${file.pack.confirmed_name ? ` by ${file.pack.confirmed_name}` : ''}` : ''}</p>
               ) : <p className="text-sm text-neutral-500">Move-in pack not sent yet.</p>}
               <Tick title="Sent for signing" help="Once the tenant has confirmed reading the pack, send the agreement through Adobe Sign." step="agreement_sent" value={t.agreement_sent_at} patch={patch} disabled={ended} />
-              <Tick title="Agreement signed" help="Both signed copies come back by email — upload the signed copy to the tenant’s documents." step="agreement_signed" value={t.agreement_signed_at} patch={patch} disabled={ended} />
+              <Tick title="Agreement signed" help="Both signed copies come back by email — upload the signed copy below." step="agreement_signed" value={t.agreement_signed_at} patch={patch} disabled={ended} />
+              <StepDocs file={file} types={['tenancy_agreement']} reload={reload} disabled={ended} />
             </>
           )}
 
@@ -243,7 +290,7 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
             </>
           )}
 
-          {step === 'deposit' && <DepositStep file={file} patch={patch} disabled={ended} />}
+          {step === 'deposit' && <DepositStep file={file} patch={patch} disabled={ended} reload={reload} />}
 
           {step === 'keys' && (
             <>
@@ -251,6 +298,7 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
               <p className="text-sm text-neutral-600">Meet them at the property for the tour and key handover, with the inventory and any existing damage noted beforehand. Keys only once the balance has cleared.</p>
               {!t.move_in_monies_received_at && <p className="text-xs text-amber-800">Move-in monies aren’t marked received yet.</p>}
               <Tick title="Keys handed over" step="keys" value={t.keys_handed_at} patch={patch} disabled={ended} />
+              <StepDocs file={file} types={['inventory']} reload={reload} disabled={ended} />
             </>
           )}
 
@@ -270,21 +318,22 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
   )
 }
 
-function RightToRent({ file, patch, disabled }: { file: LettingFile; patch: Patch; disabled: boolean }) {
+function RightToRent({ file, patch, disabled, reload }: { file: LettingFile; patch: Patch; disabled: boolean; reload: () => Promise<void> }) {
   const [until, setUntil] = useState('')
   return (
     <>
       <h2 className="text-lg font-bold">Right to Rent</h2>
-      <p className="text-sm text-neutral-600">Check before {day(file.tenancy.start_date)} and keep a copy of what you saw (upload it to the tenant’s documents). If their right is time-limited, add the date to recheck.</p>
+      <p className="text-sm text-neutral-600">Check before {day(file.tenancy.start_date)} and keep a copy of what you saw (upload it below). If their right is time-limited, add the date to recheck.</p>
       {file.tenant.rightToRentUntil && <p className="text-sm text-amber-800">Time-limited — recheck by {day(file.tenant.rightToRentUntil)}.</p>}
       <Tick title="Right to Rent checked" step="right_to_rent" value={file.tenancy.right_to_rent_checked_at} patch={patch} disabled={disabled}
         extra={<label className="flex flex-wrap items-center gap-sm text-xs text-neutral-600">Time-limited? Recheck by <input type="date" className={input} value={until} onChange={e => setUntil(e.target.value)} /></label>}
         extraValues={until ? { rightToRentUntil: until } : undefined} />
+      <StepDocs file={file} types={['id_proof', 'right_to_rent']} reload={reload} disabled={disabled} />
     </>
   )
 }
 
-function DepositStep({ file, patch, disabled }: { file: LettingFile; patch: Patch; disabled: boolean }) {
+function DepositStep({ file, patch, disabled, reload }: { file: LettingFile; patch: Patch; disabled: boolean; reload: () => Promise<void> }) {
   const t = file.tenancy
   const [scheme, setScheme] = useState(t.deposit_scheme || 'DPS')
   const [ref, setRef] = useState('')
@@ -303,6 +352,7 @@ function DepositStep({ file, patch, disabled }: { file: LettingFile; patch: Patc
         extraValues={{ scheme, schemeRef: ref }} />
       {t.deposit_scheme_ref && <p className="text-xs text-neutral-500">{t.deposit_scheme} reference {t.deposit_scheme_ref}</p>}
       <Tick title="Prescribed information served" step="prescribed_info" value={t.prescribed_info_served_at} patch={patch} disabled={disabled} />
+      <StepDocs file={file} types={['deposit_certificate']} reload={reload} disabled={disabled} />
     </>
   )
 }
@@ -512,8 +562,9 @@ export function MoneyTab({ file }: { file: LettingFile }) {
 
 // ── Documents ───────────────────────────────────────────────────────────────
 
-export function DocumentsTab({ file }: { file: LettingFile }) {
+export function DocumentsTab({ file, reload }: { file: LettingFile; reload: () => Promise<void> }) {
   const t = file.tenancy
+  const [uploading, setUploading] = useState(false)
   return (
     <div className="space-y-md">
       <section className={card}>
@@ -528,7 +579,7 @@ export function DocumentsTab({ file }: { file: LettingFile }) {
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-sm mb-sm">
           <h2 className="text-lg font-bold">Filed documents</h2>
-          <Link href={`/admin/tenant/${file.tenant.id}?tab=documents`} className="text-sm font-semibold text-blue-700 hover:underline">Upload in the tenant’s profile →</Link>
+          <button type="button" className={btnDark} onClick={() => setUploading(true)}>+ Upload for {file.tenant.name || 'this tenant'}</button>
         </div>
         {file.files.length ? (
           <ul className="divide-y divide-neutral-100 text-sm">
@@ -540,6 +591,17 @@ export function DocumentsTab({ file }: { file: LettingFile }) {
             ))}
           </ul>
         ) : <p className="text-sm text-neutral-500">Nothing filed against this tenancy yet — references and Right to Rent from the application move here at let agreed.</p>}
+        <p className="mt-sm text-xs text-neutral-500">Filed against {file.tenant.name || 'this tenant'}’s tenancy of {[file.room.name, file.property.name].filter(Boolean).join(', ')}, so it also shows in <Link href={`/admin/tenant/${file.tenant.id}?tab=documents`} className="font-semibold text-blue-700 hover:underline">their profile</Link>.</p>
+        {uploading && (
+          <DocUploadDrawer
+            title={`${file.tenant.name} · ${[file.room.name, file.property.name].filter(Boolean).join(', ')}`}
+            subtitle="Upload a tenancy document"
+            propertyId={file.property.id}
+            tenancyId={t.id}
+            onClose={() => setUploading(false)}
+            onUploaded={() => { reload() }}
+          />
+        )}
       </section>
     </div>
   )
@@ -551,7 +613,7 @@ export function LettersTab({ file }: { file: LettingFile }) {
   return (
     <section className={card}>
       <div className="flex flex-wrap items-center justify-between gap-sm mb-sm">
-        <h2 className="text-lg font-bold">Letters &amp; invoices</h2>
+        <h2 className="text-lg font-bold">Letters &amp; Invoices</h2>
         <Link href={`/admin/document-generator?tenancy=${file.tenancy.id}`} className={btnDark}>New letter or invoice</Link>
       </div>
       {file.documents.length ? (
@@ -633,7 +695,7 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
   return (
     <div className="space-y-md">
       <section className={`${card} space-y-sm`}>
-        <h2 className="text-lg font-bold">Notice &amp; renewal</h2>
+        <h2 className="text-lg font-bold">Notice &amp; Renewal</h2>
         <dl className="grid grid-cols-2 gap-sm text-sm sm:grid-cols-3">
           <div><dt className={label}>Notice received</dt><dd>{day(t.notice_received_date)}</dd></div>
           <div><dt className={label}>Moves out</dt><dd>{day(t.end_date)}</dd></div>

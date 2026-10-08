@@ -17,7 +17,7 @@ import { ProgressTab, TermsTab, MoneyTab, DocumentsTab, LettersTab, NoticeTab, A
 
 const TABS = [
   ['progress', 'Progress'], ['terms', 'Terms'], ['money', 'Money'], ['documents', 'Documents'],
-  ['letters', 'Letters & invoices'], ['notice', 'Notice & renewal'], ['activity', 'Activity'],
+  ['letters', 'Letters & Invoices'], ['notice', 'Notice & Renewal'], ['activity', 'Activity'],
 ] as const
 type Tab = typeof TABS[number][0]
 
@@ -83,8 +83,8 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
       <AppBar left={<BackButton href={from} />} title="Letting file" />
       <PageHero
         eyebrow={<>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''} · {STAGE_LABEL[file.stage]} · {file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</>}
-        title={where}
-        subtitle={<>{file.tenant.formalName || file.tenant.name} · {file.stage === 'let_agreed' ? 'from' : 'since'} {day(tn.start_date)} · {gbp(tn.rent_amount)} pcm{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}</>}
+        title={file.tenant.name || where}
+        subtitle={<>{file.tenant.name ? `${where} · ` : ''}{file.stage === 'let_agreed' ? 'from' : 'since'} {day(tn.start_date)} · {gbp(tn.rent_amount)} pcm{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}</>}
         stats={[
           ...(file.liveHold ? [{ label: `Holding deposit · ${file.liveHold.status === 'applied' ? 'applied' : 'received'} ${day(file.liveHold.received_on)}`, value: gbp(file.liveHold.amount) }] : []),
           ...(balanceDue != null && file.stage === 'let_agreed' ? [{ label: `Balance due by ${day(tn.start_date)}`, value: gbp(balanceDue), tone: 'warn' as const }] : []),
@@ -108,7 +108,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
             {activeTab === 'progress' && <ProgressTab file={file} step={step ?? file.currentStep} setStep={setStep} patch={patch} reload={load} />}
             {activeTab === 'terms' && <TermsTab file={file} patch={patch} />}
             {activeTab === 'money' && <MoneyTab file={file} />}
-            {activeTab === 'documents' && <DocumentsTab file={file} />}
+            {activeTab === 'documents' && <DocumentsTab file={file} reload={load} />}
             {activeTab === 'letters' && <LettersTab file={file} />}
             {activeTab === 'notice' && <NoticeTab file={file} patch={patch} reload={load} startMarking={mark} />}
             {activeTab === 'activity' && <ActivityTab file={file} />}

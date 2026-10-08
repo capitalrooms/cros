@@ -31,14 +31,14 @@ const ZONES_AS_WRITTEN: Zone[] = [
   {
     id: 'portfolio',
     emoji: '🏢',
-    label: 'Portfolio',
+    label: 'Properties',
     home: '/admin/active-rooms',
+    // Property Audit (/admin/overview) and Property Tasks (/admin/property-tasks) left the menu 8 Oct 2026: the Dashboard
+    // covers the audit's figures, Compliance the certificate deadlines, and no task had ever been made. Pages still open by link.
     routes: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties/new'],
     subnav: [
       { emoji: '➕', label: 'Add Property',    href: '/admin/properties/new' },
       { emoji: '🏠', label: 'All Units',       href: '/admin/active-rooms' },
-      { emoji: '🔍', label: 'Property Audit',  href: '/admin/overview' },
-      { emoji: '📋', label: 'Property Tasks',  href: '/admin/property-tasks' },
     ],
   },
   {

@@ -136,8 +136,14 @@ export default function LettingsOverviewPage() {
                       <span className="shrink-0 text-xs font-semibold tabular-nums text-neutral-600">Out {day(n.endDate)}</span>
                     </span>
                     <span className="block truncate text-xs text-neutral-500">{n.room} · {n.property}</span>
-                    <span className={`mt-0.5 block text-xs ${n.relet ? 'text-green-700' : 'text-amber-700'}`}>{n.relet ? `Re-let · ${n.relet.tenant} from ${day(n.relet.startDate)}` : 'Not re-let yet'}</span>
+                    {!n.relet && <span className="mt-0.5 block text-xs text-amber-700">Not re-let yet</span>}
                   </Link>
+                  {/* the incoming tenant opens their own file — the card above is the outgoing tenant's */}
+                  {n.relet && (
+                    <Link href={`/admin/lettings/${n.relet.id}?${FROM}`} className="-mt-xs block px-lg pb-sm text-xs text-green-700 hover:underline">
+                      Re-let · <span className="font-semibold">{n.relet.tenant}</span> from {day(n.relet.startDate)} →
+                    </Link>
+                  )}
                 </li>
               )) : <Empty>Nobody is on notice.</Empty>}
             </Column>

@@ -160,7 +160,7 @@ export default function PropertyAuditPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
-      <PageHero eyebrow="Portfolio" title="Address & postcode audit" subtitle="Some imported addresses may have incorrect or missing postcodes. Work through each property — look up the postcode, correct the address if needed, then confirm. You can do this gradually; your progress is saved after each confirmation." />
+      <PageHero eyebrow="Properties" title="Address & postcode audit" subtitle="Some imported addresses may have incorrect or missing postcodes. Work through each property — look up the postcode, correct the address if needed, then confirm. You can do this gradually; your progress is saved after each confirmation." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
