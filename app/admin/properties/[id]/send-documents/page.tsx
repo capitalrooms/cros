@@ -11,7 +11,7 @@ interface Doc { key: string; label: string; url: string | null; uploadedAt: stri
 interface Tenant { personId: string; name: string; email: string; room: string }
 interface Send { id: string; subject: string; sent_at: string; documents: { label: string }[]; recipients: { name: string; ok: boolean }[] }
 interface Data {
-  property: { id: string; name: string; address: string }; documents: Doc[]; tenants: Tenant[]; sends: Send[]
+  property: { id: string; name: string; address: string }; documents: Doc[]; tenants: Tenant[]; landlord: Tenant | null; sends: Send[]
   commsLive: boolean; defaults: { subject: string; message: string }; setupNeeded: string | null
 }
 
@@ -46,9 +46,12 @@ export default function SendHouseDocuments({ params }: { params: Promise<{ id: s
   useEffect(() => { load(true) }, [load])
 
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, key: string, on: boolean) => { const n = new Set(set); if (on) n.add(key); else n.delete(key); setter(n) }
+  const landlordOn = !!data?.landlord && people.has(data.landlord.personId)
+  const tenantCount = people.size - (landlordOn ? 1 : 0)
+  const who = [tenantCount ? `${tenantCount} tenant${tenantCount === 1 ? '' : 's'}` : '', landlordOn ? 'the landlord' : ''].filter(Boolean).join(' and ') || 'nobody'
 
   async function post(action: 'preview' | 'test' | 'send') {
-    if (action === 'send' && !window.confirm(`Email ${people.size} tenant${people.size === 1 ? '' : 's'} at ${data?.property.name}?`)) return
+    if (action === 'send' && !window.confirm(`Email ${who} at ${data?.property.name}?`)) return
     setBusy(action); setError(''); setNotice('')
     try {
       const r = await adminFetch(`/api/admin/house-docs/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, docKeys: [...docs], personIds: [...people], subject, message }) })
@@ -56,7 +59,7 @@ export default function SendHouseDocuments({ params }: { params: Promise<{ id: s
       if (!r.ok) throw new Error(j.error || 'Could not send')
       if (action === 'preview') setHtml(j.html)
       else if (action === 'test') setNotice(`Test sent to ${j.sentTo?.[0]}.`)
-      else { setNotice(`Sent to ${j.sent} tenant${j.sent === 1 ? '' : 's'}${j.failed?.length ? ` — failed: ${j.failed.join(', ')}` : ''}.${j.warning ? ' ' + j.warning : ''}`); load(false) }
+      else { setNotice(`Sent to ${j.sent} ${j.sent === 1 ? 'person' : 'people'}${j.failed?.length ? ` — failed: ${j.failed.join(', ')}` : ''}.${j.warning ? ' ' + j.warning : ''}`); load(false) }
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not send') }
     finally { setBusy('') }
   }
@@ -93,7 +96,7 @@ export default function SendHouseDocuments({ params }: { params: Promise<{ id: s
               </section>
 
               <section className="rounded-2xl bg-white p-lg">
-                <h2 className="font-bold text-neutral-900">Tenants ({data.tenants.length})</h2>
+                <h2 className="font-bold text-neutral-900">Send to</h2>
                 <p className="text-xs text-neutral-500">Current tenants with an email address. Each gets their own email.</p>
                 {data.tenants.length === 0 ? <p className="mt-sm text-sm text-neutral-500">No current tenants with an email address.</p> : (
                   <ul className="mt-sm space-y-xs">
@@ -106,6 +109,13 @@ export default function SendHouseDocuments({ params }: { params: Promise<{ id: s
                     ))}
                   </ul>
                 )}
+                {data.landlord ? (
+                  <label className="mt-sm flex items-center gap-sm border-t border-neutral-100 pt-sm text-sm">
+                    <input type="checkbox" checked={people.has(data.landlord.personId)} onChange={e => toggle(people, setPeople, data.landlord!.personId, e.target.checked)} />
+                    <span className="flex-1 text-neutral-900">{data.landlord.name} <span className="text-neutral-500">· landlord</span></span>
+                    <span className="text-xs text-neutral-500">{data.landlord.email}</span>
+                  </label>
+                ) : <p className="mt-sm border-t border-neutral-100 pt-sm text-xs text-neutral-500">No landlord email on this property.</p>}
               </section>
             </div>
 
@@ -114,9 +124,9 @@ export default function SendHouseDocuments({ params }: { params: Promise<{ id: s
                 <div className="space-y-sm">
                   <label className="block text-xs font-semibold text-neutral-700">Subject<input className={input} value={subject} onChange={e => setSubject(e.target.value)} /></label>
                   <label className="block text-xs font-semibold text-neutral-700">Message<textarea rows={4} className={input} value={message} onChange={e => setMessage(e.target.value)} /></label>
-                  {!data.commsLive && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900">Tenant messages are paused in Settings, so “Send to tenants” is off. You can send yourself a test.</p>}
+                  {!data.commsLive && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900">Messages you send yourself are switched off in Settings, so “Send to tenants” is off. You can send yourself a test.</p>}
                   <div className="flex flex-wrap gap-sm">
-                    <button onClick={() => post('send')} disabled={!!busy || !data.commsLive || !docs.size || !people.size} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:bg-neutral-300">{busy === 'send' ? 'Sending…' : `Send to ${people.size} tenant${people.size === 1 ? '' : 's'}`}</button>
+                    <button onClick={() => post('send')} disabled={!!busy || !data.commsLive || !docs.size || !people.size} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:bg-neutral-300">{busy === 'send' ? 'Sending…' : `Send to ${who}`}</button>
                     <button onClick={() => post('test')} disabled={!!busy || !docs.size} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'test' ? 'Sending…' : 'Send test to me'}</button>
                     <button onClick={() => post('preview')} disabled={!!busy} className="rounded-lg px-md py-sm text-sm font-bold text-neutral-600 underline">{busy === 'preview' ? 'Building…' : 'Preview email'}</button>
                   </div>

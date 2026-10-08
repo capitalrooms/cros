@@ -99,7 +99,7 @@ export default function CertificateRound() {
           <label className="block text-xs font-semibold text-neutral-700">Message (goes above the list of certificates)
             <textarea rows={3} value={message} onChange={e => setMessage(e.target.value)} className="mt-xs w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900" />
           </label>
-          {!commsLive && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900">Tenant messages are paused in Settings, so sending to tenants is off. You can send yourself a test of the first ticked house.</p>}
+          {!commsLive && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900">Messages you send yourself are switched off in Settings, so sending to tenants is off. You can send yourself a test of the first ticked house.</p>}
           <div className="flex flex-wrap gap-sm">
             <button onClick={() => post('send')} disabled={!!busy || !commsLive || !chosen.length} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:bg-neutral-300">{busy === 'send' ? 'Sending…' : `Send to ${people} tenants`}</button>
             <button onClick={() => post('test')} disabled={!!busy || !chosen.length} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'test' ? 'Sending…' : 'Send test to me'}</button>

@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase'
 import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getElectedCommsLive } from '@/lib/comms'
+import { requireStaff } from '@/lib/portalAuth'
 import twilio from 'twilio'
 
 export const runtime = 'nodejs'
@@ -32,9 +33,11 @@ export async function POST(req: NextRequest) {
   const supabase = await createServerClient()
   const user = await getCurrentUser(supabase)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await requireStaff(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
 
-  const live = await getCommsLive()
-  if (!live) return NextResponse.json({ error: 'Tenant comms are paused' }, { status: 503 })
+  // a tour notice is picked and sent by staff, so it goes while automatic messages are paused
+  const live = await getElectedCommsLive()
+  if (!live) return NextResponse.json({ error: 'Messages you send are switched off (Settings)' }, { status: 503 })
 
   const { room_ids, viewing_date, time_from, time_to, message: customMessage } = await req.json()
 

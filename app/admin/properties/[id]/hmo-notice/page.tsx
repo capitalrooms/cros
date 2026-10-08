@@ -183,7 +183,7 @@ export default function HmoNoticePage({ params }: { params: Promise<{ id: string
 
             <section className="rounded-2xl bg-white p-lg">
               <h2 className="mb-sm text-base font-bold text-neutral-900">Send to tenants</h2>
-              {!data.commsLive && <p className="mb-sm rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900">Tenant messages are paused in Settings — download the letter or send yourself a test.</p>}
+              {!data.commsLive && <p className="mb-sm rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900">Messages you send yourself are switched off in Settings — download the letter or send yourself a test.</p>}
               {data.tenants.length === 0 && <p className="text-sm text-neutral-500">No one with an email address lives here now.</p>}
               <div className="space-y-xs">
                 {data.tenants.map(t => (

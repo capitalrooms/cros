@@ -54,6 +54,23 @@ export async function getNewTenantCommsLive(): Promise<boolean> {
   return true
 }
 
+/**
+ * Messages a member of staff CHOOSES to send to current tenants — picked and sent from a button after seeing who
+ * gets them: certificates to a house, the HMO licence notice, Quick Notify, and the viewing notices ticked when
+ * booking a viewing. These go out while automatic messages are paused (Harry, 8 Oct 2026: "auto emails paused but
+ * elected emails can still go out"). They have their own switch on the Settings page (system_settings
+ * elected_comms_live; on unless set to 'false'). Anything sent automatically — on a booking, a job update, a cron,
+ * a reschedule — must keep using getCommsLive().
+ */
+export async function getElectedCommsLive(): Promise<boolean> {
+  try {
+    const { data } = await createServiceClient().from('system_settings').select('value').eq('key', 'elected_comms_live').maybeSingle()
+    return data?.value !== 'false'
+  } catch (_) {
+    return true
+  }
+}
+
 /** Roles that are internal staff — always allowed to receive notifications. */
 const STAFF_ROLES = new Set(['administrator', 'admin', 'contractor', 'cleaner', 'lettings'])
 export function isStaffRole(role: string | null | undefined): boolean {

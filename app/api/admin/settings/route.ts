@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
   // Only settings with a control on the Settings page can be changed from here, each checked
   const valid: Record<string, (v: string) => boolean> = {
     comms_live: v => v === 'true' || v === 'false',
+    elected_comms_live: v => v === 'true' || v === 'false',
     rent_grace_days: v => /^\d{1,2}$/.test(v) && Number(v) <= 31,
   }
   if (!valid[key]) return NextResponse.json({ error: `${key} can’t be changed here` }, { status: 400 })

@@ -6,11 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getElectedCommsLive } from '@/lib/comms'
 import { sendEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFor } from '@/lib/email/sender'
-import { loadHouse, houseEmailHtml, defaultHouseSubject, defaultHouseMessage } from '@/lib/houseDocs'
+import { loadHouse, houseEmailHtml, defaultHouseSubject, defaultHouseMessage, landlordHouseMessage } from '@/lib/houseDocs'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prop
   if (!house) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
   const { data: sends, error } = await s.from('house_document_sends').select('id, subject, documents, recipients, sent_at').eq('property_id', propertyId).order('sent_at', { ascending: false }).limit(20)
   return NextResponse.json({
-    ...house, sends: sends ?? [], commsLive: await getCommsLive(),
+    ...house, sends: sends ?? [], commsLive: await getElectedCommsLive(),
     defaults: { subject: defaultHouseSubject(house.property.address), message: defaultHouseMessage },
     setupNeeded: error && (error.code === 'PGRST205' || error.code === '42P01') ? 'Run migration 188 in Supabase to keep a record of what was sent.' : null,
   })
@@ -54,14 +54,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
     return r.ok ? NextResponse.json({ ok: true, sentTo: [sender.replyTo] }) : NextResponse.json({ error: r.error || 'The email could not be sent.' }, { status: 502 })
   }
   if (b.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-  if (!(await getCommsLive())) return NextResponse.json({ error: 'Tenant messages are paused (Settings). Send a test to yourself instead.' }, { status: 409 })
+  if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off (Settings). Send a test to yourself instead.' }, { status: 409 })
 
   const chosen = house.tenants.filter(t => (b.personIds ?? []).includes(t.personId))
-  if (!chosen.length) return NextResponse.json({ error: 'Pick at least one tenant.' }, { status: 400 })
+  const toLandlord = !!house.landlord && (b.personIds ?? []).includes(house.landlord.personId)
+  if (!chosen.length && !toLandlord) return NextResponse.json({ error: 'Pick at least one tenant or the landlord.' }, { status: 400 })
   const recipients = []
   for (const t of chosen) {        // one email each — tenants never see each other's addresses
     const r = await sendEmail(t.email, subject, houseEmailHtml(t.firstName, house.property.address, docs, message), { req })
     recipients.push({ person_id: t.personId, name: t.name, email: t.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
+  }
+  if (toLandlord) {
+    const l = house.landlord!
+    const r = await sendEmail(l.email, subject, houseEmailHtml(l.firstName, house.property.address, docs, landlordHouseMessage(message)), { req })
+    recipients.push({ person_id: l.personId, name: `${l.name} (landlord)`, email: l.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
   }
   const { error } = await s.from('house_document_sends').insert({
     property_id: propertyId, subject, sent_by: admin.personId, recipients,

@@ -23,7 +23,7 @@ import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { senderFields, senderFor } from '@/lib/email/sender'
 import { requireStaff } from '@/lib/portalAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getCommsLive, getElectedCommsLive } from '@/lib/comms'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 
@@ -94,8 +94,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
-  if (!(await getCommsLive())) return NextResponse.json({ sent: 0, reason: 'tenant_comms_paused', message: 'Tenant messages are paused' })
   const body = await req.json()
+  // elected: the occupant's details were typed in when booking and the email chosen there; automatic sends
+  // (a reschedule on the lettings app) stay under the automatic-message pause
+  if (!(await (body.elected === true ? getElectedCommsLive() : getCommsLive()))) return NextResponse.json({ sent: 0, reason: 'tenant_comms_paused', message: 'Tenant messages are paused' })
   const { listing_id, property_id, contacts: givenContacts, event, viewing_date, viewing_time, visitor_name, room_name } = body
   const sender_name = body.sender_name || (await senderFor(req)).name
 
