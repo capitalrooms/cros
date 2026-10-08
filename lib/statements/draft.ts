@@ -43,6 +43,10 @@ export const statementReference = (month: string) => new Date(month + '-01T12:00
 export async function buildStatementDraft(s: SupabaseClient, propertyId: string, month: string): Promise<StatementDraft> {
   if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('Month must be YYYY-MM')
   const start = `${month}-01`
+  // Before CROS took over rent there's no rent received here to build from — those months come from the old
+  // system's statements (Statements › Import), which keep each tenant's name and rent exactly as they were
+  const from = await ledgerStart(s)
+  if (start < from.slice(0, 7) + '-01') throw new Error(`CROS took over rent on ${new Date(from + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}, so it has no rent records for ${new Date(start + 'T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })}. Import that month's statement from your old system instead (Statements › Import).`)
   const [y, m] = month.split('-').map(Number)
   const end = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
 
