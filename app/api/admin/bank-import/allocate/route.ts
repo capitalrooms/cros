@@ -27,6 +27,8 @@ import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { applyPayment } from '@/lib/payments/apply'
+import { ensureTenancyCharge } from '@/lib/rentCharges/generate'
+import { ledgerStart } from '@/lib/clientLedger'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,10 +42,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()
-  const { transaction_id, rent_charge_id, tenancy_id, match_method, note } = body
+  const { transaction_id, tenancy_id, match_method, note } = body
+  let rent_charge_id: string | null = body.rent_charge_id || null
 
-  if (!transaction_id || !rent_charge_id || !tenancy_id || !match_method)
-    return NextResponse.json({ error: 'transaction_id, rent_charge_id, tenancy_id and match_method are required' }, { status: 400 })
+  if (!transaction_id || !tenancy_id || !match_method)
+    return NextResponse.json({ error: 'transaction_id, tenancy_id and match_method are required' }, { status: 400 })
   if (!['manual', 'fuzzy_confirmed'].includes(match_method))
     return NextResponse.json({ error: 'match_method must be "manual" or "fuzzy_confirmed"' }, { status: 400 })
 
@@ -63,6 +66,14 @@ export async function POST(req: NextRequest) {
   if (!txn) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
   if (txn.status !== 'unmatched')
     return NextResponse.json({ error: `Transaction is already ${txn.status} — cannot reallocate` }, { status: 409 })
+
+  // No charge picked (the tenant has none raised yet): raise the rent for the month the money arrived, as the import does
+  if (!rent_charge_id) {
+    const month = `${String(txn.transaction_date).slice(0, 7)}-01`
+    if (month < await ledgerStart(service as any)) return NextResponse.json({ error: 'That payment is from before CROS took over the rent — record it against a charge instead' }, { status: 409 })
+    rent_charge_id = await ensureTenancyCharge(service as any, tenancy_id, month)
+    if (!rent_charge_id) return NextResponse.json({ error: 'That tenancy has no rent to put this against for that month (check its rent and dates)' }, { status: 409 })
+  }
 
   const { data: charge } = await service
     .from('rent_charges')

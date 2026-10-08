@@ -344,6 +344,12 @@ export default function BankImportPage() {
               })}
             </div>
 
+            {preview.summary.unmatched > 0 && (
+              <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-sm text-sm text-red-800">
+                {preview.summary.unmatched} payment{preview.summary.unmatched !== 1 ? 's' : ''} had no tenant reference. They’re saved when you confirm, and you match each one yourself straight after — search by name, room, house or amount, or set aside anything that isn’t rent.
+              </p>
+            )}
+
             {/* Actions */}
             {previewError && (
               <div className="rounded-xl bg-red-50 border border-red-200 px-lg py-md text-sm text-red-700">{previewError}</div>
@@ -356,18 +362,18 @@ export default function BankImportPage() {
               >
                 Cancel
               </button>
-              {preview.summary.matched > 0 ? (
+              {preview.summary.matched + preview.summary.unmatched + preview.summary.possible_dupes > 0 ? (
                 <button
                   onClick={handleConfirm}
                   disabled={confirming}
                   className="px-lg py-sm rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-sm"
                 >
                   {confirming && <span className="w-3 h-3 rounded-full border border-white/40 border-t-white animate-spin" />}
-                  Confirm import · {preview.summary.matched} payment{preview.summary.matched !== 1 ? 's' : ''}
+                  Confirm import · {preview.summary.matched} matched{preview.summary.unmatched ? ` · ${preview.summary.unmatched} to match yourself` : ''}
                 </button>
               ) : (
                 <div className="px-lg py-sm rounded-xl bg-neutral-100 text-sm text-neutral-500">
-                  No matched payments to import
+                  Nothing new in this file
                 </div>
               )}
             </div>
@@ -400,12 +406,19 @@ export default function BankImportPage() {
                 ))}
               </div>
             )}
-            <button
-              onClick={() => { setConfirmed(null); setPreviewError(null) }}
-              className="px-lg py-sm rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700"
-            >
-              Import another file
-            </button>
+            <div className="flex flex-wrap gap-sm">
+              {confirmed.results?.unmatched > 0 && (
+                <a href={`/admin/reconciliation?tab=unmatched${practice ? '&practice=1' : ''}`} className="px-lg py-sm rounded-xl bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700">
+                  Match the {confirmed.results.unmatched} unmatched payment{confirmed.results.unmatched !== 1 ? 's' : ''} →
+                </a>
+              )}
+              <button
+                onClick={() => { setConfirmed(null); setPreviewError(null) }}
+                className="px-lg py-sm rounded-xl border border-neutral-300 text-neutral-700 text-sm font-semibold hover:bg-neutral-50"
+              >
+                Import another file
+              </button>
+            </div>
           </div>
         )}
 
