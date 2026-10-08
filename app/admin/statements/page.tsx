@@ -13,7 +13,7 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { genStatementRef } from '@/lib/references'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import StatementSend from './StatementSend'
-interface Property { id: string; name: string; address: string; management_fee_pct: number | null; property_code?: string | null }
+interface Property { id: string; name: string; address: string; management_fee_pct: number | null; property_code?: string | null; letting_type?: string | null }
 interface Landlord { id: string; name: string | null; email: string; property_id: string | null }
 interface StatementRow {
   id: string
@@ -92,6 +92,7 @@ export default function AdminStatementsPage() {
   const [notice, setNotice] = useState('')
   const [matchNote, setMatchNote] = useState('')
   const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null)
+  const [demoIds, setDemoIds] = useState<Set<string>>(new Set())
   // "Fill from rent received": the month to build, and what saving it must mark as paid over
   const [genMonth, setGenMonth] = useState(() => new Date().toISOString().slice(0, 7))
   const [genBusy, setGenBusy] = useState(false)
@@ -116,10 +117,13 @@ export default function AdminStatementsPage() {
       if (!data || (role !== 'administrator' && role !== 'admin')) { router.push('/login'); return }
       const supabase = createClient()
       const [{ data: props }, { data: lls }] = await Promise.all([
-        supabase.from('properties').select('id, name, address, management_fee_pct, property_code').order('name'),
+        supabase.from('properties').select('id, name, address, management_fee_pct, property_code, letting_type').order('name'),
         supabase.from('people').select('id, full_name, first_name, last_name, email, property_id').eq('role', 'landlord').order('full_name'),
       ])
       setProperties(sortPropertiesNumerically((props as any) || []))
+      // practice (demo) houses stay out of the month grid; before migration 186 there's no column, so none are demo
+      const { data: demo, error: demoErr } = await supabase.from('properties').select('id').eq('is_demo', true)
+      if (!demoErr) setDemoIds(new Set(((demo as any[]) || []).map((d) => d.id)))
       // people has no "name" column — build the label the dropdowns show
       setLandlords(((lls as any[]) || []).map((l) => ({ ...l, name: [l.first_name, l.last_name].filter(Boolean).join(' ') || l.full_name || null })))
       await loadStatements()
@@ -355,6 +359,19 @@ export default function AdminStatementsPage() {
     return Array.from(map.entries())
   }, [statements])
 
+  // Statements on file, house by month — so a missing month shows as a gap rather than having to be noticed
+  const coverage = useMemo(() => {
+    const monthOf = (st: StatementRow) => String(st.period_start || st.statement_date || '').slice(0, 7)
+    const have = statements.map(monthOf).filter(Boolean).sort()
+    if (!have.length) return null
+    const months: string[] = []
+    const now = new Date().toISOString().slice(0, 7)
+    for (let [y, m] = have[0].split('-').map(Number); `${y}-${String(m).padStart(2, '0')}` <= now && months.length < 18; m === 12 ? (y++, m = 1) : m++) months.push(`${y}-${String(m).padStart(2, '0')}`)
+    const houses = properties.filter((p) => !demoIds.has(p.id) && p.letting_type !== 'let_only')
+    const cell = (pid: string, month: string) => statements.filter((st) => st.property_id === pid && monthOf(st) === month)
+    return { months, houses, cell }
+  }, [statements, properties, demoIds])
+
   if (loading) {
     return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href="/admin/accounts" />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
   }
@@ -526,6 +543,40 @@ export default function AdminStatementsPage() {
         {/* Existing */}
         <h2 className="mt-2xl text-xl font-bold text-neutral-900">Statements on file</h2>
         {grouped.length === 0 && <p className="mt-sm text-sm text-neutral-500">No statements yet.</p>}
+        {coverage && (
+          <div className="mt-md rounded-2xl border border-neutral-200 bg-white">
+            <p className="px-md pt-sm text-xs text-neutral-500">What each landlord was paid, month by month. A gap means no statement is on file — months before CROS took over rent are imported from your old system (<Link href="/admin/statements/import" className="font-semibold text-blue-700 hover:underline">Import</Link>).</p>
+            <div className="overflow-x-auto">
+              <table className="mt-xs w-full text-xs">
+                <thead>
+                  <tr className="border-b border-neutral-200">
+                    <th className="sticky left-0 bg-white px-md py-xs text-left font-semibold text-neutral-500">House</th>
+                    {coverage.months.map((m) => <th key={m} className="px-sm py-xs text-right font-semibold text-neutral-500 whitespace-nowrap">{new Date(m + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {coverage.houses.map((h) => (
+                    <tr key={h.id} className="border-b border-neutral-100 last:border-0">
+                      <td className="sticky left-0 bg-white px-md py-xs font-semibold text-neutral-900 whitespace-nowrap">{h.name || h.address}</td>
+                      {coverage.months.map((m) => {
+                        const found = coverage.cell(h.id, m)
+                        return (
+                          <td key={m} className="px-sm py-xs text-right tabular-nums whitespace-nowrap">
+                            {found.length ? found.map((st) => (
+                              <button key={st.id} type="button" title={st.statement_reference}
+                                onClick={() => { setExpandedStatementId(st.id); setTimeout(() => document.getElementById(`st-${st.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50) }}
+                                className="block w-full text-right font-semibold text-green-800 hover:underline">£{Number(st.net_to_landlord).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
+                            )) : <span className="rounded bg-amber-50 px-xs text-amber-800" title="No statement on file for this month">missing</span>}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         <div className="mt-md space-y-lg">
           {grouped.map(([pid, rowsFor]) => {
             const prop = rowsFor[0].properties
@@ -542,7 +593,7 @@ export default function AdminStatementsPage() {
                     const gbp = (n: number | null) => n != null ? `£${Number(n).toFixed(2)}` : '—'
                     const net = Number(s.net_to_landlord)
                     return (
-                      <div key={s.id}>
+                      <div key={s.id} id={`st-${s.id}`}>
                         <button
                           onClick={() => setExpandedStatementId(isExpanded ? null : s.id)}
                           className="w-full flex items-center justify-between gap-md px-md py-sm text-sm hover:bg-neutral-50 transition-colors text-left"
