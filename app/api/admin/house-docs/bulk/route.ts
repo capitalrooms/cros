@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getElectedCommsLive } from '@/lib/comms'
 import { sendEmail } from '@/lib/sendEmail'
 import { senderFor } from '@/lib/email/sender'
 import { demoPropertyIds } from '@/lib/demoProperties'
@@ -41,7 +41,7 @@ async function houses(since: string) {
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const since = req.nextUrl.searchParams.get('since') || defaultSince()
-  return NextResponse.json({ since, houses: await houses(since), commsLive: await getCommsLive(), defaultMessage: defaultHouseMessage })
+  return NextResponse.json({ since, houses: await houses(since), commsLive: await getElectedCommsLive(), defaultMessage: defaultHouseMessage })
 }
 
 export async function POST(req: NextRequest) {
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     return r.ok ? NextResponse.json({ ok: true, sentTo: sender.replyTo }) : NextResponse.json({ error: r.error || 'The email could not be sent.' }, { status: 502 })
   }
   if (b.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-  if (!(await getCommsLive())) return NextResponse.json({ error: 'Tenant messages are paused (Settings). Send a test to yourself instead.' }, { status: 409 })
+  if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off (Settings). Send a test to yourself instead.' }, { status: 409 })
 
   const results = []
   for (const id of ids) {

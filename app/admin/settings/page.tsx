@@ -76,7 +76,11 @@ export default function AdminSettingsPage() {
           ? newValue === 'true'
             ? '✅ Notifications are now LIVE — tenants and landlords will receive messages.'
             : '🔕 Notifications paused — no messages will be sent to tenants or landlords.'
-          : `${key} set to ${newValue}`
+          : key === 'elected_comms_live'
+            ? newValue === 'true'
+              ? '✅ Messages you send yourself can go out again.'
+              : '🔕 Messages you send yourself are switched off too.'
+            : `${key} set to ${newValue}`
       })
     } catch (e: any) {
       setBanner({ type: 'err', text: e.message })
@@ -88,6 +92,7 @@ export default function AdminSettingsPage() {
   if (loading) return <GenericPageSkeleton />
 
   const commsLive = settings['comms_live'] === 'true'
+  const electedLive = settings['elected_comms_live'] !== 'false'   // on unless switched off (lib/comms getElectedCommsLive)
   const grace = settings['rent_grace_days'] ?? '5'
   const ledgerStart = settings['client_ledger_start']
 
@@ -142,9 +147,31 @@ export default function AdminSettingsPage() {
                 </p>
               ) : (
                 <p className="text-xs text-amber-700 mt-xs">
-                  <strong>Safe mode:</strong> no messages being sent. Staff notifications unaffected.
+                  <strong>Safe mode:</strong> nothing goes to tenants automatically (bookings, job updates, reminders). Staff notifications unaffected.
                 </p>
               )}
+            </div>
+          </div>
+
+          <div className="px-lg py-lg flex items-start gap-lg border-t border-neutral-100">
+            <button
+              onClick={() => toggle('elected_comms_live', electedLive ? 'true' : 'false')}
+              disabled={saving === 'elected_comms_live'}
+              className={`shrink-0 relative w-14 h-7 rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${electedLive ? 'bg-green-500' : 'bg-neutral-300'}`}
+              aria-label="Toggle messages you send yourself"
+            >
+              <span className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200 ${electedLive ? 'translate-x-7' : 'translate-x-0'}`} />
+            </button>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-sm">
+                <p className="font-semibold text-neutral-900">{electedLive ? '🟢 Messages you send yourself: on' : '🔕 Messages you send yourself: off'}</p>
+                {saving === 'elected_comms_live' && <span className="text-xs text-neutral-400">Saving…</span>}
+              </div>
+              <p className="text-xs text-neutral-500 mt-xs">
+                Sent only when you press send, after choosing who gets them: certificates to a house or the yearly round, the HMO licence notice,
+                Quick Notify, a viewing tour notice, and the tenant / housemate / let-only occupant notices you tick when booking a viewing.
+                {!commsLive && electedLive ? ' These still go out while automatic messages are paused.' : ''}
+              </p>
             </div>
           </div>
         </div>

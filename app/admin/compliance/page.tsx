@@ -717,6 +717,7 @@ function CertificatesTab({
                 <th className="px-sm py-sm text-center text-xs font-semibold text-neutral-500 whitespace-nowrap">Em. lighting</th>
                 <th className="px-sm py-sm text-center text-xs font-semibold text-neutral-500 whitespace-nowrap">PAT</th>
                 <th className="px-sm py-sm text-center text-xs font-semibold text-neutral-500 whitespace-nowrap">Licence</th>
+                <th className="px-md py-sm text-right text-xs font-semibold text-neutral-500 whitespace-nowrap">Send</th>
               </tr>
             </thead>
             <tbody>
@@ -738,6 +739,12 @@ function CertificatesTab({
                     <td className="px-sm py-sm text-center"><CertCell certKey="emergency_lighting" propertyId={prop.id} propertyName={prop.name} expiry={prop.emergency_lighting_expiry} date={prop.emergency_lighting_test_date} hmoOnly isHmo={hmo} /></td>
                     <td className="px-sm py-sm text-center"><CertCell certKey="pat" propertyId={prop.id} propertyName={prop.name} expiry={prop.pat_test_expiry} date={prop.pat_test_date} hmoOnly isHmo={hmo} /></td>
                     <td className="px-sm py-sm text-center"><CertCell certKey="license" propertyId={prop.id} propertyName={prop.name} expiry={prop.license_expiry} date={prop.license_date} appliedOn={prop.licence_application_submitted_at} /></td>
+                    <td className="px-md py-sm text-right">
+                      <Link href={`/admin/properties/${prop.id}/send-documents`} title="Pick which certificates go, and to which tenants and/or the landlord"
+                        className="inline-block whitespace-nowrap rounded-lg border border-neutral-300 px-sm py-xs text-xs font-semibold text-neutral-800 hover:bg-neutral-50">
+                        Tenants / landlord →
+                      </Link>
+                    </td>
                   </tr>
                 )
               })}

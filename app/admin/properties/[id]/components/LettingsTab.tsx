@@ -327,7 +327,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
           .then((j: any) => { told.push(j.smsSent ? `${occupant.name.split(' ')[0]} (text)` : `${occupant.name.split(' ')[0]} — not sent${j.reason === 'no_phone' ? ': no mobile saved' : j.reason === 'comms_paused' ? ': tenant messages are paused' : ''}`) }))
       }
       if (formData.room_id && !occupant && lettingType === 'let_only' && (otherOccupant.email.trim() || otherOccupant.phone.trim())) {
-        if (otherOccupant.email.trim()) jobs.push(post('/api/let-only/notify-contacts', { property_id: propertyId, contacts: [{ full_name: otherOccupant.name || '', email: otherOccupant.email.trim() }], event: 'booked', viewing_date: dateStr, viewing_time: formData.viewing_slot || '09:00', room_name: roomName })
+        if (otherOccupant.email.trim()) jobs.push(post('/api/let-only/notify-contacts', { elected: true, property_id: propertyId, contacts: [{ full_name: otherOccupant.name || '', email: otherOccupant.email.trim() }], event: 'booked', viewing_date: dateStr, viewing_time: formData.viewing_slot || '09:00', room_name: roomName })
           .then((j: any) => { told.push(j.sent ? 'occupant (email)' : `occupant email not sent${j.reason === 'tenant_comms_paused' ? ': tenant messages are paused' : ''}`) }))
         if (otherOccupant.phone.trim()) jobs.push(post('/api/sms/notify-tenant-viewing', { room_id: formData.room_id, phone: otherOccupant.phone.trim(), name: otherOccupant.name, property_address: propertyAddress || propertyName || '', viewing_date: dateStr, viewing_slot: slot })
           .then((j: any) => { told.push(j.smsSent ? 'occupant (text)' : `occupant text not sent${j.reason === 'comms_paused' ? ': tenant messages are paused' : ''}`) }))

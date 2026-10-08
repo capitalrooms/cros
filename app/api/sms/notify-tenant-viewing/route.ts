@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase'
 import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getElectedCommsLive } from '@/lib/comms'
+import { requireStaff } from '@/lib/portalAuth'
 import twilio from 'twilio'
 
 export const runtime = 'nodejs'
@@ -26,8 +27,10 @@ export async function POST(req: NextRequest) {
   const supabase = await createServerClient()
   const user = await getCurrentUser(supabase)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!(await requireStaff(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
 
-  const live = await getCommsLive()
+  // only ever sent because staff ticked "tell the tenant" when booking — so it goes while automatic messages are paused
+  const live = await getElectedCommsLive()
   if (!live) return NextResponse.json({ ok: true, smsSent: false, reason: 'comms_paused' })
 
   const { room_id, property_address, viewing_date, viewing_slot, phone: phoneOverride, name: nameOverride } = await req.json()

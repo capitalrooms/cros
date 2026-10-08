@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getElectedCommsLive } from '@/lib/comms'
 import { sendEmail } from '@/lib/sendEmail'
 import { senderFor } from '@/lib/email/sender'
 import { loadHouse } from '@/lib/houseDocs'
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prop
     hmoNoticeDefaults(s, propertyId, await senderFor(req)),
     loadHouse(s, propertyId),
     s.from('house_document_sends').select('id, subject, documents, recipients, sent_at').eq('property_id', propertyId).order('sent_at', { ascending: false }).limit(50),
-    getCommsLive(),
+    getElectedCommsLive(),   // sent by you, so not held by the automatic-message pause
   ])
   if (!defaults || !house) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
   const earlier = ((sends.data ?? []) as any[]).filter(x => (x.documents ?? []).some((d: any) => d.key === KEY))
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
     return r.ok ? NextResponse.json({ ok: true, sentTo: sender.replyTo }) : NextResponse.json({ error: r.error || 'The email could not be sent.' }, { status: 502 })
   }
   if (b.action !== 'send') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-  if (!(await getCommsLive())) return NextResponse.json({ error: 'Tenant messages are paused (Settings). Download the letter or send a test to yourself instead.' }, { status: 409 })
+  if (!(await getElectedCommsLive())) return NextResponse.json({ error: 'Messages you send are switched off (Settings). Download the letter or send a test to yourself instead.' }, { status: 409 })
 
   const house = await loadHouse(s, propertyId)
   const chosen = (house?.tenants ?? []).filter(t => (b.personIds ?? []).includes(t.personId))

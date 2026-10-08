@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { insertNotifications, activeTenantIds, dispatchChannels, type NotifyChannels } from '@/lib/serverNotify'
 import { requireStaff } from '@/lib/portalAuth'
-import { getCommsLive } from '@/lib/comms'
+import { getElectedCommsLive } from '@/lib/comms'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -89,7 +89,8 @@ export async function POST(request: NextRequest) {
     let recipientIds = await activeTenantIds(service, property_id, targetRoomId)
     if (selector_type === 'housemates') {
       // a new viewing: the other people in the house (the room's own tenant is told separately, by text)
-      if (!(await getCommsLive())) return NextResponse.json({ success: false, reason: 'tenant_comms_paused', message: 'Tenant messages are paused' })
+      // ticked when booking the viewing: chosen by staff, so it goes while automatic messages are paused
+      if (!(await getElectedCommsLive())) return NextResponse.json({ success: false, reason: 'tenant_comms_paused', message: 'Messages you send are switched off (Settings)' })
       const inRoom = new Set(exclude_room_id ? await activeTenantIds(service, property_id, exclude_room_id) : [])
       recipientIds = recipientIds.filter(id => !inRoom.has(id))
     }

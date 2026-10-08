@@ -59,7 +59,16 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
     tenants.push({ personId: p.id, name, firstName: p.first_name || name.split(' ')[0], email: p.email, room: t.rooms?.name ?? '' })
   }
   tenants.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
-  return { property: { id: prop.id, name: prop.name, address: fullAddress(prop.name, prop.address, prop.postcode) }, documents, tenants }
+  // the landlord can be sent the same certificates (ticked by hand — never by default)
+  let landlord: HouseTenant | null = null
+  if (prop.landlord_id) {
+    const { data: l } = await s.from('people').select('id, first_name, last_name, full_name, company, email').eq('id', prop.landlord_id).maybeSingle()
+    if (l?.email) {
+      const name = [l.first_name, l.last_name].filter(Boolean).join(' ') || l.company || l.full_name || l.email
+      landlord = { personId: l.id, name, firstName: l.first_name || name.split(' ')[0], email: l.email, room: 'Landlord' }
+    }
+  }
+  return { property: { id: prop.id, name: prop.name, address: fullAddress(prop.name, prop.address, prop.postcode) }, documents, tenants, landlord }
 }
 
 const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
@@ -67,6 +76,8 @@ const dueText = (d: string | null) => { const x = parseTenancyDate(d); return x 
 
 export const defaultHouseSubject = (address: string) => `Your Health & Safety Certificates — ${address.split(',')[0]}`
 export const defaultHouseMessage = 'We are pleased to let you know the following health and safety certificates have now been completed at your home.'
+/** the same message for the landlord: it's their property, not their home */
+export const landlordHouseMessage = (message: string) => message === defaultHouseMessage ? message.replace('at your home', 'at your property') : message
 
 export function houseEmailHtml(firstName: string, address: string, docs: HouseDoc[], message: string) {
   const rows = docs.map(d => tableRow(esc(d.label),
