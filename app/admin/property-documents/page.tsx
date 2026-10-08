@@ -75,7 +75,7 @@ export default function PropertyDocumentsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin" />} />
-      <PageHero eyebrow="Portfolio" title="Property Documents" subtitle="Evacuation plans, house rules, safety info, tenancy agreements — click a property to upload" />
+      <PageHero eyebrow="Properties" title="Property Documents" subtitle="Evacuation plans, house rules, safety info, tenancy agreements — click a property to upload" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
