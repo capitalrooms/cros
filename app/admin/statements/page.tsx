@@ -93,6 +93,7 @@ export default function AdminStatementsPage() {
   const [matchNote, setMatchNote] = useState('')
   const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null)
   const [demoIds, setDemoIds] = useState<Set<string>>(new Set())
+  const [lets, setLets] = useState<{ property_id: string; start_date: string | null; end_date: string | null; let_cancelled_at: string | null }[]>([])
   // "Fill from rent received": the month to build, and what saving it must mark as paid over
   const [genMonth, setGenMonth] = useState(() => new Date().toISOString().slice(0, 7))
   const [genBusy, setGenBusy] = useState(false)
@@ -124,6 +125,9 @@ export default function AdminStatementsPage() {
       // practice (demo) houses stay out of the month grid; before migration 186 there's no column, so none are demo
       const { data: demo, error: demoErr } = await supabase.from('properties').select('id').eq('is_demo', true)
       if (!demoErr) setDemoIds(new Set(((demo as any[]) || []).map((d) => d.id)))
+      // which months each house had tenants — a month with none needs no statement (the house sits dormant)
+      const { data: tl } = await supabase.from('tenancies').select('property_id, start_date, end_date, let_cancelled_at')
+      setLets(((tl as any[]) || []))
       // people has no "name" column — build the label the dropdowns show
       setLandlords(((lls as any[]) || []).map((l) => ({ ...l, name: [l.first_name, l.last_name].filter(Boolean).join(' ') || l.full_name || null })))
       await loadStatements()
@@ -369,8 +373,10 @@ export default function AdminStatementsPage() {
     for (let [y, m] = have[0].split('-').map(Number); `${y}-${String(m).padStart(2, '0')}` <= now && months.length < 18; m === 12 ? (y++, m = 1) : m++) months.push(`${y}-${String(m).padStart(2, '0')}`)
     const houses = properties.filter((p) => !demoIds.has(p.id) && p.letting_type !== 'let_only')
     const cell = (pid: string, month: string) => statements.filter((st) => st.property_id === pid && monthOf(st) === month)
-    return { months, houses, cell }
-  }, [statements, properties, demoIds])
+    const monthEnd = (m: string) => { const [y, mm] = m.split('-').map(Number); return new Date(Date.UTC(y, mm, 0)).toISOString().slice(0, 10) }
+    const tenanted = (pid: string, month: string) => lets.some((t) => t.property_id === pid && !t.let_cancelled_at && !!t.start_date && t.start_date <= monthEnd(month) && (!t.end_date || t.end_date >= `${month}-01`))
+    return { months, houses, cell, tenanted }
+  }, [statements, properties, demoIds, lets])
 
   if (loading) {
     return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href="/admin/accounts" />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
@@ -566,7 +572,9 @@ export default function AdminStatementsPage() {
                               <button key={st.id} type="button" title={st.statement_reference}
                                 onClick={() => { setExpandedStatementId(st.id); setTimeout(() => document.getElementById(`st-${st.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50) }}
                                 className="block w-full text-right font-semibold text-green-800 hover:underline">£{Number(st.net_to_landlord).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
-                            )) : <span className="rounded bg-amber-50 px-xs text-amber-800" title="No statement on file for this month">missing</span>}
+                            )) : coverage.tenanted(h.id, m)
+                              ? <span className="rounded bg-amber-50 px-xs text-amber-800" title="Tenants that month but no statement on file">missing</span>
+                              : <span className="text-neutral-400" title="No tenants on record that month — no statement needed">no tenants</span>}
                           </td>
                         )
                       })}
