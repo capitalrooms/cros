@@ -2,6 +2,7 @@
 // GET  → the job they were asked to price (no tenant names or contact details; no key safe code)
 // POST → { amount?, notes?, site_visit?, visit_date? } — their price, or a request to visit first.
 // The token is a long random string sent only to that contractor; it stops working once the quote is decided.
+import { signedLinkFor } from '@/lib/files/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/sendEmail'
 import { tableRow, ctaButton, PORTAL_URL } from '@/lib/emailWrapper'
@@ -35,7 +36,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
     job: {
       reference: job.reference, title: job.title, category: job.category, priority: job.priority,
       where: [job.roomName, job.propertyAddress].filter(Boolean).join(', '),
-      description: job.description, notes: job.notes, access: accessNote(job), photos: job.photoUrls,
+      description: job.description, notes: job.notes, access: accessNote(job), photos: (await Promise.all(job.photoUrls.map(u => signedLinkFor(u, 3600)))).filter(Boolean),   // private folder: links for this visit
       priceBy: ukDate(replyByDate(job.priority, new Date(quote.requested_at))),
     },
     office: { email: office.replyTo, phone: office.phone },

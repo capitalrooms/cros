@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
+import { fetchStored } from '@/lib/files/server'
 import { scanFloorplan, aiConfigured } from '@/lib/ai-classify'
 
 export const runtime = 'nodejs'
@@ -6,6 +8,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function POST(request: NextRequest) {
+  // staff only: this reads stored files with the service key and spends AI credits
+  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   if (!aiConfigured()) {
     return NextResponse.json(
       { error: 'AI is not configured yet — an ANTHROPIC_API_KEY needs to be set for this app.' },
@@ -22,7 +26,7 @@ export async function POST(request: NextRequest) {
   let mime: string
   try {
     if (storageUrl) {
-      const dl = await fetch(storageUrl)
+      const dl = await fetchStored(storageUrl)
       if (!dl.ok) return NextResponse.json({ error: `Could not retrieve file from storage (${dl.status})` }, { status: 502 })
       bytes = Buffer.from(await dl.arrayBuffer())
       mime = mimeHint || dl.headers.get('content-type') || 'application/octet-stream'

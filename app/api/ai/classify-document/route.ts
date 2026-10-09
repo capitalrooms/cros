@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
+import { fetchStored } from '@/lib/files/server'
 import { aiConfigured } from '@/lib/ai-classify'
 import { scanDocument } from '@/lib/scan-engine'
 
@@ -7,6 +9,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 90
 
 export async function POST(request: NextRequest) {
+  // staff only: this reads stored files with the service key and spends AI credits
+  if (!(await requireStaff(request as any))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   if (!aiConfigured()) {
     return NextResponse.json(
       { error: 'AI is not configured yet — an ANTHROPIC_API_KEY needs to be set for this app.' },
@@ -28,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   try {
     if (storageUrl) {
-      const dlRes = await fetch(storageUrl)
+      const dlRes = await fetchStored(storageUrl)
       if (!dlRes.ok) {
         return NextResponse.json(
           { error: `Could not retrieve document from storage (${dlRes.status})` },

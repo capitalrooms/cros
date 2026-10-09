@@ -1,5 +1,6 @@
 'use client'
 
+import { StoredImg } from '@/components/StoredImg'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import AppBar from '@/components/AppBar'
@@ -199,7 +200,7 @@ function BlockEditor({
             />
             {imageUrl && (
               <div className="mt-sm rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                <img
+                <StoredImg
                   src={imageUrl}
                   alt=""
                   className="w-full object-contain max-h-40"
@@ -424,7 +425,7 @@ export default function AdminGuideDetailPage() {
             />
             {heroUrl && (
               <div className="mt-sm rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                <img
+                <StoredImg
                   src={heroUrl}
                   alt=""
                   className="w-full object-cover max-h-40"

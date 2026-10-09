@@ -1,5 +1,6 @@
 'use client'
 
+import { StoredImg } from '@/components/StoredImg'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -194,7 +195,7 @@ export default function AdminGuidesPage() {
                 {/* Emoji / hero thumbnail */}
                 <div className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-neutral-100 flex items-center justify-center">
                   {guide.hero_image_url ? (
-                    <img src={guide.hero_image_url} alt="" className="w-full h-full object-cover" />
+                    <StoredImg src={guide.hero_image_url} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-2xl">{guide.emoji}</span>
                   )}

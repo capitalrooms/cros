@@ -1,5 +1,6 @@
 'use client';
 
+import { StoredImg, StoredLink } from '@/components/StoredImg'
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
@@ -370,7 +371,7 @@ export default function NewJobPage() {
                   {photos.map((url) => (
                     <div key={url} className="relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="Job photo" className="h-16 w-16 rounded-lg object-cover" />
+                      <StoredImg src={url} alt="Job photo" className="h-16 w-16 rounded-lg object-cover" />
                       <button
                         type="button"
                         onClick={() => setPhotos((p) => p.filter((u) => u !== url))}

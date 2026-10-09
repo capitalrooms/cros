@@ -13,6 +13,7 @@
  *    (used during reference import when a passport/ID doc is detected)
  */
 
+import { StoredImg, StoredLink } from '@/components/StoredImg'
 import { useState } from 'react'
 
 export interface TenantCardTenant {
@@ -142,7 +143,7 @@ export default function TenantCard({
           {/* Avatar — photo if stored, initials otherwise */}
           <div className="relative flex-shrink-0">
             {tenant.id_photo_url ? (
-              <img
+              <StoredImg
                 src={tenant.id_photo_url}
                 alt={name}
                 className="w-16 h-16 rounded-full object-cover border border-neutral-200 bg-neutral-100"

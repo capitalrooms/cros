@@ -1,5 +1,6 @@
 'use client'
 
+import { StoredImg, StoredLink } from '@/components/StoredImg'
 import { useEffect, useRef, useState } from 'react'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
@@ -1084,7 +1085,7 @@ export default function JobDetailPage() {
                   <h3 className="font-bold text-neutral-900">1 · Before photo</h3>
                   <p className="text-xs text-neutral-500 mb-md">Snap the problem — this marks the job as in progress.</p>
                   {job.before_photo ? (
-                    <img src={job.before_photo} alt="before" className="w-full max-w-xs rounded-lg border border-neutral-200" />
+                    <StoredImg src={job.before_photo} alt="before" className="w-full max-w-xs rounded-lg border border-neutral-200" />
                   ) : (
                     <button onClick={() => beforeInput.current?.click()} disabled={busy === 'before'}
                       className="w-full rounded-lg border-2 border-dashed border-neutral-400 py-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40">
@@ -1100,7 +1101,7 @@ export default function JobDetailPage() {
                   <h3 className="font-bold text-neutral-900">2 · After photo</h3>
                   <p className="text-xs text-neutral-500 mb-md">Show the finished work — required before you can complete.</p>
                   {job.after_photo ? (
-                    <img src={job.after_photo} alt="after" className="w-full max-w-xs rounded-lg border border-neutral-200" />
+                    <StoredImg src={job.after_photo} alt="after" className="w-full max-w-xs rounded-lg border border-neutral-200" />
                   ) : (
                     <button onClick={() => afterInput.current?.click()} disabled={busy === 'after'}
                       className="w-full rounded-lg border-2 border-dashed border-neutral-400 py-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40">

@@ -1,6 +1,7 @@
 'use client'
 
 // Move-in pack for one tenancy: check the move-in figures, choose documents, preview, send one link.
+import { openStoredFile } from '@/lib/files/openFile'
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
@@ -224,7 +225,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                             {!d.available && <span className="ml-sm rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">Missing</span>}
                             {d.note && <span className="block text-xs text-neutral-500">{d.note}{!d.available && <> · <Link href={`/admin/properties/${c.property.id}`} className="underline">upload on the property</Link></>}</span>}
                           </span>
-                          {d.url && d.available && <a href={d.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-neutral-500 underline">Open</a>}
+                          {d.url && d.available && <button type="button" onClick={() => d.url!.startsWith('/') ? window.open(d.url, '_blank') : openStoredFile(d.url!)} className="text-xs font-semibold text-neutral-500 underline">Open</button>}
                         </li>
                       ))}
                     </ul>

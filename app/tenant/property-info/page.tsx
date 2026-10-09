@@ -1,5 +1,6 @@
 'use client'
 
+import { openMyFile } from '@/lib/files/useStoredFile'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
@@ -202,9 +203,9 @@ function DocCard({ doc }: { doc: PropertyDocument }) {
 
   if (hasFile) {
     return (
-      <a href={doc.storage_url} target="_blank" rel="noopener noreferrer">
+      <button type="button" onClick={() => openMyFile(doc.storage_url)} className="block w-full text-left">
         {inner}
-      </a>
+      </button>
     )
   }
   return inner

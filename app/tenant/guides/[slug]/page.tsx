@@ -1,5 +1,6 @@
 'use client'
 
+import { StoredImg } from '@/components/StoredImg'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import AppBar from '@/components/AppBar'
@@ -74,7 +75,7 @@ function GuideBlock({ block, index }: { block: GuideBlock; index: number }) {
               transitionDelay: `${index * 80 + 150}ms`,
             }}
           >
-            <img
+            <StoredImg
               src={block.inline_image_url}
               alt={block.heading}
               className="w-full object-contain"
@@ -185,7 +186,7 @@ function HeroCover({
     >
       {/* Hero image starts below the AppBar so the baked-in title text is naturally visible */}
       {guide.hero_image_url ? (
-        <img
+        <StoredImg
           src={guide.hero_image_url}
           alt={guide.title}
           className="absolute left-0 right-0 bottom-0 w-full object-cover object-top"

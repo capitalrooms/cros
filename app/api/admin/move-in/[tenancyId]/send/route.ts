@@ -6,6 +6,7 @@
 //     send → create the pack and email the tenant (blocked while tenant messaging is paused)
 // Creating a pack snapshots the documents and figures, and stores the generated agreement and check-in balance,
 // so what the tenant opens later is exactly what was sent.
+import { fetchStored } from '@/lib/files/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { requireAdmin } from '@/lib/adminAuth'
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   const copied: Record<string, string> = {}
   for (const d of docs.filter(x => x.source === 'property' && x.available && x.url)) {
     try {
-      const res = await fetch(d.url!, { signal: AbortSignal.timeout(20000) })
+      const res = await fetchStored(d.url!)   // our private folder: read with the service key
       if (!res.ok) continue
       const path = `tenancy-packs/${packId}/${d.key}.pdf`
       const { error } = await s.storage.from(PACK_BUCKET).upload(path, Buffer.from(await res.arrayBuffer()), { contentType: res.headers.get('content-type') || 'application/pdf', upsert: true })
