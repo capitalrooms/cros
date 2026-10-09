@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { generateManagementAgreementPDF, type ManagementAgreementData } from '@/lib/managementAgreement/generatePDF'
+import { generateManagementAgreementDocx } from '@/lib/managementAgreement/docx'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { contentDisposition } from '@/lib/contentDisposition'
 
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   const caller = await requireStaff(req as any)
   if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
-    const body: ManagementAgreementData & { onboardingId?: string; preview?: boolean; savedId?: string; form?: Record<string, unknown> } = await req.json()
+    const body: ManagementAgreementData & { onboardingId?: string; preview?: boolean; savedId?: string; form?: Record<string, unknown>; format?: 'pdf' | 'docx' } = await req.json()
 
     if (!body.properties?.length || !body.clientAddress?.length) {
       return NextResponse.json(
@@ -34,6 +35,14 @@ export async function POST(req: NextRequest) {
     }
 
     const bizSettings = await fetchPDFBizSettings()
+
+    // An editable Word copy (for a landlord who wants to suggest changes) — same words as the PDF; nothing is saved
+    if (body.format === 'docx') {
+      const docx = await generateManagementAgreementDocx({ ...body, bizSettings })
+      const kind = body.agreementType === 'hmo' ? 'Multi-Let' : body.agreementType === 'rent_collection' ? 'Rent-Collection' : 'Single-Let'
+      const name = `Capital-Rooms-Management-Agreement_${kind}_${(body.properties[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)}_${(body.agreementDate ?? new Date().toISOString()).slice(0, 10)}.docx`
+      return new NextResponse(new Uint8Array(docx), { headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Content-Disposition': `attachment; filename="${name}"` } })
+    }
 
     const buffer = await generateManagementAgreementPDF({ ...body, bizSettings })
 
