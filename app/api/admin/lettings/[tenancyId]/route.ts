@@ -111,16 +111,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     for (const [k, raw] of Object.entries(changes)) {
       const def = TERMS[k]
       if (!def) continue
-      if (def.beforeMoveIn && !beforeMoveIn) return NextResponse.json({ error: `${def.label} can only be changed before move-in. Use a rent review or a new agreement.` }, { status: 409 })
+      // a wrong payment reference can be corrected after move-in, with the reason kept (bank payments are matched on it)
+      const correcting = k === 'payment_reference' && !beforeMoveIn && String(b.reason ?? '').trim().length > 0
+      if (def.beforeMoveIn && !beforeMoveIn && !correcting) return NextResponse.json({ error: k === 'payment_reference' ? 'Say why the payment reference is being corrected' : `${def.label} can only be changed before move-in. Use a rent review or a new agreement.` }, { status: 409 })
       let v: unknown = raw
       if (def.kind === 'date') { v = String(raw ?? ''); if (!ISO.test(v as string)) return NextResponse.json({ error: `${def.label}: enter a valid date` }, { status: 400 }) }
       if (def.kind === 'money') { v = raw === '' || raw == null ? null : Math.round(Number(String(raw).replace(/[£,\s]/g, '')) * 100) / 100; if (v != null && !((v as number) >= 0)) return NextResponse.json({ error: `${def.label}: enter an amount` }, { status: 400 }) }
       if (def.kind === 'int') { v = raw === '' || raw == null ? null : parseInt(String(raw), 10); if (v != null && !Number.isFinite(v as number)) return NextResponse.json({ error: `${def.label}: enter a number` }, { status: 400 }) }
       if (def.kind === 'text') v = String(raw ?? '').trim().slice(0, 4000) || null
+      if (k === 'payment_reference' && v) { v = String(v).toUpperCase().replace(/\s+/g, ''); if (!/^[A-Z0-9\-\/]{3,18}$/.test(v as string)) return NextResponse.json({ error: 'Payment reference: letters and numbers only (3–18)' }, { status: 400 }) }
       if (k === 'rent_due_day' && v != null && ((v as number) < 1 || (v as number) > 28)) return NextResponse.json({ error: 'Rent due day must be 1–28' }, { status: 400 })
       if (String(cur?.[k] ?? '') === String(v ?? '')) continue
       update[k] = v
-      notes.push(k === 'office_notes' || k === 'special_clauses' || k === 'permitted_occupiers' ? `${def.label} updated` : `${def.label}: ${cur?.[k] ?? '—'} → ${v ?? '—'}`)
+      notes.push(k === 'office_notes' || k === 'special_clauses' || k === 'permitted_occupiers' ? `${def.label} updated` : `${def.label}: ${cur?.[k] ?? '—'} → ${v ?? '—'}${k === 'payment_reference' && !beforeMoveIn ? ` (corrected: ${String(b.reason).trim().slice(0, 300)})` : ''}`)
     }
     if (!notes.length) return NextResponse.json({ ok: true, unchanged: true })
     const { error } = await s.from('tenancies').update(update).eq('id', tenancyId)
