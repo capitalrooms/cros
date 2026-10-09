@@ -15,6 +15,7 @@ import {
 import type { ManagementAgreementData } from '@/lib/managementAgreement/generatePDF'
 import { rentCollectionTermsFrom } from '@/lib/managementAgreement/rentCollectionTerms'
 import { durationSentence } from '@/lib/managementAgreement/durationTerms'
+import type { AgreementBlock } from '@/lib/managementAgreement/blocks'
 
 const COL_W = PAGE_W - MARGIN * 2
 const LIGHT = '#f8f8f8'
@@ -30,7 +31,7 @@ function clientName(d: ManagementAgreementData): string {
   return two ? `${one || 'The Client'} & ${two}` : one || 'The Client'
 }
 
-export async function generateRentCollectionAgreementPDF(data: ManagementAgreementData): Promise<Buffer> {
+export async function generateRentCollectionAgreementPDF(data: ManagementAgreementData, rec?: AgreementBlock[]): Promise<Buffer> {
   const t = rentCollectionTermsFrom(data.rentCollection)
   return new Promise((resolve, reject) => {
     const { logoImg, footerImg, fontReg, fontBold } = loadPDFLetterheadAssets()
@@ -67,7 +68,8 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     const rule = (colour = '#c0c0c0', w = COL_W) => {
       doc.save().strokeColor(colour).lineWidth(0.5).moveTo(MARGIN, y).lineTo(MARGIN + w, y).stroke().restore()
     }
-    const para = (text: string, o: { bold?: boolean; size?: number; indent?: number; colour?: string } = {}) => {
+    const para = (text: string, o: { bold?: boolean; size?: number; indent?: number; colour?: string; noRecord?: boolean } = {}) => {
+      if (!o.noRecord) rec?.push({ kind: 'para', text, bold: o.bold, small: (o.size ?? 9.5) < 9, muted: !!o.colour && o.colour !== BLACK, indent: !!o.indent })
       const size = o.size ?? 9.5, indent = o.indent ?? 0, width = COL_W - indent, font = o.bold ? fontBold : fontReg
       const h = doc.font(font).fontSize(size).heightOfString(text, { width, lineGap: 2 })
       ensureSpace(h + 10)
@@ -76,6 +78,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
       y += h + 10
     }
     const label = (text: string) => {
+      rec?.push({ kind: 'label', text })
       ensureSpace(28)
       doc.save().font(fontBold).fontSize(10).fillColor(BLACK).text(text, MARGIN, y).restore()
       y += 16
@@ -87,11 +90,13 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     const clause = (title: string, body: string) => {
       // Keep the heading with its whole paragraph (para() moves a paragraph that doesn't fit to the next page).
       ensureSpace(24 + doc.font(fontReg).fontSize(9.5).heightOfString(body, { width: COL_W - 16, lineGap: 2 }) + 10)
+      rec?.push({ kind: 'clause', num: String(n + 1), title, text: body })
       doc.save().font(fontBold).fontSize(9.5).fillColor(BLACK).text(`${++n}.  ${title}`, MARGIN, y).restore()
       y += 14
-      para(body, { indent: 16 })
+      para(body, { indent: 16, noRecord: true })
     }
     const bullets = (items: string[], indent = 16) => {
+      rec?.push({ kind: 'bullets', items })
       for (const item of items) {
         const h = doc.font(fontReg).fontSize(9.5).heightOfString(item, { width: COL_W - indent - 10, lineGap: 2 })
         ensureSpace(h + 8)
@@ -102,6 +107,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
       }
     }
     const table = (head: [string, string], rows: [string, string][]) => {
+      rec?.push({ kind: 'table', head, rows })
       const c1 = COL_W * 0.42, c2 = COL_W - c1
       const rowH = (r: [string, string]) => Math.max(
         doc.font(fontReg).fontSize(8.5).heightOfString(r[0], { width: c1 - 12 }),
@@ -127,6 +133,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
+    rec?.push({ kind: 'title', text: 'RENT COLLECTION AGREEMENT', sub: 'Rent Collection & Client Account Administration — Capital Rooms', date: formatDate(data.agreementDate) })
     doc.save().font(fontBold).fontSize(14).fillColor(BLACK).text('RENT COLLECTION AGREEMENT', MARGIN, y).restore()
     y += 20
     doc.save().font(fontReg).fontSize(10).fillColor(GREY)
@@ -298,6 +305,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     label('SIGNATURES')
     para('This agreement has been entered into on the date stated above.')
     y += 12
+    rec?.push({ kind: 'signatures', left: 'Signed for and on behalf of Capital Rooms', right: `Signed for and on behalf of ${client}`, rightRole: data.entityType === 'company' ? t.signatoryRole : 'Signature', rightName: t.signatoryName || null })
     const halfW = (COL_W - 20) / 2, rightX = MARGIN + halfW + 20
     const line = (x: number, w: number) => doc.save().strokeColor(BLACK).lineWidth(0.5).moveTo(x, y).lineTo(x + w, y).stroke().restore()
     doc.save().font(fontBold).fontSize(8.5).fillColor(BLACK)

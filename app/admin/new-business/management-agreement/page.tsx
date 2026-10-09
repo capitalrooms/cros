@@ -116,6 +116,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
   const [generating, setGenerating] = useState(false)
   const [error,      setError]      = useState<string | null>(null)
   const [success,    setSuccess]    = useState(false)
+  const [wordDone,   setWordDone]   = useState(false)
 
   // ── Saved agreements (migration 201): generating saves the entry; Open reloads it to edit ──
   const [savedId, setSavedId] = useState<string | null>(null)
@@ -207,7 +208,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
     setPropAddresses(p => p.map((v, j) => j === i ? val : v))
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(format: 'pdf' | 'docx' = 'pdf') {
     setError(null)
     setSuccess(false)
 
@@ -249,6 +250,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
       onboardingId:   onboardingId || undefined,
       savedId:        savedId || undefined,
       form:           snapshot(),
+      format,
     }
 
     try {
@@ -263,7 +265,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
         throw new Error(d.error ?? `HTTP ${res.status}`)
       }
 
-      const newId    = res.headers.get('X-Agreement-Id')
+      const newId    = format === 'pdf' ? res.headers.get('X-Agreement-Id') : null
       if (newId) { setSavedId(newId); loadSaved() }
       const blob     = await res.blob()
       const url      = URL.createObjectURL(blob)
@@ -271,12 +273,13 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
       const typeLabel = TYPE_LABEL[agreementType]
       const propSlug  = (filledProps[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
       a.href         = url
-      a.download     = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${agreementDate}.pdf`
+      a.download     = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${agreementDate}.${format}`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      setSuccess(true)
+      if (format === 'pdf') setSuccess(true)
+      else setWordDone(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to generate PDF')
     } finally {
@@ -626,12 +629,21 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
 
           {/* ── Generate button ─────────────────────────────────────────────── */}
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate('pdf')}
             disabled={generating}
             className="w-full rounded-2xl bg-neutral-900 text-white py-md text-base font-bold hover:bg-neutral-700 transition disabled:opacity-40"
           >
             {generating ? 'Generating PDF…' : '⬇ Generate Management Agreement PDF'}
           </button>
+
+          <div className="flex flex-wrap items-center justify-center gap-sm text-sm">
+            <button type="button" onClick={() => { setWordDone(false); handleGenerate('docx') }} disabled={generating}
+              className="rounded-xl border border-neutral-300 bg-white px-lg py-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">
+              Download as Word (.docx) to edit
+            </button>
+            <span className="text-xs text-neutral-500">Same wording as the PDF, for the landlord to mark up. Not saved — once agreed, put the changes here and generate the PDF.</span>
+          </div>
+          {wordDone && <p className="text-center text-sm text-green-700">Word copy downloaded.</p>}
 
           {onboardingId && success && (
             <div className="rounded-xl bg-blue-50 border border-blue-200 px-md py-sm text-sm text-blue-700">

@@ -16,6 +16,7 @@ import {
 import type { RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
 import { generateRentCollectionAgreementPDF } from '@/lib/managementAgreement/rentCollectionPDF'
 import { durationSentence } from '@/lib/managementAgreement/durationTerms'
+import type { AgreementBlock } from '@/lib/managementAgreement/blocks'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,8 +78,9 @@ function hRule(doc: PDFKit.PDFDocument, x: number, y: number, w: number, colour 
 
 // ── Main generator ─────────────────────────────────────────────────────────────
 
-export async function generateManagementAgreementPDF(data: ManagementAgreementData): Promise<Buffer> {
-  if (data.agreementType === 'rent_collection') return generateRentCollectionAgreementPDF(data)
+/** rec: when given, every block drawn is also recorded there (the Word version is built from it — docx.ts) */
+export async function generateManagementAgreementPDF(data: ManagementAgreementData, rec?: AgreementBlock[]): Promise<Buffer> {
+  if (data.agreementType === 'rent_collection') return generateRentCollectionAgreementPDF(data, rec)
   return new Promise((resolve, reject) => {
     const assets: PDFLetterheadAssets = loadPDFLetterheadAssets()
     const { logoImg, footerImg, fontReg, fontBold } = assets
@@ -140,7 +142,8 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
       }
     }
 
-    function drawPara(text: string, opts?: { bold?: boolean; size?: number; indent?: number; colour?: string }) {
+    function drawPara(text: string, opts?: { bold?: boolean; size?: number; indent?: number; colour?: string; noRecord?: boolean }) {
+      if (!opts?.noRecord) rec?.push({ kind: 'para', text, bold: opts?.bold, small: (opts?.size ?? 9.5) < 9, muted: !!opts?.colour && opts.colour !== BLACK, indent: !!opts?.indent })
       const fontSize = opts?.size ?? 9.5
       const indent   = opts?.indent ?? 0
       const colour   = opts?.colour ?? BLACK
@@ -156,6 +159,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     }
 
     function drawLabel(text: string) {
+      rec?.push({ kind: 'label', text })
       ensureSpace(28)
       doc.save().font(fontBold).fontSize(10).fillColor(BLACK)
         .text(text, MARGIN, y)
@@ -164,6 +168,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     }
 
     function drawClause(num: string, title: string, body: string) {
+      rec?.push({ kind: 'clause', num, title, text: body })
       ensureSpace(50)
       // Clause number + title
       doc.save()
@@ -171,10 +176,11 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
         .text(`${num}.  ${title}`, MARGIN, y)
         .restore()
       y += 14
-      drawPara(body, { indent: 16 })
+      drawPara(body, { indent: 16, noRecord: true })
     }
 
     function drawBullets(items: string[], indent = 16) {
+      rec?.push({ kind: 'bullets', items })
       for (const item of items) {
         const h = doc.font(fontReg).fontSize(9.5).heightOfString(item, { width: COL_W - indent - 10, lineGap: 2 })
         ensureSpace(h + 8)
@@ -193,6 +199,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     // ────────────────────────────────────────────────────────────────────────
 
     // Title block — left side, parallel to logo
+    rec?.push({ kind: 'title', text: 'MANAGEMENT AGREEMENT', sub: `${typeLabel} — Capital Rooms`, date: formatDate(data.agreementDate) })
     doc.save().font(fontBold).fontSize(14).fillColor(BLACK)
       .text('MANAGEMENT AGREEMENT', MARGIN, y)
       .restore()
@@ -431,6 +438,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
       ['Sale of Property', 'By separate quotation if instructed — not included in this agreement'],
     ]
 
+    rec?.push({ kind: 'table', head: ['Fee', 'Details'], rows: fees })
     const ROW_H = 24
     const c1W = COL_W * 0.38
     const c2W = COL_W * 0.62
@@ -505,6 +513,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     drawPara('This agreement has been entered into on the date stated above.')
     spacer(12)
 
+    rec?.push({ kind: 'signatures', left: 'Signed for and on behalf of Capital Rooms', right: `Signed by / on behalf of ${client}`, rightRole: 'Authorised signatory' })
     const halfW  = (COL_W - 20) / 2
     const rightX = MARGIN + halfW + 20
 
