@@ -13,6 +13,8 @@
 import crypto from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendSms } from '@/lib/sms'
+// texts to contractors come from the name CAPITAL RMS — they answer by tapping the link, never by replying
+const NAME = { asName: true }
 import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
 import { KINDS, type EmergencyKind } from './guide'
@@ -173,7 +175,7 @@ export async function dispatchWave(s: S, em: any, wave: number): Promise<number>
     const { error } = await s.from('emergency_responses').insert({ emergency_id: em.id, contractor_id: c.person_id, token: t, wave })
     if (error) continue
     const body = `CAPITAL ROOMS EMERGENCY: ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}. Can you attend? Tap to answer: ${link(t)}`
-    const sms = await sendSms(c.people.phone, body)
+    const sms = await sendSms(c.people.phone, body, NAME)
     await sendServerPush({ personId: c.person_id, title: '🚨 Emergency — can you attend?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${t}`, tag: `emergency-${em.id}` })
     await s.from('emergency_responses').update({ texted: sms.ok }).eq('token', t)
     names.push(`${pname(c.people)}${sms.ok ? '' : ` (text failed: ${sms.error})`}`)
@@ -256,7 +258,7 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
     const { data: prev } = await s.from('emergency_responses').select('id, token, people!contractor_id(phone)').eq('id', before.chosen_response_id).maybeSingle() as { data: any }
     if (prev) {
       await s.from('emergency_responses').update({ stood_down_at: new Date().toISOString() }).eq('id', prev.id)
-      await sendSms(prev.people?.phone, `CAPITAL ROOMS: change of plan — the emergency near ${areaOf(em)} is now covered by someone else. Please don't attend. Thank you.`)
+      await sendSms(prev.people?.phone, `CAPITAL ROOMS: change of plan — the emergency near ${areaOf(em)} is now covered by someone else. Please don't attend. Thank you.`, NAME)
     }
   }
   // the chosen contractor: full details
@@ -269,13 +271,13 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
     em.properties?.key_safe_code ? `Front door key safe: ${em.properties.key_safe_code}` : '',
     `Details & updates: ${link(r.token)}`,
   ].filter(Boolean)
-  const sms = await sendSms(r.people?.phone, lines.join('\n'))
+  const sms = await sendSms(r.people?.phone, lines.join('\n'), NAME)
   await sendServerPush({ personId: r.contractor_id, title: '✅ Emergency confirmed', body: `${addressOf(em)} — by ${ukWhen(r.eta_at)}`, url: `/e/${r.token}`, tag: `emergency-${emId}` })
   // everyone else asked: thanks, it's covered
   const { data: others } = await s.from('emergency_responses').select('id, answer, people!contractor_id(phone)').eq('emergency_id', emId).neq('id', r.id).is('stood_down_at', null) as { data: any[] | null }
   for (const o of others ?? []) {
     await s.from('emergency_responses').update({ stood_down_at: new Date().toISOString() }).eq('id', o.id)
-    if (o.answer !== 'no') await sendSms(o.people?.phone, `CAPITAL ROOMS: thanks — the emergency near ${areaOf(em)} is now covered. No need to attend.`)
+    if (o.answer !== 'no') await sendSms(o.people?.phone, `CAPITAL ROOMS: thanks — the emergency near ${areaOf(em)} is now covered. No need to attend.`, NAME)
   }
   // the job
   if (em.ticket_id) {
@@ -391,7 +393,7 @@ export async function report(s: S, t: string, a: {
     const reasked: string[] = []
     for (const o of before ?? []) {
       await s.from('emergency_responses').update({ answer: null, answered_at: null, eta_at: null, call_out_fee: null, stood_down_at: null, wave }).eq('id', o.id)
-      const sms = await sendSms(o.people?.phone, `CAPITAL ROOMS EMERGENCY: the contractor booked for ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)} can't make it now. Can you still come? Tap to answer: ${link(o.token)}`)
+      const sms = await sendSms(o.people?.phone, `CAPITAL ROOMS EMERGENCY: the contractor booked for ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)} can't make it now. Can you still come? Tap to answer: ${link(o.token)}`, NAME)
       await sendServerPush({ personId: o.contractor_id, title: '🚨 Can you still come?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${o.token}`, tag: `emergency-${em.id}` })
       reasked.push(`${pname(o.people)}${sms.ok ? '' : ` (text failed: ${sms.error})`}`)
     }
@@ -467,7 +469,7 @@ export async function tick(s: S) {
     const em = await load(s, e.id)
     const { data: r } = await s.from('emergency_responses').select('token, contractor_id, people!contractor_id(phone, first_name, last_name, full_name)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
     if (!r) continue
-    const sms = await sendSms(r.people?.phone, `CAPITAL ROOMS: how's it going at ${addressOf(em)}? Are you there, is it done — and if not, what's needed and when can you come back? Tap to tell us (1 minute): ${link(r.token)}`)
+    const sms = await sendSms(r.people?.phone, `CAPITAL ROOMS: how's it going at ${addressOf(em)}? Are you there, is it done — and if not, what's needed and when can you come back? Tap to tell us (1 minute): ${link(r.token)}`, NAME)
     await sendServerPush({ personId: r.contractor_id, title: 'How did it go?', body: `${addressOf(em)} — tap to update`, url: `/e/${r.token}`, tag: `emergency-${e.id}` })
     await log(s, e.id, 'check_in', `Asked ${pname(r.people)} for an update${sms.ok ? '' : ` (text failed: ${sms.error})`}`)
     done.push(`checked in ${e.id}`)
@@ -481,7 +483,7 @@ export async function tick(s: S) {
     if (!claimed?.length) continue
     const em = await load(s, e.id)
     const { data: r } = await s.from('emergency_responses').select('token, people!contractor_id(phone, first_name, last_name, full_name)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
-    if (r) await sendSms(r.people?.phone, `CAPITAL ROOMS: quick reminder — please tell us how the emergency went: ${link(r.token)}`)
+    if (r) await sendSms(r.people?.phone, `CAPITAL ROOMS: quick reminder — please tell us how the emergency went: ${link(r.token)}`, NAME)
     await log(s, e.id, 'check_in', `No update from ${pname(r?.people)} yet — reminded them and told the office`)
     await alertOffice(s, em, `⏰ No update from the contractor — ${firstLine(em.properties?.name)}`, `${pname(r?.people)} hasn’t said how it went. Worth a call.`, true)
     done.push(`reminded ${e.id}`)
@@ -526,7 +528,7 @@ export async function officeAction(s: S, emId: string, by: string, a: { action: 
       const { data: live } = await s.from('emergency_responses').select('id, people!contractor_id(phone)').eq('emergency_id', emId).is('stood_down_at', null) as { data: any[] | null }
       for (const o of live ?? []) {
         await s.from('emergency_responses').update({ stood_down_at: now }).eq('id', o.id)
-        await sendSms(o.people?.phone, `CAPITAL ROOMS: the emergency near ${areaOf(em)} has been cancelled — no need to attend. Thank you.`)
+        await sendSms(o.people?.phone, `CAPITAL ROOMS: the emergency near ${areaOf(em)} has been cancelled — no need to attend. Thank you.`, NAME)
       }
       await log(s, emId, 'office', `${by} cancelled it${a.note ? ` — ${a.note}` : ''}`, by)
       return { ok: true }

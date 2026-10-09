@@ -15,14 +15,24 @@ export function toE164(raw: string | null | undefined): string | null {
 
 export const smsConfigured = () => !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && (process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER))
 
-export async function sendSms(to: string | null | undefined, body: string): Promise<{ ok: boolean; error?: string }> {
+// The name texts can show instead of the number (Harry, 9 Oct: "CAPITAL RMS"; 11 characters is the most allowed).
+// Nobody can reply to a text from a name, so only texts that never need a reply use it ({ asName: true }) — anything
+// asking for Y/N (notify-job-raised) stays on the number, which the inbound webhook reads.
+export const SENDER_NAME = (process.env.TWILIO_SENDER_NAME || 'CAPITAL RMS').slice(0, 11)
+
+export async function sendSms(to: string | null | undefined, body: string, opts: { asName?: boolean } = {}): Promise<{ ok: boolean; error?: string }> {
   const num = toE164(to)
   if (!num) return { ok: false, error: 'no valid mobile number' }
   const sid = process.env.TWILIO_ACCOUNT_SID, token = process.env.TWILIO_AUTH_TOKEN
   const from = process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER
   if (!sid || !token || !from) return { ok: false, error: 'texting is not set up' }
+  const client = twilio(sid, token)
+  if (opts.asName && num.startsWith('+44')) {
+    // UK only; if Twilio won't send from the name (not switched on for the account), fall back to the number
+    try { await client.messages.create({ to: num, from: SENDER_NAME, body }); return { ok: true } } catch { /* use the number */ }
+  }
   try {
-    await twilio(sid, token).messages.create({ to: num, from, body })
+    await client.messages.create({ to: num, from, body })
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'text failed' }

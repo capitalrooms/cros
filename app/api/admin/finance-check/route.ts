@@ -58,7 +58,9 @@ export async function GET(req: NextRequest) {
   const noFee = ((feeTens ?? []) as any[]).filter(t => !t.properties?.is_demo && t.properties?.letting_type !== 'let_only' && resolveFee(t, t.properties).source === 'none')
   // End dates with no notice: usually a fixed-term end entered with the tenancy. Since the Renters' Rights Act the
   // tenancy simply continues, but CROS would treat it as finished (no rent raised, shown as past) — so ask.
-  const fixedEnds = await endDatesToSort(s)
+  const sortEnds = await endDatesToSort(s)
+  const fixedEnds = sortEnds.filter(t => !t.newTenant)
+  const leavingNoNotice = sortEnds.filter(t => t.newTenant)
   const realProps = (props.data ?? []).filter((p: any) => !demo.has(p.id))
   const letRooms = new Set(tens.map(t => t.room_id))
   const charged = new Set((charges.data ?? []).map((c: any) => c.room_id))
@@ -103,6 +105,9 @@ export async function GET(req: NextRequest) {
       detail: 'These tenancies have an end date but no notice was recorded — usually the end of a fixed term. The tenancy carries on (it’s periodic), but CROS would stop raising rent and treat it as ended on that date. If they’re staying, make them rolling; if someone is actually leaving, open their tenancy and record the notice instead.',
       items: fixedEnds.map(t => ({ label: `${[t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')} · ${t.rooms?.name}, ${String(t.properties?.name || '').split('\n')[0]} · ends ${new Date(t.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${t.end_date < today ? ' (passed)' : ''}`, href: t.person_id ? `/admin/tenant/${t.person_id}?tab=tenancy` : undefined })),
       fix: { action: 'make_rolling', label: `They’re staying — make ${fixedEnds.length} rolling` } },
+    { key: 'leaving_no_notice', title: 'Leaving for a new tenant, no notice recorded', ok: !leavingNoNotice.length, count: leavingNoNotice.length,
+      detail: 'Someone new is lined up for these rooms, so the current tenant is leaving — but no notice is recorded. They’re never made rolling; open their tenancy and record the notice so the move-out, final rent and room handover follow.',
+      items: leavingNoNotice.map(t => ({ label: `${[t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')} · ${t.rooms?.name}, ${String(t.properties?.name || '').split('\n')[0]} · ends ${new Date(t.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · ${t.newTenant} lined up`, href: t.person_id ? `/admin/tenant/${t.person_id}?tab=tenancy` : undefined })) },
     { key: 'room_status', title: 'Room statuses out of date', ok: !roomChanges.length, count: roomChanges.length, detail: 'Rooms whose status doesn’t match their tenancies — e.g. still “on notice” after the tenant has left. This is also done automatically every night.',
       items: roomChanges.map(c => ({ label: `${c.room}, ${c.property}: ${c.from.replace('_', ' ')} → ${c.to.replace('_', ' ')}` })), fix: { action: 'sync_rooms', label: `Update ${roomChanges.length} room${roomChanges.length === 1 ? '' : 's'}` } },
     { key: 'ghost', title: 'Rooms marked let with no tenancy', ok: !ghost.length, count: ghost.length, detail: 'These rooms are marked occupied but have no current tenancy, so they’re missing from the rent roll and statements.',
