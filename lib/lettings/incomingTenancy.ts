@@ -99,7 +99,7 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
         property_id: propertyId,
         applicant_id: applicant.id,
         start_date: body.start_date || applicant.preferred_start_date || today,
-        end_date: body.end_date || null,
+        end_date: null,   // rolling by default: an end date is only set when notice is recorded (lib/tenancy/rolling)
         rent_amount: rentAmount,
         rent_due_day: body.rent_due_day || 1,
         rent_frequency: body.rent_frequency || 'monthly',
