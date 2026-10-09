@@ -1,6 +1,7 @@
 'use client'
 
 import { landlordName } from '@/lib/people'
+import { StoredImg } from '@/components/StoredImg'
 
 /**
  * LandlordCard — canonical landlord identity card.
@@ -208,7 +209,7 @@ export default function LandlordCard({ data, compact = false, actions }: Landlor
         {/* Mini avatar */}
         <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs flex-shrink-0">
           {data.idPhotoUrl
-            ? <img src={data.idPhotoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+            ? <StoredImg src={data.idPhotoUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
             : initials(data.displayName)}
         </div>
 
@@ -241,7 +242,7 @@ export default function LandlordCard({ data, compact = false, actions }: Landlor
           {/* Avatar */}
           <div className="flex-shrink-0">
             {data.idPhotoUrl ? (
-              <img
+              <StoredImg
                 src={data.idPhotoUrl}
                 alt={data.displayName}
                 className="w-16 h-16 rounded-full object-cover border border-neutral-200 bg-neutral-100"

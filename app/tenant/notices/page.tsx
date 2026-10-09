@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
+import { StoredImg } from '@/components/StoredImg'
 
 async function authHeaders() {
   const supabase = createClient()
@@ -507,7 +508,7 @@ function NoticeCard({ notice, personId, onResolve, onWithdraw }: { notice: Notic
 
         {/* Photo */}
         {notice.photo_url && (
-          <img src={notice.photo_url} alt="Notice photo" className="w-full rounded-xl object-cover mb-3" style={{ maxHeight: 200 }} />
+          <StoredImg src={notice.photo_url} alt="Notice photo" className="w-full rounded-xl object-cover mb-3" style={{ maxHeight: 200 }} />
         )}
 
         {/* House reminder — no anonymity note */}
