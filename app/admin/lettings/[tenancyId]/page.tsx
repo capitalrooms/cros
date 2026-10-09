@@ -1,7 +1,8 @@
 'use client'
 
 // The letting file — one page per tenancy, from let agreed to moved out (/admin/lettings/<tenancy>).
-// Progress · Terms · Money · Documents · Letters & invoices · Notice & renewal · Activity.
+// Progress · Person · Terms · Money · Documents · Letters & Invoices · Notice & Renewal · Activity.
+// Person is the tenant's profile (contact, ID, references, messages, checks) — /admin/tenant/<id> opens it here.
 // Every route that shows a tenancy opens this page; Back returns to where you came from (?from=).
 // Data: /api/admin/lettings/[tenancyId] (lib/lettings/lettingFile). Nothing on this page sends anything by itself.
 
@@ -13,10 +14,11 @@ import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
+import { TenantProfileView } from '@/app/admin/tenant/[personId]/TenantProfileView'
 import { ProgressTab, TermsTab, MoneyTab, DocumentsTab, LettersTab, NoticeTab, ActivityTab, activityItems, openPdf, gbp, day } from './parts'
 
 const TABS = [
-  ['progress', 'Progress'], ['terms', 'Terms'], ['money', 'Money'], ['documents', 'Documents'],
+  ['progress', 'Progress'], ['person', 'Person'], ['terms', 'Terms'], ['money', 'Money'], ['documents', 'Documents'],
   ['letters', 'Letters & Invoices'], ['notice', 'Notice & Renewal'], ['activity', 'Activity'],
 ] as const
 type Tab = typeof TABS[number][0]
@@ -106,6 +108,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
         <div className="grid grid-cols-1 gap-lg lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0">
             {activeTab === 'progress' && <ProgressTab file={file} step={step ?? file.currentStep} setStep={setStep} patch={patch} reload={load} />}
+            {activeTab === 'person' && <TenantProfileView personId={file.tenant.id} embedded />}
             {activeTab === 'terms' && <TermsTab file={file} patch={patch} />}
             {activeTab === 'money' && <MoneyTab file={file} />}
             {activeTab === 'documents' && <DocumentsTab file={file} reload={load} />}
@@ -121,7 +124,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
               <ul className="space-y-sm text-sm">
                 <li className="flex items-baseline justify-between gap-sm">
                   <span className="min-w-0"><span className="font-semibold text-neutral-900">{file.tenant.name}</span><span className="block text-xs text-neutral-500">{file.stage === 'let_agreed' ? 'Incoming' : file.stage === 'on_notice' ? 'Tenant · on notice' : 'Tenant'}{file.tenant.occupation ? ` · ${file.tenant.occupation}` : ''}</span></span>
-                  <Link href={`/admin/tenant/${file.tenant.id}`} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Profile</Link>
+                  <button type="button" onClick={() => setTab('person')} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Profile</button>
                 </li>
                 {file.landlord && (
                   <li className="flex items-baseline justify-between gap-sm">
