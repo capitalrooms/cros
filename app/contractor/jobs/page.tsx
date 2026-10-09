@@ -1,5 +1,6 @@
 'use client';
 
+import { StoredImg, StoredLink } from '@/components/StoredImg'
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
@@ -703,13 +704,13 @@ export default function ContractorJobs() {
                 <p className="text-sm font-semibold">Photos from tenant ({photos.length})</p>
                 <div className="mt-sm grid grid-cols-3 gap-sm">
                   {photos.map((p) => (
-                    <a key={p.id} href={p.storage_url} target="_blank" rel="noopener noreferrer">
-                      <img
+                    <StoredLink key={p.id} href={p.storage_url}>
+                      <StoredImg
                         src={p.storage_url}
                         alt={p.file_name}
                         className="h-24 w-full rounded-xl border border-neutral-200 object-cover"
                       />
-                    </a>
+                    </StoredLink>
                   ))}
                 </div>
               </div>

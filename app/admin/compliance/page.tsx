@@ -1,5 +1,6 @@
 'use client'
 
+import { useStoredUrl } from '@/lib/files/useStoredFile'
 import { use, useEffect, useState, useRef } from 'react'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { useRouter } from 'next/navigation'
@@ -180,6 +181,7 @@ function CertUploadDrawer({
   const [mode, setMode] = useState<'view' | 'upload'>(panel.currentExpiry ? 'view' : 'upload')
   const [existingDoc, setExistingDoc] = useState<ExistingDoc | null>(null)
   const [docLoading, setDocLoading] = useState(!!CERT_DOC_TYPE[panel.certKey])
+  const docLink = useStoredUrl(existingDoc?.storage_url)   // private folder: a short-lived signed link
   const [dragging, setDragging] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null)
@@ -395,14 +397,14 @@ function CertUploadDrawer({
                   <div className="rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50">
                     {isPdf(existingDoc.storage_url) ? (
                       <iframe
-                        src={existingDoc.storage_url}
+                        src={docLink ?? undefined}
                         className="w-full"
                         style={{ height: '420px' }}
                         title={existingDoc.file_name}
                       />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={existingDoc.storage_url} alt={existingDoc.file_name} className="w-full object-contain max-h-96" />
+                      <img src={docLink ?? undefined} alt={existingDoc.file_name} className="w-full object-contain max-h-96" />
                     )}
                   </div>
                   {/* File name + download */}
@@ -410,7 +412,7 @@ function CertUploadDrawer({
                     <span className="text-lg">📎</span>
                     <p className="text-sm text-neutral-700 font-medium flex-1 truncate">{existingDoc.file_name}</p>
                     <a
-                      href={existingDoc.storage_url}
+                      href={docLink ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 underline shrink-0"

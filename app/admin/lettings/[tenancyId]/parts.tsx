@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
 import DocUploadDrawer from '@/components/DocUploadDrawer'
+import { openMyFile } from '@/lib/files/useStoredFile'
 import SetOnNoticeModal, { type OnNoticeData } from '@/app/components/SetOnNoticeModal'
 import { createClient } from '@/lib/supabase'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
@@ -69,7 +70,7 @@ function StepDocs({ file, types, reload, disabled }: { file: LettingFile; types:
           {filed.map((d: any) => (
             <li key={d.id} className="flex items-baseline justify-between gap-md py-xs">
               <span className="min-w-0"><span className="font-semibold break-all">{d.file_name}</span><span className="block text-xs text-neutral-500">{DOC_LABEL[d.document_type] ?? String(d.document_type ?? '').replace(/_/g, ' ')} · {day(d.uploaded_at)}</span></span>
-              {/^https?:/.test(d.storage_url ?? '') && <a href={d.storage_url} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Open</a>}
+              {/^https?:/.test(d.storage_url ?? '') && <button type="button" onClick={() => openMyFile(d.storage_url)} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Open</button>}
             </li>
           ))}
         </ul>
@@ -595,7 +596,7 @@ export function DocumentsTab({ file, reload }: { file: LettingFile; reload: () =
             {file.files.map((d: any) => (
               <li key={d.id} className="flex items-baseline justify-between gap-md py-xs">
                 <span className="min-w-0"><span className="font-semibold">{d.file_name}</span><span className="block text-xs text-neutral-500">{String(d.document_type ?? '').replace(/_/g, ' ')} · {day(d.uploaded_at)}</span></span>
-                {/^https?:/.test(d.storage_url ?? '') && <a href={d.storage_url} target="_blank" rel="noreferrer" className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Open</a>}
+                {/^https?:/.test(d.storage_url ?? '') && <button type="button" onClick={() => openMyFile(d.storage_url)} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Open</button>}
               </li>
             ))}
           </ul>

@@ -937,11 +937,11 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
       const ext      = blob.type.includes('png') ? 'png' : 'jpg'
       const path     = `id-photos/${personId}.${ext}`
       const { error: uploadErr } = await supabase.storage
-        .from('property-photos')
+        .from('property-documents')   // private: ID photos are never in a public folder
         .upload(path, blob, { upsert: true, contentType: blob.type })
       if (uploadErr) throw uploadErr
 
-      const { data: { publicUrl } } = supabase.storage.from('property-photos').getPublicUrl(path)
+      const { data: { publicUrl } } = supabase.storage.from('property-documents').getPublicUrl(path)   // an address to sign, not a public link
       await supabase.from('people').update({ id_photo_url: publicUrl }).eq('id', personId)
       setTenant(prev => prev ? { ...prev, id_photo_url: publicUrl } : prev)
     } catch (e) {

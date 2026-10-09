@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchStored } from '@/lib/files/server'
 import { aiConfigured } from '@/lib/ai-classify'
 import { scanDocument } from '@/lib/scan-engine'
 import { requireAdmin } from '@/lib/adminAuth'
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   try {
     if (storageUrl) {
-      const dlRes = await fetch(storageUrl)
+      const dlRes = await fetchStored(storageUrl)
       if (!dlRes.ok) return NextResponse.json({ error: `Could not fetch file (${dlRes.status})` }, { status: 502 })
       bytes = Buffer.from(await dlRes.arrayBuffer())
       mime = mimeHint || dlRes.headers.get('content-type') || 'application/octet-stream'

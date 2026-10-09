@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
+import { fetchStored } from '@/lib/files/server'
 import Anthropic from '@anthropic-ai/sdk'
 
 export async function POST(req: NextRequest) {
+  // staff only: this reads stored files with the service key and spends AI credits
+  if (!(await requireStaff(req as any))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
@@ -17,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     if (storageUrl) {
       // Fetch from storage and convert to base64
-      const res = await fetch(storageUrl)
+      const res = await fetchStored(storageUrl)
       if (!res.ok) throw new Error(`Failed to fetch file: ${res.status}`)
       const buffer = await res.arrayBuffer()
       const base64 = Buffer.from(buffer).toString('base64')

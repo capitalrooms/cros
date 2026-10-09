@@ -1,5 +1,7 @@
 'use client'
 
+import { useStoredUrl } from '@/lib/files/useStoredFile'
+
 /**
  * Inline document viewer drawer.
  * Shows a PDF iframe or image preview with a Download link, plus
@@ -28,6 +30,8 @@ export default function DocViewDrawer({
     storageUrl.toLowerCase().includes('.pdf') ||
     storageUrl.toLowerCase().includes('%2fpdf') ||
     storageUrl.toLowerCase().includes('pdf')
+  // private folders: a short-lived signed link (null while it's being made)
+  const link = useStoredUrl(storageUrl)
 
   return (
     <>
@@ -48,16 +52,18 @@ export default function DocViewDrawer({
 
         {/* Preview */}
         <div className="flex-1 overflow-hidden bg-neutral-50">
-          {isPdf ? (
+          {!link ? (
+            <div className="flex h-full items-center justify-center text-sm text-neutral-400">Opening…</div>
+          ) : isPdf ? (
             <iframe
-              src={storageUrl}
+              src={link}
               className="w-full h-full"
               title={fileName}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center p-lg overflow-auto">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={storageUrl} alt={fileName} className="max-w-full max-h-full object-contain rounded-lg" />
+              <img src={link} alt={fileName} className="max-w-full max-h-full object-contain rounded-lg" />
             </div>
           )}
         </div>
@@ -65,7 +71,7 @@ export default function DocViewDrawer({
         {/* Footer */}
         <div className="px-lg py-md border-t border-neutral-200 space-y-sm shrink-0">
           <a
-            href={storageUrl}
+            href={link ?? undefined}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full text-center rounded-lg bg-neutral-900 py-md text-sm font-semibold text-white hover:bg-neutral-800 transition"

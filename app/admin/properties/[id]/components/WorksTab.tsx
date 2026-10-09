@@ -1,5 +1,6 @@
 'use client'
 
+import { StoredImg, StoredLink } from '@/components/StoredImg'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 
@@ -201,11 +202,10 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
                 <p className="text-xs font-bold uppercase tracking-wide text-neutral-500 mb-sm">Photos</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-sm">
                   {photoUrls(selected).map((pic, i) => (
-                    <a key={i} href={pic.url} target="_blank" rel="noopener noreferrer" className="block">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={pic.url} alt={pic.label} className="w-full h-28 object-cover rounded-lg border border-neutral-200" />
+                    <StoredLink key={i} href={pic.url} className="block">
+                      <StoredImg src={pic.url} alt={pic.label} className="w-full h-28 object-cover rounded-lg border border-neutral-200" />
                       <p className="text-xs text-neutral-500 mt-xs">{pic.label}</p>
-                    </a>
+                    </StoredLink>
                   ))}
                 </div>
               </div>

@@ -1,6 +1,7 @@
 // "New certificates" email to everyone living in a house — Harry's "Your Health & Safety Certificates" email,
 // in the house style: which certificates were done, when each is next due, a link to each, sent to every
 // current tenant individually (so nobody sees anyone else's email address).
+import { signedLinkFor } from '@/lib/files/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { tableRow } from '@/lib/emailWrapper'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
@@ -41,14 +42,15 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
       .eq('property_id', propertyId).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
   ])
   const sixtyDaysAgo = iso(new Date(Date.now() - 60 * 86_400_000))
-  const documents: HouseDoc[] = HOUSE_DOCS.map(d => {
+  // the folder is private: emailed certificate links are signed and last a year (a tenant may open them months later)
+  const documents: HouseDoc[] = await Promise.all(HOUSE_DOCS.map(async d => {
     const doc = (docs ?? []).find((x: any) => d.types.includes(String(x.document_type)))
     return {
-      key: d.key, label: d.label, url: doc?.storage_url ?? null, uploadedAt: doc?.uploaded_at ?? null,
+      key: d.key, label: d.label, url: await signedLinkFor(doc?.storage_url, 365 * 86_400), uploadedAt: doc?.uploaded_at ?? null,
       nextDue: nextDue(prop, d),
       recent: !!doc?.uploaded_at && String(doc.uploaded_at).slice(0, 10) >= sixtyDaysAgo,   // pre-ticked
     }
-  })
+  }))
   const seen = new Set<string>()
   const tenants: HouseTenant[] = []
   for (const t of (lets ?? []) as any[]) {

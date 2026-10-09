@@ -2,6 +2,7 @@
 // The PDF is for contractors who may not be on the app — so it must stand on its own: what, where, photos,
 // notes, how to reply. Never includes tenant names or contact details, and never the key safe code
 // (that is only given once a contractor is booked).
+import { fetchStored } from '@/lib/files/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   loadPDFLetterheadAssets, drawPDFFooter, PAGE_W, PAGE_H, MARGIN, FOOTER_BAND_H, LOGO_W, LOGO_H, BLACK, GREY,
@@ -85,7 +86,7 @@ export function accessNote(job: Pick<QuoteJob, 'location' | 'roomName'>): string
 
 async function fetchImage(url: string): Promise<Buffer | null> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const res = await fetchStored(url)   // photos live in a private folder
     if (!res.ok) return null
     const buf = Buffer.from(await res.arrayBuffer())
     // Phone photos are several MB each — shrink so six of them still make an email-sized PDF,

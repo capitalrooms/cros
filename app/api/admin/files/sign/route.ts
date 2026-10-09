@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { parseStorageUrl } from '@/lib/files/paths'
 
 export const dynamic = 'force-dynamic'
-const BUCKETS = new Set(['inbox-docs', 'finance-docs', 'landlord-docs', 'property-documents', 'valuations', 'maintenance-photos', 'job-photos', 'property-photos'])
+const BUCKETS = new Set(['inbox-docs', 'finance-docs', 'landlord-docs', 'property-documents', 'valuations', 'maintenance-photos', 'job-photos', 'property-photos', 'tenant-guides', 'planner-files', 'capture'])
 
 export async function POST(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -1,5 +1,6 @@
 // GET /api/pack/[token]/file/[key] — open one document from the pack (logged as evidence it was opened).
 // Generated documents (agreement, check-in balance) are the exact files stored when the pack was sent.
+import { signedLinkFor } from '@/lib/files/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { PORTAL_URL } from '@/lib/emailWrapper'
 import { svc, PACK_BUCKET } from '@/lib/movein/email'
@@ -28,7 +29,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     if (!error && data?.signedUrl) return NextResponse.redirect(data.signedUrl, 302)
     if (!doc.url) return back
   }
-  const url = doc.url?.startsWith('/') ? `${PORTAL_URL}${doc.url}` : doc.url
+  // our own stored file: a short-lived signed link (the folder is private); a standard guide: its page on the portal
+  const url = doc.url?.startsWith('/') ? `${PORTAL_URL}${doc.url}` : await signedLinkFor(doc.url, 3600)
   if (!url) return back
   return NextResponse.redirect(url, 302)
 }
