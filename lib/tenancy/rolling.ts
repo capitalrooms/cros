@@ -1,8 +1,9 @@
 // Tenancies are rolling by default (Harry, 9 Oct 2026: "tenants stay as long as they want unless we give a notice
-// date"). An end date only means something once notice is recorded; one without notice is the end of a fixed term
+// date" … "unless I have ticked they are leaving they never leave"). Leaving = notice recorded (Mark on notice, or the
+// tenant's Give notice). An end date only means something once notice is recorded; one without notice is the end of a fixed term
 // entered with the tenancy, and it would stop rent being raised and make the tenant look gone.
 //   endDatesToSort — tenancies with an end date and no notice that may really be carrying on (Health Check list)
-//   makeRolling    — clear those end dates (Health Check button, and nightly for end dates still to come)
+//   makeRolling    — clear those end dates (Health Check button, and nightly — past end dates included)
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 
@@ -19,8 +20,9 @@ export async function endDatesToSort(s: SupabaseClient | any) {
   return rows.filter(t => !replaced(t))
 }
 
-/** Clear no-notice end dates. futureOnly (the nightly run): only end dates still to come, so a tenancy that has
- *  already ended is left for a person to look at in the Health Check. Each change is written to the tenancy's activity. */
+/** Clear no-notice end dates, past or still to come. futureOnly limits it to end dates still to come (nothing uses
+ *  that now). A room already marked empty or on notice is skipped (endDatesToSort), so a person decides those in the
+ *  Health Check. Each change is written to the tenancy's activity. */
 export async function makeRolling(s: SupabaseClient | any, opts: { futureOnly?: boolean; by: string }) {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const rows = (await endDatesToSort(s)).filter((t: any) => !opts.futureOnly || t.end_date > today)

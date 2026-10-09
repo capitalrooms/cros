@@ -1,5 +1,5 @@
-// Daily: tenancies with an end date still to come and no notice become rolling (lib/tenancy/rolling — rolling is the
-// default), then room statuses are brought in line with tenancies (a tenant who has left → available, a new one → occupied).
+// Daily: tenancies with an end date and no notice become rolling, whether the date is still to come or has passed
+// (lib/tenancy/rolling — Harry, 9 Oct: "unless I have ticked they are leaving they never leave"), then room statuses are brought in line with tenancies (a tenant who has left → available, a new one → occupied).
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { syncRoomStatuses } from '@/lib/rooms/syncStatus'
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
   try {
-    const rolled = await makeRolling(s, { futureOnly: true, by: 'nightly check' })
+    const rolled = await makeRolling(s, { by: 'nightly check' })
     const changes = await syncRoomStatuses(s, { apply: true })
     // a tenant has moved out and the room is free: tell the lettings team
     for (const c of changes.filter(c => c.to === 'available')) await alertLettingsRoomUp(s, c.roomId, { why: 'The tenant has moved out.' })
