@@ -411,7 +411,7 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
         <h2 className="text-lg font-bold">Terms</h2>
         {!edit && file.stage !== 'fell_through' && <button type="button" onClick={start} className={btn}>Edit</button>}
       </div>
-      {!beforeMoveIn && <p className="text-xs text-neutral-500">Rent, dates, deposit and reference are fixed once the tenancy has started — change the rent with a rent review.</p>}
+      {!beforeMoveIn && <p className="text-xs text-neutral-500">Rent, dates and deposit are fixed once the tenancy has started — change the rent with a rent review. A wrong payment reference can be corrected, with the reason recorded.</p>}
       {err && <p className="text-sm text-red-700">{err}</p>}
       <dl className="grid grid-cols-1 gap-x-lg gap-y-sm sm:grid-cols-2">
         {TERM_FIELDS.map(f => {
@@ -425,6 +425,15 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
                   : f.kind === 'agreement' ? <select className={`${input} w-full`} value={vals[f.key]} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))}>{AGREEMENT_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
                   : <input type={f.kind === 'date' ? 'date' : 'text'} inputMode={f.kind === 'money' ? 'decimal' : f.kind === 'int' ? 'numeric' : undefined} className={`${input} w-full`} value={vals[f.key]} onChange={e => setVals(v => ({ ...v, [f.key]: e.target.value }))} />
                 ) : show(f)}
+                {f.key === 'payment_reference' && locked && !edit && file.stage !== 'fell_through' && (
+                  <button type="button" className="ml-sm text-xs font-semibold text-blue-700 hover:underline" onClick={async () => {
+                    const ref = window.prompt('The correct payment reference (what the tenant uses at their bank):', String(t.payment_reference ?? ''))
+                    if (!ref || ref.trim().toUpperCase() === String(t.payment_reference ?? '')) return
+                    const reason = window.prompt('Why is it being corrected? (kept in the activity)')
+                    if (!reason?.trim()) return
+                    try { await patch({ action: 'terms', changes: { payment_reference: ref }, reason }) } catch (e) { alert(e instanceof Error ? e.message : 'Could not save') }
+                  }}>Correct it</button>
+                )}
               </dd>
             </div>
           )
