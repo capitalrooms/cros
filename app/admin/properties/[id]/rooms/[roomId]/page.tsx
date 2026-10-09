@@ -14,6 +14,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { ICEBREAKER_QUESTIONS } from '@/lib/icebreaker'
 import { genTenancyRefs } from '@/lib/references'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
+import { StoredLink } from '@/components/StoredImg'
 
 type TabType = 'overview' | 'tenant' | 'maintenance' | 'lettings' | 'photos' | 'compliance' | 'notes'
 type ComplianceFilter = 'all' | 'fire_door' | 'smoke_alarm'
@@ -1739,10 +1740,10 @@ export default function RoomDashboardPage({
                           <p className="text-xs text-red-700 mt-sm bg-red-50 rounded-lg p-sm border border-red-100">{check.issue_description}</p>
                         )}
                         {check.photo_attachment_id && /^https?:/.test(check.photo_attachment_id) && (
-                          <a href={check.photo_attachment_id} target="_blank" rel="noopener noreferrer"
+                          <StoredLink href={check.photo_attachment_id}
                             className="inline-flex items-center gap-xs mt-sm text-xs text-blue-600 hover:text-blue-800 font-medium">
                             📷 View photo
-                          </a>
+                          </StoredLink>
                         )}
                       </div>
                     </div>
