@@ -131,7 +131,6 @@ export default function CreateTenancyPage() {
         room_id:      applicant?.room_id,
         property_id:  applicant?.property_id,
         start_date:   startDate,
-        end_date:     endDate || undefined,
         rent_amount:  Number(rent),
         rent_due_day: Number(rentDueDay),
         rent_frequency: rentFrequency,
@@ -344,18 +343,8 @@ export default function CreateTenancyPage() {
                   onChange={e => setStartDate(e.target.value)}
                   className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
               </div>
-              <div>
-                <label className="block text-xs text-neutral-500 mb-xs">Term (months)</label>
-                <input type="number" min="1" max="60" value={termMonths}
-                  onChange={e => setTermMonths(e.target.value)}
-                  placeholder="e.g. 12"
-                  className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-              </div>
-              <div>
-                <label className="block text-xs text-neutral-500 mb-xs">End date (blank = rolling)</label>
-                <input type="date" value={endDate}
-                  onChange={e => { setEndDate(e.target.value); setTermMonths('') }}
-                  className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+              <div className="col-span-full rounded-lg bg-neutral-50 px-md py-sm text-xs text-neutral-600">
+                Rolling — no end date. Tenants stay until notice is given; record notice from the letting file (Notice &amp; Renewal) when someone is leaving.
               </div>
             </div>
           </div>

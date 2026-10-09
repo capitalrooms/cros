@@ -2,6 +2,7 @@
 // GET                                   the checks
 // POST { action: 'fill_refs' }          give every current tenancy without one its payment reference
 //                                       (house number + street letters + room, e.g. 208ROS05)
+import { endDatesToSort, makeRolling } from '@/lib/tenancy/rolling'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
@@ -29,21 +30,6 @@ async function activeTenancies(s: ReturnType<typeof svc>, demo: Set<string>) {
 const who = (t: any) => [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
 const where = (t: any) => `${t.rooms?.name ?? ''}, ${String(t.properties?.name || '').split('\n')[0]}`
 
-
-// Tenancies whose end date has no notice behind it and might really be carrying on. Leaves out anyone whose room
-// someone else has moved into since (they've gone — e.g. Marija, 4 Willis Rd Room 2, replaced by a new tenant), lets
-// that fell through, demo and let-only houses, and rooms already marked on notice or empty. Shared by the check and
-// "make rolling", so the button can never bring back a tenancy that has ended.
-async function endDatesToSort(s: any) {
-  const { data } = await s.from('tenancies')
-    .select('id, room_id, person_id, start_date, end_date, let_cancelled_at, rooms(name, status), properties(name, is_demo, letting_type), people!person_id(first_name, last_name)')
-    .not('end_date', 'is', null).is('notice_received_date', null).is('let_cancelled_at', null).order('end_date')
-  const rows = ((data ?? []) as any[]).filter(t => !t.properties?.is_demo && t.properties?.letting_type !== 'let_only' && t.rooms?.status !== 'on_notice' && t.rooms?.status !== 'available')
-  if (!rows.length) return []
-  const { data: inRooms } = await s.from('tenancies').select('id, room_id, start_date, let_cancelled_at').in('room_id', [...new Set(rows.map(t => t.room_id).filter(Boolean))])
-  const replaced = (t: any) => ((inRooms ?? []) as any[]).some(o => o.id !== t.id && !o.let_cancelled_at && o.room_id === t.room_id && o.start_date && o.start_date > t.start_date)
-  return rows.filter(t => !replaced(t))
-}
 
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -194,13 +180,9 @@ export async function POST(req: NextRequest) {
   }
   if (b.action === 'make_rolling') {
     // clear the fixed-term end date on tenancies with no notice (same filter as the check above)
-    const today = new Date().toISOString().slice(0, 10)
-    const ids = (await endDatesToSort(s)).map((t: any) => t.id)
-    if (ids.length) {
-      const { error } = await s.from('tenancies').update({ end_date: null, is_periodic: true }).in('id', ids)
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-    return NextResponse.json({ ok: true, filled: ids.length, message: `${ids.length} tenanc${ids.length === 1 ? 'y is' : 'ies are'} now rolling — no end date until notice is given.${today ? '' : ''}` })
+    let n = 0
+    try { n = await makeRolling(s, { by: admin.email }) } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 500 }) }
+    return NextResponse.json({ ok: true, filled: n, message: `${n} tenanc${n === 1 ? 'y is' : 'ies are'} now rolling — no end date until notice is given.` })
   }
   if (b.action === 'sync_rooms') {
     const changes = await syncRoomStatuses(s, { apply: true })
