@@ -31,7 +31,13 @@ interface ParsedRow {
   bank_account_id: string | null
   template: 'apt-base' | 'apt-ns' | 'apt-ct'
   landlord_id: string | null
+  // the rent payment reference on the agreement: typed / taken from the tenant's CROS tenancy; blank = worked out from the address
+  payment_reference?: string | null
+  ref_source?: 'cros' | 'typed' | null
 }
+
+/** The reference the agreement will carry: the one set on the row, else worked out from the address and room. */
+const refFor = (row: ParsedRow) => (row.payment_reference || '').trim() || (row.property_name ? buildPaymentRef(row.property_name, row.room_number) : '')
 
 interface BankAccount {
   id: string
@@ -317,6 +323,17 @@ export default function BulkTenancyGenerator() {
         landlord_id: selectedLandlordId || null,
       }))
       setRows(parsed)
+      // A tenant already in CROS keeps the reference their tenancy has — it's what the bank import matches rent on
+      try {
+        const { data: tens } = await supabase.from('tenancies').select('payment_reference, let_cancelled_at, start_date, people!person_id(email, first_name, last_name)').not('payment_reference', 'is', null).order('start_date', { ascending: false })
+        const live = ((tens ?? []) as any[]).filter(t => !t.let_cancelled_at && t.people)
+        const norm = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+        setRows(rs => rs.map(r => {
+          const hit = live.find(t => r.tenant_email && norm(t.people.email) === norm(r.tenant_email))
+            ?? live.find(t => r.tenant_name && norm([t.people.first_name, t.people.last_name].filter(Boolean).join(' ')) === norm(r.tenant_name))
+          return hit ? { ...r, payment_reference: hit.payment_reference, ref_source: 'cros' as const } : r
+        }))
+      } catch { /* no CROS match: references are worked out from the address */ }
       // Cleaning mentioned in the notes ("landlord pays … cleaning twice monthly") pre-selects the cleaning choice
       const withCleaning = (data.rows || []).find((r: any) => ['landlord', 'tenant', 'none'].includes(r.cleaning_payer))
       if (withCleaning) {
@@ -378,7 +395,7 @@ export default function BulkTenancyGenerator() {
       bank_name: bankDetails.bank_name,
       bank_sort_code: bankDetails.sort_code,
       bank_account_number: bankDetails.account_number,
-      payment_reference: row.property_name ? buildPaymentRef(row.property_name, row.room_number) : '',
+      payment_reference: refFor(row),
     }
     return { payload }
   }
@@ -866,6 +883,20 @@ export default function BulkTenancyGenerator() {
                             onChange={e => updateRow(row._id, { deposit_amount: e.target.value ? parseFloat(e.target.value) : null })}
                           />
                         </div>
+                      </div>
+                      {/* Payment reference — shown so it can be checked and changed */}
+                      <div className="w-36">
+                        <label className="block text-xs font-medium text-neutral-500 mb-1">Payment ref</label>
+                        <input
+                          className="w-full rounded border border-neutral-200 px-sm py-xs font-mono text-sm uppercase text-neutral-900 bg-white"
+                          value={row.payment_reference ?? ''}
+                          placeholder={row.property_name ? buildPaymentRef(row.property_name, row.room_number) : ''}
+                          onChange={e => { const v = e.target.value.toUpperCase().replace(/[^A-Z0-9\-\/]/g, '').slice(0, 18); updateRow(row._id, { payment_reference: v || null, ref_source: v ? 'typed' : null }) }}
+                          aria-label="Rent payment reference"
+                        />
+                        <span className={`mt-0.5 block text-[11px] ${row.ref_source === 'cros' ? 'text-green-700' : 'text-neutral-400'}`}>
+                          {row.ref_source === 'cros' ? 'From their tenancy in CROS' : row.ref_source === 'typed' ? 'Typed — blank to work it out' : 'Worked out from the address'}
+                        </span>
                       </div>
                       {/* Bank account dropdown — hidden when using inline bank */}
                       {bankAccounts.length > 0 ? (
