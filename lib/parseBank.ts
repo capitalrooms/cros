@@ -340,3 +340,58 @@ export function parseBankCSV(csvText: string): ParseResult {
     warnings,
   }
 }
+
+// ─── Money OUT (the Operations account, migration 212) ────────────────────────
+// The same CSV formats, read the other way: a debit column with a value, or a negative amount in a single
+// amount column. Credits are left out (they're not expenses).
+
+export interface ParsedDebit { line_date: string; amount: number; description: string; dedup_hash: string }
+export interface DebitResult { lines: ParsedDebit[]; period_from: string | null; period_to: string | null; total: number; bank_name: string | null; warnings: string[] }
+
+function parseOut(raw: string): number | null {
+  if (!raw || !raw.trim()) return null
+  const s = raw.trim().replace(/[£$€\s]/g, '')
+  const neg = s.startsWith('-') || (s.startsWith('(') && s.endsWith(')'))
+  const n = parseAmount(s.replace(/^[-(]|\)$/g, ''))
+  return n == null ? null : neg ? -n : n
+}
+
+export function parseBankDebits(csvText: string): DebitResult {
+  const warnings: string[] = []
+  const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(l => l.trim()).filter(Boolean)
+  const empty = (w: string): DebitResult => ({ lines: [], period_from: null, period_to: null, total: 0, bank_name: null, warnings: [w] })
+  if (lines.length < 2) return empty('The file is empty or has only one line')
+  let headerLineIdx = 0
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    if (tokeniseCSV(lines[i]).some(f => /^(date|description|amount|credit|debit|balance|reference|type|transaction|money)/i.test(f.trim()))) { headerLineIdx = i; break }
+  }
+  const headers = tokeniseCSV(lines[headerLineIdx])
+  const cols = detectColumns(headers)
+  if (!cols) return empty('Could not find the date, amount and description columns. Check it’s the bank’s CSV download.')
+  const out: ParsedDebit[] = []
+  let badDate = 0
+  for (let i = headerLineIdx + 1; i < lines.length; i++) {
+    const row = tokeniseCSV(lines[i])
+    if (row.every(f => !f.trim())) continue
+    const date = parseDate(row[cols.dateIdx] || '')
+    if (!date) { badDate++; continue }
+    let amount: number | null = null
+    if (cols.debitIdx !== null) {
+      const d = parseOut(row[cols.debitIdx] || '')
+      if (d != null && d !== 0) amount = Math.abs(d)
+      else { const c = parseOut(row[cols.creditIdx] || ''); if (c != null && c < 0) amount = -c }   // some banks sign the single column anyway
+    } else {
+      const v = parseOut(row[cols.creditIdx] || '')
+      if (v != null && v < 0) amount = -v
+    }
+    if (amount == null || !(amount > 0)) continue   // money in
+    const desc = (row[cols.descIdx] || '').trim()
+    const refField = cols.refIdx !== null ? (row[cols.refIdx] || '').trim() : ''
+    const description = refField && !desc.includes(refField) ? `${desc} ${refField}`.trim() : desc
+    if (!description) { warnings.push(`Row ${i + 1}: no description, skipped`); continue }
+    out.push({ line_date: date, amount: Math.round(amount * 100) / 100, description, dedup_hash: dedupHash(date, amount, `out|${description}`) })
+  }
+  if (badDate) warnings.push(`${badDate} row(s) skipped — the date wasn’t recognised`)
+  const dates = out.map(t => t.line_date).sort()
+  return { lines: out, period_from: dates[0] ?? null, period_to: dates[dates.length - 1] ?? null, total: Math.round(out.reduce((n, t) => n + t.amount, 0) * 100) / 100, bank_name: detectBankName(headers), warnings }
+}

@@ -262,6 +262,13 @@ function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reloa
   const [category, setCategory] = useState<string>(read?.company_category ?? 'Other')
   const [paid, setPaid] = useState<boolean>(!!read?.already_paid || !!read?.direct_debit)
   const [share, setShare] = useState(false)
+  const [charge, setCharge] = useState('')   // a different amount for the landlord (mark-up on goods resold)
+  const [split, setSplit] = useState(false)  // one invoice covering several houses
+  const [shares, setShares] = useState<{ propertyId: string; amount: string }[]>([{ propertyId: '', amount: '' }, { propertyId: '', amount: '' }])
+  const props: { id: string; name: string }[] = data.properties ?? []
+  // the first share is the house chosen above; the last takes whatever is left
+  const sharesShown = shares.map((x, i) => ({ ...x, propertyId: i === 0 ? propertyId : x.propertyId, amount: i === shares.length - 1 && x.amount === '' ? String(Math.round((Number(amount) - shares.slice(0, -1).reduce((n, y) => n + (Number(y.amount) || 0), 0)) * 100) / 100) : x.amount }))
+  const sharesTotal = Math.round(sharesShown.reduce((n, x) => n + (Number(x.amount) || 0), 0) * 100) / 100
   const [choices, setChoices] = useState<{ month: string; label: string }[]>([])
   const [deductMonth, setDeductMonth] = useState('')
   const [dups, setDups] = useState<any[]>([])
@@ -286,6 +293,8 @@ function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reloa
       const r = await adminFetch('/api/admin/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         action: 'expense', id: it.id, as: mode, amount: Number(amount), date, supplier, invoiceNumber, description, propertyId, roomId: roomId || null,
         deductMonth, shareInvoice: share, category, paidOn: paid ? date : null, paidHow: paid ? (read?.direct_debit ? 'direct_debit' : 'card') : null, confirmDuplicate,
+        charge: mode === 'landlord' && !split && charge !== '' ? Number(charge) : null,
+        splits: mode === 'landlord' && split ? sharesShown.map(x => ({ propertyId: x.propertyId, amount: Number(x.amount) })) : null,
       }) })
       const d = await r.json().catch(() => ({}))
       if (r.status === 409 && d.duplicates) { setDups(d.duplicates); setMsg('Looks like one already on record — check below.'); return }
@@ -295,7 +304,7 @@ function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reloa
   }
 
   const amountChanged = read?.amount && Number(amount) !== Number(read.amount)
-  const ready = Number(amount) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(date) && description.trim() && (mode !== 'landlord' || (propertyId && deductMonth))
+  const ready = Number(amount) > 0 && /^\d{4}-\d{2}-\d{2}$/.test(date) && description.trim() && (mode !== 'landlord' || (propertyId && (split ? sharesShown.every(x => x.propertyId && Number(x.amount) > 0) && sharesTotal === Math.round(Number(amount) * 100) / 100 : deductMonth)))
   return (
     <div className="space-y-sm rounded-xl border border-neutral-200 bg-neutral-50 p-sm">
       {read?.reason && <p className="text-xs text-neutral-600">CROS suggests <b>{read.belongs_to === 'landlord' ? 'a landlord expense' : read.belongs_to === 'company' ? 'a company expense' : 'checking this'}</b> — {read.reason}{read.confidence != null ? ` (${Math.round(read.confidence * 100)}% sure)` : ''}</p>}
@@ -319,13 +328,36 @@ function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reloa
       </>)}
       {mode === 'landlord' && (
         !propertyId ? <p className="text-xs font-semibold text-amber-800">Choose the property above.</p> : (<>
-          <fieldset className="space-y-xs">
+          {!split && <fieldset className="space-y-xs">
             <legend className="text-xs font-semibold text-neutral-700">Which statement does it come off?</legend>
             {choices.map((c, i) => (
               <label key={c.month} className="flex items-center gap-xs text-sm"><input type="radio" checked={deductMonth === c.month} onChange={() => setDeductMonth(c.month)} />{c.label}<span className="text-xs text-neutral-500">{i === 0 ? '· the next one to be paid' : '· the one after'}</span></label>
             ))}
-          </fieldset>
+          </fieldset>}
           <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={share} onChange={e => setShare(e.target.checked)} />Send the invoice to the landlord with the statement</label>
+          <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={split} onChange={e => setSplit(e.target.checked)} />This invoice covers several houses — split it</label>
+          {split ? (
+            <div className="space-y-xs rounded-lg border border-neutral-200 bg-white p-sm">
+              {sharesShown.map((x, i) => (
+                <div key={i} className="flex flex-wrap items-center gap-xs">
+                  {i === 0 ? <span className="min-w-[180px] flex-1 text-sm font-semibold">{props.find(p => p.id === propertyId)?.name ?? 'The house above'}</span>
+                    : <select className={`${input} min-w-[180px] flex-1`} value={x.propertyId} onChange={e => setShares(s => s.map((y, j) => j === i ? { ...y, propertyId: e.target.value } : y))} aria-label={`House ${i + 1}`}><option value="">Choose a house…</option>{props.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}
+                  <input className={`${input} w-28`} inputMode="decimal" value={x.amount} onChange={e => setShares(s => s.map((y, j) => j === i ? { ...y, amount: e.target.value.replace(/[^\d.]/g, '') } : y))} placeholder="£" aria-label={`Share for house ${i + 1}`} />
+                  {shares.length > 2 && i > 0 && <button type="button" className="text-xs font-semibold text-red-700" onClick={() => setShares(s => s.filter((_, j) => j !== i))}>Remove</button>}
+                </div>
+              ))}
+              <div className="flex flex-wrap items-center gap-md text-xs">
+                <button type="button" className="font-semibold text-blue-700" onClick={() => setShares(s => [...s.slice(0, -1), { ...s[s.length - 1], amount: sharesShown[s.length - 1].amount }, { propertyId: '', amount: '' }])}>+ Add a house</button>
+                <span className={sharesTotal === Math.round(Number(amount) * 100) / 100 ? 'text-green-700' : 'text-red-700'}>Shares £{sharesTotal.toFixed(2)} of £{(Number(amount) || 0).toFixed(2)}</span>
+                <span className="text-neutral-500">Each comes off that house’s next statement.</span>
+              </div>
+            </div>
+          ) : (
+            <label className="block text-xs text-neutral-600">Charge the landlord <span className="text-neutral-400">(leave blank to charge what it cost)</span>
+              <input className={`${input} max-w-[160px]`} inputMode="decimal" value={charge} onChange={e => setCharge(e.target.value.replace(/[^\d.]/g, ''))} placeholder={amount} />
+              {charge !== '' && Number(charge) > 0 && Number(charge) !== Number(amount) && <span className="block text-neutral-500">{Number(charge) > Number(amount) ? `Mark-up £${(Number(charge) - Number(amount)).toFixed(2)} — shown in Reports › Mark-ups` : 'Less than it cost'}</span>}
+            </label>
+          )}
         </>)
       )}
       {mode === 'company' && (
