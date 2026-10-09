@@ -197,12 +197,41 @@ export async function POST(req: NextRequest) {
         const invoicePath = `invoices/${new Date().toISOString().slice(0, 7)}/capture-${item.id}.${ext}`
         const { error: upErr } = await s.storage.from('finance-docs').upload(invoicePath, o.bytes, { contentType: o.mime, upsert: true })
         if (upErr) { await release(); return NextResponse.json({ error: `Couldn’t attach the invoice: ${upErr.message}` }, { status: 500 }) }
+        const notes = item.source === 'email' ? `From an email${item.email_from ? ` from ${item.email_from}` : ''}${item.email_subject ? `: “${item.email_subject}”` : ''}` : 'Filed from Capture'
+        const common = { expense_date: b.date, supplier, invoice_number: String(b.invoiceNumber ?? '').trim() || null, category: b.category || null, invoice_path: invoicePath, invoice_name: item.file_name,
+          share_invoice: !!b.shareInvoice, paid_to_supplier_on: isDate(b.paidOn) ? b.paidOn : null, supplier_payment_method: b.paidHow || null, source: 'capture' as const }
+
+        // one invoice covering several houses (a cleaning round): a share each, all pointing at the same invoice
+        const splits = (Array.isArray(b.splits) ? b.splits : []).filter((x: any) => x?.propertyId).map((x: any) => ({ propertyId: String(x.propertyId), roomId: x.roomId || null, amount: Math.round(Number(x.amount) * 100) / 100 }))
+        if (splits.length >= 2) {
+          const sum = Math.round(splits.reduce((n: number, x: any) => n + x.amount, 0) * 100) / 100
+          if (splits.some((x: any) => !(x.amount > 0)) || sum !== amount) { await release(); return NextResponse.json({ error: `The shares add up to £${sum.toFixed(2)} — they need to make £${amount.toFixed(2)}` }, { status: 400 }) }
+          if (!b.confirmDuplicate) {
+            for (const x of splits) {
+              const d = await expenseDuplicates(s, { property_id: x.propertyId, description, amount: x.amount, expense_date: b.date, invoice_number: common.invoice_number, room_id: x.roomId })
+              if (d.length) { await release(); return NextResponse.json({ duplicates: d }, { status: 409 }) }
+            }
+          }
+          const made: any[] = []
+          for (let n = 0; n < splits.length; n++) {
+            const x = splits[n]
+            const r = await addLandlordExpense(s, { ...common, property_id: x.propertyId, room_id: x.roomId, description, amount: x.amount,
+              notes: `${notes} — share ${n + 1} of ${splits.length} of £${amount.toFixed(2)}`, source_ref: `capture:${item.id}:${n + 1}` }, { by: admin.personId, confirmDuplicate: true })
+            if (!r.ok) {
+              if (!made.length) { await release(); return NextResponse.json({ error: r.error }, { status: r.status }) }
+              await done(kind, made.map(m => `recharge_expenses:${m.id}`).join(','), { bill: { ...(item.bill ?? {}), filedAs: 'landlord_split', splitIncomplete: true } })
+              return NextResponse.json({ error: `Only ${made.length} of ${splits.length} shares were added — share ${n + 1}: ${r.error}. Add the rest in Expenses.` }, { status: 409 })
+            }
+            made.push(r.expense)
+          }
+          await done(kind, made.map(m => `recharge_expenses:${m.id}`).join(','), { bill: { ...(item.bill ?? {}), filedAs: 'landlord_split' } })
+          return NextResponse.json({ ok: true, filedTo: `Split across ${made.length} houses: ${made.map(m => `${m.txn_no ?? ''} £${Number(m.amount).toFixed(2)}`).join(' · ')}` })
+        }
+
+        const charge = b.charge == null || b.charge === '' ? amount : Math.round(Number(b.charge) * 100) / 100
         const r = await addLandlordExpense(s, {
-          property_id: String(b.propertyId ?? ''), room_id: b.roomId || null, description, amount, expense_date: b.date, supplier, invoice_number: String(b.invoiceNumber ?? '').trim() || null,
-          category: b.category || null, deduct_month: b.deductMonth || null, invoice_path: invoicePath, invoice_name: item.file_name, share_invoice: !!b.shareInvoice,
-          paid_to_supplier_on: isDate(b.paidOn) ? b.paidOn : null, supplier_payment_method: b.paidHow || null,
-          notes: item.source === 'email' ? `From an email${item.email_from ? ` from ${item.email_from}` : ''}${item.email_subject ? `: “${item.email_subject}”` : ''}` : 'Filed from Capture',
-          source: 'capture', source_ref: `capture:${item.id}`,
+          ...common, property_id: String(b.propertyId ?? ''), room_id: b.roomId || null, description, amount: charge, cost_amount: charge !== amount ? amount : null,
+          deduct_month: b.deductMonth || null, notes, source_ref: `capture:${item.id}`,
         }, { by: admin.personId, confirmDuplicate: !!b.confirmDuplicate })
         if (!r.ok) { await release(); return NextResponse.json(r.duplicates ? { duplicates: r.duplicates } : { error: r.error }, { status: r.status }) }
         await done(kind, `recharge_expenses:${r.expense.id}`, { property_id: b.propertyId, room_id: b.roomId || null, bill: { ...(item.bill ?? {}), filedAs: 'landlord' } })

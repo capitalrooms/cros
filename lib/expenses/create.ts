@@ -18,7 +18,9 @@ export interface NewExpense {
   supplier?: string | null; invoice_number?: string | null; category?: string | null; room_id?: string | null; notes?: string | null
   deduct_month?: string | null; invoice_path?: string | null; invoice_name?: string | null; share_invoice?: boolean
   paid_to_supplier_on?: string | null; supplier_payment_method?: string | null; supplier_payment_ref?: string | null
-  source?: 'manual' | 'supplier_invoice' | 'capture'; source_ref?: string | null
+  source?: 'manual' | 'supplier_invoice' | 'capture' | 'ops_bank'; source_ref?: string | null
+  /** what it actually cost us, when the landlord is charged a different amount (goods resold) — migration 195 */
+  cost_amount?: number | null
 }
 export type AddResult =
   | { ok: true; expense: any; deductMonth: string; message: string }
@@ -57,6 +59,8 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
   if (!description) return { ok: false, status: 400, error: 'Say what the expense was for' }
   if (!(amount > 0) || amount > 1_000_000) return { ok: false, status: 400, error: 'Enter the amount (more than £0)' }
   if (!isDate(e.expense_date)) return { ok: false, status: 400, error: 'Enter the date on the invoice or receipt' }
+  const cost = e.cost_amount == null || e.cost_amount === ('' as any) ? null : r2(Number(e.cost_amount))
+  if (cost != null && !(cost > 0)) return { ok: false, status: 400, error: 'Enter what it cost (more than £0), or leave it blank' }
   if (e.expense_date > new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)) return { ok: false, status: 400, error: 'The date is in the future' }
   const { data: prop } = await s.from('properties').select('id, name, is_demo').eq('id', e.property_id).maybeSingle()
   if (!prop) return { ok: false, status: 404, error: 'Property not found' }
@@ -83,6 +87,7 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
     supplier_payment_method: ['card', 'bank_transfer', 'cash', 'direct_debit'].includes(String(e.supplier_payment_method)) ? e.supplier_payment_method : null,
     supplier_payment_ref: String(e.supplier_payment_ref || '').trim() || null,
   }
+  if (cost != null && cost !== amount) row.cost_amount = cost   // the difference is profit (or a loss) on goods resold
   if (e.source_ref) Object.assign(row, { source: e.source ?? 'manual', source_ref: e.source_ref })
   let { data: expense, error } = await s.from('recharge_expenses').insert(row).select('*').single()
   // before migration 208 the source columns don't exist yet — save without them (the claim still stops doubles)
@@ -97,6 +102,6 @@ export async function addLandlordExpense(s: SupabaseClient, e: NewExpense, opts:
   const where = String(prop.name || '').split('\n')[0]
   return {
     ok: true, expense, deductMonth: when.month,
-    message: `Added ${expense.txn_no ?? ''} — £${amount.toFixed(2)} will come off the ${monthName(when.month)} statement for ${where}.${when.adjusted ? ' (That month’s statement has already gone out, so it moves to the next one.)' : ''}`.replace('Added  —', 'Added —'),
+    message: `Added ${expense.txn_no ?? ''} — £${amount.toFixed(2)}${cost != null && cost !== amount ? ` (cost £${cost.toFixed(2)})` : ''} will come off the ${monthName(when.month)} statement for ${where}.${when.adjusted ? ' (That month’s statement has already gone out, so it moves to the next one.)' : ''}`.replace('Added  —', 'Added —'),
   }
 }

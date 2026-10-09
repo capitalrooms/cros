@@ -44,7 +44,7 @@ const taxYearLabel = (y: number) => `${y}/${String(y + 1).slice(2)}`
 const addMonths = (month: string, n: number) => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 10) }
 const CATEGORIES = [...PROPERTY_WIDE_CATEGORIES.map(c => ({ slug: c.slug, label: c.label })), ...ROOM_SPECIFIC_CATEGORY_TYPES.map(c => ({ slug: c.slug, label: `Room: ${c.label}` }))]
 
-const EMPTY_FORM = { property_id: '', room_id: '', description: '', supplier: '', category: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), invoice_number: '', notes: '', deduct_month: '', share_invoice: false, paid_to_supplier_on: '', supplier_payment_method: '', supplier_payment_ref: '' }
+const EMPTY_FORM = { property_id: '', room_id: '', description: '', supplier: '', category: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), invoice_number: '', notes: '', deduct_month: '', share_invoice: false, paid_to_supplier_on: '', supplier_payment_method: '', supplier_payment_ref: '', cost_amount: '' }
 const HOW: Record<string, string> = { card: 'card', bank_transfer: 'bank transfer', cash: 'cash', direct_debit: 'direct debit' }
 
 export default function ExpensesPage() {
@@ -154,7 +154,7 @@ export default function ExpensesPage() {
       }
       const r = await adminFetch('/api/admin/expenses', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, room_id: form.room_id || null, category: form.category || null, deduct_month: form.deduct_month || null, amount: Number(form.amount),
+        body: JSON.stringify({ ...form, room_id: form.room_id || null, category: form.category || null, deduct_month: form.deduct_month || null, amount: Number(form.amount), cost_amount: form.cost_amount === '' ? null : Number(form.cost_amount),
           invoice_path, invoice_name: file?.name ?? null, share_invoice: !!file && form.share_invoice, confirm_duplicate: confirmDuplicate }),
       })
       const j = await r.json().catch(() => ({}))
@@ -204,7 +204,7 @@ export default function ExpensesPage() {
       <AppBar left={<BackButton href="/admin" />} title="Expenses" />
       <PageHero title="Expenses" subtitle="Money spent on a property that comes off the landlord’s statement — each is numbered (EXP…) and never deleted; mistakes are voided"
         stats={[{ label: 'To come off statements', value: pending.length, tone: pending.length ? 'warn' : undefined }]}
-        actions={<HeroButton primary onClick={() => { setShowForm(true); setDups(null); setFormError('') }}>+ Add expense</HeroButton>}
+        actions={<><HeroButton href="/admin/ops-account">Operations account CSV</HeroButton><HeroButton href="/admin/reports/resold">Mark-ups</HeroButton><HeroButton primary onClick={() => { setShowForm(true); setDups(null); setFormError('') }}>+ Add expense</HeroButton></>}
         tabs={financeTabs('expenses')} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
@@ -365,7 +365,9 @@ export default function ExpensesPage() {
                     <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={input}>
                       <option value="">Choose…</option>{CATEGORIES.map(c => <option key={c.slug} value={c.slug}>{c.label}</option>)}<option value="other">Other</option>
                     </select></label>
-                  <label className="block"><span className={label}>Amount (£)</span><input type="number" min="0.01" step="0.01" inputMode="decimal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className={input} /></label>
+                  <label className="block"><span className={label}>Charge the landlord (£)</span><input type="number" min="0.01" step="0.01" inputMode="decimal" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} className={input} /></label>
+                  <label className="block"><span className={label}>What it cost us <span className="font-normal text-neutral-400">(if different)</span></span><input type="number" min="0.01" step="0.01" inputMode="decimal" value={form.cost_amount} onChange={e => setForm({ ...form, cost_amount: e.target.value })} placeholder={form.amount || ''} className={input} />
+                    {form.cost_amount !== '' && Number(form.amount) > 0 && Number(form.cost_amount) > 0 && Number(form.cost_amount) !== Number(form.amount) && <span className="mt-xs block text-xs text-neutral-500">{Number(form.amount) > Number(form.cost_amount) ? `Mark-up £${(Number(form.amount) - Number(form.cost_amount)).toFixed(2)} — shown in Mark-ups` : `£${(Number(form.cost_amount) - Number(form.amount)).toFixed(2)} less than it cost`}</span>}</label>
                   <label className="block"><span className={label}>Date on the invoice</span><input type="date" value={form.expense_date} onChange={e => setForm({ ...form, expense_date: e.target.value })} className={input} /></label>
                   <label className="block"><span className={label}>Invoice number</span><input value={form.invoice_number} onChange={e => setForm({ ...form, invoice_number: e.target.value })} className={input} /></label>
                   <label className="block"><span className={label}>Comes off the statement for</span>

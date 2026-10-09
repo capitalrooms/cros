@@ -20,6 +20,7 @@ const FINANCIAL: ReportLink[] = [
   { label: 'Tax Year Summary',         href: '/admin/reports/tax-year',          desc: 'April–April (or custom) income and deductions per landlord', ready: true },
   { label: 'Fees',                     href: '/admin/reports/fees',              desc: 'Management and letting fees raised in a date range',         ready: true },
   { label: 'Expenses',                 href: '/admin/reports/expenses',          desc: 'Expenses recorded by property and category',                 ready: true },
+  { label: 'Mark-ups (goods resold)',  href: '/admin/reports/resold',            desc: 'What landlord expenses cost us beside what we charged — for the accountant', ready: true },
   { label: 'Deposits',                 href: '/admin/reports/deposits',          desc: 'Deposits held, protection status and scheme references',     ready: true },
   { label: 'Rent Analysis',            href: '/admin/reports/rent-analysis',     desc: 'Received vs expected breakdown by property, collection rate',ready: true },
   { label: 'Landlord Statements',      href: '/admin/accounts',                  desc: 'Monthly statements per landlord',                            ready: true },
