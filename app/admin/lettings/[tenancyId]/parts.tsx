@@ -591,7 +591,7 @@ export function DocumentsTab({ file, reload }: { file: LettingFile; reload: () =
             ))}
           </ul>
         ) : <p className="text-sm text-neutral-500">Nothing filed against this tenancy yet — references and Right to Rent from the application move here at let agreed.</p>}
-        <p className="mt-sm text-xs text-neutral-500">Filed against {file.tenant.name || 'this tenant'}’s tenancy of {[file.room.name, file.property.name].filter(Boolean).join(', ')}, so it also shows in <Link href={`/admin/tenant/${file.tenant.id}?tab=documents`} className="font-semibold text-blue-700 hover:underline">their profile</Link>.</p>
+        <p className="mt-sm text-xs text-neutral-500">Filed against {file.tenant.name || 'this tenant'}’s tenancy of {[file.room.name, file.property.name].filter(Boolean).join(', ')}.</p>
         {uploading && (
           <DocUploadDrawer
             title={`${file.tenant.name} · ${[file.room.name, file.property.name].filter(Boolean).join(', ')}`}
