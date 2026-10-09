@@ -3,9 +3,11 @@
 // A contractor's emergency link (texted to them). No sign-in. First: can you attend, when, call-out fee.
 // Once confirmed: the full address and access, then "on site", "running late", "can't make it", and how it went —
 // fixed / made safe / not fixed, with the part needed, the cost of a proper fix and when they can come back.
+// Look: the shared public frame (components/public/PublicShell, design "C"), kept plain and high-contrast — it's used
+// at speed, on a phone.
 
 import { use, useEffect, useState } from 'react'
-import Logo from '@/components/Logo'
+import PublicShell from '@/components/public/PublicShell'
 
 interface View {
   kind: string; title: string; details: string | null; area: string; address: string | null
@@ -26,22 +28,19 @@ const inMinutes = (m: number) => new Date(Date.now() + m * 60000).toISOString()
 const tomorrowAt = (h: number) => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0); return d.toISOString() }
 const localInput = (iso: string) => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16) }
 
-const btn = 'w-full rounded-xl py-3 text-base font-bold disabled:opacity-40'
-const input = 'w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-base text-neutral-900'
-const label = 'block text-xs font-bold uppercase tracking-wide text-neutral-500 mb-1'
+const btn = 'w-full min-h-[52px] rounded-full py-3 text-base font-semibold disabled:opacity-40'
+const input = 'pub-input'
+const label = 'block text-[11px] uppercase tracking-[.14em] text-[#6F6B64] mb-1'
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-neutral-100">
-      <nav className="bg-neutral-900 text-white" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="mx-auto flex max-w-lg justify-center px-4 py-3"><Logo variant="emblem" height={28} invert priority /></div>
-      </nav>
-      <div className="mx-auto max-w-lg space-y-4 px-4 py-6">{children}</div>
-    </div>
+    <PublicShell label="Emergency call-out">
+      <div className="mx-auto max-w-xl space-y-6 px-6 pb-14 pt-8">{children}</div>
+    </PublicShell>
   )
 }
 const Card = ({ children, tone }: { children: React.ReactNode; tone?: 'red' | 'green' }) =>
-  <section className={`rounded-2xl border p-4 ${tone === 'red' ? 'border-red-200 bg-red-50' : tone === 'green' ? 'border-green-200 bg-green-50' : 'border-neutral-200 bg-white'}`}>{children}</section>
+  <section className="px-5 py-5" style={tone === 'red' ? { background: '#FBF1EE', borderLeft: '3px solid #9B2C1F' } : tone === 'green' ? { background: '#EEF5EF', borderLeft: '3px solid #2E6B3F' } : { borderTop: '1px solid #111' }}>{children}</section>
 
 export default function EmergencyLink({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params)
@@ -89,8 +88,8 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
 
   const head = (
     <Card tone={view.stage === 'chosen' ? 'green' : 'red'}>
-      <p className="text-xs font-bold uppercase tracking-widest text-red-700">{view.stage === 'chosen' ? 'Confirmed — you’re booked' : 'Emergency call-out'}</p>
-      <h1 className="mt-1 text-xl font-extrabold text-neutral-900">{view.kind}</h1>
+      <p className="m-0 text-[11px] font-semibold uppercase tracking-[.18em]" style={{ color: view.stage === 'chosen' ? '#2E6B3F' : '#9B2C1F' }}>{view.stage === 'chosen' ? 'Confirmed — you’re booked' : 'Emergency call-out'}</p>
+      <h1 className="pub-serif m-0 mt-1 text-[clamp(2.2rem,9vw,3.2rem)] leading-[1.02]">{view.kind}</h1>
       <p className="text-sm text-neutral-700">{view.address ?? `Near ${view.area}`}</p>
       {view.title && view.title !== view.kind && <p className="mt-2 text-sm text-neutral-700">“{view.title}”</p>}
     </Card>
@@ -109,9 +108,9 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
           <div className="grid grid-cols-2 gap-2">
             {[['Within 30 min', inMinutes(30)], ['Within 1 hour', inMinutes(60)], ['Within 90 min', inMinutes(90)], ['Within 2 hours', inMinutes(120)], ['Tomorrow 8am', tomorrowAt(8)]].map(([l, v]) => (
               <button key={l} type="button" onClick={() => setEta(v)}
-                className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${eta && eta !== 'custom' && Math.abs(new Date(eta).getTime() - new Date(v).getTime()) < 120000 ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800'}`}>{l}</button>
+                className={`min-h-[46px] rounded-full border px-3 py-2.5 text-sm font-semibold ${eta && eta !== 'custom' && Math.abs(new Date(eta).getTime() - new Date(v).getTime()) < 120000 ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-900 bg-white text-neutral-900'}`}>{l}</button>
             ))}
-            <button type="button" onClick={() => setEta('custom')} className={`rounded-xl border px-3 py-2.5 text-sm font-semibold ${eta === 'custom' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800'}`}>Another time</button>
+            <button type="button" onClick={() => setEta('custom')} className={`min-h-[46px] rounded-full border px-3 py-2.5 text-sm font-semibold ${eta === 'custom' ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-900 bg-white text-neutral-900'}`}>Another time</button>
           </div>
           {eta === 'custom' && <input type="datetime-local" className={`${input} mt-2`} value={customEta} min={localInput(new Date().toISOString())} onChange={e => setCustomEta(e.target.value)} />}
           <label className={`${label} mt-4`}>Your call-out fee (£)</label>
@@ -120,7 +119,7 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
           <input className={input} value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. coming from Stratford" />
           {err && <p className="mt-2 text-sm text-red-700">{err}</p>}
           <button type="button" disabled={busy || !chosenEta} onClick={() => post({ answer: 'yes', etaAt: chosenEta, fee, note })} className={`${btn} mt-4 bg-neutral-900 text-white`}>{busy ? 'Sending…' : 'Yes, I can attend'}</button>
-          <button type="button" disabled={busy} onClick={() => post({ answer: 'no', note })} className={`${btn} mt-2 border border-neutral-300 bg-white text-neutral-700`}>Sorry, I can’t</button>
+          <button type="button" disabled={busy} onClick={() => post({ answer: 'no', note })} className={`${btn} mt-2 border border-neutral-900 bg-white text-neutral-700`}>Sorry, I can’t</button>
         </Card>
       </Shell>
     )
@@ -175,8 +174,8 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
           {!mode && (
             <div className="space-y-2">
               {!r.onSite && <button type="button" disabled={busy} onClick={() => post({ outcome: 'on_site' })} className={`${btn} bg-neutral-900 text-white`}>I’m here now</button>}
-              <button type="button" onClick={() => { setMode('report'); setOutcome('') }} className={`${btn} ${r.onSite ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-900'}`}>How did it go?</button>
-              {!r.onSite && <button type="button" onClick={() => setMode('late')} className={`${btn} border border-neutral-300 bg-white text-neutral-700`}>I’m running late</button>}
+              <button type="button" onClick={() => { setMode('report'); setOutcome('') }} className={`${btn} ${r.onSite ? 'bg-neutral-900 text-white' : 'border border-neutral-900 bg-white text-neutral-900'}`}>How did it go?</button>
+              {!r.onSite && <button type="button" onClick={() => setMode('late')} className={`${btn} border border-neutral-900 bg-white text-neutral-700`}>I’m running late</button>}
               {!r.onSite && <button type="button" onClick={() => setMode('cant')} className={`${btn} border border-red-200 bg-white text-red-700`}>I can’t make it after all</button>}
             </div>
           )}
@@ -206,7 +205,7 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
               <p className="text-base font-bold">How did it go?</p>
               <div className="grid gap-2">
                 {([['fixed', 'Fixed — all done'], ['made_safe', 'Made safe — needs a proper fix'], ['not_fixed', 'Not fixed yet']] as const).map(([k, l]) => (
-                  <button key={k} type="button" onClick={() => setOutcome(k)} className={`rounded-xl border px-3 py-3 text-left text-base font-semibold ${outcome === k ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-900'}`}>{l}</button>
+                  <button key={k} type="button" onClick={() => setOutcome(k)} className={`min-h-[52px] rounded-full border px-5 py-3 text-left text-base font-semibold ${outcome === k ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-900'}`}>{l}</button>
                 ))}
               </div>
               {outcome && outcome !== 'fixed' && (

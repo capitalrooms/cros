@@ -53,7 +53,9 @@ export async function POST(request: NextRequest) {
   const token = process.env.TWILIO_AUTH_TOKEN
   const signature = request.headers.get('x-twilio-signature') || ''
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || new URL(request.url).host
-  const publicUrl = `https://${host}/api/webhooks/twilio-inbound`   // the exact URL set in the Twilio console
+  // the exact URL Twilio called (the console points at /api/sms/inbound, which shares this handler)
+  const path = new URL(request.url).pathname === '/api/sms/inbound' ? '/api/sms/inbound' : '/api/webhooks/twilio-inbound'
+  const publicUrl = `https://${host}${path}`
   if (!token || !twilio.validateRequest(token, signature, publicUrl, Object.fromEntries(params))) {
     return new NextResponse('Forbidden', { status: 403 })
   }

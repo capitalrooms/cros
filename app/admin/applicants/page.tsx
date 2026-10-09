@@ -37,6 +37,8 @@ interface Applicant {
   offered_rent: number | null
   preferred_start_date: string | null
   admin_notes: string | null
+  archived_at?: string | null
+  archived_reason?: string | null
   viewing_id: string | null
   offer_id: string | null
   converted_person_id: string | null
@@ -78,6 +80,7 @@ export default function ApplicantsPage() {
 
   // Filters
   const [stageFilter, setStageFilter] = useState<Stage | 'all'>('all')
+  const [showArchived, setShowArchived] = useState(false)
   const [search, setSearch] = useState('')
 
   // Add applicant form
@@ -181,6 +184,7 @@ export default function ApplicantsPage() {
 
   const filtered = useMemo(() => {
     return applicants.filter(a => {
+      if (!!a.archived_at !== showArchived) return false   // archived ones only in their own list
       if (stageFilter !== 'all' && a.pipeline_stage !== stageFilter) return false
       if (search.trim()) {
         const q = search.toLowerCase()
@@ -196,11 +200,12 @@ export default function ApplicantsPage() {
       }
       return true
     })
-  }, [applicants, stageFilter, search])
+  }, [applicants, stageFilter, search, showArchived])
 
   const stageCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: applicants.length }
-    STAGES.forEach(s => { counts[s.key] = applicants.filter(a => a.pipeline_stage === s.key).length })
+    const live = applicants.filter(a => !a.archived_at)   // archived ones aren't counted in the stages
+    const counts: Record<string, number> = { all: live.length }
+    STAGES.forEach(s => { counts[s.key] = live.filter(a => a.pipeline_stage === s.key).length })
     return counts
   }, [applicants])
 
@@ -250,6 +255,14 @@ export default function ApplicantsPage() {
     } finally {
       setConverting(null)
     }
+  }
+
+  async function setArchived(applicant: Applicant, archive: boolean) {
+    const reason = archive ? window.prompt(`Archive ${applicant.full_name}? They leave the list but are kept, and can be restored.\n\nWhy? (e.g. withdrew, duplicate, test)`) : ''
+    if (archive && !reason?.trim()) return
+    const res = await fetch(`/api/applicants/${applicant.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archive, reason }) })
+    if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error || 'Could not save'); return }
+    setApplicants(prev => prev.map(a => a.id === applicant.id ? { ...a, archived_at: archive ? new Date().toISOString() : null, archived_reason: archive ? reason : null } : a))
   }
 
   async function saveNote(applicantId: string) {
@@ -330,9 +343,9 @@ export default function ApplicantsPage() {
         title="Applicants"
         subtitle="From application to let agreed — recording the holding deposit creates the tenancy and opens its letting file"
         stats={[
-          { label: 'Applied', value: applicants.filter(a => a.pipeline_stage === 'applied').length },
-          { label: 'Offer sent', value: applicants.filter(a => a.pipeline_stage === 'offer_sent').length, tone: 'warn' },
-          { label: 'Referencing', value: applicants.filter(a => ['referencing', 'referencing_passed', 'docs_uploaded'].includes(a.pipeline_stage)).length, tone: 'info' },
+          { label: 'Applied', value: applicants.filter(a => !a.archived_at && a.pipeline_stage === 'applied').length },
+          { label: 'Offer sent', value: applicants.filter(a => !a.archived_at && a.pipeline_stage === 'offer_sent').length, tone: 'warn' },
+          { label: 'Referencing', value: applicants.filter(a => !a.archived_at && ['referencing', 'referencing_passed', 'docs_uploaded'].includes(a.pipeline_stage)).length, tone: 'info' },
           { label: 'Let agreed', value: applicants.filter(a => a.pipeline_stage === 'converted').length, tone: 'good' },
         ]}
         actions={<HeroButton primary onClick={() => setShowAdd(!showAdd)}>+ Add applicant</HeroButton>}
@@ -406,6 +419,12 @@ export default function ApplicantsPage() {
           >
             All ({stageCounts.all})
           </button>
+          {applicants.some(a => a.archived_at) && (
+            <button onClick={() => setShowArchived(v => !v)}
+              className={`rounded-xl px-md py-sm text-sm font-semibold transition-all ${showArchived ? 'bg-neutral-900 text-white' : 'border border-dashed border-neutral-300 text-neutral-500 hover:border-neutral-400'}`}>
+              {showArchived ? '← Back to current' : `Archived (${applicants.filter(a => a.archived_at).length})`}
+            </button>
+          )}
           {STAGES.filter(s => stageCounts[s.key] > 0 || stageFilter === s.key).map(s => (
             <button
               key={s.key}
@@ -728,6 +747,11 @@ export default function ApplicantsPage() {
                             {advancing === applicant.id ? 'Updating…' : `→ Mark as ${nextStage.label}`}
                           </button>
                         )}
+
+                        <button type="button" onClick={() => setArchived(applicant, !applicant.archived_at)}
+                          className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800">
+                          {applicant.archived_at ? `Restore (archived: ${applicant.archived_reason ?? ''})` : 'Archive'}
+                        </button>
 
                         {/* Move to any stage without sending anything (e.g. already referencing, offer agreed by phone) */}
                         {!isConverted && (

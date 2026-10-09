@@ -60,8 +60,15 @@ export async function PATCH(req: NextRequest, { params: paramsPromise }: { param
   for (const key of allowed) {
     if (key in body) update[key] = body[key]
   }
+  // archive (kept, with why) or restore — migration 213
+  if (body.archive === true) {
+    const reason = String(body.reason ?? '').trim().slice(0, 300)
+    if (!reason) return NextResponse.json({ error: 'Say why they’re being archived' }, { status: 400 })
+    Object.assign(update, { archived_at: new Date().toISOString(), archived_reason: reason, archived_by: String(body.by ?? '').slice(0, 120) || null })
+  }
+  if (body.archive === false) Object.assign(update, { archived_at: null, archived_reason: null, archived_by: null })
 
   const { data, error } = await sb.from('applicants').update(update).eq('id', params.id).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return NextResponse.json({ error: /archived/.test(error.message) ? 'Run migration 213 in Supabase first' : error.message }, { status: 500 })
   return NextResponse.json(data)
 }
