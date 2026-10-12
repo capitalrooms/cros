@@ -16,7 +16,7 @@ export interface Area { key: AreaKey; label: string; hint: string; pages: string
 // seeding — and anything added later until it's put in an area here.
 export const AREAS: Area[] = [
   { key: 'dashboard', label: 'Dashboard', hint: 'The home screen figures and today’s list',
-    pages: ['/admin/today', '/admin/search', '/admin/more'], api: ['/api/admin/dashboard', '/api/admin/today', '/api/admin/search'] },
+    pages: ['/admin/today', '/admin/search'], api: ['/api/admin/dashboard', '/api/admin/today', '/api/admin/search'] },
   { key: 'properties', label: 'Properties', hint: 'All Units, property pages, adding properties',
     pages: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties', '/admin/property-documents', '/admin/property-notes'],
     // (removing a property is administrators only — not in any area)
@@ -105,7 +105,7 @@ export function areaOfPage(pathname: string): AreaKey | null {
 export const areaOfApi = (pathname: string): AreaKey | null => longest(pathname, a => a.api)
 
 /** Pages every office person may open, whatever their areas. */
-const OPEN_TO_OFFICE = ['/admin/profile', '/admin/settings/signatures']
+const OPEN_TO_OFFICE = ['/admin/profile', '/admin/settings/signatures', '/admin/more']   // More = the phone menu; it lists only their pages
 export function canOpenPage(pathname: string, areas: AreaKey[], role: string | null | undefined): boolean {
   if (isAdministrator(role)) return true
   if (OPEN_TO_OFFICE.some(p => pathname === p || pathname.startsWith(p + '/'))) return true

@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ReactNode, useState, useRef, useEffect } from 'react'
 import Logo from '@/components/Logo'
-import { AdminContext } from '@/lib/admin-context'
+import { AdminContext, AdminAccessContext } from '@/lib/admin-context'
 import { createClient } from '@/lib/supabase'
 import { needsTwoStep } from '@/components/TwoStepCode'
 
@@ -180,6 +180,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <AdminContext.Provider value={true}>
+    <AdminAccessContext.Provider value={allowed}>
     <div className="flex h-screen supports-[height:100dvh]:h-dvh overflow-hidden bg-neutral-100">
 
       {/* ── Desktop rail: every zone, with the current one opened up (the agreed look, 2 Oct 2026) ── */}
@@ -272,6 +273,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <MobileTabBar allowed={allowed} />
       </div>
     </div>
+    </AdminAccessContext.Provider>
     </AdminContext.Provider>
   )
 }

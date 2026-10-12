@@ -240,10 +240,10 @@ export default function LetOnlyPropertiesPage() {
                 <div key={prop.id} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
 
                   {/* Property header */}
-                  <div className="bg-neutral-50 border-b border-neutral-200 px-xl py-md flex items-center justify-between">
-                    <div className="flex items-center gap-md">
-                      <div>
-                        <div className="flex items-center gap-sm">
+                  <div className="bg-neutral-50 border-b border-neutral-200 px-lg md:px-xl py-md flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-md min-w-0">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-sm">
                           <span className="text-base font-bold text-neutral-900">{prop.name}</span>
                           <span className="text-[11px] font-semibold px-sm py-0.5 rounded-full bg-purple-100 text-purple-800 tracking-wide">LET ONLY</span>
                           {!hasBankDetails && (
@@ -253,8 +253,8 @@ export default function LetOnlyPropertiesPage() {
                         <p className="text-xs text-neutral-500 mt-0.5 whitespace-pre-line">{blockAddress(prop.address)}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-md">
-                      <div className="text-right">
+                    <div className="flex items-center justify-between gap-md">
+                      <div className="sm:text-right">
                         <p className="text-xs text-neutral-400">Landlord</p>
                         <p className="text-sm font-semibold text-neutral-800">{landlordName}</p>
                         {prop.landlord?.phone && <p className="text-xs text-neutral-400">{prop.landlord.phone}</p>}
@@ -271,7 +271,7 @@ export default function LetOnlyPropertiesPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-5">
 
                     {/* Rooms — wider column */}
-                    <div className="lg:col-span-3 px-xl py-lg border-b lg:border-b-0 lg:border-r border-neutral-100">
+                    <div className="lg:col-span-3 px-lg md:px-xl py-lg border-b lg:border-b-0 lg:border-r border-neutral-100">
                       <div className="flex items-center justify-between mb-md">
                         <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
                           Rooms · {prop.rooms.length} total
@@ -396,7 +396,7 @@ export default function LetOnlyPropertiesPage() {
                     </div>
 
                     {/* Bank details */}
-                    <div className="lg:col-span-2 px-xl py-lg">
+                    <div className="lg:col-span-2 px-lg md:px-xl py-lg">
                       <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Landlord bank account</p>
 
                       {hasBankDetails ? (

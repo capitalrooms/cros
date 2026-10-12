@@ -267,12 +267,8 @@ export default function AppointmentsPage() {
       <PageHero title="Diary" subtitle={<>Drag appointments to reschedule. Click a time slot to book a new visit.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        {/* Header — Balanced Spacing */}
-        <div className="mb-3xl">
-        </div>
-
         {/* Week navigation */}
-        <div className="mb-3xl flex items-center justify-between">
+        <div className="mb-lg md:mb-3xl flex items-center justify-between">
           <button
             onClick={() => {
               const d = new Date(weekStart)
@@ -281,7 +277,7 @@ export default function AppointmentsPage() {
             }}
             className="px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-200 rounded"
           >
-            ← Previous week
+            ← <span className="hidden sm:inline">Previous week</span><span className="sm:hidden">Prev</span>
           </button>
           <div className="text-sm font-semibold text-neutral-900">
             Week of {weekStart.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
@@ -294,14 +290,14 @@ export default function AppointmentsPage() {
             }}
             className="px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-200 rounded"
           >
-            Next week →
+            <span className="hidden sm:inline">Next week</span><span className="sm:hidden">Next</span> →
           </button>
         </div>
 
         {/* + Book Appointment button */}
         <button
           onClick={() => setShowCreateForm(true)}
-          className="mb-3xl px-lg py-md bg-neutral-900 text-white font-bold rounded-lg hover:bg-neutral-800"
+          className="mb-lg md:mb-3xl w-full sm:w-auto px-lg py-md bg-neutral-900 text-white font-bold rounded-lg hover:bg-neutral-800"
         >
           + Book Appointment
         </button>
@@ -448,8 +444,53 @@ export default function AppointmentsPage() {
           </div>
         )}
 
+        {/* Phone: the week as a list, day by day (the grid below is too narrow to read or drag on a phone) */}
+        <div className="md:hidden space-y-md">
+          {days.map((d, i) => {
+            const isToday = dateStr(d) === dateStr(new Date())
+            const dayAppts = appointments.filter(a => a.appointment_date === dateStr(d))
+            return (
+              <section key={i} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+                <div className={`flex items-center justify-between px-lg py-sm ${isToday ? 'bg-blue-50' : 'bg-neutral-50'}`}>
+                  <p className={`text-sm font-bold ${isToday ? 'text-blue-700' : 'text-neutral-900'}`}>
+                    {d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}{isToday && ' · Today'}
+                  </p>
+                  <button type="button"
+                    onClick={() => { setAppointmentDate(dateStr(d)); setAppointmentTime('10:00'); setShowCreateForm(true) }}
+                    className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-semibold text-neutral-700 active:bg-neutral-100">
+                    + Book
+                  </button>
+                </div>
+                {dayAppts.length === 0 ? (
+                  <p className="px-lg py-sm text-xs text-neutral-400">Nothing booked</p>
+                ) : (
+                  <ul className="divide-y divide-neutral-100">
+                    {dayAppts.map(appt => {
+                      const typeInfo = APPOINTMENT_TYPES[appt.appointment_type] ?? APPOINTMENT_TYPES.other
+                      return (
+                        <li key={appt.id} className="flex gap-md px-lg py-sm">
+                          <p className="w-12 shrink-0 text-sm font-bold tabular-nums text-neutral-900">{appt.appointment_time.slice(0, 5)}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-neutral-900">{typeInfo.icon} {appt.visitor_name}</p>
+                            <p className="truncate text-xs text-neutral-500">{typeInfo.label}{appt.property ? ` · ${appt.property.name}` : ''}{appt.duration_minutes ? ` · ${appt.duration_minutes} min` : ''}</p>
+                            {appt.notes && <p className="mt-0.5 text-xs text-neutral-600 line-clamp-2">{appt.notes}</p>}
+                          </div>
+                          {appt.visitor_phone && (
+                            <a href={`tel:${appt.visitor_phone}`} aria-label={`Call ${appt.visitor_name}`}
+                              className="self-center shrink-0 rounded-full border border-neutral-200 px-sm py-xs text-xs font-semibold text-neutral-700">📞</a>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </section>
+            )
+          })}
+        </div>
+
         {/* Calendar grid */}
-        <div className="mt-3xl overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
+        <div className="hidden md:block mt-3xl overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
           <div className="inline-block min-w-full">
             {/* Header: Day names */}
             <div className="flex">

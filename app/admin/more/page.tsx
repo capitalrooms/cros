@@ -1,11 +1,15 @@
 'use client'
 
-// Phone "More" tab — every admin page, grouped by zone (same list the desktop nav uses).
+// Phone "More" tab — every admin page the person may open, grouped by zone (same list the desktop nav uses).
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ZONES } from '@/lib/adminNav'
+import { useAdminAccess } from '@/lib/admin-context'
+import { createClient } from '@/lib/supabase'
 
 const EXTRA = [
   { emoji: '👤', label: 'My profile', href: '/admin/profile' },
+  { emoji: '🔑', label: 'Password & sign-in', href: '/account' },
   { emoji: '⚙️', label: 'Settings', href: '/admin/settings' },
   { emoji: '✍️', label: 'Email signatures', href: '/admin/settings/signatures' },
 ]
@@ -30,12 +34,23 @@ function Group({ title, items }: { title: string; items: { emoji: string; label:
 }
 
 export default function AdminMorePage() {
+  const allowed = useAdminAccess()
+  const router = useRouter()
+  const mine = (items: { emoji: string; label: string; href: string }[]) => items.filter(i => i.href === '/account' || allowed(i.href))
+  async function signOut() {
+    await createClient().auth.signOut()
+    router.push('/login')
+  }
   return (
     <div className="min-h-screen bg-neutral-100">
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-5">
         <h1 className="text-[26px] leading-tight font-bold text-neutral-950">More</h1>
-        {ZONES.filter(z => z.subnav.length).map(z => <Group key={z.id} title={z.label} items={z.subnav} />)}
-        <Group title="You" items={EXTRA} />
+        {ZONES.map(z => ({ ...z, subnav: mine(z.subnav) })).filter(z => z.subnav.length).map(z => <Group key={z.id} title={z.label} items={z.subnav} />)}
+        <Group title="You" items={mine(EXTRA)} />
+        <button type="button" onClick={signOut}
+          className="w-full rounded-2xl bg-white px-3.5 py-3 text-left text-[15px] font-medium text-red-600 active:bg-red-50">
+          🚪 Sign out
+        </button>
       </div>
     </div>
   )

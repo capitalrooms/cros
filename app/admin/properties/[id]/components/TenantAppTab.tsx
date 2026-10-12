@@ -107,6 +107,8 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
   const [postingNotice, setPostingNotice] = useState(false)
   const [noticeError, setNoticeError] = useState('')
   const [adminPersonId, setAdminPersonId] = useState<string | null>(null)
+  // notices are part of Comms (lib/access/areas) — without it the section is hidden, not shown empty
+  const [noticesAllowed, setNoticesAllowed] = useState(true)
 
   // Featured tasks (simple text list for now)
   const [featuredTasks, setFeaturedTasks] = useState('')
@@ -139,6 +141,7 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
   async function fetchAdminNotices() {
     try {
       const res = await fetch(`/api/admin/notices?property_id=${propertyId}`)
+      if (res.status === 403) { setNoticesAllowed(false); return }
       if (res.ok) {
         const json = await res.json()
         setAdminNotices(json.notices || [])
@@ -284,6 +287,7 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
       </section>
 
       {/* ── Admin notices ────────────────────────────────────────────────── */}
+      {noticesAllowed && (
       <section className="border-t border-neutral-100 pt-2xl">
         <h3 className="text-base font-bold text-neutral-900 mb-xs">📢 Admin Notices</h3>
         <p className="text-sm text-neutral-500 mb-md">
@@ -331,6 +335,7 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
           )}
         </div>
       </section>
+      )}
 
       {/* ── Featured tasks ───────────────────────────────────────────────── */}
       <section className="border-t border-neutral-100 pt-2xl">

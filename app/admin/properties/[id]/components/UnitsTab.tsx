@@ -717,17 +717,17 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
               </button>
             </div>
           ) : (
-            <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+            <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
-                    <th className="px-lg py-sm">Room</th>
+                    <th className="px-md sm:px-lg py-sm">Room</th>
                     <th className="px-lg py-sm hidden md:table-cell">Type</th>
-                    <th className="px-lg py-sm">Tenant</th>
+                    <th className="px-md sm:px-lg py-sm">Tenant</th>
                     <th className="px-lg py-sm hidden sm:table-cell">Rent</th>
                     <th className="px-lg py-sm hidden lg:table-cell">Start</th>
                     <th className="px-lg py-sm hidden xl:table-cell">End</th>
-                    <th className="px-lg py-sm text-right">Status</th>
+                    <th className="px-md sm:px-lg py-sm text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -737,7 +737,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       onClick={() => openRoom(room)}
                       className="border-t border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors"
                     >
-                      <td className="px-lg py-md">
+                      <td className="px-md sm:px-lg py-md">
                         <div className="flex items-center gap-sm">
                           {/* Room photo thumbnail */}
                           {roomPhotos[room.id]?.[0] ? (
@@ -758,7 +758,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                         </div>
                       </td>
                       <td className="px-lg py-md hidden md:table-cell text-neutral-500 text-xs">{room.room_type || '—'}</td>
-                      <td className="px-lg py-md">
+                      <td className="px-md sm:px-lg py-md">
                         {room.currentTenant
                           ? <span className="font-medium text-neutral-900">{room.currentTenant.name || room.currentTenant.email}</span>
                           : <span className="text-neutral-400 italic">Vacant</span>}
@@ -770,8 +770,9 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                           ? <span className="text-amber-600 font-medium">{fmtDate(room.tenancyEndDate)}</span>
                           : <span className="text-neutral-300">—</span>}
                       </td>
-                      <td className="px-lg py-md text-right">
-                        <div className="flex items-center justify-end gap-sm">
+                      <td className="px-md sm:px-lg py-md text-right">
+                        {/* phones: the pill above the button, so the row fits the screen */}
+                        <div className="flex flex-col-reverse items-end gap-xs sm:flex-row sm:items-center sm:justify-end sm:gap-sm">
                           {room.currentTenant && room.tenancyId && !room.tenancyNoticeReceivedDate && (
                             <button
                               onClick={(e) => openOnNotice(room, e)}
