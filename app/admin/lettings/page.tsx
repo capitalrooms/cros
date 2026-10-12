@@ -94,12 +94,13 @@ export default function LettingsOverviewPage() {
             <Column title="Applicants" hint="Applied, offered or referencing" count={data.applicants.length} href="/admin/applicants" hrefLabel="All applicants">
               {data.applicants.length ? data.applicants.map(a => (
                 <li key={a.id}>
-                  <Link href={`/admin/applicants?open=${a.id}`} className="block px-lg py-sm hover:bg-neutral-50">
+                  <Link href={`/admin/applicants?open=${a.id}${a.stage === 'no_tenancy' ? '&deposit=1' : ''}`} className="block px-lg py-sm hover:bg-neutral-50">
                     <span className="flex items-baseline justify-between gap-sm">
                       <span className="truncate text-sm font-semibold text-neutral-900">{a.name}</span>
                       <span className={`shrink-0 rounded-full px-sm py-0.5 text-[11px] font-semibold ${STAGE[a.stage]?.[1] ?? 'bg-neutral-100 text-neutral-600'}`}>{STAGE[a.stage]?.[0] ?? a.stage}</span>
                     </span>
                     <span className="block truncate text-xs text-neutral-500">{[a.room, a.property].filter(Boolean).join(' · ') || 'No room chosen'}{a.at ? ` · ${day(a.at)}` : ''}</span>
+                    {a.stage === 'no_tenancy' && <span className="mt-0.5 block text-xs font-semibold text-amber-800">Next: record the holding deposit to open the letting file →</span>}
                   </Link>
                 </li>
               )) : <Empty>No applications in progress. <Link href="/admin/invite-to-apply" className="font-semibold text-blue-700 hover:underline">Invite someone to apply</Link>.</Empty>}
