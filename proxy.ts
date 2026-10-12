@@ -13,7 +13,7 @@ export async function proxy(request: NextRequest) {
   if ((path === '/api/admin' || path.startsWith('/api/admin/')) && !isPublicApi(path)) {
     const who = await officeCaller(bearer(request.headers))
     if (!who) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
-    if (!canCallApi(path, who.areas, who.role)) {
+    if (!canCallApi(path, who.areas, who.role, request.method)) {
       return NextResponse.json({ error: 'That isn’t part of your access. Ask an administrator if you need it.' }, { status: 403 })
     }
   }

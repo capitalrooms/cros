@@ -8,7 +8,7 @@ import { canCallApi, isAdministrator } from '@/lib/access/areas'
  *  (lib/access/areas — stage 2, 12 Oct 2026). Two-step sign-in, if set up, must have been completed. */
 export async function requireAdmin(req: NextRequest): Promise<{ email: string; personId: string } | null> {
   const who = await officeCaller(bearer(req.headers))
-  if (!who || !canCallApi(req.nextUrl.pathname, who.areas, who.role)) return null
+  if (!who || !canCallApi(req.nextUrl.pathname, who.areas, who.role, req.method)) return null
   return { email: who.email, personId: who.personId }
 }
 
