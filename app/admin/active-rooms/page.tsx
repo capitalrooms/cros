@@ -21,7 +21,7 @@ import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import { landlordName } from '@/lib/people'
 
 type RoomState = 'let' | 'leaving' | 'let_agreed' | 'empty'
-interface Who { tenancyId: string; name: string; rent: number | null; start: string | null; end: string | null }
+interface Who { tenancyId: string; name: string; short: string; rent: number | null; start: string | null; end: string | null }
 interface Row {
   id: string; name: string; code: string | null
   state: RoomState
@@ -47,7 +47,9 @@ const gbp2 = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigi
 // dates in full — "1 June 2026" (Harry, 12 Oct)
 const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const daysBetween = (a: string, b: string) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000))
-const personName = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || 'Tenant') : 'Tenant'
+// names with their title ("Mr Danielo Maglente"); short = title + surname for "… moves in" ("Mr Maglente")
+const personName = (p: any) => { const n = p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || 'Tenant') : 'Tenant'; return p?.salutation ? `${p.salutation} ${n}` : n }
+const personShort = (p: any) => p?.salutation && p?.last_name ? `${p.salutation} ${p.last_name}` : personName(p)
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0]
 
 const STATE: Record<RoomState, { label: string; cls: string }> = {
@@ -62,9 +64,9 @@ type Filter = 'all' | 'attention' | 'agreed'
 
 /** What happens next for a room — one wording for the desktop table and the phone list. */
 function nextFor(r: Row): { text: string; cls: string } {
-  if (r.state === 'let') return r.incoming ? { text: `${r.incoming.name.split(' ')[0]} moves in ${day(r.incoming.start!)}`, cls: 'font-semibold text-blue-800' } : { text: 'Rolling', cls: 'text-neutral-500' }
+  if (r.state === 'let') return r.incoming ? { text: `${r.incoming.short} moves in ${day(r.incoming.start!)}`, cls: 'font-semibold text-blue-800' } : { text: 'Rolling', cls: 'text-neutral-500' }
   if (r.state === 'leaving') return r.incoming
-    ? { text: `Leaves ${day(r.shown!.end!)} · ${r.incoming.name.split(' ')[0]} moves in ${day(r.incoming.start!)}`, cls: 'font-semibold text-blue-800' }
+    ? { text: `Leaves ${day(r.shown!.end!)} · ${r.incoming.short} moves in ${day(r.incoming.start!)}`, cls: 'font-semibold text-blue-800' }
     : { text: `Leaves ${day(r.shown!.end!)} · not re-let yet`, cls: 'font-semibold text-amber-800' }
   if (r.state === 'let_agreed') return { text: `Let agreed${r.rent != null ? ` at ${gbp2(r.rent)}` : ''}`, cls: 'text-blue-800' }
   return { text: `${r.emptyDays != null ? `Empty ${r.emptyDays} day${r.emptyDays === 1 ? '' : 's'}` : 'Empty'}${r.asking != null ? ` · asking ${gbp2(r.asking)}` : ' · no asking rent set'}`, cls: 'font-semibold text-emerald-800' }
@@ -99,7 +101,7 @@ export default function AllUnitsPage() {
     const [props, rooms, tens, jobs] = await Promise.all([
       sb.from('properties').select(`id, name, address, postcode, property_code, property_type, letting_type, is_demo, landlord_id, has_gas, management_fee_type, management_fee_pct, management_fee_fixed, ${certCols}`),
       sb.from('rooms').select('id, name, unit_code, current_asking_rent, available_date, property_id'),
-      sb.from('tenancies').select('id, room_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, management_fee_type, management_fee_pct, management_fee_fixed, people!person_id(first_name, last_name, full_name, email)'),
+      sb.from('tenancies').select('id, room_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, management_fee_type, management_fee_pct, management_fee_fixed, people!person_id(salutation, first_name, last_name, full_name, email)'),
       sb.from('maintenance_tickets').select('property_id, status'),
     ])
     const allProps = (props.data ?? []) as any[]
@@ -109,7 +111,7 @@ export default function AllUnitsPage() {
     const now = today(), in60 = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10)
     const live = ((tens.data ?? []) as any[]).filter(t => !t.let_cancelled_at && t.room_id)
     const openJobs = ((jobs.data ?? []) as any[]).filter(j => !['completed', 'closed', 'cancelled'].includes(j.status))
-    const who = (t: any): Who => ({ tenancyId: t.id, name: personName(t.people), rent: t.rent_amount != null ? Number(t.rent_amount) : null, start: t.start_date ?? null, end: t.end_date ?? null })
+    const who = (t: any): Who => ({ tenancyId: t.id, name: personName(t.people), short: personShort(t.people), rent: t.rent_amount != null ? Number(t.rent_amount) : null, start: t.start_date ?? null, end: t.end_date ?? null })
 
     const out: House[] = managed.map(p => {
       const rows: Row[] = ((rooms.data ?? []) as any[]).filter(r => r.property_id === p.id).map(r => {
