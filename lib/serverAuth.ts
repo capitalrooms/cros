@@ -10,6 +10,7 @@
 //   createRouteHandlerClient({ cookies })  → Supabase client acting as the signed-in user,
 //                                             with auth.getSession()/getUser() resolved from the token
 //   getCurrentUser()                        → { user, assignment, id, email, role } | null
+import { secondStepMissing } from '@/lib/auth/aal'
 import { headers } from 'next/headers'
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js'
 
@@ -35,7 +36,8 @@ export async function requestUser(): Promise<User | null> {
   const token = await requestToken()
   if (!token) return null
   const { data, error } = await service().auth.getUser(token)
-  return error ? null : data.user
+  // two-step sign-in set up but its code not entered this sign-in → not signed in (lib/auth/aal)
+  return error || secondStepMissing(data.user, token) ? null : data.user
 }
 
 /**

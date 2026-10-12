@@ -431,9 +431,10 @@ export default function AdminProfilePage() {
                   {roleLabel[role] || role}
                 </span>
               </div>
-              <p className="text-xs text-neutral-400 pt-xs border-t border-neutral-100">
-                To change your email or password, use the Supabase dashboard or contact an administrator.
-              </p>
+              <div className="flex items-center justify-between gap-md pt-md border-t border-neutral-100">
+                <p className="text-sm text-neutral-600">Change your password or turn on two-step sign-in.</p>
+                <a href="/account" className="shrink-0 rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-800">Password &amp; sign-in →</a>
+              </div>
             </div>
           </section>
 

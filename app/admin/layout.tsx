@@ -6,6 +6,7 @@ import { ReactNode, useState, useRef, useEffect } from 'react'
 import Logo from '@/components/Logo'
 import { AdminContext } from '@/lib/admin-context'
 import { createClient } from '@/lib/supabase'
+import { needsTwoStep } from '@/components/TwoStepCode'
 
 import { ZONES, type Zone } from '@/lib/adminNav'
 import MobileTabBar from './components/MobileTabBar'
@@ -32,13 +33,20 @@ function ProfileMenu() {
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const [initial, setInitial] = useState('')
+  const [first, setFirst] = useState('')
 
   useEffect(() => {
-    createClient().auth.getSession().then(({ data }) => {
+    const sb = createClient()
+    sb.auth.getSession().then(async ({ data }) => {
       const email = data.session?.user?.email ?? ''
       setInitial(email ? email[0].toUpperCase() : '')
+      if (!email) return
+      // two-step sign-in set up but the code not entered: the server refuses everything, so go and enter it
+      if (await needsTwoStep(sb)) { router.replace('/account'); return }
+      const { data: p } = await sb.from('people').select('first_name').ilike('email', email).order('created_at').limit(1).maybeSingle()
+      if (p?.first_name) { setFirst(p.first_name); setInitial(p.first_name[0].toUpperCase()) }
     })
-  }, [])
+  }, [router])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -63,19 +71,27 @@ function ProfileMenu() {
       </Link>
       <button
         onClick={() => setOpen(o => !o)}
-        className="hidden md:flex w-7 h-7 rounded-full bg-white/10 border border-white/10 items-center justify-center text-xs text-white/60 hover:bg-white/15 transition-colors"
+        className="hidden md:flex items-center gap-2 rounded-full bg-white/10 border border-white/15 py-1 pl-1 pr-3 text-xs font-semibold text-white/80 hover:bg-white/20 transition-colors"
         aria-label="Account menu"
       >
-        {initial || '·'}
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-[11px] text-white">{initial || '·'}</span>
+        {first || 'My account'}
       </button>
       {open && (
-        <div className="absolute right-0 top-9 w-40 bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden z-50">
+        <div className="absolute right-0 top-10 w-52 bg-white rounded-xl shadow-lg border border-neutral-200 overflow-hidden z-50">
           <Link
             href="/admin/profile"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 px-3 py-2.5 text-xs text-neutral-700 hover:bg-neutral-50"
           >
             👤 My profile
+          </Link>
+          <Link
+            href="/account"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2.5 text-xs text-neutral-700 hover:bg-neutral-50"
+          >
+            🔑 Password & sign-in
           </Link>
           <Link
             href="/admin/settings"

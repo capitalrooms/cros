@@ -3,6 +3,7 @@
 // the service key skips the database's own row rules (migration 192), so the check has to happen here.
 import type { NextRequest } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { secondStepMissing } from '@/lib/auth/aal'
 
 export interface Caller { userId: string; email: string; personId: string; role: string }
 export const STAFF_ROLES = ['administrator', 'admin', 'lettings']
@@ -15,7 +16,7 @@ export async function requireSignedIn(req: NextRequest): Promise<Caller | null> 
   if (!token) return null
   const s = svc()
   const { data: { user } } = await s.auth.getUser(token)
-  if (!user?.email) return null
+  if (!user?.email || secondStepMissing(user, token)) return null
   const { data: p } = await s.from('people').select('id, role').ilike('email', user.email).order('created_at').limit(1).maybeSingle()
   if (!p || p.role === 'inactive') return null
   return { userId: user.id, email: user.email, personId: p.id, role: p.role }

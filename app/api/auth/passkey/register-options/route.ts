@@ -1,45 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { generateRegistrationOptions } from '@simplewebauthn/server'
-import { createClient } from '@supabase/supabase-js'
+// Retired 12 Oct 2026. The old "Use Face ID" sign-in was only ever set up for a test machine (localhost), never
+// created a session, and listed every stored credential to anyone who asked. Browsers' saved passwords (with Face ID)
+// and two-step sign-in (/account) replace it.
+import { NextResponse } from 'next/server'
 
-export async function POST(request: NextRequest) {
-  try {
-    const { email, displayName } = await request.json()
-
-    if (!email || !displayName) {
-      return NextResponse.json(
-        { error: 'Email and display name required' },
-        { status: 400 }
-      )
-    }
-
-    // Generate WebAuthn registration options
-    const options = await generateRegistrationOptions({
-      rpID: 'localhost', // Change to your domain in production
-      rpName: 'Capital Rooms',
-      userName: email,
-      userID: Buffer.from(email).toString('base64url'),
-      userDisplayName: displayName,
-      timeout: 60000,
-      attestationType: 'direct',
-      authenticatorSelection: {
-        authenticatorAttachment: 'platform', // Use platform authenticator (Face ID, fingerprint, Windows Hello)
-        residentKey: 'preferred',
-        userVerification: 'preferred',
-      },
-    })
-
-    // Store challenge in session (in production, use Redis or database)
-    // For now, store in response and have client send it back
-    return NextResponse.json({
-      ...options,
-      challenge: options.challenge,
-    })
-  } catch (error) {
-    console.error('Registration options error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate registration options' },
-      { status: 500 }
-    )
-  }
+export async function POST() {
+  return NextResponse.json({ error: 'Face ID sign-in has been retired — use your password (your phone can fill it in).' }, { status: 410 })
 }
