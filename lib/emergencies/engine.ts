@@ -17,7 +17,7 @@ import { sendSms } from '@/lib/sms'
 const NAME = { asName: true }
 import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
-import { sendEmail } from '@/lib/sendEmail'
+import { tellContractor as tellPerson } from '@/lib/contractorContact'
 import { KINDS, type EmergencyKind } from './guide'
 
 type S = SupabaseClient
@@ -40,34 +40,8 @@ const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0].trim()
 const token = () => crypto.randomBytes(18).toString('base64url')
 const link = (t: string) => `${SITE}/e/${t}`
-const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])
-
-/** Reach a contractor the way they asked (people.notify_by_sms / notify_by_push / notify_by_email — set on the Emergencies
- *  screen or their profile; texts and app on unless turned off, email off unless turned on). If none of their chosen ways
- *  actually reached them (e.g. app only, but the app isn't on their phone), CROS texts anyway when it has a mobile —
- *  an emergency must never go unseen. */
-async function tellContractor(p: any, personId: string, msg: { text: string; title: string; body: string; url: string; tag: string }): Promise<{ via: string[]; error?: string }> {
-  const via: string[] = []; const errs: string[] = []
-  const wantSms = p?.notify_by_sms !== false, wantPush = p?.notify_by_push !== false, wantEmail = p?.notify_by_email === true
-  if (wantSms) {
-    if (!p?.phone) errs.push('no mobile number')
-    else { const r = await sendSms(p.phone, msg.text, NAME); if (r.ok) via.push('text'); else errs.push(`text failed: ${r.error}`) }
-  }
-  if (wantPush) { const n = await sendServerPush({ personId, title: msg.title, body: msg.body, url: msg.url, tag: msg.tag }).catch(() => 0); if (n) via.push('app') }
-  if (wantEmail) {
-    if (!p?.email) errs.push('no email address')
-    else {
-      const r = await sendEmail(p.email, `${msg.title.replace(/^[^A-Za-z]+/, '')} — Capital Rooms`,
-        `<p>${esc(msg.text).replace(/\n/g, '<br>')}</p><p><a href="${SITE}${msg.url}">Open it</a></p>`, { signature: false })
-      if (r.ok) via.push('email'); else errs.push(`email failed: ${r.error}`)
-    }
-  }
-  if (!via.length && !wantSms && p?.phone) {
-    const r = await sendSms(p.phone, msg.text, NAME)
-    if (r.ok) via.push('text (nothing else reached them)'); else errs.push(`text failed: ${r.error}`)
-  }
-  return { via, error: errs.join('; ') || (via.length ? undefined : 'no way to reach them') }
-}
+const tellContractor = (p: any, personId: string, msg: { text: string; title: string; body: string; url: string; tag: string }) =>
+  tellPerson(p, personId, { ...msg, link: `${SITE}${msg.url}` })
 const reached = (r: { via: string[]; error?: string }) => r.via.length ? ` (${r.via.join(', ')})` : ` (couldn’t reach them: ${r.error})`
 
 export interface Settings { auto: boolean; windowMin: number; costLimit: number; overLimit: 'wait' | 'send_after_15'; followupMin: number; tenantUpdates: boolean }

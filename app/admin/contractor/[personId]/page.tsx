@@ -312,12 +312,12 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
                 <div>
                   <p className="text-xs text-neutral-400 mb-xs">How they hear from us</p>
                   <div className="flex flex-wrap gap-md text-sm">
-                    {([['notify_by_sms', 'Text message', true], ['notify_by_push', 'App notification', true], ['notify_by_email', 'Email', false]] as [string, string, boolean][]).map(([k, label, dflt]) => {
+                    {([['notify_by_sms', 'Text message', true], ['notify_by_push', 'App notification', true], ['notify_by_email', 'Email', true]] as [string, string, boolean][]).map(([k, label, dflt]) => {
                       const on = dflt ? person[k] !== false : person[k] === true
                       return (
                         <label key={k} className="flex items-center gap-xs">
                           <input type="checkbox" checked={on} onChange={async e => {
-                            const next = { notify_by_sms: person.notify_by_sms !== false, notify_by_push: person.notify_by_push !== false, notify_by_email: person.notify_by_email === true, [k]: e.target.checked }
+                            const next = { notify_by_sms: person.notify_by_sms !== false, notify_by_push: person.notify_by_push !== false, notify_by_email: person.notify_by_email !== false, [k]: e.target.checked }
                             if (!next.notify_by_sms && !next.notify_by_push && !next.notify_by_email) { alert('Keep at least one way to reach them'); return }
                             const { error } = await supabase.from('people').update({ [k]: e.target.checked }).eq('id', personId)
                             if (error) alert(/notify_by_(sms|push)/.test(error.message) ? 'Run migration 219 first' : error.message)
@@ -327,7 +327,7 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
                       )
                     })}
                   </div>
-                  {person.notify_by_email === true && !person.email && <p className="mt-xs text-xs font-semibold text-red-700">No email address on file</p>}
+                  {person.notify_by_email !== false && !person.email && <p className="mt-xs text-xs font-semibold text-red-700">No email address on file</p>}
                   {person.notify_by_sms !== false && !person.phone && <p className="mt-xs text-xs font-semibold text-red-700">No mobile number on file — texts can’t reach them</p>}
                 </div>
               </div>

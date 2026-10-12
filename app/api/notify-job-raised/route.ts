@@ -4,24 +4,11 @@ import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
-import twilio from 'twilio'
+import { tellContractor } from '@/lib/contractorContact'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendServerPush } from '@/lib/serverPush'
 import { senderFields } from '@/lib/email/sender'
-
-async function sendSms(to: string, body: string) {
-  const sid = process.env.TWILIO_ACCOUNT_SID
-  const token = process.env.TWILIO_AUTH_TOKEN
-  const from = process.env.TWILIO_FROM_NUMBER
-  if (!sid || !token || !from) return // SMS not configured yet — skip silently
-  try {
-    const client = twilio(sid, token)
-    await client.messages.create({ to, from, body })
-  } catch (e) {
-    console.warn('SMS failed:', e)
-  }
-}
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -83,7 +70,7 @@ export async function POST(request: NextRequest) {
   const room = ticket.rooms as any
   // No foreign keys from maintenance_tickets to people — look up reporter and contractor directly
   const personById = async (id: string | null | undefined) => id
-    ? (await supabase.from('people').select('id, salutation, first_name, last_name, full_name, email, phone').eq('id', id).maybeSingle()).data as any
+    ? (await supabase.from('people').select('*').eq('id', id).maybeSingle()).data as any
     : null
   const reporter = await personById((ticket as any).reporter_id)
   const contractor = await personById((ticket as any).contractor_id)
@@ -177,11 +164,12 @@ export async function POST(request: NextRequest) {
     sent.push(admin)
   }
 
-  // Contractor — notify them of the new job assignment
-  if (contractor?.email) {
-    const contractorName = contractor.first_name
-      ? [contractor.salutation, contractor.first_name, contractor.last_name].filter(Boolean).join(' ')
-      : contractor.full_name || 'there'
+  // Contractor — the new job, the way they've asked to hear from us (text / app / email, lib/contractorContact).
+  // Texts come from CAPITAL RMS, so they confirm and book from the link, never by replying.
+  if (contractor) {
+    const contractorName = contractor.salutation && contractor.last_name
+      ? `${contractor.salutation} ${contractor.last_name}`
+      : contractor.first_name || contractor.full_name || 'there'
     const contractorVars = { ...vars, contractor_name: contractorName }
     const subject = tplContractor ? render(tplContractor.subject_line, contractorVars) : `New job assigned — ${heading}`
     const body = tplContractor ? render(tplContractor.template_text, contractorVars) : `
@@ -200,33 +188,16 @@ export async function POST(request: NextRequest) {
           ${ticket.description ? `<tr><td style="padding:6px 0;color:#78716c">Details</td><td style="padding:6px 0">${ticket.description}</td></tr>` : ''}
         </table>
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
-          Please log in to the contractor portal to confirm you've received this job and book a date to attend.
+          Please open the job to confirm you've received it and book a date to attend: <a href="${PORTAL_URL}/contractor/jobs">${PORTAL_URL}/contractor/jobs</a>
         </p>`
-    await send(contractor.email, subject, await emailHtml(body, { req: request }))
-    sent.push(contractor.email)
-
-    // SMS — send if contractor has a phone number and Twilio is configured
-    const contractorPhone = (contractor as any).phone
-    if (contractorPhone) {
-      const address = property?.address || property?.name || 'the property'
-      const smsBody = `Hi ${contractorName}, new job from Capital Rooms: ${ticket.title} at ${address}. Reply Y to confirm you'll attend, or N if you have a scheduling issue. Portal: ${PORTAL_URL}/contractor/jobs — Capital Rms`
-      await sendSms(contractorPhone, smsBody)
-      // Log for Y/N reply matching
-      try {
-        const supa = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        )
-        await supa.from('sms_confirmations').insert({
-          phone: contractorPhone,
-          type: 'contractor_job',
-          related_id: ticketId,
-          context_text: `Job: ${ticket.title} at ${address}`,
-        })
-      } catch (e) {
-        console.warn('sms_confirmations insert failed:', e)
-      }
-    }
+    const firstLine = String(property?.name || property?.address || 'the property').split('\n')[0]
+    const out = await tellContractor(contractor, contractor.id, {
+      text: `CAPITAL ROOMS: new job for you — ${heading}. Please open it to confirm and book a date: ${PORTAL_URL}/contractor/jobs`,
+      title: '🔧 New job from Capital Rooms', body: heading.slice(0, 120) || firstLine,
+      url: '/contractor/jobs', link: `${PORTAL_URL}/contractor/jobs`, tag: `job-${ticketId}`,
+      emailSubject: subject, emailBodyHtml: body,
+    })
+    sent.push(`contractor${out.via.length ? ` (${out.via.join(', ')})` : ` (not reached: ${out.error})`}`)
   }
 
   // Push notification to admin — fire-and-forget, never blocks the response

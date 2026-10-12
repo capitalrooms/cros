@@ -245,7 +245,7 @@ function Detail({ d, act }: { d: any; act: (b: Record<string, unknown>) => Promi
 
 function ContractorList({ data, act }: { data: any; act: (b: Record<string, unknown>) => Promise<boolean> }) {
   const trades: Record<string, string> = data.trades ?? {}
-  const empty = { personId: '', trades: [] as string[], hoursFrom: 0, hoursTo: 24, backupOnly: false, fee: '', rank: 5, active: true, notes: '', propertyIds: [] as string[], bySms: true, byPush: true, byEmail: false }
+  const empty = { personId: '', trades: [] as string[], hoursFrom: 0, hoursTo: 24, backupOnly: false, fee: '', rank: 5, active: true, notes: '', propertyIds: [] as string[], bySms: true, byPush: true, byEmail: true }
   const props: { id: string; name: string; code: string | null }[] = data.properties ?? []
   const propName = new Map(props.map(p => [p.id, p.name]))
   const conById = new Map((data.contractors ?? []).map((p: any) => [p.id, p]))

@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { officeAction, settings, tick } from '@/lib/emergencies/engine'
+import { contactChoice } from '@/lib/contractorContact'
 import { KINDS, TRADE_LABEL, type EmergencyKind } from '@/lib/emergencies/guide'
 
 export const runtime = 'nodejs'
@@ -23,8 +24,8 @@ const ADMIN = ['administrator', 'admin']
 const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || '') : ''
 const missing = (e: { message?: string } | null) => !!e && /emergenc|does not exist|schema cache/.test(e.message ?? '')
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0]
-// how a contractor hears from us (migration 219): texts and the app unless turned off, email only when turned on
-const contactOf = (p: any) => ({ bySms: p?.notify_by_sms !== false, byPush: p?.notify_by_push !== false, byEmail: p?.notify_by_email === true })
+// how a contractor hears from us (migration 219, lib/contractorContact)
+const contactOf = contactChoice
 
 export async function GET(req: NextRequest) {
   const caller = await requireStaff(req)
