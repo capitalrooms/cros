@@ -567,7 +567,7 @@ export default function BulkTenancyGenerator() {
               )}
               <textarea
                 className="w-full h-64 rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm text-sm text-neutral-900 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-neutral-400"
-                placeholder={"11 HICKS STREET, LONDON, SE8 5AQ  16/10\n\nRoom 1 – Mr Ethan Longford – rent £944.80; deposit £1,090.15\nethanlongfordfx@gmail.com\n\nRoom 2 – Miss Rosa Koivunoro – rent £914.80; deposit £1,055.54\n..."}
+                placeholder={"12 EXAMPLE STREET, LONDON, SE1 1AA  16/10\n\nRoom 1 – Mr Sam Taylor – rent £944.80; deposit £1,090.15\nsam.taylor@example.com\n\nRoom 2 – Miss Priya Shah – rent £914.80; deposit £1,055.54\n..."}
                 value={pasteText}
                 onChange={e => setPasteText(e.target.value)}
               />

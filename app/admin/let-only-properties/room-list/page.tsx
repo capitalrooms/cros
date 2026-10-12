@@ -90,7 +90,7 @@ export default function RoomListPage() {
         {!groups && (
           <section className="rounded-2xl border border-neutral-200 bg-white p-lg space-y-md">
             <label className="block text-sm font-semibold text-neutral-800">Paste the landlord’s email
-              <textarea value={text} onChange={e => setText(e.target.value)} rows={8} placeholder={'e.g.\n1  by 30/09/2026  9rc  4  4 persons  ensuite, part river view  kitchen with dining table etc  1,400.00  Sam Tomlin 07444 …'}
+              <textarea value={text} onChange={e => setText(e.target.value)} rows={8} placeholder={'e.g.\n1  by 30/09/2026  9rc  4  4 persons  ensuite, part river view  kitchen with dining table etc  1,400.00  Sam Taylor 07700 900123'}
                 className="mt-xs w-full rounded-xl border border-neutral-300 bg-white px-md py-sm font-mono text-xs text-neutral-900" />
             </label>
             <div className="flex flex-wrap items-center gap-md">
