@@ -1,15 +1,18 @@
 // Sign-in accounts, run by the office (12 Oct 2026) — lib/auth/accounts.
 // GET  → { statuses: { [personId]: AccountStatus }, groups: { tenants|landlords|contractors|cleaners|office: personId[] }, me }
+// POST { action: 'set_access', personId, areas: string[] | null }  — which parts of the office app a non-administrator
+//      may use (lib/access/areas; null = their role's preset). Administrators only, like everything here.
 // POST { action: 'send' | 'off' | 'on' | 'clear_two_step', personIds: string[] }  (at most 25 a call — the screen sends
 //      a big group in batches) → { done: [{ id, name, result }], failed: [{ id, name, error }] }
 //   send = an invite if they have no login yet, otherwise a password reset link.
 // Tenants and landlords only get these when staff-chosen messages are on (Settings), like every other chosen send.
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { requireAdmin } from '@/lib/adminAuth'
+import { requireAdministrator } from '@/lib/adminAuth'
 import { getClientIp } from '@/lib/auditLog'
 import { getElectedCommsLive } from '@/lib/comms'
 import { authUsersByEmail, statusOf, sendAccountEmail, setAccess, clearTwoStep } from '@/lib/auth/accounts'
+import { ALL_AREAS, areasFor, isAdministrator } from '@/lib/access/areas'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -37,22 +40,35 @@ async function groupsOf(s: ReturnType<typeof createServiceClient>, people: any[]
 }
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdmin(req)
+  const admin = await requireAdministrator(req)
   if (!admin) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const s = createServiceClient()
-  const { data: people, error } = await s.from('people').select('id, email, role').in('role', ROLES)
+  const { data: people, error } = await s.from('people').select('id, email, role, access_areas').in('role', ROLES)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const users = await authUsersByEmail(s)
   const statuses: Record<string, ReturnType<typeof statusOf>> = {}
   for (const p of people ?? []) if (p.email) statuses[p.id] = statusOf(users.get(p.email.toLowerCase()))
-  return NextResponse.json({ statuses, groups: await groupsOf(s, people ?? []), me: admin.personId })
+  const access: Record<string, { areas: string[]; custom: boolean; administrator: boolean }> = {}
+  for (const p of (people ?? []) as any[]) if (['administrator', 'admin', 'lettings'].includes(p.role))
+    access[p.id] = { areas: areasFor(p.role, p.access_areas), custom: Array.isArray(p.access_areas), administrator: isAdministrator(p.role) }
+  return NextResponse.json({ statuses, groups: await groupsOf(s, people ?? []), me: admin.personId, access })
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin(req)
+  const admin = await requireAdministrator(req)
   if (!admin) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   const action = String(b.action ?? '')
+  if (action === 'set_access') {
+    const s = createServiceClient()
+    const { data: p } = await s.from('people').select('id, email, role').eq('id', String(b.personId ?? '')).maybeSingle()
+    if (!p || !['lettings'].includes(p.role)) return NextResponse.json({ error: 'Access levels are for office staff who aren’t administrators.' }, { status: 400 })
+    const areas = b.areas === null ? null : (Array.isArray(b.areas) ? b.areas : []).filter((k: unknown) => typeof k === 'string' && (ALL_AREAS as string[]).includes(k))
+    const { error } = await s.from('people').update({ access_areas: areas }).eq('id', p.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await s.from('audit_logs').insert({ user_id: admin.personId, action: 'access_set', details: `${p.email}: ${areas === null ? 'role preset' : areas.join(', ') || 'nothing'}`, ip_address: getClientIp(req.headers) })
+    return NextResponse.json({ ok: true, areas: areasFor(p.role, areas) })
+  }
   if (!['send', 'off', 'on', 'clear_two_step'].includes(action)) return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   const ids: string[] = (Array.isArray(b.personIds) ? b.personIds : []).filter((x: unknown) => typeof x === 'string').slice(0, 25)
   if (!ids.length) return NextResponse.json({ error: 'Nobody chosen' }, { status: 400 })

@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { needsTwoStep } from '@/components/TwoStepCode'
 
 import { ZONES, type Zone } from '@/lib/adminNav'
+import { areasFor, canOpenPage, homeFor, isAdministrator, type AreaKey } from '@/lib/access/areas'
 import MobileTabBar from './components/MobileTabBar'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 import Footer from '@/app/components/Footer'
@@ -34,6 +35,7 @@ function ProfileMenu() {
   const router = useRouter()
   const [initial, setInitial] = useState('')
   const [first, setFirst] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     const sb = createClient()
@@ -43,8 +45,9 @@ function ProfileMenu() {
       if (!email) return
       // two-step sign-in set up but the code not entered: the server refuses everything, so go and enter it
       if (await needsTwoStep(sb)) { router.replace('/account'); return }
-      const { data: p } = await sb.from('people').select('first_name').ilike('email', email).order('created_at').limit(1).maybeSingle()
+      const { data: p } = await sb.from('people').select('first_name, role').ilike('email', email).order('created_at').limit(1).maybeSingle()
       if (p?.first_name) { setFirst(p.first_name); setInitial(p.first_name[0].toUpperCase()) }
+      setIsAdmin(isAdministrator((p as any)?.role))
     })
   }, [router])
 
@@ -93,13 +96,13 @@ function ProfileMenu() {
           >
             🔑 Password & sign-in
           </Link>
-          <Link
+          {isAdmin && <Link
             href="/admin/settings"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2 px-3 py-2.5 text-xs text-neutral-700 hover:bg-neutral-50 border-t border-neutral-100"
           >
             ⚙️ Settings
-          </Link>
+          </Link>}
           <Link
             href="/admin/settings/signatures"
             onClick={() => setOpen(false)}
@@ -128,6 +131,27 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams()
   const onPropHub = isPropertyHub(pathname)
   const activeZone = getActiveZone(pathname)
+
+  // access levels (lib/access/areas): administrators see everything; other office staff only their areas.
+  // The server enforces the same rules on every office request (proxy.ts) — this just keeps the screens tidy.
+  const [access, setAccess] = useState<{ role: string; areas: AreaKey[] } | null>(null)
+  useEffect(() => {
+    const sb = createClient()
+    sb.auth.getSession().then(async ({ data }) => {
+      const email = data.session?.user?.email
+      if (!email) return
+      const { data: p } = await sb.from('people').select('role, access_areas').ilike('email', email).order('created_at').limit(1).maybeSingle()
+      if (p) setAccess({ role: p.role, areas: areasFor(p.role, (p as any).access_areas) })
+    })
+  }, [])
+  const allowed = (href: string) => !access || canOpenPage(href.split('?')[0], access.areas, access.role)
+  const blocked = !!access && !isAdministrator(access.role) && !canOpenPage(pathname, access.areas, access.role)
+  // no Dashboard in their access: the office home takes them to their first area instead
+  useEffect(() => {
+    if (access && pathname === '/admin' && !access.areas.includes('dashboard') && !isAdministrator(access.role)) router.replace(homeFor(access.areas))
+  }, [access, pathname, router])
+  const zones = ZONES.map(z => ({ ...z, subnav: z.subnav.filter(i => allowed(i.href)) }))
+    .filter(z => z.id === 'dash' ? allowed('/admin') : z.subnav.length > 0)
 
   // On phones the tab bars scroll sideways; bring the current tab into view.
   useEffect(() => {
@@ -162,11 +186,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <aside className="hidden md:flex w-56 flex-shrink-0 flex-col overflow-y-auto bg-[#181614] px-3 py-5 text-[#F6F3EC]" style={{ scrollbarWidth: 'thin' }}>
         <p className="px-3 pb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#F6F3EC]/45">Admin</p>
         <nav className="flex flex-col gap-0.5">
-          {ZONES.map(zone => {
+          {zones.map(zone => {
             const open = railZone?.id === zone.id
             return (
               <div key={zone.id}>
-                <Link href={zone.home ?? zone.subnav[0]?.href ?? (zone.id === 'dash' ? '/admin' : '#')} prefetch={false}
+                <Link href={(zone.home && allowed(zone.home) ? zone.home : undefined) ?? zone.subnav[0]?.href ?? (zone.id === 'dash' ? '/admin' : '#')} prefetch={false}
                   className={`flex items-center rounded-[10px] px-3 py-2 text-[13.5px] font-semibold transition-colors ${open ? 'bg-[#F6F3EC]/10 text-[#F6F3EC]' : 'text-[#F6F3EC]/60 hover:bg-[#F6F3EC]/5 hover:text-[#F6F3EC]'}`}>
                   {zone.label}
                 </Link>
@@ -217,6 +241,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
             {/* Right: actions */}
             <div className="flex items-center justify-end gap-1.5">
+              {allowed('/admin/notify') && (
               <Link
                 href="/admin/notify"
                 className="flex items-center gap-1 px-2 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
@@ -224,6 +249,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <span>⚡</span>
                 <span className="hidden sm:inline">Quick Notify</span>
               </Link>
+              )}
               <StaffNotificationBell />
               <ProfileMenu />
             </div>
@@ -232,7 +258,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         {/* Main content — the footer closes every page on desktop */}
         <main className="flex-1 overflow-y-auto min-w-0 md:pb-[env(safe-area-inset-bottom)]">
-          {children}
+          {blocked ? (
+            <div className="mx-auto max-w-xl px-lg py-3xl text-center">
+              <h1 className="text-xl font-bold text-neutral-900">That isn’t part of your access</h1>
+              <p className="mt-sm text-sm text-neutral-600">Ask an administrator if you need this part of CROS.</p>
+              <Link href={homeFor(access!.areas)} className="mt-lg inline-block rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white">Go to my screens</Link>
+            </div>
+          ) : children}
           <Footer embedded />
         </main>
 

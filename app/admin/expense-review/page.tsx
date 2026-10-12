@@ -5,6 +5,7 @@
 // Changes are silent from the landlord's POV.
 
 import { useEffect, useState } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -73,7 +74,7 @@ export default function ExpenseReviewPage() {
   useEffect(() => {
     async function load() {
       const data = await getCurrentUser()
-      if (!data || !['administrator', 'admin'].includes(data.assignment?.role ?? '')) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

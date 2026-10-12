@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -85,7 +86,7 @@ export default function ExpensesPage() {
   useEffect(() => {
     (async () => {
       const u = await getCurrentUser()
-      if (!u || !['administrator', 'admin'].includes(u.assignment?.role || '')) { router.push('/login'); return }
+      if (!u || !isOfficeRole(u.assignment?.role)) { router.push('/login'); return }
       const { data: props } = await createClient().from('properties').select('id, name, address, property_code').order('name')
       setProperties(sortPropertiesNumerically(props || []))
       await load()

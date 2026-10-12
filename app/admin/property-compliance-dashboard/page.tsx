@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { isOfficeRole } from '@/lib/access/areas'
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -49,7 +50,7 @@ export default function PropertyComplianceDashboard() {
   async function loadComplianceData() {
     try {
       const userData = await getCurrentUser();
-      if (!userData || (userData.assignment?.role !== 'administrator' && userData.assignment?.role !== 'admin')) {
+      if (!userData || !isOfficeRole(userData.assignment?.role)) {
         router.push('/login');
         return;
       }

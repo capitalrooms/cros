@@ -5,6 +5,7 @@
 // and the exact Resend inbound DNS steps needed to go fully live.
 
 import { useEffect, useState } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -37,7 +38,7 @@ export default function AutoLedgerPage() {
   useEffect(() => {
     async function load() {
       const data = await getCurrentUser()
-      if (!data || !['administrator', 'admin'].includes(data.assignment?.role ?? '')) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

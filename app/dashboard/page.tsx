@@ -18,6 +18,9 @@ export default function DashboardRedirect() {
 
       const dashboardMap: Record<string, string> = {
         administrator: '/admin',
+        admin: '/admin',
+        agent: '/agent',
+        lettings: window.innerWidth >= 768 ? '/admin' : '/lettings',
         tenant: '/tenant',
         contractor: '/contractor',
         cleaner: '/cleaner',

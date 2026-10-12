@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
@@ -63,7 +64,7 @@ export default function BookAppointmentPage() {
   useEffect(() => {
     async function loadData() {
       const data = await getCurrentUser()
-      if (!data || (data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin')) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

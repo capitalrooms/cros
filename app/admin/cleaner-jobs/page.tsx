@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -64,7 +65,7 @@ export default function CleanerJobsPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || !['administrator', 'admin'].includes(data.assignment?.role || '')) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useState, useEffect } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -14,6 +15,7 @@ import EditPersonModal from '../components/EditPersonModal'
 import { displayName, landlordName, nameFields } from '@/lib/people'
 import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { AREAS, ROLE_PRESETS, ALL_AREAS } from '@/lib/access/areas'
 
 type Tab = 'tenants' | 'contractors' | 'cleaners' | 'landlords' | 'office'
 const TAB_FROM_URL: Record<string, Tab> = { tenants: 'tenants', contractors: 'contractors', cleaners: 'cleaners', landlords: 'landlords', staff: 'office', office: 'office', administrators: 'office' }
@@ -99,7 +101,11 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   const [properties, setProperties] = useState<Property[]>([])
   const [notifyOn, setNotifyOn] = useState<Set<string>>(new Set())
   // sign-in accounts (12 Oct 2026): status per person, invites / resets / turning sign-in off — /api/admin/accounts
-  const [acct, setAcct] = useState<{ statuses: Record<string, any>; groups: Record<Tab, string[]>; me: string } | null>(null)
+  const [acct, setAcct] = useState<{ statuses: Record<string, any>; groups: Record<Tab, string[]>; me: string; access?: Record<string, { areas: string[]; custom: boolean; administrator: boolean }> } | null>(null)
+  // access levels for an office person (stage 2): which parts of the office app they may use
+  const [accessFor, setAccessFor] = useState<Person | null>(null)
+  const [accessDraft, setAccessDraft] = useState<Set<string>>(new Set())
+  const [accessBusy, setAccessBusy] = useState(false)
   const [acctBusy, setAcctBusy] = useState('')
   const [acctMsg, setAcctMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [error, setError] = useState('')
@@ -137,7 +143,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || (data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin')) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }
@@ -383,6 +389,17 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     }))
   }
 
+  async function saveAccess(areas: string[] | null) {
+    if (!accessFor) return
+    setAccessBusy(true)
+    const r = await adminFetch('/api/admin/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set_access', personId: accessFor.id, areas }) })
+    const d = await r.json().catch(() => ({}))
+    setAccessBusy(false)
+    if (!r.ok) { setAcctMsg({ ok: false, text: d.error || 'Could not save access' }); return }
+    setAcctMsg({ ok: true, text: `${displayName(accessFor)} can now use: ${AREAS.filter(a => (d.areas ?? []).includes(a.key)).map(a => a.label).join(', ') || 'nothing in the office app'}. It applies within a minute.` })
+    setAccessFor(null); loadAccounts()
+  }
+
   async function loadAccounts() {
     const r = await adminFetch('/api/admin/accounts').then(x => x.json()).catch(() => null)
     if (r?.statuses) setAcct(r)
@@ -493,6 +510,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         {!st.off && (st.hasLogin && st.confirmed
           ? <button type="button" className={cls} onClick={() => accountAction('send', [p.id], `Email ${nm} a link to choose a new password?`)}>Send password reset</button>
           : <button type="button" className={cls} onClick={() => accountAction('send', [p.id], `Email ${nm} an invite to set up their sign-in?`)}>{st.hasLogin ? 'Send the invite again' : 'Send sign-in invite'}</button>)}
+        {acct?.access?.[p.id] && !acct.access[p.id].administrator && <button type="button" className={cls} onClick={() => { setMenu(null); setAccessFor(p); setAccessDraft(new Set(acct.access![p.id].areas)) }}>Access…</button>}
         {st.twoStep && <button type="button" className={cls} onClick={() => accountAction('clear_two_step', [p.id], `Remove ${nm}’s two-step sign-in (e.g. lost phone)? They’ll sign in with their password alone until they set it up again.`)}>Remove two-step sign-in</button>}
         {st.hasLogin && p.id !== acct?.me && (st.off
           ? <button type="button" className={cls} onClick={() => accountAction('on', [p.id])}>Turn sign-in back on</button>
@@ -973,7 +991,40 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         )}
         {activeTab === 'landlords' && <p className="text-xs text-neutral-500">Statements are in <Link href="/admin/statements" className="font-semibold text-blue-700 hover:underline">Finance › Statements</Link>.</p>}
 
-        {activeTab === 'office' && List(office.filter(p => match(p)).map(p => Row({ p, detail: p.role === 'lettings' ? 'Lettings' : 'Administrator' })), 'No office team yet.')}
+        {activeTab === 'office' && List(office.filter(p => match(p)).map(p => {
+          const ax = acct?.access?.[p.id]
+          const what = !ax ? null : ax.administrator ? 'Everything' : AREAS.filter(a => ax.areas.includes(a.key)).map(a => a.label).join(', ') || 'Nothing yet'
+          return Row({ p, detail: <>{p.role === 'lettings' ? 'Lettings' : 'Administrator'}{what && <span className="ml-sm text-xs text-neutral-500" title="What they can use in the office app">· {what}</span>}</> })
+        }), 'No office team yet.')}
+        {activeTab === 'office' && acct?.access && <p className="text-xs text-neutral-500">Administrators can use everything. For anyone else, ⋯ › Access… chooses the parts of CROS they can use — the rest is hidden from them and refused if they try.</p>}
+
+        {accessFor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-lg" onClick={() => !accessBusy && setAccessFor(null)}>
+            <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-2xl" onClick={e => e.stopPropagation()}>
+              <h2 className="text-lg font-bold text-neutral-900">What can {displayName(accessFor)} use?</h2>
+              <p className="mt-xs text-sm text-neutral-600">Ticked parts show in their menu. Everything else is hidden and refused. Settings and office accounts stay with administrators.</p>
+              <div className="mt-md flex flex-wrap gap-xs">
+                <button type="button" onClick={() => setAccessDraft(new Set(ROLE_PRESETS.lettings))} className="rounded-full border border-neutral-300 px-sm py-0.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Lettings preset</button>
+                <button type="button" onClick={() => setAccessDraft(new Set(ALL_AREAS))} className="rounded-full border border-neutral-300 px-sm py-0.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Everything</button>
+                <button type="button" onClick={() => setAccessDraft(new Set())} className="rounded-full border border-neutral-300 px-sm py-0.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Nothing</button>
+              </div>
+              <ul className="mt-md max-h-[50vh] space-y-xs overflow-y-auto">
+                {AREAS.map(a => (
+                  <li key={a.key}>
+                    <label className="flex cursor-pointer items-start gap-sm rounded-xl border border-neutral-200 px-md py-sm hover:bg-neutral-50">
+                      <input type="checkbox" className="mt-1" checked={accessDraft.has(a.key)} onChange={e => setAccessDraft(prev => { const n = new Set(prev); if (e.target.checked) n.add(a.key); else n.delete(a.key); return n })} />
+                      <span><span className="block text-sm font-semibold text-neutral-900">{a.label}</span><span className="block text-xs text-neutral-500">{a.hint}</span></span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-lg flex justify-end gap-sm">
+                <button type="button" onClick={() => setAccessFor(null)} disabled={accessBusy} className="rounded-xl px-md py-sm text-sm text-neutral-600 hover:bg-neutral-100">Cancel</button>
+                <button type="button" onClick={() => saveAccess([...accessDraft])} disabled={accessBusy} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:opacity-40">{accessBusy ? 'Saving…' : 'Save access'}</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {selectedPerson && (
           <EditPersonModal

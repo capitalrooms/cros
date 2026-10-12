@@ -192,13 +192,13 @@ export async function POST(req: NextRequest) {
   if (type === 'landlord_income') {
     const params = new URLSearchParams({ from, to, search: landlord_name || '' })
     const res = await fetch(`${baseUrl}/api/admin/reports/landlord-income?${params}`, {
-      headers: { cookie: req.headers.get('cookie') || '' },
+      headers: { cookie: req.headers.get('cookie') || '', authorization: req.headers.get('authorization') || '' },   // sign-in is a Bearer token, not a cookie
     })
     reportData = await res.json()
   } else if (type === 'tax_year') {
     const params = new URLSearchParams({ from, to, search: landlord_name || '' })
     const res = await fetch(`${baseUrl}/api/admin/reports/tax-year?${params}`, {
-      headers: { cookie: req.headers.get('cookie') || '' },
+      headers: { cookie: req.headers.get('cookie') || '', authorization: req.headers.get('authorization') || '' },   // sign-in is a Bearer token, not a cookie
     })
     reportData = await res.json()
     // Normalise tax-year response to match landlord_income shape

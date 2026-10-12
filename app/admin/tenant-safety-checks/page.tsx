@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -44,7 +45,7 @@ export default function TenantSafetyChecksAdminPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || !['admin', 'administrator'].includes(data.assignment?.role)) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

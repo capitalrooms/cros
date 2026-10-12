@@ -13,6 +13,7 @@
 // alphabetically within each group.
 
 import { useState, useEffect } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -65,7 +66,7 @@ export default function PropertyAuditPage() {
   useEffect(() => {
     async function load() {
       const user = await getCurrentUser()
-      if (!user || !['administrator', 'admin'].includes(user.assignment?.role)) {
+      if (!user || !isOfficeRole(user.assignment?.role)) {
         router.push('/login')
         return
       }

@@ -1,5 +1,6 @@
 'use client'
 import { displayName, nameFields } from '@/lib/people'
+import { isOfficeRole } from '@/lib/access/areas'
 
 import { useState, useEffect, use, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -179,7 +180,7 @@ export default function RoomDashboardPage({
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || !['administrator', 'admin'].includes(data.assignment?.role || '')) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

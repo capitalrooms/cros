@@ -1,5 +1,6 @@
 'use client'
 import { displayName } from '@/lib/people'
+import { isOfficeRole } from '@/lib/access/areas'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -129,7 +130,7 @@ export default function ValuationsPage() {
   useEffect(() => {
     async function init() {
       const user = await getCurrentUser()
-      if (!user || !['administrator', 'admin'].includes(user.assignment?.role ?? '')) {
+      if (!user || !isOfficeRole(user.assignment?.role)) {
         router.push('/login')
         return
       }
