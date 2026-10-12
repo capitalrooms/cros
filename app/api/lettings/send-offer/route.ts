@@ -36,7 +36,14 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Missing required field: applicantEmail' }, { status: 400 })
     }
 
-    // ── Custom / unlisted property mode ──────────────────────────────────────
+    // Every offer names a real room: the application page can't open without one (an offer typed in by hand for an
+    // unlisted property sent a link that said "This link isn't complete" — 12 Oct 2026). Add the property as a
+    // let-only room first. The old hand-typed branch below is kept but never reached.
+    if (data.customMode || !data.roomId || !data.propertyId) {
+      return Response.json({ error: 'Pick the room first. If the property isn’t in CROS yet, add it as a let-only room, then send the offer.' }, { status: 400 })
+    }
+
+    // ── Custom / unlisted property mode (retired) ────────────────────────────
     if (data.customMode) {
       const monthly = data.advertisedRent || 0
       const weekly  = weeklyRent(monthly)
