@@ -42,6 +42,12 @@ export async function PATCH(req: NextRequest, { params: paramsPromise }: { param
   const body = await req.json()
   const sb = adminClient()
 
+  // "Let agreed" only comes from creating the tenancy (Set up tenancy / Holding deposit received — lib/lettings/
+  // incomingTenancy), never from the stage control: a bare label left Donna Pious "let agreed" with no tenant, no
+  // tenancy and so no letting file (12 Oct 2026)
+  if (body.pipeline_stage === 'converted') {
+    return NextResponse.json({ error: 'Use “Set up tenancy” (or “Holding deposit received”) — that creates the tenancy and its letting file, then marks them let agreed.' }, { status: 400 })
+  }
   // If advancing stage, validate it's a forward move
   if (body.pipeline_stage) {
     const { data: current } = await sb.from('applicants').select('pipeline_stage').eq('id', params.id).single()
