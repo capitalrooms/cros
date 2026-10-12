@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
@@ -36,20 +37,9 @@ async function applyEmailHtml(vars: { firstName: string; roomName: string; propA
 
 
 export async function POST(request: NextRequest) {
-  // Auth: verify the caller's Supabase session via the cookie on the request.
-  // Using next/headers directly (supported in Next.js route handlers) avoids
-  // importing auth-helpers which doesn't support Next.js 16.
-  const { cookies } = await import('next/headers')
-  const cookieStore = await cookies()
-  const allCookies = cookieStore.getAll()
-  const sessionCookie = allCookies.find(c => c.name.includes('auth-token') && c.name.startsWith('sb-'))
-  if (!sessionCookie) {
-    // No session cookie — check Authorization header as fallback
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-  }
+  // a real office sign-in (audit 12 Oct 2026: it only checked that some "Bearer …" header was present, so anyone
+  // could send invites by email and text from CROS)
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
 
   const { viewingId, manual, method, mode = 'apply' } = await request.json()
   if (!viewingId && !manual) return NextResponse.json({ error: 'viewingId or manual details required' }, { status: 400 })

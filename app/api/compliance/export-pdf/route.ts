@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase'
+import { requireStaff } from '@/lib/portalAuth'
 import { NextRequest, NextResponse } from 'next/server'
 import { contentDisposition } from '@/lib/contentDisposition'
 
 export async function POST(request: NextRequest) {
+  // office staff only (audit 12 Oct 2026: it was open to anyone)
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   try {
     const { property_id } = await request.json()
 

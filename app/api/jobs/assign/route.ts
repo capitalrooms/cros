@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff, requireSignedIn, isStaff } from '@/lib/portalAuth'
 
 export async function POST(request: NextRequest) {
+  // the office or a cleaner (audit 12 Oct 2026: any signed-in person — a tenant too — could assign jobs)
+  { const c = await requireSignedIn(request); if (!c || !(isStaff(c) || c.role === 'cleaner')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   try {
     const { property_id, room_id, cleaner_id, task_type, notes } = await request.json()
 

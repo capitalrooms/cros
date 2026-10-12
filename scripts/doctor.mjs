@@ -70,8 +70,10 @@ async function main() {
 
   // 2 ── Key validity (a DEAD key is worse than a missing one — it fails silently) ──
   section('API key validity (live)');
-  const anonStatus = await probe('people?select=id&limit=1', ANON);
-  if (anonStatus === 401) fail('anon/publishable key is REJECTED by Supabase', 'the app cannot read anything — key is wrong or rotated');
+  // Asked of the sign-in service, not a table: since the lock-down (migrations 192/214) the public key is refused
+  // table reads on purpose, which a table probe mistook for a dead key (12 Oct 2026).
+  const anonStatus = await fetch(`${URL}/auth/v1/settings`, { headers: { apikey: ANON } }).then(r => r.status).catch(() => 0);
+  if (anonStatus === 401 || anonStatus === 403) fail('anon/publishable key is REJECTED by Supabase', 'the app cannot sign anyone in — key is wrong or rotated');
   else if (anonStatus === 200) pass('anon/publishable key authenticates');
   else warn(`anon key probe returned ${anonStatus}`, 'unexpected, investigate');
 

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase';
 import { getCommsLive } from '@/lib/comms'
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSignedIn, canWorkOnTicket } from '@/lib/portalAuth';
 
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
@@ -12,6 +13,12 @@ export async function POST(request: NextRequest) {
 
     if (!ticketId) {
       return NextResponse.json({ error: 'ticketId required' }, { status: 400 });
+    }
+
+    // only the office or the contractor on this job (audit 12 Oct 2026: anyone could trigger tenant messages)
+    const caller = await requireSignedIn(request)
+    if (!caller || !(await canWorkOnTicket(caller, ticketId))) {
+      return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
     }
 
     const supabase = createClient();

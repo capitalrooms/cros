@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/adminAuth'
 import { acquisitionEmailHtml } from '@/lib/email-templates/acquisition'
 import { senderFields } from '@/lib/email/sender'
 
 // POST /api/landlord-acquisition
 // Body: { firstName, email, greeting?, headshotUrl?, igUrl?, fbUrl? }
 export async function POST(req: NextRequest) {
+  // office only (audit 12 Oct 2026: it was open to anyone — it sends email from our domain)
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const body = await req.json()
   const {
     firstName, email, greeting, headshotUrl, igUrl, fbUrl,
@@ -57,6 +60,8 @@ export async function POST(req: NextRequest) {
 // GET /api/landlord-acquisition?firstName=X&greeting=Y&headshotUrl=Z&...
 // Returns the rendered HTML for preview (no send)
 export async function GET(req: NextRequest) {
+  // office only (audit 12 Oct 2026: it was open to anyone)
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const p = req.nextUrl.searchParams
   const firstName = p.get('firstName') || 'there'
   const greeting = p.get('greeting') || undefined

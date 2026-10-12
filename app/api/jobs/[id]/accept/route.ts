@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase'
+import { requireSignedIn, isStaff } from '@/lib/portalAuth'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -48,6 +49,12 @@ export async function PUT(
         { error: 'Job not found' },
         { status: 404 }
       )
+    }
+
+    // only the cleaner it was given to, or the office (audit 12 Oct 2026: any signed-in person could accept any job)
+    const caller = await requireSignedIn(request)
+    if (!caller || !(isStaff(caller) || caller.personId === job.cleaner_id)) {
+      return NextResponse.json({ error: 'That job isn’t yours to accept.' }, { status: 403 })
     }
 
     // Create a clean entry

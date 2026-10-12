@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 
 export async function POST(request: NextRequest) {
+  // office staff only (audit 12 Oct 2026: it was open to anyone — and it costs money to run)
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   try {
     const { postcode, address } = await request.json()
 
