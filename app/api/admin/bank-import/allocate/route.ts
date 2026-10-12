@@ -77,11 +77,14 @@ export async function POST(req: NextRequest) {
 
   const { data: charge } = await service
     .from('rent_charges')
-    .select('id, status, amount_due, amount_received, voided, property_id')
+    .select('id, status, amount_due, amount_received, voided, property_id, tenancy_id')
     .eq('id', rent_charge_id)
     .single()
 
   if (!charge) return NextResponse.json({ error: 'Rent charge not found' }, { status: 404 })
+  // a tenant's money only goes to their own rent — not the previous tenant's in that room (migration 217)
+  if (tenancy_id && (charge as any).tenancy_id && (charge as any).tenancy_id !== tenancy_id)
+    return NextResponse.json({ error: 'That month’s rent belongs to a different tenant in this room — pick this tenant’s month' }, { status: 409 })
   // A charge that's already paid is fine: the money rolls on to older arrears or the next months (lib/payments/apply)
   if ((charge as any).voided) return NextResponse.json({ error: 'That charge has been cleared — pick another month' }, { status: 409 })
   // practice money only to a demo house's rent, and real money never to one (migrations 209/210)

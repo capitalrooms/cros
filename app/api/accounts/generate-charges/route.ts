@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
-import { generateMonthCharges } from '@/lib/rentCharges/generate'
+import { generateMonthCharges, ensureTenancyCharge } from '@/lib/rentCharges/generate'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,37 +32,21 @@ export async function POST(req: NextRequest) {
     chargeMonth = d.toISOString().split('T')[0]
   }
 
-  // Single-room mode: called when user marks a room paid for the first time
-  if (body.room_id) {
-    // Fetch room name + property code to generate the RR- reference
-    const { data: roomData } = await service
-      .from('rooms')
-      .select('name, properties(property_code)')
-      .eq('id', body.room_id)
-      .maybeSingle()
-    const { genRentRef } = await import('@/lib/references')
-    const propCode = (roomData as any)?.properties?.property_code
-    const roomName = (roomData as any)?.name
-    const reference = propCode && roomName
-      ? genRentRef(propCode, roomName, new Date(chargeMonth))
-      : null
-
-    const { data: inserted, error: upsertErr } = await service
-      .from('rent_charges')
-      .upsert({
-        room_id: body.room_id,
-        property_id: body.property_id,
-        charge_month: chargeMonth,
-        amount_due: body.amount_due ?? 0,
-        amount_received: 0,
-        status: 'pending',
-        ...(reference ? { reference } : {}),
-      }, { onConflict: 'room_id,charge_month', ignoreDuplicates: false })
-      .select('id')
-      .single()
-
-    if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 })
-    return NextResponse.json({ ok: true, charge_id: (inserted as any)?.id })
+  // Single-tenancy mode: called when someone marks a room paid for the first time. Charges belong to a tenancy
+  // (migration 217): the given tenancy, else the one in that room that month (the newest, if two shared the month).
+  if (body.tenancy_id || body.room_id) {
+    let tenancyId: string | null = body.tenancy_id ?? null
+    if (!tenancyId) {
+      const [y, m] = chargeMonth.split('-').map(Number)
+      const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+      const { data: t } = await service.from('tenancies').select('id').eq('room_id', body.room_id).is('let_cancelled_at', null)
+        .lte('start_date', monthEnd).or(`end_date.is.null,end_date.gte.${chargeMonth}`).order('start_date', { ascending: false }).limit(1).maybeSingle()
+      tenancyId = t?.id ?? null
+    }
+    if (!tenancyId) return NextResponse.json({ error: 'No tenancy in that room that month — rent is charged to a tenancy.' }, { status: 400 })
+    const id = await ensureTenancyCharge(service, tenancyId, chargeMonth)
+    if (!id) return NextResponse.json({ error: 'That tenancy isn’t running that month, or has no rent set.' }, { status: 400 })
+    return NextResponse.json({ ok: true, charge_id: id })
   }
 
   // Bulk mode: every tenancy running this month (part months pro-rata; demo houses excluded) — shared with the cron

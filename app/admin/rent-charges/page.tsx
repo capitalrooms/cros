@@ -125,7 +125,7 @@ export default function RentChargesPage() {
 
       supabase
         .from('rent_charges')
-        .select('id, room_id, property_id, charge_month, amount_due, amount_received, status, payment_method, paid_at')
+        .select('id, room_id, tenancy_id, property_id, charge_month, amount_due, amount_received, status, payment_method, paid_at')
         .eq('charge_month', monthStart),
     ])
 
@@ -134,9 +134,10 @@ export default function RentChargesPage() {
       byRoom[t.room_id] = t
     }
 
+    // a room can have two charges in a changeover month (one per tenancy, migration 217): show the listed tenant's
     const chargesMap: Record<string, RentCharge> = {}
     for (const c of (chargesRes.data as any[]) || []) {
-      chargesMap[c.room_id] = c
+      if (!chargesMap[c.room_id] || (c.tenancy_id && c.tenancy_id === byRoom[c.room_id]?.id)) chargesMap[c.room_id] = c
     }
 
     setProperties(sortPropertiesNumerically((propsRes.data as any[]) || []))

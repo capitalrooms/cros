@@ -16,7 +16,7 @@ export async function canUndoTenancy(s: SupabaseClient, t: any, today = new Date
   const startMonth = t.start_date ? `${String(t.start_date).slice(0, 7)}-01` : null
   const [charges, holds, returns, onStatements] = await Promise.all([
     t.room_id && startMonth
-      ? s.from('rent_charges').select('charge_month, amount_received, remitted_amount').eq('room_id', t.room_id).eq('voided', false).gte('charge_month', startMonth)
+      ? s.from('rent_charges').select('charge_month, amount_received, remitted_amount').eq('room_id', t.room_id).or(`tenancy_id.eq.${t.id},tenancy_id.is.null`).eq('voided', false).gte('charge_month', startMonth)
           .lte('charge_month', t.end_date ? `${String(t.end_date).slice(0, 7)}-01` : '9999-12-01')
       : Promise.resolve({ data: [] as any[] }),
     s.from('holding_deposits').select('hold_no, status').eq('tenancy_id', t.id).neq('status', 'reversed'),

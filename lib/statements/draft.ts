@@ -73,11 +73,11 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
   let tracksRemitted = true
   let charges: any[] = []
   const withRemitted = await s.from('rent_charges')
-    .select('id, room_id, charge_month, amount_due, amount_received, status, voided, remitted_amount')
+    .select('id, room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided, remitted_amount')
     .eq('property_id', propertyId).lte('charge_month', end)
   if (withRemitted.error) {
     tracksRemitted = false
-    const plain = await s.from('rent_charges').select('id, room_id, charge_month, amount_due, amount_received, status, voided')
+    const plain = await s.from('rent_charges').select('id, room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided')
       .eq('property_id', propertyId).eq('charge_month', start)
     if (plain.error) throw new Error(plain.error.message)
     charges = plain.data ?? []
@@ -85,17 +85,28 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
   charges = charges.filter(c => !c.voided)
 
   const roomName = new Map((rooms ?? []).map((r: any) => [r.id, r.name as string]))
-  const tenancyFor = (roomId: string) => (tenancies ?? []).filter((x: any) => x.room_id === roomId).sort((a: any, b: any) => String(b.start_date).localeCompare(String(a.start_date)))[0] as any
+  // Each charge's own tenancy (migration 217): in a changeover month the landlord gets two lines for the room — one per
+  // tenant, each with its own fee. Late rent from a tenant who has since left still finds them. A charge with no tenancy
+  // (made before 217) falls back to whoever had the room.
+  const allTens: any[] = [...((tenancies ?? []) as any[])]
+  const missingTen = [...new Set(charges.map(c => c.tenancy_id).filter((id: any) => id && !allTens.some(t => t.id === id)))]
+  if (missingTen.length) {
+    const { data: more } = await s.from('tenancies').select('*, people!person_id(first_name, last_name, full_name)').in('id', missingTen)
+    allTens.push(...((more ?? []) as any[]))
+  }
+  const roomTenancy = (roomId: string) => allTens.filter((x: any) => x.room_id === roomId).sort((a: any, b: any) => String(b.start_date).localeCompare(String(a.start_date)))[0] as any
+  const tenancyOf = (c: any) => (c.tenancy_id ? allTens.find((t: any) => t.id === c.tenancy_id) : null) ?? roomTenancy(c.room_id)
+  const lineKey = (c: any) => c.tenancy_id ?? `room-${c.room_id}`
   const chargedFor = new Map<string, number>()
-  for (const c of charges) if (String(c.charge_month).slice(0, 10) === start) chargedFor.set(c.room_id, r2((chargedFor.get(c.room_id) ?? 0) + Number(c.amount_due || 0)))
-  const tenantFor = (roomId: string) => {
-    const t = (tenancies ?? []).filter((x: any) => x.room_id === roomId).sort((a: any, b: any) => String(b.start_date).localeCompare(String(a.start_date)))[0] as any
-    const p = t?.people
+  for (const c of charges) if (String(c.charge_month).slice(0, 10) === start) chargedFor.set(lineKey(c), r2((chargedFor.get(lineKey(c)) ?? 0) + Number(c.amount_due || 0)))
+  const tenantOf = (c: any) => {
+    const p = tenancyOf(c)?.people
     return [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || ''
   }
   const roomNo = (name: string) => name.match(/\d+/)?.[0] ?? name
 
-  const byRoom = new Map<string, DraftRoom>()
+  const byRoom = new Map<string, DraftRoom>()           // one line per tenancy (key: tenancy id, or room for pre-217 charges)
+  const lineTenancy = new Map<string, any>()
   const paidOver: { id: string; amount: number }[] = []
   const unpaid: Unpaid[] = []
   for (const c of charges) {
@@ -105,14 +116,15 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
     const name = roomName.get(c.room_id) || 'Room'
     const forMonth = String(c.charge_month).slice(0, 10)
     if (forMonth === start && received < Number(c.amount_due || 0)) {
-      unpaid.push({ room: name, tenant: tenantFor(c.room_id), month: monthName(forMonth), due: Number(c.amount_due), received })
+      unpaid.push({ room: name, tenant: tenantOf(c), month: monthName(forMonth), due: Number(c.amount_due), received })
     }
     if (delta <= 0) continue
-    const room: DraftRoom = byRoom.get(c.room_id) ?? { room_number: roomNo(name), tenant_name: tenantFor(c.room_id), rent: 0, fee: 0, chargeIds: [] }
+    const room: DraftRoom = byRoom.get(lineKey(c)) ?? { room_number: roomNo(name), tenant_name: tenantOf(c), rent: 0, fee: 0, chargeIds: [] }
     room.rent = r2(room.rent + delta)
     room.chargeIds.push(c.id)
     if (forMonth !== start) room.note = [room.note, `includes ${monthName(forMonth)} rent received late`].filter(Boolean).join('; ')
-    byRoom.set(c.room_id, room)
+    byRoom.set(lineKey(c), room)
+    lineTenancy.set(lineKey(c), tenancyOf(c))
     paidOver.push({ id: c.id, amount: received })
   }
   const roomIdOf = new Map([...byRoom.entries()].map(([id, r]) => [r, id]))
@@ -120,7 +132,7 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
   const draftRooms = [...byRoom.values()]
     .map(r => {
       const id = roomIdOf.get(r)!
-      const fee = resolveFee(tenancyFor(id), prop as any)
+      const fee = resolveFee(lineTenancy.get(id), prop as any)
       const amount = feeAmount(fee, { received: r.rent, charged: chargedFor.get(id) ?? r.rent })
       if (amount == null) feeWarnings.push(`Room ${r.room_number}: no management fee set — add it on the tenancy or the property`)
       return { ...r, fee: amount ?? 0, note: fee.source === 'tenancy' ? [r.note, `fee: ${describeFee(fee)}`].filter(Boolean).join('; ') : r.note }

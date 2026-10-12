@@ -1,4 +1,6 @@
 import { dropDemo } from '@/lib/demoProperties'
+import { chargeBelongsTo } from '@/lib/rentCharges'
+import { ledgerStart } from '@/lib/clientLedger'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -17,7 +19,7 @@ export async function GET(req: NextRequest) {
   const { data: tenAll } = await supabase
     .from('tenancies')
     .select(`
-      id, room_id, property_id,
+      id, room_id, property_id, start_date, end_date,
       room:rooms ( name, properties ( name, address ) ),
       person:people!person_id ( first_name, last_name )
     `)
@@ -28,24 +30,20 @@ export async function GET(req: NextRequest) {
 
   const roomIds = tenancies.map((t: any) => t.room_id)
 
-  // All rent charges for active tenancy rooms
+  // Each tenant's own charges (migration 217; a charge with no tenancy is matched by the room and dates), from when
+  // CROS took over the rent, cleared ones left out — not every charge the room has ever had (12 Oct 2026)
   const { data: charges } = await supabase
     .from('rent_charges')
-    .select('room_id, amount_due, amount_received, status')
-    .in('room_id', roomIds)
-
-  // Group by room_id
-  const chargesByRoom = new Map<string, { due: number; received: number; overdue: number }>()
-  for (const c of (charges || []) as any[]) {
-    if (!chargesByRoom.has(c.room_id)) chargesByRoom.set(c.room_id, { due: 0, received: 0, overdue: 0 })
-    const r = chargesByRoom.get(c.room_id)!
-    r.due      += Number(c.amount_due)
-    r.received += Number(c.amount_received ?? 0)
-    if (c.status === 'overdue') r.overdue++
-  }
+    .select('room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided')
+    .in('room_id', roomIds).gte('charge_month', await ledgerStart(supabase as any))
+  const live = ((charges || []) as any[]).filter(c => !c.voided)
 
   const rows = (tenancies as any[]).map(t => {
-    const agg = chargesByRoom.get(t.room_id) || { due: 0, received: 0, overdue: 0 }
+    const agg = { due: 0, received: 0, overdue: 0 }
+    for (const c of live.filter(c => chargeBelongsTo(c, t))) {
+      agg.due += Number(c.amount_due); agg.received += Number(c.amount_received ?? 0)
+      if (c.status === 'overdue') agg.overdue++
+    }
     const balance = agg.received - agg.due
     return {
       tenancy_id:    t.id,
