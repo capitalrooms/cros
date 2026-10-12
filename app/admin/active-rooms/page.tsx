@@ -23,7 +23,7 @@ import { landlordName } from '@/lib/people'
 type RoomState = 'let' | 'leaving' | 'let_agreed' | 'empty'
 interface Who { tenancyId: string; name: string; rent: number | null; start: string | null; end: string | null }
 interface Row {
-  id: string; name: string; code: string | null; spec: string
+  id: string; name: string; code: string | null
   state: RoomState
   shown: Who | null              // the person in the row: current, else the incoming, else the last tenant
   last: boolean                  // shown is the last tenant (they've left)
@@ -44,8 +44,8 @@ interface House {
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 const gbp2 = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
-const monthYear = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+// dates in full — "1 June 2026" (Harry, 12 Oct)
+const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const daysBetween = (a: string, b: string) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000))
 const personName = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || 'Tenant') : 'Tenant'
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0]
@@ -73,7 +73,7 @@ function tenantNote(r: Row): string {
   if (!r.shown) return ''
   if (r.last && r.shown.end) return `left ${day(r.shown.end)}`
   if (r.state === 'let_agreed' && r.shown.start) return `moves in ${day(r.shown.start)}`
-  return r.shown.start ? `since ${monthYear(r.shown.start)}` : ''
+  return r.shown.start ? `since ${day(r.shown.start)}` : ''
 }
 
 export default function AllUnitsPage() {
@@ -98,7 +98,7 @@ export default function AllUnitsPage() {
     const certCols = PROPERTY_CERTIFICATES.map(([c]) => c).join(', ')
     const [props, rooms, tens, jobs] = await Promise.all([
       sb.from('properties').select(`id, name, address, postcode, property_code, property_type, letting_type, is_demo, landlord_id, has_gas, management_fee_type, management_fee_pct, management_fee_fixed, ${certCols}`),
-      sb.from('rooms').select('id, name, unit_code, room_type, room_size, has_ensuite, current_asking_rent, available_date, property_id'),
+      sb.from('rooms').select('id, name, unit_code, current_asking_rent, available_date, property_id'),
       sb.from('tenancies').select('id, room_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, management_fee_type, management_fee_pct, management_fee_fixed, people!person_id(first_name, last_name, full_name, email)'),
       sb.from('maintenance_tickets').select('property_id, status'),
     ])
@@ -130,8 +130,7 @@ export default function AllUnitsPage() {
           emptyDays = from ? daysBetween(from, now) : null
         }
         const fee = current ? (feeAmount(resolveFee(current, p), { received: Number(current.rent_amount || 0), charged: Number(current.rent_amount || 0) }) ?? 0) : 0
-        const spec = [r.room_size ? `${r.room_size} m²` : null, r.has_ensuite ? 'ensuite' : null, !r.room_size && !r.has_ensuite && r.room_type ? String(r.room_type).replace('_', ' ') : null].filter(Boolean).join(' · ')
-        return { id: r.id, name: r.name, code: r.unit_code, spec, state, shown, last, incoming: inc, rent, asking: r.current_asking_rent != null ? Number(r.current_asking_rent) : null, emptyDays, fee }
+        return { id: r.id, name: r.name, code: r.unit_code, state, shown, last, incoming: inc, rent, asking: r.current_asking_rent != null ? Number(r.current_asking_rent) : null, emptyDays, fee }
       }).sort((a, b) => (a.code || a.name || '').localeCompare(b.code || b.name || '', undefined, { numeric: true }))
 
       // the certificate coming up first (gas only where the house has gas)
@@ -236,7 +235,7 @@ export default function AllUnitsPage() {
                   <li key={r.id}>
                     <Link href={r.shown ? `/admin/lettings/${r.shown.tenancyId}?from=/admin/active-rooms` : `/admin/properties/${h.id}?tab=units&room=${r.id}`} className="block px-md py-sm active:bg-neutral-50">
                       <div className="flex items-center justify-between gap-sm">
-                        <span className="text-sm"><b className="text-neutral-900">{r.name}</b>{r.spec && <span className="ml-xs text-[11px] text-neutral-400">{r.spec}</span>}</span>
+                        <span className="text-sm"><b className="text-neutral-900">{r.name}</b></span>
                         <span className={`shrink-0 rounded-full px-sm py-0.5 text-[11px] font-semibold ${STATE[r.state].cls}`}>{STATE[r.state].label}</span>
                       </div>
                       <div className="mt-0.5 flex items-baseline justify-between gap-sm text-sm">
@@ -262,7 +261,7 @@ export default function AllUnitsPage() {
                   <tbody>
                     {h.rows.map(r => (
                       <tr key={r.id} onClick={() => router.push(`/admin/properties/${h.id}?tab=units&room=${r.id}`)} className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50">
-                        <td className="whitespace-nowrap px-lg py-sm"><b className="text-neutral-900">{r.name}</b>{r.spec && <span className="ml-xs text-[11px] text-neutral-400">{r.spec}</span>}</td>
+                        <td className="whitespace-nowrap px-lg py-sm"><b className="text-neutral-900">{r.name}</b></td>
                         <td className="px-sm py-sm">
                           {r.shown ? <>
                             <Link href={`/admin/lettings/${r.shown.tenancyId}?from=/admin/active-rooms`} onClick={e => e.stopPropagation()}
