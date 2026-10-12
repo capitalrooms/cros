@@ -3,9 +3,9 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from '@/lib/auth'
-import { authenticateWithPasskey, isPasskeySupported } from '@/lib/webauthn'
 import { createClient } from '@/lib/supabase'
 import Logo from '@/components/Logo'
+import TwoStepCode, { needsTwoStep } from '@/components/TwoStepCode'
 
 // Inner component that reads search params (requires Suspense wrapper)
 function LoginForm() {
@@ -16,8 +16,8 @@ function LoginForm() {
   const [password, setPassword]       = useState('')
   const [error, setError]             = useState('')
   const [loading, setLoading]         = useState(false)
-  const [passkeySupported, setPasskeySupported] = useState(false)
-  const [passkeyLoading, setPasskeyLoading]     = useState(false)
+  // two-step sign-in: after the password, the code from their authenticator app (components/TwoStepCode)
+  const [codeFor, setCodeFor]         = useState<string | null>(null)   // where to go once the code is in
 
   // Magic-link mode — shown when email pre-filled from URL
   const [magicMode, setMagicMode]     = useState(false)
@@ -33,8 +33,6 @@ function LoginForm() {
   const [forgotMsg, setForgotMsg]     = useState('')
 
   useEffect(() => {
-    isPasskeySupported().then(setPasskeySupported).catch(() => setPasskeySupported(false))
-
     // Pre-fill from ?email= or ?phone= query param
     const qEmail = searchParams.get('email')
     const qPhone = searchParams.get('phone')
@@ -77,6 +75,7 @@ function LoginForm() {
         contractor: '/contractor', cleaner: '/cleaner', landlord: '/landlord',
         lettings: '/lettings', agent: '/agent' }[role ?? ''] ?? '/tenant'
 
+      if (await needsTwoStep(createClient())) { setCodeFor(path); setLoading(false); return }
       router.push(path)
       setTimeout(() => { if (typeof window !== 'undefined') window.location.href = path }, 1000)
     } catch (err) {
@@ -101,25 +100,6 @@ function LoginForm() {
     }
   }
 
-  // ── Passkey ───────────────────────────────────────────────────────────────
-  async function handlePasskeyLogin() {
-    setError('')
-    setPasskeyLoading(true)
-    try {
-      const result = await authenticateWithPasskey()
-      if (result.success && result.user) {
-        const path = { administrator: '/admin', admin: '/admin', tenant: '/tenant',
-          contractor: '/contractor', cleaner: '/cleaner', landlord: '/landlord',
-          lettings: '/lettings', agent: '/agent' }[result.user.role] ?? '/tenant'
-        router.push(path)
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Passkey authentication failed.')
-    } finally {
-      setPasskeyLoading(false)
-    }
-  }
-
   // ── Forgot password ───────────────────────────────────────────────────────
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault()
@@ -132,11 +112,7 @@ function LoginForm() {
         body: JSON.stringify({ email: forgotEmail }),
       })
       const data = await res.json()
-      if (data?.resetLink?.startsWith('http')) {
-        setForgotMsg(data.resetLink)
-      } else {
-        setForgotMsg(data.message || 'Check your email for the reset link.')
-      }
+      setForgotMsg(data.message || data.error || 'Check your email for the reset link.')
       setForgotEmail('')
     } catch {
       setForgotMsg('An error occurred. Please try again.')
@@ -167,27 +143,20 @@ function LoginForm() {
 
         <div className="cr-fade-up" style={{ animationDelay: '1150ms' }}>
 
-          {/* ── Forgot password view ── */}
-          {showForgot ? (
+          {/* ── Two-step sign-in code ── */}
+          {codeFor ? (
+            <div className="rounded-2xl bg-white p-lg">
+              <TwoStepCode sb={createClient()} onDone={() => { window.location.href = codeFor }}
+                onCancel={async () => { await createClient().auth.signOut().catch(() => null); setCodeFor(null); setPassword('') }} />
+            </div>
+
+          /* ── Forgot password view ── */
+          ) : showForgot ? (
             <>
               <p className="mb-2xl text-center text-sm text-white/50">
                 Enter your email and we&apos;ll send you a link to sign in.
               </p>
-              {forgotMsg && (
-                <div className="mb-xl text-sm">
-                  {forgotMsg.startsWith('http') ? (
-                    <div className="text-white/80">
-                      <p className="mb-md">Your sign-in link is ready:</p>
-                      <a href={forgotMsg} target="_blank" rel="noopener noreferrer"
-                        className="block break-all font-mono text-xs text-white/70 underline hover:text-white">
-                        {forgotMsg}
-                      </a>
-                    </div>
-                  ) : (
-                    <p className="text-center text-white/60">{forgotMsg}</p>
-                  )}
-                </div>
-              )}
+              {forgotMsg && <p className="mb-xl text-center text-sm text-white/60">{forgotMsg}</p>}
               <form onSubmit={handleForgotPassword} className="space-y-2xl">
                 <div>
                   <label className={lbl}>Email</label>
@@ -258,17 +227,18 @@ function LoginForm() {
               )}
 
               <form onSubmit={handleEmailLogin} className="space-y-2xl">
+                {prefilled && <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />}
                 {!prefilled && (
                   <div>
                     <label className={lbl}>Email</label>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                      placeholder="you@example.com" autoComplete="email" className={inp} required />
+                    <input type="email" name="username" value={email} onChange={e => setEmail(e.target.value)}
+                      placeholder="you@example.com" autoComplete="username" className={inp} required />
                     {emailHint && <p className="mt-xs text-xs text-neutral-500">Your account email looks like <span className="font-mono">{emailHint}</span></p>}
                   </div>
                 )}
                 <div>
                   <label className={lbl}>Password</label>
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                  <input type="password" name="password" value={password} onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••" autoComplete="current-password" className={inp} required />
                 </div>
                 <button type="submit" disabled={loading} className={btn}>
@@ -277,12 +247,7 @@ function LoginForm() {
               </form>
 
               <div className="mt-xl flex items-center justify-between text-xs">
-                {passkeySupported ? (
-                  <button onClick={handlePasskeyLogin} disabled={passkeyLoading}
-                    className="tracking-wide text-white/40 hover:text-white/90 transition-colors disabled:opacity-40">
-                    {passkeyLoading ? 'Authenticating…' : 'Use Face ID'}
-                  </button>
-                ) : <span />}
+                <span />
                 <button onClick={() => { setShowForgot(true); setForgotEmail(email) }}
                   className="tracking-wide text-white/40 hover:text-white/90 transition-colors">
                   {prefilled ? 'Set a password' : 'Forgot password?'}

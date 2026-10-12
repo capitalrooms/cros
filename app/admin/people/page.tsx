@@ -98,6 +98,10 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   const [people, setPeople] = useState<Person[]>([])
   const [properties, setProperties] = useState<Property[]>([])
   const [notifyOn, setNotifyOn] = useState<Set<string>>(new Set())
+  // sign-in accounts (12 Oct 2026): status per person, invites / resets / turning sign-in off — /api/admin/accounts
+  const [acct, setAcct] = useState<{ statuses: Record<string, any>; groups: Record<Tab, string[]>; me: string } | null>(null)
+  const [acctBusy, setAcctBusy] = useState('')
+  const [acctMsg, setAcctMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -221,6 +225,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       setOwnedBy(owned)
       const ec = await adminFetch('/api/admin/emergencies?only=list').then(r => r.json()).catch(() => ({ list: [] }))
       setEmergency(new Map(((ec.list ?? []) as any[]).map(c => [c.person_id, c])))
+      loadAccounts()
 
       setLoading(false)
     }
@@ -378,6 +383,35 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     }))
   }
 
+  async function loadAccounts() {
+    const r = await adminFetch('/api/admin/accounts').then(x => x.json()).catch(() => null)
+    if (r?.statuses) setAcct(r)
+  }
+
+  /** Invite / reset / turn sign-in off or on / remove two-step — for one person or a whole group (sent 25 at a time). */
+  async function accountAction(action: 'send' | 'off' | 'on' | 'clear_two_step', ids: string[], ask?: string) {
+    setMenu(null)
+    if (!ids.length) return
+    if (ask && !window.confirm(ask)) return
+    setAcctBusy(action + ids.length); setAcctMsg(null)
+    const done: any[] = [], failed: any[] = []
+    for (let i = 0; i < ids.length; i += 25) {
+      setAcctMsg({ ok: true, text: ids.length > 25 ? `Working… ${Math.min(i + 25, ids.length)} of ${ids.length}` : 'Working…' })
+      const r = await adminFetch('/api/admin/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, personIds: ids.slice(i, i + 25) }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { failed.push({ name: `${ids.slice(i, i + 25).length} people`, error: d.error || 'failed' }); continue }
+      done.push(...(d.done ?? [])); failed.push(...(d.failed ?? []))
+    }
+    const one = ids.length === 1
+    const text = [
+      done.length ? (one ? `${done[0].name}: ${done[0].result}.` : `${done.length} done (${[...new Set(done.map(x => x.result))].join(', ')}).`) : '',
+      failed.length ? `Not done for ${failed.map(f => `${f.name} (${f.error})`).join('; ')}.` : '',
+    ].filter(Boolean).join(' ')
+    setAcctMsg({ ok: !failed.length, text: text || 'Nothing to do.' })
+    setAcctBusy('')
+    loadAccounts()
+  }
+
   async function toggleEmergency(personId: string, on: boolean) {
     setEcBusy(personId)
     const r = await adminFetch('/api/admin/emergencies', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'toggle_contractor', personId, on }) })
@@ -423,6 +457,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       <span className="hidden md:block text-xs tabular-nums text-neutral-600">{(p as any).phone || <span className="text-neutral-300">No phone</span>}</span>
       <span className="relative z-10 flex items-center justify-end gap-xs" data-row-menu>
         {extra}
+        {AccountChip(p)}
         <span title={notifyOn.has(p.id) ? 'Notifications on' : 'Notifications off'} className={`hidden sm:inline-block h-2 w-2 rounded-full ${notifyOn.has(p.id) ? 'bg-green-500' : 'bg-neutral-300'}`} />
         <button type="button" aria-label="More" onClick={() => setMenu(menu === p.id ? null : p.id)} className="rounded-lg px-sm py-xs text-lg leading-none text-neutral-500 hover:bg-neutral-200">⋯</button>
         {menu === p.id && (
@@ -430,6 +465,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
             <Link href={profile(p)} className="block px-md py-xs font-semibold hover:bg-neutral-50">Open profile</Link>
             {viewAs(p) && <Link href={viewAs(p)!} className="block px-md py-xs hover:bg-neutral-50">See their app (view as)</Link>}
             {p.role !== 'landlord' && <button type="button" onClick={() => { setMenu(null); setSelectedPerson(p); setIsEditModalOpen(true) }} className="block w-full px-md py-xs text-left hover:bg-neutral-50">Edit name & contact</button>}
+            {AccountMenu(p)}
             <button type="button" onClick={() => { setMenu(null); handleDeletePerson(p.id) }} className="block w-full border-t border-neutral-100 px-md py-xs text-left text-red-700 hover:bg-red-50">Delete…</button>
           </span>
         )}
@@ -437,6 +473,34 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       {detail && <span className="col-start-2 col-span-2 md:hidden truncate text-xs text-neutral-600">{detail}</span>}
     </li>
   )
+  // sign-in status at a glance, and what can be done about it
+  const AccountChip = (p: Person) => {
+    const st = acct?.statuses[p.id]
+    if (!(p as any).email) return <span className="hidden lg:inline-block rounded-full bg-neutral-100 px-sm py-0.5 text-[11px] font-semibold text-neutral-400" title="No email, so no sign-in">No email</span>
+    if (!st) return null
+    const [label, cls, title] = st.off ? ['Sign-in off', 'bg-red-50 text-red-700', 'The office turned their sign-in off']
+      : !st.hasLogin ? ['No login', 'bg-neutral-100 text-neutral-500', 'Not invited yet — ⋯ › Send sign-in invite']
+      : !st.confirmed ? ['Invited', 'bg-amber-50 text-amber-800', st.invitedAt ? `Invited ${new Date(st.invitedAt).toLocaleDateString('en-GB')} — not signed in yet` : 'Not signed in yet']
+      : [`${st.twoStep ? '🔐 ' : ''}Signed in${st.lastSignIn ? ` ${new Date(st.lastSignIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}`, 'bg-green-50 text-green-800', st.twoStep ? 'Has a login, with two-step sign-in' : 'Has a login']
+    return <span className={`hidden lg:inline-block rounded-full px-sm py-0.5 text-[11px] font-semibold ${cls}`} title={title}>{label}</span>
+  }
+  const AccountMenu = (p: Person) => {
+    const st = acct?.statuses[p.id], nm = displayName(p) !== '—' ? displayName(p) : (p as any).email
+    if (!st || !(p as any).email) return null
+    const cls = 'block w-full px-md py-xs text-left hover:bg-neutral-50'
+    return (
+      <span className="block border-t border-neutral-100">
+        {!st.off && (st.hasLogin && st.confirmed
+          ? <button type="button" className={cls} onClick={() => accountAction('send', [p.id], `Email ${nm} a link to choose a new password?`)}>Send password reset</button>
+          : <button type="button" className={cls} onClick={() => accountAction('send', [p.id], `Email ${nm} an invite to set up their sign-in?`)}>{st.hasLogin ? 'Send the invite again' : 'Send sign-in invite'}</button>)}
+        {st.twoStep && <button type="button" className={cls} onClick={() => accountAction('clear_two_step', [p.id], `Remove ${nm}’s two-step sign-in (e.g. lost phone)? They’ll sign in with their password alone until they set it up again.`)}>Remove two-step sign-in</button>}
+        {st.hasLogin && p.id !== acct?.me && (st.off
+          ? <button type="button" className={cls} onClick={() => accountAction('on', [p.id])}>Turn sign-in back on</button>
+          : <button type="button" className={`${cls} text-red-700`} onClick={() => accountAction('off', [p.id], `Turn off ${nm}’s sign-in? Their records stay; they just can’t sign in until you turn it back on.`)}>Turn off sign-in</button>)}
+      </span>
+    )
+  }
+
   const List = (children: React.ReactNode[], empty: string) => children.length
     ? <ul className="divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">{children}</ul>
     : <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center text-sm text-neutral-500">{needle ? 'Nobody matches that search.' : empty}</div>
@@ -485,6 +549,26 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
 
         <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${LABEL[activeTab].toLowerCase()} by name, email, phone${activeTab === 'tenants' ? ', room or property' : ''}…`}
           className="w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm" />
+
+        {/* ── sign-in emails to a whole group ── */}
+        {acct && (() => {
+          const ids = acct.groups[activeTab] ?? []
+          const st = ids.map(id => acct.statuses[id]).filter(Boolean)
+          const noLogin = st.filter(x => !x.hasLogin || !x.confirmed).length, withLogin = st.filter(x => x.hasLogin && x.confirmed && !x.off).length
+          const who = activeTab === 'tenants' ? 'current tenants' : activeTab === 'landlords' ? 'landlords with properties' : activeTab === 'office' ? 'office team' : LABEL[activeTab].toLowerCase()
+          return (
+            <div className="flex flex-wrap items-center justify-between gap-sm rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm">
+              <span className="text-neutral-600">Sign-in: <strong className="text-neutral-900">{withLogin}</strong> of {ids.length} {who} have a login{noLogin ? <>, <strong className="text-neutral-900">{noLogin}</strong> not set up</> : ''}.</span>
+              <span className="flex flex-wrap gap-xs">
+                {noLogin > 0 && <button type="button" disabled={!!acctBusy} onClick={() => accountAction('send', ids.filter(id => { const x = acct.statuses[id]; return x && !x.off && (!x.hasLogin || !x.confirmed) }), `Email an invite to the ${noLogin} ${who} who haven’t set up their sign-in?`)}
+                  className="rounded-lg border border-neutral-300 px-sm py-xs text-xs font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">Invite the {noLogin} not set up</button>}
+                {ids.length > 0 && <button type="button" disabled={!!acctBusy} onClick={() => accountAction('send', ids.filter(id => !acct.statuses[id]?.off), `Email all ${ids.length} ${who}? Anyone with a login gets a link to choose a new password (their current one keeps working until they do); anyone without gets an invite.`)}
+                  className="rounded-lg border border-neutral-300 px-sm py-xs text-xs font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">Send all {ids.length} a reset or invite</button>}
+              </span>
+            </div>
+          )
+        })()}
+        {acctMsg && <div className={`rounded-xl border p-md text-sm ${acctMsg.ok ? 'border-green-200 bg-green-50 text-green-900' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>{acctMsg.text}</div>}
 
         {/* ── add forms ── */}
         {activeTab === 'tenants' && (

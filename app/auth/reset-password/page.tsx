@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import TwoStepCode, { needsTwoStep } from '@/components/TwoStepCode'
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -16,6 +17,9 @@ function ResetPasswordContent() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  // with two-step sign-in on, the code comes first — Supabase won't save a new password without it
+  const [needCode, setNeedCode] = useState(false)
+  useEffect(() => { if (ready === 'yes') needsTwoStep(createClient()).then(setNeedCode).catch(() => null) }, [ready])
 
   useEffect(() => {
     const supabase = createClient()
@@ -51,6 +55,14 @@ function ResetPasswordContent() {
   }
 
   if (ready === 'checking') return <div className="min-h-screen flex items-center justify-center bg-neutral-900 text-sm text-white/70">Checking your reset link…</div>
+
+  if (needCode) return (
+    <div className="min-h-screen flex items-center justify-center bg-neutral-900 px-lg">
+      <div className="w-full max-w-md rounded-3xl bg-white p-xl shadow-2xl">
+        <TwoStepCode sb={createClient()} onDone={() => setNeedCode(false)} />
+      </div>
+    </div>
+  )
 
   if (!token) {
     return (
@@ -119,7 +131,7 @@ function ResetPasswordContent() {
             <div>
               <label className="block text-sm font-bold text-neutral-900 mb-md">New Password</label>
               <input
-                type="password"
+                type="password" autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
@@ -131,7 +143,7 @@ function ResetPasswordContent() {
             <div>
               <label className="block text-sm font-bold text-neutral-900 mb-md">Confirm Password</label>
               <input
-                type="password"
+                type="password" autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"

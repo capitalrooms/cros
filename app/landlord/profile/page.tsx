@@ -253,6 +253,15 @@ export default function LandlordProfilePage() {
             </button>
           </div>
         </div>
+        {/* ── Password & sign-in (shared My account page) ── */}
+        <a href="/account" className="mt-lg flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md hover:bg-neutral-50">
+          <span>
+            <span className="block text-sm font-semibold text-neutral-900">Password &amp; sign-in</span>
+            <span className="block text-xs text-neutral-500">Change your password or turn on two-step sign-in</span>
+          </span>
+          <span className="text-neutral-400">→</span>
+        </a>
+
       </main>
     </div>
   )
