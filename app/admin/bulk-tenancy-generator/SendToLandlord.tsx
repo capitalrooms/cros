@@ -8,8 +8,8 @@ import { adminFetch } from '@/lib/adminFetch'
 
 export interface AgreementDoc {
   key: string
-  label: string              // "Room 1 — Mr Ethan Longford"
-  summary: string            // line used in the email, e.g. "Room 1 — Mr Ethan Longford, £944.80 per month from 16th October 2026"
+  label: string              // "Room 1 — Mr Sam Taylor"
+  summary: string            // line used in the email, e.g. "Room 1 — Mr Sam Taylor, £944.80 per month from 16th October 2026"
   payload?: Record<string, unknown>
   error?: string
 }

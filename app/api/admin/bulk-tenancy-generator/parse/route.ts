@@ -29,7 +29,7 @@ Each tenancy should be an object with these fields:
   property_name   — full property address (infer from context if multiple properties)
   room_number     — room number as integer (e.g. 1, 2, 3) or null if not specified
   salutation      — title only (e.g. "Mr", "Mrs", "Miss", "Ms", "Dr", "Prof") or null
-  tenant_name     — full name WITHOUT the title (e.g. "Ethan Longford", "Rosa Koivunoro")
+  tenant_name     — full name WITHOUT the title (e.g. "Sam Taylor", "Priya Shah")
   tenant_email    — email address or null if not provided
   tenant_phone    — phone number or null if not provided
   rent_amount     — monthly rent as number (e.g. 944.80)
