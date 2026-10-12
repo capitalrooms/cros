@@ -9,7 +9,7 @@
 
 export type AreaKey = 'dashboard' | 'properties' | 'lettings' | 'diary' | 'maintenance' | 'compliance' | 'finance' | 'people' | 'comms' | 'newbusiness'
 
-export interface Area { key: AreaKey; label: string; hint: string; pages: string[]; api: string[] }
+export interface Area { key: AreaKey; label: string; hint: string; pages: string[]; api: string[]; apiRead?: string[] }
 
 // pages: /admin route prefixes; api: route prefixes (mostly /api/admin; a few office routes live elsewhere). A path belongs to the longest matching prefix.
 // Not in any area (administrators only): Settings, accounts & access, view-as, export, business settings, brand logo,
@@ -19,15 +19,21 @@ export const AREAS: Area[] = [
     pages: ['/admin/today', '/admin/search', '/admin/more'], api: ['/api/admin/dashboard', '/api/admin/today', '/api/admin/search'] },
   { key: 'properties', label: 'Properties', hint: 'All Units, property pages, adding properties',
     pages: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties', '/admin/property-documents', '/admin/property-notes'],
-    api: ['/api/admin/property-remove', '/api/admin/property-tasks', '/api/admin/house-docs', '/api/admin/hmo-notice', '/api/admin/files',
+    // (removing a property is administrators only — not in any area)
+    api: ['/api/admin/property-tasks', '/api/admin/house-docs', '/api/admin/hmo-notice', '/api/admin/files',
       '/api/admin/ensure-storage', '/api/admin/create-property', '/api/admin/delete-photo', '/api/admin/house-info-extract', '/api/admin/property-insights',
       '/api/admin/property-policies', '/api/admin/upload-photo'] },
   { key: 'lettings', label: 'Lettings', hint: 'Available rooms, applicants, offers, let-only houses, agreements, tenancies',
-    // tenant profiles too: the letting file links to them (they're also in People)
+    // tenant and landlord profiles and letters too: the letting file links to them (they're also in People / Comms)
     pages: ['/admin/lettings', '/admin/available-and-lettings', '/admin/applicants', '/admin/invite-to-apply', '/admin/let-only', '/admin/let-only-properties', '/admin/tenant',
+      '/admin/landlord', '/admin/document-generator',
       '/admin/bulk-tenancy-generator', '/admin/tenancies', '/admin/move-in', '/admin/tenancy-management', '/admin/rent-increase', '/admin/early-move-out', '/admin/rent-history', '/admin/voids'],
     api: ['/api/admin/lettings', '/api/admin/let-only', '/api/admin/bulk-tenancy-generator', '/api/admin/move-in', '/api/admin/tenancies', '/api/admin/rent-reviews', '/api/admin/voids',
-      '/api/admin/landlord-invoice', '/api/admin/upload-applicant-document', '/api/admin/quick-notify-lettings', '/api/emails/checkout-preview'] },
+      '/api/admin/landlord-invoice', '/api/admin/upload-applicant-document', '/api/admin/quick-notify-lettings', '/api/emails/checkout-preview',
+      // what lettings work reaches into (12 Oct 2026 check): holding deposit receipts, landlords' bank details on agreements, letters
+      '/api/admin/documents/generated', '/api/admin/document-generator'],
+    // read only (GET): landlords' bank details for agreements — changing where a landlord is paid stays with Finance
+    apiRead: ['/api/admin/landlord-bank-accounts'] },
   { key: 'diary', label: 'Diary & viewings', hint: 'The diary, booking viewings and appointments',
     pages: ['/admin/appointments', '/admin/agency-diary', '/admin/calendar'], api: ['/api/admin/appointments', '/api/admin/calendar'] },
   { key: 'maintenance', label: 'Maintenance', hint: 'Repairs, contractors, quotes, cleaning, emergencies, planner',
@@ -63,7 +69,7 @@ export const ALL_AREAS = AREAS.map(a => a.key)
 export const ROLE_PRESETS: Record<string, AreaKey[]> = {
   administrator: ALL_AREAS,
   admin: ALL_AREAS,
-  lettings: ['lettings', 'diary'],
+  lettings: ['lettings', 'diary', 'properties'],   // properties: rooms, photos and let-only houses are lettings work
 }
 
 export const OFFICE_ROLES = ['administrator', 'admin', 'lettings']
@@ -115,10 +121,11 @@ const API_OPEN_TO_OFFICE = ['/api/admin/profile', '/api/admin/upload-signature',
 /** /api/admin routes anyone may call, signed in or not: the address finder on public forms (landlord onboarding). */
 export const PUBLIC_API = ['/api/admin/postcode-lookup']
 export const isPublicApi = (pathname: string) => PUBLIC_API.some(p => pathname === p || pathname.startsWith(p + '/'))
-export function canCallApi(pathname: string, areas: AreaKey[], role: string | null | undefined): boolean {
+export function canCallApi(pathname: string, areas: AreaKey[], role: string | null | undefined, method = 'GET'): boolean {
   if (isAdministrator(role)) return true
   if (API_OPEN_TO_OFFICE.some(p => pathname === p || pathname.startsWith(p + '/'))) return true
-  return areasOf(pathname, a => a.api).some(k => areas.includes(k))
+  if (areasOf(pathname, a => a.api).some(k => areas.includes(k))) return true
+  return method.toUpperCase() === 'GET' && areasOf(pathname, a => a.apiRead ?? []).some(k => areas.includes(k))
 }
 
 /** Where someone lands in the office app: the dashboard if they have it, else their first area's first page. */
