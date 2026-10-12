@@ -8,7 +8,8 @@
  *   - Only affects charges in the CURRENT month or earlier
  *   - Grace period (Settings → Rent, system_settings.rent_grace_days, default 5) after the tenancy's due day
  *   - Only months from the client ledger start (before that, the previous agent collected the rent)
- *   - Only promotes status = 'pending' (not partial — partial means something was received)
+ *   - Promotes 'pending' (nothing received) and, since 12 Oct 2026, 'partial' (some received, some still owed) —
+ *     a month £50 short is as late as one not paid at all. The amount received is kept.
  *   - Writes a payment_audit_log entry for every promotion
  *   - Safe to run multiple times — already-overdue rows are skipped
  *
@@ -45,8 +46,8 @@ export async function POST(req: NextRequest) {
   // each is then checked against its tenancy's own due day below.
   const { data: fetched, error: fetchErr } = await service
     .from('rent_charges')
-    .select('id, room_id, tenancy_id, property_id, charge_month, amount_due, amount_received, voided')
-    .eq('status', 'pending')
+    .select('id, room_id, tenancy_id, property_id, charge_month, amount_due, amount_received, status, voided')
+    .in('status', ['pending', 'partial'])
     .gte('charge_month', start)
     .lte('charge_month', cutoffIso)
   const roomIds = [...new Set((fetched ?? []).map((c: any) => c.room_id).filter(Boolean))]
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     const due = `${m}-${String(day).padStart(2, '0')}`
     return t?.start_date && t.start_date > due ? String(t.start_date).slice(0, 10) : due   // first, part month: due on move-in
   }
-  const charges = (fetched ?? []).filter((c: any) => !c.voided && dueDate(c) <= cutoffIso)
+  const charges = (fetched ?? []).filter((c: any) => !c.voided && dueDate(c) <= cutoffIso && Number(c.amount_received || 0) < Number(c.amount_due) - 0.005)
 
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 })
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
       .from('rent_charges')
       .update({ status: 'overdue' })
       .eq('id', charge.id)
-      .eq('status', 'pending') // idempotent guard
+      .eq('status', (charge as any).status) // idempotent guard — unchanged since it was read
 
     if (updateErr) {
       errors.push(`charge ${charge.id}: ${updateErr.message}`)
@@ -94,9 +95,9 @@ export async function POST(req: NextRequest) {
       rent_charge_id: charge.id,
       action: 'promoted_overdue',
       performed_at: now,
-      old_value: { status: 'pending' },
+      old_value: { status: (charge as any).status, amount_received: (charge as any).amount_received },
       new_value: { status: 'overdue' },
-      note: `Auto-promoted by cron after ${GRACE_DAYS}-day grace period (due ${dueDate(charge)})`,
+      note: `${(charge as any).status === 'partial' ? 'Part paid and ' : ''}overdue after the ${GRACE_DAYS}-day grace period (due ${dueDate(charge)})`,
     })
 
     promoted++

@@ -73,7 +73,7 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
   let tracksRemitted = true
   let charges: any[] = []
   const withRemitted = await s.from('rent_charges')
-    .select('id, room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided, remitted_amount')
+    .select('id, room_id, tenancy_id, charge_month, amount_due, amount_due_original, amount_received, status, voided, remitted_amount')
     .eq('property_id', propertyId).lte('charge_month', end)
   if (withRemitted.error) {
     tracksRemitted = false
@@ -107,6 +107,9 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
 
   const byRoom = new Map<string, DraftRoom>()           // one line per tenancy (key: tenancy id, or room for pre-217 charges)
   const lineTenancy = new Map<string, any>()
+  // for a fixed fee: how much of each month's rent this statement brings in (a whole month = 1). Measured against the
+  // month's original rent, so rent paid straight to the landlord (charged by expense, lib/rent/resolve) isn't counted twice
+  const lineShare = new Map<string, number>()
   const paidOver: { id: string; amount: number }[] = []
   const unpaid: Unpaid[] = []
   for (const c of charges) {
@@ -121,6 +124,8 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
     if (delta <= 0) continue
     const room: DraftRoom = byRoom.get(lineKey(c)) ?? { room_number: roomNo(name), tenant_name: tenantOf(c), rent: 0, fee: 0, chargeIds: [] }
     room.rent = r2(room.rent + delta)
+    const base = Number(c.amount_due_original ?? c.amount_due ?? 0)
+    if (base > 0) lineShare.set(lineKey(c), (lineShare.get(lineKey(c)) ?? 0) + (Math.min(received, base) - Math.min(already, base)) / base)
     room.chargeIds.push(c.id)
     if (forMonth !== start) room.note = [room.note, `includes ${monthName(forMonth)} rent received late`].filter(Boolean).join('; ')
     byRoom.set(lineKey(c), room)
@@ -133,7 +138,11 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
     .map(r => {
       const id = roomIdOf.get(r)!
       const fee = resolveFee(lineTenancy.get(id), prop as any)
-      const amount = feeAmount(fee, { received: r.rent, charged: chargedFor.get(id) ?? r.rent })
+      // % of rent received: on what came in (part payments pay part of the fee; the rest is charged when the rest
+      // arrives). Fixed: the same share of the fixed fee as the share of the month's rent received.
+      const amount = fee.type === 'fixed' && fee.source !== 'none'
+        ? r2((fee.fixed ?? 0) * (lineShare.get(id) ?? 0))
+        : feeAmount(fee, { received: r.rent, charged: chargedFor.get(id) ?? r.rent })
       if (amount == null) feeWarnings.push(`Room ${r.room_number}: no management fee set — add it on the tenancy or the property`)
       return { ...r, fee: amount ?? 0, note: fee.source === 'tenancy' ? [r.note, `fee: ${describeFee(fee)}`].filter(Boolean).join('; ') : r.note }
     })

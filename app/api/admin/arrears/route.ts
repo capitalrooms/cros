@@ -35,6 +35,7 @@ export interface ArrearsRow {
   charges: { id: string; month: string; due: number; received: number; status: string }[]
   lastAction?: { action: string; note: string | null; at: string; promisedDate: string | null; promisedAmount: number | null } | null
   nextStep?: string
+  plan?: { instalment: number; startsOn: string } | null
 }
 
 // The chasing ladder — what should have happened by now, by days since the oldest unpaid rent was due.
@@ -111,6 +112,12 @@ export async function GET(req: NextRequest) {
     const a = ((acts.data ?? []) as any[]).find(x => x.tenancy_id === r.tenancyId)
     r.lastAction = a ? { action: a.action, note: a.note, at: a.created_at, promisedDate: a.promised_date, promisedAmount: a.promised_amount != null ? Number(a.promised_amount) : null } : null
     r.nextStep = nextArrearsStep(r.days, r.monthsOwed)
+  }
+  // an agreed payment plan (rent_arrangements — migration 218; none until it's run)
+  const plans = tIds.length ? await s.from('rent_arrangements').select('tenancy_id, instalment, starts_on').eq('status', 'active').in('tenancy_id', tIds) : { data: [] as any[] }
+  for (const r of rows) {
+    const p = ((plans.data ?? []) as any[]).find(x => x.tenancy_id === r.tenancyId)
+    r.plan = p ? { instalment: Number(p.instalment), startsOn: p.starts_on } : null
   }
 
   return NextResponse.json({

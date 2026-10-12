@@ -8,6 +8,7 @@
  */
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import RentSortOut from '@/components/RentSortOut'
 import { isOfficeRole } from '@/lib/access/areas'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -69,6 +70,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
   const go = (m: string) => { setMonth(m); router.replace(`/admin/rent-roll?month=${m}${P}`) }
   // practice only: raise the demo houses' rent for the month, and record a tenant's payment (as the bank import would)
   const [busyPractice, setBusyPractice] = useState('')
+  const [sortFor, setSortFor] = useState<string | null>(null)   // tenancy whose rent is being sorted out
   async function raisePractice() {
     setBusyPractice('raise')
     const r = await adminFetch('/api/accounts/generate-charges', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ month: `${month}-01`, practice: true }) })
@@ -188,6 +190,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
                       {r.receipts.map((x, k) => <span key={k} className="font-mono">{[shortDate(x.date), x.number, x.file].filter(Boolean).join(' · ') || x.how}</span>)}
                       {r.difference != null && Math.abs(r.difference) >= 0.01 && r.received > 0 && <span className={r.difference < 0 ? 'text-amber-700' : 'text-blue-700'}>{r.difference < 0 ? `${gbp(-r.difference)} short` : `${gbp(r.difference)} over`}</span>}
                       {r.statement && <span>on {r.statement}</span>}
+                      {!prevAgent && r.tenancyId && <button type="button" onClick={() => setSortFor(r.tenancyId)} className="rounded-full border border-neutral-300 bg-white px-sm py-0.5 font-semibold text-neutral-800 hover:bg-neutral-100">Sort out…</button>}
                       {practice && r.chargeId && r.due != null && r.received < r.due && <button type="button" disabled={!!busyPractice} onClick={() => recordPractice(r.chargeId!, r.due!, r.received)} className="rounded-full border border-amber-400 bg-amber-50 px-sm py-0.5 font-semibold text-amber-900">{busyPractice === r.chargeId ? 'Recording…' : 'Record practice payment'}</button>}
                     </div>
                   </li>
@@ -210,6 +213,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
           <p className="mt-sm text-xs text-neutral-500">“No charge raised” — rent charges are raised automatically on the 1st. To raise them now, use <Link href="/admin/rent-charges" className="underline">Rent charges</Link>.</p>
         )}
       </div>
+      {sortFor && <RentSortOut tenancyId={sortFor} onClose={() => setSortFor(null)} onChanged={() => load(month)} />}
     </div>
   )
 }
