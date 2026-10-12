@@ -702,6 +702,12 @@ export default function ApplicantsPage() {
                             <CopyButton label={`Copy ${applicant.phone}`} value={applicant.phone} />
                           </>
                         )}
+                        {isConverted && !lettingFiles[applicant.id] && !applicant.converted_person_id && (
+                          <span className="flex w-full flex-wrap items-center gap-sm rounded-lg border border-amber-300 bg-amber-50 px-md py-sm text-xs text-amber-900">
+                            Marked let agreed, but the tenancy was never set up — so there’s no letting file yet.
+                            <a href={`/admin/applicants/${applicant.id}/create-tenancy`} className="rounded-lg bg-green-700 px-md py-xs font-semibold text-white hover:bg-green-600">Set up tenancy →</a>
+                          </span>
+                        )}
                         {lettingFiles[applicant.id] ? (
                           <a href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`} className="text-xs font-semibold border border-blue-700 bg-blue-700 text-white rounded-lg px-md py-sm hover:bg-blue-600">
                             Open letting file →
@@ -738,7 +744,8 @@ export default function ApplicantsPage() {
                         )}
 
                         {/* Stage advance — generic for all other transitions */}
-                        {!isConverted && nextStage && applicant.pipeline_stage !== 'applied' && (
+                        {/* never "Let agreed" from here — that's Set up tenancy, which creates the tenancy and letting file */}
+                        {!isConverted && nextStage && nextStage.key !== 'converted' && applicant.pipeline_stage !== 'applied' && (
                           <button
                             onClick={() => advanceStage(applicant, nextStage.key as Stage)}
                             disabled={advancing === applicant.id}
