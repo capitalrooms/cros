@@ -17,6 +17,7 @@ import { sendSms } from '@/lib/sms'
 const NAME = { asName: true }
 import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
+import { sendEmail } from '@/lib/sendEmail'
 import { KINDS, type EmergencyKind } from './guide'
 
 type S = SupabaseClient
@@ -39,6 +40,35 @@ const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0].trim()
 const token = () => crypto.randomBytes(18).toString('base64url')
 const link = (t: string) => `${SITE}/e/${t}`
+const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as Record<string, string>)[c])
+
+/** Reach a contractor the way they asked (people.notify_by_sms / notify_by_push / notify_by_email — set on the Emergencies
+ *  screen or their profile; texts and app on unless turned off, email off unless turned on). If none of their chosen ways
+ *  actually reached them (e.g. app only, but the app isn't on their phone), CROS texts anyway when it has a mobile —
+ *  an emergency must never go unseen. */
+async function tellContractor(p: any, personId: string, msg: { text: string; title: string; body: string; url: string; tag: string }): Promise<{ via: string[]; error?: string }> {
+  const via: string[] = []; const errs: string[] = []
+  const wantSms = p?.notify_by_sms !== false, wantPush = p?.notify_by_push !== false, wantEmail = p?.notify_by_email === true
+  if (wantSms) {
+    if (!p?.phone) errs.push('no mobile number')
+    else { const r = await sendSms(p.phone, msg.text, NAME); if (r.ok) via.push('text'); else errs.push(`text failed: ${r.error}`) }
+  }
+  if (wantPush) { const n = await sendServerPush({ personId, title: msg.title, body: msg.body, url: msg.url, tag: msg.tag }).catch(() => 0); if (n) via.push('app') }
+  if (wantEmail) {
+    if (!p?.email) errs.push('no email address')
+    else {
+      const r = await sendEmail(p.email, `${msg.title.replace(/^[^A-Za-z]+/, '')} — Capital Rooms`,
+        `<p>${esc(msg.text).replace(/\n/g, '<br>')}</p><p><a href="${SITE}${msg.url}">Open it</a></p>`, { signature: false })
+      if (r.ok) via.push('email'); else errs.push(`email failed: ${r.error}`)
+    }
+  }
+  if (!via.length && !wantSms && p?.phone) {
+    const r = await sendSms(p.phone, msg.text, NAME)
+    if (r.ok) via.push('text (nothing else reached them)'); else errs.push(`text failed: ${r.error}`)
+  }
+  return { via, error: errs.join('; ') || (via.length ? undefined : 'no way to reach them') }
+}
+const reached = (r: { via: string[]; error?: string }) => r.via.length ? ` (${r.via.join(', ')})` : ` (couldn’t reach them: ${r.error})`
 
 export interface Settings { auto: boolean; windowMin: number; costLimit: number; overLimit: 'wait' | 'send_after_15'; followupMin: number; tenantUpdates: boolean }
 export async function settings(s: S): Promise<Settings> {
@@ -155,11 +185,13 @@ const inHours = (from: number, to: number, h: number) => (from <= to ? h >= from
 /** Text a wave of contractors. Wave 1: the trade, in their hours. Wave 2: backups, out-of-hours and general. Returns how many were asked. */
 export async function dispatchWave(s: S, em: any, wave: number): Promise<number> {
   const set = await settings(s)
-  const { data: list } = await s.from('emergency_contractors').select('*, people!person_id(id, salutation, first_name, last_name, full_name, company, phone, role)').eq('active', true) as { data: any[] | null }
+  const { data: list } = await s.from('emergency_contractors').select('*, people!person_id(*)').eq('active', true) as { data: any[] | null }
   const { data: askedRows } = await s.from('emergency_responses').select('contractor_id').eq('emergency_id', em.id)
   const asked = new Set(((askedRows ?? []) as any[]).map(r => r.contractor_id))
   const h = londonHour()
-  const pick = ((list ?? []) as any[]).filter(c => !asked.has(c.person_id) && c.people).filter(c => {
+  // only contractors who cover this house (no houses chosen = every house)
+  const covers = (c: any) => !(c.property_ids ?? []).length || !em.property_id || (c.property_ids ?? []).includes(em.property_id)
+  const pick = ((list ?? []) as any[]).filter(c => !asked.has(c.person_id) && c.people && covers(c)).filter(c => {
     const trade = (c.trades ?? []).includes(em.trade)
     if (wave === 1) return trade && !c.backup_only && inHours(c.hours_from, c.hours_to, h)
     return trade || (c.trades ?? []).includes('general')
@@ -175,10 +207,9 @@ export async function dispatchWave(s: S, em: any, wave: number): Promise<number>
     const { error } = await s.from('emergency_responses').insert({ emergency_id: em.id, contractor_id: c.person_id, token: t, wave })
     if (error) continue
     const body = `CAPITAL ROOMS EMERGENCY: ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}. Can you attend? Tap to answer: ${link(t)}`
-    const sms = await sendSms(c.people.phone, body, NAME)
-    await sendServerPush({ personId: c.person_id, title: '🚨 Emergency — can you attend?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${t}`, tag: `emergency-${em.id}` })
-    await s.from('emergency_responses').update({ texted: sms.ok }).eq('token', t)
-    names.push(`${pname(c.people)}${sms.ok ? '' : ` (text failed: ${sms.error})`}`)
+    const sent = await tellContractor(c.people, c.person_id, { text: body, title: '🚨 Emergency — can you attend?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${t}`, tag: `emergency-${em.id}` })
+    await s.from('emergency_responses').update({ texted: sent.via.some(v => v.startsWith('text')) }).eq('token', t)
+    names.push(`${pname(c.people)}${reached(sent)}`)
   }
   await log(s, em.id, 'dispatch', `Wave ${wave}: asked ${names.join(', ')} — answers close at ${ukTime(windowEnds)}`)
   return names.length
@@ -189,7 +220,7 @@ export async function dispatchWave(s: S, em: any, wave: number): Promise<number>
 const soonest = (rs: any[]) => [...rs].sort((a, b) => String(a.eta_at).localeCompare(String(b.eta_at)) || (a.rank ?? 5) - (b.rank ?? 5) || (Number(a.call_out_fee ?? 0) - Number(b.call_out_fee ?? 0)))
 
 async function yesAnswers(s: S, emId: string) {
-  const { data } = await s.from('emergency_responses').select('*, people!contractor_id(id, salutation, first_name, last_name, full_name, company, phone)')
+  const { data } = await s.from('emergency_responses').select('*, people!contractor_id(*)')
     .eq('emergency_id', emId).eq('answer', 'yes').is('stood_down_at', null) as { data: any[] | null }
   const { data: ranks } = await s.from('emergency_contractors').select('person_id, rank')
   const rank = new Map(((ranks ?? []) as any[]).map(r => [r.person_id, r.rank]))
@@ -239,7 +270,7 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
 export async function choose(s: S, emId: string, responseId: string, by: string, why: string) {
   const set = await settings(s)
   const allowed = by === 'CROS' ? ['collecting', 'awaiting_office'] : OPEN
-  const { data: r } = await s.from('emergency_responses').select('*, people!contractor_id(id, salutation, first_name, last_name, full_name, company, phone)').eq('id', responseId).eq('emergency_id', emId).maybeSingle() as { data: any }
+  const { data: r } = await s.from('emergency_responses').select('*, people!contractor_id(*)').eq('id', responseId).eq('emergency_id', emId).maybeSingle() as { data: any }
   if (!r || !r.eta_at) return { error: 'That contractor hasn’t said when they can come' }
   if (r.outcome === 'cant_attend') return { error: `${pname(r.people)} has said they can’t attend this one` }
   const before = await load(s, emId)
@@ -255,10 +286,10 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
 
   // someone else was confirmed before (the office changed it): stand them down
   if (before?.chosen_response_id && before.chosen_response_id !== r.id) {
-    const { data: prev } = await s.from('emergency_responses').select('id, token, people!contractor_id(phone)').eq('id', before.chosen_response_id).maybeSingle() as { data: any }
+    const { data: prev } = await s.from('emergency_responses').select('id, token, contractor_id, people!contractor_id(*)').eq('id', before.chosen_response_id).maybeSingle() as { data: any }
     if (prev) {
       await s.from('emergency_responses').update({ stood_down_at: new Date().toISOString() }).eq('id', prev.id)
-      await sendSms(prev.people?.phone, `CAPITAL ROOMS: change of plan — the emergency near ${areaOf(em)} is now covered by someone else. Please don't attend. Thank you.`, NAME)
+      await tellContractor(prev.people, prev.contractor_id, { text: `CAPITAL ROOMS: change of plan — the emergency near ${areaOf(em)} is now covered by someone else. Please don't attend. Thank you.`, title: 'Change of plan — no need to attend', body: `The emergency near ${areaOf(em)} is covered by someone else.`, url: `/e/${prev.token}`, tag: `emergency-${emId}` })
     }
   }
   // the chosen contractor: full details
@@ -271,13 +302,12 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
     em.properties?.key_safe_code ? `Front door key safe: ${em.properties.key_safe_code}` : '',
     `Details & updates: ${link(r.token)}`,
   ].filter(Boolean)
-  const sms = await sendSms(r.people?.phone, lines.join('\n'), NAME)
-  await sendServerPush({ personId: r.contractor_id, title: '✅ Emergency confirmed', body: `${addressOf(em)} — by ${ukWhen(r.eta_at)}`, url: `/e/${r.token}`, tag: `emergency-${emId}` })
+  const sms = await tellContractor(r.people, r.contractor_id, { text: lines.join('\n'), title: '✅ Emergency confirmed', body: `${addressOf(em)} — by ${ukWhen(r.eta_at)}`, url: `/e/${r.token}`, tag: `emergency-${emId}` })
   // everyone else asked: thanks, it's covered
-  const { data: others } = await s.from('emergency_responses').select('id, answer, people!contractor_id(phone)').eq('emergency_id', emId).neq('id', r.id).is('stood_down_at', null) as { data: any[] | null }
+  const { data: others } = await s.from('emergency_responses').select('id, token, answer, contractor_id, people!contractor_id(*)').eq('emergency_id', emId).neq('id', r.id).is('stood_down_at', null) as { data: any[] | null }
   for (const o of others ?? []) {
     await s.from('emergency_responses').update({ stood_down_at: new Date().toISOString() }).eq('id', o.id)
-    if (o.answer !== 'no') await sendSms(o.people?.phone, `CAPITAL ROOMS: thanks — the emergency near ${areaOf(em)} is now covered. No need to attend.`, NAME)
+    if (o.answer !== 'no') await tellContractor(o.people, o.contractor_id, { text: `CAPITAL ROOMS: thanks — the emergency near ${areaOf(em)} is now covered. No need to attend.`, title: 'Covered — no need to attend', body: `The emergency near ${areaOf(em)} is now covered. Thank you.`, url: `/e/${o.token}`, tag: `emergency-${emId}` })
   }
   // the job
   if (em.ticket_id) {
@@ -290,7 +320,7 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
       updated_at: new Date().toISOString(),
     }).eq('id', em.ticket_id)
   }
-  await log(s, emId, 'confirmed', `${pname(r.people)} confirmed — due by ${ukWhen(r.eta_at)}, call-out ${gbp(r.call_out_fee)}. ${why}${sms.ok ? '' : ` (text to them failed: ${sms.error} — call them)`}`, by)
+  await log(s, emId, 'confirmed', `${pname(r.people)} confirmed — due by ${ukWhen(r.eta_at)}, call-out ${gbp(r.call_out_fee)}. ${why}${sms.via.length ? ` — sent by ${sms.via.join(', ')}` : ` (couldn’t reach them: ${sms.error} — call them)`}`, by)
   await tellHouse(s, em, 'Help is on the way', `A contractor is on the way and expected around ${ukWhen(r.eta_at)}. We’re sorry for the trouble — we’ll keep you posted.`)
   await alertOffice(s, em, `✅ Emergency covered — ${firstLine(em.properties?.name)}`, `${pname(r.people)} due by ${ukWhen(r.eta_at)} for ${gbp(r.call_out_fee)}. CROS will check in at ${ukWhen(followup)}.`)
   return { ok: true }
@@ -388,14 +418,13 @@ export async function report(s: S, t: string, a: {
     await s.from('emergencies').update({ status: 'collecting', chosen_response_id: null, wave, window_ends_at: new Date(Date.now() + set.windowMin * 60000).toISOString(), updated_at: now }).eq('id', em.id)
     await log(s, em.id, 'dropped', `${name} can no longer attend${note ? ` — “${note}”` : ''}. Finding someone else.`, name)
     // ask again everyone who said yes before — they were stood down when this contractor was confirmed
-    const { data: before } = await s.from('emergency_responses').select('id, token, contractor_id, people!contractor_id(phone, salutation, first_name, last_name, full_name, company)')
+    const { data: before } = await s.from('emergency_responses').select('id, token, contractor_id, people!contractor_id(*)')
       .eq('emergency_id', em.id).eq('answer', 'yes').neq('id', r.id).is('outcome', null) as { data: any[] | null }
     const reasked: string[] = []
     for (const o of before ?? []) {
       await s.from('emergency_responses').update({ answer: null, answered_at: null, eta_at: null, call_out_fee: null, stood_down_at: null, wave }).eq('id', o.id)
-      const sms = await sendSms(o.people?.phone, `CAPITAL ROOMS EMERGENCY: the contractor booked for ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)} can't make it now. Can you still come? Tap to answer: ${link(o.token)}`, NAME)
-      await sendServerPush({ personId: o.contractor_id, title: '🚨 Can you still come?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${o.token}`, tag: `emergency-${em.id}` })
-      reasked.push(`${pname(o.people)}${sms.ok ? '' : ` (text failed: ${sms.error})`}`)
+      const sent = await tellContractor(o.people, o.contractor_id, { text: `CAPITAL ROOMS EMERGENCY: the contractor booked for ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)} can't make it now. Can you still come? Tap to answer: ${link(o.token)}`, title: '🚨 Can you still come?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${o.token}`, tag: `emergency-${em.id}` })
+      reasked.push(`${pname(o.people)}${reached(sent)}`)
     }
     if (reasked.length) await log(s, em.id, 'dispatch', `Asked again: ${reasked.join(', ')} (they said yes earlier)`)
     const fresh = await dispatchWave(s, await load(s, em.id), wave)
@@ -467,11 +496,10 @@ export async function tick(s: S) {
     const { data: claimed } = await s.from('emergencies').update({ followup_sent_at: iso }).eq('id', e.id).is('followup_sent_at', null).select('id')
     if (!claimed?.length) continue
     const em = await load(s, e.id)
-    const { data: r } = await s.from('emergency_responses').select('token, contractor_id, people!contractor_id(phone, salutation, first_name, last_name, full_name)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
+    const { data: r } = await s.from('emergency_responses').select('token, contractor_id, people!contractor_id(*)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
     if (!r) continue
-    const sms = await sendSms(r.people?.phone, `CAPITAL ROOMS: how's it going at ${addressOf(em)}? Are you there, is it done — and if not, what's needed and when can you come back? Tap to tell us (1 minute): ${link(r.token)}`, NAME)
-    await sendServerPush({ personId: r.contractor_id, title: 'How did it go?', body: `${addressOf(em)} — tap to update`, url: `/e/${r.token}`, tag: `emergency-${e.id}` })
-    await log(s, e.id, 'check_in', `Asked ${pname(r.people)} for an update${sms.ok ? '' : ` (text failed: ${sms.error})`}`)
+    const sent = await tellContractor(r.people, r.contractor_id, { text: `CAPITAL ROOMS: how's it going at ${addressOf(em)}? Are you there, is it done — and if not, what's needed and when can you come back? Tap to tell us (1 minute): ${link(r.token)}`, title: 'How did it go?', body: `${addressOf(em)} — tap to update`, url: `/e/${r.token}`, tag: `emergency-${e.id}` })
+    await log(s, e.id, 'check_in', `Asked ${pname(r.people)} for an update${reached(sent)}`)
     done.push(`checked in ${e.id}`)
   }
 
@@ -482,8 +510,8 @@ export async function tick(s: S) {
     const { data: claimed } = await s.from('emergencies').update({ followup_reminded_at: iso }).eq('id', e.id).is('followup_reminded_at', null).select('id')
     if (!claimed?.length) continue
     const em = await load(s, e.id)
-    const { data: r } = await s.from('emergency_responses').select('token, people!contractor_id(phone, salutation, first_name, last_name, full_name)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
-    if (r) await sendSms(r.people?.phone, `CAPITAL ROOMS: quick reminder — please tell us how the emergency went: ${link(r.token)}`, NAME)
+    const { data: r } = await s.from('emergency_responses').select('token, contractor_id, people!contractor_id(*)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
+    if (r) await tellContractor(r.people, r.contractor_id, { text: `CAPITAL ROOMS: quick reminder — please tell us how the emergency went: ${link(r.token)}`, title: 'Reminder — how did it go?', body: 'Please tell us how the emergency went', url: `/e/${r.token}`, tag: `emergency-${e.id}` })
     await log(s, e.id, 'check_in', `No update from ${pname(r?.people)} yet — reminded them and told the office`)
     await alertOffice(s, em, `⏰ No update from the contractor — ${firstLine(em.properties?.name)}`, `${pname(r?.people)} hasn’t said how it went. Worth a call.`, true)
     done.push(`reminded ${e.id}`)
@@ -525,10 +553,10 @@ export async function officeAction(s: S, emId: string, by: string, a: { action: 
       return { ok: true }
     case 'cancel':
       await s.from('emergencies').update({ status: 'cancelled', office_by: by, updated_at: now }).eq('id', emId)
-      const { data: live } = await s.from('emergency_responses').select('id, people!contractor_id(phone)').eq('emergency_id', emId).is('stood_down_at', null) as { data: any[] | null }
+      const { data: live } = await s.from('emergency_responses').select('id, token, contractor_id, people!contractor_id(*)').eq('emergency_id', emId).is('stood_down_at', null) as { data: any[] | null }
       for (const o of live ?? []) {
         await s.from('emergency_responses').update({ stood_down_at: now }).eq('id', o.id)
-        await sendSms(o.people?.phone, `CAPITAL ROOMS: the emergency near ${areaOf(em)} has been cancelled — no need to attend. Thank you.`, NAME)
+        await tellContractor(o.people, o.contractor_id, { text: `CAPITAL ROOMS: the emergency near ${areaOf(em)} has been cancelled — no need to attend. Thank you.`, title: 'Cancelled — no need to attend', body: `The emergency near ${areaOf(em)} has been cancelled.`, url: `/e/${o.token}`, tag: `emergency-${emId}` })
       }
       await log(s, emId, 'office', `${by} cancelled it${a.note ? ` — ${a.note}` : ''}`, by)
       return { ok: true }

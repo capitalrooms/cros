@@ -3,7 +3,8 @@
  *   GET                → { emergencies, list, contractors, settings, lastTick }   open ones first, then the last 30 days
  *   GET ?id=…          → { emergency, responses, events }                          one emergency, everything that happened
  *   POST { action: 'office', id, op: hold|resume|choose|ask_again|dispatch|resolve|cancel|note, responseId?, note? }
- *   POST { action: 'save_contractor', personId, trades, hoursFrom, hoursTo, backupOnly, fee, rank, active, notes }
+ *   POST { action: 'save_contractor', personId, trades, hoursFrom, hoursTo, backupOnly, fee, rank, active, notes,
+ *          propertyIds (none = every house), bySms, byPush, byEmail (how they hear from us — saved on the person) }
  *   POST { action: 'remove_contractor', personId }
  *   POST { action: 'settings', values: { auto, windowMin, costLimit, overLimit, followupMin, tenantUpdates } }
  * Office staff; the list and settings are administrators only.
@@ -22,6 +23,8 @@ const ADMIN = ['administrator', 'admin']
 const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || '') : ''
 const missing = (e: { message?: string } | null) => !!e && /emergenc|does not exist|schema cache/.test(e.message ?? '')
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0]
+// how a contractor hears from us (migration 219): texts and the app unless turned off, email only when turned on
+const contactOf = (p: any) => ({ bySms: p?.notify_by_sms !== false, byPush: p?.notify_by_push !== false, byEmail: p?.notify_by_email === true })
 
 export async function GET(req: NextRequest) {
   const caller = await requireStaff(req)
@@ -51,12 +54,14 @@ export async function GET(req: NextRequest) {
   }
 
   const since = new Date(Date.now() - 30 * 86400000).toISOString()
-  const [{ data: ems, error }, { data: list }, { data: cons }, set, { data: lt }] = await Promise.all([
+  const [{ data: ems, error }, { data: list }, { data: cons }, set, { data: lt }, { data: props }] = await Promise.all([
     s.from('emergencies').select('id, kind, title, status, eta_at, call_out_fee, created_at, updated_at, window_ends_at, properties(name), rooms(name), emergency_responses(id, answer, contractor_id)').gte('created_at', since).order('created_at', { ascending: false }),
-    s.from('emergency_contractors').select('*, people!person_id(id, salutation, first_name, last_name, full_name, company, phone)').order('rank'),
-    s.from('people').select('id, salutation, first_name, last_name, full_name, company, phone').eq('role', 'contractor').order('first_name'),
+    s.from('emergency_contractors').select('*, people!person_id(*)').order('rank'),
+    s.from('people').select('*').eq('role', 'contractor').order('first_name'),
     settings(s),
     s.from('system_settings').select('value').eq('key', 'emergency_last_tick').maybeSingle(),
+    // the houses we look after (emergency cover is for managed houses, not let-only ones)
+    s.from('properties').select('id, name, address, property_code, letting_type, is_demo').order('property_code'),
   ]) as any[]
   if (error) return NextResponse.json(missing(error) ? { setupNeeded: true, emergencies: [], list: [], contractors: [] } : { error: error.message }, { status: missing(error) ? 200 : 500 })
   const order = (st: string) => ['awaiting_office', 'collecting', 'assigned', 'on_site', 'needs_return', 'office_handling', 'call_999', 'morning'].indexOf(st)
@@ -66,8 +71,11 @@ export async function GET(req: NextRequest) {
       windowEndsAt: e.window_ends_at, where: [e.rooms?.name, firstLine(e.properties?.name)].filter(Boolean).join(', '),
       asked: (e.emergency_responses ?? []).length, yes: (e.emergency_responses ?? []).filter((r: any) => r.answer === 'yes').length,
     })).sort((a, b) => { const oa = order(a.status), ob = order(b.status); return (oa < 0 ? 99 : oa) - (ob < 0 ? 99 : ob) || b.createdAt.localeCompare(a.createdAt) }),
-    list: ((list ?? []) as any[]).map(c => ({ personId: c.person_id, name: pname(c.people), phone: c.people?.phone ?? null, trades: c.trades ?? [], hoursFrom: c.hours_from, hoursTo: c.hours_to, backupOnly: c.backup_only, fee: c.call_out_fee, rank: c.rank, active: c.active, notes: c.notes })),
-    contractors: ((cons ?? []) as any[]).map(p => ({ id: p.id, name: pname(p), phone: p.phone ?? null })),
+    list: ((list ?? []) as any[]).map(c => ({ personId: c.person_id, name: pname(c.people), phone: c.people?.phone ?? null, email: c.people?.email ?? null, trades: c.trades ?? [], hoursFrom: c.hours_from, hoursTo: c.hours_to, backupOnly: c.backup_only, fee: c.call_out_fee, rank: c.rank, active: c.active, notes: c.notes,
+      propertyIds: c.property_ids ?? [], ...contactOf(c.people) })),
+    contractors: ((cons ?? []) as any[]).map(p => ({ id: p.id, name: pname(p), phone: p.phone ?? null, email: p.email ?? null, ...contactOf(p) })),
+    properties: ((props ?? []) as any[]).filter(p => p.letting_type !== 'let_only' && !p.is_demo).map(p => ({ id: p.id, name: firstLine(p.name) || firstLine(p.address), code: p.property_code ?? null })),
+    contactReady: ((cons ?? []) as any[]).some(p => 'notify_by_sms' in p) || !(cons ?? []).length,
     trades: TRADE_LABEL,
     settings: set,
     lastTick: lt?.value ?? null,
@@ -97,8 +105,16 @@ export async function POST(req: NextRequest) {
       person_id: b.personId, trades, hours_from: clampH(b.hoursFrom, 0, 0, 23), hours_to: clampH(b.hoursTo, 24, 1, 24),
       backup_only: !!b.backupOnly, call_out_fee: b.fee === '' || b.fee == null ? null : Number(b.fee), rank: clampH(b.rank, 5, 1, 9),
       active: b.active !== false, notes: String(b.notes ?? '').slice(0, 500) || null, updated_at: new Date().toISOString(),
+      property_ids: (Array.isArray(b.propertyIds) ? b.propertyIds : []).filter((x: unknown) => typeof x === 'string' && /^[0-9a-f-]{36}$/.test(x)),
     }, { onConflict: 'person_id' })
-    return error ? NextResponse.json({ error: missing(error) ? 'Run migration 203 first' : error.message }, { status: 400 }) : NextResponse.json({ ok: true })
+    if (error) return NextResponse.json({ error: /property_ids/.test(error.message) ? 'Run migration 219 first (houses covered)' : missing(error) ? 'Run migration 203 first' : error.message }, { status: 400 })
+    // how they hear from us lives on the person, so it applies wherever CROS contacts them
+    if (b.bySms !== undefined || b.byPush !== undefined || b.byEmail !== undefined) {
+      if (!b.bySms && !b.byPush && !b.byEmail) return NextResponse.json({ error: 'Tick at least one way to reach them' }, { status: 400 })
+      const { error: pe } = await s.from('people').update({ notify_by_sms: !!b.bySms, notify_by_push: !!b.byPush, notify_by_email: !!b.byEmail, updated_at: new Date().toISOString() }).eq('id', b.personId)
+      if (pe) return NextResponse.json({ error: /notify_by_(sms|push)/.test(pe.message) ? 'Saved, but run migration 219 to keep how they hear from us' : pe.message }, { status: 400 })
+    }
+    return NextResponse.json({ ok: true })
   }
   // the tick box on People › Contractors: on = on the list (trades from their profile, any time); off = paused, settings kept
   if (b.action === 'toggle_contractor') {
