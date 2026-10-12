@@ -17,6 +17,7 @@ import MultiDayDiaryGrid, { type DiaryJob } from '@/app/components/MultiDayDiary
 import DesktopRightRail from '@/app/components/DesktopRightRail'
 import LettingsQuickNotify, { type NotifyMode } from './LettingsQuickNotify'
 import ViewingSheet, { notifyLetOnlyContacts } from './ViewingSheet'
+import LeadsTab from './LeadsTab'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 import EnableNotifications from '@/app/components/EnableNotifications'
 
@@ -910,12 +911,8 @@ export default function LettingsPage() {
 
         {/* ── LEADS ────────────────────────────────────────────────────────── */}
         {activeTab === 'leads' && (
-          <div className="pt-xl">
-            <PlaceholderTab
-              emoji="👤"
-              title="Leads"
-              body="Track enquiries and prospects here. This section is coming soon — it will connect to applicant records and let you manage incoming interest in available rooms."
-            />
+          <div className="pt-lg">
+            <LeadsTab />
           </div>
         )}
 
@@ -1220,19 +1217,6 @@ function AvailableRoomCard({ room }: { room: AvailableRoom }) {
       </div>
       <span className="sr-only">View details →</span>
     </Link>
-  )
-}
-
-function PlaceholderTab({ emoji, title, body, note }: { emoji: string; title: string; body: string; note?: string }) {
-  return (
-    <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white p-2xl text-center">
-      <p className="text-4xl mb-md">{emoji}</p>
-      <h2 className="text-lg font-bold text-neutral-900 mb-sm">{title}</h2>
-      <p className="text-sm text-neutral-500 max-w-xs mx-auto">{body}</p>
-      {note && (
-        <p className="mt-md text-xs text-neutral-400 max-w-xs mx-auto">{note}</p>
-      )}
-    </div>
   )
 }
 

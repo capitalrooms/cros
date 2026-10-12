@@ -33,6 +33,15 @@ interface AvailableRoom {
   has_lounge?: boolean | null
 }
 
+/** Where a room row goes, and where "Add viewing" goes (the property's own booking form with this room chosen). */
+function roomLinks(room: AvailableRoom) {
+  const href = room.let_only_listing_id
+    ? `/admin/let-only/${room.let_only_listing_id}`
+    : `/admin/properties/${room.property_id}?tab=units&room=${room.id}`
+  const viewingHref = room.let_only_listing_id ? '/lettings/viewings' : `/admin/properties/${room.property_id}?tab=lettings&book=${room.id}`
+  return { href, viewingHref }
+}
+
 export default function LettingsPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -279,7 +288,36 @@ export default function LettingsPage() {
               <p className="text-sm text-neutral-500">No available rooms</p>
             </div>
           ) : (
-            <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
+            <>
+            {/* Phone: one row per room — tap the row to open it, or add a viewing */}
+            <ul className="md:hidden rounded-2xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden">
+              {availableRooms.filter(r => kind === 'all' || (kind === 'let_only') === !!r.is_let_only).map(room => {
+                const { href, viewingHref } = roomLinks(room)
+                return (
+                  <li key={room.id} className={room.is_let_only ? 'bg-neutral-50' : 'bg-white'}>
+                    <div className="flex items-start gap-md px-lg py-md">
+                      <Link href={href} className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-neutral-900">{room.name}
+                          {room.status === 'on_notice' && <span className="ml-sm rounded px-sm py-0.5 text-[11px] font-semibold bg-amber-100 text-amber-800">On notice</span>}
+                          {room.is_let_only && <span className="ml-sm rounded px-sm py-0.5 text-[11px] font-semibold bg-purple-100 text-purple-700">Let-only</span>}
+                        </p>
+                        <p className="truncate text-xs text-neutral-500">{room.property_address || room.property_name}</p>
+                        <p className="mt-0.5 text-xs text-neutral-600">
+                          <span className="font-semibold text-neutral-900">£{room.current_asking_rent?.toLocaleString() || '—'}</span>
+                          {' · '}free {formatDate(room.available_date)}
+                          {room.days_on_market != null && <> · {room.days_on_market} days on market</>}
+                        </p>
+                      </Link>
+                      <Link href={viewingHref}
+                        className="shrink-0 whitespace-nowrap rounded-lg bg-neutral-900 px-md py-xs text-xs font-semibold text-white active:bg-neutral-700">
+                        + Viewing
+                      </Link>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="hidden md:block rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-neutral-200 bg-neutral-50">
@@ -293,11 +331,7 @@ export default function LettingsPage() {
                 </thead>
                 <tbody>
                   {availableRooms.filter(r => kind === 'all' || (kind === 'let_only') === !!r.is_let_only).map((room, idx) => {
-                    const href = room.let_only_listing_id
-                      ? `/admin/let-only/${room.let_only_listing_id}`
-                      : `/admin/properties/${room.property_id}?tab=units&room=${room.id}`
-                    // Add viewing opens the property's own booking form with this room chosen
-                    const viewingHref = room.let_only_listing_id ? '/lettings/viewings' : `/admin/properties/${room.property_id}?tab=lettings&book=${room.id}`
+                    const { href, viewingHref } = roomLinks(room)
                     return (
                     <tr
                       key={room.id}
@@ -354,6 +388,7 @@ export default function LettingsPage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
 
           {/* Legend */}

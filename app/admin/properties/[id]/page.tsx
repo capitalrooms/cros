@@ -521,7 +521,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {/* ── Documents (Documents + Photos + Financials) ──────────────── */}
           {activeTab === 'documents' && (
             <div>
-              <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
+              <div className="flex flex-wrap gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
                 {([['documents', '📁 Documents'], ['photos', '📷 Photos'], ['financials', '💷 Financials']] as [DocumentsSubTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
