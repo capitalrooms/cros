@@ -220,11 +220,12 @@ export async function POST(req: NextRequest) {
   const personName = [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')
   const rentAmount = t.rent_amount ?? t.rooms?.current_asking_rent ?? 0
 
-  // Find the oldest unpaid charge for this room (same oldest-first rule as import)
+  // Find this tenancy's oldest unpaid charge (same oldest-first rule as import; a charge with no tenancy is the room's)
   const { data: charges } = await service
     .from('rent_charges')
-    .select('id, charge_month, amount_due, amount_received, status, voided')
+    .select('id, charge_month, amount_due, amount_received, status, voided, tenancy_id')
     .eq('room_id', t.room_id)
+    .or(`tenancy_id.is.null,tenancy_id.eq.${t.id}`)
     .in('status', ['pending', 'partial', 'overdue'])
     .gte('charge_month', await ledgerStart(service as any))
     .order('charge_month', { ascending: true })

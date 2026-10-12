@@ -465,7 +465,12 @@ export default function AccountsPage() {
   }
 
   // ── Derived data ──
-  const chargesByRoom = Object.fromEntries(charges.map((c) => [c.room_id, c]))
+  // a room can have two charges in a changeover month (one per tenancy, migration 217): show the current tenant's
+  const chargesByRoom: Record<string, RentCharge> = {}
+  for (const c of charges) {
+    const mine = activeTenancies.find((t) => t.room_id === c.room_id)?.id
+    if (!chargesByRoom[c.room_id] || ((c as any).tenancy_id && (c as any).tenancy_id === mine)) chargesByRoom[c.room_id] = c
+  }
 
   const expensesByProp: Record<string, number> = {}
   for (const e of expenses) {

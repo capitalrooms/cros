@@ -45,18 +45,20 @@ export async function POST(req: NextRequest) {
   // each is then checked against its tenancy's own due day below.
   const { data: fetched, error: fetchErr } = await service
     .from('rent_charges')
-    .select('id, room_id, property_id, charge_month, amount_due, amount_received, voided')
+    .select('id, room_id, tenancy_id, property_id, charge_month, amount_due, amount_received, voided')
     .eq('status', 'pending')
     .gte('charge_month', start)
     .lte('charge_month', cutoffIso)
   const roomIds = [...new Set((fetched ?? []).map((c: any) => c.room_id).filter(Boolean))]
   const { data: tens } = roomIds.length
-    ? await service.from('tenancies').select('room_id, start_date, end_date, rent_due_day').in('room_id', roomIds)
+    ? await service.from('tenancies').select('id, room_id, start_date, end_date, rent_due_day').in('room_id', roomIds)
     : { data: [] as any[] }
   const dueDate = (c: any) => {
     const m = String(c.charge_month).slice(0, 7)
-    const t = ((tens ?? []) as any[]).filter(t => t.room_id === c.room_id && (!t.start_date || t.start_date <= `${m}-31`) && (!t.end_date || t.end_date >= `${m}-01`))
-      .sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0]
+    // the charge's own tenancy (migration 217), else the room's tenancy that month
+    const t = (c.tenancy_id ? ((tens ?? []) as any[]).find(x => x.id === c.tenancy_id) : null)
+      ?? ((tens ?? []) as any[]).filter(t => t.room_id === c.room_id && (!t.start_date || t.start_date <= `${m}-31`) && (!t.end_date || t.end_date >= `${m}-01`))
+        .sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0]
     const day = Math.min(Math.max(Number(t?.rent_due_day) || 1, 1), 28)
     const due = `${m}-${String(day).padStart(2, '0')}`
     return t?.start_date && t.start_date > due ? String(t.start_date).slice(0, 10) : due   // first, part month: due on move-in

@@ -41,7 +41,7 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
     s.from('properties').select('id, name, property_code, landlord_id, letting_type').or('letting_type.is.null,letting_type.neq.let_only'),
     s.from('rooms').select('id, name, property_id'),
     s.from('tenancies').select('id, room_id, property_id, start_date, end_date, payment_reference, people!person_id(first_name, last_name, full_name)')
-      .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`),
+      .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`).is('let_cancelled_at', null),
     s.from('landlord_statements').select('*').gte('statement_date', start).lte('statement_date', end).order('statement_date'),
   ])
   const properties = sortPropertiesNumerically(((props.data ?? []) as any[]).filter(p => inScope(demo, !!opts.practice)(p.id)))
@@ -105,19 +105,30 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   for (const p of properties) {
     const rollRooms: RollRoom[] = []
     for (const room of roomsOf(p.id)) {
-      const c = charges.find(x => x.room_id === room.id)
-      const t = tenancyFor(room.id)
-      if (!c && !t) continue                                   // empty room, nothing due
-      const tenant = who(t?.people)
-      if (!c) {
-        rollRooms.push({ roomId: room.id, room: room.name, tenant, tenancyId: t?.id ?? null, reference: t?.payment_reference ?? null, chargeId: null, chargeNo: null,
-          due: null, received: 0, difference: null, status: 'no_charge', receipts: [], paidOver: 0, statement: null })
-        continue
+      // one row per tenancy (migration 217): in a changeover month the outgoing and incoming tenants each have
+      // their own rent. A charge with no tenancy (made before 217) is the room's, shown with whoever had the room.
+      const roomTens = ((tens.data ?? []) as any[]).filter(t => t.room_id === room.id).sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
+      const roomCharges = charges.filter(x => x.room_id === room.id)
+      if (!roomTens.length && !roomCharges.length) continue      // empty room, nothing due
+      const used = new Set<string>()
+      const pairs: { t: any; c: any }[] = roomTens.map(t => {
+        const c = roomCharges.find(x => x.tenancy_id === t.id) ?? (roomTens.length === 1 ? roomCharges.find(x => !x.tenancy_id) : undefined)
+        if (c) used.add(c.id)
+        return { t, c }
+      })
+      for (const c of roomCharges) if (!used.has(c.id)) pairs.push({ t: roomTens.find(t => t.id === c.tenancy_id) ?? null, c })
+      for (const { t, c } of pairs) {
+        const tenant = who(t?.people)
+        if (!c) {
+          rollRooms.push({ roomId: room.id, room: room.name, tenant, tenancyId: t?.id ?? null, reference: t?.payment_reference ?? null, chargeId: null, chargeNo: null,
+            due: null, received: 0, difference: null, status: 'no_charge', receipts: [], paidOver: 0, statement: null })
+          continue
+        }
+        const due = r2(Number(c.amount_due || 0)), received = r2(Number(c.amount_received || 0)), diff = r2(received - due)
+        const status: RoomStatus = received <= 0 ? 'missing' : Math.abs(diff) < 0.005 ? 'paid' : diff < 0 ? 'part' : 'over'
+        rollRooms.push({ roomId: room.id, room: room.name, tenant, tenancyId: t?.id ?? null, reference: t?.payment_reference ?? c.reference ?? null, chargeId: c.id, chargeNo: c.txn_no ?? null,
+          due, received, difference: diff, status, receipts: receiptsFor(c.id), paidOver: r2(Number(c.remitted_amount || 0)), statement: c.remitted_statement_id ? stRef.get(c.remitted_statement_id) ?? null : null })
       }
-      const due = r2(Number(c.amount_due || 0)), received = r2(Number(c.amount_received || 0)), diff = r2(received - due)
-      const status: RoomStatus = received <= 0 ? 'missing' : Math.abs(diff) < 0.005 ? 'paid' : diff < 0 ? 'part' : 'over'
-      rollRooms.push({ roomId: room.id, room: room.name, tenant, tenancyId: t?.id ?? null, reference: t?.payment_reference ?? c.reference ?? null, chargeId: c.id, chargeNo: c.txn_no ?? null,
-        due, received, difference: diff, status, receipts: receiptsFor(c.id), paidOver: r2(Number(c.remitted_amount || 0)), statement: c.remitted_statement_id ? stRef.get(c.remitted_statement_id) ?? null : null })
     }
     if (!rollRooms.length) continue
     rollRooms.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))

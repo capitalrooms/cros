@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
   const s = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 
   const { data: charges, error } = await s.from('rent_charges')
-    .select('id, room_id, property_id, charge_month, amount_due, amount_received, status, voided, rooms(name), properties(name, address)')
+    .select('id, room_id, tenancy_id, property_id, charge_month, amount_due, amount_received, status, voided, rooms(name), properties(name, address)')
     .in('status', ['overdue', 'partial']).gte('charge_month', await ledgerStart(s)).order('charge_month')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const demo = await demoPropertyIds(s)
@@ -75,7 +75,8 @@ export async function GET(req: NextRequest) {
   const today = new Date().toISOString().slice(0, 10)
   for (const c of open as any[]) {
     const month = String(c.charge_month).slice(0, 10)
-    const t = tenancyFor(c.room_id, month)
+    // the charge's own tenant (migration 217) — in a changeover month the outgoing tenant's debt stays theirs
+    const t = (c.tenancy_id ? ((tenancies ?? []) as any[]).find(x => x.id === c.tenancy_id) : null) ?? tenancyFor(c.room_id, month)
     const key = t?.id ?? `room-${c.room_id}`
     const p = t?.people
     const dueDay = Math.min(Math.max(Number(t?.rent_due_day) || 1, 1), 28)

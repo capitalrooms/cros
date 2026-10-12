@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
       .select('id')
       .eq('room_id', lsr.room_id)
       .eq('charge_month', chargeMonth)
+      .order('created_at').limit(1)            // a changeover month can have two (one per tenancy, migration 217)
       .maybeSingle()
 
     if (existing) {

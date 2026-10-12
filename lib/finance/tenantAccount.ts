@@ -13,7 +13,10 @@ export async function tenantAccount(s: SupabaseClient, tenancyId: string): Promi
   const { data: t } = await s.from('tenancies').select('id, room_id, start_date, end_date, rent_due_day, payment_reference, rooms(name), properties(name), people!person_id(first_name, last_name, full_name)').eq('id', tenancyId).maybeSingle()
   if (!t) return null
   const tt: any = t
-  let q = s.from('rent_charges').select('*').eq('room_id', tt.room_id).gte('charge_month', String(tt.start_date).slice(0, 7) + '-01').order('charge_month')
+  // this tenant's own charges (migration 217) — not the previous tenant's in a changeover month; a charge with no
+  // tenancy (made before 217) is the room's, matched by dates as before
+  let q = s.from('rent_charges').select('*').eq('room_id', tt.room_id).or(`tenancy_id.eq.${tt.id},tenancy_id.is.null`)
+    .gte('charge_month', String(tt.start_date).slice(0, 7) + '-01').order('charge_month')
   if (tt.end_date) q = q.lte('charge_month', tt.end_date)
   const { data: charges } = await q
   const live = ((charges ?? []) as any[]).filter(c => !c.voided)

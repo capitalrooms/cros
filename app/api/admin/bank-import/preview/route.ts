@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
   if (roomIds.length > 0) {
     const { data: charges } = await supabase
       .from('rent_charges')
-      .select('id, room_id, charge_month, amount_due, amount_received, status, voided')
+      .select('id, room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided')
       .in('room_id', roomIds)
       .gte('charge_month', start)
       .order('charge_month', { ascending: false })
@@ -148,8 +148,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  function findBestCharge(roomId: string, txnDate: string): any | null {
-    const charges = rentChargesByRoom.get(roomId) || []
+  // the payer's own charges: those raised for their tenancy (an older charge with no tenancy is the room's)
+  function findBestCharge(tenancy: { room_id: string; tenancy_id?: string | null }, txnDate: string): any | null {
+    const charges = (rentChargesByRoom.get(tenancy.room_id) || []).filter(c => !c.tenancy_id || c.tenancy_id === tenancy.tenancy_id)
     if (!charges.length) return null
 
     // Industry standard: always allocate to the OLDEST unpaid charge first.
@@ -189,7 +190,7 @@ export async function POST(req: NextRequest) {
       continue
     }
 
-    const charge = findBestCharge(tenancy.room_id, txn.transaction_date)
+    const charge = findBestCharge(tenancy, txn.transaction_date)
     const TENANCY_EXTRA = { tenant_person_id: tenancy.person_id, expected_ref: tenancy.payment_reference, property_id: tenancy.property_id }
 
     if (!charge) {

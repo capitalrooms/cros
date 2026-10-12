@@ -52,24 +52,27 @@ export async function GET(req: NextRequest) {
   // Oldest unpaid charge per room (from when CROS took over rent; cleared charges don't count). A tenant who is
   // all paid up gets their latest charge instead — money put there rolls on to the next month (lib/payments/apply).
   const roomIds = (tenancies || []).map((t: any) => t.room_id).filter(Boolean)
-  const oldestChargeByRoom: Record<string, any> = {}
+  // each tenancy's oldest unpaid charge (else its latest): its own charges — one with no tenancy is the room's (pre-217)
+  let live: any[] = []
   if (roomIds.length) {
     const { data: charges } = await supabase
       .from('rent_charges')
-      .select('id, room_id, charge_month, amount_due, amount_received, status, voided')
+      .select('id, room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided')
       .in('room_id', roomIds)
       .gte('charge_month', await ledgerStart(supabase as any))
       .order('charge_month', { ascending: true })
-    const live = (charges || []).filter((c: any) => !c.voided)
-    const unpaid = (c: any) => ['pending', 'partial', 'overdue'].includes(c.status)
-    for (const c of live) {
-      const cur = oldestChargeByRoom[c.room_id]
-      if (!cur || (!unpaid(cur) && (unpaid(c) || c.charge_month > cur.charge_month))) oldestChargeByRoom[c.room_id] = c
-    }
+    live = (charges || []).filter((c: any) => !c.voided)
+  }
+  const unpaid = (c: any) => ['pending', 'partial', 'overdue'].includes(c.status)
+  const chargeFor = (t: any) => {
+    let best: any = null
+    for (const c of live.filter(c => c.room_id === t.room_id && (c.tenancy_id ? c.tenancy_id === t.id : true)))
+      if (!best || (!unpaid(best) && (unpaid(c) || c.charge_month > best.charge_month))) best = c
+    return best
   }
 
   const tenancyOptions = (tenancies || []).map((t: any) => {
-    const charge = oldestChargeByRoom[t.room_id] ?? null
+    const charge = chargeFor(t)
     return {
       tenancy_id: t.id,
       person_id: t.person_id,

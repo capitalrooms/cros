@@ -2,8 +2,8 @@
 //
 // Order, as in standard lettings accounting (oldest debt first, then credit forward):
 //   1. the charge it was matched to
-//   2. any older unpaid charges for the same room (from the client ledger start — earlier months were the
-//      previous agent's), oldest first
+//   2. any older unpaid charges for the same TENANCY (from the client ledger start — earlier months were the
+//      previous agent's), oldest first — never the previous tenant's in that room (migration 217)
 //   3. the next months' rent, raised early if needed (up to 2 months ahead — e.g. someone paying in advance)
 // Anything still left over stays on the matched charge as money over (shown on the charge and in the audit log),
 // so the client ledger always holds exactly what arrived. Without this, a double payment left next month
@@ -33,7 +33,7 @@ export async function applyPayment(s: SupabaseClient, p: {
   method?: string
 }): Promise<ApplyResult> {
   const { data: target } = await s.from('rent_charges')
-    .select('id, room_id, charge_month, amount_due, amount_received, status, voided').eq('id', p.chargeId).single()
+    .select('id, room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided').eq('id', p.chargeId).single()
   if (!target) throw new Error('Rent charge not found')
   const month = String(target.charge_month).slice(0, 10)
 
@@ -43,13 +43,15 @@ export async function applyPayment(s: SupabaseClient, p: {
 
   if (remaining > outstanding(target) + 0.005 && target.room_id) {
     const start = await ledgerStart(s)
-    const { data: older } = await s.from('rent_charges')
-      .select('id, room_id, charge_month, amount_due, amount_received, status, voided')
-      .eq('room_id', target.room_id).lt('charge_month', month).gte('charge_month', start)
+    let olderQ = s.from('rent_charges')
+      .select('id, room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided')
+      .lt('charge_month', month).gte('charge_month', start)
       .in('status', ['pending', 'overdue', 'partial']).order('charge_month')
+    olderQ = target.tenancy_id ? olderQ.eq('tenancy_id', target.tenancy_id) : olderQ.eq('room_id', target.room_id)
+    const { data: older } = await olderQ
     queue.push(...((older ?? []) as any[]).filter(c => !c.voided))
 
-    let tenancyId = p.tenancyId ?? null
+    let tenancyId = p.tenancyId ?? target.tenancy_id ?? null
     if (!tenancyId) {
       const { data: t } = await s.from('tenancies').select('id, start_date').eq('room_id', target.room_id)
         .lte('start_date', addMonths(month, 1)).order('start_date', { ascending: false }).limit(1).maybeSingle()
@@ -60,7 +62,7 @@ export async function applyPayment(s: SupabaseClient, p: {
     for (let k = 1; k <= 2 && left > 0.005 && tenancyId; k++) {
       const id = await ensureTenancyCharge(s, tenancyId, addMonths(month, k))
       if (!id) break
-      const { data: next } = await s.from('rent_charges').select('id, room_id, charge_month, amount_due, amount_received, status, voided').eq('id', id).single()
+      const { data: next } = await s.from('rent_charges').select('id, room_id, tenancy_id, charge_month, amount_due, amount_received, status, voided').eq('id', id).single()
       if (!next || next.voided) break
       queue.push(next)
       left = r2(left - Math.max(outstanding(next), 0))
