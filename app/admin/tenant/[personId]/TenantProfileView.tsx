@@ -744,7 +744,7 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
                 voided: 'bg-red-100 text-red-800 border-red-200',
               }
               const performer = entry.performed_by_person
-                ? `${entry.performed_by_person.first_name || ''} ${entry.performed_by_person.last_name || ''}`.trim()
+                ? `${[entry.performed_by_person.salutation, entry.performed_by_person.first_name, entry.performed_by_person.last_name].filter(Boolean).join(' ')}`.trim()
                 : 'System'
               const when = new Date(entry.performed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
               return (
@@ -1055,7 +1055,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
 
   // the tenancy whose letting file the header opens: the current one, else the most recent
   const fileTenancy = (tenancies.find(t => !t.end_date || t.end_date >= todayStr) ?? tenancies[0] ?? null) as any
-  const tenantName = [(tenant as any).first_name, (tenant as any).last_name].filter(Boolean).join(' ') || (tenant as any).full_name || (tenant as any).email || 'Tenant'
+  const tenantName = [(tenant as any).salutation, (tenant as any).first_name, (tenant as any).last_name].filter(Boolean).join(' ') || (tenant as any).full_name || (tenant as any).email || 'Tenant'
 
   // the letting file already shows the tenancy, its documents and its money — inside it, only the person's own tabs
   const allTabs = [

@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       room:rooms(name, property_id),
       statement:landlord_statements(period_end, period_start,
         properties(id, name, address,
-          landlord:people!properties_landlord_id_fkey(first_name, last_name)
+          landlord:people!properties_landlord_id_fkey(salutation, first_name, last_name)
         )
       )
     `)
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     rows = rows.filter((r: any) => {
       const prop = r.statement?.properties
       const landlord = prop?.landlord
-      const name = `${prop?.name || ''} ${prop?.address || ''} ${landlord?.first_name || ''} ${landlord?.last_name || ''}`.toLowerCase()
+      const name = `${prop?.name || ''} ${prop?.address || ''} ${[landlord?.salutation, landlord?.first_name, landlord?.last_name].filter(Boolean).join(' ')}`.toLowerCase()
       return name.includes(q)
     })
   }
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
       byProp.set(key, {
         property_id: prop.id,
         property_name: prop.name || prop.address,
-        landlord_name: prop.landlord ? `${prop.landlord.first_name || ''} ${prop.landlord.last_name || ''}`.trim() : '—',
+        landlord_name: prop.landlord ? `${[prop.landlord.salutation, prop.landlord.first_name, prop.landlord.last_name].filter(Boolean).join(' ')}`.trim() : '—',
         management_fee_total: 0,
         letting_fee_total: 0,
         rows: [],

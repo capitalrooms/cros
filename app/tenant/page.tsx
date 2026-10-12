@@ -260,7 +260,7 @@ export default function TenantDashboard() {
         const supabase = createClient()
         const { data: target } = await supabase
           .from('people')
-          .select('id, first_name, last_name, full_name, email, role')
+          .select('id, salutation, first_name, last_name, full_name, email, role')
           .eq('id', resolvedAs)
           .single()
         if (!target || target.role !== 'tenant') { router.push('/admin/people'); return }

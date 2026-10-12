@@ -13,6 +13,7 @@ interface Tenancy {
   person?: {
     id: string
     full_name?: string
+    salutation?: string
     first_name?: string
     last_name?: string
     email: string
@@ -61,7 +62,7 @@ export default function RoomCommunicationsModal({
     // Get all tenancies for this room
     const { data: tenancyData } = await supabase
       .from('tenancies')
-      .select('*, notice_received_date, person:people!person_id(id, full_name, first_name, last_name, email)')
+      .select('*, notice_received_date, person:people!person_id(id, full_name, salutation, first_name, last_name, email)')
       .eq('room_id', roomId)
       .order('start_date', { ascending: false })
 
@@ -91,7 +92,7 @@ export default function RoomCommunicationsModal({
   const getTenantName = (personId: string) => {
     const tenancy = tenancies.find(t => t.person_id === personId)
     const p = tenancy?.person as any
-    return p?.full_name || p?.first_name || 'Unknown'
+    return [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Unknown'
   }
 
   const getTenantCommunications = (personId: string) => {
@@ -171,7 +172,7 @@ export default function RoomCommunicationsModal({
                         onClick={() => handleTenantClick(currentTenancy.person_id)}
                         className="font-semibold text-white hover:text-blue-400 underline text-left"
                       >
-                        {(currentTenancy.person as any)?.full_name || (currentTenancy.person as any)?.first_name || 'Unknown'}
+                        {[(currentTenancy.person as any)?.salutation, (currentTenancy.person as any)?.first_name, (currentTenancy.person as any)?.last_name].filter(Boolean).join(' ') || (currentTenancy.person as any)?.full_name || 'Unknown'}
                       </button>
                       <p className="text-xs text-neutral-400">
                         {formatDate(currentTenancy.start_date)} - Present
@@ -228,7 +229,7 @@ export default function RoomCommunicationsModal({
                               onClick={() => handleTenantClick(tenancy.person_id)}
                               className="font-semibold text-white hover:text-blue-400 underline text-left"
                             >
-                              {(tenancy.person as any)?.full_name || (tenancy.person as any)?.first_name || 'Unknown'}
+                              {[(tenancy.person as any)?.salutation, (tenancy.person as any)?.first_name, (tenancy.person as any)?.last_name].filter(Boolean).join(' ') || (tenancy.person as any)?.full_name || 'Unknown'}
                             </button>
                           </div>
                           <p className="text-xs text-neutral-400">

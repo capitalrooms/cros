@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
   const { data: reporter } = await supabase
     .from('people')
-    .select('email, full_name, first_name, last_name')
+    .select('email, full_name, salutation, first_name, last_name')
     .eq('id', ticket.reporter_id)
     .maybeSingle()
 

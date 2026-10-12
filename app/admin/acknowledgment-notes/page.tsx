@@ -108,7 +108,7 @@ export default function AcknowledgmentNotesPage() {
       const today = new Date().toISOString().split('T')[0];
       const { data: tenanciesData } = await supabase
         .from('tenancies')
-        .select('id, people:person_id(full_name, first_name, last_name)')
+        .select('id, people:person_id(full_name, salutation, first_name, last_name)')
         .eq('property_id', propertyId)
         .or(`end_date.is.null,end_date.gte.${today}`)
         .order('created_at', { ascending: false });
@@ -126,7 +126,7 @@ export default function AcknowledgmentNotesPage() {
       const supabase = createClient();
       const { data } = await supabase
         .from('tenant_acknowledgment_notes')
-        .select('*, tenancies(people:person_id(full_name, first_name, last_name)), properties(name), rooms(name), people:created_by(full_name, first_name, last_name)')
+        .select('*, tenancies(people:person_id(full_name, salutation, first_name, last_name)), properties(name), rooms(name), people:created_by(full_name, salutation, first_name, last_name)')
         .eq('property_id', propertyId)
         .order('created_at', { ascending: false });
 

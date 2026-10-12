@@ -217,7 +217,7 @@ export default function VisitDetailPage() {
   const hasFallback = ticket?.short_notice_pending && ticket.fallback_date
 
   const contractorName = ticket?.contractor
-    ? [ticket.contractor.first_name, ticket.contractor.last_name].filter(Boolean).join(' ') || 'Your contractor'
+    ? [ticket.contractor.salutation, ticket.contractor.first_name, ticket.contractor.last_name].filter(Boolean).join(' ') || 'Your contractor'
     : null
 
   const pendingRequest = requests.find(r => r.status === 'pending')

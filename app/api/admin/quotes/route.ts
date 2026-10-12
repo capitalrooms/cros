@@ -58,12 +58,12 @@ export async function POST(req: NextRequest) {
   const openEmails = new Set((open ?? []).map(o => (o.contractor_email || '').toLowerCase()).filter(Boolean))
 
   const { data: people } = contractorIds.length
-    ? await s.from('people').select('id, first_name, last_name, full_name, company, email, phone').in('id', contractorIds)
+    ? await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, phone').in('id', contractorIds)
     : { data: [] as any[] }
   const rows = [
     ...(people ?? []).filter((p: any) => !openIds.has(p.id)).map((p: any) => ({
       contractor_id: p.id,
-      contractor_name: p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
+      contractor_name: p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
       contractor_email: p.email, contractor_phone: p.phone, channel: 'app' as const,
     })),
     ...others.filter(o => !openEmails.has(o.email)).map(o => ({

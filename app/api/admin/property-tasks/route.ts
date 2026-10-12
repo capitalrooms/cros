@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       *,
       properties(id, name, address),
       rooms(id, name),
-      created_by_person:people!property_tasks_created_by_fkey(id, first_name, last_name, full_name)
+      created_by_person:people!property_tasks_created_by_fkey(id, salutation, first_name, last_name, full_name)
     `)
     .order('due_date', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: false })

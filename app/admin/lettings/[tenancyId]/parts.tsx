@@ -14,6 +14,7 @@ import { openMyFile } from '@/lib/files/useStoredFile'
 import SetOnNoticeModal, { type OnNoticeData } from '@/app/components/SetOnNoticeModal'
 import { createClient } from '@/lib/supabase'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
+import { displayName } from '@/lib/people'
 
 type Patch = (body: Record<string, unknown>) => Promise<void>
 
@@ -194,7 +195,7 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
             <>
               <h2 className="text-lg font-bold">Offer accepted</h2>
               {file.applicant ? (
-                <p className="text-sm text-neutral-700">Application from {file.applicant.full_name}{file.applicant.submitted_at ? ` received ${day(file.applicant.submitted_at)}` : ''}. <Link href="/admin/applicants" className="font-semibold text-blue-700 hover:underline">Applicants</Link></p>
+                <p className="text-sm text-neutral-700">Application from {displayName(file.applicant)}{file.applicant.submitted_at ? ` received ${day(file.applicant.submitted_at)}` : ''}. <Link href="/admin/applicants" className="font-semibold text-blue-700 hover:underline">Applicants</Link></p>
               ) : <p className="text-sm text-neutral-500">No application on file for this tenancy.</p>}
             </>
           )}
@@ -650,7 +651,7 @@ export function LettersTab({ file }: { file: LettingFile }) {
 // ── Notice & renewal ────────────────────────────────────────────────────────
 
 type Person = { id: string; name: string; email?: string; phone?: string }
-const pname = (p: any) => p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email
+const pname = (p: any) => [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
 
 export function NoticeTab({ file, patch, reload, startMarking }: { file: LettingFile; patch: Patch; reload: () => Promise<void>; startMarking?: boolean }) {
   const t = file.tenancy
@@ -666,8 +667,8 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
     setMarking(true); setDone('')
     const sb = createClient()
     const [{ data: cl }, { data: co }] = await Promise.all([
-      sb.from('people').select('id, first_name, last_name, full_name, email, phone').eq('role', 'cleaner').order('first_name'),
-      sb.from('people').select('id, first_name, last_name, full_name, email').eq('role', 'contractor').order('first_name'),
+      sb.from('people').select('id, salutation, first_name, last_name, full_name, email, phone').eq('role', 'cleaner').order('first_name'),
+      sb.from('people').select('id, salutation, first_name, last_name, full_name, email').eq('role', 'contractor').order('first_name'),
     ])
     setCleaners(((cl ?? []) as any[]).map(p => ({ id: p.id, name: pname(p), email: p.email, phone: p.phone })))
     setContractors(((co ?? []) as any[]).map(p => ({ id: p.id, name: pname(p), email: p.email })))

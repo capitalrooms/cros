@@ -35,7 +35,7 @@ const ukWhen = (d: string | Date) => {
 }
 const londonHour = () => Number(new Date().toLocaleString('en-GB', { hour: '2-digit', hour12: false, timeZone: 'Europe/London' }))
 const gbp = (n: number | null | undefined) => n == null ? 'fee not given' : `£${Number(n).toFixed(Number(n) % 1 ? 2 : 0)}`
-const pname = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || 'Contractor') : 'Contractor'
+const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || 'Contractor') : 'Contractor'
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0].trim()
 const token = () => crypto.randomBytes(18).toString('base64url')
 const link = (t: string) => `${SITE}/e/${t}`
@@ -60,7 +60,7 @@ export async function log(s: S, emergencyId: string, kind: string, note: string,
 
 async function load(s: S, id: string) {
   const { data } = await s.from('emergencies')
-    .select('*, properties(id, name, address, postcode, key_safe_code), rooms(name), people!reporter_id(id, first_name, last_name, full_name, phone)')
+    .select('*, properties(id, name, address, postcode, key_safe_code), rooms(name), people!reporter_id(id, salutation, first_name, last_name, full_name, phone)')
     .eq('id', id).maybeSingle() as { data: any }
   return data
 }
@@ -155,7 +155,7 @@ const inHours = (from: number, to: number, h: number) => (from <= to ? h >= from
 /** Text a wave of contractors. Wave 1: the trade, in their hours. Wave 2: backups, out-of-hours and general. Returns how many were asked. */
 export async function dispatchWave(s: S, em: any, wave: number): Promise<number> {
   const set = await settings(s)
-  const { data: list } = await s.from('emergency_contractors').select('*, people!person_id(id, first_name, last_name, full_name, company, phone, role)').eq('active', true) as { data: any[] | null }
+  const { data: list } = await s.from('emergency_contractors').select('*, people!person_id(id, salutation, first_name, last_name, full_name, company, phone, role)').eq('active', true) as { data: any[] | null }
   const { data: askedRows } = await s.from('emergency_responses').select('contractor_id').eq('emergency_id', em.id)
   const asked = new Set(((askedRows ?? []) as any[]).map(r => r.contractor_id))
   const h = londonHour()
@@ -189,7 +189,7 @@ export async function dispatchWave(s: S, em: any, wave: number): Promise<number>
 const soonest = (rs: any[]) => [...rs].sort((a, b) => String(a.eta_at).localeCompare(String(b.eta_at)) || (a.rank ?? 5) - (b.rank ?? 5) || (Number(a.call_out_fee ?? 0) - Number(b.call_out_fee ?? 0)))
 
 async function yesAnswers(s: S, emId: string) {
-  const { data } = await s.from('emergency_responses').select('*, people!contractor_id(id, first_name, last_name, full_name, company, phone)')
+  const { data } = await s.from('emergency_responses').select('*, people!contractor_id(id, salutation, first_name, last_name, full_name, company, phone)')
     .eq('emergency_id', emId).eq('answer', 'yes').is('stood_down_at', null) as { data: any[] | null }
   const { data: ranks } = await s.from('emergency_contractors').select('person_id, rank')
   const rank = new Map(((ranks ?? []) as any[]).map(r => [r.person_id, r.rank]))
@@ -239,7 +239,7 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
 export async function choose(s: S, emId: string, responseId: string, by: string, why: string) {
   const set = await settings(s)
   const allowed = by === 'CROS' ? ['collecting', 'awaiting_office'] : OPEN
-  const { data: r } = await s.from('emergency_responses').select('*, people!contractor_id(id, first_name, last_name, full_name, company, phone)').eq('id', responseId).eq('emergency_id', emId).maybeSingle() as { data: any }
+  const { data: r } = await s.from('emergency_responses').select('*, people!contractor_id(id, salutation, first_name, last_name, full_name, company, phone)').eq('id', responseId).eq('emergency_id', emId).maybeSingle() as { data: any }
   if (!r || !r.eta_at) return { error: 'That contractor hasn’t said when they can come' }
   if (r.outcome === 'cant_attend') return { error: `${pname(r.people)} has said they can’t attend this one` }
   const before = await load(s, emId)
@@ -331,7 +331,7 @@ export async function respond(s: S, t: string, a: { answer: 'yes' | 'no'; etaAt?
     answer: a.answer, answered_at: new Date().toISOString(), eta_at: a.answer === 'yes' ? a.etaAt : null,
     call_out_fee: a.answer === 'yes' && a.fee != null && !Number.isNaN(a.fee) ? a.fee : null, note: a.note?.slice(0, 500) || null,
   }).eq('id', r.id)
-  const { data: who } = await s.from('people').select('first_name, last_name, full_name, company').eq('id', r.contractor_id).maybeSingle()
+  const { data: who } = await s.from('people').select('salutation, first_name, last_name, full_name, company').eq('id', r.contractor_id).maybeSingle()
   await log(s, em.id, 'answer', a.answer === 'yes'
     ? `${pname(who)}: can be there by ${ukWhen(a.etaAt!)}, call-out ${gbp(a.fee)}${a.note ? ` — “${a.note}”` : ''}`
     : `${pname(who)}: can’t attend${a.note ? ` — “${a.note}”` : ''}`, pname(who))
@@ -362,7 +362,7 @@ export async function report(s: S, t: string, a: {
   if (em.chosen_response_id !== r.id) return { error: 'You’re not booked for this one' }
   const set = await settings(s)
   const now = new Date().toISOString()
-  const { data: who } = await s.from('people').select('first_name, last_name, full_name, company').eq('id', r.contractor_id).maybeSingle()
+  const { data: who } = await s.from('people').select('salutation, first_name, last_name, full_name, company').eq('id', r.contractor_id).maybeSingle()
   const name = pname(who)
   const note = a.note?.trim().slice(0, 1000) || null
 
@@ -388,7 +388,7 @@ export async function report(s: S, t: string, a: {
     await s.from('emergencies').update({ status: 'collecting', chosen_response_id: null, wave, window_ends_at: new Date(Date.now() + set.windowMin * 60000).toISOString(), updated_at: now }).eq('id', em.id)
     await log(s, em.id, 'dropped', `${name} can no longer attend${note ? ` — “${note}”` : ''}. Finding someone else.`, name)
     // ask again everyone who said yes before — they were stood down when this contractor was confirmed
-    const { data: before } = await s.from('emergency_responses').select('id, token, contractor_id, people!contractor_id(phone, first_name, last_name, full_name, company)')
+    const { data: before } = await s.from('emergency_responses').select('id, token, contractor_id, people!contractor_id(phone, salutation, first_name, last_name, full_name, company)')
       .eq('emergency_id', em.id).eq('answer', 'yes').neq('id', r.id).is('outcome', null) as { data: any[] | null }
     const reasked: string[] = []
     for (const o of before ?? []) {
@@ -467,7 +467,7 @@ export async function tick(s: S) {
     const { data: claimed } = await s.from('emergencies').update({ followup_sent_at: iso }).eq('id', e.id).is('followup_sent_at', null).select('id')
     if (!claimed?.length) continue
     const em = await load(s, e.id)
-    const { data: r } = await s.from('emergency_responses').select('token, contractor_id, people!contractor_id(phone, first_name, last_name, full_name)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
+    const { data: r } = await s.from('emergency_responses').select('token, contractor_id, people!contractor_id(phone, salutation, first_name, last_name, full_name)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
     if (!r) continue
     const sms = await sendSms(r.people?.phone, `CAPITAL ROOMS: how's it going at ${addressOf(em)}? Are you there, is it done — and if not, what's needed and when can you come back? Tap to tell us (1 minute): ${link(r.token)}`, NAME)
     await sendServerPush({ personId: r.contractor_id, title: 'How did it go?', body: `${addressOf(em)} — tap to update`, url: `/e/${r.token}`, tag: `emergency-${e.id}` })
@@ -482,7 +482,7 @@ export async function tick(s: S) {
     const { data: claimed } = await s.from('emergencies').update({ followup_reminded_at: iso }).eq('id', e.id).is('followup_reminded_at', null).select('id')
     if (!claimed?.length) continue
     const em = await load(s, e.id)
-    const { data: r } = await s.from('emergency_responses').select('token, people!contractor_id(phone, first_name, last_name, full_name)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
+    const { data: r } = await s.from('emergency_responses').select('token, people!contractor_id(phone, salutation, first_name, last_name, full_name)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
     if (r) await sendSms(r.people?.phone, `CAPITAL ROOMS: quick reminder — please tell us how the emergency went: ${link(r.token)}`, NAME)
     await log(s, e.id, 'check_in', `No update from ${pname(r?.people)} yet — reminded them and told the office`)
     await alertOffice(s, em, `⏰ No update from the contractor — ${firstLine(em.properties?.name)}`, `${pname(r?.people)} hasn’t said how it went. Worth a call.`, true)

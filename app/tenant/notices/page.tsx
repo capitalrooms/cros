@@ -77,7 +77,7 @@ function timeAgo(iso: string) {
 function authorName(p: { first_name: string; last_name: string } | null, _isHouseReminder: boolean, isMaintenance?: boolean) {
   if (isMaintenance) return 'Capital Rooms'
   if (!p) return 'A housemate'
-  return [p.first_name, p.last_name].filter(Boolean).join(' ') || 'A housemate'
+  return [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || 'A housemate'
 }
 
 // ── Compose Modal ─────────────────────────────────────────────────────────────

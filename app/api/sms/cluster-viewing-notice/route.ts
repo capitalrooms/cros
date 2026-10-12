@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   // Look up active tenants for all selected rooms in one query
   const { data: tenancies } = await sb
     .from('tenancies')
-    .select('room_id, people!person_id(first_name, phone)')
+    .select('room_id, people!person_id(salutation, first_name, phone)')
     .in('room_id', room_ids)
     .is('end_date', null)
 

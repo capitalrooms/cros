@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
       fire_detection_test_date, fire_detection_expiry,
       pat_test_date, pat_test_expiry,
       emergency_lighting_test_date,
-      landlord:people!properties_landlord_id_fkey(first_name, last_name)
+      landlord:people!properties_landlord_id_fkey(salutation, first_name, last_name)
     `)
     .or('letting_type.is.null,letting_type.neq.let_only')
     .order('name')
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     return {
       property_id:   p.id,
       property_name: p.name || p.address,
-      landlord_name: p.landlord ? `${p.landlord.first_name || ''} ${p.landlord.last_name || ''}`.trim() : '—',
+      landlord_name: p.landlord ? `${[p.landlord.salutation, p.landlord.first_name, p.landlord.last_name].filter(Boolean).join(' ')}`.trim() : '—',
       certs,
       worst_status:  worst,
     }

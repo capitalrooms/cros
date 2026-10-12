@@ -325,7 +325,7 @@ export default function BulkTenancyGenerator() {
       setRows(parsed)
       // A tenant already in CROS keeps the reference their tenancy has — it's what the bank import matches rent on
       try {
-        const { data: tens } = await supabase.from('tenancies').select('payment_reference, let_cancelled_at, start_date, people!person_id(email, first_name, last_name)').not('payment_reference', 'is', null).order('start_date', { ascending: false })
+        const { data: tens } = await supabase.from('tenancies').select('payment_reference, let_cancelled_at, start_date, people!person_id(email, salutation, first_name, last_name)').not('payment_reference', 'is', null).order('start_date', { ascending: false })
         const live = ((tens ?? []) as any[]).filter(t => !t.let_cancelled_at && t.people)
         const norm = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
         setRows(rs => rs.map(r => {

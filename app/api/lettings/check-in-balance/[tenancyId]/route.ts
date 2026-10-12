@@ -68,7 +68,7 @@ export async function GET(
       person_id,
       room_id,
       people!tenancies_person_id_fkey (
-        first_name,
+        salutation, first_name,
         last_name
       ),
       rooms (
@@ -103,7 +103,7 @@ export async function GET(
   }
 
   // Primary tenant name
-  const primaryName = [person.first_name, person.last_name].filter(Boolean).join(' ')
+  const primaryName = [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')
   const tenantNames = [primaryName, ...extraNames].filter(Boolean)
 
   // Property address: for HMO rooms include room name; for single-let just property address

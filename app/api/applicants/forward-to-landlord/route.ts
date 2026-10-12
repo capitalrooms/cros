@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireStaff } from '@/lib/portalAuth'
 import { emailHtml, FROM, tableRow } from '@/lib/emailTemplate'
+import { displayName } from '@/lib/people'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,12 +42,12 @@ export async function POST(request: Request) {
     const body = `
       <p style="margin:0 0 6px;font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">New Application</p>
       <p style="margin:0 0 18px;font-size:14px;line-height:1.7;">
-        <strong>${applicant.full_name}</strong> has submitted an application for
+        <strong>${displayName(applicant)}</strong> has submitted an application for
         <strong>${roomName}</strong> at <strong>${propAddress}</strong>.
       </p>
 
       <table style="width:100%;border-collapse:collapse;margin:0 0 20px;font-size:13px;">
-        ${tableRow('Name',         applicant.full_name)}
+        ${tableRow('Name',         displayName(applicant))}
         ${tableRow('Email',        applicant.email)}
         ${tableRow('Phone',        applicant.phone || '—')}
         ${rentLine ? tableRow('Rent',  rentLine) : ''}
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from:    FROM,
         to:      [landlordEmail],
-        subject: `New application: ${applicant.full_name} — ${roomName}, ${propAddress}`,
+        subject: `New application: ${displayName(applicant)} — ${roomName}, ${propAddress}`,
         html:    await emailHtml(body, { req: request }),
       }),
     })

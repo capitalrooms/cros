@@ -47,7 +47,7 @@ export async function defaultSender(): Promise<EmailSender> {
   if (cached && Date.now() - cached.at < 5 * 60_000) return cached.sender
   try {
     const { data } = await svc().from('people')
-      .select('first_name, last_name, email, job_title, direct_phone')
+      .select('salutation, first_name, last_name, email, job_title, direct_phone')
       .in('role', ['administrator', 'admin']).order('created_at', { ascending: true }).limit(1).maybeSingle()
     const sender = data ? toSender(data) : FALLBACK
     cached = { at: Date.now(), sender }
@@ -66,7 +66,7 @@ export async function senderFor(req?: Request | null): Promise<EmailSender> {
       const { data: { user } } = await client.auth.getUser(token)
       if (user?.email) {
         const { data } = await client.from('people')
-          .select('first_name, last_name, email, job_title, direct_phone, role')
+          .select('salutation, first_name, last_name, email, job_title, direct_phone, role')
           .ilike('email', user.email).maybeSingle()
         if (data && STAFF_ROLES.includes(data.role)) return toSender(data)
       }

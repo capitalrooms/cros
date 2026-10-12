@@ -52,10 +52,10 @@ export default function AIUploadPage() {
       }
       const supabase = createClient()
       const { data: props } = await supabase.from('properties').select('id, name, address').order('name')
-      const { data: ppl } = await supabase.from('people').select('id, full_name, first_name, last_name, email').eq('role', 'tenant').order('full_name')
+      const { data: ppl } = await supabase.from('people').select('id, full_name, salutation, first_name, last_name, email').eq('role', 'tenant').order('full_name')
       const { data: tens } = await supabase
         .from('tenancies')
-        .select('id, start_date, end_date, people!person_id(full_name, first_name, last_name), rooms(id, name, property_id, properties(id, name))')
+        .select('id, start_date, end_date, people!person_id(full_name, salutation, first_name, last_name), rooms(id, name, property_id, properties(id, name))')
         .order('start_date', { ascending: false })
       setProperties(sortPropertiesNumerically(props || []))
       setPeople(ppl || [])

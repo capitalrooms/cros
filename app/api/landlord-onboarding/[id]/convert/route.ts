@@ -45,7 +45,7 @@ export async function POST(
   if (onb.landlord_people_id) {
     const { data: existing } = await svc()
       .from('people')
-      .select('id, first_name, last_name, full_name, email, phone, role, company')
+      .select('id, salutation, first_name, last_name, full_name, email, phone, role, company')
       .eq('id', onb.landlord_people_id)
       .single()
     return NextResponse.json({ ok: true, alreadyExisted: true, person: existing })
@@ -136,7 +136,7 @@ export async function POST(
   // 7. Fetch and return the full person for the UI
   const { data: person } = await svc()
     .from('people')
-    .select('id, first_name, last_name, full_name, email, phone, role, company, company_number, home_address')
+    .select('id, salutation, first_name, last_name, full_name, email, phone, role, company, company_number, home_address')
     .eq('id', personId)
     .single()
 

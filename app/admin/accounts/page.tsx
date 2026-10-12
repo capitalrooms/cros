@@ -81,7 +81,7 @@ const GBP = (n: number, dec = 0) =>
 
 function personName(p: Person | null | undefined): string {
   if (!p) return '—'
-  const parts = [p.first_name, p.last_name].filter(Boolean)
+  const parts = [p.salutation, p.first_name, p.last_name].filter(Boolean)
   return parts.length ? parts.join(' ') : p.email || '—'
 }
 
@@ -354,7 +354,7 @@ export default function AccountsPage() {
         .from('properties')
         .select(`
           id, name, address, management_fee_pct,
-          landlord:people!landlord_id(id, first_name, last_name, email),
+          landlord:people!landlord_id(id, salutation, first_name, last_name, email),
           rooms(id, name, status, current_asking_rent, previous_rent)
         `)
         .order('name'),
@@ -362,14 +362,14 @@ export default function AccountsPage() {
       // Active tenancies overlapping the selected month
       supabase
         .from('tenancies')
-        .select('id, person_id, room_id, property_id, rent_amount, start_date, end_date, people!person_id(id, first_name, last_name, email)')
+        .select('id, person_id, room_id, property_id, rent_amount, start_date, end_date, people!person_id(id, salutation, first_name, last_name, email)')
         .lte('start_date', monthEnd)
         .or(`end_date.is.null,end_date.gte.${monthStart}`),
 
       // Most recent tenancy per room (for showing former tenants on vacant rooms)
       supabase
         .from('tenancies')
-        .select('room_id, start_date, end_date, people!person_id(id, first_name, last_name, email)')
+        .select('room_id, start_date, end_date, people!person_id(id, salutation, first_name, last_name, email)')
         .not('room_id', 'is', null)
         .order('start_date', { ascending: false }),
 

@@ -107,7 +107,7 @@ export default function AllUnitsPage() {
     const allProps = (props.data ?? []) as any[]
     setLetOnlyCount(allProps.filter(p => p.letting_type === 'let_only').length)
     const managed = allProps.filter(p => p.letting_type !== 'let_only')
-    const { data: landlords } = await sb.from('people').select('id, first_name, last_name, full_name, company').in('id', [...new Set(managed.map(p => p.landlord_id).filter(Boolean))].concat(['00000000-0000-0000-0000-000000000000']))
+    const { data: landlords } = await sb.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', [...new Set(managed.map(p => p.landlord_id).filter(Boolean))].concat(['00000000-0000-0000-0000-000000000000']))
     const now = today(), in60 = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10)
     const live = ((tens.data ?? []) as any[]).filter(t => !t.let_cancelled_at && t.room_id)
     const openJobs = ((jobs.data ?? []) as any[]).filter(j => !['completed', 'closed', 'cancelled'].includes(j.status))

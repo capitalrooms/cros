@@ -103,7 +103,7 @@ export default function LandlordProfilePage() {
 
       // Tell every administrator (notifications are addressed to a person)
       const { data: admins } = await supabase.from('people').select('id').in('role', ['administrator', 'admin'])
-      const body = `Landlord ${[person.first_name, person.last_name].filter(Boolean).join(' ') || person.email} has requested the following changes:\n\n${lines}`
+      const body = `Landlord ${[person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') || person.email} has requested the following changes:\n\n${lines}`
       if (admins?.length) {
         await supabase.from('notifications').insert(admins.map((a: { id: string }) => ({
           user_id: a.id,

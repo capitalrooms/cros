@@ -63,8 +63,8 @@ export async function GET(req: NextRequest) {
     .select(`
       id, notice_type, subtype, ai_text, raw_text, photo_url,
       status, resolved_by, resolved_at, resolved_photo_url, deadline, created_at,
-      created_by_person:people!communal_notices_created_by_fkey(id, first_name, last_name),
-      resolved_by_person:people!communal_notices_resolved_by_fkey(id, first_name, last_name)
+      created_by_person:people!communal_notices_created_by_fkey(id, salutation, first_name, last_name),
+      resolved_by_person:people!communal_notices_resolved_by_fkey(id, salutation, first_name, last_name)
     `)
     .eq('property_id', propertyId)
     .order('created_at', { ascending: false })
@@ -119,8 +119,8 @@ export async function POST(req: NextRequest) {
     .select(`
       id, notice_type, subtype, ai_text, raw_text, photo_url,
       status, resolved_by, resolved_at, resolved_photo_url, deadline, created_at,
-      created_by_person:people!communal_notices_created_by_fkey(id, first_name, last_name),
-      resolved_by_person:people!communal_notices_resolved_by_fkey(id, first_name, last_name)
+      created_by_person:people!communal_notices_created_by_fkey(id, salutation, first_name, last_name),
+      resolved_by_person:people!communal_notices_resolved_by_fkey(id, salutation, first_name, last_name)
     `)
     .single()
 

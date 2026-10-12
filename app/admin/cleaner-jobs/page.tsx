@@ -86,7 +86,7 @@ export default function CleanerJobsPage() {
     // Load cleaners for reassign dropdown
     const { data: cleanersData } = await supabase
       .from('people')
-      .select('id, full_name, first_name, last_name, email')
+      .select('id, full_name, salutation, first_name, last_name, email')
       .eq('role', 'cleaner')
       .order('full_name')
     setCleaners((cleanersData || []).map((c: any) => ({ id: c.id, name: displayName(c), email: c.email })))

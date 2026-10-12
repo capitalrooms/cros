@@ -201,7 +201,7 @@ export default function ContractorDashboard() {
         const supabase = createClient()
         const { data: target } = await supabase
           .from('people')
-          .select('id, first_name, last_name, full_name, email, role')
+          .select('id, salutation, first_name, last_name, full_name, email, role')
           .eq('id', asParam)
           .single()
         if (!target || target.role !== 'contractor') { router.push('/admin/people'); return }
@@ -216,7 +216,7 @@ export default function ContractorDashboard() {
         const supabase = createClient()
         const { data: personData } = await supabase
           .from('people')
-          .select('full_name, first_name, last_name')
+          .select('full_name, salutation, first_name, last_name')
           .eq('id', contractorId)
           .single()
         if (personData) setContractorName(displayName(personData))

@@ -60,7 +60,7 @@ export default function TenantSafetyChecksAdminPage() {
   async function loadChecks() {
     const { data: checksData } = await supabase
       .from('tenant_self_checks')
-      .select('*, properties(name), rooms(name), tenancies(people!person_id(full_name, first_name, last_name))')
+      .select('*, properties(name), rooms(name), tenancies(people!person_id(full_name, salutation, first_name, last_name))')
       .order('response_received_at', { ascending: false, nullsFirst: false })
       .order('request_sent_at', { ascending: false })
 
@@ -168,7 +168,7 @@ export default function TenantSafetyChecksAdminPage() {
                       </span>
                     </div>
                     <p className="text-sm text-neutral-600">
-                      Tenant: <span className="font-semibold">{check.people?.full_name || [check.people?.first_name, check.people?.last_name].filter(Boolean).join(' ') || 'Unknown'}</span>
+                      Tenant: <span className="font-semibold">{[check.people?.salutation, check.people?.first_name, check.people?.last_name].filter(Boolean).join(' ') || check.people?.full_name || 'Unknown'}</span>
                     </p>
                   </div>
                   <span className={`px-md py-xs rounded-full text-xs font-semibold shrink-0 ${

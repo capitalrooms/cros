@@ -56,12 +56,12 @@ export async function GET(req: NextRequest) {
       .eq('viewing_date', today).neq('viewing_status', 'cancelled').order('viewing_slot'),
     s.from('admin_appointments').select('id, title, appointment_date, appointment_time, properties(name)').eq('appointment_date', today).order('appointment_time'),
     s.from('properties').select(['id', 'name', 'address', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')),
-    s.from('tenancies').select('id, end_date, person_id, rooms(name), properties(name, address), people!person_id(first_name, last_name, full_name)')
+    s.from('tenancies').select('id, end_date, person_id, rooms(name), properties(name, address), people!person_id(salutation, first_name, last_name, full_name)')
       .not('notice_received_date', 'is', null).gte('end_date', today).lte('end_date', in14),
     // Prices back from the multi-contractor quote requests (table from migration 184 — empty until it's run)
     s.from('maintenance_quotes').select('ticket_id, amount, maintenance_tickets(id, title, rooms(name), properties(name, address))').eq('status', 'submitted'),
     // let agreed, moving in within the fortnight (a let that fell through has an end date before its start)
-    s.from('tenancies').select('id, start_date, end_date, agreement_signed_at, move_in_monies_received_at, rooms(name), properties(name, address), people!person_id(first_name, last_name, full_name)')
+    s.from('tenancies').select('id, start_date, end_date, agreement_signed_at, move_in_monies_received_at, rooms(name), properties(name, address), people!person_id(salutation, first_name, last_name, full_name)')
       .gte('start_date', today).lte('start_date', in14).or(`end_date.is.null,end_date.gte.${today}`),
   ])
 
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
     }
   }
   for (const t of (moveOuts.data ?? []) as any[]) {
-    const who = [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
+    const who = [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
     const left = days(today, t.end_date)
     items.push({
       id: `move-${t.id}`, kind: 'move_out', group: 'coming_up', rank: 80 + left / 100,
@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
     })
   }
   for (const t of (moveIns.data ?? []) as any[]) {
-    const who = [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
+    const who = [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
     const left = days(today, t.start_date)
     // still to do before they can move in — from the letting file (migration 199; blank until it's run)
     const todo = [t.agreement_signed_at === null ? 'agreement' : '', t.move_in_monies_received_at === null ? 'monies' : ''].filter(Boolean)

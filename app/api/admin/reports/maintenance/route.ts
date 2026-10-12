@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     status:      r.status,
     location:    r.location || null,
     property:    r.properties?.name || r.properties?.address || '—',
-    contractor:  r.contractor ? `${r.contractor.first_name || ''} ${r.contractor.last_name || ''}`.trim() : null,
+    contractor:  r.contractor ? `${[r.contractor.salutation, r.contractor.first_name, r.contractor.last_name].filter(Boolean).join(' ')}`.trim() : null,
     booked_date: r.booked_date,
     approved_at: r.approved_at,
     on_hold:     r.on_hold,

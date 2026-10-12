@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   const room = ticket.rooms as any
   // No foreign keys from maintenance_tickets to people — look up reporter and contractor directly
   const personById = async (id: string | null | undefined) => id
-    ? (await supabase.from('people').select('id, first_name, last_name, full_name, email, phone').eq('id', id).maybeSingle()).data as any
+    ? (await supabase.from('people').select('id, salutation, first_name, last_name, full_name, email, phone').eq('id', id).maybeSingle()).data as any
     : null
   const reporter = await personById((ticket as any).reporter_id)
   const contractor = await personById((ticket as any).contractor_id)
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
   // Contractor — notify them of the new job assignment
   if (contractor?.email) {
     const contractorName = contractor.first_name
-      ? `${contractor.first_name}${contractor.last_name ? ' ' + contractor.last_name : ''}`
+      ? [contractor.salutation, contractor.first_name, contractor.last_name].filter(Boolean).join(' ')
       : contractor.full_name || 'there'
     const contractorVars = { ...vars, contractor_name: contractorName }
     const subject = tplContractor ? render(tplContractor.subject_line, contractorVars) : `New job assigned — ${heading}`

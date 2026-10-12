@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   // ── Lookups ────────────────────────────────────────────────────────────────
   const [people, rooms, properties, tenancies] = await Promise.all([
-    safe(s.from('people').select('id, full_name, first_name, last_name, email, role')),
+    safe(s.from('people').select('id, full_name, salutation, first_name, last_name, email, role')),
     safe(s.from('rooms').select('id, name, property_id')),
     safe(s.from('properties').select('id, name, address')),
     safe(s.from('tenancies').select('person_id, room_id, property_id, end_date, notice_received_date')),

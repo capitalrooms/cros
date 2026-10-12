@@ -38,7 +38,7 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
   if (!prop) return null
   const [{ data: docs }, { data: lets }] = await Promise.all([
     s.from('property_documents').select('document_type, storage_url, uploaded_at').eq('property_id', propertyId).order('uploaded_at', { ascending: false }),
-    s.from('tenancies').select('id, person_id, co_tenant_id, rooms(name), people!person_id(id, first_name, last_name, full_name, email)')
+    s.from('tenancies').select('id, person_id, co_tenant_id, rooms(name), people!person_id(id, salutation, first_name, last_name, full_name, email)')
       .eq('property_id', propertyId).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
   ])
   const sixtyDaysAgo = iso(new Date(Date.now() - 60 * 86_400_000))
@@ -57,16 +57,16 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
     const p = t.people
     if (!p?.email || seen.has(p.id)) continue
     seen.add(p.id)
-    const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
+    const name = [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
     tenants.push({ personId: p.id, name, firstName: p.first_name || name.split(' ')[0], email: p.email, room: t.rooms?.name ?? '' })
   }
   tenants.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
   // the landlord can be sent the same certificates (ticked by hand — never by default)
   let landlord: HouseTenant | null = null
   if (prop.landlord_id) {
-    const { data: l } = await s.from('people').select('id, first_name, last_name, full_name, company, email').eq('id', prop.landlord_id).maybeSingle()
+    const { data: l } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email').eq('id', prop.landlord_id).maybeSingle()
     if (l?.email) {
-      const name = [l.first_name, l.last_name].filter(Boolean).join(' ') || l.company || l.full_name || l.email
+      const name = [l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ') || l.company || l.full_name || l.email
       landlord = { personId: l.id, name, firstName: l.first_name || name.split(' ')[0], email: l.email, room: 'Landlord' }
     }
   }

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     .from('communal_notices')
     .select(`
       id, notice_type, subtype, ai_text, raw_text, status, created_at,
-      created_by_person:people!created_by(id, first_name, last_name)
+      created_by_person:people!created_by(id, salutation, first_name, last_name)
     `)
     .eq('property_id', propertyId)
     .order('created_at', { ascending: false })

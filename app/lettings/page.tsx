@@ -274,7 +274,7 @@ export default function LettingsPage() {
     const today = new Date().toISOString().slice(0, 10)
     const { data: letData } = await supabase
       .from('tenancies')
-      .select('id, start_date, end_date, notice_received_date, rent_amount, property_id, rooms(name), properties(name, address), people!person_id(full_name, first_name, last_name, email)')
+      .select('id, start_date, end_date, notice_received_date, rent_amount, property_id, rooms(name), properties(name, address), people!person_id(full_name, salutation, first_name, last_name, email)')
       .or(`end_date.is.null,end_date.gte.${today}`)
 
     const letMapped: LetRoom[] = (letData || []).map((t: any) => {
@@ -287,7 +287,7 @@ export default function LettingsPage() {
         property_name: t.properties?.name || 'Unknown',
         property_address: t.properties?.address || '',
         rent: t.rent_amount != null ? Number(t.rent_amount) : null,
-        tenant_name: p ? [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || null : null,
+        tenant_name: p ? [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || null : null,
         tenant_email: p?.email || null,
         state: incoming ? 'let_agreed' : t.notice_received_date ? 'on_notice' : 'let',
         date: incoming ? t.start_date : t.notice_received_date ? t.end_date : null,
@@ -315,13 +315,13 @@ export default function LettingsPage() {
       if (asParam && isAdmin) {
         const { data: target } = await supabase
           .from('people')
-          .select('id, full_name, first_name, last_name, role')
+          .select('id, full_name, salutation, first_name, last_name, role')
           .eq('id', asParam)
           .maybeSingle()
         if (!target || target.role !== 'lettings') { router.push('/admin/people'); return }
         setViewingAs({
           id: asParam,
-          name: target.full_name || `${target.first_name || ''} ${target.last_name || ''}`.trim() || 'Lettings User',
+          name: target.full_name || `${[target.salutation, target.first_name, target.last_name].filter(Boolean).join(' ')}`.trim() || 'Lettings User',
           role: target.role,
         })
       }
@@ -329,7 +329,7 @@ export default function LettingsPage() {
       if (data.user?.email) {
         const { data: person } = await supabase
           .from('people')
-          .select('id, full_name, first_name, last_name')
+          .select('id, full_name, salutation, first_name, last_name')
           .eq('email', data.user.email)
           .maybeSingle()
         setName(displayName(person) || data.user.email.split('@')[0] || '')

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { emailHtml, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { senderFields } from '@/lib/email/sender'
+import { displayName } from '@/lib/people'
 
 export const runtime = 'nodejs'
 
@@ -100,7 +101,7 @@ export async function GET(req: NextRequest) {
 
   const { data: applicant, error: fetchErr } = await sb
     .from('applicants')
-    .select('id, full_name, email, pipeline_stage, offered_rent, rooms(name, current_asking_rent), properties(name, address)')
+    .select('id, salutation, first_name, last_name, full_name, email, pipeline_stage, offered_rent, rooms(name, current_asking_rent), properties(name, address)')
     .eq('id', id)
     .single()
 
@@ -141,11 +142,11 @@ export async function GET(req: NextRequest) {
     const notifyBody = `
       <p style="margin:0 0 8px;font-size:16px;font-weight:700;">🎉 Counter-offer accepted</p>
       <p style="margin:0 0 18px;line-height:1.75;">
-        <strong>${applicant.full_name}</strong> has agreed to match the asking rent for ${roomName}${address ? ` at ${address}` : ''}.
+        <strong>${displayName(applicant)}</strong> has agreed to match the asking rent for ${roomName}${address ? ` at ${address}` : ''}.
         Their application has been automatically re-activated.
       </p>
       <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
-        ${tableRow('Applicant',    applicant.full_name)}
+        ${tableRow('Applicant',    displayName(applicant))}
         ${tableRow('Room',         `${roomName}${address ? ', ' + address : ''}`)}
         ${tableRow('New offer',    rentStr + ' per month')}
         ${tableRow('Previous offer', applicant.offered_rent ? `£${Number(applicant.offered_rent).toLocaleString()}` : '(not set)')}

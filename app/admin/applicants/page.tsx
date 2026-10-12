@@ -10,6 +10,7 @@ import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import NameInput, { type NameValue, emptyName, toFullName, toLegalName } from '@/app/components/NameInput'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
+import { displayName } from '@/lib/people'
 
 const STAGES = [
   { key: 'invited',            label: 'Invited',            color: 'bg-neutral-100 text-neutral-600',  dot: 'bg-neutral-400' },
@@ -285,6 +286,7 @@ export default function ApplicantsPage() {
       setAddError('Name, email, and room are required')
       return
     }
+    if (!addForm.name.salutation) { setAddError('Choose a title (Mr, Mrs, Ms, Miss…)'); return }
     setAddSaving(true)
     setAddError('')
     try {
@@ -467,7 +469,7 @@ export default function ApplicantsPage() {
 
                       {/* Name + email */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-neutral-900 truncate">{applicant.full_name}</p>
+                        <p className="text-sm font-semibold text-neutral-900 truncate">{displayName(applicant as any)}</p>
                         <p className="text-xs text-neutral-500 truncate">{applicant.email}{applicant.phone ? ` · ${applicant.phone}` : ''}</p>
                       </div>
 

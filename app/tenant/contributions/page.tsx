@@ -31,7 +31,7 @@ function personName(c: Contribution, myPersonId: string | null): string {
   if (c.person_id === myPersonId) return 'You'
   const p = c.people
   if (!p) return 'A housemate'
-  return p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || 'A housemate'
+  return [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'A housemate'
 }
 
 export default function ContributionsPage() {
@@ -64,7 +64,7 @@ export default function ContributionsPage() {
       const supabase = createClient()
       const { data: rows } = await supabase
         .from('house_contributions')
-        .select('*, people(first_name, last_name, full_name)')
+        .select('*, people(salutation, first_name, last_name, full_name)')
         .eq('property_id', tenancy.property_id)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -91,7 +91,7 @@ export default function ContributionsPage() {
         amount_gbp: amount ? parseFloat(amount) : null,
         category,
       })
-      .select('*, people(first_name, last_name, full_name)')
+      .select('*, people(salutation, first_name, last_name, full_name)')
       .single()
 
     if (!error && data) {

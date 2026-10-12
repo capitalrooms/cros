@@ -453,13 +453,13 @@ export default function PropertyTasksPage() {
     // Contractors (for email modal)
     const { data: people } = await supabase
       .from('people')
-      .select('id, email, first_name, last_name, full_name')
+      .select('id, email, salutation, first_name, last_name, full_name')
       .eq('role', 'contractor')
     setContractors(
       (people || []).map(p => ({
         id:    p.id,
         email: p.email,
-        name:  p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
+        name:  [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
       }))
     )
 

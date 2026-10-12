@@ -497,7 +497,7 @@ export default function OnboardingPage() {
                     <p><strong>Properties:</strong> {selected.property_count === 'single' ? 'Single property' : 'Multiple properties'}</p>
                     {selected.form_data?.property_address && <p><strong>Property:</strong> {selected.form_data.property_address}</p>}
                     {selected.form_data?.company_name && <p><strong>Company:</strong> {selected.form_data.company_name} ({selected.form_data.company_reg})</p>}
-                    {selected.form_data?.first_name && <p><strong>Name:</strong> {selected.form_data.first_name} {selected.form_data.last_name}</p>}
+                    {selected.form_data?.first_name && <p><strong>Name:</strong> {[selected.form_data.salutation, selected.form_data.first_name, selected.form_data.last_name].filter(Boolean).join(' ')}</p>}
                     {selected.form_data?.nationality && <p><strong>Nationality:</strong> {selected.form_data.nationality}</p>}
                     {selected.form_data?.dob && <p><strong>DOB:</strong> {selected.form_data.dob}</p>}
                     <p className="text-neutral-400 italic mt-xs">Bank & financial details visible to admin only — stored securely.</p>
@@ -614,7 +614,7 @@ export default function OnboardingPage() {
                     {/* Generate Agreement button — opens form pre-filled with this landlord's data */}
                     {(() => {
                       const fd = selected.form_data ?? {}
-                      const name = [fd.first_name, fd.last_name].filter(Boolean).join(' ') || selected.full_name || selected.name || ''
+                      const name = [fd.salutation, fd.first_name, fd.last_name].filter(Boolean).join(' ') || selected.full_name || selected.name || ''
                       const address = fd.property_address || ''
                       const entity  = selected.entity_type === 'company' ? 'company' : 'individual'
                       const company = fd.company_name || ''

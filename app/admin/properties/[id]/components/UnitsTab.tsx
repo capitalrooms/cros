@@ -89,12 +89,12 @@ type View = 'list' | 'room'
 
 function tenantDisplayName(p: TenancyDetail['person']): string {
   if (!p) return '—'
-  return p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email
+  return [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
 }
 
 function initials(p: TenancyDetail['person']): string {
   if (!p) return '?'
-  const name = p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email
+  const name = [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
   return name.split(' ').slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')
 }
 
@@ -243,7 +243,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
       (roomsData || []).map(async (room) => {
         const { data: tenancy } = await supabase
           .from('tenancies')
-          .select('id, person_id, start_date, end_date, notice_received_date, rent_amount, people!person_id(id, full_name, first_name, last_name, email)')
+          .select('id, person_id, start_date, end_date, notice_received_date, rent_amount, people!person_id(id, full_name, salutation, first_name, last_name, email)')
           .eq('room_id', room.id)
           .lte('start_date', today)   // the tenant living there now — not someone let agreed to move in later
           .or(`end_date.is.null,end_date.gte.${today}`)
@@ -252,7 +252,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
           .maybeSingle()
 
         const p = tenancy?.people as any
-        const tenantName = p?.full_name || [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.email || null
+        const tenantName = [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || p?.email || null
 
         return {
           ...room,
@@ -291,18 +291,18 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   async function loadCleanersAndContractors() {
     const supabase2 = createClient()
     const [{ data: cleanerData }, { data: contractorData }] = await Promise.all([
-      supabase2.from('people').select('id, first_name, last_name, full_name, email, phone').eq('role', 'cleaner').order('first_name'),
-      supabase2.from('people').select('id, first_name, last_name, full_name, email').eq('role', 'contractor').order('first_name'),
+      supabase2.from('people').select('id, salutation, first_name, last_name, full_name, email, phone').eq('role', 'cleaner').order('first_name'),
+      supabase2.from('people').select('id, salutation, first_name, last_name, full_name, email').eq('role', 'contractor').order('first_name'),
     ])
     setCleaners((cleanerData || []).map((p: any) => ({
       id: p.id,
-      name: p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
+      name: [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
       email: p.email,
       phone: p.phone,
     })))
     setContractors((contractorData || []).map((p: any) => ({
       id: p.id,
-      name: p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
+      name: [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
       email: p.email,
     })))
   }
@@ -405,12 +405,12 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     if (q.length < 2) { setNewTenancyPersonResults([]); return }
     const { data } = await supabase
       .from('people')
-      .select('id, first_name, last_name, full_name, email')
+      .select('id, salutation, first_name, last_name, full_name, email')
       .or(`full_name.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`)
       .limit(8)
     setNewTenancyPersonResults((data || []).map((p: any) => ({
       id: p.id,
-      name: p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email,
+      name: [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
       email: p.email,
     })))
   }
@@ -573,7 +573,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     setView('room')
 
     const today = new Date().toISOString().split('T')[0]
-    const TENANCY_SELECT = `id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, person_id, people!person_id(id, full_name, first_name, last_name, email, phone, occupation)`
+    const TENANCY_SELECT = `id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, person_id, people!person_id(id, full_name, salutation, first_name, last_name, email, phone, occupation)`
 
     // Current tenancy: started on or before today, not yet ended
     const [{ data: currentRaw }, { data: nextRaw }, { data: pastRaw }] = await Promise.all([
@@ -931,7 +931,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       <div className="space-y-sm">
                         {pastTenancies.map((pt) => {
                           const ptName = pt.person
-                            ? (pt.person.full_name || [pt.person.first_name, pt.person.last_name].filter(Boolean).join(' ') || pt.person.email)
+                            ? ([pt.person.salutation, pt.person.first_name, pt.person.last_name].filter(Boolean).join(' ') || pt.person.full_name || pt.person.email)
                             : 'Unknown'
                           return (
                             <div key={pt.id} className="flex items-center gap-md rounded-lg border border-neutral-100 bg-neutral-50 px-md py-sm">
@@ -966,7 +966,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                         </div>
                         <div>
                           <p className="font-semibold text-neutral-900">
-                            {selectedRoom.nextTenancy.person.full_name || [selectedRoom.nextTenancy.person.first_name, selectedRoom.nextTenancy.person.last_name].filter(Boolean).join(' ')}
+                            {[selectedRoom.nextTenancy.person.salutation, selectedRoom.nextTenancy.person.first_name, selectedRoom.nextTenancy.person.last_name].filter(Boolean).join(' ') || selectedRoom.nextTenancy.person.full_name}
                           </p>
                           <p className="text-xs text-neutral-400">{selectedRoom.nextTenancy.person.email}</p>
                         </div>

@@ -23,11 +23,11 @@ interface Check { key: string; title: string; ok: boolean; count: number; detail
 
 async function activeTenancies(s: ReturnType<typeof svc>, demo: Set<string>) {
   const today = new Date().toISOString().slice(0, 10)
-  const { data } = await s.from('tenancies').select('id, property_id, room_id, payment_reference, deposit_amount, deposit_scheme_ref, start_date, rooms(name), properties(name), people!person_id(id, first_name, last_name, full_name)')
+  const { data } = await s.from('tenancies').select('id, property_id, room_id, payment_reference, deposit_amount, deposit_scheme_ref, start_date, rooms(name), properties(name), people!person_id(id, salutation, first_name, last_name, full_name)')
     .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
   return ((data ?? []) as any[]).filter(t => !demo.has(t.property_id))
 }
-const who = (t: any) => [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
+const who = (t: any) => [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || 'Tenant'
 const where = (t: any) => `${t.rooms?.name ?? ''}, ${String(t.properties?.name || '').split('\n')[0]}`
 
 
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
   const roomChanges = await syncRoomStatuses(s, { apply: false }).catch(() => [])
   const feeFixes = await feeFixesFromStatements(s).catch(() => [])
   // current managed tenancies with no management fee at all (neither their own nor the property's)
-  const { data: feeTens } = await s.from('tenancies').select('id, person_id, management_fee_type, management_fee_pct, management_fee_fixed, rooms(name), properties(name, is_demo, letting_type, management_fee_type, management_fee_pct, management_fee_fixed), people!person_id(first_name, last_name)')
+  const { data: feeTens } = await s.from('tenancies').select('id, person_id, management_fee_type, management_fee_pct, management_fee_fixed, rooms(name), properties(name, is_demo, letting_type, management_fee_type, management_fee_pct, management_fee_fixed), people!person_id(salutation, first_name, last_name)')
     .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
   const noFee = ((feeTens ?? []) as any[]).filter(t => !t.properties?.is_demo && t.properties?.letting_type !== 'let_only' && resolveFee(t, t.properties).source === 'none')
   // End dates with no notice: usually a fixed-term end entered with the tenancy. Since the Renters' Rights Act the
@@ -65,8 +65,8 @@ export async function GET(req: NextRequest) {
   const letRooms = new Set(tens.map(t => t.room_id))
   const charged = new Set((charges.data ?? []).map((c: any) => c.room_id))
   const withBank = new Set((banks.data ?? []).map((b: any) => b.landlord_id))
-  const { data: landlords } = await s.from('people').select('id, first_name, last_name, full_name, company').in('id', [...new Set(realProps.map((p: any) => p.landlord_id).filter(Boolean))])
-  const lname = (id: string) => { const p: any = (landlords ?? []).find((x: any) => x.id === id); return p ? (p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name) : 'Landlord' }
+  const { data: landlords } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', [...new Set(realProps.map((p: any) => p.landlord_id).filter(Boolean))])
+  const lname = (id: string) => { const p: any = (landlords ?? []).find((x: any) => x.id === id); return p ? (p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name) : 'Landlord' }
   const negative = (await landlordBalances(s, ledger.entries)).filter(b => b.balance < -0.005)
 
   // missing, or clearly broken (no house number, e.g. "000401" from an address starting "Flat 4") — an ordinary
@@ -100,14 +100,14 @@ export async function GET(req: NextRequest) {
       items: feeFixes.map(f => ({ label: `${f.label}: ${f.from} → ${f.to}` })), fix: { action: 'apply_statement_fees', label: `Set ${feeFixes.length} fee${feeFixes.length === 1 ? '' : 's'} from the statements` } },
     { key: 'fees_missing', title: 'Tenancies with no management fee', ok: !noFee.length, count: noFee.length,
       detail: 'Neither the tenancy nor its property has a management fee, so statements can’t work out the fee. Set it on the property (or the tenancy if it’s different).',
-      items: noFee.map(t => ({ label: `${[t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')} · ${t.rooms?.name}, ${String(t.properties?.name || '').split('\n')[0]}`, href: t.person_id ? `/admin/tenant/${t.person_id}?tab=tenancy` : undefined })) },
+      items: noFee.map(t => ({ label: `${[t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')} · ${t.rooms?.name}, ${String(t.properties?.name || '').split('\n')[0]}`, href: t.person_id ? `/admin/tenant/${t.person_id}?tab=tenancy` : undefined })) },
     { key: 'fixed_ends', title: 'End dates with no notice given', ok: !fixedEnds.length, count: fixedEnds.length,
       detail: 'These tenancies have an end date but no notice was recorded — usually the end of a fixed term. The tenancy carries on (it’s periodic), but CROS would stop raising rent and treat it as ended on that date. If they’re staying, make them rolling; if someone is actually leaving, open their tenancy and record the notice instead.',
-      items: fixedEnds.map(t => ({ label: `${[t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')} · ${t.rooms?.name}, ${String(t.properties?.name || '').split('\n')[0]} · ends ${new Date(t.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${t.end_date < today ? ' (passed)' : ''}`, href: t.person_id ? `/admin/tenant/${t.person_id}?tab=tenancy` : undefined })),
+      items: fixedEnds.map(t => ({ label: `${[t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')} · ${t.rooms?.name}, ${String(t.properties?.name || '').split('\n')[0]} · ends ${new Date(t.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${t.end_date < today ? ' (passed)' : ''}`, href: t.person_id ? `/admin/tenant/${t.person_id}?tab=tenancy` : undefined })),
       fix: { action: 'make_rolling', label: `They’re staying — make ${fixedEnds.length} rolling` } },
     { key: 'leaving_no_notice', title: 'Leaving for a new tenant, no notice recorded', ok: !leavingNoNotice.length, count: leavingNoNotice.length,
       detail: 'Someone new is lined up for these rooms, so the current tenant is leaving — but no notice is recorded. They’re never made rolling; open their tenancy and record the notice so the move-out, final rent and room handover follow.',
-      items: leavingNoNotice.map(t => ({ label: `${[t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')} · ${t.rooms?.name}, ${String(t.properties?.name || '').split('\n')[0]} · ends ${new Date(t.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · ${t.newTenant} lined up`, href: t.person_id ? `/admin/tenant/${t.person_id}?tab=tenancy` : undefined })) },
+      items: leavingNoNotice.map(t => ({ label: `${[t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ')} · ${t.rooms?.name}, ${String(t.properties?.name || '').split('\n')[0]} · ends ${new Date(t.end_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · ${t.newTenant} lined up`, href: t.person_id ? `/admin/tenant/${t.person_id}?tab=tenancy` : undefined })) },
     { key: 'room_status', title: 'Room statuses out of date', ok: !roomChanges.length, count: roomChanges.length, detail: 'Rooms whose status doesn’t match their tenancies — e.g. still “on notice” after the tenant has left. This is also done automatically every night.',
       items: roomChanges.map(c => ({ label: `${c.room}, ${c.property}: ${c.from.replace('_', ' ')} → ${c.to.replace('_', ' ')}` })), fix: { action: 'sync_rooms', label: `Update ${roomChanges.length} room${roomChanges.length === 1 ? '' : 's'}` } },
     { key: 'ghost', title: 'Rooms marked let with no tenancy', ok: !ghost.length, count: ghost.length, detail: 'These rooms are marked occupied but have no current tenancy, so they’re missing from the rent roll and statements.',

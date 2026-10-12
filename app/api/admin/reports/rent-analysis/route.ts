@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       id, charge_month, amount_due, amount_received, status, voided,
       room:rooms(id, name,
         property:properties(id, name, address,
-          landlord:people!properties_landlord_id_fkey(first_name, last_name)
+          landlord:people!properties_landlord_id_fkey(salutation, first_name, last_name)
         )
       )
     `)
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       byProp.set(key, {
         property_id:   prop?.id,
         property_name: prop?.name || prop?.address || 'Unknown',
-        landlord_name: prop?.landlord ? `${prop.landlord.first_name || ''} ${prop.landlord.last_name || ''}`.trim() : '—',
+        landlord_name: prop?.landlord ? `${[prop.landlord.salutation, prop.landlord.first_name, prop.landlord.last_name].filter(Boolean).join(' ')}`.trim() : '—',
         total_due:     0,
         total_received: 0,
         outstanding:   0,

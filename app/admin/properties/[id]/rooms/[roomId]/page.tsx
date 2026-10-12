@@ -213,7 +213,7 @@ export default function RoomDashboardPage({
     const todayStr = new Date().toISOString().split('T')[0]
     const { data: curT } = await supabase
       .from('tenancies')
-      .select('id, person_id, co_tenant_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, first_name, last_name, email, phone)')
+      .select('id, person_id, co_tenant_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, salutation, first_name, last_name, email, phone)')
       .eq('room_id', roomId)
       .or(`end_date.is.null,end_date.gte.${todayStr}`)
       .order('end_date', { ascending: false, nullsFirst: true })
@@ -234,7 +234,7 @@ export default function RoomDashboardPage({
       if (t.co_tenant_id) {
         const { data: ct } = await supabase
           .from('people')
-          .select('id, full_name, first_name, last_name, email, phone')
+          .select('id, full_name, salutation, first_name, last_name, email, phone')
           .eq('id', t.co_tenant_id)
           .maybeSingle()
         if (ct) cur.co_tenant = ct as PersonData
@@ -253,7 +253,7 @@ export default function RoomDashboardPage({
     // Previous tenancies (end_date in the past only)
     const { data: prevTs } = await supabase
       .from('tenancies')
-      .select('id, person_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, first_name, last_name, email, phone)')
+      .select('id, person_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, salutation, first_name, last_name, email, phone)')
       .eq('room_id', roomId)
       .lt('end_date', todayStr)
       .order('end_date', { ascending: false })
@@ -309,7 +309,7 @@ export default function RoomDashboardPage({
       const tenancyIds = [...new Set(checks.map((c: any) => c.tenancy_id))]
       const { data: tenancyPeople } = await supabase
         .from('tenancies')
-        .select('id, person_id, people!person_id(full_name, first_name, last_name, email)')
+        .select('id, person_id, people!person_id(full_name, salutation, first_name, last_name, email)')
         .in('id', tenancyIds)
       const nameMap: Record<string, string> = {}
       ;(tenancyPeople || []).forEach((t: any) => {
@@ -323,7 +323,7 @@ export default function RoomDashboardPage({
     // Room notes
     const { data: notes } = await supabase
       .from('room_notes')
-      .select('id, content, note_type, created_at, created_by, people(full_name, first_name, last_name)')
+      .select('id, content, note_type, created_at, created_by, people(full_name, salutation, first_name, last_name)')
       .eq('room_id', roomId)
       .order('created_at', { ascending: false })
     if (notes) {
@@ -377,7 +377,7 @@ export default function RoomDashboardPage({
   async function addNote() {
     if (!newNoteText.trim()) return
     setSavingNote(true)
-    const { data: me } = await supabase.from('people').select('id, full_name, first_name, last_name').eq('email', (await supabase.auth.getUser()).data.user?.email || '').maybeSingle()
+    const { data: me } = await supabase.from('people').select('id, full_name, salutation, first_name, last_name').eq('email', (await supabase.auth.getUser()).data.user?.email || '').maybeSingle()
     const { data: inserted } = await supabase.from('room_notes').insert({
       room_id: roomId,
       content: newNoteText.trim(),

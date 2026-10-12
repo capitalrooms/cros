@@ -201,7 +201,7 @@ async function processStatement(body: any) {
   if (isTrustedSender) {
     const { data: allProperties } = await supabase
       .from('properties')
-      .select('id, name, address, property_code, landlord_id, people!landlord_id(id, first_name, last_name, full_name, email)')
+      .select('id, name, address, property_code, landlord_id, people!landlord_id(id, salutation, first_name, last_name, full_name, email)')
 
     if (!allProperties?.length) {
       console.error('AutoLedger: no properties in system')
@@ -218,7 +218,7 @@ async function processStatement(body: any) {
       const client = new Anthropic()
       const propertyList = allProperties.map(p => {
         const ll = Array.isArray((p as any).people) ? (p as any).people[0] : (p as any).people
-        const landlordName = ll ? `${ll.first_name || ''} ${ll.last_name || ll.full_name || ''}`.trim() : 'Unknown'
+        const landlordName = ll ? ([ll.salutation, ll.first_name, ll.last_name].filter(Boolean).join(' ') || ll.full_name || 'Unknown') : 'Unknown'
         return `- ID:${p.id} | "${p.name || p.address}" | Landlord: ${landlordName}`
       }).join('\n')
 
@@ -260,7 +260,7 @@ async function processStatement(body: any) {
   } else {
     const { data: landlordData } = await supabase
       .from('people')
-      .select('id, first_name, last_name, full_name, email')
+      .select('id, salutation, first_name, last_name, full_name, email')
       .ilike('email', senderEmail)
       .eq('role', 'landlord')
       .single()
@@ -588,7 +588,7 @@ Respond with JSON only in this exact shape:
     const { data: periodTenancies } = roomIds.length > 0
       ? await supabase
           .from('tenancies')
-          .select('id, room_id, person_id, start_date, end_date, people!person_id(first_name, last_name)')
+          .select('id, room_id, person_id, start_date, end_date, people!person_id(salutation, first_name, last_name)')
           .in('room_id', roomIds)
           .lte('start_date', periodEnd)
           .or(`end_date.is.null,end_date.gte.${periodStart}`)
@@ -932,7 +932,7 @@ Respond with JSON only in this exact shape:
   }
 
   const landlordName = landlord.first_name && landlord.last_name
-    ? `${landlord.first_name} ${landlord.last_name}`
+    ? `${[landlord.salutation, landlord.first_name, landlord.last_name].filter(Boolean).join(' ')}`
     : (landlord as any).full_name || landlord.email
 
   // In-app bell notification — ONE row per import event, not one per admin.

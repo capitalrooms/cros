@@ -25,13 +25,20 @@ interface PersonLike {
   joint_last_name?: string | null
 }
 
-/** Full display name (no salutation) — prefers first+last, falls back to full_name. */
+/** Full display name with the title — "Miss Donna Pious" (Harry, 13 Oct 2026: never a name without a salutation).
+ *  Falls back to full_name. For a greeting use first_name; for matching bank payee names use nameNoTitle. */
 export function displayName(person: PersonLike | null | undefined): string {
   if (!person) return '—'
   if (person.first_name) {
-    return [person.first_name, person.last_name].filter(Boolean).join(' ')
+    return [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')
   }
   return person.full_name || person.name || person.company || '—'
+}
+
+/** First and last name without the title — only for matching names (bank payees, imports), never for display. */
+export function nameNoTitle(person: PersonLike | null | undefined): string {
+  if (!person) return ''
+  return [person.first_name, person.last_name].filter(Boolean).join(' ') || person.full_name || ''
 }
 
 /** Full legal name — first, middle and surname (no title). E.g. "Oliver James Wells". */
@@ -58,9 +65,9 @@ export function formalName(person: PersonLike | null | undefined): string {
  */
 export function landlordName(person: PersonLike | null | undefined): string {
   if (!person) return '—'
-  const primary = [person.first_name, person.last_name].filter(Boolean).join(' ')
+  const primary = [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')
     || person.full_name || person.name || ''
-  const joint = [person.joint_first_name, person.joint_last_name].filter(Boolean).join(' ')
+  const joint = [person.joint_salutation, person.joint_first_name, person.joint_last_name].filter(Boolean).join(' ')
   const personal = primary && joint ? `${primary} & ${joint}` : primary || joint
   if (person.company) {
     return personal ? `${personal} (${person.company})` : person.company

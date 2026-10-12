@@ -95,10 +95,10 @@ export default function LetOnlyPropertiesPage() {
           letting_fee_pct, letting_fee_flat, rent_due_preference,
           rooms(id, name, status, current_asking_rent,
             tenancies!room_id(id, start_date, rent_amount, deposit_amount, payment_reference, letting_fee_charged,
-              people!person_id(first_name, last_name, full_name)
+              people!person_id(salutation, first_name, last_name, full_name)
             )
           ),
-          people!landlord_id(full_name, first_name, last_name, email, phone)
+          people!landlord_id(full_name, salutation, first_name, last_name, email, phone)
         `)
         .eq('letting_type', 'let_only')
         .order('name'),
@@ -230,7 +230,7 @@ export default function LetOnlyPropertiesPage() {
             {letOnlyProperties.map(prop => {
               const hasBankDetails = !!(prop.bank_account_name && prop.bank_sort_code)
               const landlordName = prop.landlord
-                ? (prop.landlord.full_name || [prop.landlord.first_name, prop.landlord.last_name].filter(Boolean).join(' ') || '—')
+                ? ([prop.landlord.salutation, prop.landlord.first_name, prop.landlord.last_name].filter(Boolean).join(' ') || prop.landlord.full_name || '—')
                 : '—'
               const occupied  = prop.rooms.filter(r => r.status === 'occupied').length
               const onNotice  = prop.rooms.filter(r => r.status === 'on_notice').length
@@ -290,7 +290,7 @@ export default function LetOnlyPropertiesPage() {
                           {prop.rooms.map(room => {
                             const t = room.activeTenancy
                             const tenantName = t?.person
-                              ? (t.person.full_name || [t.person.first_name, t.person.last_name].filter(Boolean).join(' '))
+                              ? ([t.person.salutation, t.person.first_name, t.person.last_name].filter(Boolean).join(' ') || t.person.full_name)
                               : null
                             const fee        = t ? calcFee(t, prop) : 0
                             const dueToLL    = t ? (t.rent_amount + t.deposit_amount - fee) : 0

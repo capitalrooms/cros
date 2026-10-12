@@ -19,10 +19,10 @@ export async function GET(req: NextRequest) {
     .from('tenancies')
     .select(`
       id, start_date, end_date, deposit_amount, deposit_scheme_ref, rent_amount,
-      tenant:people!person_id(first_name, last_name),
+      tenant:people!person_id(salutation, first_name, last_name),
       room:rooms(name,
         property:properties(id, name, address,
-          landlord:people!properties_landlord_id_fkey(first_name, last_name)
+          landlord:people!properties_landlord_id_fkey(salutation, first_name, last_name)
         )
       )
     `)
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   if (search) {
     const q = search.toLowerCase()
     rows = rows.filter(r => {
-      const tenant  = r.tenant ? `${r.tenant.first_name || ''} ${r.tenant.last_name || ''}` : ''
+      const tenant  = r.tenant ? `${[r.tenant.salutation, r.tenant.first_name, r.tenant.last_name].filter(Boolean).join(' ')}` : ''
       const prop    = r.room?.property
       const name    = `${tenant} ${prop?.name || ''} ${prop?.address || ''}`.toLowerCase()
       return name.includes(q)
@@ -52,10 +52,10 @@ export async function GET(req: NextRequest) {
     start_date:        r.start_date,
     end_date:          r.end_date,
     is_active:         !r.end_date,
-    tenant_name:       r.tenant ? `${r.tenant.first_name || ''} ${r.tenant.last_name || ''}`.trim() : '—',
+    tenant_name:       r.tenant ? `${[r.tenant.salutation, r.tenant.first_name, r.tenant.last_name].filter(Boolean).join(' ')}`.trim() : '—',
     room_name:         r.room?.name || '—',
     property_name:     r.room?.property?.name || r.room?.property?.address || '—',
-    landlord_name:     r.room?.property?.landlord ? `${r.room.property.landlord.first_name || ''} ${r.room.property.landlord.last_name || ''}`.trim() : '—',
+    landlord_name:     r.room?.property?.landlord ? `${[r.room.property.landlord.salutation, r.room.property.landlord.first_name, r.room.property.landlord.last_name].filter(Boolean).join(' ')}`.trim() : '—',
     deposit_amount:    Number(r.deposit_amount || 0),
     deposit_scheme_ref: r.deposit_scheme_ref || null,
     protected:         !!r.deposit_scheme_ref,

@@ -105,7 +105,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
 
       const { data: p } = await supabase
         .from('people')
-        .select('id, first_name, last_name, full_name, email, phone, role, company, using_app, created_at')
+        .select('id, salutation, first_name, last_name, full_name, email, phone, role, company, using_app, created_at')
         .eq('id', personId)
         .maybeSingle()
 

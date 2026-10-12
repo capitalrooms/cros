@@ -73,7 +73,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
 
       const [{ data: people }, { data: rooms }] = await Promise.all([
         contractorIds.length
-          ? supabase.from('people').select('id, full_name, first_name, last_name').in('id', contractorIds)
+          ? supabase.from('people').select('id, full_name, salutation, first_name, last_name').in('id', contractorIds)
           : Promise.resolve({ data: [] as any[] }),
         roomIds.length
           ? supabase.from('rooms').select('id, name').in('id', roomIds)

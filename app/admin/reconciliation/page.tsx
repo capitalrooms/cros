@@ -147,7 +147,7 @@ export default function ReconciliationPage() {
         *,
         statement:landlord_statements(id, statement_reference, statement_date, period_start, period_end, reference, properties(name, address)),
         room:rooms(name),
-        tenant:people!landlord_statement_rooms_tenant_id_fkey(first_name, last_name, full_name),
+        tenant:people!landlord_statement_rooms_tenant_id_fkey(salutation, first_name, last_name, full_name),
         rent_charge:rent_charges(id, amount_due, status)
       `)
       .order('created_at', { ascending: false })
@@ -382,7 +382,7 @@ export default function ReconciliationPage() {
               <div className="divide-y divide-neutral-100">
                 {stmtRows.map(row => {
                   const tenantName = row.tenant
-                    ? [row.tenant.first_name, row.tenant.last_name].filter(Boolean).join(' ') || row.tenant.full_name || row.tenant_name
+                    ? [row.tenant.salutation, row.tenant.first_name, row.tenant.last_name].filter(Boolean).join(' ') || row.tenant.full_name || row.tenant_name
                     : row.tenant_name
                   const roomName = row.room?.name || (row.room_number ? `Room ${row.room_number}` : 'Unknown room')
                   const charge = row.rent_charge

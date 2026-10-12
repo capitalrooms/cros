@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const { data: adminPerson } = await supabase
-    .from('people').select('first_name, last_name, job_title, role').eq('email', session.user.email).single()
+    .from('people').select('salutation, first_name, last_name, job_title, role').eq('email', session.user.email).single()
   if (!adminPerson || !['administrator', 'admin', 'lettings'].includes(adminPerson.role))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -46,13 +46,13 @@ export async function GET(req: NextRequest) {
 
   if (!charge) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   charge.tenancy = await tenancyForCharge(supabase as any, charge,
-    'id, rent_amount, person:people!tenancies_person_id_fkey (id, first_name, last_name, email), room:rooms (name, properties (name, address, landlord:people!properties_landlord_id_fkey (first_name, last_name)))')
+    'id, rent_amount, person:people!tenancies_person_id_fkey (id, salutation, first_name, last_name, email), room:rooms (name, properties (name, address, landlord:people!properties_landlord_id_fkey (salutation, first_name, last_name)))')
 
   const person = charge.tenancy?.person
   const room   = charge.tenancy?.room
   const prop   = room?.properties
 
-  const tenantName = person ? [person.first_name, person.last_name].filter(Boolean).join(' ') : 'Tenant'
+  const tenantName = person ? [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') : 'Tenant'
   const firstName  = person?.first_name || tenantName
   const outstanding = Math.max(0, Number(charge.amount_due) - Number(charge.amount_received || 0))
 

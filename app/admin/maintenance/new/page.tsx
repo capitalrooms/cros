@@ -68,11 +68,11 @@ export default function NewJobPage() {
       setProperties(sortPropertiesNumerically(props || []));
       const { data: cons } = await supabase
         .from('people')
-        .select('id, full_name, first_name, last_name, email')
+        .select('id, full_name, salutation, first_name, last_name, email')
         .eq('role', 'contractor')
         .order('full_name');
       // people has no "name" column — build the label the dropdown shows
-      setContractors(((cons as any[]) || []).map((c) => ({ id: c.id, email: c.email, name: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || null })));
+      setContractors(((cons as any[]) || []).map((c) => ({ id: c.id, email: c.email, name: [c.salutation, c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || null })));
       setLoading(false);
     }
     init();

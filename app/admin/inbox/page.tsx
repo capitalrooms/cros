@@ -15,6 +15,7 @@ import PurchaseReview from '@/app/components/PurchaseReview'
 import InvoiceReview from '@/app/components/InvoiceReview'
 import TenantPicker from '@/app/components/TenantPicker'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { displayName } from '@/lib/people'
 const BLANK: AIResult = {
   doc_type: 'other', confidence: 0, summary: '', issue_date: '', expiry_date: '', provider: '',
   policy_number: '', property_address: '', person_name: '', person_phone: '', person_email: '',
@@ -48,14 +49,14 @@ export default function InboxPage() {
       }
       const supabase = createClient()
       const { data: props } = await supabase.from('properties').select('id, name, address').order('name')
-      const { data: ppl } = await supabase.from('people').select('id, full_name, first_name, last_name, email').eq('role', 'tenant').order('full_name')
+      const { data: ppl } = await supabase.from('people').select('id, full_name, salutation, first_name, last_name, email').eq('role', 'tenant').order('full_name')
       const { data: tens } = await supabase
         .from('tenancies')
-        .select('id, start_date, end_date, person_id, people!person_id(id, full_name, first_name, last_name), rooms(name), properties(name)')
+        .select('id, start_date, end_date, person_id, people!person_id(id, full_name, salutation, first_name, last_name), rooms(name), properties(name)')
         .order('start_date', { ascending: false })
       const { data: apps } = await supabase
         .from('applicants')
-        .select('id, full_name, email, room_id, property_id, pipeline_stage, rooms(name), properties(name)')
+        .select('id, salutation, first_name, last_name, full_name, email, room_id, property_id, pipeline_stage, rooms(name), properties(name)')
         .neq('pipeline_stage', 'converted')
         .order('full_name')
       setProperties(sortPropertiesNumerically(props || []))
@@ -325,7 +326,7 @@ export default function InboxPage() {
                             <div className="mb-md rounded-xl bg-green-50 border border-green-200 p-md">
                               <p className="text-sm font-semibold text-green-900 mb-xs">✅ Matched to existing tenant</p>
                               <p className="text-sm text-green-800">
-                                <strong>{matchedTenant.full_name || [matchedTenant.first_name, matchedTenant.last_name].filter(Boolean).join(' ')}</strong>
+                                <strong>{[matchedTenant.salutation, matchedTenant.first_name, matchedTenant.last_name].filter(Boolean).join(' ') || matchedTenant.full_name}</strong>
                                 {' '}— matched by email
                                 {confidence ? ` (${confidence}% confidence)` : ''}
                               </p>
@@ -348,7 +349,7 @@ export default function InboxPage() {
                             <div className="mb-md rounded-xl bg-blue-50 border border-blue-200 p-md">
                               <p className="text-sm font-semibold text-blue-900 mb-xs">📋 Matched to applicant</p>
                               <p className="text-sm text-blue-800 mb-sm">
-                                <strong>{matchedApplicant.full_name}</strong>
+                                <strong>{displayName(matchedApplicant)}</strong>
                                 {matchedApplicant.rooms?.name ? ` · ${matchedApplicant.rooms.name}` : ''}
                                 {matchedApplicant.properties?.name ? `, ${matchedApplicant.properties.name}` : ''}
                                 {confidence ? ` (${confidence}% confidence)` : ''}
@@ -364,7 +365,7 @@ export default function InboxPage() {
                                   disabled={converting === matchedApplicant.id}
                                   className="rounded-lg bg-blue-700 px-md py-sm text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
                                 >
-                                  {converting === matchedApplicant.id ? 'Converting…' : `Convert ${matchedApplicant.full_name} to tenant →`}
+                                  {converting === matchedApplicant.id ? 'Converting…' : `Convert ${displayName(matchedApplicant)} to tenant →`}
                                 </button>
                               )}
                               <button onClick={() => setOverrideMode(true)} className="mt-sm block text-xs text-blue-700 underline hover:text-blue-900">
@@ -412,7 +413,7 @@ export default function InboxPage() {
                                   <option value="">— Select applicant —</option>
                                   {applicants.map((a: any) => (
                                     <option key={a.id} value={a.id}>
-                                      {a.full_name}
+                                      {displayName(a)}
                                       {a.rooms?.name ? ` · ${a.rooms.name}` : ''}
                                       {a.properties?.name ? `, ${a.properties.name}` : ''}
                                     </option>

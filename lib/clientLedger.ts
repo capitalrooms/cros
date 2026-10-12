@@ -94,8 +94,8 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
 
 export async function landlordBalances(s: SupabaseClient, entries: LedgerEntry[]): Promise<LandlordLedger[]> {
   const ids = [...new Set(entries.map(e => e.landlordId).filter(Boolean))] as string[]
-  const { data: people } = ids.length ? await s.from('people').select('id, first_name, last_name, full_name, company').in('id', ids) : { data: [] as any[] }
-  const nameOf = new Map((people ?? []).map((p: any) => [p.id, p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Landlord']))
+  const { data: people } = ids.length ? await s.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', ids) : { data: [] as any[] }
+  const nameOf = new Map((people ?? []).map((p: any) => [p.id, p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Landlord']))
   const map = new Map<string, LandlordLedger>()
   for (const e of entries) {
     const key = e.landlordId ?? 'none'

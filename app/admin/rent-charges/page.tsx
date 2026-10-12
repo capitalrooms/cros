@@ -69,7 +69,7 @@ function monthLabel(iso: string): string {
 
 function personName(p: Person | null | undefined): string {
   if (!p) return '—'
-  return [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || '—'
+  return [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || '—'
 }
 
 const STATUS_CHIP: Record<string, { label: string; className: string }> = {
@@ -119,7 +119,7 @@ export default function RentChargesPage() {
 
       supabase
         .from('tenancies')
-        .select('id, room_id, person_id, rent_amount, payment_reference, people:people!person_id(id, first_name, last_name, email)')
+        .select('id, room_id, person_id, rent_amount, payment_reference, people:people!person_id(id, salutation, first_name, last_name, email)')
         .lte('start_date', monthEnd)
         .or(`end_date.is.null,end_date.gte.${monthStart}`),
 

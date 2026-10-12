@@ -120,7 +120,7 @@ export default function AdminStatementsPage() {
       const supabase = createClient()
       const [{ data: props }, { data: lls }] = await Promise.all([
         supabase.from('properties').select('id, name, address, management_fee_pct, property_code, letting_type').order('name'),
-        supabase.from('people').select('id, full_name, first_name, last_name, email, property_id').eq('role', 'landlord').order('full_name'),
+        supabase.from('people').select('id, full_name, salutation, first_name, last_name, email, property_id').eq('role', 'landlord').order('full_name'),
       ])
       setProperties(sortPropertiesNumerically((props as any) || []))
       // practice (demo) houses stay out of the month grid; before migration 186 there's no column, so none are demo
@@ -130,7 +130,7 @@ export default function AdminStatementsPage() {
       const { data: tl } = await supabase.from('tenancies').select('property_id, start_date, end_date, let_cancelled_at')
       setLets(((tl as any[]) || []))
       // people has no "name" column — build the label the dropdowns show
-      setLandlords(((lls as any[]) || []).map((l) => ({ ...l, name: [l.first_name, l.last_name].filter(Boolean).join(' ') || l.full_name || null })))
+      setLandlords(((lls as any[]) || []).map((l) => ({ ...l, name: [l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ') || l.full_name || null })))
       await loadStatements()
       setLoading(false)
     }

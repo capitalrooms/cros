@@ -14,7 +14,7 @@ import { officeAction } from '@/lib/emergencies/engine'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const pname = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || '') : ''
+const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || '') : ''
 
 export async function POST(req: NextRequest) {
   const caller = await requireStaff(req)
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const { data: t } = await s.from('maintenance_tickets').select('id, title, status, contractor_id, reporter_id, property_id, room_id, admin_note').eq('id', String(b.ticketId ?? '')).maybeSingle() as { data: any }
   if (!t) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
   if (t.status === 'completed' || t.status === 'cancelled') return NextResponse.json({ error: `It’s already ${t.status}` }, { status: 409 })
-  const { data: me } = await s.from('people').select('first_name, last_name, full_name, email').eq('id', caller.personId).maybeSingle()
+  const { data: me } = await s.from('people').select('salutation, first_name, last_name, full_name, email').eq('id', caller.personId).maybeSingle()
   const by = pname(me) || caller.email
   const now = new Date().toISOString()
   const day = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const position = await rentPosition(s, tenancy)
     const t: any = position.tenancy
     return NextResponse.json({
-      position: { ...position, tenancy: { id: t.id, tenant: [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name, email: t.people?.email ?? null, phone: t.people?.phone ?? null, room: t.rooms?.name, property: String(t.properties?.name || '').split('\n')[0], reference: t.payment_reference, rent: Number(t.rent_amount) } },
+      position: { ...position, tenancy: { id: t.id, tenant: [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name, email: t.people?.email ?? null, phone: t.people?.phone ?? null, room: t.rooms?.name, property: String(t.properties?.name || '').split('\n')[0], reference: t.payment_reference, rent: Number(t.rent_amount) } },
       message: position.owed > 0.005 ? tenantMessage(position) : null,
       commsLive: await getElectedCommsLive(),
     })

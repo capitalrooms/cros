@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const columns: ListColumn[] = Array.isArray(b.columns) ? b.columns.slice(0, 20).map((c: any) => ({ key: String(c.key), label: String(c.label ?? c.key), align: c.align === 'right' ? 'right' : c.align === 'left' ? 'left' : undefined, money: !!c.money })) : []
   const rows = Array.isArray(b.rows) ? b.rows.slice(0, 5000) : []
   if (!columns.length) return NextResponse.json({ error: 'Nothing to export' }, { status: 400 })
-  const { data: me } = await createServiceClient().from('people').select('first_name, last_name').eq('id', admin.personId).maybeSingle()
+  const { data: me } = await createServiceClient().from('people').select('salutation, first_name, last_name').eq('id', admin.personId).maybeSingle()
   const pdf = await renderListPdf({
     title: String(b.title || 'Export').slice(0, 120), subtitle: b.subtitle ? String(b.subtitle).slice(0, 300) : undefined,
     columns, rows, totals: b.totals && typeof b.totals === 'object' ? b.totals : undefined,

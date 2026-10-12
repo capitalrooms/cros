@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     // Get person record
     const { data: person, error: personError } = await supabase
       .from('people')
-      .select('id, email, full_name, first_name, last_name, role')
+      .select('id, email, full_name, salutation, first_name, last_name, role')
       .eq('email', email)
       .single()
 

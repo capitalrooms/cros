@@ -57,7 +57,7 @@ export default function ContactsPage() {
         .order('last_name',  { ascending: true })
         .order('email',      { ascending: true });
 
-      setContacts(((contactsData as any[]) || []).map((c) => ({ ...c, name: c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || '' })));
+      setContacts(((contactsData as any[]) || []).map((c) => ({ ...c, name: c.name || [c.salutation, c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || '' })));
 
       // Get properties for assignment
       const { data: propsData } = await supabase
@@ -104,7 +104,7 @@ export default function ContactsPage() {
       .order('first_name', { ascending: true })
       .order('last_name',  { ascending: true })
       .order('email',      { ascending: true });
-    setContacts(((contactsData as any[]) || []).map((c) => ({ ...c, name: c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || '' })));
+    setContacts(((contactsData as any[]) || []).map((c) => ({ ...c, name: c.name || [c.salutation, c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || '' })));
   }
 
   async function handleDeleteContact(id: string) {

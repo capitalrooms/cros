@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   // Find the active tenancy for this room and get the tenant's phone
   const { data: tenancy } = await sb
     .from('tenancies')
-    .select('id, people!person_id(first_name, phone)')
+    .select('id, people!person_id(salutation, first_name, phone)')
     .eq('room_id', room_id)
     // current tenancy — including one on notice (it has an end date, and that's when viewings happen)
     .lte('start_date', new Date().toISOString().slice(0, 10))

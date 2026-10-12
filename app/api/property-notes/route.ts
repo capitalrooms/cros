@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   const isStaff = ['administrator', 'admin', 'lettings'].includes(String((currentUser as any)?.assignment?.role ?? ''))
   const query = () => supabase
     .from('property_notes')
-    .select('*, people(full_name, first_name, last_name, email)')
+    .select('*, people(full_name, salutation, first_name, last_name, email)')
     .eq('property_id', propertyId)
     .eq('is_deleted', false)
     .order('created_at', { ascending: false })
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       content,
       note_type: noteType,
     })
-    .select('*, people(full_name, first_name, last_name, email)')
+    .select('*, people(full_name, salutation, first_name, last_name, email)')
     .single()
 
   if (error) {

@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
         room:rooms(id, name, current_asking_rent,
           property:properties(id, name, address)
         ),
-        tenant:people!person_id(first_name, last_name)
+        tenant:people!person_id(salutation, first_name, last_name)
       `)
       .order('start_date', { ascending: false }),
 
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
     monthly_moves:        Object.entries(months).map(([month, v]) => ({ month, ...v })),
     upcoming_renewals:    upcomingRenewals.map(t => ({
       tenancy_id:   t.id,
-      tenant_name:  t.tenant ? `${t.tenant.first_name || ''} ${t.tenant.last_name || ''}`.trim() : '—',
+      tenant_name:  t.tenant ? `${[t.tenant.salutation, t.tenant.first_name, t.tenant.last_name].filter(Boolean).join(' ')}`.trim() : '—',
       room:         t.room?.name,
       property:     t.room?.property?.name || t.room?.property?.address,
       end_date:     t.end_date,

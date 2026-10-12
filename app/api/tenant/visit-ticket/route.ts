@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
   if ((ticket as any).contractor_id) {
     const { data: c } = await service
       .from('people')
-      .select('first_name, last_name')
+      .select('salutation, first_name, last_name')
       .eq('id', (ticket as any).contractor_id)
       .single()
     contractor = c || null

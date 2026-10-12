@@ -38,7 +38,7 @@ export const STEP_NAMES: Record<StepKey, string> = {
 
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
-const name = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || '') : ''
+const name = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || '') : ''
 
 export function stageOf(t: { let_cancelled_at?: string | null; start_date?: string | null; end_date?: string | null; notice_received_date?: string | null }, today = todayIso()): LetStage {
   if (t.let_cancelled_at) return 'fell_through'
@@ -66,7 +66,7 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
     prop.landlord_id ? s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, phone').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     s.from('holding_deposits').select('*').or(`tenancy_id.eq.${tenancyId}${applicantId ? `,applicant_id.eq.${applicantId}` : ''}`).order('recorded_at'),
     applicantId ? s.from('applicants').select('*').eq('id', applicantId).maybeSingle() : Promise.resolve({ data: null }),
-    t.room_id ? s.from('tenancies').select('id, start_date, end_date, notice_received_date, let_cancelled_at, people!person_id(id, first_name, last_name, full_name)').eq('room_id', t.room_id).neq('id', tenancyId) : Promise.resolve({ data: [] }),
+    t.room_id ? s.from('tenancies').select('id, start_date, end_date, notice_received_date, let_cancelled_at, people!person_id(id, salutation, first_name, last_name, full_name)').eq('room_id', t.room_id).neq('id', tenancyId) : Promise.resolve({ data: [] }),
     t.room_id && t.start_date ? tenantAccount(s, tenancyId).catch(() => null) : Promise.resolve(null),
     s.from('generated_documents').select('id, kind, number, title, recipient_name, total, created_at, emailed_at, emailed_to').eq('tenancy_id', tenancyId).is('deleted_at', null).order('created_at', { ascending: false }),
     s.from('property_documents').select('id, document_type, file_name, storage_url, uploaded_at, description').eq('tenancy_id', tenancyId).order('uploaded_at', { ascending: false }),

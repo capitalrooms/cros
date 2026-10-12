@@ -11,7 +11,7 @@ import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 // let-only houses, and rooms already marked on notice or empty — so this can never bring back a tenancy that ended.
 export async function endDatesToSort(s: SupabaseClient | any) {
   const { data } = await s.from('tenancies')
-    .select('id, room_id, person_id, start_date, end_date, let_cancelled_at, rooms(name, status), properties(name, is_demo, letting_type), people!person_id(first_name, last_name)')
+    .select('id, room_id, person_id, start_date, end_date, let_cancelled_at, rooms(name, status), properties(name, is_demo, letting_type), people!person_id(salutation, first_name, last_name)')
     .not('end_date', 'is', null).is('notice_received_date', null).is('let_cancelled_at', null).order('end_date')
   const rows = ((data ?? []) as any[]).filter(t => !t.properties?.is_demo && t.properties?.letting_type !== 'let_only' && t.rooms?.status !== 'on_notice' && t.rooms?.status !== 'available')
   if (!rows.length) return []
@@ -19,11 +19,11 @@ export async function endDatesToSort(s: SupabaseClient | any) {
   const replaced = (t: any) => ((inRooms ?? []) as any[]).some(o => o.id !== t.id && !o.let_cancelled_at && o.room_id === t.room_id && o.start_date && o.start_date > t.start_date)
   // someone new lined up for the room (an applicant still in progress) means this tenant is leaving, notice or not:
   // tagged newTenant so they're never made rolling — the office records their notice instead (Health Check)
-  const { data: apps } = await s.from('applicants').select('room_id, first_name, last_name, full_name, pipeline_stage')
+  const { data: apps } = await s.from('applicants').select('room_id, salutation, first_name, last_name, full_name, pipeline_stage')
     .in('room_id', [...new Set(rows.map(t => t.room_id).filter(Boolean))]).is('archived_at', null).neq('pipeline_stage', 'rejected')
   const nextFor = (t: any) => {
     const a: any = ((apps ?? []) as any[]).find(x => x.room_id === t.room_id)
-    return a ? ([a.first_name, a.last_name].filter(Boolean).join(' ') || a.full_name || 'an applicant') : null
+    return a ? ([a.salutation, a.first_name, a.last_name].filter(Boolean).join(' ') || a.full_name || 'an applicant') : null
   }
   return rows.filter(t => !replaced(t)).map(t => ({ ...t, newTenant: nextFor(t) as string | null }))
 }

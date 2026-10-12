@@ -89,7 +89,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
 
   const p = (t as any).people ?? {}
   const room = (t as any).rooms ?? { id: (t as any).room_id, name: '' }
-  const tenantName = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Tenant'
+  const tenantName = [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Tenant'
   const houseAddress = fullAddress(prop?.name, prop?.address, prop?.postcode)
   const rentMonthly = Number(t.rent_amount || 0)
   const rentDueDay = Number(t.rent_due_day || 1)

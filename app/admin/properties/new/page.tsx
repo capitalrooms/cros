@@ -93,14 +93,14 @@ export default function NewPropertyPage() {
   useEffect(() => {
     createClient()
       .from('people')
-      .select('id, first_name, last_name, full_name, company, email, phone')
+      .select('id, salutation, first_name, last_name, full_name, company, email, phone')
       .eq('role', 'landlord')
       .order('last_name', { ascending: true })
       .then(({ data }) => setAllLandlords(data || []))
   }, [])
 
   const llDisplayName = (ll: LandlordOption) => {
-    const personal = [ll.first_name, ll.last_name].filter(Boolean).join(' ') || ll.full_name || ''
+    const personal = [ll.salutation, ll.first_name, ll.last_name].filter(Boolean).join(' ') || ll.full_name || ''
     if (ll.company) return personal ? `${personal} (${ll.company})` : ll.company
     return personal || ll.email
   }
@@ -132,7 +132,7 @@ export default function NewPropertyPage() {
           role: 'landlord',
           landlord_comms_enabled: false,
         })
-        .select('id, first_name, last_name, full_name, company, email, phone')
+        .select('id, salutation, first_name, last_name, full_name, company, email, phone')
         .single()
       if (e) throw e
       setAllLandlords(prev => [...prev, ll])

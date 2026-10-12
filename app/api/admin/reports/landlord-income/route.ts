@@ -18,14 +18,14 @@ export async function GET(req: NextRequest) {
   // Find matching landlord(s)
   const { data: landlords } = await supabase
     .from('people')
-    .select('id, first_name, last_name, email')
+    .select('id, salutation, first_name, last_name, email')
     .eq('role', 'landlord')
 
   let filteredLandlords = (landlords || []) as any[]
   if (search) {
     const q = search.toLowerCase()
     filteredLandlords = filteredLandlords.filter(l =>
-      `${l.first_name || ''} ${l.last_name || ''} ${l.email || ''}`.toLowerCase().includes(q)
+      `${[l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ')} ${l.email || ''}`.toLowerCase().includes(q)
     )
   }
 
@@ -119,7 +119,7 @@ export async function GET(req: NextRequest) {
     })
     return {
       landlord_id:   l.id,
-      landlord_name: `${l.first_name || ''} ${l.last_name || ''}`.trim(),
+      landlord_name: `${[l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ')}`.trim(),
       email:         l.email,
       rent:          propertyRows.reduce((s, p) => s + p.rent, 0),
       management_fees: propertyRows.reduce((s, p) => s + p.management_fees, 0),

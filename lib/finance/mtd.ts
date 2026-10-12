@@ -51,8 +51,8 @@ export async function mtdFigures(s: SupabaseClient, year: number, landlordId?: s
   if (error) throw new Error(error.message)
   const sts = await dropDemo(s, stsAll as any[], (x: any) => x.property_id)   // practice statements never reach HMRC figures
   const ids = [...new Set(((sts ?? []) as any[]).map(x => x.landlord_id).filter(Boolean))]
-  const { data: people } = ids.length ? await s.from('people').select('id, first_name, last_name, full_name, company').in('id', ids) : { data: [] as any[] }
-  const nameOf = new Map(((people ?? []) as any[]).map(p => [p.id, p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Landlord']))
+  const { data: people } = ids.length ? await s.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', ids) : { data: [] as any[] }
+  const nameOf = new Map(((people ?? []) as any[]).map(p => [p.id, p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Landlord']))
 
   const rows = new Map<string, MtdRow>()
   for (const st of (sts ?? []) as any[]) {

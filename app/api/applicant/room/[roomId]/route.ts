@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ room
   const a = req.nextUrl.searchParams.get('a')
   if (a && UUID.test(a)) {
     const { data: ap } = await svc.from('applicants')
-      .select('id, first_name, room_id, offer_id, offered_rent, rent_offer_type, converted_person_id').eq('id', a).maybeSingle()
+      .select('id, salutation, first_name, room_id, offer_id, offered_rent, rent_offer_type, converted_person_id').eq('id', a).maybeSingle()
     if (ap && (ap as any).room_id === room.id) {
       const x = ap as any
       const { data: offer } = await svc.from('offers').select('advertised_rent')

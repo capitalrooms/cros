@@ -92,7 +92,7 @@ export default function RentIncreasePage() {
         .from('tenancies')
         .select(`
           id, start_date, rent_amount, rent_due_day,
-          person:people!tenancies_person_id_fkey(full_name, first_name, last_name, email),
+          person:people!tenancies_person_id_fkey(full_name, salutation, first_name, last_name, email),
           room:rooms!tenancies_room_id_fkey(name),
           property:properties!tenancies_property_id_fkey(name, address)
         `)

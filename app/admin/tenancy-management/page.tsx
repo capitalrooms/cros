@@ -91,7 +91,7 @@ export default function TenancyManagementPage() {
     // Fetch tenancies
     const { data: tenanciesData } = await supabase
       .from('tenancies')
-      .select('*, people!person_id(id, full_name, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address)')
+      .select('*, people!person_id(id, full_name, salutation, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address)')
       .order('start_date', { ascending: false })
 
     // Active = no notice given yet, tenancy not ended
@@ -111,7 +111,7 @@ export default function TenancyManagementPage() {
     // Fetch cleaners
     const { data: cleanersData } = await supabase
       .from('people')
-      .select('id, full_name, first_name, last_name, email, phone')
+      .select('id, full_name, salutation, first_name, last_name, email, phone')
       .eq('role', 'cleaner')
       .order('full_name')
     setCleaners(cleanersData as any)
@@ -119,7 +119,7 @@ export default function TenancyManagementPage() {
     // Fetch contractors
     const { data: contractorsData } = await supabase
       .from('people')
-      .select('id, full_name, first_name, last_name, email')
+      .select('id, full_name, salutation, first_name, last_name, email')
       .eq('role', 'contractor')
       .order('full_name')
     setContractors(contractorsData as any)

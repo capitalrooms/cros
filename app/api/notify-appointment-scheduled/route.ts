@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       // Send to tenant IN this room: "A viewing has been booked on your room"
       const { data: tenancies } = await supabase
         .from('tenancies')
-        .select('person_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
+        .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
         .eq('room_id', roomId)
         .is('end_date', null)
         .single()
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       // Send to all OTHER tenants in the property: "A viewing is booked at the house"
       const { data: allTenancies } = await supabase
         .from('tenancies')
-        .select('person_id, room_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
+        .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
         .eq('property_id', propertyId)
         .neq('room_id', roomId)
         .is('end_date', null)
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
       // No specific room selected — notify all tenants in the property
       const { data: allTenancies } = await supabase
         .from('tenancies')
-        .select('person_id, people!person_id(full_name, first_name, last_name, email, notify_by_email)')
+        .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
         .eq('property_id', propertyId)
         .is('end_date', null)
 

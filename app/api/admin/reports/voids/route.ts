@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   // Most recent ended tenancy per room
   const { data: recentTenancies } = await supabase
     .from('tenancies')
-    .select('room_id, end_date, people!person_id ( first_name, last_name )')
+    .select('room_id, end_date, people!person_id ( salutation, first_name, last_name )')
     .in('room_id', voidRoomIds)
     .not('end_date', 'is', null)
     .order('end_date', { ascending: false })
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     if (!lastTenancyByRoom.has(t.room_id)) {
       lastTenancyByRoom.set(t.room_id, {
         end_date: t.end_date,
-        tenant_name: t.people ? [t.people.first_name, t.people.last_name].filter(Boolean).join(' ') : 'Unknown',
+        tenant_name: t.people ? [t.people.salutation, t.people.first_name, t.people.last_name].filter(Boolean).join(' ') : 'Unknown',
       })
     }
   }

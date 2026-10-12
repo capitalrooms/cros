@@ -45,6 +45,11 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
   const [error, setError] = useState('')
 
   async function handleSave() {
+    // every person has a title (Harry, 13 Oct 2026)
+    if (!formData.salutation) {
+      setError('Choose a title (Mr, Mrs, Ms, Miss…)')
+      return
+    }
     if (!formData.first_name.trim()) {
       setError('First name is required')
       return

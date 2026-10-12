@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const search   = searchParams.get('search') || ''
   const category = searchParams.get('category') || ''
 
-  const propSel = `property:properties(id, name, address, landlord:people!properties_landlord_id_fkey(first_name, last_name, company))`
+  const propSel = `property:properties(id, name, address, landlord:people!properties_landlord_id_fkey(salutation, first_name, last_name, company))`
   const [logged, imported] = await Promise.all([
     supabase.from('recharge_expenses').select(`id, description, amount, expense_date, source, category, txn_no, voided_at, ${propSel}`)
       .gte('expense_date', from).lte('expense_date', to).order('expense_date', { ascending: false }),
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       byProp.set(key, {
         property_id: prop?.id,
         property_name: prop?.name || prop?.address || 'Unknown',
-        landlord_name: prop?.landlord ? (prop.landlord.company || `${prop.landlord.first_name || ''} ${prop.landlord.last_name || ''}`.trim()) : '—',
+        landlord_name: prop?.landlord ? (prop.landlord.company || `${[prop.landlord.salutation, prop.landlord.first_name, prop.landlord.last_name].filter(Boolean).join(' ')}`.trim()) : '—',
         total: 0,
         rows: [],
       })

@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     .select(`
       id, start_date, end_date, notice_received_date, rent_amount, rent_due_day,
       is_fixed_term, last_rent_change_date, previous_rent_amount,
-      person:people!tenancies_person_id_fkey(id, full_name, first_name, last_name, email),
+      person:people!tenancies_person_id_fkey(id, full_name, salutation, first_name, last_name, email),
       room:rooms!tenancies_room_id_fkey(id, name),
       property:properties!tenancies_property_id_fkey(id, name, address, landlord_id,
         landlord:people!properties_landlord_id_fkey(*)

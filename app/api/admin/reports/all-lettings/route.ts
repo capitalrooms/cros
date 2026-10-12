@@ -20,10 +20,10 @@ export async function GET(req: NextRequest) {
     .select(`
       id, start_date, end_date, rent_amount, deposit_amount, notice_received_date,
       deposit_scheme_ref, created_at,
-      tenant:people!person_id(first_name, last_name, email),
+      tenant:people!person_id(salutation, first_name, last_name, email),
       room:rooms(id, name, current_asking_rent,
         property:properties(id, name, address,
-          landlord:people!properties_landlord_id_fkey(first_name, last_name)
+          landlord:people!properties_landlord_id_fkey(salutation, first_name, last_name)
         )
       )
     `)
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   if (search) {
     const q = search.toLowerCase()
     rows = rows.filter(r => {
-      const tenant = r.tenant ? `${r.tenant.first_name || ''} ${r.tenant.last_name || ''}` : ''
+      const tenant = r.tenant ? `${[r.tenant.salutation, r.tenant.first_name, r.tenant.last_name].filter(Boolean).join(' ')}` : ''
       const prop   = r.room?.property
       return `${tenant} ${prop?.name || ''} ${prop?.address || ''} ${r.room?.name || ''}`.toLowerCase().includes(q)
     })
@@ -54,11 +54,11 @@ export async function GET(req: NextRequest) {
       : null
     return {
       tenancy_id:        r.id,
-      tenant_name:       r.tenant ? `${r.tenant.first_name || ''} ${r.tenant.last_name || ''}`.trim() : '—',
+      tenant_name:       r.tenant ? `${[r.tenant.salutation, r.tenant.first_name, r.tenant.last_name].filter(Boolean).join(' ')}`.trim() : '—',
       tenant_email:      r.tenant?.email || null,
       room:              r.room?.name || '—',
       property:          prop?.name || prop?.address || '—',
-      landlord:          prop?.landlord ? `${prop.landlord.first_name || ''} ${prop.landlord.last_name || ''}`.trim() : '—',
+      landlord:          prop?.landlord ? `${[prop.landlord.salutation, prop.landlord.first_name, prop.landlord.last_name].filter(Boolean).join(' ')}`.trim() : '—',
       start_date:        r.start_date,
       end_date:          r.end_date,
       is_active:         isActive,

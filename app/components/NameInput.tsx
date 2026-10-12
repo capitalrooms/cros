@@ -87,8 +87,10 @@ export default function NameInput({
   labelClass = 'block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-1',
   label,
   withMiddle = false,
-  titleRequired = false,
+  titleRequired,
 }: Props) {
+  // every person has a title (Harry, 13 Oct 2026) — a required name means a required title unless told otherwise
+  titleRequired = titleRequired ?? required
   function set(field: keyof NameValue, val: string) {
     onChange({ ...value, [field]: val })
   }

@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
   const { data: person } = await service
     .from('people')
-    .select('id, first_name, last_name')
+    .select('id, salutation, first_name, last_name')
     .eq('email', authData.user.email)
     .single()
   if (!person) return NextResponse.json({ error: 'Person not found' }, { status: 404 })
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
       .in('role', ['administrator', 'admin'])
 
     if (admins && admins.length > 0) {
-      const tenantName = `${person.first_name || ''} ${person.last_name || ''}`.trim() || 'A tenant'
+      const tenantName = `${[person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')}`.trim() || 'A tenant'
       const propName = (clean.properties as any)?.name ?? 'a property'
       const taskList = tasks.slice(0, 3).join(', ') + (tasks.length > 3 ? ` +${tasks.length - 3} more` : '')
       await insertNotifications(service, admins.map((a: any) => a.id), {

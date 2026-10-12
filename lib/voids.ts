@@ -33,8 +33,8 @@ export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDa
   ]) as { data: any[] | null }[]
   const managed = new Map((props ?? []).filter(p => !p.is_demo && p.letting_type !== 'let_only').map(p => [p.id, p]))
   const landlordIds = [...new Set([...managed.values()].map(p => p.landlord_id).filter(Boolean))]
-  const { data: lls } = landlordIds.length ? await s.from('people').select('id, first_name, last_name, full_name, company').in('id', landlordIds) : { data: [] }
-  const llName = new Map(((lls ?? []) as any[]).map(p => [p.id, p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Landlord']))
+  const { data: lls } = landlordIds.length ? await s.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', landlordIds) : { data: [] }
+  const llName = new Map(((lls ?? []) as any[]).map(p => [p.id, p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Landlord']))
 
   const end = toDay(today) + 1   // up to and including today
   const byRoom = new Map<string, any[]>()
