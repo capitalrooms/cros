@@ -9,6 +9,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import LettingsViewingNotifyModal from '@/app/components/LettingsViewingNotifyModal';
+import AddLetOnlyModal from '@/app/components/AddLetOnlyModal';
 
 interface Viewing {
   id: string;
@@ -93,6 +94,8 @@ export default function ViewingsDiary() {
   const [saving, setSaving] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
+  // an address not in CROS yet → added as a let-only house, then picked for this viewing
+  const [addingLetOnly, setAddingLetOnly] = useState(false);
   const [newForm, setNewForm] = useState(blankNewForm());
   const [form, setForm] = useState({
     viewing_date: '',
@@ -419,6 +422,9 @@ export default function ViewingsDiary() {
                     </option>
                   ))}
                 </select>
+                <button type="button" onClick={() => setAddingLetOnly(true)} className="mt-xs text-xs font-semibold text-blue-700 hover:underline">
+                  Address not listed? Add it as a let-only property
+                </button>
               </div>
 
               <div className="grid grid-cols-2 gap-md">
@@ -614,6 +620,20 @@ export default function ViewingsDiary() {
             </div>
           </div>
         </div>
+      )}
+
+      {addingLetOnly && (
+        <AddLetOnlyModal
+          onClose={() => setAddingLetOnly(false)}
+          onSave={async (property: any) => {
+            setAddingLetOnly(false);
+            const { data } = await createClient().from('rooms').select('id, name, property_id, properties(id, name)').order('name');
+            const list = ((data as any) || []) as Room[];
+            setRooms(list);
+            const first = list.filter(r => r.property_id === property?.id).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'en', { numeric: true }))[0];
+            if (first) setNewForm(f => ({ ...f, room_id: first.id, property_id: first.property_id }));
+          }}
+        />
       )}
     </div>
   );

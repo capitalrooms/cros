@@ -43,6 +43,9 @@ interface Props {
   onClose: () => void
   onSave: (listing: any) => void
   createdByPersonId?: string
+  /** what was typed in a search that found nothing — starts the address off */
+  initialAddress?: string
+  initialPostcode?: string
 }
 
 const emptyRoom = (): RoomDraft => ({
@@ -91,14 +94,14 @@ function ThreeStateButton({
   )
 }
 
-export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId }: Props) {
+export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, initialAddress, initialPostcode }: Props) {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Address
-  const [address, setAddress] = useState('')
-  const [postcode, setPostcode] = useState('')
+  const [address, setAddress] = useState(initialAddress?.trim() ?? '')
+  const [postcode, setPostcode] = useState(initialPostcode?.trim() ?? '')
 
   // Landlord — existing person lookup
   const [landlordQuery, setLandlordQuery] = useState('')
@@ -116,6 +119,18 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId }: 
   const [hasTumbleDryer, setHasTumbleDryer] = useState<boolean | null>(null)
 
   const [rooms, setRooms] = useState<RoomDraft[]>([emptyRoom()])
+
+  // The landlords who already have let-only houses with us (usually just one) — a single tap instead of a search
+  const [usual, setUsual] = useState<LandlordSuggestion[]>([])
+  useEffect(() => {
+    (async () => {
+      const { data: props } = await supabase.from('properties').select('landlord_id').eq('letting_type', 'let_only').not('landlord_id', 'is', null)
+      const ids = [...new Set(((props ?? []) as any[]).map(p => p.landlord_id))]
+      if (!ids.length) return
+      const { data } = await supabase.from('people').select('id, first_name, last_name, full_name, email, phone').in('id', ids)
+      setUsual(((data ?? []) as LandlordSuggestion[]).sort((a, b) => (displayName(a) || '').localeCompare(displayName(b) || '')))
+    })()
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Landlord autocomplete ──────────────────────────────────────────────────
 
@@ -324,6 +339,17 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId }: 
           <section>
             <h3 className="text-sm font-semibold text-neutral-700 mb-md">Landlord contact</h3>
             <div className="space-y-sm">
+              {usual.length > 0 && (
+                <div className="flex flex-wrap items-center gap-xs">
+                  <span className="text-xs text-neutral-500">Usual landlord:</span>
+                  {usual.map(l => (
+                    <button key={l.id} type="button" onClick={() => pickLandlord(l)}
+                      className={`rounded-full border px-sm py-0.5 text-xs font-semibold ${selectedLandlordId === l.id ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50'}`}>
+                      {selectedLandlordId === l.id ? '✓ ' : ''}{displayName(l) || l.full_name}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* Search existing landlords */}
               <div className="relative">
                 <label className="block text-xs font-medium text-neutral-600 mb-xs">
