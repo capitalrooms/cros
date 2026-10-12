@@ -744,10 +744,10 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                             <img
                               src={roomPhotos[room.id][0].url}
                               alt=""
-                              className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-neutral-100"
+                              className="hidden sm:block w-10 h-10 rounded-md object-cover flex-shrink-0 bg-neutral-100"
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded-md bg-neutral-100 flex items-center justify-center flex-shrink-0 text-neutral-300 text-xs">
+                            <div className="hidden sm:flex w-10 h-10 rounded-md bg-neutral-100 items-center justify-center flex-shrink-0 text-neutral-300 text-xs">
                               🖼
                             </div>
                           )}
