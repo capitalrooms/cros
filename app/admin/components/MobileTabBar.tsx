@@ -18,16 +18,18 @@ const TABS = [
     icon: <path d="M16 6.5a4.5 4.5 0 0 0-8 2.8V13m-2 0h9m-9 6h12M8 13c0 3-1 5-2 6" /> },
 ]
 
-export default function MobileTabBar() {
+/** allowed: the person's access (lib/access/areas, from the layout) — tabs outside it aren't shown */
+export default function MobileTabBar({ allowed = () => true }: { allowed?: (href: string) => boolean }) {
   const pathname = usePathname()
-  const onTab = TABS.some(t => t.match(pathname))
+  const tabs = TABS.filter(t => allowed(t.href))
+  const onTab = tabs.some(t => t.match(pathname))
   return (
     <nav
       aria-label="Admin sections"
       className="md:hidden flex-shrink-0 flex justify-around border-t border-neutral-200 bg-white/95 backdrop-blur"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 6px)' }}
     >
-      {TABS.map(t => {
+      {tabs.map(t => {
         const active = t.match(pathname)
         return (
           <Link key={t.href} href={t.href} prefetch={false} aria-current={active ? 'page' : undefined}

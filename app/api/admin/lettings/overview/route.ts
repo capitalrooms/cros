@@ -23,12 +23,15 @@ export async function GET(req: NextRequest) {
   const s = createServiceClient()
   const today = todayIso()
 
-  const [{ data: apps, error: aErr }, { data: tens, error: tErr }, { count: availableNow }] = await Promise.all([
+  const [{ data: apps, error: aErr }, { data: tens, error: tErr }, { count: availableNow }, { data: stuck }] = await Promise.all([
     s.from('applicants').select('id, full_name, email, pipeline_stage, created_at, submitted_at, rooms(name), properties(name, address, property_code)')
-      .in('pipeline_stage', ACTIVE_APPLICANT).order('created_at', { ascending: false }),
+      .in('pipeline_stage', ACTIVE_APPLICANT).is('archived_at', null).order('created_at', { ascending: false }),
     s.from('tenancies').select('*, people!person_id(first_name, last_name, full_name, email), rooms(name, status), properties(name, address, property_code)')
       .is('let_cancelled_at', null).or(`end_date.is.null,end_date.gte.${today}`),
     s.from('rooms').select('id', { count: 'exact', head: true }).eq('status', 'available'),
+    // marked let agreed but no tenant or tenancy was ever made (the holding deposit wasn't recorded) — kept in view
+    s.from('applicants').select('id, full_name, email, pipeline_stage, created_at, submitted_at, rooms(name), properties(name, address, property_code)')
+      .eq('pipeline_stage', 'converted').is('converted_person_id', null).is('archived_at', null),
   ])
   if (aErr || tErr) return NextResponse.json({ error: (aErr ?? tErr)!.message }, { status: 500 })
 
@@ -72,8 +75,10 @@ export async function GET(req: NextRequest) {
     return { id: t.id, tenant: personName(t.people), ...where(t), endDate: t.end_date, relet: incoming ? { id: incoming.id, tenant: personName(incoming.people), startDate: incoming.start_date } : null }
   }).sort((a, b) => String(a.endDate ?? '9999').localeCompare(String(b.endDate ?? '9999')))
 
-  // newest first — the order they came in
-  const applicants = ((apps ?? []) as any[]).map(a => ({
+  // newest first — the order they came in; let agreed with no tenancy behind it first, so it gets finished
+  const withTenancy = new Set(((tens ?? []) as any[]).map(t => t.applicant_id).filter(Boolean))
+  const unfinished = ((stuck ?? []) as any[]).filter(a => !withTenancy.has(a.id)).map(a => ({ ...a, pipeline_stage: 'no_tenancy' }))
+  const applicants = [...unfinished, ...((apps ?? []) as any[])].map(a => ({
     id: a.id, name: a.full_name, email: a.email, stage: a.pipeline_stage, at: (a.submitted_at ?? a.created_at)?.slice(0, 10) ?? null,
     room: a.rooms?.name ?? '', property: firstLine(a.properties?.name || a.properties?.address),
   }))

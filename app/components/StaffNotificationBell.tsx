@@ -24,7 +24,11 @@ export default function StaffNotificationBell({ className = '' }: { className?: 
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
+  const last = useRef(0)
   const load = useCallback(async () => {
+    // at most once every 10 seconds — window focus fires often (switching tabs, other windows)
+    if (Date.now() - last.current < 10_000) return
+    last.current = Date.now()
     const res = await fetch('/api/staff/notifications').catch(() => null)
     if (!res?.ok) return
     const d = await res.json().catch(() => null)

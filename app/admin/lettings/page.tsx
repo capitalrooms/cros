@@ -17,6 +17,7 @@ interface OnNotice { id: string; tenant: string; room: string; property: string;
 interface Overview { applicants: Applicant[]; letAgreed: LetAgreed[]; onNotice: OnNotice[]; counts: { applicants: number; letAgreed: number; live: number; onNotice: number; availableNow: number } }
 
 const STAGE: Record<string, [string, string]> = {
+  no_tenancy: ['Let agreed — no tenancy yet', 'bg-amber-100 text-amber-800'],
   applied: ['Applied', 'bg-blue-50 text-blue-800'],
   offer_sent: ['Offer sent', 'bg-amber-50 text-amber-800'],
   referencing: ['Referencing', 'bg-violet-50 text-violet-800'],

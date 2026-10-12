@@ -269,7 +269,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </main>
 
         {/* Phone only: app-style bottom tabs */}
-        <MobileTabBar />
+        <MobileTabBar allowed={allowed} />
       </div>
     </div>
     </AdminContext.Provider>
