@@ -4,21 +4,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSignedIn, canWorkOnTicket } from '@/lib/portalAuth';
 
 export async function POST(request: NextRequest) {
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
-  }
+  // only the office or the contractor on this job (audit 12 Oct 2026: anyone could trigger tenant messages) — checked
+  // before anything else, the pause switch included
+  const caller = await requireSignedIn(request)
+  if (!caller) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   try {
     const { ticketId, hasReturnVisit, returnVisitDate } = await request.json();
 
     if (!ticketId) {
       return NextResponse.json({ error: 'ticketId required' }, { status: 400 });
     }
+    if (!(await canWorkOnTicket(caller, ticketId))) {
+      return NextResponse.json({ error: 'That job isn’t yours.' }, { status: 403 });
+    }
 
-    // only the office or the contractor on this job (audit 12 Oct 2026: anyone could trigger tenant messages)
-    const caller = await requireSignedIn(request)
-    if (!caller || !(await canWorkOnTicket(caller, ticketId))) {
-      return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 });
+    // Master switch: tenant/applicant messaging is paused until go-live.
+    if (!await getCommsLive()) {
+      return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
     }
 
     const supabase = createClient();
