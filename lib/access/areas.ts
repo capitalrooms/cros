@@ -23,7 +23,8 @@ export const AREAS: Area[] = [
       '/api/admin/ensure-storage', '/api/admin/create-property', '/api/admin/delete-photo', '/api/admin/house-info-extract', '/api/admin/property-insights',
       '/api/admin/property-policies', '/api/admin/upload-photo'] },
   { key: 'lettings', label: 'Lettings', hint: 'Available rooms, applicants, offers, let-only houses, agreements, tenancies',
-    pages: ['/admin/lettings', '/admin/available-and-lettings', '/admin/applicants', '/admin/invite-to-apply', '/admin/let-only', '/admin/let-only-properties',
+    // tenant profiles too: the letting file links to them (they're also in People)
+    pages: ['/admin/lettings', '/admin/available-and-lettings', '/admin/applicants', '/admin/invite-to-apply', '/admin/let-only', '/admin/let-only-properties', '/admin/tenant',
       '/admin/bulk-tenancy-generator', '/admin/tenancies', '/admin/move-in', '/admin/tenancy-management', '/admin/rent-increase', '/admin/early-move-out', '/admin/rent-history', '/admin/voids'],
     api: ['/api/admin/lettings', '/api/admin/let-only', '/api/admin/bulk-tenancy-generator', '/api/admin/move-in', '/api/admin/tenancies', '/api/admin/rent-reviews', '/api/admin/voids',
       '/api/admin/landlord-invoice', '/api/admin/upload-applicant-document', '/api/admin/quick-notify-lettings', '/api/emails/checkout-preview'] },
@@ -83,6 +84,10 @@ const longest = (path: string, pick: (a: Area) => string[]) => {
   return best?.key ?? null
 }
 
+/** The areas a path is part of (a page can be in more than one, e.g. tenant profiles: Lettings and People). */
+const areasOf = (path: string, pick: (a: Area) => string[]) =>
+  AREAS.filter(a => pick(a).some(p => path === p || path.startsWith(p + '/'))).map(a => a.key)
+
 /** The area an office page belongs to; '/admin' itself is the dashboard; null = administrators only (Settings etc.). */
 export function areaOfPage(pathname: string): AreaKey | null {
   if (pathname === '/admin' || pathname === '/admin/') return 'dashboard'
@@ -98,8 +103,8 @@ const OPEN_TO_OFFICE = ['/admin/profile', '/admin/settings/signatures']
 export function canOpenPage(pathname: string, areas: AreaKey[], role: string | null | undefined): boolean {
   if (isAdministrator(role)) return true
   if (OPEN_TO_OFFICE.some(p => pathname === p || pathname.startsWith(p + '/'))) return true
-  const a = areaOfPage(pathname)
-  return !!a && areas.includes(a)
+  if (pathname === '/admin' || pathname === '/admin/') return areas.includes('dashboard')
+  return areasOf(pathname, a => a.pages).some(k => areas.includes(k))
 }
 
 /** API routes every office person may call: their own profile and signature, opening and uploading documents (used
@@ -113,8 +118,7 @@ export const isPublicApi = (pathname: string) => PUBLIC_API.some(p => pathname =
 export function canCallApi(pathname: string, areas: AreaKey[], role: string | null | undefined): boolean {
   if (isAdministrator(role)) return true
   if (API_OPEN_TO_OFFICE.some(p => pathname === p || pathname.startsWith(p + '/'))) return true
-  const a = areaOfApi(pathname)
-  return !!a && areas.includes(a)
+  return areasOf(pathname, a => a.api).some(k => areas.includes(k))
 }
 
 /** Where someone lands in the office app: the dashboard if they have it, else their first area's first page. */
