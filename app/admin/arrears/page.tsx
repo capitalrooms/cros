@@ -2,6 +2,7 @@
 
 // Arrears tracker — who owes rent, how much, since when, and whether it has reached the 3-month threshold.
 import { Fragment, useEffect, useState } from 'react'
+import RentSortOut from '@/components/RentSortOut'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
@@ -29,6 +30,7 @@ export default function ArrearsPage() {
   const [rows, setRows] = useState<ArrearsRow[] | null>(null)
   const [totals, setTotals] = useState({ owed: 0, tenants: 0, legal: 0, approaching: 0 })
   const [error, setError] = useState('')
+  const [sortFor, setSortFor] = useState<string | null>(null)   // tenancy whose rent is being sorted out
   const [open, setOpen] = useState<string | null>(null)
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState('')
@@ -124,9 +126,11 @@ export default function ArrearsPage() {
                           <span className="whitespace-nowrap">{day(r.since)} <span className="text-neutral-400">· {r.days} days</span></span>
                           {r.nextStep && <span className="block text-xs font-semibold text-neutral-900">Next: {r.nextStep}</span>}
                           <span className="block text-xs text-neutral-500">{r.lastAction ? `Last contact: ${ACTION_LABEL[r.lastAction.action] || r.lastAction.action} ${new Date(r.lastAction.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'No contact logged'}</span>
+                          {r.plan && <span className="mt-0.5 inline-block rounded-full bg-violet-100 px-sm py-0.5 text-[11px] font-semibold text-violet-900">Plan: {gbp(r.plan.instalment)} a month from {day(r.plan.startsOn)}</span>}
                         </td>
                         <td className="px-lg py-md">
                           <div className="flex flex-wrap justify-end gap-sm">
+                            {r.tenancyId && <button onClick={() => setSortFor(r.tenancyId)} className="rounded-lg border border-neutral-900 bg-white px-md py-xs text-xs font-bold text-neutral-900 whitespace-nowrap">Sort out…</button>}
                             <button disabled={busy === r.key} onClick={() => letter(r)} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white disabled:opacity-40 whitespace-nowrap">{busy === r.key ? 'Building…' : 'Arrears letter'}</button>
                             {r.tenancyId && <button onClick={() => downloadPdf(`/api/admin/tenancies/${r.tenancyId}/statement-of-account`, `Statement of account ${r.tenant}.pdf`).catch(e => alert(e.message))} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-bold text-neutral-800 whitespace-nowrap">Statement of account</button>}
                             {r.tenancyId && <Link href={`/admin/lettings/${r.tenancyId}?tab=money&from=/admin/arrears`} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-bold text-neutral-800">Letting file</Link>}
@@ -172,6 +176,7 @@ export default function ArrearsPage() {
           </div>
         )}
       </div>
+      {sortFor && <RentSortOut tenancyId={sortFor} onClose={() => setSortFor(null)} onChanged={() => setReload(n => n + 1)} />}
     </div>
   )
 }

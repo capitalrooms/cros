@@ -45,7 +45,7 @@ export const AREAS: Area[] = [
       '/api/admin/ops-account', '/api/admin/statements', '/api/admin/statement-line-items', '/api/admin/reconciliation', '/api/admin/bank-import', '/api/admin/rent-charges',
       '/api/admin/arrears', '/api/admin/client-money', '/api/admin/deposits', '/api/admin/deposit-returns', '/api/admin/payouts', '/api/admin/reports', '/api/admin/landlord-statement',
       '/api/admin/landlord-bank-accounts', '/api/admin/payment-audit-log', '/api/admin/financial-trail', '/api/admin/categorise-expense', '/api/admin/finance-check',
-      '/api/admin/finance-home', '/api/admin/expense-statement-pdf', '/api/admin/send-expense-report', '/api/admin/arrears-letter', '/api/accounts', '/api/statements'] },
+      '/api/admin/finance-home', '/api/admin/rent-resolve', '/api/admin/expense-statement-pdf', '/api/admin/send-expense-report', '/api/admin/arrears-letter', '/api/accounts', '/api/statements'] },
   { key: 'people', label: 'People', hint: 'Tenants, landlords, contractors and cleaners (not office accounts)',
     pages: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord'], api: ['/api/admin/people'] },
   { key: 'comms', label: 'Comms', hint: 'Messages, letters & invoices, quick notify, templates',

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
+import RentSortOut from '@/components/RentSortOut'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
 import DocUploadDrawer from '@/components/DocUploadDrawer'
 import { openMyFile } from '@/lib/files/useStoredFile'
@@ -524,13 +525,18 @@ function WrongRoom({ file, patch }: { file: LettingFile; patch: Patch }) {
 export function MoneyTab({ file }: { file: LettingFile }) {
   const t = file.tenancy
   const acc = file.account
+  const [sorting, setSorting] = useState(false)
   return (
     <div className="space-y-md">
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-sm mb-sm">
           <h2 className="text-lg font-bold">Rent account</h2>
-          <button type="button" className={btn} onClick={() => openPdf(`/api/admin/tenancies/${t.id}/statement-of-account`)}>Statement of account (PDF)</button>
+          <span className="flex flex-wrap gap-sm">
+            <button type="button" className={btn} onClick={() => setSorting(true)}>Sort out rent…</button>
+            <button type="button" className={btn} onClick={() => openPdf(`/api/admin/tenancies/${t.id}/statement-of-account`)}>Statement of account (PDF)</button>
+          </span>
         </div>
+        {sorting && <RentSortOut tenancyId={t.id} onClose={() => setSorting(false)} onChanged={() => window.dispatchEvent(new Event('letting-file-changed'))} />}
         {acc && acc.lines.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

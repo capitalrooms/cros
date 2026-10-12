@@ -50,6 +50,8 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
     setFile(d.file); setError('')
   }, [tenancyId])
   useEffect(() => { load() }, [load])
+  // the rent "Sort out" panel (Money tab) changed something: reload the file
+  useEffect(() => { const on = () => { load() }; window.addEventListener('letting-file-changed', on); return () => window.removeEventListener('letting-file-changed', on) }, [load])
 
   // a new let opens on its progress; a tenancy that started before the letting file opens on its terms
   const activeTab: Tab = tab ?? (file ? (file.stage === 'let_agreed' ? 'progress' : 'terms') : 'progress')

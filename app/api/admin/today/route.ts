@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     const late = days(c.charge_month, today)
     items.push({
       id: `rent-${c.id}`, kind: 'rent_overdue', group: 'needs_you', rank: 20,
-      title: `Rent ${c.status === 'partial' ? 'part paid' : 'overdue'} · ${gbp(owed)}`, detail: where(c.rooms, c.rooms?.properties),
+      title: `Rent ${Number(c.amount_received || 0) > 0 ? 'part paid' : 'overdue'} · ${gbp(owed)} still owed`, detail: where(c.rooms, c.rooms?.properties),
       tag: { text: `${late} days`, tone: late > 30 ? 'red' : 'amber' },
       href: `/admin/arrears`, chargeId: c.id, amount: owed,   // what's still outstanding — the pay route adds it to what's been received
     })
