@@ -54,13 +54,13 @@ function Prepare({ propertyId, month, practice }: { propertyId: string; month: s
     setError('')
     const [d, p, st] = await Promise.all([
       adminFetch(`/api/admin/statements/draft?propertyId=${propertyId}&month=${month}`).then(r => r.json()),
-      createClient().from('properties').select('name, people!landlord_id(first_name, last_name, full_name, company)').eq('id', propertyId).maybeSingle(),
+      createClient().from('properties').select('name, people!landlord_id(salutation, first_name, last_name, full_name, company)').eq('id', propertyId).maybeSingle(),
       createClient().from('landlord_statements').select('id, statement_reference, statement_date, net_to_landlord, approved_at, paid_date, sent_at, source, payment_run_id')
         .eq('property_id', propertyId).gte('period_start', `${month}-01`).lte('period_start', monthEnd(month)).order('statement_reference'),
     ])
     if (d.error) setError(d.error); else setDraft(d.draft)
     const pr: any = p.data
-    setProperty(pr ? { name: String(pr.name || '').split('\n')[0], landlord: pr.people?.company || [pr.people?.first_name, pr.people?.last_name].filter(Boolean).join(' ') || pr.people?.full_name || 'No landlord' } : null)
+    setProperty(pr ? { name: String(pr.name || '').split('\n')[0], landlord: pr.people?.company || [pr.people?.salutation, pr.people?.first_name, pr.people?.last_name].filter(Boolean).join(' ') || pr.people?.full_name || 'No landlord' } : null)
     setMade((st.data as MadeStatement[]) ?? [])
   }, [propertyId, month])
 

@@ -40,7 +40,7 @@ async function stalledJobs(s: ReturnType<typeof createServiceClient>, ids?: stri
   // maintenance_tickets.contractor_id has no foreign key to people, so the contractor is looked up separately
   const cIds = [...new Set(((data ?? []) as any[]).map(t => t.contractor_id))]
   const { data: cs } = cIds.length
-    ? await s.from('people').select('id, first_name, last_name, full_name, company, email').in('id', cIds)
+    ? await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email').in('id', cIds)
     : { data: [] as any[] }
   const byId = new Map(((cs ?? []) as any[]).map(c => [c.id, c]))
   const out: ChaseJob[] = []
@@ -59,7 +59,7 @@ async function stalledJobs(s: ReturnType<typeof createServiceClient>, ids?: stri
         : `Hi ${first}, could you book a date for ${job}? Pick a slot in the app and the tenants are told automatically. If you can’t take it on, let us know so we can pass it on.`
     out.push({
       id: t.id, title: t.title || 'Maintenance job', where, contractorId: t.contractor_id,
-      contractor: [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || c.company || c.email || 'Contractor',
+      contractor: [c.salutation, c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || c.company || c.email || 'Contractor',
       contractorEmail: c.email ?? null, bookedDate: t.booked_date, bookedSlot: t.booked_slot,
       reason: overdue ? 'overdue' : 'not_booked', message,
     })

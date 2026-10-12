@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     .from('tenancies')
     .select(`
       id, room_id, person_id, rent_amount, payment_reference, start_date, end_date, let_cancelled_at, bank_sender_name,
-      people:people!person_id(id, first_name, last_name),
+      people:people!person_id(id, salutation, first_name, last_name),
       rooms(id, name, properties(id, name))
     `)
     .lte('start_date', shift(60))
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     return {
       tenancy_id: t.id,
       person_id: t.person_id,
-      name: [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' '),
+      name: [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' '),
       payment_reference: t.payment_reference,
       room_name: t.rooms?.name ?? null,
       property_name: t.rooms?.properties?.name ?? null,

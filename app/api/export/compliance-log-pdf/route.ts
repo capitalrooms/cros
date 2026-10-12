@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     // Fetch all compliance logs
     const { data: logs, error: logsError } = await supabase
       .from('compliance_logs')
-      .select('*, people(full_name, first_name, last_name)')
+      .select('*, people(full_name, salutation, first_name, last_name)')
       .eq('property_id', property_id)
       .order('checked_date', { ascending: false })
 

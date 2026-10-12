@@ -67,7 +67,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
       const supabase = createClient()
       const { data: p } = await supabase
         .from('people')
-        .select('id, first_name, last_name, full_name, email, phone, role, using_app')
+        .select('id, salutation, first_name, last_name, full_name, email, phone, role, using_app')
         .eq('id', personId)
         .single()
       if (!p) { router.push('/admin/contacts'); return }

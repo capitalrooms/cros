@@ -146,7 +146,7 @@ export default function BookMaintenancePage() {
   const selectedJobs = jobs.filter((j) => selectedJobIds.has(j.id))
   const groupedByContractor = selectedJobs.reduce(
     (acc, job) => {
-      const key = (job.contractor?.full_name || [job.contractor?.first_name, job.contractor?.last_name].filter(Boolean).join(' ') || 'Unassigned')
+      const key = ([job.contractor?.salutation, job.contractor?.first_name, job.contractor?.last_name].filter(Boolean).join(' ') || job.contractor?.full_name || 'Unassigned')
       if (!acc[key]) acc[key] = []
       acc[key].push(job)
       return acc

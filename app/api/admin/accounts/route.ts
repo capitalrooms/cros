@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const ROLES = ['tenant', 'landlord', 'contractor', 'cleaner', 'administrator', 'admin', 'lettings']
-const name = (p: any) => [p.first_name, p.last_name].filter(Boolean).join(' ') || p.company || p.email
+const name = (p: any) => [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.company || p.email
 
 async function groupsOf(s: ReturnType<typeof createServiceClient>, people: any[]) {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   if (action === 'off' && ids.includes(admin.personId)) return NextResponse.json({ error: 'You can’t turn off your own sign-in.' }, { status: 400 })
 
   const s = createServiceClient()
-  const { data: people } = await s.from('people').select('id, email, role, first_name, last_name, company').in('id', ids)
+  const { data: people } = await s.from('people').select('id, email, role, salutation, first_name, last_name, company').in('id', ids)
   const elected = await getElectedCommsLive()
   const users = action === 'send' ? await authUsersByEmail(s) : undefined
   const done: any[] = [], failed: any[] = []

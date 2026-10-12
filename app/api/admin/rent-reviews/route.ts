@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const [{ data: tenancies, error }, { data: notices, error: nErr }] = await Promise.all([
     s.from('tenancies')
-      .select('id, start_date, end_date, notice_received_date, rent_amount, last_rent_change_date, people!person_id(id, first_name, last_name, full_name), rooms!tenancies_room_id_fkey(name), properties!tenancies_property_id_fkey(id, name, address)')
+      .select('id, start_date, end_date, notice_received_date, rent_amount, last_rent_change_date, people!person_id(id, salutation, first_name, last_name, full_name), rooms!tenancies_room_id_fkey(name), properties!tenancies_property_id_fkey(id, name, address)')
       .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
     s.from('rent_increase_notices').select('tenancy_id, effective_date, outcome, old_rent, proposed_rent, created_at').neq('outcome', 'withdrawn'),
   ])
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const p = t.people
     return {
       tenancyId: t.id,
-      tenant: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Tenant',
+      tenant: [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Tenant',
       personId: p?.id ?? null,
       room: t.rooms?.name ?? '',
       property: t.properties?.name || t.properties?.address || '',

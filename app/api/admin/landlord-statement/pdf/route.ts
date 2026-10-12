@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const { data: adminPerson } = await supabase
-    .from('people').select('first_name, last_name, job_title, role').eq('email', session.user.email).single()
+    .from('people').select('salutation, first_name, last_name, job_title, role').eq('email', session.user.email).single()
   if (!adminPerson || !['administrator', 'admin', 'lettings'].includes(adminPerson.role))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
         id, name, current_asking_rent, status,
         tenancies (
           id, person_id, start_date, end_date, management_fee_type, management_fee_pct, management_fee_fixed,
-          people:people!tenancies_person_id_fkey (first_name, last_name)
+          people:people!tenancies_person_id_fkey (salutation, first_name, last_name)
         )
       )
     `)
@@ -211,7 +211,7 @@ export async function GET(req: NextRequest) {
       propRent += rent; propFee += fee
 
       const tenantName = tenancy?.people
-        ? [tenancy.people.first_name, tenancy.people.last_name].filter(Boolean).join(' ')
+        ? [tenancy.people.salutation, tenancy.people.first_name, tenancy.people.last_name].filter(Boolean).join(' ')
         : '—'
       const statusStr = charge?.status || 'pending'
 

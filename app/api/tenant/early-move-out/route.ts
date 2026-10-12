@@ -179,7 +179,7 @@ export async function GET(req: NextRequest) {
       replacement_tenant_name, replacement_tenant_email,
       refund_days, refund_amount, voucher_amount, daily_rate,
       person_id, tenancy_id, property_id, room_id,
-      people:person_id (id, first_name, last_name, full_name, email),
+      people:person_id (id, salutation, first_name, last_name, full_name, email),
       properties:property_id (name, address),
       rooms:room_id (name)
     `)

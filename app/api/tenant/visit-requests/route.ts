@@ -40,8 +40,8 @@ export async function GET(req: NextRequest) {
     .select(`
       id, ticket_id, request_text, status, admin_response,
       reviewed_at, created_at,
-      tenant: tenant_person_id (first_name, last_name),
-      reviewer: reviewed_by (first_name, last_name)
+      tenant: tenant_person_id (salutation, first_name, last_name),
+      reviewer: reviewed_by (salutation, first_name, last_name)
     `)
     .eq('ticket_id', ticketId)
     .order('created_at', { ascending: false })
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
 
   const { data: person } = await service
     .from('people')
-    .select('id, first_name, last_name')
+    .select('id, salutation, first_name, last_name')
     .eq('email', authData.user.email)
     .single()
 
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
 
     if (admins && admins.length > 0) {
       const adminIds = admins.map((a: any) => a.id)
-      const tenantName = `${person.first_name || ''} ${person.last_name || ''}`.trim() || 'A tenant'
+      const tenantName = `${[person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')}`.trim() || 'A tenant'
       const propName = (ticket.properties as any)?.name ?? 'a property'
 
       await insertNotifications(service, adminIds, {

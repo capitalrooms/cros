@@ -478,7 +478,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
                             <div className="text-right text-neutral-400 shrink-0">
                               <p>{new Date(h.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                               {h.recorded_by_person && (
-                                <p>{h.recorded_by_person.first_name} {h.recorded_by_person.last_name}</p>
+                                <p>{[h.recorded_by_person.salutation, h.recorded_by_person.first_name, h.recorded_by_person.last_name].filter(Boolean).join(' ')}</p>
                               )}
                             </div>
                           </div>
@@ -567,7 +567,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
                   </div>
                   <div className="text-right text-neutral-400 shrink-0">
                     <p>{new Date(h.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                    {h.recorded_by_person && <p>{h.recorded_by_person.first_name} {h.recorded_by_person.last_name}</p>}
+                    {h.recorded_by_person && <p>{[h.recorded_by_person.salutation, h.recorded_by_person.first_name, h.recorded_by_person.last_name].filter(Boolean).join(' ')}</p>}
                   </div>
                 </div>
               ))}

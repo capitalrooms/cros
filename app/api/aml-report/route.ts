@@ -30,14 +30,14 @@ export async function GET(req: NextRequest) {
   // Landlord from people
   const { data: landlord, error: lErr } = await db
     .from('people')
-    .select('id, first_name, last_name, full_name, email, phone')
+    .select('id, salutation, first_name, last_name, full_name, email, phone')
     .eq('id', landlordId)
     .single()
 
   if (lErr || !landlord) {
     return NextResponse.json({ error: 'Landlord not found' }, { status: 404 })
   }
-  const landlordName: string | null = [landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || landlord.full_name || null
+  const landlordName: string | null = [landlord.salutation, landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || landlord.full_name || null
 
   // Properties linked to this landlord
   // (sole or joint landlord — properties.landlord_id / landlord_id_2)

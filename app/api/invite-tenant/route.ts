@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   // Get tenant details
   const { data: person, error: pErr } = await supabase
     .from('people')
-    .select('id, first_name, last_name, full_name, email, phone')
+    .select('id, salutation, first_name, last_name, full_name, email, phone')
     .eq('id', personId)
     .single()
 

@@ -416,7 +416,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
     setSavingNewAml(true)
     const { data, error } = await supabase.from('landlord_onboarding').insert({
       landlord_people_id: personId, email: person.email,
-      full_name: person.company || [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email,
+      full_name: person.company || [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') || person.email,
       stage: 6, is_refresh: amlRecords.length > 0,
       refresh_reason: amlRecords.length > 0 ? 'Periodic review' : null,
       entity_type: newAml.entity_type, risk_level: newAml.risk_level,
@@ -463,7 +463,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
     { id: 'notifications' as const, label: 'Notifications' },
   ]
 
-  const landlordName = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.full_name || person.company || person.email || 'Landlord'
+  const landlordName = [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') || person.full_name || person.company || person.email || 'Landlord'
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">

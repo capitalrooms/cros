@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   if (type === 'hmo') {
     const { data, error } = await sb()
       .from('hmo_licence_history')
-      .select('licence_number, issue_date, expiry_date, notes, created_at, recorded_by_person:people!recorded_by(first_name, last_name)')
+      .select('licence_number, issue_date, expiry_date, notes, created_at, recorded_by_person:people!recorded_by(salutation, first_name, last_name)')
       .eq('property_id', propertyId)
       .order('created_at', { ascending: false })
       .limit(20)
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   if (!certType) return NextResponse.json({ error: 'cert_type required for type=cert' }, { status: 400 })
   const { data, error } = await sb()
     .from('compliance_cert_history')
-    .select('issue_date, expiry_date, provider, notes, created_at, recorded_by_person:people!recorded_by(first_name, last_name)')
+    .select('issue_date, expiry_date, provider, notes, created_at, recorded_by_person:people!recorded_by(salutation, first_name, last_name)')
     .eq('property_id', propertyId)
     .eq('cert_type', certType)
     .order('created_at', { ascending: false })

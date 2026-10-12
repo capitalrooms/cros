@@ -27,7 +27,7 @@ interface Props {
 }
 
 export function personDisplayName(p: Person) {
-  return p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Unknown'
+  return [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || 'Unknown'
 }
 
 function getPropertyForPerson(personId: string, tenancies: Tenancy[]): string {

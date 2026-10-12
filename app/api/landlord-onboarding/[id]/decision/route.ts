@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (level !== 'low' && !String(b.risk_mitigation ?? '').trim()) return NextResponse.json({ error: 'Medium and high risk need the mitigation / enhanced checks recorded' }, { status: 400 })
   if (!b.documents_viewed) return NextResponse.json({ error: 'Confirm you have opened and examined each document' }, { status: 400 })
 
-  const { data: me } = await svc().from('people').select('first_name, last_name, full_name').eq('id', admin.personId).maybeSingle()
+  const { data: me } = await svc().from('people').select('salutation, first_name, last_name, full_name').eq('id', admin.personId).maybeSingle()
   const reviewer = [me?.first_name, me?.last_name].filter(Boolean).join(' ') || me?.full_name || admin.email
   const now = new Date().toISOString()
   const decision: ReviewerDecision = {

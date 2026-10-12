@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const s = svc()
 
   const [people, props, rooms, jobs] = await Promise.all([
-    s.from('people').select('id, first_name, last_name, full_name, email, phone, role')
+    s.from('people').select('id, salutation, first_name, last_name, full_name, email, phone, role')
       .or([`first_name.ilike.${like}`, `last_name.ilike.${like}`, `full_name.ilike.${like}`, `email.ilike.${like}`, ...(digits.length >= 4 ? [`phone.ilike.%${digits.slice(-6)}%`] : [])].join(','))
       .limit(12),
     s.from('properties').select('id, name, address, postcode').or(`name.ilike.${like},address.ilike.${like},postcode.ilike.${like}`).limit(8),
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       const t = fileFor.get(p.id)
       return {
         id: p.id, kind: 'person' as const,
-        title: [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
+        title: [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
         detail: t ? [t.start_date > today ? 'Let agreed' : t.end_date && t.end_date < today ? 'Past tenant' : 'Tenant', [t.rooms?.name, t.properties?.name].filter(Boolean).join(', ')].filter(Boolean).join(' · ')
           : [p.role, p.email].filter(Boolean).join(' · '),
         href: t ? `/admin/lettings/${t.id}?from=/admin/search` : personHref(p.id, p.role),

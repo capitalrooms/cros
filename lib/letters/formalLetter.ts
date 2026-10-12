@@ -112,7 +112,7 @@ export async function signerFromProfile(email: string): Promise<LetterSigner & {
     if (isPng || isJpg) signatureImg = buf
   }
   return {
-    name: [data?.first_name, data?.last_name].filter(Boolean).join(' ') || data?.full_name || '',
+    name: [data?.salutation, data?.first_name, data?.last_name].filter(Boolean).join(' ') || data?.full_name || '',
     jobTitle: data?.job_title ?? null,
     directPhone: data?.direct_phone ?? null,
     signatureImg,

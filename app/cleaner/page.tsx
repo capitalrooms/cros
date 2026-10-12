@@ -176,7 +176,7 @@ export default function CleanerDashboard() {
           // Admin viewing as a cleaner
           const { data: target } = await supabase
             .from('people')
-            .select('id, full_name, first_name, last_name, role')
+            .select('id, full_name, salutation, first_name, last_name, role')
             .eq('id', asParam)
             .single()
           if (!target || target.role !== 'cleaner') { router.push('/admin/people'); return }
@@ -189,7 +189,7 @@ export default function CleanerDashboard() {
 
           const { data: personData } = await supabase
             .from('people')
-            .select('id, full_name, first_name, last_name')
+            .select('id, full_name, salutation, first_name, last_name')
             .eq('email', data.user?.email)
             .single()
 
@@ -251,7 +251,7 @@ export default function CleanerDashboard() {
     const supabase = createClient()
     const { data } = await supabase
       .from('compliance_logs')
-      .select('id, check_type, checked_date, notes, checked_by_role, people(full_name, first_name, last_name)')
+      .select('id, check_type, checked_date, notes, checked_by_role, people(full_name, salutation, first_name, last_name)')
       .eq('property_id', propId)
       .gte('checked_date', sixMonthsAgo())
       .order('checked_date', { ascending: false })

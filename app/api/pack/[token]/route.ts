@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   if (!pack.first_viewed_at) await s.from('tenancy_packs').update({ first_viewed_at: new Date().toISOString(), status: pack.status === 'sent' ? 'viewed' : pack.status }).eq('id', pack.id)
 
   const [{ data: sender }, office] = await Promise.all([
-    pack.sent_by ? s.from('people').select('first_name, email, direct_phone').eq('id', pack.sent_by).maybeSingle() : Promise.resolve({ data: null }),
+    pack.sent_by ? s.from('people').select('salutation, first_name, email, direct_phone').eq('id', pack.sent_by).maybeSingle() : Promise.resolve({ data: null }),
     defaultSender(),
   ])
   return NextResponse.json({

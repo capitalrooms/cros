@@ -58,7 +58,7 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
 
   const [{ data: rooms }, { data: tenancies }, { data: expenses }, existing] = await Promise.all([
     s.from('rooms').select('id, name').eq('property_id', propertyId),
-    s.from('tenancies').select('*, people!person_id(first_name, last_name, full_name)')
+    s.from('tenancies').select('*, people!person_id(salutation, first_name, last_name, full_name)')
       .eq('property_id', propertyId).lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`),
     // not yet on a statement; '*' so it works before and after migration 191 adds deduct_month
     s.from('recharge_expenses').select('*').eq('property_id', propertyId)
@@ -91,7 +91,7 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
   const allTens: any[] = [...((tenancies ?? []) as any[])]
   const missingTen = [...new Set(charges.map(c => c.tenancy_id).filter((id: any) => id && !allTens.some(t => t.id === id)))]
   if (missingTen.length) {
-    const { data: more } = await s.from('tenancies').select('*, people!person_id(first_name, last_name, full_name)').in('id', missingTen)
+    const { data: more } = await s.from('tenancies').select('*, people!person_id(salutation, first_name, last_name, full_name)').in('id', missingTen)
     allTens.push(...((more ?? []) as any[]))
   }
   const roomTenancy = (roomId: string) => allTens.filter((x: any) => x.room_id === roomId).sort((a: any, b: any) => String(b.start_date).localeCompare(String(a.start_date)))[0] as any
@@ -101,7 +101,7 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
   for (const c of charges) if (String(c.charge_month).slice(0, 10) === start) chargedFor.set(lineKey(c), r2((chargedFor.get(lineKey(c)) ?? 0) + Number(c.amount_due || 0)))
   const tenantOf = (c: any) => {
     const p = tenancyOf(c)?.people
-    return [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || ''
+    return [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || ''
   }
   const roomNo = (name: string) => name.match(/\d+/)?.[0] ?? name
 
@@ -162,7 +162,7 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
     .filter(t => Number(t.letting_fee_charged) > 0 && !t.letting_fee_statement_id && t.start_date && t.start_date >= takeover && t.start_date <= end)
     .map(t => ({
       tenancyId: t.id, roomNumber: roomNo(roomName.get(t.room_id) || 'Room'), amount: r2(Number(t.letting_fee_charged)), startDate: t.start_date, number: t.letting_fee_no ?? null,
-      tenant: [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || '',
+      tenant: [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || '',
     }))
 
   const gross = r2(draftRooms.reduce((t, r) => t + r.rent, 0))

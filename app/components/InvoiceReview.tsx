@@ -71,7 +71,7 @@ export default function InvoiceReview({
       const contractorIds = [...new Set(tickets.map((t: any) => t.contractor_id).filter(Boolean))]
       const names = new Map<string, string>()
       if (contractorIds.length) {
-        const { data: ppl } = await supabase.from('people').select('id, full_name, first_name, last_name').in('id', contractorIds)
+        const { data: ppl } = await supabase.from('people').select('id, full_name, salutation, first_name, last_name').in('id', contractorIds)
         for (const p of ppl || []) names.set(p.id, p.name)
       }
       setJobs(tickets.map((t: any) => ({ ...t, contractorName: t.contractor_id ? names.get(t.contractor_id) || null : null })))

@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('payment_audit_log')
-    .select('*, performed_by_person:people!payment_audit_log_performed_by_fkey(first_name, last_name)')
+    .select('*, performed_by_person:people!payment_audit_log_performed_by_fkey(salutation, first_name, last_name)')
     .order('performed_at', { ascending: false })
     .limit(100)
 

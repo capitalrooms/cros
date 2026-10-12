@@ -40,7 +40,7 @@ export async function GET(req: Request) {
     .from('tenancies')
     .select(`
       id, end_date, rent_amount,
-      people:person_id (first_name, last_name, full_name, email),
+      people:person_id (salutation, first_name, last_name, full_name, email),
       rooms(name),
       properties(address)
     `)

@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     .from('properties')
     .select(`
       *,
-      landlord:people!landlord_id(id, first_name, last_name, email)
+      landlord:people!landlord_id(id, salutation, first_name, last_name, email)
     `)
     .eq('id', property_id)
     .single()
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
   // Landlord
   if ((recipient_type === 'landlord' || recipient_type === 'both') && property.landlord?.email) {
     const l = property.landlord as any
-    recipients.push({ email: l.email, name: `${l.first_name} ${l.last_name}`.trim(), type: 'landlord' })
+    recipients.push({ email: l.email, name: `${[l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ')}`.trim(), type: 'landlord' })
   }
 
   // Active tenants
@@ -138,13 +138,13 @@ export async function POST(req: NextRequest) {
     const today = new Date().toISOString().split('T')[0]
     const { data: tenancies } = await sb
       .from('tenancies')
-      .select('people!person_id(id, first_name, last_name, email)')
+      .select('people!person_id(id, salutation, first_name, last_name, email)')
       .eq('property_id', property_id)
       .lte('start_date', today)
       .or(`end_date.is.null,end_date.gte.${today}`)
     for (const t of tenancies || []) {
       const p = (t as any).people
-      if (p?.email) recipients.push({ email: p.email, name: `${p.first_name || ''} ${p.last_name || ''}`.trim(), type: 'tenant' })
+      if (p?.email) recipients.push({ email: p.email, name: `${[p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ')}`.trim(), type: 'tenant' })
     }
   }
 

@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     .from('tenancies')
     .select(`
       id, person_id, room_id, rent_amount, payment_reference, bank_sender_name,
-      people:people!person_id(id, first_name, last_name, email),
+      people:people!person_id(id, salutation, first_name, last_name, email),
       rooms(id, name, property_id, current_asking_rent, properties(id, name))
     `)
     .lte('start_date', today)

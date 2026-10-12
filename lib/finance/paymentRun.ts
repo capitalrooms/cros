@@ -10,7 +10,7 @@ import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const first = (s: unknown) => String(s || '').split('\n')[0]
-const who = (p: any) => (p ? p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || '' : '')
+const who = (p: any) => (p ? p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || '' : '')
 const digits = (s: unknown) => String(s || '').replace(/\D/g, '')
 
 export interface RunStatement {
@@ -74,7 +74,7 @@ export async function loadPaymentRun(s: SupabaseClient, month: string, opts: { p
   const sts = ((inRun ?? []) as any[]).filter(x => ok(x.property_id))
   const landlordIds = [...new Set(sts.map(x => x.landlord_id).filter(Boolean))]
   const [{ data: people }, { data: banks }] = await Promise.all([
-    landlordIds.length ? s.from('people').select('id, first_name, last_name, full_name, company').in('id', landlordIds) : Promise.resolve({ data: [] as any[] }),
+    landlordIds.length ? s.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', landlordIds) : Promise.resolve({ data: [] as any[] }),
     landlordIds.length ? s.from('landlord_bank_accounts').select('landlord_id, account_name, sort_code, account_number, is_default').in('landlord_id', landlordIds) : Promise.resolve({ data: [] as any[] }),
   ])
   const nameOf = new Map(((people ?? []) as any[]).map(p => [p.id, who(p)]))

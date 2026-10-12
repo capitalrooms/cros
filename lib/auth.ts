@@ -15,7 +15,7 @@ export async function getSmsSignOff(userEmail: string): Promise<string> {
     )
     const { data } = await sb
       .from('people')
-      .select('first_name, preferred_name, direct_phone, email')
+      .select('salutation, first_name, preferred_name, direct_phone, email')
       .eq('email', userEmail)
       .maybeSingle()
     if (!data) return 'Capital Rooms'

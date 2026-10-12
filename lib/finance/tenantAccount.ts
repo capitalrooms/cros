@@ -10,7 +10,7 @@ export interface AccountLine { date: string; details: string; reference: string;
 export interface TenantAccount { tenant: string; room: string; property: string; paymentRef: string | null; start: string | null; lines: AccountLine[]; charged: number; paid: number; balance: number }
 
 export async function tenantAccount(s: SupabaseClient, tenancyId: string): Promise<TenantAccount | null> {
-  const { data: t } = await s.from('tenancies').select('id, room_id, start_date, end_date, rent_due_day, payment_reference, rooms(name), properties(name), people!person_id(first_name, last_name, full_name)').eq('id', tenancyId).maybeSingle()
+  const { data: t } = await s.from('tenancies').select('id, room_id, start_date, end_date, rent_due_day, payment_reference, rooms(name), properties(name), people!person_id(salutation, first_name, last_name, full_name)').eq('id', tenancyId).maybeSingle()
   if (!t) return null
   const tt: any = t
   // this tenant's own charges (migration 217) — not the previous tenant's in a changeover month; a charge with no
@@ -51,7 +51,7 @@ export async function tenantAccount(s: SupabaseClient, tenancyId: string): Promi
   const lines: AccountLine[] = events.map(e => { bal = r2(bal + (e.charged ?? 0) - (e.paid ?? 0)); return { ...e, date: ukDate(e.date), balance: bal } })
   const p = tt.people
   return {
-    tenant: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Tenant', room: tt.rooms?.name ?? '', property: String(tt.properties?.name || '').split('\n')[0],
+    tenant: [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Tenant', room: tt.rooms?.name ?? '', property: String(tt.properties?.name || '').split('\n')[0],
     paymentRef: tt.payment_reference ?? null, start: tt.start_date,
     lines, charged: r2(events.reduce((t, e) => t + (e.charged ?? 0), 0)), paid: r2(events.reduce((t, e) => t + (e.paid ?? 0), 0)), balance: bal,
   }

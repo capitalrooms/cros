@@ -31,10 +31,10 @@ async function unpaid(s: SupabaseClient) {
   const rows = (sts ?? []).filter((x: any) => !demo.has(x.property_id) && Number(x.net_to_landlord) > 0)
   const ids = [...new Set(rows.map((x: any) => x.landlord_id).filter(Boolean))] as string[]
   const [{ data: people }, { data: banks }] = await Promise.all([
-    ids.length ? s.from('people').select('id, first_name, last_name, full_name, company').in('id', ids) : Promise.resolve({ data: [] as any[] }),
+    ids.length ? s.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', ids) : Promise.resolve({ data: [] as any[] }),
     ids.length ? s.from('landlord_bank_accounts').select('landlord_id, account_name, sort_code, account_number, is_default').in('landlord_id', ids) : Promise.resolve({ data: [] as any[] }),
   ])
-  const name = new Map((people ?? []).map((p: any) => [p.id, p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name]))
+  const name = new Map((people ?? []).map((p: any) => [p.id, p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name]))
   const bankFor = (id: string) => ((banks ?? []) as any[]).filter(b => b.landlord_id === id).sort((a, b) => Number(b.is_default) - Number(a.is_default))[0] ?? null
   return rows.map((x: any) => {
     const bank = x.landlord_id ? bankFor(x.landlord_id) : null

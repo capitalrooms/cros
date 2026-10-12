@@ -797,7 +797,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
 
       const { data: checksData } = await supabase
         .from('tenant_self_checks')
-        .select('*, properties (name), rooms (name), tenancies (people!person_id (full_name, first_name, last_name))')
+        .select('*, properties (name), rooms (name), tenancies (people!person_id (full_name, salutation, first_name, last_name))')
         .order('request_sent_at', { ascending: false })
 
       // Self-checks link to the tenant through their tenancy
@@ -841,9 +841,9 @@ function CompliancePageInner({ tab }: { tab?: string }) {
     try {
       const { data: authData } = await supabase.auth.getUser()
       if (!authData?.user?.email) throw new Error('Not signed in')
-      const { data: personRow } = await supabase.from('people').select('id, first_name, last_name, full_name').eq('email', authData.user.email).single()
+      const { data: personRow } = await supabase.from('people').select('id, salutation, first_name, last_name, full_name').eq('email', authData.user.email).single()
       if (!personRow?.id) throw new Error('Your user account was not found')
-      const checkedByName = [personRow.first_name, personRow.last_name].filter(Boolean).join(' ') || (personRow as any).full_name || authData.user.email
+      const checkedByName = [personRow.salutation, personRow.first_name, personRow.last_name].filter(Boolean).join(' ') || (personRow as any).full_name || authData.user.email
 
       const { error: insertError } = await supabase.from('compliance_logs').insert({
         property_id: logSelectedProperty,
@@ -869,7 +869,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
   async function loadAllLogs() {
     const { data } = await supabase
       .from('compliance_logs')
-      .select('*, person:checked_by(full_name, first_name, last_name, role)')
+      .select('*, person:checked_by(full_name, salutation, first_name, last_name, role)')
       .order('checked_date', { ascending: false })
     setLogs(data || [])
   }

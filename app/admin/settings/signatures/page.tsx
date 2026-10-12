@@ -28,7 +28,7 @@ export default function SignaturesPage() {
 
   useEffect(() => {
     ;(supabase.from('people') as any)
-      .select('id, first_name, last_name, email, role, job_title, direct_phone')
+      .select('id, salutation, first_name, last_name, email, role, job_title, direct_phone')
       .in('role', ['administrator', 'admin', 'lettings', 'cleaner'])
       .order('first_name')
       .then(({ data }: { data: Staff[] | null }) => setStaff(data ?? []))

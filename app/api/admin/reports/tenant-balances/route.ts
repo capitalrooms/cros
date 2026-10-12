@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, room_id, property_id, start_date, end_date,
       room:rooms ( name, properties ( name, address ) ),
-      person:people!person_id ( first_name, last_name )
+      person:people!person_id ( salutation, first_name, last_name )
     `)
     .is('end_date', null)
 
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const balance = agg.received - agg.due
     return {
       tenancy_id:    t.id,
-      tenant_name:   t.person ? [t.person.first_name, t.person.last_name].filter(Boolean).join(' ') : 'Unknown',
+      tenant_name:   t.person ? [t.person.salutation, t.person.first_name, t.person.last_name].filter(Boolean).join(' ') : 'Unknown',
       room_name:     t.room?.name || '—',
       property_name: t.room?.properties?.name || t.room?.properties?.address || '—',
       total_due:     agg.due,

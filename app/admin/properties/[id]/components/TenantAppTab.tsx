@@ -319,7 +319,7 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
                     <p className="text-sm text-neutral-900">{n.raw_text}</p>
                     <p className="text-xs text-neutral-400 mt-xs">
                       {n.notice_type} · {new Date(n.created_at).toLocaleDateString('en-GB')}
-                      {n.created_by_person && ` · ${n.created_by_person.first_name} ${n.created_by_person.last_name}`}
+                      {n.created_by_person && ` · ${[n.created_by_person.salutation, n.created_by_person.first_name, n.created_by_person.last_name].filter(Boolean).join(' ')}`}
                     </p>
                   </div>
                   <button

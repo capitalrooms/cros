@@ -127,7 +127,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
       const { data: props } = await supabase.from('properties').select('landlord_id').eq('letting_type', 'let_only').not('landlord_id', 'is', null)
       const ids = [...new Set(((props ?? []) as any[]).map(p => p.landlord_id))]
       if (!ids.length) return
-      const { data } = await supabase.from('people').select('id, first_name, last_name, full_name, email, phone').in('id', ids)
+      const { data } = await supabase.from('people').select('id, salutation, first_name, last_name, full_name, email, phone').in('id', ids)
       setUsual(((data ?? []) as LandlordSuggestion[]).sort((a, b) => (displayName(a) || '').localeCompare(displayName(b) || '')))
     })()
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
@@ -144,7 +144,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
     landlordDebounce.current = setTimeout(async () => {
       const { data } = await supabase
         .from('people')
-        .select('id, first_name, last_name, full_name, email, phone')
+        .select('id, salutation, first_name, last_name, full_name, email, phone')
         .eq('role', 'landlord')
         .or(`full_name.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`)
         .limit(6)

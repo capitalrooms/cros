@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       room_id,
       person_id,
       rooms ( id, name, properties ( id, name, address ) ),
-      people!person_id ( first_name, last_name, full_name )
+      people!person_id ( salutation, first_name, last_name, full_name )
     `)
     .not('payment_reference', 'is', null)
     .or('end_date.is.null,end_date.gte.' + new Date(Date.now() - 90 * 86400000).toISOString().slice(0,10))
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
       room_name: t.rooms?.name ?? null,
       property_name: t.rooms?.properties?.name || t.rooms?.properties?.address || null,
       tenant_name: t.people
-        ? [t.people.first_name, t.people.last_name].filter(Boolean).join(' ') || t.people.full_name || null
+        ? [t.people.salutation, t.people.first_name, t.people.last_name].filter(Boolean).join(' ') || t.people.full_name || null
         : null,
     })
   }

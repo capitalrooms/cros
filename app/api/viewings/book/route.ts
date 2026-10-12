@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   // Text the current occupant — only while tenant comms are live (kill-switch)
   if (sms_occupant && await getCommsLive()) {
     const { data: room } = await sb.from('rooms').select('name, properties(address)').eq('id', room_id).single()
-    const { data: occ } = await sb.from('tenancies').select('people!person_id(first_name, full_name, phone)')
+    const { data: occ } = await sb.from('tenancies').select('people!person_id(salutation, first_name, full_name, phone)')
       .eq('room_id', room_id).is('end_date', null).limit(1).maybeSingle() as { data: any }
     const phone    = occ?.people?.phone as string | undefined
     const name     = occ?.people?.first_name || occ?.people?.full_name?.split(' ')[0] || 'Resident'

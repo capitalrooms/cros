@@ -7,6 +7,7 @@ import { z } from 'zod/v4'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
+import { displayName } from '@/lib/people'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -44,7 +45,7 @@ export async function agreedRent(svc: SupabaseClient, a: { id: string; offered_r
 
 export async function loadDepositContext(svc: SupabaseClient, applicantId: string): Promise<DepositContext | null> {
   const { data: a } = await svc.from('applicants')
-    .select('id, full_name, email, profession, bio, profession_description, interests, sociability, house_preferences, preferred_start_date, preferred_term, offered_rent, rent_offer_type, pipeline_stage, offer_id, converted_person_id, room_id, property_id, rooms(name, current_asking_rent), properties(name, address, bills_included, landlord_id)')
+    .select('id, salutation, first_name, last_name, full_name, email, profession, bio, profession_description, interests, sociability, house_preferences, preferred_start_date, preferred_term, offered_rent, rent_offer_type, pipeline_stage, offer_id, converted_person_id, room_id, property_id, rooms(name, current_asking_rent), properties(name, address, bills_included, landlord_id)')
     .eq('id', applicantId).maybeSingle() as { data: any }
   if (!a) return null
 
@@ -108,7 +109,7 @@ export async function writeBios(ctx: DepositContext): Promise<{ landlordBio: str
   const a = ctx.applicant
   const first = a.full_name.trim().split(/\s+/)[0] || 'They'
   const facts = [
-    `Full name: ${a.full_name}`,
+    `Full name: ${displayName(a)}`,
     a.profession && `Job: ${a.profession}`,
     a.profession_description && `About their work: ${a.profession_description}`,
     a.bio && `Bio: ${a.bio}`,
@@ -118,7 +119,7 @@ export async function writeBios(ctx: DepositContext): Promise<{ landlordBio: str
   ].filter(Boolean).join('\n')
 
   const fallback = {
-    landlordBio: a.profession ? `${a.full_name} works as ${a.profession}.` : '',
+    landlordBio: a.profession ? `${displayName(a)} works as ${a.profession}.` : '',
     housemateBio: a.profession ? `${first} works as ${a.profession}.` : '',
   }
   if (!process.env.ANTHROPIC_API_KEY || !(a.bio || a.profession_description || a.interests)) return fallback
@@ -158,7 +159,7 @@ export function landlordMessage(ctx: DepositContext, bio: string): { subject: st
       `Re: ${place}`,
       'We are delighted to let you know that, further to your instructions, we have secured an applicant for the above room, subject to satisfactory references and your approval.',
       'We have taken a holding deposit and have therefore taken the room off the market while references are obtained.',
-      `The prospective tenant is ${a.full_name}, who will be taking the room${ctx.rent ? ` at a rent of ${gbp(ctx.rent)} pcm, payable in advance${bills}` : ''}, on an assured periodic tenancy.${ctx.startDate ? ` The tenancy is provisionally set to start on ${longDate(ctx.startDate)}.` : ''}`,
+      `The prospective tenant is ${displayName(a)}, who will be taking the room${ctx.rent ? ` at a rent of ${gbp(ctx.rent)} pcm, payable in advance${bills}` : ''}, on an assured periodic tenancy.${ctx.startDate ? ` The tenancy is provisionally set to start on ${longDate(ctx.startDate)}.` : ''}`,
       ...(bio.trim() ? [bio.trim()] : []),
       'We hope this is to your satisfaction. Should you need any further information, please do not hesitate to contact us.',
       'Kind regards,',

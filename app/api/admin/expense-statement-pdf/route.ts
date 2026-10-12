@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
   const { data: prop } = await supabase
     .from('properties')
-    .select('id, name, address, property_code, landlord_id, landlord:people!properties_landlord_id_fkey(first_name, last_name, email)')
+    .select('id, name, address, property_code, landlord_id, landlord:people!properties_landlord_id_fkey(salutation, first_name, last_name, email)')
     .eq('id', propertyId).single()
   if (!prop) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
 
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
 
   // Landlord address block
   const landlord = (prop as any).landlord
-  const landlordName = landlord ? [landlord.first_name, landlord.last_name].filter(Boolean).join(' ') : '—'
+  const landlordName = landlord ? [landlord.salutation, landlord.first_name, landlord.last_name].filter(Boolean).join(' ') : '—'
   let ay = MARGIN
   doc.font(fontBold).fontSize(9.5).fillColor(BLACK).text(landlordName, MARGIN, ay, { width: 250 }); ay += 13
   doc.font(fontReg).fontSize(9).fillColor(GREY).text(prop.name || prop.address, MARGIN, ay, { width: 250 }); ay += 12

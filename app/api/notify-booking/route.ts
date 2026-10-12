@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
   const { data: contractor } = ticket.contractor_id
     ? await supabase
         .from('people')
-        .select('full_name, first_name, last_name, email, phone')
+        .select('full_name, salutation, first_name, last_name, email, phone')
         .eq('id', ticket.contractor_id)
         .maybeSingle()
     : { data: null }

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   // Fetch the landlord from people
   const { data: landlord, error: fetchErr } = await svc()
     .from('people')
-    .select('id, first_name, last_name, full_name, email')
+    .select('id, salutation, first_name, last_name, full_name, email')
     .eq('id', landlordId)
     .eq('role', 'landlord')
     .single()
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   if (fetchErr || !landlord) {
     return NextResponse.json({ error: 'Landlord not found' }, { status: 404 })
   }
-  const landlordName: string | null = [landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || landlord.full_name || null
+  const landlordName: string | null = [landlord.salutation, landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || landlord.full_name || null
 
   // Create a fresh onboarding row for this re-verification
   const { data: row, error: insertErr } = await svc()

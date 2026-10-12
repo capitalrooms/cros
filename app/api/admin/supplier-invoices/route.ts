@@ -19,7 +19,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0].trim()
-const pname = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || '') : ''
+const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || '') : ''
 const missing = (e: { message?: string } | null) => !!e && /supplier_|does not exist|schema cache/.test(e.message ?? '')
 const r2 = (n: number) => Math.round(n * 100) / 100
 
@@ -35,8 +35,8 @@ export async function GET(req: NextRequest) {
     return new NextResponse(Buffer.from(await data.arrayBuffer()), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="Invoice-${inv.number}.pdf"` } })
   }
   const [{ data: invs, error }, { data: ppl }, { data: profs }, { data: set }] = await Promise.all([
-    s.from('supplier_invoices').select('*, people!supplier_id(first_name, last_name, full_name, company, role), properties(name)').eq('to_capital_rooms', true).order('created_at', { ascending: false }).limit(200),
-    s.from('people').select('id, first_name, last_name, full_name, company, role').in('role', ['contractor', 'cleaner']).order('first_name'),
+    s.from('supplier_invoices').select('*, people!supplier_id(salutation, first_name, last_name, full_name, company, role), properties(name)').eq('to_capital_rooms', true).order('created_at', { ascending: false }).limit(200),
+    s.from('people').select('id, salutation, first_name, last_name, full_name, company, role').in('role', ['contractor', 'cleaner']).order('first_name'),
     s.from('supplier_profiles').select('person_id, invoicing_enabled, trading_name'),
     s.from('system_settings').select('value').eq('key', 'supplier_invoicing').maybeSingle(),
   ]) as any[]
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     return error ? NextResponse.json({ error: error.message }, { status: 400 }) : NextResponse.json({ ok: true })
   }
 
-  const { data: inv } = await s.from('supplier_invoices').select('*, people!supplier_id(first_name, last_name, full_name, company)').eq('id', String(b.id ?? '')).maybeSingle() as { data: any }
+  const { data: inv } = await s.from('supplier_invoices').select('*, people!supplier_id(salutation, first_name, last_name, full_name, company)').eq('id', String(b.id ?? '')).maybeSingle() as { data: any }
   if (!inv) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
   const { data: prof } = await s.from('supplier_profiles').select('trading_name').eq('person_id', inv.supplier_id).maybeSingle()
   const supplier = prof?.trading_name || inv.people?.company || pname(inv.people)

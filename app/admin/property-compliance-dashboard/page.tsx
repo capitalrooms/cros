@@ -91,7 +91,7 @@ export default function PropertyComplianceDashboard() {
           `
           room_id,
           person_id,
-          tenant:people!person_id(full_name, first_name, last_name),
+          tenant:people!person_id(full_name, salutation, first_name, last_name),
           room:room_id(name, property_id)
         `
         )
@@ -146,7 +146,7 @@ export default function PropertyComplianceDashboard() {
 
         statusData.push({
           room_name: room.name,
-          tenant_name: [tenant?.first_name, tenant?.last_name].filter(Boolean).join(' ') || tenant?.full_name || '',
+          tenant_name: [tenant?.salutation, tenant?.first_name, tenant?.last_name].filter(Boolean).join(' ') || tenant?.full_name || '',
           fire_door_status: getStatus(fireChecks) as any,
           smoke_alarm_status: getStatus(smokeChecks) as any,
           fire_door_month: getMonth(fireChecks),

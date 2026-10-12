@@ -92,7 +92,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   async function loadLandlords() {
     const { data } = await supabase
       .from('people')
-      .select('id, full_name, first_name, last_name, email, phone')
+      .select('id, full_name, salutation, first_name, last_name, email, phone')
       .eq('role', 'landlord')
       .order('full_name')
     setLandlords(data || [])
@@ -404,7 +404,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 if (!linked) return null
                 return (
                   <div className="mt-md rounded-lg bg-neutral-50 border border-neutral-200 p-md grid grid-cols-3 gap-md text-sm">
-                    <div><p className="text-xs text-neutral-400 mb-xs">Name</p><p className="font-semibold text-neutral-900">{linked.full_name || [linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'}</p></div>
+                    <div><p className="text-xs text-neutral-400 mb-xs">Name</p><p className="font-semibold text-neutral-900">{[linked.salutation, linked.first_name, linked.last_name].filter(Boolean).join(' ') || linked.full_name || '—'}</p></div>
                     <div><p className="text-xs text-neutral-400 mb-xs">Email</p><p className="font-semibold text-neutral-900">{linked.email || '—'}</p></div>
                     <div><p className="text-xs text-neutral-400 mb-xs">Phone</p><p className="font-semibold text-neutral-900">{linked.phone || '—'}</p></div>
                   </div>
@@ -416,7 +416,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
           (() => {
             const linked = landlords.find(l => l.id === displayed.landlord_id)
             if (linked) {
-              const name = linked.full_name || linked.company || [linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'
+              const name = linked.full_name || linked.company || [linked.salutation, linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'
               const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
               return (
                 <div className="flex items-center gap-md">

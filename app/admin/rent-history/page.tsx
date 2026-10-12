@@ -43,7 +43,7 @@ function fmtMoney(n: number | null) {
 function tenantName(t: TenancyRow) {
   const p = t.person
   if (!p) return '(no tenant linked)'
-  return p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email
+  return [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
 }
 
 // Earliest date a Section 13 notice could be effective, given last change
@@ -78,7 +78,7 @@ export default function RentHistoryPage() {
         .select(`
           id, start_date, end_date, rent_amount,
           last_rent_change_date, previous_rent_amount, is_fixed_term,
-          person:people!tenancies_person_id_fkey(first_name, last_name, full_name, email),
+          person:people!tenancies_person_id_fkey(salutation, first_name, last_name, full_name, email),
           room:rooms!tenancies_room_id_fkey(name),
           property:properties!tenancies_property_id_fkey(address)
         `)

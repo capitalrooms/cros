@@ -282,13 +282,13 @@ export default function MaintenanceDashboard() {
       const supabase = createClient();
       const { data } = await supabase
         .from('people')
-        .select('id, full_name, first_name, last_name, company, email')
+        .select('id, full_name, salutation, first_name, last_name, company, email')
         .eq('role', 'contractor')
         .order('full_name');
       // people has no "name" column — build the label the dropdowns show
       setContractors((data || []).map((c: any) => ({
         id: c.id, email: c.email,
-        name: c.company || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || null,
+        name: c.company || [c.salutation, c.first_name, c.last_name].filter(Boolean).join(' ') || c.full_name || null,
       })));
     })();
   }, []);
@@ -1198,7 +1198,7 @@ export default function MaintenanceDashboard() {
                       <div key={vr.id} className="border-t border-amber-200 pt-sm mt-sm">
                         <p className="text-sm text-neutral-800 mb-sm">
                           <span className="font-semibold">
-                            {vr.tenant?.first_name} {vr.tenant?.last_name}
+                            {[vr.tenant?.salutation, vr.tenant?.first_name, vr.tenant?.last_name].filter(Boolean).join(' ')}
                           </span>
                           {' '}wants to add:
                         </p>

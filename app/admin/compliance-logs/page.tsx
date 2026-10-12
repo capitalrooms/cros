@@ -84,7 +84,7 @@ export default function ComplianceLogsPage() {
 
     const { data: logsData } = await supabase
       .from('compliance_logs')
-      .select('*, people:checked_by(full_name, first_name, last_name, role)')
+      .select('*, people:checked_by(full_name, salutation, first_name, last_name, role)')
       .eq('property_id', selectedProperty)
       .eq('check_type', tab)
       .order('checked_date', { ascending: false })
@@ -108,13 +108,13 @@ export default function ComplianceLogsPage() {
 
       const { data: personRow } = await supabase
         .from('people')
-        .select('id, first_name, last_name, full_name')
+        .select('id, salutation, first_name, last_name, full_name')
         .eq('email', authData.user.email)
         .single()
 
       if (!personRow?.id) throw new Error('Your user account was not found in the system')
 
-      const checkedByName = [personRow.first_name, personRow.last_name].filter(Boolean).join(' ')
+      const checkedByName = [personRow.salutation, personRow.first_name, personRow.last_name].filter(Boolean).join(' ')
         || (personRow as any).full_name || authData.user.email
 
       const { error: insertError } = await supabase

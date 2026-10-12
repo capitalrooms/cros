@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
           id, transaction_date, amount, description, extracted_ref, status,
           batch:bank_import_batches ( filename, period_from, period_to, imported_at )
         ),
-        payer:people!paid_by ( first_name, last_name ),
+        payer:people!paid_by ( salutation, first_name, last_name ),
         statement_rooms:landlord_statement_rooms (
           id, rent_income, management_fee, net_to_landlord,
           statement:landlord_statements (
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
           properties ( name, address )
         ),
         room:rooms ( name ),
-        tenant:people!landlord_statement_rooms_tenant_id_fkey ( first_name, last_name ),
+        tenant:people!landlord_statement_rooms_tenant_id_fkey ( salutation, first_name, last_name ),
         rent_charge:rent_charges (
           id, charge_month, amount_due, amount_received, status,
           bank_transaction:bank_transactions!rent_charges_bank_transaction_id_fkey (

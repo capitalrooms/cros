@@ -190,7 +190,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     if (!['administrator', 'admin'].includes(String((caller as any).role))) return NextResponse.json({ error: 'Only an administrator can delete a tenancy' }, { status: 403 })
     const reason = String(b.reason ?? '').trim().slice(0, 300)
     if (reason.length < 3) return NextResponse.json({ error: 'Say why it’s being deleted — it’s kept in the audit log' }, { status: 400 })
-    const { data: full } = await s.from('tenancies').select('*, people!person_id(first_name, last_name, email), rooms(name), properties(name)').eq('id', tenancyId).single() as { data: any }
+    const { data: full } = await s.from('tenancies').select('*, people!person_id(salutation, first_name, last_name, email), rooms(name), properties(name)').eq('id', tenancyId).single() as { data: any }
     const { error: logErr } = await s.from('finance_audit_log').insert({
       table_name: 'tenancies', row_id: tenancyId, action: 'delete', actor: caller.email,
       old_row: { ...full, deleted_reason: reason, cancelled_numbers: [full?.letting_fee_no, full?.deposit_no].filter(Boolean) },
@@ -245,11 +245,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     ]) as { data: any }[]
     if (!to) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
     const end = t.end_date ?? '9999-12-31'
-    const { data: clash } = await s.from('tenancies').select('id, start_date, end_date, people!person_id(first_name, last_name)').eq('room_id', toId).neq('id', tenancyId)
+    const { data: clash } = await s.from('tenancies').select('id, start_date, end_date, people!person_id(salutation, first_name, last_name)').eq('room_id', toId).neq('id', tenancyId)
       .is('let_cancelled_at', null).lte('start_date', end).or(`end_date.is.null,end_date.gte.${t.start_date}`)
     if (clash?.length) {
       const c = clash[0] as any
-      return NextResponse.json({ error: `${to.name} already has ${[c.people?.first_name, c.people?.last_name].filter(Boolean).join(' ') || 'a tenant'} from ${longDate(c.start_date)}${c.end_date ? ` to ${longDate(c.end_date)}` : ''}. Sort that tenancy out first.` }, { status: 409 })
+      return NextResponse.json({ error: `${to.name} already has ${[c.people?.salutation, c.people?.first_name, c.people?.last_name].filter(Boolean).join(' ') || 'a tenant'} from ${longDate(c.start_date)}${c.end_date ? ` to ${longDate(c.end_date)}` : ''}. Sort that tenancy out first.` }, { status: 409 })
     }
     if (t.room_id && t.start_date) {
       const { data: charged } = await s.from('rent_charges').select('charge_month').eq('room_id', t.room_id).gte('charge_month', `${t.start_date.slice(0, 7)}-01`).eq('voided', false)

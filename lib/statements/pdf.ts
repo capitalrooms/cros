@@ -34,10 +34,10 @@ export async function loadStatementForPdf(s: SupabaseClient, id: string): Promis
     const month = String(statement.period_start).slice(0, 7) + '-01'
     const [{ data: owed }, { data: tens }] = await Promise.all([
       s.from('rent_charges').select('amount_due, amount_received, voided, rooms(name), room_id').eq('property_id', statement.property_id).eq('charge_month', month),
-      s.from('tenancies').select('room_id, start_date, end_date, let_cancelled_at, people!person_id(first_name, last_name, full_name)').eq('property_id', statement.property_id).lte('start_date', String(statement.period_end || statement.period_start).slice(0, 10)).or(`end_date.is.null,end_date.gte.${month}`),
+      s.from('tenancies').select('room_id, start_date, end_date, let_cancelled_at, people!person_id(salutation, first_name, last_name, full_name)').eq('property_id', statement.property_id).lte('start_date', String(statement.period_end || statement.period_start).slice(0, 10)).or(`end_date.is.null,end_date.gte.${month}`),
     ])
     // the tenant who was in the room that month (latest start), so the landlord sees who owes
-    const tenantIn = (roomId: string) => { const t = ((tens ?? []) as any[]).filter(x => x.room_id === roomId && !x.let_cancelled_at).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0]; return t ? [t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || '' : '' }
+    const tenantIn = (roomId: string) => { const t = ((tens ?? []) as any[]).filter(x => x.room_id === roomId && !x.let_cancelled_at).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0]; return t ? [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || '' : '' }
     for (const c of (owed ?? []) as any[]) {
       const left = Math.round((Number(c.amount_due) - Number(c.amount_received || 0)) * 100) / 100
       if (!c.voided && left > 0.004) stillOwed.push({ room: c.rooms?.name ?? 'Room', tenant: tenantIn(c.room_id), amount: left })

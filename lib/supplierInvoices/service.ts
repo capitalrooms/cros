@@ -10,7 +10,7 @@ type S = SupabaseClient
 export const BUCKET = 'supplier-invoices'
 const r2 = (n: number) => Math.round(n * 100) / 100
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0].trim()
-const pname = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || '') : ''
+const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || '') : ''
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
@@ -18,7 +18,7 @@ const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 export async function profileFor(s: S, personId: string) {
   const [{ data: p }, { data: me }] = await Promise.all([
     s.from('supplier_profiles').select('*').eq('person_id', personId).maybeSingle(),
-    s.from('people').select('first_name, last_name, full_name, company, email, phone, home_address, role').eq('id', personId).maybeSingle(),
+    s.from('people').select('salutation, first_name, last_name, full_name, company, email, phone, home_address, role').eq('id', personId).maybeSingle(),
   ]) as any[]
   const name = p?.trading_name || me?.company || pname(me) || 'My business'
   return {

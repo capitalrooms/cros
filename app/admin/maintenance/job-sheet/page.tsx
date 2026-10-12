@@ -18,7 +18,7 @@ interface Room { id: string; name: string; property_id: string }
 interface TaskRow { area: string; description: string }
 
 function dn(c: Contractor) {
-  return c.full_name?.trim() || `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email
+  return c.full_name?.trim() || `${[c.salutation, c.first_name, c.last_name].filter(Boolean).join(' ')}`.trim() || c.email
 }
 
 export default function JobSheetPage() {
@@ -57,7 +57,7 @@ export default function JobSheetPage() {
       const supabase = createClient()
       const [{ data: props }, { data: contrs }] = await Promise.all([
         supabase.from('properties').select('id, name, address').order('name'),
-        supabase.from('people').select('id, first_name, last_name, full_name, email').eq('role', 'contractor').order('first_name'),
+        supabase.from('people').select('id, salutation, first_name, last_name, full_name, email').eq('role', 'contractor').order('first_name'),
       ])
       setProperties(sortPropertiesNumerically(props || []))
       setContractors(contrs || [])

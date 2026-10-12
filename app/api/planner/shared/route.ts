@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 const BUCKET = 'planner-files'
 const OFFICE = ['administrator', 'admin']
 const isOffice = (c: Caller) => OFFICE.includes(c.role)
-const name = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || '') : ''
+const name = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || '') : ''
 const missing = (e: { message?: string } | null) => !!e && /planner_shared|schema cache|does not exist/.test(e.message ?? '')
 
 function cleanLinks(v: unknown): string[] {
@@ -48,11 +48,11 @@ async function signed(s: S, paths: string[]) {
 
 async function loadBoard(s: S, board: any) {
   const { data: entries } = await s.from('planner_shared_entries')
-    .select('*, properties(name), people!created_by(first_name, last_name, full_name)')
+    .select('*, properties(name), people!created_by(salutation, first_name, last_name, full_name)')
     .eq('board_id', board.id).order('status').order('created_at', { ascending: false }) as { data: any[] | null }
   const ids = (entries ?? []).map(e => e.id)
   const { data: replies } = ids.length
-    ? await s.from('planner_shared_replies').select('*, people!author_id(first_name, last_name, full_name)').in('entry_id', ids).order('created_at') as { data: any[] | null }
+    ? await s.from('planner_shared_replies').select('*, people!author_id(salutation, first_name, last_name, full_name)').in('entry_id', ids).order('created_at') as { data: any[] | null }
     : { data: [] as any[] }
   const paths = [...(entries ?? []).flatMap(e => e.photos ?? []), ...(replies ?? []).flatMap(r => r.photos ?? [])]
   const urls = await signed(s, paths)
@@ -87,14 +87,14 @@ export async function GET(req: NextRequest) {
   const s = createServiceClient()
   if (isOffice(caller)) {
     const { data: boards, error } = await s.from('planner_shared_boards')
-      .select('*, people!member_person_id(id, first_name, last_name, full_name, company, role)').is('archived_at', null).order('created_at') as { data: any[] | null; error: any }
+      .select('*, people!member_person_id(id, salutation, first_name, last_name, full_name, company, role)').is('archived_at', null).order('created_at') as { data: any[] | null; error: any }
     if (error) return NextResponse.json(missing(error) ? { setupNeeded: true, boards: [] } : { error: error.message }, { status: missing(error) ? 200 : 500 })
     const ids = (boards ?? []).map(b => b.id)
     const { data: open } = ids.length ? await s.from('planner_shared_entries').select('board_id').in('board_id', ids).eq('status', 'open') : { data: [] as any[] }
     const want = req.nextUrl.searchParams.get('board')
     const board = (boards ?? []).find(b => b.id === want) ?? (boards ?? [])[0] ?? null
     const [{ data: people }, { data: properties }] = await Promise.all([
-      s.from('people').select('id, first_name, last_name, full_name, company, role').in('role', ['cleaner', 'contractor', 'lettings', 'landlord']).order('first_name'),
+      s.from('people').select('id, salutation, first_name, last_name, full_name, company, role').in('role', ['cleaner', 'contractor', 'lettings', 'landlord']).order('first_name'),
       s.from('properties').select('id, name, address, property_code'),
     ])
     return NextResponse.json({
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
   if (!caller) return NextResponse.json({ error: 'Please sign in again' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient()
-  const who = await s.from('people').select('first_name, last_name, full_name').eq('id', caller.personId).maybeSingle().then(r => name(r.data) || caller.email)
+  const who = await s.from('people').select('salutation, first_name, last_name, full_name').eq('id', caller.personId).maybeSingle().then(r => name(r.data) || caller.email)
 
   if (b.action === 'create_board' || b.action === 'archive_board') {
     if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       const { error } = await s.from('planner_shared_boards').update({ archived_at: new Date().toISOString() }).eq('id', b.boardId)
       return error ? NextResponse.json({ error: error.message }, { status: 400 }) : NextResponse.json({ ok: true })
     }
-    const { data: p } = await s.from('people').select('id, first_name, last_name, full_name, company').eq('id', b.personId).maybeSingle()
+    const { data: p } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company').eq('id', b.personId).maybeSingle()
     if (!p) return NextResponse.json({ error: 'Person not found' }, { status: 404 })
     const { data: existing } = await s.from('planner_shared_boards').select('id').eq('member_person_id', p.id).is('archived_at', null).maybeSingle()
     if (existing) return NextResponse.json({ boardId: existing.id })

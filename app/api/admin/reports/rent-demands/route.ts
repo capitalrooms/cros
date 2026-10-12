@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       id, room_id, charge_month, amount_due, amount_received, status, reference,
       room:rooms (
         name,
-        properties ( id, name, address, people!properties_landlord_id_fkey ( first_name, last_name ) )
+        properties ( id, name, address, people!properties_landlord_id_fkey ( salutation, first_name, last_name ) )
       )
     `)
     .gte('charge_month', fromMonth)
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
   const { data: rawCharges, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   // rent_charges has no tenancy link — find the tenant occupying each room in that month
-  const charges = await attachTenancies(supabase as any, await dropDemo(supabase as any, rawCharges as any[], (r: any) => r.room?.properties?.id), 'person_id, people!person_id ( first_name, last_name )')
+  const charges = await attachTenancies(supabase as any, await dropDemo(supabase as any, rawCharges as any[], (r: any) => r.room?.properties?.id), 'person_id, people!person_id ( salutation, first_name, last_name )')
 
   const rows = (charges || [])
     .map((c: any) => {
@@ -58,10 +58,10 @@ export async function GET(req: NextRequest) {
         amount_received: c.amount_received != null ? Number(c.amount_received) : 0,
         status:        c.status,
         reference:     c.reference,
-        tenant_name:   tenantPerson ? [tenantPerson.first_name, tenantPerson.last_name].filter(Boolean).join(' ') : 'Unknown',
+        tenant_name:   tenantPerson ? [tenantPerson.salutation, tenantPerson.first_name, tenantPerson.last_name].filter(Boolean).join(' ') : 'Unknown',
         room_name:     c.room?.name || '—',
         property_name: prop?.name || prop?.address || '—',
-        landlord_name: landlordPerson ? [landlordPerson.first_name, landlordPerson.last_name].filter(Boolean).join(' ') : null,
+        landlord_name: landlordPerson ? [landlordPerson.salutation, landlordPerson.first_name, landlordPerson.last_name].filter(Boolean).join(' ') : null,
       }
     })
     .filter((r: any) => {

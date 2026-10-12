@@ -125,7 +125,7 @@ export default function CleanDetailPage() {
         // Load tenant extras requests
         const { data: extras } = await supabase
           .from('cleaner_extras_requests')
-          .select('tasks, notes, status, tenant: tenant_person_id(first_name, last_name)')
+          .select('tasks, notes, status, tenant: tenant_person_id(salutation, first_name, last_name)')
           .eq('clean_id', cleanId)
         setTenantExtras(extras || [])
       }
@@ -359,7 +359,7 @@ export default function CleanDetailPage() {
             </p>
             <p className="mt-xs text-xs text-purple-700">These aren't mandatory — fit them in if you have time.</p>
             {tenantExtras.map((req, i) => {
-              const tenantName = req.tenant ? `${req.tenant.first_name || ''} ${req.tenant.last_name || ''}`.trim() : 'A tenant'
+              const tenantName = req.tenant ? `${[req.tenant.salutation, req.tenant.first_name, req.tenant.last_name].filter(Boolean).join(' ')}`.trim() : 'A tenant'
               return (
                 <div key={i} className={i > 0 ? 'mt-md pt-md border-t border-purple-200' : 'mt-md'}>
                   <p className="text-xs font-semibold text-purple-700 mb-xs">{tenantName}</p>

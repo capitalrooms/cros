@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ entries: entries.map(e => ({ ...e, balance: (running = r2(running + e.amount)) })) })
   }
   const balances = await landlordBalances(s, ledger.entries)
-  const { data: landlords } = await s.from('people').select('id, first_name, last_name, full_name, company').eq('role', 'landlord').order('last_name')
+  const { data: landlords } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company').eq('role', 'landlord').order('last_name')
   const { data: recs, error } = await s.from('client_reconciliations').select('id, as_at, bank_balance, cashbook_balance, ledgers_total, difference, notes, signed_at, signed_by').order('as_at', { ascending: false }).limit(24)
   const position = await clientAccountPosition(s, q.get('asAt') || undefined)
   const { data: periods } = await s.from('finance_periods').select('month, status, closed_at, reopened_at, reopen_reason').order('month', { ascending: false })
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     ledgersTotal: r2(balances.reduce((t, b) => t + b.balance, 0)),
     balances, negative: balances.filter(b => b.balance < -0.005).length,
     reconciliations: recs ?? [],
-    landlords: (landlords ?? []).map((p: any) => ({ id: p.id, name: p.company || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name })),
+    landlords: (landlords ?? []).map((p: any) => ({ id: p.id, name: p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name })),
     setupNeeded: error || !ledger.adjustmentsReady ? SETUP : null,
   })
 }

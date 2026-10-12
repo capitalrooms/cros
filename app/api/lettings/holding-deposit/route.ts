@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     result.recorded = true
 
     // the applicant moves on to referencing (never backwards), the offer is paid, and a note says what was recorded
-    const { data: me } = await s.from('people').select('first_name, full_name').eq('id', caller.personId).maybeSingle() as { data: any }
+    const { data: me } = await s.from('people').select('salutation, first_name, full_name').eq('id', caller.personId).maybeSingle() as { data: any }
     const who = me?.first_name || me?.full_name || caller.email
     const note = `Holding deposit ${rec.hold_no}: ${gbp(Number(rec.amount))} received ${longDate(rec.received_on)} by ${METHODS[rec.method].toLowerCase()}${rec.payer_reference ? ` (ref ${rec.payer_reference})` : ''} — recorded by ${who}.`
     const { data: cur } = await s.from('applicants').select('admin_notes').eq('id', ctx.applicant.id).maybeSingle() as { data: any }

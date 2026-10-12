@@ -47,7 +47,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   if (!session) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
 
   const { data: adminPerson } = await supabase
-    .from('people').select('first_name, last_name, job_title, role').eq('email', session.user.email).single()
+    .from('people').select('salutation, first_name, last_name, job_title, role').eq('email', session.user.email).single()
   if (!adminPerson || !['administrator', 'admin', 'lettings'].includes(adminPerson.role))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
 
   if (!charge) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   charge.tenancy = await tenancyForCharge(supabase as any, charge,
-    'id, person:people!tenancies_person_id_fkey (id, first_name, last_name, email), room:rooms (name, properties (name, address))')
+    'id, person:people!tenancies_person_id_fkey (id, salutation, first_name, last_name, email), room:rooms (name, properties (name, address))')
   if (!['paid', 'partial'].includes(charge.status))
     return NextResponse.json({ error: 'Cannot issue receipt for an unpaid charge' }, { status: 400 })
 
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
   const prop     = room?.properties
 
   const tenantName = person
-    ? [person.first_name, person.last_name].filter(Boolean).join(' ')
+    ? [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')
     : 'Tenant'
   const firstName = person?.first_name || tenantName
 

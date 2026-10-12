@@ -24,8 +24,8 @@ export default function AccountPage({ searchParams }: { searchParams: PageSearch
     const { data: { user } } = await sb.auth.getUser()
     if (!user?.email) { window.location.replace('/login'); return }
     if (await needsTwoStep(sb)) { setState('code'); return }
-    const { data: p } = await sb.from('people').select('first_name, last_name, role').ilike('email', user.email).order('created_at').limit(1).maybeSingle()
-    setMe({ email: user.email, name: [p?.first_name, p?.last_name].filter(Boolean).join(' '), role: p?.role ?? '' })
+    const { data: p } = await sb.from('people').select('salutation, first_name, last_name, role').ilike('email', user.email).order('created_at').limit(1).maybeSingle()
+    setMe({ email: user.email, name: [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' '), role: p?.role ?? '' })
     const { data: f } = await sb.auth.mfa.listFactors()
     setTwoStep(f?.totp?.find(x => x.status === 'verified') ?? null)
     setState('ready')

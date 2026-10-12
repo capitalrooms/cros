@@ -86,7 +86,7 @@ export default function ExpenseReviewPage() {
           room_id, room_label, ai_category, ai_confidence, admin_confirmed,
           property_id, landlord_id,
           properties(name, address),
-          people!landlord_id(full_name, first_name, last_name, email)
+          people!landlord_id(full_name, salutation, first_name, last_name, email)
         `)
         .order('statement_date', { ascending: false })
         .limit(500)
@@ -128,7 +128,7 @@ export default function ExpenseReviewPage() {
   function landlordName(item: LineItem) {
     const p = item.people as any
     if (!p) return 'Unknown'
-    return p.first_name && p.last_name ? `${p.first_name} ${p.last_name}` : p.full_name || p.email
+    return p.first_name && p.last_name ? `${[p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ')}` : p.full_name || p.email
   }
 
   function propertyName(item: LineItem) {

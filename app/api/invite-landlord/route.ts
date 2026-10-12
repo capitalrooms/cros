@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   // Get landlord details + their properties
   const { data: person, error: pErr } = await supabase
     .from('people')
-    .select('id, full_name, first_name, last_name, email, phone, landlord_comms_enabled')
+    .select('id, full_name, salutation, first_name, last_name, email, phone, landlord_comms_enabled')
     .eq('id', personId)
     .single()
 

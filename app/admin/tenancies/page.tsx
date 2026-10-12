@@ -109,7 +109,7 @@ export default function TenanciesManagementPage() {
       supabase.from('properties').select('id, name, address').order('name'),
       supabase.from('rooms').select('id, name, property_id, status').order('name'),
       supabase.from('tenancies').select(
-        '*, people!person_id(id, full_name, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address)'
+        '*, people!person_id(id, full_name, salutation, first_name, last_name, email, phone), rooms(id, name, status), properties(id, name, address)'
       ).order('start_date', { ascending: false }),
     ]);
     setProperties(sortPropertiesNumerically(propsData || []));
@@ -252,7 +252,7 @@ export default function TenanciesManagementPage() {
   function displayName(t: Tenancy) {
     const p = t.people;
     if (!p) return 'Unknown tenant';
-    return p.full_name || [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Unknown';
+    return [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email || 'Unknown';
   }
 
   if (loading) return <GenericPageSkeleton />;
@@ -411,7 +411,7 @@ export default function TenanciesManagementPage() {
                 {/* Existing person search */}
                 <div className="relative mb-3">
                   <input type="text" placeholder="Search existing people by name or email…"
-                    value={linkedPerson ? `${linkedPerson.first_name} ${linkedPerson.last_name} (${linkedPerson.email})` : personSearch}
+                    value={linkedPerson ? `${[linkedPerson.salutation, linkedPerson.first_name, linkedPerson.last_name].filter(Boolean).join(' ')} (${linkedPerson.email})` : personSearch}
                     onChange={e => { if (linkedPerson) setLinkedPerson(null); onPersonSearch(e.target.value); }}
                     className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                   />
@@ -424,7 +424,7 @@ export default function TenanciesManagementPage() {
                       {personHits.map(p => (
                         <button key={p.id} onClick={() => pickPerson(p)}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-amber-50 border-b border-neutral-100 last:border-0">
-                          <span className="font-medium">{p.first_name} {p.last_name}</span>
+                          <span className="font-medium">{[p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ')}</span>
                           <span className="text-neutral-400 text-xs ml-2">{p.email}</span>
                         </button>
                       ))}

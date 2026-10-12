@@ -80,12 +80,12 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
     if (!formData.room_id) return
     let stale = false   // switching rooms quickly: ignore the answer for the room no longer chosen
     const today = new Date().toISOString().slice(0, 10)
-    supabase.from('tenancies').select('people!person_id(first_name, last_name, phone, email)').eq('room_id', formData.room_id)
+    supabase.from('tenancies').select('people!person_id(salutation, first_name, last_name, phone, email)').eq('room_id', formData.room_id)
       .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`).order('start_date', { ascending: false }).limit(1)
       .then(({ data }) => {
         if (stale) return
         const p = (data as any)?.[0]?.people
-        if (p) setOccupant({ name: [p.first_name, p.last_name].filter(Boolean).join(' '), phone: p.phone || null, email: p.email || null })
+        if (p) setOccupant({ name: [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' '), phone: p.phone || null, email: p.email || null })
       })
     return () => { stale = true }
   }, [formData.room_id]) // eslint-disable-line react-hooks/exhaustive-deps

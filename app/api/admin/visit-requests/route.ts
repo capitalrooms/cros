@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, ticket_id, request_text, status, admin_response, reviewed_at, created_at,
       merged_ticket_id,
-      tenant: tenant_person_id (id, first_name, last_name),
+      tenant: tenant_person_id (id, salutation, first_name, last_name),
       ticket: ticket_id (
         id, title, booked_date, booked_slot,
         properties (name, address),

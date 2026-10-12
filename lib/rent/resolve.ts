@@ -38,7 +38,7 @@ export interface Receipt { key: string; date: string | null; amount: number; how
 export interface OpenMonth { chargeId: string; month: string; due: number; received: number; outstanding: number; over: number; remitted: number; status: string; note: string | null }
 
 export async function rentPosition(s: SupabaseClient, tenancyId: string) {
-  const { data: t } = await s.from('tenancies').select('id, room_id, property_id, start_date, end_date, rent_amount, payment_reference, rent_due_day, management_fee_type, management_fee_pct, management_fee_fixed, people!person_id(id, first_name, last_name, full_name, email, phone), rooms(name), properties(name, address, landlord_id, management_fee_type, management_fee_pct, management_fee_fixed)').eq('id', tenancyId).maybeSingle() as { data: any }
+  const { data: t } = await s.from('tenancies').select('id, room_id, property_id, start_date, end_date, rent_amount, payment_reference, rent_due_day, management_fee_type, management_fee_pct, management_fee_fixed, people!person_id(id, salutation, first_name, last_name, full_name, email, phone), rooms(name), properties(name, address, landlord_id, management_fee_type, management_fee_pct, management_fee_fixed)').eq('id', tenancyId).maybeSingle() as { data: any }
   if (!t) throw new Error('Tenancy not found')
   const start = await ledgerStart(s)
   const { data: charges } = await s.from('rent_charges').select('*').eq('room_id', t.room_id).or(`tenancy_id.eq.${t.id},tenancy_id.is.null`)

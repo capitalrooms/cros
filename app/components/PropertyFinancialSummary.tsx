@@ -127,7 +127,7 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
       const [{ data: stmtData, error: stmtErr }, { data: lineData }] = await Promise.all([
         supabase
           .from('landlord_statements')
-          .select('*, people:landlord_id(first_name, last_name, email)')
+          .select('*, people:landlord_id(salutation, first_name, last_name, email)')
           .eq('property_id', propertyId)
           .order('statement_date', { ascending: false }),
         supabase
@@ -452,7 +452,7 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
           {visible.map(stmt => {
             const isOpen = expanded === stmt.id
             const landlordName = stmt.people
-              ? [stmt.people.first_name, stmt.people.last_name].filter(Boolean).join(' ') || stmt.people.email
+              ? [stmt.people.salutation, stmt.people.first_name, stmt.people.last_name].filter(Boolean).join(' ') || stmt.people.email
               : null
             return (
               <div key={stmt.id} className="rounded-xl overflow-hidden border border-neutral-200 bg-white shadow-sm">

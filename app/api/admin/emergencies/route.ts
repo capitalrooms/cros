@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const ADMIN = ['administrator', 'admin']
-const pname = (p: any) => p ? ([p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || '') : ''
+const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || p.email || '') : ''
 const missing = (e: { message?: string } | null) => !!e && /emergenc|does not exist|schema cache/.test(e.message ?? '')
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0]
 
@@ -37,8 +37,8 @@ export async function GET(req: NextRequest) {
 
   if (id) {
     const [{ data: em, error }, { data: rs }, { data: ev }] = await Promise.all([
-      s.from('emergencies').select('*, properties(name, address, postcode, key_safe_code), rooms(name), people!reporter_id(first_name, last_name, full_name, phone, email)').eq('id', id).maybeSingle(),
-      s.from('emergency_responses').select('*, people!contractor_id(id, first_name, last_name, full_name, company, phone)').eq('emergency_id', id).order('sent_at'),
+      s.from('emergencies').select('*, properties(name, address, postcode, key_safe_code), rooms(name), people!reporter_id(salutation, first_name, last_name, full_name, phone, email)').eq('id', id).maybeSingle(),
+      s.from('emergency_responses').select('*, people!contractor_id(id, salutation, first_name, last_name, full_name, company, phone)').eq('emergency_id', id).order('sent_at'),
       s.from('emergency_events').select('*').eq('emergency_id', id).order('at', { ascending: false }),
     ]) as any[]
     if (error) return NextResponse.json(missing(error) ? { setupNeeded: true } : { error: error.message }, { status: missing(error) ? 200 : 500 })
@@ -53,8 +53,8 @@ export async function GET(req: NextRequest) {
   const since = new Date(Date.now() - 30 * 86400000).toISOString()
   const [{ data: ems, error }, { data: list }, { data: cons }, set, { data: lt }] = await Promise.all([
     s.from('emergencies').select('id, kind, title, status, eta_at, call_out_fee, created_at, updated_at, window_ends_at, properties(name), rooms(name), emergency_responses(id, answer, contractor_id)').gte('created_at', since).order('created_at', { ascending: false }),
-    s.from('emergency_contractors').select('*, people!person_id(id, first_name, last_name, full_name, company, phone)').order('rank'),
-    s.from('people').select('id, first_name, last_name, full_name, company, phone').eq('role', 'contractor').order('first_name'),
+    s.from('emergency_contractors').select('*, people!person_id(id, salutation, first_name, last_name, full_name, company, phone)').order('rank'),
+    s.from('people').select('id, salutation, first_name, last_name, full_name, company, phone').eq('role', 'contractor').order('first_name'),
     settings(s),
     s.from('system_settings').select('value').eq('key', 'emergency_last_tick').maybeSingle(),
   ]) as any[]
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient()
-  const { data: me } = await s.from('people').select('first_name, last_name, full_name').eq('id', caller.personId).maybeSingle()
+  const { data: me } = await s.from('people').select('salutation, first_name, last_name, full_name').eq('id', caller.personId).maybeSingle()
   const by = pname(me) || caller.email
 
   if (b.action === 'office') {

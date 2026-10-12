@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     // Notify the tenant in this specific room (if they've opted in to viewings)
     const { data: tenancy } = await supabase
       .from('tenancies')
-      .select('id, people!person_id(email, first_name, full_name, notify_by_email)')
+      .select('id, people!person_id(email, salutation, first_name, full_name, notify_by_email)')
       .eq('room_id', roomId)
       .is('end_date', null)
       .limit(1)
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     const { data: otherTenancies } = await supabase
       .from('tenancies')
-      .select('id, people!person_id(email, first_name, full_name, notify_by_email), rooms(name)')
+      .select('id, people!person_id(email, salutation, first_name, full_name, notify_by_email), rooms(name)')
       .eq('property_id', propertyId)
       .neq('room_id', roomId)
       .is('end_date', null) as { data: any[] | null }

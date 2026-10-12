@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   const { data: person } = await service
     .from('people')
-    .select('id, first_name, last_name')
+    .select('id, salutation, first_name, last_name')
     .eq('email', authData.user.email)
     .single()
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     .in('role', ['administrator', 'admin'])
 
   if (admins && admins.length > 0) {
-    const tenantName = `${person.first_name || ''} ${person.last_name || ''}`.trim() || 'A tenant'
+    const tenantName = `${[person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')}`.trim() || 'A tenant'
     const categoryLabel = category ? `[${category.replace(/_/g, ' ')}] ` : ''
 
     // AI summary for long concerns (>300 chars)

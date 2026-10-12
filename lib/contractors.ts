@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export async function withContractors<T extends { contractor_id?: string | null }>(
   supabase: SupabaseClient,
   tickets: T[] | null | undefined,
-  select = 'id, full_name, first_name, last_name, email, phone',
+  select = 'id, full_name, salutation, first_name, last_name, email, phone',
 ): Promise<(T & { contractor: any | null })[]> { // eslint-disable-line @typescript-eslint/no-explicit-any
   const list = tickets ?? []
   const ids = [...new Set(list.map(t => t.contractor_id).filter(Boolean))] as string[]

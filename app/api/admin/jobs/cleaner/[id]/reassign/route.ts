@@ -20,7 +20,7 @@ export async function PATCH(
     // Verify cleaner exists
     const { data: cleaner } = await supabase
       .from('people')
-      .select('id, full_name, first_name, last_name, email')
+      .select('id, full_name, salutation, first_name, last_name, email')
       .eq('id', cleanerId)
       .eq('role', 'cleaner')
       .single()

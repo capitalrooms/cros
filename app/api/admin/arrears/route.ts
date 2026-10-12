@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 
   const roomIds = [...new Set(open.map((c: any) => c.room_id).filter(Boolean))]
   const { data: tenancies } = roomIds.length
-    ? await s.from('tenancies').select('id, room_id, start_date, end_date, rent_amount, rent_due_day, notice_received_date, person_id, people!person_id(id, first_name, last_name, full_name, phone, email)').in('room_id', roomIds)
+    ? await s.from('tenancies').select('id, room_id, start_date, end_date, rent_amount, rent_due_day, notice_received_date, person_id, people!person_id(id, salutation, first_name, last_name, full_name, phone, email)').in('room_id', roomIds)
     : { data: [] as any[] }
 
   const tenancyFor = (roomId: string, month: string) => {
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     const dueDate = `${month.slice(0, 7)}-${String(dueDay).padStart(2, '0')}`
     const g: ArrearsRow = groups.get(key) ?? {
       key, tenancyId: t?.id ?? null, personId: p?.id ?? null,
-      tenant: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Unknown tenant',
+      tenant: [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Unknown tenant',
       phone: p?.phone ?? null, email: p?.email ?? null,
       room: c.rooms?.name ?? '', property: c.properties?.name || c.properties?.address || '', propertyId: c.property_id ?? null,
       monthlyRent: Number(t?.rent_amount || c.amount_due || 0),

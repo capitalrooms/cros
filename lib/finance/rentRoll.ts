@@ -26,7 +26,7 @@ export interface RentRoll { month: string; source: 'cros' | 'previous_agent'; ta
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const first = (s: unknown) => String(s || '').split('\n')[0]
-const who = (p: any) => (p ? [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || '' : '')
+const who = (p: any) => (p ? [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.company || '' : '')
 const stateOf = (st: any): RollStatement['state'] => (st.paid_date ? 'paid' : st.approved_at ? 'approved' : 'draft')
 
 export async function buildRentRoll(s: SupabaseClient, month: string, opts: { practice?: boolean } = {}): Promise<RentRoll> {
@@ -40,13 +40,13 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   const [props, rooms, tens, statements] = await Promise.all([
     s.from('properties').select('id, name, property_code, landlord_id, letting_type').or('letting_type.is.null,letting_type.neq.let_only'),
     s.from('rooms').select('id, name, property_id'),
-    s.from('tenancies').select('id, room_id, property_id, start_date, end_date, payment_reference, people!person_id(first_name, last_name, full_name)')
+    s.from('tenancies').select('id, room_id, property_id, start_date, end_date, payment_reference, people!person_id(salutation, first_name, last_name, full_name)')
       .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`).is('let_cancelled_at', null),
     s.from('landlord_statements').select('*').gte('statement_date', start).lte('statement_date', end).order('statement_date'),
   ])
   const properties = sortPropertiesNumerically(((props.data ?? []) as any[]).filter(p => inScope(demo, !!opts.practice)(p.id)))
   const landlordIds = [...new Set(properties.map(p => p.landlord_id).filter(Boolean))]
-  const { data: landlords } = landlordIds.length ? await s.from('people').select('id, first_name, last_name, full_name, company').in('id', landlordIds) : { data: [] as any[] }
+  const { data: landlords } = landlordIds.length ? await s.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', landlordIds) : { data: [] as any[] }
   const landlordName = new Map(((landlords ?? []) as any[]).map(p => [p.id, p.company || who(p)]))
   const roomName = new Map(((rooms.data ?? []) as any[]).map(r => [r.id, r.name as string]))
   const roomsOf = (pid: string) => ((rooms.data ?? []) as any[]).filter(r => r.property_id === pid)

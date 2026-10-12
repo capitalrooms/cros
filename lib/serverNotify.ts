@@ -141,7 +141,7 @@ async function sendEmailToAll(
     const sender = await senderFor(req)
     const { data: people } = await service
       .from('people')
-      .select('id, full_name, first_name, email')
+      .select('id, full_name, salutation, first_name, email')
       .in('id', ids)
 
     const targets = (people ?? []).filter((p: any) => p.email)
@@ -218,7 +218,7 @@ export async function tryEmailFallback(
     // Fetch their emails
     const { data: people } = await service
       .from('people')
-      .select('id, first_name, last_name, full_name, email')
+      .select('id, salutation, first_name, last_name, full_name, email')
       .in('id', withoutPush)
 
     const targets = (people ?? []).filter((p: any) => p.email)

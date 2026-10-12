@@ -82,7 +82,7 @@ export async function handleInvoiceEmail(s: SupabaseClient, emailData: any): Pro
   // a postcode printed on the invoice is a stronger match than any guess
   const norm = (x: unknown) => String(x ?? '').toUpperCase().replace(/\s+/g, '')
   const byPostcode = (text: string) => { const t = norm(text); const hits = managed.filter(p => norm(p.postcode).length >= 5 && t.includes(norm(p.postcode))); return hits.length === 1 ? hits[0].id as string : null }
-  const { data: contractor } = await s.from('people').select('id, first_name, last_name, company').eq('email', from).in('role', ['contractor', 'cleaner']).maybeSingle()
+  const { data: contractor } = await s.from('people').select('id, salutation, first_name, last_name, company').eq('email', from).in('role', ['contractor', 'cleaner']).maybeSingle()
 
   // the documents to look at: each PDF/image attached, or the email itself when nothing is attached
   const docs: { bytes: Buffer | null; mime: string; name: string }[] = []
@@ -116,7 +116,7 @@ export async function handleInvoiceEmail(s: SupabaseClient, emailData: any): Pro
         const { data: job } = await s.from('maintenance_tickets').select('property_id').eq('contractor_id', contractor.id).order('updated_at', { ascending: false }).limit(1).maybeSingle()
         propertyId = job?.property_id ?? null
       }
-      why = `From ${[contractor.first_name, contractor.last_name].filter(Boolean).join(' ') || contractor.company}, one of your contractors${propertyId && !read.propertyId ? ' — property from their latest job' : ''}`
+      why = `From ${[contractor.salutation, contractor.first_name, contractor.last_name].filter(Boolean).join(' ') || contractor.company}, one of your contractors${propertyId && !read.propertyId ? ' — property from their latest job' : ''}`
     }
     if (managed.find(p => p.id === propertyId)?.letting_type === 'let_only' && belongs === 'landlord') why += ' · note: that property is let-only, not managed'
 
