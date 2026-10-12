@@ -702,12 +702,6 @@ export default function ApplicantsPage() {
                             <CopyButton label={`Copy ${applicant.phone}`} value={applicant.phone} />
                           </>
                         )}
-                        {isConverted && !lettingFiles[applicant.id] && !applicant.converted_person_id && (
-                          <span className="flex w-full flex-wrap items-center gap-sm rounded-lg border border-amber-300 bg-amber-50 px-md py-sm text-xs text-amber-900">
-                            Marked let agreed, but the tenancy was never set up — so there’s no letting file yet.
-                            <a href={`/admin/applicants/${applicant.id}/create-tenancy`} className="rounded-lg bg-green-700 px-md py-xs font-semibold text-white hover:bg-green-600">Set up tenancy →</a>
-                          </span>
-                        )}
                         {lettingFiles[applicant.id] ? (
                           <a href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`} className="text-xs font-semibold border border-blue-700 bg-blue-700 text-white rounded-lg px-md py-sm hover:bg-blue-600">
                             Open letting file →
@@ -718,14 +712,29 @@ export default function ApplicantsPage() {
                           </a>
                         )}
 
-                        {/* Holding deposit — records it and tells the landlord and housemates (after review) */}
-                        {!isConverted && ['applied', 'offer_sent', 'referencing'].includes(applicant.pipeline_stage) && (
-                          <button
-                            onClick={() => setDepositFor(applicant.id)}
-                            className="text-xs font-semibold border border-green-700 text-green-800 rounded-lg px-md py-sm hover:bg-green-50"
-                          >
-                            💷 Holding deposit received
-                          </button>
+
+                        {/* The way to the letting file (Harry, 12 Oct 2026: "it should say you cannot start the letting file until
+                            x is done"): recording the holding deposit creates the tenancy and opens its letting file; a let with no
+                            holding deposit goes through Set up tenancy instead. Nothing else marks someone let agreed. */}
+                        {((!isConverted && ['applied', 'offer_sent', 'referencing', 'referencing_passed', 'docs_uploaded'].includes(applicant.pipeline_stage))
+                          || (isConverted && !lettingFiles[applicant.id] && !applicant.converted_person_id)) && (
+                          <div className={`w-full rounded-lg border px-md py-sm text-xs ${isConverted ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-neutral-200 bg-neutral-50 text-neutral-700'}`}>
+                            <p className="font-semibold">
+                              {isConverted
+                                ? 'Marked let agreed, but the holding deposit was never recorded — so there’s no tenancy or letting file yet.'
+                                : '🔒 The letting file starts once the holding deposit is recorded.'}
+                            </p>
+                            <div className="mt-xs flex flex-wrap items-center gap-sm">
+                              <button type="button" onClick={() => setDepositFor(applicant.id)}
+                                className="rounded-lg border border-green-700 bg-green-700 px-md py-xs font-semibold text-white hover:bg-green-600">
+                                💷 Holding deposit received
+                              </button>
+                              <span className="text-neutral-500">creates the tenancy and opens its letting file ·</span>
+                              <a href={`/admin/applicants/${applicant.id}/create-tenancy`}
+                                onClick={e => { if (!confirm(`Set up ${applicant.full_name}’s tenancy without a holding deposit? Only do this if no holding deposit was taken for this let.`)) e.preventDefault() }}
+                                className="font-semibold text-neutral-700 underline hover:text-neutral-900">No holding deposit on this let? Set up the tenancy</a>
+                            </div>
+                          </div>
                         )}
 
                         {/* Accept offer — only shown on 'applied' stage */}
@@ -744,7 +753,7 @@ export default function ApplicantsPage() {
                         )}
 
                         {/* Stage advance — generic for all other transitions */}
-                        {/* never "Let agreed" from here — that's Set up tenancy, which creates the tenancy and letting file */}
+                        {/* never "Let agreed" from here — only the holding deposit or Set up tenancy (above) creates the tenancy and letting file */}
                         {!isConverted && nextStage && nextStage.key !== 'converted' && applicant.pipeline_stage !== 'applied' && (
                           <button
                             onClick={() => advanceStage(applicant, nextStage.key as Stage)}
@@ -773,15 +782,6 @@ export default function ApplicantsPage() {
                           </label>
                         )}
 
-                        {/* Set up tenancy */}
-                        {applicant.pipeline_stage === 'docs_uploaded' && !isConverted && (
-                          <a
-                            href={`/admin/applicants/${applicant.id}/create-tenancy`}
-                            className="text-xs font-semibold border border-green-700 bg-green-700 text-white rounded-lg px-md py-sm hover:bg-green-600 inline-block"
-                          >
-                            Set up tenancy →
-                          </a>
-                        )}
                       </div>
                     </div>
                   )}
