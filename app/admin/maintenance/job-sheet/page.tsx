@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
@@ -50,7 +51,7 @@ export default function JobSheetPage() {
   useEffect(() => {
     async function init() {
       const user = await getCurrentUser()
-      if (!user || !['administrator', 'admin'].includes(user.assignment?.role || '')) {
+      if (!user || !isOfficeRole(user.assignment?.role)) {
         router.push('/admin'); return
       }
       const supabase = createClient()

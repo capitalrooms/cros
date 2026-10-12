@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
@@ -155,7 +156,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
   useEffect(() => {
     async function init() {
       const user = await getCurrentUser()
-      if (!user || (user.assignment?.role !== 'administrator' && user.assignment?.role !== 'admin')) {
+      if (!user || !isOfficeRole(user.assignment?.role)) {
         router.push('/login'); return
       }
 

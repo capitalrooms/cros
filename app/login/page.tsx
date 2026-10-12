@@ -71,9 +71,10 @@ function LoginForm() {
         return
       }
       const role = result.assignment?.role
+      // lettings: the office screens (their areas only) on a computer, the lettings app on a phone
       const path = { administrator: '/admin', admin: '/admin', tenant: '/tenant',
         contractor: '/contractor', cleaner: '/cleaner', landlord: '/landlord',
-        lettings: '/lettings', agent: '/agent' }[role ?? ''] ?? '/tenant'
+        lettings: window.innerWidth >= 768 ? '/admin' : '/lettings', agent: '/agent' }[role ?? ''] ?? '/tenant'
 
       if (await needsTwoStep(createClient())) { setCodeFor(path); setLoading(false); return }
       router.push(path)

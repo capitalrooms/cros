@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/auth'
@@ -115,7 +116,7 @@ export default function AdminStatementsPage() {
     async function init() {
       const data = await getCurrentUser()
       const role = data?.assignment?.role
-      if (!data || (role !== 'administrator' && role !== 'admin')) { router.push('/login'); return }
+      if (!data || !isOfficeRole(role)) { router.push('/login'); return }
       const supabase = createClient()
       const [{ data: props }, { data: lls }] = await Promise.all([
         supabase.from('properties').select('id, name, address, management_fee_pct, property_code, letting_type').order('name'),

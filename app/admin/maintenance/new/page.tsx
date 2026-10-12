@@ -1,6 +1,7 @@
 'use client';
 
 import { StoredImg, StoredLink } from '@/components/StoredImg'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
@@ -57,7 +58,7 @@ export default function NewJobPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login');
         return;
       }

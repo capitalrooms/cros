@@ -1,5 +1,6 @@
 'use client'
 import { displayName } from '@/lib/people'
+import { isOfficeRole } from '@/lib/access/areas'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -75,7 +76,7 @@ export default function TenancyManagementPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || (data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin')) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

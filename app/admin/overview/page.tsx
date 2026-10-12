@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
@@ -40,7 +41,7 @@ export default function OverviewPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

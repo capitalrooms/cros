@@ -1,5 +1,6 @@
 'use client';
 import { adminFetch } from '@/lib/adminFetch';
+import { isOfficeRole } from '@/lib/access/areas'
 
 import { useState, useEffect, useRef } from 'react';
 import QuotesPanel from './QuotesPanel';
@@ -210,7 +211,7 @@ export default function MaintenanceDashboard() {
   useEffect(() => {
     async function checkAuth() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login');
       }
     }

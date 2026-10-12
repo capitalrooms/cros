@@ -1,5 +1,6 @@
 'use client'
 import PageHero from '@/components/PageHero'
+import { isOfficeRole } from '@/lib/access/areas'
 
 import { useEffect, useState, Component, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
@@ -44,7 +45,7 @@ function AdminDashboard() {
   useEffect(() => {
     (async () => {
       const u = await getCurrentUser()
-      if (!u || (u.assignment?.role !== 'administrator' && u.assignment?.role !== 'admin')) { router.push('/login'); return }
+      if (!u || !isOfficeRole(u.assignment?.role)) { router.push('/login'); return }
       const p = u.assignment as any
       setName(p.first_name || p.name || u.user?.email?.split('@')[0] || '')
       fetch('/api/comms-status').then(r => r.json()).then(d => setCommsLive(!!d.live)).catch(() => {})

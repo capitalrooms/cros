@@ -9,7 +9,7 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import TwoStepCode, { needsTwoStep } from '@/components/TwoStepCode'
 import Logo from '@/components/Logo'
 
-const HOME: Record<string, string> = { administrator: '/admin', admin: '/admin', lettings: '/lettings', tenant: '/tenant', landlord: '/landlord', contractor: '/contractor', cleaner: '/cleaner', agent: '/agent' }
+const HOME: Record<string, string> = { administrator: '/admin', admin: '/admin', lettings: typeof window !== 'undefined' && window.innerWidth >= 768 ? '/admin' : '/lettings', tenant: '/tenant', landlord: '/landlord', contractor: '/contractor', cleaner: '/cleaner', agent: '/agent' }
 const ROLE: Record<string, string> = { administrator: 'Administrator', admin: 'Administrator', lettings: 'Lettings', tenant: 'Tenant', landlord: 'Landlord', contractor: 'Contractor', cleaner: 'Cleaner', agent: 'Agent' }
 const STAFF = ['administrator', 'admin', 'lettings']
 

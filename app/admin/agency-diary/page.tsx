@@ -115,7 +115,7 @@ export default function AgencyDiaryPage() {
         router.push('/login')
         return
       }
-      setCanBook(role === 'administrator' || role === 'admin')
+      setCanBook(true)   // anyone who can open the diary may book in it (access levels decide who opens it)
 
       const weekEnd = new Date(weekStart)
       weekEnd.setDate(weekEnd.getDate() + 7)

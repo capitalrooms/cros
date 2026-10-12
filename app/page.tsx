@@ -8,6 +8,8 @@ import Logo from '@/components/Logo'
 /** Must match the role routing in app/login/page.tsx. */
 const DASHBOARDS: Record<string, string> = {
   administrator: '/admin',
+  admin: '/admin',
+  agent: '/agent',
   tenant: '/tenant',
   contractor: '/contractor',
   cleaner: '/cleaner',
@@ -29,7 +31,9 @@ export default function Home() {
       try {
         const data = await getCurrentUser()
         const role = data?.assignment?.role
-        router.replace(role ? DASHBOARDS[role] ?? '/login' : '/login')
+        // lettings: the office screens (their areas) on a computer, the lettings app on a phone
+        const lettings = window.innerWidth >= 768 ? '/admin' : '/lettings'
+        router.replace(role === 'lettings' ? lettings : role ? DASHBOARDS[role] ?? '/login' : '/login')
       } catch {
         router.replace('/login')
       }

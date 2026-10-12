@@ -8,6 +8,7 @@
  */
 
 import { use, useCallback, useEffect, useState } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
@@ -50,7 +51,7 @@ function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practic
   useEffect(() => {
     (async () => {
       const u = await getCurrentUser()
-      if (!u || !['administrator', 'admin'].includes(u.assignment?.role || '')) { router.push('/login'); return }
+      if (!u || !isOfficeRole(u.assignment?.role)) { router.push('/login'); return }
       load(month)
     })()
   }, [router, load, month])

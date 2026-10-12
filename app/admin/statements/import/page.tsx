@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
@@ -80,7 +81,7 @@ export default function StatementImportPage() {
 
   useEffect(() => {
     getCurrentUser().then(d => {
-      if (!d || (d.assignment?.role !== 'administrator' && d.assignment?.role !== 'admin')) {
+      if (!d || !isOfficeRole(d.assignment?.role)) {
         router.push('/login')
       } else {
         setAuthOk(true)

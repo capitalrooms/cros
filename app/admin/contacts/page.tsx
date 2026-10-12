@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { isOfficeRole } from '@/lib/access/areas'
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -40,7 +41,7 @@ export default function ContactsPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser();
-      if (!data || data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin') {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login');
         return;
       }

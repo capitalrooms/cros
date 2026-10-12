@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { displayName } from '@/lib/people'
@@ -72,7 +73,7 @@ export default function AdminEarlyMoveOutPage() {
   useEffect(() => {
     async function init() {
       const user = await getCurrentUser()
-      if (!user || !['administrator', 'admin'].includes(user.assignment?.role || '')) {
+      if (!user || !isOfficeRole(user.assignment?.role)) {
         router.push('/login')
         return
       }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
@@ -27,7 +28,7 @@ export default function QuickNotifyPage() {
   useEffect(() => {
     async function init() {
       const user = await getCurrentUser()
-      if (!user || (user.assignment?.role !== 'administrator' && user.assignment?.role !== 'admin')) {
+      if (!user || !isOfficeRole(user.assignment?.role)) {
         router.push('/login')
         return
       }

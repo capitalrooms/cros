@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, use, useMemo } from 'react'
+import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
@@ -835,7 +836,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
   useEffect(() => {
     async function init() {
       const user = await getCurrentUser()
-      if (!user || (user.assignment?.role !== 'administrator' && user.assignment?.role !== 'admin')) {
+      if (!user || !isOfficeRole(user.assignment?.role)) {
         router.push('/login')
         return
       }

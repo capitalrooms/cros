@@ -1,5 +1,6 @@
 'use client'
 import { adminFetch } from '@/lib/adminFetch'
+import { isOfficeRole } from '@/lib/access/areas'
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -45,7 +46,7 @@ export default function AIUploadPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || (data.assignment?.role !== 'administrator' && data.assignment?.role !== 'admin')) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }

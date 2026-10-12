@@ -1,5 +1,6 @@
 'use client'
 import { displayName } from '@/lib/people'
+import { isOfficeRole } from '@/lib/access/areas'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -49,7 +50,7 @@ export default function ComplianceLogsPage() {
   useEffect(() => {
     async function init() {
       const data = await getCurrentUser()
-      if (!data || !['admin', 'administrator'].includes(data.assignment?.role)) {
+      if (!data || !isOfficeRole(data.assignment?.role)) {
         router.push('/login')
         return
       }
