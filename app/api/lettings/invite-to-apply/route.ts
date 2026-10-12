@@ -137,6 +137,11 @@ export async function POST(request: NextRequest) {
     propertyId   = viewing.property_id
   }
 
+  // the application page needs the room and property — never send a link it can't open
+  if (!roomId || !propertyId) {
+    return NextResponse.json({ error: manual ? 'Pick the room for this invite.' : 'This viewing has no room recorded — set the room on the viewing (or use “Other” and pick it), then send.' }, { status: 400 })
+  }
+
   const payRef      = holdingDepositRef(propAddress || null, roomLabel)
   // first name for the page's greeting ("Hi Harry, ready to lock it down?") — never a title, never "there"
   const greetName   = String(visitorName || firstName || '').trim().replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(/\s+/)[0] ?? ''

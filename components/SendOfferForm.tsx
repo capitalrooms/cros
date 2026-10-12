@@ -4,6 +4,7 @@ import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/compone
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
+import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 
 interface RecentOffer {
   id: string
@@ -36,9 +37,9 @@ export default function SendOfferForm() {
   const [query,           setQuery]           = useState('')
   const [showDropdown,    setShowDropdown]    = useState(false)
   const [selectedRoom,    setSelectedRoom]    = useState<Room | null>(null)
-  const [customMode,      setCustomMode]      = useState(false)   // free-text for unlisted properties
-  const [customRoomDesc,  setCustomRoomDesc]  = useState('')      // e.g. "Room 2, ground floor"
-  const [customAddress,   setCustomAddress]   = useState('')      // e.g. "45 Bermondsey Street"
+  // A property CROS doesn't have is added as a let-only room first (12 Oct 2026): the application link has to name a
+  // real room — offers typed in by hand used to send a link the applicant couldn't open
+  const [addingLetOnly,   setAddingLetOnly]   = useState(false)
   const [applicantEmail,  setApplicantEmail]  = useState('')
   const [applicantName,   setApplicantName]   = useState('')
   const [applicantNm,     setApplicantNm]     = useState<NameValue>(emptyName())
@@ -61,26 +62,32 @@ export default function SendOfferForm() {
   }
   useEffect(() => { loadRecent() }, [])
 
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('rooms')
-        .select('id, name, property_id, current_asking_rent, properties(name, address)')
-        .order('name')
-      setRooms(
-        (data || []).map((r: any) => ({
-          id:               r.id,
-          name:             r.name,
-          property_id:      r.property_id,
-          current_asking_rent: r.current_asking_rent,
-          property_name:    r.properties?.name || '',
-          property_address: r.properties?.address || '',
-        }))
-      )
-    }
-    load()
-  }, [])
+  async function loadRooms(): Promise<Room[]> {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('rooms')
+      .select('id, name, property_id, current_asking_rent, properties(name, address)')
+      .order('name')
+    const list = (data || []).map((r: any) => ({
+      id:               r.id,
+      name:             r.name,
+      property_id:      r.property_id,
+      current_asking_rent: r.current_asking_rent,
+      property_name:    r.properties?.name || '',
+      property_address: r.properties?.address || '',
+    }))
+    setRooms(list)
+    return list
+  }
+  useEffect(() => { loadRooms() }, [])
+
+  // the let-only room just added: pick it (the first room under that property)
+  async function letOnlyAdded(property: any) {
+    setAddingLetOnly(false)
+    const list = await loadRooms()
+    const room = list.filter(r => r.property_id === property?.id).sort((a, b) => a.name.localeCompare(b.name, 'en', { numeric: true }))[0]
+    if (room) pickRoom(room)
+  }
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -105,23 +112,13 @@ export default function SendOfferForm() {
     setSelectedRoom(room)
     setQuery(`${room.name} — ${room.property_name}`)
     setShowDropdown(false)
-    setCustomMode(false)
     if (room.current_asking_rent) setAdvertisedRent(String(room.current_asking_rent))
   }
 
   function clearSelection() {
     setSelectedRoom(null)
-    setCustomMode(false)
     setQuery('')
     setAdvertisedRent('')
-  }
-
-  function enableCustomMode() {
-    setCustomMode(true)
-    setSelectedRoom(null)
-    setShowDropdown(false)
-    setCustomRoomDesc(query) // seed with what they typed
-    setCustomAddress('')
   }
 
   async function handleSend(e: React.FormEvent) {
@@ -132,31 +129,16 @@ export default function SendOfferForm() {
       setError('Please enter applicant email and rent amount')
       return
     }
-    if (!customMode && !selectedRoom) {
-      setError('Please select a room or switch to custom mode')
-      return
-    }
-    if (customMode && !customAddress.trim()) {
-      setError('Please enter the property address')
+    if (!selectedRoom) {
+      setError('Pick the room. If the property isn’t in CROS yet, add it as a let-only room first.')
       return
     }
 
     setSending(true)
     try {
-      const payload = customMode
-        ? {
-            customMode:    true,
-            customRoomDesc: customRoomDesc.trim() || 'Room',
-            customAddress:  customAddress.trim(),
-            applicantEmail,
-            applicantName, salutation: applicantNm.salutation, firstName: applicantNm.first_name.trim(), lastName: applicantNm.last_name.trim(),
-            advertisedRent:  parseFloat(advertisedRent),
-            moveInDate:      moveInDate || null,
-            requestDeposit,
-          }
-        : {
-            roomId:         selectedRoom!.id,
-            propertyId:     selectedRoom!.property_id,
+      const payload = {
+            roomId:         selectedRoom.id,
+            propertyId:     selectedRoom.property_id,
             applicantEmail,
             applicantName, salutation: applicantNm.salutation, firstName: applicantNm.first_name.trim(), lastName: applicantNm.last_name.trim(),
             advertisedRent:  parseFloat(advertisedRent),
@@ -175,7 +157,6 @@ export default function SendOfferForm() {
       setSuccess(`✓ Offer sent to ${applicantEmail} — it shows below and updates when they apply and pay`)
       loadRecent()
       clearSelection()
-      setCustomRoomDesc(''); setCustomAddress('')
       setApplicantEmail(''); setApplicantName(''); setApplicantNm(emptyName())
       setAdvertisedRent(''); setMoveInDate('')
       setRequestDeposit(false)
@@ -202,8 +183,7 @@ export default function SendOfferForm() {
             Property / Room <span className="text-red-400">*</span>
           </label>
 
-          {!customMode ? (
-            <div ref={wrapperRef} className="relative">
+          <div ref={wrapperRef} className="relative">
               <input
                 type="text"
                 value={query}
@@ -244,48 +224,24 @@ export default function SendOfferForm() {
                       <p className="text-sm text-neutral-400 mb-sm">No rooms matched "{query}"</p>
                       <button
                         type="button"
-                        onClick={enableCustomMode}
+                        onClick={() => { setShowDropdown(false); setAddingLetOnly(true) }}
                         className="text-sm text-blue-400 hover:text-blue-300 font-semibold"
                       >
-                        ＋ Enter property details manually →
+                        ＋ Not in CROS? Add it as a let-only room →
                       </button>
                     </div>
                   )}
                 </div>
               )}
-            </div>
-          ) : null}
-
-          {/* Custom / unlisted mode */}
-          {customMode && (
-            <div className="space-y-sm">
-              <div className="flex items-center gap-sm mb-xs">
-                <span className="text-xs text-amber-400 font-semibold">✏️ Unlisted property</span>
-                <button type="button" onClick={() => { setCustomMode(false); setQuery('') }}
-                  className="text-xs text-neutral-500 hover:text-neutral-300 underline">
-                  Search rooms instead
-                </button>
-              </div>
-              <input
-                type="text"
-                value={customRoomDesc}
-                onChange={e => setCustomRoomDesc(e.target.value)}
-                placeholder="Room description, e.g. Double room, ground floor"
-                className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-              <input
-                type="text"
-                value={customAddress}
-                onChange={e => setCustomAddress(e.target.value)}
-                placeholder="Full property address *"
-                required
-                className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
+          </div>
+          {!selectedRoom && (
+            <button type="button" onClick={() => setAddingLetOnly(true)} className="mt-xs text-xs text-neutral-400 hover:text-white underline">
+              Property not in CROS? Add it as a let-only room
+            </button>
           )}
 
           {/* Selected room confirmation */}
-          {selectedRoom && !customMode && (
+          {selectedRoom && (
             <div className="mt-sm bg-neutral-800 px-md py-sm rounded-xl border border-neutral-700 text-sm">
               <span className="text-white font-semibold">{selectedRoom.name}</span>
               <span className="text-neutral-400 ml-xs">· {selectedRoom.property_name}</span>
@@ -355,7 +311,7 @@ export default function SendOfferForm() {
 
         <button
           type="submit"
-          disabled={sending || (!selectedRoom && !customMode) || !applicantEmail || !advertisedRent}
+          disabled={sending || !selectedRoom || !applicantEmail || !advertisedRent}
           className="w-full rounded-xl bg-blue-600 py-sm text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
         >
           {sending ? 'Sending…' : '📧 Send offer letter'}
@@ -385,6 +341,8 @@ export default function SendOfferForm() {
           </div>
         </div>
       )}
+
+      {addingLetOnly && <AddLetOnlyModal onClose={() => setAddingLetOnly(false)} onSave={letOnlyAdded} />}
 
       {depositFor && (
         <HoldingDepositModal
