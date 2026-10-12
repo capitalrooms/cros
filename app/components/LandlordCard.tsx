@@ -1,6 +1,6 @@
 'use client'
 
-import { landlordName } from '@/lib/people'
+import { landlordName, onboardingName } from '@/lib/people'
 import { StoredImg } from '@/components/StoredImg'
 
 /**
@@ -74,7 +74,7 @@ export function fromOnboarding(row: any): LandlordCardData {
   return {
     onboardingId:   row.id,
     personId:       row.landlord_people_id ?? null,
-    displayName:    row.full_name || row.email,
+    displayName:    onboardingName(row) || row.email,
     email:          row.email,
     phone:          row.phone ?? null,
     company:        null,

@@ -7,6 +7,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromOnboarding } from '@/app/components/LandlordCard'
 import { adminFetch } from '@/lib/adminFetch'
+import { onboardingName } from '@/lib/people'
 
 // ── Stage definitions ──────────────────────────────────────────────────────────
 
@@ -368,7 +369,7 @@ export default function OnboardingPage() {
                             <div className="flex items-start justify-between gap-md">
                               <div>
                                 <div className="flex items-center gap-sm">
-                                  <p className="text-sm font-semibold text-neutral-900">{row.full_name || row.name || row.email}</p>
+                                  <p className="text-sm font-semibold text-neutral-900">{onboardingName(row) || row.name || row.email}</p>
                                   {stale && (
                                     <span className="text-xs font-semibold bg-orange-100 text-orange-600 px-xs py-0.5 rounded-md shrink-0">
                                       {idle}d idle
@@ -414,7 +415,7 @@ export default function OnboardingPage() {
                     >
                       <div className="flex items-start justify-between gap-md">
                         <div>
-                          <p className="text-sm font-semibold text-neutral-600">{row.full_name || row.name || row.email}</p>
+                          <p className="text-sm font-semibold text-neutral-600">{onboardingName(row) || row.name || row.email}</p>
                           <p className="text-xs text-neutral-400 mt-xs">{row.email}</p>
                         </div>
                         <button

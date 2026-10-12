@@ -586,7 +586,7 @@ export default function DocReview({
         if (fields.previous_address) update.previous_address  = fields.previous_address
         const { error: e } = await supabase.from('people').update(update).eq('id', targetPerson)
         if (e) throw e
-        onApplied(`Saved to ${people.find((p) => p.id === targetPerson)?.full_name || 'the tenant'}.`)
+        onApplied(`Saved to ${(() => { const p = people.find((x) => x.id === targetPerson) as any; return p ? ([p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name) : 'the tenant' })()}.`)
         return
       }
 
@@ -760,7 +760,7 @@ export default function DocReview({
                 const startLabel = t.start_date
                   ? new Date(t.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                   : null
-                const parts = [t.people?.full_name || t.people?.name || 'Tenant', t.rooms?.name, prop, startLabel ? `from ${startLabel}` : null].filter(Boolean)
+                const parts = [[t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || t.people?.name || 'Tenant', t.rooms?.name, prop, startLabel ? `from ${startLabel}` : null].filter(Boolean)
                 return (
                   <option key={t.id} value={t.id}>
                     {parts.join(' · ')}

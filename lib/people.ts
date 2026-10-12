@@ -35,6 +35,14 @@ export function displayName(person: PersonLike | null | undefined): string {
   return person.full_name || person.name || person.company || '—'
 }
 
+/** A landlord onboarding record's name with the title from their form — "Mr John Smith". */
+export function onboardingName(row: { full_name?: string | null; form_data?: any } | null | undefined): string {
+  const name = String(row?.full_name || '').trim()
+  const title = row?.form_data?.salutation
+  if (!name) return ''
+  return title && !name.startsWith(title + ' ') ? `${title} ${name}` : name
+}
+
 /** First and last name without the title — only for matching names (bank payees, imports), never for display. */
 export function nameNoTitle(person: PersonLike | null | undefined): string {
   if (!person) return ''

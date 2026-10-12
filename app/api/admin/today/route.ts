@@ -6,6 +6,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { ledgerStart } from '@/lib/clientLedger'
+import { onboardingName } from '@/lib/people'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
       .eq('quote_requested', true).not('quote_submitted_at', 'is', null).in('status', ['reported', 'assigned']),
     s.from('rent_charges').select('id, room_id, property_id, charge_month, amount_due, amount_received, status, voided, rooms(name, properties(name, address))')
       .in('status', ['overdue', 'partial']).gte('charge_month', start).order('charge_month', { ascending: true }).limit(20),
-    s.from('landlord_onboarding').select('id, full_name, updated_at').eq('stage', 3),
+    s.from('landlord_onboarding').select('id, full_name, form_data, updated_at').eq('stage', 3),
     s.from('viewings').select('id, viewing_date, viewing_slot, visitor_name, visitor_phone, rooms(name), properties(name, address)')
       .eq('viewing_date', today).neq('viewing_status', 'cancelled').order('viewing_slot'),
     s.from('admin_appointments').select('id, title, appointment_date, appointment_time, properties(name)').eq('appointment_date', today).order('appointment_time'),
@@ -112,7 +113,7 @@ export async function GET(req: NextRequest) {
   for (const o of (onboarding.data ?? []) as any[]) {
     items.push({
       id: `aml-${o.id}`, kind: 'aml_review', group: 'needs_you', rank: 30,
-      title: 'Landlord form to review', detail: `${o.full_name || 'New landlord'} · submitted ${ago(o.updated_at)}`,
+      title: 'Landlord form to review', detail: `${onboardingName(o) || 'New landlord'} · submitted ${ago(o.updated_at)}`,
       tag: { text: 'AML', tone: 'grey' }, href: `/admin/new-business/onboarding/${o.id}`,
     })
   }

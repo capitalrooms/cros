@@ -7,6 +7,7 @@ import { readDocument, type DocReading, type DocKind } from '@/lib/aml/docCheck'
 import { screenName, type ScreeningResult } from '@/lib/aml/sanctions'
 import { sendEmail } from '@/lib/sendEmail'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { onboardingName } from '@/lib/people'
 
 export type CheckStatus = 'pass' | 'review' | 'fail'
 export interface ReviewCheck { area: string; label: string; status: CheckStatus; detail: string }
@@ -266,8 +267,8 @@ export async function notifyOfficeOfSubmission(onboardingId: string, review: Aut
   const reasons = review?.reasons.slice(0, 8).map(r => `<li>${r}</li>`).join('') ?? ''
   await sendEmail(
     to,
-    `AML form ${updated ? 'updated' : 'submitted'} — ${row.full_name}${level ? ` (suggested ${level} risk)` : ''}`,
-    `<p style="margin:0 0 14px;font-size:15px;color:#333">${row.full_name} (${row.email}) has ${updated ? 'reopened, changed and re-sent' : 'submitted'} their landlord onboarding and AML form.</p>
+    `AML form ${updated ? 'updated' : 'submitted'} — ${onboardingName(row)}${level ? ` (suggested ${level} risk)` : ''}`,
+    `<p style="margin:0 0 14px;font-size:15px;color:#333">${onboardingName(row)} (${row.email}) has ${updated ? 'reopened, changed and re-sent' : 'submitted'} their landlord onboarding and AML form.</p>
      ${level ? `<p style="margin:0 0 10px;font-size:15px"><strong>Suggested risk: <span style="color:${colour}">${level.toUpperCase()}</span></strong></p>` : '<p>The automatic checks could not run — open the record to run them.</p>'}
      ${reasons ? `<ul style="margin:0 0 14px;padding-left:18px;font-size:14px;color:#333">${reasons}</ul>` : ''}
      <p style="margin:0 0 14px;font-size:14px;color:#333">Review the documents and checks, confirm the risk level, then generate the AML report.</p>

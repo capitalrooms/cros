@@ -6,6 +6,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import { FACT_LABELS, propertyDocLabel, type PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
+import { onboardingName } from '@/lib/people'
 
 type Status = 'pass' | 'review' | 'fail'
 interface Check { area: string; label: string; status: Status; detail: string }
@@ -188,7 +189,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
       <div className="flex flex-wrap items-start justify-between gap-md mb-lg">
         <div>
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">AML review</p>
-          <h1 className="text-2xl font-bold text-neutral-900">{row.full_name}</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">{onboardingName(row)}</h1>
           <p className="text-sm text-neutral-500">{row.email}{f.j_contact_email ? ` · ${f.j_contact_email}` : ''} · {submitted ? `Submitted ${fmt(f.__submitted_at ?? row.docs_received_at)}` : 'Form not yet submitted'}</p>
         </div>
         <div className="flex flex-wrap gap-sm">
