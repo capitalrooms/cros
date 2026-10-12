@@ -1,11 +1,14 @@
 import { createClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff, requireSignedIn, isStaff } from '@/lib/portalAuth'
 
 /**
  * Time-shift all viewings for a property by N minutes
  * Updates viewing_slot times and sends notification to all tenants
  */
 export async function POST(request: NextRequest) {
+  // office only (audit 12 Oct 2026: any signed-in person could move viewings and message tenants)
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { property_id, shift_minutes } = await request.json()
 

@@ -45,7 +45,7 @@ export const AREAS: Area[] = [
       '/api/admin/ops-account', '/api/admin/statements', '/api/admin/statement-line-items', '/api/admin/reconciliation', '/api/admin/bank-import', '/api/admin/rent-charges',
       '/api/admin/arrears', '/api/admin/client-money', '/api/admin/deposits', '/api/admin/deposit-returns', '/api/admin/payouts', '/api/admin/reports', '/api/admin/landlord-statement',
       '/api/admin/landlord-bank-accounts', '/api/admin/payment-audit-log', '/api/admin/financial-trail', '/api/admin/categorise-expense', '/api/admin/finance-check',
-      '/api/admin/finance-home', '/api/admin/rent-resolve', '/api/admin/expense-statement-pdf', '/api/admin/send-expense-report', '/api/admin/arrears-letter', '/api/accounts', '/api/statements'] },
+      '/api/admin/finance-home', '/api/admin/rent-resolve', '/api/admin/expense-statement-pdf', '/api/admin/send-expense-report', '/api/admin/arrears-letter', '/api/accounts', '/api/statements', '/api/ai/extract-statement'] },
   { key: 'people', label: 'People', hint: 'Tenants, landlords, contractors and cleaners (not office accounts)',
     pages: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord'], api: ['/api/admin/people'] },
   { key: 'comms', label: 'Comms', hint: 'Messages, letters & invoices, quick notify, templates',
@@ -54,7 +54,7 @@ export const AREAS: Area[] = [
       '/api/admin/notices'] },
   { key: 'newbusiness', label: 'New business', hint: 'Agreements, introductions, onboarding & AML, valuations',
     pages: ['/admin/new-business', '/admin/valuations'],
-    api: ['/api/admin/new-business', '/api/admin/valuations', '/api/admin/management-agreements', '/api/admin/generate-management-agreement', '/api/landlord-onboarding', '/api/aml-report', '/api/landlord-aml-refresh'] },
+    api: ['/api/admin/new-business', '/api/admin/valuations', '/api/admin/management-agreements', '/api/admin/generate-management-agreement', '/api/landlord-onboarding', '/api/aml-report', '/api/landlord-aml-refresh', '/api/landlord-acquisition'] },
 ]
 
 export const ALL_AREAS = AREAS.map(a => a.key)

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/adminAuth'
 import { extractStatement, aiConfigured } from '@/lib/ai-statement'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
+  // office only (audit 12 Oct 2026: it was open to anyone)
+  if (!(await requireAdmin(request))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   if (!aiConfigured()) {
     return NextResponse.json(
       { error: 'AI reading is not set up yet — an ANTHROPIC_API_KEY needs to be configured. You can still enter the statement manually.' },

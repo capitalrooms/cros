@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODEL_SMART } from '@/lib/ai-classify'
 
@@ -9,6 +10,8 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // Returns: structured JSON of extracted reference data
 
 export async function POST(req: NextRequest) {
+  // office staff only (audit 12 Oct 2026: it was open to anyone — and it costs money to run)
+  if (!(await requireStaff(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const formData = await req.formData()
   const files = formData.getAll('files') as File[]
 

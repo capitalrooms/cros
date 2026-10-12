@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -20,7 +21,8 @@ function serviceClient() {
  */
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // office only (audit 12 Oct 2026: any signed-in person — a tenant too — could book viewings and set off notices)
+  if (!user || !(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const sb = serviceClient()
   const body = await req.json()

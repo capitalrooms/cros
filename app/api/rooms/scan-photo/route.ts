@@ -18,12 +18,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODEL } from '@/lib/ai-classify'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export async function POST(req: NextRequest) {
+  // office staff only (audit 12 Oct 2026: it was open to anyone — and it costs money to run)
+  if (!(await requireStaff(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
   }
