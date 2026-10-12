@@ -132,7 +132,7 @@ function Emergencies({ initialId, initialTab }: { initialId: string | null; init
           )
         )}
 
-        {data && tab === 'list' && <ContractorList data={data} act={act} />}
+        {data && tab === 'list' && <div className="space-y-lg"><CoverTable data={data} /><ContractorList data={data} act={act} /></div>}
         {data && tab === 'settings' && <SettingsForm s={data.settings} act={act} />}
       </div>
     </div>
@@ -245,7 +245,12 @@ function Detail({ d, act }: { d: any; act: (b: Record<string, unknown>) => Promi
 
 function ContractorList({ data, act }: { data: any; act: (b: Record<string, unknown>) => Promise<boolean> }) {
   const trades: Record<string, string> = data.trades ?? {}
-  const empty = { personId: '', trades: [] as string[], hoursFrom: 0, hoursTo: 24, backupOnly: false, fee: '', rank: 5, active: true, notes: '' }
+  const empty = { personId: '', trades: [] as string[], hoursFrom: 0, hoursTo: 24, backupOnly: false, fee: '', rank: 5, active: true, notes: '', propertyIds: [] as string[], bySms: true, byPush: true, byEmail: false }
+  const props: { id: string; name: string; code: string | null }[] = data.properties ?? []
+  const propName = new Map(props.map(p => [p.id, p.name]))
+  const conById = new Map((data.contractors ?? []).map((p: any) => [p.id, p]))
+  const via = (c: any) => [c.bySms && 'text', c.byPush && 'app', c.byEmail && 'email'].filter(Boolean).join(', ') || 'no way set'
+  const houses = (c: any) => !(c.propertyIds ?? []).length ? 'all houses' : (c.propertyIds.length <= 2 ? c.propertyIds.map((id: string) => propName.get(id) ?? 'a house').join(', ') : `${c.propertyIds.length} houses`)
   const [form, setForm] = useState<any>(empty)
   const listed = new Set((data.list ?? []).map((c: any) => c.personId))
   const hours = (c: any) => c.hoursFrom === 0 && c.hoursTo === 24 ? 'Any time' : `${String(c.hoursFrom).padStart(2, '0')}:00–${String(c.hoursTo % 24).padStart(2, '0')}:00`
@@ -260,7 +265,8 @@ function ContractorList({ data, act }: { data: any; act: (b: Record<string, unkn
               <li key={c.personId} className={`flex flex-wrap items-center justify-between gap-sm px-lg py-sm ${c.active ? '' : 'opacity-50'}`}>
                 <span className="min-w-0">
                   <span className="font-semibold text-neutral-900">{c.name}</span>{!c.phone && <span className="ml-xs text-xs font-semibold text-red-700">no mobile number — can’t be texted</span>}
-                  <span className="block text-xs text-neutral-500">{c.trades.map((t: string) => trades[t] ?? t).join(', ')} · {hours(c)}{c.backupOnly ? ' · backup only' : ''} · call-out {c.fee != null ? `£${c.fee}` : 'not set'} · preference {c.rank}{c.notes ? ` · ${c.notes}` : ''}</span>
+                  <span className="block text-xs text-neutral-500">{c.trades.map((t: string) => trades[t] ?? t).join(', ')} · {houses(c)} · {hours(c)}{c.backupOnly ? ' · backup only' : ''} · call-out {c.fee != null ? `£${c.fee}` : 'not set'} · preference {c.rank}{c.notes ? ` · ${c.notes}` : ''}</span>
+                  <span className="block text-xs text-neutral-500">Hears from us by {via(c)}{c.byEmail && !c.email ? <span className="font-semibold text-red-700"> — no email address</span> : null}</span>
                 </span>
                 <span className="flex gap-xs">
                   <button type="button" className={btn} onClick={() => setForm({ ...c, fee: c.fee ?? '' })}>Edit</button>
@@ -276,7 +282,10 @@ function ContractorList({ data, act }: { data: any; act: (b: Record<string, unkn
         <h3 className="text-sm font-bold text-neutral-900">{form.personId && listed.has(form.personId) ? 'Edit' : 'Add a contractor'}</h3>
         <div className="grid gap-md sm:grid-cols-2">
           <label className="text-sm">Contractor
-            <select className={`${input} mt-xs w-full`} value={form.personId} onChange={e => setForm({ ...form, personId: e.target.value })}>
+            <select className={`${input} mt-xs w-full`} value={form.personId} onChange={e => {
+              const id = e.target.value; const onList = (data.list ?? []).find((c: any) => c.personId === id); const p: any = conById.get(id)
+              setForm(onList ? { ...onList, fee: onList.fee ?? '' } : { ...form, personId: id, ...(p ? { bySms: p.bySms, byPush: p.byPush, byEmail: p.byEmail } : {}) })
+            }}>
               <option value="">Choose…</option>
               {(data.contractors ?? []).map((p: any) => <option key={p.id} value={p.id}>{p.name}{p.phone ? '' : ' (no mobile)'}{listed.has(p.id) ? ' — on the list' : ''}</option>)}
             </select>
@@ -295,6 +304,29 @@ function ContractorList({ data, act }: { data: any; act: (b: Record<string, unkn
             ))}
           </div>
         </div>
+        <div>
+          <p className="mb-xs text-sm">Houses they cover</p>
+          <div className="flex flex-wrap gap-xs">
+            <label className={`cursor-pointer rounded-full border px-md py-xs text-sm ${!form.propertyIds.length ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300'}`}>
+              <input type="checkbox" className="sr-only" checked={!form.propertyIds.length} onChange={() => setForm({ ...form, propertyIds: [] })} />All houses
+            </label>
+            {props.map(p => (
+              <label key={p.id} className={`cursor-pointer rounded-full border px-md py-xs text-sm ${form.propertyIds.includes(p.id) ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300'}`}>
+                <input type="checkbox" className="sr-only" checked={form.propertyIds.includes(p.id)} onChange={e => setForm({ ...form, propertyIds: e.target.checked ? [...form.propertyIds, p.id] : form.propertyIds.filter((x: string) => x !== p.id) })} />{p.name}
+              </label>
+            ))}
+          </div>
+          <p className="mt-xs text-xs text-neutral-500">Only the houses ticked call on them. “All houses” includes any house added later.</p>
+        </div>
+        <div>
+          <p className="mb-xs text-sm">How they hear from us <span className="text-neutral-500">(their choice — change it whenever they ask)</span></p>
+          <div className="flex flex-wrap gap-md text-sm">
+            <label className="flex items-center gap-xs"><input type="checkbox" checked={form.bySms} onChange={e => setForm({ ...form, bySms: e.target.checked })} /> Text message</label>
+            <label className="flex items-center gap-xs"><input type="checkbox" checked={form.byPush} onChange={e => setForm({ ...form, byPush: e.target.checked })} /> App notification</label>
+            <label className="flex items-center gap-xs"><input type="checkbox" checked={form.byEmail} onChange={e => setForm({ ...form, byEmail: e.target.checked })} /> Email</label>
+          </div>
+          <p className="mt-xs text-xs text-neutral-500">If none of these reaches them in an emergency (e.g. the app isn’t on their phone), CROS texts them anyway when it has their mobile.</p>
+        </div>
         <div className="grid gap-md sm:grid-cols-3">
           <label className="text-sm">Takes calls from
             <select className={`${input} mt-xs w-full`} value={form.hoursFrom} onChange={e => setForm({ ...form, hoursFrom: Number(e.target.value) })}>{Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}</select>
@@ -310,11 +342,53 @@ function ContractorList({ data, act }: { data: any; act: (b: Record<string, unkn
         <label className="flex items-center gap-sm text-sm"><input type="checkbox" checked={form.active} onChange={e => setForm({ ...form, active: e.target.checked })} /> On the list (untick to pause them)</label>
         <input className={`${input} w-full`} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Notes (e.g. covers E-postcodes only)" />
         <div className="flex gap-sm">
-          <button type="button" className={btnDark} disabled={!form.personId || !form.trades.length} onClick={save}>Save</button>
+          <button type="button" className={btnDark} disabled={!form.personId || !form.trades.length || !(form.bySms || form.byPush || form.byEmail)} onClick={save}>Save</button>
           {form.personId && <button type="button" className={btn} onClick={() => setForm(empty)}>Clear</button>}
         </div>
       </section>
     </div>
+  )
+}
+
+/** Who covers each trade at each house — the gaps are what to fix. General / handyman contractors are only asked
+ *  when no one for the trade can come. */
+function CoverTable({ data }: { data: any }) {
+  const trades: Record<string, string> = data.trades ?? {}
+  const keys = Object.keys(trades)
+  const props: { id: string; name: string }[] = data.properties ?? []
+  const active = (data.list ?? []).filter((c: any) => c.active)
+  const who = (pid: string, t: string) => active.filter((c: any) => c.trades.includes(t) && (!(c.propertyIds ?? []).length || c.propertyIds.includes(pid)))
+  const gaps = props.reduce((n, p) => n + keys.filter(t => t !== 'general' && !who(p.id, t).length && !who(p.id, 'general').length).length, 0)
+  return (
+    <section className={card}>
+      <div className="flex flex-wrap items-baseline justify-between gap-sm border-b border-neutral-100 px-lg py-sm">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Cover by house</h3>
+        <span className={`text-xs font-semibold ${gaps ? 'text-red-700' : 'text-green-700'}`}>{gaps ? `${gaps} gap${gaps === 1 ? '' : 's'} — no one to call` : 'Every house covered'}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-[11px] uppercase tracking-wider text-neutral-400">
+            <th className="px-lg py-xs font-semibold">House</th>{keys.map(t => <th key={t} className="px-sm py-xs font-semibold whitespace-nowrap">{trades[t]}</th>)}
+          </tr></thead>
+          <tbody className="divide-y divide-neutral-100">
+            {props.map(p => (
+              <tr key={p.id}>
+                <td className="px-lg py-xs font-semibold text-neutral-900 whitespace-nowrap">{p.name}</td>
+                {keys.map(t => {
+                  const list = who(p.id, t)
+                  const fallback = t !== 'general' && !list.length && who(p.id, 'general').length
+                  return <td key={t} className="px-sm py-xs whitespace-nowrap" title={list.map((c: any) => c.name).join(', ')}>
+                    {list.length ? <span className="text-neutral-800">{list.length === 1 ? list[0].name : `${list.length} contractors`}</span>
+                      : fallback ? <span className="text-amber-700">general only</span>
+                      : <span className="font-semibold text-red-700">no one</span>}
+                  </td>
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }
 

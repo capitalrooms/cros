@@ -807,6 +807,12 @@ export default function TenantDashboard() {
             </div>
           )}
 
+          {/* Emergencies — straight to the quick report (lib/emergencies), then the usual Report an issue */}
+          <Link href="/tenant/emergency"
+            className="block w-full rounded-2xl bg-red-700 py-md text-center text-base font-bold text-white hover:bg-red-600 transition-colors active:scale-[0.98]">
+            🚨 Report an emergency
+          </Link>
+
           {/* Report an issue — moved to bottom now screen has more content above */}
           <button
             onClick={() => setShowReportSheet(true)}
