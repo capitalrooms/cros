@@ -83,10 +83,11 @@ export async function resolveRows(s: SupabaseClient, rows: ListRow[]): Promise<R
     if (!groups.has(code)) {
       const k = codeKey(code)
       const match = k ? letOnly.find(p => { const { c, h } = keyOf(p); return (c && c.num === k.num && c.letters === k.letters) || (h && h.num === k.num && h.letters === k.letters) }) : null
-      // a house we don't have yet: borrow the street and postcode from any house with the same street initials
+      // a house we don't have yet: borrow the street and postcode from another let-only house with the same street
+      // initials (9rc → 9 Royal Court, from 8 Royal Court). Only let-only houses — "rc" is also Redstart Close, managed.
       let suggestion: ResolvedGroup['suggestion'] = null
       if (!match && k) {
-        const same = all.map(p => ({ p, h: houseKey(p.name) ?? houseKey(p.address) })).find(x => x.h && x.h.letters === k.letters)
+        const same = letOnly.map(p => ({ p, h: houseKey(p.name) ?? houseKey(p.address) })).find(x => x.h && x.h.letters === k.letters)
         if (same?.h) {
           const rest = String(same.p.name || '').split(/\n/)[0].replace(/^.*?\d+\s*,?\s*/, '')
           suggestion = { address: `${k.num} ${rest}`, postcode: same.p.postcode ?? null }
