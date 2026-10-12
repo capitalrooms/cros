@@ -665,6 +665,67 @@ export default function MaintenanceDashboard() {
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
+  // One job on the board: two short lines; tap to open it in place with that stage's actions (Harry, 13 Oct 2026).
+  // Property leads (not the tenant's own wording, which is messy); the wording shows when it's opened.
+  const [openJob, setOpenJob] = useState<string | null>(null);
+  const PRIORITY_MARK: Record<string, string> = { emergency: 'bg-red-600 text-white', high: 'bg-red-50 text-red-700', medium: 'bg-amber-50 text-amber-800' };
+  const jobRow = (ticket: Ticket, col: PipelineStage) => {
+    const open = openJob === ticket.id;
+    const finished = col.key === 'completed' || col.key === 'cancelled';
+    const sub = [ticket.category, ticket.rooms?.name || ticket.location].filter(Boolean).join(' · ');
+    return (
+      <li key={ticket.id} className={ticket.priority === 'emergency' ? 'border-l-4 border-red-600' : ''}>
+        <div className="flex items-start gap-xs">
+          <button type="button" onClick={() => setOpenJob(open ? null : ticket.id)} aria-expanded={open}
+            className="min-w-0 flex-1 px-md py-sm text-left hover:bg-neutral-50">
+            <span className="flex items-baseline justify-between gap-sm">
+              <span className="truncate text-sm font-semibold text-neutral-900">{ticket.properties?.name ?? 'Unknown property'}</span>
+              <span className="shrink-0 text-[11px] text-neutral-400">{new Date(ticket.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+            </span>
+            <span className="mt-0.5 flex items-center gap-xs text-xs text-neutral-500">
+              {PRIORITY_MARK[ticket.priority] && <span className={`shrink-0 rounded px-1 text-[10px] font-bold uppercase ${PRIORITY_MARK[ticket.priority]}`}>{ticket.priority}</span>}
+              <span className="truncate">{sub}</span>
+            </span>
+            {ticket.booked_date && <span className="mt-0.5 block text-xs font-semibold text-neutral-800">{formatBooking(ticket.booked_date, ticket.booked_slot)}</span>}
+          </button>
+          {col.key === 'booked' && (
+            <label className="shrink-0 cursor-pointer px-sm py-sm" title="Select for batching">
+              <input type="checkbox" checked={selectedForBatch.has(ticket.id)} aria-label="Select for batching"
+                onChange={(e) => { const n = new Set(selectedForBatch); if (e.target.checked) n.add(ticket.id); else n.delete(ticket.id); setSelectedForBatch(n); }} />
+            </label>
+          )}
+        </div>
+        {open && (
+          <div className="space-y-sm bg-neutral-50 px-md pb-md pt-xs">
+            {ticket.title && <p className="text-xs text-neutral-600">“{ticket.title}”</p>}
+            {col.key === 'booked' && <p className="text-xs text-neutral-500">{ticket.contractor_id ? 'Contractor assigned' : 'No contractor yet'}</p>}
+            {col.key === 'progress' && ticket.return_needed && <p className="text-xs font-semibold text-neutral-900">Return visit needed</p>}
+            {col.key === 'cancelled' && ticket.cancel_reason && <p className="text-xs text-neutral-600">Cancelled{ticket.cancelled_at ? ` ${new Date(ticket.cancelled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}: {ticket.cancel_reason}</p>}
+            {col.key === 'awaiting' && (
+              <div className="flex gap-xs">
+                <button onClick={() => approveTicket(ticket.id)} className="flex-1 rounded-lg bg-neutral-900 py-xs text-xs font-bold text-white">Approve</button>
+                <button onClick={() => holdTicket(ticket.id)} className="flex-1 rounded-lg border border-neutral-400 bg-white py-xs text-xs font-semibold">Hold</button>
+              </div>
+            )}
+            {col.key === 'hold' && <button onClick={() => approveTicket(ticket.id)} className="w-full rounded-lg bg-neutral-900 py-xs text-xs font-bold text-white">Release now</button>}
+            <div className="flex flex-wrap items-center gap-xs">
+              <button type="button" onClick={() => { setSelectedTicket(ticket); setShowDetails(true); }}
+                className="rounded-lg bg-white px-sm py-xs text-xs font-semibold text-neutral-900 ring-1 ring-neutral-300 hover:bg-neutral-100">
+                {col.key === 'raised' ? 'Assign a contractor →' : 'Open job →'}
+              </button>
+              {!finished && (
+                <>
+                  <button type="button" onClick={() => openAddToPlanner(ticket)} className="rounded-lg px-sm py-xs text-xs font-semibold text-neutral-500 hover:text-neutral-800">🗂️ Add to Planner</button>
+                  <button type="button" onClick={() => setCancelFor(ticket)} className="rounded-lg px-sm py-xs text-xs font-semibold text-neutral-400 hover:text-red-600">Cancel job</button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </li>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
@@ -674,292 +735,106 @@ export default function MaintenanceDashboard() {
       {cancelFor && <CancelJobModal ticket={cancelFor} onClose={() => setCancelFor(null)} onDone={async () => { setCancelFor(null); await fetchTickets() }} />}
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        {/* Page heading */}
-        <div className="mb-3xl flex items-start justify-between gap-md">
-          <div>
-          </div>
-          <div className="flex gap-sm shrink-0">
-            <Link
-              href="/admin/maintenance/job-sheet"
-              className="rounded-xl bg-blue-600 px-lg py-md text-sm font-bold text-white hover:bg-blue-700"
-            >
-              📋 Job sheet
-            </Link>
-            <Link
-              href="/admin/maintenance/new"
-              className="rounded-xl bg-neutral-900 px-lg py-md text-sm font-bold text-white hover:bg-neutral-800"
-            >
-              + Single job
-            </Link>
-          </div>
+        {/* One line: filters, then the two ways to add work (Harry, 13 Oct 2026: less space, smaller job entries) */}
+        <div className="mb-lg flex flex-wrap items-center gap-sm">
+          <select
+            value={filterStatus}
+            onChange={(e) => { setFilterStatus(e.target.value); setLoading(true); }}
+            aria-label="Status"
+            className="rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm"
+          >
+            <option value="">All statuses</option>
+            <option value="reported">Reported</option>
+            <option value="assigned">Assigned</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+          <select
+            value={filterPriority}
+            onChange={(e) => { setFilterPriority(e.target.value); setLoading(true); }}
+            aria-label="Priority"
+            className="rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm"
+          >
+            <option value="">All priorities</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+          <span className="flex-1" />
+          <Link href="/admin/maintenance/job-sheet" className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
+            📋 Job sheet
+          </Link>
+          <Link href="/admin/maintenance/new" className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700">
+            + Single job
+          </Link>
         </div>
 
         <ChaseContractors />
 
         {error && (
-          <div className="mb-md rounded-xl border border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">
+          <div className="mb-md rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">
             {error}
           </div>
         )}
 
-        {/* Filters */}
-        <div className="mb-lg rounded-2xl border border-neutral-200 bg-white p-md">
-          <h3 className="mb-md font-semibold text-neutral-900">Filters</h3>
-          <div className="flex flex-wrap gap-md">
-            <div>
-              <label className="block text-xs font-medium text-neutral-700">Status</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => {
-                  setFilterStatus(e.target.value);
-                  setLoading(true);
-                }}
-                className="mt-xs rounded-xl border border-neutral-300 px-sm py-xs text-sm"
-              >
-                <option value="">All Statuses</option>
-                <option value="reported">Reported</option>
-                <option value="assigned">Assigned</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-neutral-700">Priority</label>
-              <select
-                value={filterPriority}
-                onChange={(e) => {
-                  setFilterPriority(e.target.value);
-                  setLoading(true);
-                }}
-                className="mt-xs rounded-xl border border-neutral-300 px-sm py-xs text-sm"
-              >
-                <option value="">All Priorities</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Pipeline — left to right, completed on the right */}
+        {/* The board: stages that need you, plus any working stage with jobs in it; finished jobs fold away below */}
         {loading ? (
-          <div className="text-center text-neutral-600">Loading tickets...</div>
-        ) : (
-          <div className="grid gap-md md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-            {PIPELINE.map((col) => {
-              const items = filteredTickets.filter((t) => col.match(t));
-              const isActionNeeded = col.actionType === 'ACTION_NEEDED';
-              const isEmpty = items.length === 0;
-
-              // ACTION_NEEDED sections always expand; others collapse when empty
-              const shouldExpand = isActionNeeded || isEmpty === false;
-
-              // Collapsed thin row (for empty or passive-tracking sections)
-              if (!shouldExpand && isEmpty) {
-                return (
-                  <div key={col.key} className="flex items-center gap-md rounded-xl bg-neutral-200 px-md py-sm">
-                    <span className="flex-1 text-sm font-medium text-neutral-600">{col.title}</span>
-                    <span className="rounded-full bg-neutral-300 px-sm text-xs font-semibold text-neutral-700">
-                      {items.length}
-                    </span>
-                  </div>
-                );
-              }
-
-              // Collapsed thin row (for passive-tracking sections with items)
-              if (!shouldExpand && !isEmpty) {
-                return (
-                  <div key={col.key} className="flex items-center gap-md rounded-xl bg-white border border-neutral-200 px-md py-sm">
-                    <span className="flex-1 text-sm font-medium text-neutral-700">{col.title}</span>
-                    <span className="rounded-full bg-neutral-100 px-sm text-xs font-semibold text-neutral-600">
-                      {items.length}
-                    </span>
-                  </div>
-                );
-              }
-
-              // Expanded section (for ACTION_NEEDED or empty sections being displayed)
-              return (
-                <div key={col.key} className={`flex min-w-0 flex-col overflow-hidden rounded-xl border ${isActionNeeded ? 'border-orange-600' : 'border-neutral-200'} bg-neutral-50`}>
-                  <div
-                    className={`flex items-center justify-between px-md py-sm ${col.getHeaderClass(items.length)}`}
-                  >
-                    <div className="flex items-center gap-sm">
-                      {isActionNeeded && (
-                        <span className="text-lg">⚠️</span>
-                      )}
-                      <span className="text-sm font-semibold">{col.title}</span>
-                    </div>
-                    <span className="rounded-full bg-white/20 px-sm text-xs font-semibold">
-                      {items.length}
-                    </span>
-                  </div>
-
-                  <div className="flex-1 space-y-md p-sm">
-                  {/* Held work is grouped by property so a batch can go out together. */}
-                  {col.key === 'hold' &&
-                    Array.from(new Set(items.map((t) => t.properties?.name).filter(Boolean))).map(
-                      (prop) => (
-                        <button
-                          key={prop}
-                          onClick={() => releaseBatch(prop as string)}
-                          className="w-full rounded-lg bg-neutral-900 py-sm text-xs font-bold text-white"
-                        >
+          <div className="text-center text-neutral-600">Loading jobs…</div>
+        ) : (() => {
+          const DONE = ['completed', 'cancelled'];
+          const cols = PIPELINE.filter((c) => !DONE.includes(c.key) && (c.actionType === 'ACTION_NEEDED' || filteredTickets.some(c.match)));
+          const done = PIPELINE.filter((c) => DONE.includes(c.key));
+          const doneCount = (c: PipelineStage) => filteredTickets.filter(c.match).length;
+          return (
+            <>
+              <div className="grid gap-md sm:grid-cols-2 lg:grid-cols-none lg:auto-cols-fr lg:grid-flow-col">
+                {cols.map((col) => {
+                  const items = filteredTickets.filter((t) => col.match(t));
+                  const needsYou = col.actionType === 'ACTION_NEEDED';
+                  const hot = needsYou && items.length > 0;
+                  return (
+                    <section key={col.key} className={`flex min-w-0 flex-col self-start overflow-hidden rounded-xl border bg-white ${hot ? 'border-red-300' : 'border-neutral-200'}`}>
+                      <header className={`flex items-center justify-between gap-sm px-md py-sm ${hot ? 'bg-red-600 text-white' : needsYou ? 'bg-neutral-100 text-neutral-600' : 'bg-neutral-800 text-white'}`}>
+                        <span className="text-[13px] font-semibold leading-tight">{hot && '⚠️ '}{col.title}</span>
+                        <span className={`shrink-0 rounded-full px-sm text-xs font-bold ${hot ? 'bg-white/25' : needsYou ? 'bg-neutral-200' : 'bg-white/15'}`}>{items.length}</span>
+                      </header>
+                      {/* held work is grouped by property so a batch can go out together */}
+                      {col.key === 'hold' && Array.from(new Set(items.map((t) => t.properties?.name).filter(Boolean))).map((prop) => (
+                        <button key={prop} onClick={() => releaseBatch(prop as string)} className="mx-sm mt-sm rounded-lg bg-neutral-900 py-xs text-xs font-bold text-white">
                           Send {items.filter((t) => t.properties?.name === prop).length} jobs at {prop}
                         </button>
-                      )
-                    )}
+                      ))}
+                      <ul className="divide-y divide-neutral-100">
+                        {items.length === 0
+                          ? <li className="px-md py-sm text-xs text-neutral-400">Nothing here</li>
+                          : items.map((ticket) => jobRow(ticket, col))}
+                      </ul>
+                    </section>
+                  );
+                })}
+              </div>
 
-                  <div className="space-y-md">
-                    {items.length === 0 ? (
-                      <p className="rounded-2xl border border-dashed border-neutral-200 p-lg text-center text-xs text-neutral-400">
-                        Nothing here
-                      </p>
-                    ) : (
-                      items.map((ticket) => (
-                        <div
-                          key={ticket.id}
-                          onClick={() => {
-                            setSelectedTicket(ticket);
-                            setShowDetails(true);
-                          }}
-                          className={`cursor-pointer rounded-lg border bg-white p-md transition-shadow hover:shadow-md ${col.cardClass}`}
-                        >
-                          {/*
-                            Property leads, not the tenant's own wording — raw
-                            titles ("I spilt coffee on the wall") are messy and
-                            vary wildly. Category says what kind of job it is;
-                            the tenant's description is demoted to a quiet line.
-                          */}
-                          <div className="flex items-start justify-between gap-sm">
-                            <h3 className="text-sm font-bold leading-snug text-neutral-900">
-                              {ticket.properties?.name ?? 'Unknown property'}
-                            </h3>
-                            <span
-                              className={`shrink-0 text-xs font-bold ${PRIORITY_COLORS[ticket.priority]}`}
-                            >
-                              {ticket.priority.toUpperCase()}
-                            </span>
-                          </div>
-
-                          <p className="text-xs text-neutral-500">
-                            {ticket.rooms?.name || ticket.location}
-                          </p>
-
-                          <p className="mt-sm text-sm font-semibold text-neutral-900">
-                            {ticket.category}
-                          </p>
-                          <p className="truncate text-xs text-neutral-400" title={ticket.title}>
-                            {ticket.title}
-                          </p>
-
-                          {ticket.booked_date && (
-                            <p className="mt-sm text-xs font-bold text-neutral-900">
-                              {formatBooking(ticket.booked_date, ticket.booked_slot)}
-                            </p>
-                          )}
-
-                          <div className="mt-sm text-right text-xs text-neutral-400">
-                            {new Date(ticket.created_at).toLocaleDateString('en-GB', {
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                          </div>
-
-                          {col.key === 'awaiting' && (
-                            <div className="mt-md flex gap-xs">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); approveTicket(ticket.id); }}
-                                className="flex-1 rounded-lg bg-neutral-900 py-xs text-xs font-bold text-white"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); holdTicket(ticket.id); }}
-                                className="flex-1 rounded-lg border border-neutral-400 py-xs text-xs font-semibold"
-                              >
-                                Hold
-                              </button>
-                            </div>
-                          )}
-                          {col.key === 'hold' && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); approveTicket(ticket.id); }}
-                              className="mt-md w-full rounded-lg bg-neutral-900 py-xs text-xs font-bold text-white"
-                            >
-                              Release now
-                            </button>
-                          )}
-                          {col.key === 'raised' && (
-                            <p className="mt-sm text-xs font-semibold text-neutral-900">
-                              Tap to assign a contractor
-                            </p>
-                          )}
-                          {col.key === 'assigned' && (
-                            <p className="mt-sm text-xs font-semibold text-neutral-500">
-                              Sent — contractor to pick a date
-                            </p>
-                          )}
-                          {col.key === 'booked' && (
-                            <div className="mt-sm flex items-center justify-between">
-                              <p className="text-xs text-neutral-500">
-                                {ticket.contractor_id ? 'Contractor assigned' : 'Unassigned'}
-                              </p>
-                              <label className="flex items-center gap-xs cursor-pointer" title="Select for batching">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedForBatch.has(ticket.id)}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    const newSet = new Set(selectedForBatch);
-                                    if (e.target.checked) {
-                                      newSet.add(ticket.id);
-                                    } else {
-                                      newSet.delete(ticket.id);
-                                    }
-                                    setSelectedForBatch(newSet);
-                                  }}
-                                  className="cursor-pointer"
-                                />
-                                <span className="text-xs text-neutral-400">Select</span>
-                              </label>
-                            </div>
-                          )}
-                          {col.key === 'progress' && ticket.return_needed && (
-                            <p className="mt-sm text-xs font-semibold text-neutral-900">
-                              Return visit needed
-                            </p>
-                          )}
-                          {col.key === 'cancelled' && ticket.cancel_reason && (
-                            <p className="mt-sm text-xs text-neutral-600">Cancelled{ticket.cancelled_at ? ` ${new Date(ticket.cancelled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}: {ticket.cancel_reason}</p>
-                          )}
-                          {/* Add to Planner — available on non-completed tickets */}
-                          {col.key !== 'completed' && col.key !== 'cancelled' && (
-                            <button type="button" onClick={e => { e.stopPropagation(); setCancelFor(ticket) }}
-                              className="mt-xs w-full text-[10px] font-semibold text-neutral-400 hover:text-red-600">
-                              Cancel job
-                            </button>
-                          )}
-                          {col.key !== 'completed' && col.key !== 'cancelled' && (
-                            <button
-                              onClick={e => { e.stopPropagation(); openAddToPlanner(ticket) }}
-                              className="mt-sm w-full rounded-lg border border-dashed border-neutral-300 py-1 text-[10px] font-semibold text-neutral-400 hover:border-neutral-500 hover:text-neutral-700 transition-colors"
-                            >
-                              🗂️ Add to Planner
-                            </button>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  </div>
+              <details className="mt-lg rounded-xl border border-neutral-200 bg-white">
+                <summary className="cursor-pointer px-md py-sm text-sm font-semibold text-neutral-700">
+                  Finished — {done.map((c) => `${c.title} ${doneCount(c)}`).join(' · ')}
+                </summary>
+                <div className="grid gap-md border-t border-neutral-100 p-sm md:grid-cols-2">
+                  {done.map((col) => {
+                    const items = filteredTickets.filter((t) => col.match(t));
+                    return (
+                      <section key={col.key} className="min-w-0">
+                        <p className="px-sm py-xs text-xs font-bold uppercase tracking-wider text-neutral-400">{col.title} · {items.length}</p>
+                        <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-100">
+                          {items.length === 0 ? <li className="px-md py-sm text-xs text-neutral-400">None</li> : items.map((ticket) => jobRow(ticket, col))}
+                        </ul>
+                      </section>
+                    );
+                  })}
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </details>
+            </>
+          );
+        })()}
 
         {/* Batch Jobs Section */}
         {selectedForBatch.size > 0 && (
