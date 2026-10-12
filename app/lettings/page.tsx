@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -189,6 +190,8 @@ export default function LettingsPage() {
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([])
   const [letRooms, setLetRooms] = useState<LetRoom[]>([])
   const [bookingRooms, setBookingRooms] = useState<BookingRoom[]>([])
+  // an address that isn't in CROS yet: added as a let-only house from the booking window, then picked for the viewing
+  const [addingLetOnly, setAddingLetOnly] = useState(false)
 
   const [activeTab, setActiveTab] = useState<Tab>('viewings')
   const [selectedDay, setSelectedDay] = useState(todayISO())
@@ -333,12 +336,30 @@ export default function LettingsPage() {
       }
 
       await loadData()
+      await loadBookingRooms()
 
-      const { data: roomsData } = await supabase
-        .from('rooms')
-        .select('id, name, property_id, status, properties(id, name)')
-      // Sort: extract leading house number numerically, then alphabetically by address, then room number
-      const sortedRooms = ((roomsData as any) || []).sort((a: any, b: any) => {
+      setLoading(false)
+    }
+
+    init()
+  }, [router, loadData])
+
+  // ── Computed stats ──────────────────────────────────────────────────────────
+
+  const wStart = weekStart(todayISO())
+  const wEnd = weekEnd(todayISO())
+  const thisWeekCount = viewings.filter(v => v.viewing_date >= wStart && v.viewing_date <= wEnd).length
+  const pendingCount = viewings.filter(v => v.viewing_status !== 'confirmed' && v.viewing_status !== 'completed').length
+  const dayViewings = viewings.filter(v => v.viewing_date === selectedDay)
+
+
+  // rooms to book viewings in (also reloaded after a new let-only house is added from the booking window)
+  async function loadBookingRooms(): Promise<BookingRoom[]> {
+    const { data: roomsData } = await createClient()
+      .from('rooms')
+      .select('id, name, property_id, status, properties(id, name)')
+    // Sort: extract leading house number numerically, then alphabetically by address, then room number
+    const sortedRooms = ((roomsData as any) || []).sort((a: any, b: any) => {
         const pa = a.properties?.name || ''
         const pb = b.properties?.name || ''
         const na = parseInt(pa.match(/^\d+/)?.[0] ?? '9999', 10)
@@ -350,20 +371,9 @@ export default function LettingsPage() {
         if (ra !== rb) return ra - rb
         return (a.name || '').localeCompare(b.name || '')
       })
-      setBookingRooms(sortedRooms)
-
-      setLoading(false)
-    }
-    init()
-  }, [router, loadData])
-
-  // ── Computed stats ──────────────────────────────────────────────────────────
-
-  const wStart = weekStart(todayISO())
-  const wEnd = weekEnd(todayISO())
-  const thisWeekCount = viewings.filter(v => v.viewing_date >= wStart && v.viewing_date <= wEnd).length
-  const pendingCount = viewings.filter(v => v.viewing_status !== 'confirmed' && v.viewing_status !== 'completed').length
-  const dayViewings = viewings.filter(v => v.viewing_date === selectedDay)
+    setBookingRooms(sortedRooms)
+    return sortedRooms
+  }
 
   // ── Book viewing ─────────────────────────────────────────────────────────────
 
@@ -1057,6 +1067,21 @@ export default function LettingsPage() {
           banner={banner}
           onClose={() => { if (!savingViewing) { setAddingViewing(false); setBanner('') } }}
           onSave={handleCreateViewing}
+          onAddProperty={() => setAddingLetOnly(true)}
+        />
+      )}
+
+      {addingLetOnly && (
+        <AddLetOnlyModal
+          createdByPersonId={personId}
+          onClose={() => setAddingLetOnly(false)}
+          onSave={async (property: any) => {
+            setAddingLetOnly(false)
+            const rooms = await loadBookingRooms()
+            const first = rooms.filter(r => r.property_id === property?.id)
+              .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'en', { numeric: true }))[0]
+            if (first) setViewingForm(f => ({ ...f, room_id: first.id, notifyMessage: defaultNotifyMsg(first.properties?.name || '', f.viewing_date, f.viewing_slot) }))
+          }}
         />
       )}
 
@@ -1221,10 +1246,16 @@ interface BookViewingModalProps {
   banner: string
   onClose: () => void
   onSave: () => void
+  onAddProperty: () => void
 }
 
-function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose, onSave }: BookViewingModalProps) {
+function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose, onSave, onAddProperty }: BookViewingModalProps) {
   const [propertyId, setPropertyId] = useState(() => bookingRooms.find(r => r.id === form.room_id)?.property_id ?? '')
+  // a room picked from outside (a let-only house just added) brings its property with it
+  useEffect(() => {
+    const p = bookingRooms.find(r => r.id === form.room_id)?.property_id
+    if (p && p !== propertyId) setPropertyId(p)
+  }, [form.room_id, bookingRooms])   // eslint-disable-line react-hooks/exhaustive-deps
   // bookingRooms is already sorted by address, so properties keep that order
   const propertyOptions = Array.from(bookingRooms.reduce((m, r) => {
     const p = m.get(r.property_id) ?? { id: r.property_id, name: r.properties?.name || 'Unnamed property', available: 0 }
@@ -1278,6 +1309,9 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
                   <option key={p.id} value={p.id}>{p.name}{p.available ? ` · ${p.available} available` : ''}</option>
                 ))}
               </select>
+              <button type="button" onClick={onAddProperty} className="mt-xs text-xs font-semibold text-blue-700 hover:underline">
+                Address not listed? Add it as a let-only property
+              </button>
             </div>
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">

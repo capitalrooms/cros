@@ -71,6 +71,8 @@ export default function LetOnlyPropertiesPage() {
   const [generatingBalance, setGeneratingBalance] = useState<string | null>(null)
   // Rent-mode picker: tenancyId → show mode selector dropdown
   const [balancePicker, setBalancePicker] = useState<string | null>(null)
+  // who lives in each room, from the landlord's own list (let_only_occupants — reference only, never a tenancy)
+  const [occupants, setOccupants] = useState<Map<string, any>>(new Map())
 
   useEffect(() => { loadData() }, [])
 
@@ -118,6 +120,8 @@ export default function LetOnlyPropertiesPage() {
       landlord: p.people || null,
     })))
     setAllProperties(all || [])
+    const { data: occ } = await supabase.from('let_only_occupants').select('room_id, name, phone, move_in, rent, source').is('ended_at', null)
+    setOccupants(new Map(((occ ?? []) as any[]).map(o => [o.room_id, o])))
     setLoading(false)
   }
 
@@ -198,7 +202,10 @@ export default function LetOnlyPropertiesPage() {
           { label: 'Monthly rent', value: totalMonthly > 0 ? fmtGBP(totalMonthly) : '—', tone: 'good' },
           { label: 'Letting fees', value: totalFees > 0 ? fmtGBP(totalFees) : '—', tone: 'warn' },
         ] : undefined}
-        actions={<HeroButton primary onClick={() => setShowConvertPicker(true)}>+ Add let-only property</HeroButton>}
+        actions={<>
+          <HeroButton onClick={() => router.push('/admin/let-only-properties/room-list')}>Update from landlord’s list</HeroButton>
+          <HeroButton primary onClick={() => setShowConvertPicker(true)}>+ Add let-only property</HeroButton>
+        </>}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
@@ -315,7 +322,18 @@ export default function LetOnlyPropertiesPage() {
                                           <p className="text-[11px] font-mono text-neutral-400 mt-xs">Ref: {t.payment_reference}</p>
                                         )}
                                       </>
-                                    ) : (
+                                    ) : occupants.get(room.id) ? (() => {
+                                      const o = occupants.get(room.id)
+                                      return (
+                                        <div className="mt-xs">
+                                          <p className="text-sm text-neutral-700">{o.name}{o.phone && <span className="ml-sm text-xs tabular-nums text-neutral-500">{o.phone}</span>}</p>
+                                          <p className="text-xs text-neutral-500">
+                                            {o.move_in ? `${o.move_in > new Date().toISOString().slice(0, 10) ? 'Moving in' : 'Since'} ${o.move_in.split('-').reverse().join('/')} · ` : ''}
+                                            {o.rent ? `${fmtGBP(Number(o.rent))}/mo · ` : ''}<span className="text-neutral-400">{o.source || 'from the landlord'}</span>
+                                          </p>
+                                        </div>
+                                      )
+                                    })() : (
                                       <p className="text-xs text-neutral-400 mt-xs">
                                         {room.current_asking_rent ? `Marketing at ${fmtGBP(room.current_asking_rent)}/mo` : 'No active tenancy'}
                                       </p>

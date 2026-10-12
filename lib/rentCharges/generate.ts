@@ -18,7 +18,7 @@ export async function generateMonthCharges(s: SupabaseClient, chargeMonth: strin
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
 
   const { data: tenancies, error } = await s.from('tenancies')
-    .select('id, room_id, property_id, rent_amount, start_date, end_date, rooms(name), properties(property_code)')
+    .select('id, room_id, property_id, rent_amount, start_date, end_date, rooms(name), properties(property_code, letting_type)')
     .lte('start_date', monthEnd)
     .or(`end_date.is.null,end_date.gte.${chargeMonth}`)
     .not('rent_amount', 'is', null)
@@ -27,7 +27,8 @@ export async function generateMonthCharges(s: SupabaseClient, chargeMonth: strin
   const demo = await demoPropertyIds(s)
   if (opts.practice && !(await practiceReady(s))) throw new Error(PRACTICE_NOT_READY)
   const ok = inScope(demo, !!opts.practice)
-  const live = (tenancies ?? []).filter((t: any) => ok(t.property_id) && t.room_id && Number(t.rent_amount) > 0)
+  // let-only houses: we find the tenant, the landlord collects the rent — never raise monthly charges (as the rent roll)
+  const live = (tenancies ?? []).filter((t: any) => ok(t.property_id) && t.room_id && Number(t.rent_amount) > 0 && t.properties?.letting_type !== 'let_only')
   const { genRentRef } = await import('@/lib/references')
 
   const rows = live.map((t: any) => {

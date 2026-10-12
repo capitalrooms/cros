@@ -9,6 +9,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 interface Property {
   id: string
   name: string
@@ -47,6 +48,8 @@ export default function BookAppointmentPage() {
   // Form state
   const [selectedProperty, setSelectedProperty] = useState('')
   const [selectedRoom, setSelectedRoom] = useState('')
+  // an address not in CROS yet → added as a let-only house, then picked for this appointment
+  const [addingLetOnly, setAddingLetOnly] = useState(false)
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('landlord')
   const [appointmentDate, setAppointmentDate] = useState('')
   const [appointmentTime, setAppointmentTime] = useState('10:00')
@@ -193,6 +196,24 @@ export default function BookAppointmentPage() {
                 </option>
               ))}
             </select>
+            <button type="button" onClick={() => setAddingLetOnly(true)} className="mt-xs text-xs font-semibold text-blue-300 hover:underline">
+              Address not listed? Add it as a let-only property
+            </button>
+            {addingLetOnly && (
+              <AddLetOnlyModal
+                onClose={() => setAddingLetOnly(false)}
+                onSave={async (property: any) => {
+                  setAddingLetOnly(false)
+                  const { data: propsData } = await supabase.from('properties').select('id, name, address').order('name')
+                  setProperties(sortPropertiesNumerically((propsData as any) || []))
+                  if (!property?.id) return
+                  setSelectedProperty(property.id)
+                  const { data: roomsData } = await supabase.from('rooms').select('id, name, property_id').eq('property_id', property.id).order('name')
+                  setRooms((roomsData as any) || [])
+                  setSelectedRoom('')
+                }}
+              />
+            )}
           </div>
 
           {/* Room (only for viewings) */}
