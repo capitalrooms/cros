@@ -416,7 +416,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
           (() => {
             const linked = landlords.find(l => l.id === displayed.landlord_id)
             if (linked) {
-              const name = linked.full_name || linked.company || [linked.salutation, linked.first_name, linked.last_name].filter(Boolean).join(' ') || '—'
+              const name = linked.company || [linked.salutation, linked.first_name, linked.last_name].filter(Boolean).join(' ') || linked.full_name || '—'
               const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
               return (
                 <div className="flex items-center gap-md">

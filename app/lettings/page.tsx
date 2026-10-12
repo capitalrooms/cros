@@ -321,7 +321,7 @@ export default function LettingsPage() {
         if (!target || target.role !== 'lettings') { router.push('/admin/people'); return }
         setViewingAs({
           id: asParam,
-          name: target.full_name || `${[target.salutation, target.first_name, target.last_name].filter(Boolean).join(' ')}`.trim() || 'Lettings User',
+          name: [target.salutation, target.first_name, target.last_name].filter(Boolean).join(' ') || target.full_name || 'Lettings User',
           role: target.role,
         })
       }

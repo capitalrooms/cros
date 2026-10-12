@@ -65,8 +65,8 @@ interface TenantCardProps {
 
 export function tenantDisplayName(t: TenantCardTenant | null | undefined): string {
   if (!t) return '—'
-  return t.full_name
-    || [t.salutation, t.first_name, t.last_name].filter(Boolean).join(' ')
+  return [t.salutation, t.first_name, t.last_name].filter(Boolean).join(' ')
+    || t.full_name
     || t.name
     || t.email
 }

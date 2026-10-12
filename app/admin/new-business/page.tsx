@@ -7,8 +7,9 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { SERVICE_TYPES } from '@/lib/newBusiness/serviceTypes'
+import { onboardingName } from '@/lib/people'
 
-interface Row { id: string; full_name: string; stage: number; welcome_sent_at?: string; docs_received_at?: string; approval_sent_at?: string; created_at: string; updated_at?: string }
+interface Row { id: string; full_name: string; form_data?: any; stage: number; welcome_sent_at?: string; docs_received_at?: string; approval_sent_at?: string; created_at: string; updated_at?: string }
 
 const STAGES = [
   { n: 1, label: 'New enquiry' },
@@ -144,7 +145,7 @@ export default function NewBusinessPage() {
                     </div>
                     {list.slice(0, 3).map(r => (
                       <Link key={r.id} href={`/admin/new-business/onboarding/${r.id}`} className="block text-xs text-neutral-500 hover:text-neutral-900 truncate mt-[2px]">
-                        {r.full_name}
+                        {onboardingName(r)}
                       </Link>
                     ))}
                     {list.length > 3 && <p className="text-xs text-neutral-400 mt-[2px]">+{list.length - 3} more</p>}

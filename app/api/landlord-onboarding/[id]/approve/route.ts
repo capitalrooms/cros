@@ -5,6 +5,7 @@ import { checkAgreement } from '@/lib/landlordOnboarding/agreementCheck'
 import { generateManagementAgreementPDF } from '@/lib/managementAgreement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { sendEmail } from '@/lib/sendEmail'
+import { onboardingName } from '@/lib/people'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const prop = (check.updated.properties?.[0] ?? '').replace(/\n/g, ', ')
   const kind = check.updated.agreementType === 'rent_collection' ? 'rent collection' : 'management'
   const html = `
-<p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">Dear ${esc(row.full_name)},</p>
+<p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">Dear ${esc(onboardingName(row))},</p>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Thank you for completing your registration. We have now reviewed your information and documents, and your identity and anti-money laundering checks are <strong>complete</strong>.</p>
 ${changes}
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Your final ${kind} agreement${prop ? ` for <strong>${esc(prop)}</strong>` : ''} is attached for your records. Please have a read through — if anything needs changing, just reply to this email.</p>

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import { displayName } from '@/lib/people'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -15,7 +16,7 @@ interface TenancyInfo {
   start_date: string
   rent_amount: number
   rent_due_day: number | null
-  person: { full_name: string; first_name: string; last_name: string; email: string } | null
+  person: { full_name: string; salutation?: string | null; first_name: string; last_name: string; email: string } | null
   room:   { name: string } | null
   property: { name: string; address: string } | null
 }
@@ -229,7 +230,7 @@ export default function RentIncreasePage() {
   if (step === 'form') return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href={`/admin/tenant/${tenancy.person ? (tenancy as any).person_id || '' : ''}`} />} />
-      <PageHero eyebrow="Lettings · Section 13 rent increase notice" title={person?.full_name ?? 'Rent review'} subtitle={[tenancy.room?.name, tenancy.property?.address].filter(Boolean).join(' · ')} />
+      <PageHero eyebrow="Lettings · Section 13 rent increase notice" title={person ? displayName(person) : 'Rent review'} subtitle={[tenancy.room?.name, tenancy.property?.address].filter(Boolean).join(' · ')} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
         {/* Current tenancy summary */}
@@ -423,7 +424,7 @@ export default function RentIncreasePage() {
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="mb-xl">
           <p className="text-xs font-bold uppercase tracking-wide text-neutral-400 mb-xs">Preview — review before sending</p>
-          <h1 className="text-2xl font-bold text-neutral-900">Section 13 Notice — {person?.full_name}</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Section 13 Notice — {person ? displayName(person) : ''}</h1>
           <p className="text-sm text-neutral-500 mt-xs">
             {fmtMoney(currentRent)}/mo → {fmtMoney(Number(proposedRent))}/mo · Effective {fmtDate(effectiveDate)}
           </p>
