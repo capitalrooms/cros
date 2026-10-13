@@ -66,7 +66,8 @@ ${attachments ? `<p style="margin:0 0 16px;font-size:15px;color:#333;line-height
 
   const now = new Date().toISOString()
   await svc().from('landlord_onboarding').update({
-    ...(newEmail && newEmail !== String(row.email ?? '').toLowerCase() ? { email: newEmail, form_data: { ...f, contact_email: f.contact_email || newEmail } } : {}),
+    // only the record's address — never their saved answers, which they may be editing at this moment
+    ...(newEmail && newEmail !== String(row.email ?? '').toLowerCase() ? { email: newEmail } : {}),
     stage: Math.max(row.stage ?? 1, 2), welcome_sent_at: now, updated_at: now,
   }).eq('id', id)
   return NextResponse.json({ ok: true, sentTo: recipients, attached: !!attachments })

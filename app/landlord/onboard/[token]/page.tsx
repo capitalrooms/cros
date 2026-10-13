@@ -123,7 +123,7 @@ function ContactRows({ all, actsFor, onChange, inp, lbl, addLabel, relationshipH
             <button type="button" onClick={() => onChange(all.filter((_, j) => j !== i))} className="text-[13px] font-semibold text-neutral-500 underline">Remove</button>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div><label className={lbl}>Full name *</label><input value={c.name} onChange={e => set(i, { name: e.target.value })} className={inp} placeholder="e.g. Mrs Aisha Rislan" /></div>
+            <div><label className={lbl}>Full name *</label><input value={c.name} onChange={e => set(i, { name: e.target.value })} className={inp} placeholder="e.g. Mrs Jane Smith" /></div>
             <div><label className={lbl}>{actsFor ? 'How they are connected *' : 'Who they are'}</label><input value={c.relationship} onChange={e => set(i, { relationship: e.target.value })} className={inp} placeholder={relationshipHint} /></div>
             <div><label className={lbl}>Email</label><input type="email" value={c.email} onChange={e => set(i, { email: e.target.value })} className={inp} placeholder="name@example.com" /></div>
             <div><label className={lbl}>Phone</label><input type="tel" value={c.phone} onChange={e => set(i, { phone: e.target.value })} className={inp} placeholder="07700 900000" /></div>
@@ -841,13 +841,24 @@ export default function LandlordOnboardPage() {
             <img className="pub-zoom" src="/illustrations/landlord-home.webp" alt="Illustration: a landlord working at home with London through the window" style={{ objectPosition: '14% 50%' }} />
           </div>
           <div className="flex flex-col gap-5 pb-2">
-            <p className="pub-eyebrow m-0">{agreementName}</p>
-            <p className="pub-serif m-0 text-[26px] leading-snug md:text-[32px]">
-              Your {agreementType === 'rent_collection' ? (agreementVersion === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the sections below.
-            </p>
-            <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
-              If any of your details in it aren’t quite right — names, addresses or your bank account — just give the correct ones in the form below. We’ll check them and update your agreement to match before you sign. For anything else, reply to Harry’s email and he will come back to you straight away.
-            </p>
+            {/* only when an agreement was actually sent with the form (Send welcome with agreement); the plain welcome pack has none */}
+            {agreementType ? (<>
+              <p className="pub-eyebrow m-0">{agreementName}</p>
+              <p className="pub-serif m-0 text-[26px] leading-snug md:text-[32px]">
+                Your {agreementType === 'rent_collection' ? (agreementVersion === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the sections below.
+              </p>
+              <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
+                If any of your details in it aren’t quite right — names, addresses or your bank account — just give the correct ones in the form below. We’ll check them and update your agreement to match before you sign. For anything else, reply to Harry’s email and he will come back to you straight away.
+              </p>
+            </>) : (<>
+              <p className="pub-eyebrow m-0">Landlord registration</p>
+              <p className="pub-serif m-0 text-[26px] leading-snug md:text-[32px]">
+                A few details about you and your property, so we can get started.
+              </p>
+              <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
+                If you have any questions, reply to Harry’s email and he will come back to you straight away.
+              </p>
+            </>)}
             <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>{progressText}</p>
           </div>
         </section>
