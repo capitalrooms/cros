@@ -11,7 +11,7 @@ import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAd
 import { createClient } from '@/lib/supabase'
 import { landlordName } from '@/lib/people'
 import RentCollectionFields from '../RentCollectionFields'
-import { RENT_COLLECTION_DEFAULTS, rentCollectionProblems, rentCollectionTermsFrom, type RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
+import { RENT_COLLECTION_DEFAULTS, rentCollectionProblems, rentCollectionTermsFrom, withVersion, type RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
 import { DEFAULT_NOTICE_MONTHS, DEFAULT_MINIMUM_TERM_MONTHS, NOTICE_OPTIONS, TERM_OPTIONS, durationTermsFrom, durationSentence } from '@/lib/managementAgreement/durationTerms'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
       const blob     = await res.blob()
       const url      = URL.createObjectURL(blob)
       const a        = document.createElement('a')
-      const typeLabel = TYPE_LABEL[agreementType]
+      const typeLabel = isRC && rcTerms.version === 'letting' ? 'Letting-Rent-Collection' : TYPE_LABEL[agreementType]
       const propSlug  = (filledProps[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
       a.href         = url
       a.download     = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${agreementDate}.${format}`
@@ -348,21 +348,27 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
           <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
             <h2 className="text-sm font-bold text-neutral-900 mb-md">Agreement Type</h2>
             <div className="flex flex-col sm:flex-row gap-md">
-              {(['hmo', 'single', 'rent_collection'] as AgreementType[]).map(t => (
-                <button
-                  key={t}
-                  onClick={() => setAgreementType(t)}
-                  className={`flex-1 rounded-xl border-2 py-md text-sm font-semibold transition ${agreementType === t ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:border-neutral-400'}`}
-                >
-                  {t === 'hmo' ? '🏠 HMO / Multi-Let' : t === 'single' ? '🏡 Single Let' : '💷 Rent collection only'}
-                </button>
-              ))}
+              {/* the letting & rent collection version (Joe Rosen, Wings Properties) is the rent collection agreement in its other wording */}
+              {([['hmo', 'standard', '🏠 HMO / Multi-Let'], ['single', 'standard', '🏡 Single Let'], ['rent_collection', 'standard', '💷 Rent collection only'], ['rent_collection', 'letting', '🤝 Letting & rent collection — Joe Rosen final']] as [AgreementType, 'standard' | 'letting', string][]).map(([t, v, label]) => {
+                const on = agreementType === t && (t !== 'rent_collection' || rcTerms.version === v)
+                return (
+                  <button
+                    key={`${t}-${v}`}
+                    onClick={() => { setAgreementType(t); if (t === 'rent_collection') setRcTerms(r => withVersion(r, v)) }}
+                    className={`flex-1 rounded-xl border-2 px-sm py-md text-sm font-semibold transition ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:border-neutral-400'}`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
             </div>
             <p className="text-xs text-neutral-400 mt-sm">
               {agreementType === 'hmo'
                 ? 'Multiple Occupancy — for HMO and multi-room properties'
                 : agreementType === 'single'
                   ? 'Single Occupier — for entire property let to one household'
+                  : rcTerms.version === 'letting'
+                  ? 'As agreed with Joe Rosen (Wings Properties): we let every room they tell us will be vacant (sole mandate), then collect rent and run the client account — monthly bank statements, documents to their portal'
                   : 'The client manages its properties and tenants; we collect rent, pay agreed fixed outgoings, protect and release deposits, inspect and report'}
             </p>
           </div>

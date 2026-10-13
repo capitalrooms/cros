@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import PublicShell from '@/components/public/PublicShell'
 import AddressInput, { type AddressValue, emptyAddress, toAddressString, parseAddressString } from '@/app/components/AddressInput'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { missingFor, missingAll, isJoint, REQUIRED_SECTIONS, type SectionKey } from '@/lib/landlordOnboarding/requirements'
+import { missingFor, missingAll, isJoint, isUkCountry, REQUIRED_SECTIONS, type SectionKey } from '@/lib/landlordOnboarding/requirements'
 import type { PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
 import PropertyDocs from './PropertyDocs'
 
@@ -37,6 +37,12 @@ interface FormData {
   company_reg: string
   registered_office: string
   directors: string
+  company_country: string       // where it's registered, e.g. "England and Wales", "Mauritius"
+  overseas_entity_id: string    // UK overseas entity number for a company registered abroad, e.g. OE001509
+  contact_name: string          // who is filling this in for the company
+  contact_role: string          // e.g. Director
+  trust_owned: string           // 'yes' | 'no' — owned or controlled through a trust or foundation
+  trust_details: string
   // Property address — separate fields
   prop_line1: string
   prop_line2: string
@@ -104,6 +110,7 @@ function blank(): FormData {
     addr_line1: '', addr_line2: '', addr_town: '', addr_county: '', addr_postcode: '',
     address: '', employer: '', contact_phone: '', contact_email: '',
     company_name: '', company_reg: '', registered_office: '', directors: '',
+    company_country: '', overseas_entity_id: '', contact_name: '', contact_role: '', trust_owned: '', trust_details: '',
     prop_line1: '', prop_line2: '', prop_town: '', prop_county: '', prop_postcode: '',
     property_address: '', mortgage_provider: '', mortgage_account: '',
     properties: [{ line1: '', line2: '', town: '', postcode: '', address: '', mortgage_provider: '', mortgage_account: '' }],
@@ -448,6 +455,7 @@ export default function LandlordOnboardPage() {
   const [reopenError, setReopenError] = useState('')
   const [landlordName, setLandlordName]       = useState('')
   const [agreementType, setAgreementType]     = useState<string | null>(null)
+  const [agreementVersion, setAgreementVersion] = useState<string | null>(null)
   const [form, setForm]                       = useState<FormData>(blank())
   const [activeSection, setActiveSection]     = useState<SectionKey | null>(null)
   const [saving, setSaving]                   = useState(false)
@@ -495,6 +503,7 @@ export default function LandlordOnboardPage() {
         const nameParts = rawName.replace(SALUTATIONS, '').trim().split(/\s+/)
         setLandlordName(nameParts[0] || rawName)
         setAgreementType(d.row.agreement_type ?? null)
+        setAgreementVersion(d.row.agreement_version ?? null)
         if (d.row.stage >= 3) { setAlreadySubmitted(true); setCanReopen(!!d.row.can_reopen); return }
 
         const restored: Partial<FormData> = d.row.form_data ?? {}
@@ -774,7 +783,7 @@ export default function LandlordOnboardPage() {
       : reqDone === required.length
         ? 'All required sections are complete. The property documents section is optional — add any you have, then submit when ready.'
         : `${reqDone} of ${required.length} required sections complete. Your progress is saved automatically — carry on where you left off.`
-    const agreementName = agreementType === 'rent_collection' ? 'Rent Collection Agreement' : 'Management Agreement'
+    const agreementName = agreementType === 'rent_collection' ? (agreementVersion === 'letting' ? 'Letting & Rent Collection Agreement' : 'Rent Collection Agreement') : 'Management Agreement'
     const roman = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii']
     return (
       <Shell wide>
@@ -795,7 +804,7 @@ export default function LandlordOnboardPage() {
           <div className="flex flex-col gap-5 pb-2">
             <p className="pub-eyebrow m-0">{agreementName}</p>
             <p className="pub-serif m-0 text-[26px] leading-snug md:text-[32px]">
-              Your {agreementType === 'rent_collection' ? 'rent collection' : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the sections below.
+              Your {agreementType === 'rent_collection' ? (agreementVersion === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the sections below.
             </p>
             <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
               If you did not receive it or need any changes made, reply to Harry’s email and he will come back to you straight away.
@@ -1130,9 +1139,29 @@ export default function LandlordOnboardPage() {
               <h2 className="pub-h3 mb-5">Company Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div><label className={lbl}>Company name *</label><input value={form.company_name} onChange={e => set('company_name', e.target.value)} className={inp} placeholder="e.g. Smith Properties Ltd" /></div>
-                <div><label className={lbl}>Company registration number *</label><input value={form.company_reg} onChange={e => set('company_reg', e.target.value)} className={inp} placeholder="e.g. 12345678" /></div>
+                <div><label className={lbl}>Country it is registered in *</label><input value={form.company_country} onChange={e => set('company_country', e.target.value)} className={inp} placeholder="e.g. England and Wales, Mauritius" /></div>
+                <div><label className={lbl}>Company registration number *</label><input value={form.company_reg} onChange={e => set('company_reg', e.target.value)} className={inp} placeholder="Its number in that country" /></div>
+                {!isUkCountry(form.company_country) && (
+                  <div><label className={lbl}>UK overseas entity number (if registered)</label><input value={form.overseas_entity_id} onChange={e => set('overseas_entity_id', e.target.value.toUpperCase())} className={inp} placeholder="e.g. OE001234" /></div>
+                )}
                 <div className="sm:col-span-2"><label className={lbl}>Registered office address *</label><textarea rows={2} value={form.registered_office} onChange={e => set('registered_office', e.target.value)} className={inp} placeholder={'1 Company House\nLondon\nEC1A 1BB'} /></div>
-                <div className="sm:col-span-2"><label className={lbl}>Directors / beneficial owners (25%+) *</label><textarea rows={2} value={form.directors} onChange={e => set('directors', e.target.value)} className={inp} placeholder="Full name, date of birth, nationality — one per line" /></div>
+                <div><label className={lbl}>Your name *</label><input value={form.contact_name} onChange={e => set('contact_name', e.target.value)} className={inp} placeholder="e.g. Ms Jane Smith" /></div>
+                <div><label className={lbl}>Your role at the company *</label><input value={form.contact_role} onChange={e => set('contact_role', e.target.value)} className={inp} placeholder="e.g. Director" /></div>
+                <div className="sm:col-span-2"><label className={lbl}>Directors / beneficial owners (25%+) *</label><textarea rows={2} value={form.directors} onChange={e => set('directors', e.target.value)} className={inp} placeholder="Full name, date of birth, nationality — one per line" />
+                  <p className="mt-1 text-[13px] pub-muted">Every director, and anyone who owns or controls 25% or more — directly, or through another company or a trust.</p></div>
+                <div className="sm:col-span-2">
+                  <label className={lbl}>Is the company owned or controlled through a trust, foundation or similar arrangement? *</label>
+                  <div className="flex gap-3">
+                    {(['yes', 'no'] as const).map(v => (
+                      <button key={v} type="button" onClick={() => set('trust_owned', v)}
+                        className={`rounded-xl border-2 px-5 py-2 text-[15px] font-semibold ${form.trust_owned === v ? 'border-[#181614] bg-[#181614] text-white' : 'border-neutral-300 text-neutral-700'}`}>{v === 'yes' ? 'Yes' : 'No'}</button>
+                    ))}
+                  </div>
+                </div>
+                {form.trust_owned === 'yes' && (
+                  <div className="sm:col-span-2"><label className={lbl}>The trust or foundation *</label><textarea rows={4} value={form.trust_details} onChange={e => set('trust_details', e.target.value)} className={inp}
+                    placeholder={'Name of the trust or foundation\nSettlor: full name, date of birth, nationality\nTrustees: …\nProtector: …\nBeneficiaries (or the class of beneficiaries): …'} /></div>
+                )}
                 <div><label className={lbl}>Contact phone *</label><input type="tel" value={form.contact_phone} onChange={e => set('contact_phone', e.target.value)} className={inp} placeholder="07700 900000" /></div>
                 <div><label className={lbl}>Contact email *</label><input type="email" value={form.contact_email} onChange={e => set('contact_email', e.target.value)} className={inp} placeholder="accounts@company.com" /></div>
               </div>
@@ -1148,7 +1177,7 @@ export default function LandlordOnboardPage() {
                   token={token}
                   docType="certificate_of_incorporation"
                   label="Certificate of Incorporation"
-                  hint="Your official Companies House certificate confirming the company exists."
+                  hint="From the registry where the company is registered (Companies House for a UK company)."
                   slot={getSlot('certificate_of_incorporation')}
                   onUploaded={path => onUploaded('certificate_of_incorporation', path)}
                 />
@@ -1156,10 +1185,22 @@ export default function LandlordOnboardPage() {
                   token={token}
                   docType="articles_of_association"
                   label="Articles of Association"
-                  hint="The company's constitutional document, available from Companies House."
+                  hint="The company's constitution (articles or memorandum and articles of association)."
                   slot={getSlot('articles_of_association')}
                   onUploaded={path => onUploaded('articles_of_association', path)}
                 />
+                {(!isUkCountry(form.company_country) || form.trust_owned === 'yes') && (
+                  <FileUpload
+                    token={token}
+                    docType="ownership_structure"
+                    label="Ownership structure / register of members"
+                    hint={form.trust_owned === 'yes'
+                      ? 'A chart or register showing who owns the company, plus the trust deed or a letter from the trustees confirming the settlor, trustees, protector and beneficiaries.'
+                      : 'A chart or the register of members showing who owns the company — needed because it is registered outside the UK.'}
+                    slot={getSlot('ownership_structure')}
+                    onUploaded={path => onUploaded('ownership_structure', path)}
+                  />
+                )}
                 <FileUpload
                   token={token}
                   docType="director_id"

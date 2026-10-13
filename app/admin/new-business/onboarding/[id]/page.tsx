@@ -100,7 +100,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
   async function approve() {
     const high = row?.form_data?.__decision?.risk_level === 'high'
     if (high && !confirm('This client is HIGH risk. Confirm enhanced due diligence is complete and senior approval has been given.')) return
-    if (!confirm(`Send the confirmation email and final ${row?.form_data?.__agreement?.agreementType === 'rent_collection' ? 'rent collection' : 'management'} agreement to ${row.email}${row.form_data?.j_contact_email ? ` and ${row.form_data.j_contact_email}` : ''}?`)) return
+    if (!confirm(`Send the confirmation email and final ${row?.form_data?.__agreement?.agreementType === 'rent_collection' ? (row?.form_data?.__agreement?.rentCollection?.version === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'} agreement to ${row.email}${row.form_data?.j_contact_email ? ` and ${row.form_data.j_contact_email}` : ''}?`)) return
     await act('approve', () => adminFetch(`/api/landlord-onboarding/${id}/approve`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm_high: high }),
     }), 'Confirmation and final agreement sent')

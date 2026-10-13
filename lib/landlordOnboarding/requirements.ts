@@ -11,6 +11,9 @@ const has = (f: F, k: string) => typeof f[k] === 'string' ? (f[k] as string).tri
 const doc = (f: F, type: string) => (f.documents?.[type]?.length ?? 0) > 0
 
 export const isJoint = (f: F) => f.entity_type === 'individual' && f.joint === 'yes'
+/** A company registered in the UK (blank = not said yet, treated as UK). Overseas companies — e.g. Wings Properties,
+ *  Mauritius, UK overseas entity OE001509 — can't be checked on the UK register, so they show who owns them. */
+export const isUkCountry = (c: unknown) => !String(c ?? '').trim() || /\b(uk|united kingdom|great britain|britain|england|wales|scotland|northern ireland)\b/i.test(String(c))
 
 export function missingFor(section: SectionKey, f: F): string[] {
   const m: string[] = []
@@ -27,12 +30,17 @@ export function missingFor(section: SectionKey, f: F): string[] {
     case 'identity':
       if (company) {
         need(has(f, 'company_name'), 'Company name')
+        need(has(f, 'company_country'), 'Country the company is registered in')
         need(has(f, 'company_reg'), 'Company registration number')
         need(has(f, 'registered_office'), 'Registered office address')
+        need(has(f, 'contact_name') && has(f, 'contact_role'), 'Your name and your role at the company')
         need(has(f, 'directors'), 'Directors and beneficial owners (25%+)')
+        need(f.trust_owned === 'yes' || f.trust_owned === 'no', 'Whether the company is owned or controlled through a trust or foundation')
+        if (f.trust_owned === 'yes') need(has(f, 'trust_details'), 'Trust or foundation: the settlor, trustees, any protector and the beneficiaries')
         need(has(f, 'contact_phone'), 'Contact phone')
         need(has(f, 'contact_email'), 'Contact email')
         need(doc(f, 'certificate_of_incorporation'), 'Upload: Certificate of Incorporation')
+        if (!isUkCountry(f.company_country) || f.trust_owned === 'yes') need(doc(f, 'ownership_structure'), 'Upload: ownership structure / register of members' + (f.trust_owned === 'yes' ? ' (and the trust deed or a trustee’s letter)' : ''))
         need(doc(f, 'director_id'), 'Upload: ID for each director / beneficial owner')
         need(doc(f, 'director_address'), 'Upload: proof of address for each director / beneficial owner')
       } else {

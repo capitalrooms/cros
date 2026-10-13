@@ -51,7 +51,7 @@ const DOC_LABEL: Record<string, string> = {
   joint_id_document: 'Photo ID — second landlord', joint_proof_of_address: 'Proof of address — second landlord',
   proof_of_ownership: 'Proof of ownership', certificate_of_incorporation: 'Certificate of Incorporation',
   articles_of_association: 'Articles of Association', director_id: 'Director / beneficial owner ID',
-  director_address: 'Director proof of address', other_document: 'Other document',
+  director_address: 'Director proof of address', ownership_structure: 'Ownership structure / register of members', other_document: 'Other document',
 }
 
 export async function generateOnboardingAMLReport(input: OnboardingReportInput): Promise<Buffer> {
@@ -138,8 +138,11 @@ export async function generateOnboardingAMLReport(input: OnboardingReportInput):
   heading('Persons identified')
   if (f.entity_type === 'company') {
     row('Company', `${str(f, 'company_name')} (${str(f, 'company_reg')})`)
+    if (str(f, 'company_country')) row('Registered in', `${str(f, 'company_country')}${str(f, 'overseas_entity_id') ? ` · UK overseas entity ${str(f, 'overseas_entity_id')}` : ''}`)
     row('Registered office', str(f, 'registered_office').replace(/\n/g, ', '))
+    if (str(f, 'contact_name')) row('Completed by', `${str(f, 'contact_name')}${str(f, 'contact_role') ? ` (${str(f, 'contact_role')})` : ''}`)
     row('Directors / 25%+ owners', str(f, 'directors').replace(/\n/g, '; '))
+    if (str(f, 'trust_owned')) row('Through a trust / foundation', str(f, 'trust_owned') === 'yes' ? `Yes — ${str(f, 'trust_details').replace(/\n/g, '; ')}` : 'No')
   } else {
     const people = [
       { role: f.joint === 'yes' ? 'First landlord' : 'Landlord', p: '' },

@@ -2,7 +2,7 @@
 
 // The extra terms for a Rent collection & client account agreement — used on the Management agreement page and the
 // onboarding Send welcome flow so both produce the same agreement.
-import type { RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
+import { RENT_COLLECTION_VERSIONS, withVersion, type RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
 
 const inp = 'w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900'
 const lbl = 'block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs'
@@ -17,6 +17,20 @@ export default function RentCollectionFields({ value, onChange, isCompany }: {
 
   return (
     <div className="space-y-md">
+      <div>
+        <label className={lbl}>Agreement</label>
+        <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
+          {RENT_COLLECTION_VERSIONS.map(v => (
+            <button key={v.id} type="button" onClick={() => onChange(withVersion(value, v.id))}
+              className={`rounded-xl border-2 px-md py-sm text-left text-sm transition ${value.version === v.id ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-700 hover:border-neutral-400'}`}>
+              <span className="block font-semibold">{v.label}</span>
+              <span className={`block text-xs ${value.version === v.id ? 'text-white/70' : 'text-neutral-500'}`}>{v.hint}</span>
+            </button>
+          ))}
+        </div>
+        {value.version === 'letting' && <p className="text-xs text-neutral-500 mt-xs">Joe Rosen’s agreed figures are filled in below (5% of rent received, £3,000 float, £400 a room, his fixed outgoings) — check them, and choose 2 months’ notice.</p>}
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
         <div>
           <label className={lbl}>{isCompany ? 'Signs for the company *' : 'Signs for the client *'}</label>
@@ -62,7 +76,7 @@ export default function RentCollectionFields({ value, onChange, isCompany }: {
       </div>
 
       <div>
-        <label className={lbl}>Letting fee (if instructed)</label>
+        <label className={lbl}>{value.version === 'letting' ? 'Letting fee (each room)' : 'Letting fee (if instructed)'}</label>
         <input value={value.lettingFee} onChange={e => set('lettingFee', e.target.value)} className={inp} />
       </div>
 

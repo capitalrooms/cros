@@ -8,6 +8,7 @@ import { screenName, type ScreeningResult } from '@/lib/aml/sanctions'
 import { sendEmail } from '@/lib/sendEmail'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { onboardingName } from '@/lib/people'
+import { isUkCountry } from '@/lib/landlordOnboarding/requirements'
 
 export type CheckStatus = 'pass' | 'review' | 'fail'
 export interface ReviewCheck { area: string; label: string; status: CheckStatus; detail: string }
@@ -215,7 +216,19 @@ export async function runSubmissionReview(onboardingId: string): Promise<Automat
     add('Beneficial ownership', 'Directors and 25%+ owners listed', str(f, 'directors') ? 'review' : 'fail', 'Check against the Companies House register (and PSC register) and report any discrepancy')
     medium.push('Company landlord — confirm beneficial owners on Companies House')
     const office = str(f, 'registered_office').toLowerCase()
-    if (inList(office, HIGH_RISK_CORPORATE)) { add('Geography', 'Company jurisdiction', 'fail', 'Registered in a jurisdiction HMRC treats as higher risk'); high.push('Company registered in a higher-risk jurisdiction') }
+    const country = str(f, 'company_country')
+    if (inList(`${office} ${country.toLowerCase()}`, HIGH_RISK_CORPORATE)) { add('Geography', 'Company jurisdiction', 'fail', 'Registered in a jurisdiction HMRC treats as higher risk'); high.push('Company registered in a higher-risk jurisdiction') }
+    // registered abroad (e.g. Wings Properties, Mauritius, overseas entity OE001509): the UK register only shows the overseas entity filing
+    if (country && !isUkCountry(country)) {
+      const oe = str(f, 'overseas_entity_id')
+      add('Geography', 'Registered outside the UK', 'review', `${country}${oe ? ` — UK overseas entity ${oe}: check its registered beneficial owners on the Register of Overseas Entities (Companies House) against what they gave us` : ' — no UK overseas entity number given; if it owns UK property it should be registered (Economic Crime Act 2022), so ask for it'}`)
+      medium.push(`Company registered in ${country} — verify ownership from the ownership structure document${oe ? ` and the overseas entity register (${oe})` : ''}`)
+    }
+    if (f.trust_owned === 'yes') {
+      add('Beneficial ownership', 'Owned or controlled through a trust / foundation', 'review', str(f, 'trust_details').replace(/\n/g, '; ') || 'No details given')
+      medium.push('Owned through a trust or foundation — identify and verify the settlor, trustees, any protector and the beneficiaries (regs 6 and 28)')
+    } else if (f.trust_owned === 'no') add('Beneficial ownership', 'Owned or controlled through a trust / foundation', 'pass', 'Declared no trust or foundation')
+    if (str(f, 'contact_name')) add('Customer', 'Completed for the company by', 'review', `${str(f, 'contact_name')}${str(f, 'contact_role') ? ` (${str(f, 'contact_role')})` : ''} — confirm they are authorised to act for the company (a director, or written authority)`)
   }
 
   // ── Source of funds ──────────────────────────────────────────────────────

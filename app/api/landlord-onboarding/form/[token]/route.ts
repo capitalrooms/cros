@@ -20,10 +20,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   const { __agreement, __review, ...form_data } = (data.form_data ?? {}) as Record<string, unknown>
   void __review
   const agreement_type = (__agreement as { agreementType?: string } | undefined)?.agreementType ?? null
+  // which wording of the rent collection agreement (the letting version agreed with Joe Rosen) — for the page's wording only
+  const agreement_version = (__agreement as { rentCollection?: { version?: string } } | undefined)?.rentCollection?.version === 'letting' ? 'letting' : null
   // "Reopen my form" is offered only while the submission waits for us (not yet verified)
   const { verified_at, ...rest } = data as typeof data & { verified_at: string | null }
   const can_reopen = rest.stage === 3 && !verified_at
-  return NextResponse.json({ row: { ...rest, form_data, agreement_type, can_reopen } })
+  return NextResponse.json({ row: { ...rest, form_data, agreement_type, agreement_version, can_reopen } })
 }
 
 // ── PATCH → save progress. draft=true is the background auto-save (does not mark the
