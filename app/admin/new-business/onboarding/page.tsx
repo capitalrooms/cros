@@ -191,6 +191,17 @@ export default function OnboardingPage() {
     setAdvancing(false)
   }
 
+  async function resendForm(id: string, current: string) {
+    const to = window.prompt('Send the registration form link again to:', current ?? '')
+    if (to === null) return
+    setAdvancing(true)
+    const r = await adminFetch(`/api/landlord-onboarding/${id}/resend`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: to.trim() }) })
+    const d = await r.json().catch(() => ({}))
+    setAdvancing(false)
+    alert(r.ok ? `Sent again to ${(d.sentTo ?? [to]).join(', ')}${d.attached ? ', with the agreement attached' : ''}` : (d.error ?? 'Could not send it'))
+    if (r.ok) await load()
+  }
+
   async function advanceStage(id: string, newStage: number, extraFields?: Record<string, unknown>) {
     setAdvancing(true)
     const r = await adminFetch(`/api/landlord-onboarding/${id}`, {
@@ -588,9 +599,10 @@ export default function OnboardingPage() {
               <div className="space-y-sm pt-sm border-t border-neutral-100">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Actions</p>
 
-                {selected.stage === 1 && (
-                  <button onClick={() => advanceStage(selected.id, 2)} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
-                    {advancing ? '…' : '✉ Re-send welcome pack'}
+                {/* the form link again (and the agreement, if one was sent) — this used to only move the stage on */}
+                {selected.stage <= 2 && (
+                  <button onClick={() => resendForm(selected.id, selected.email)} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
+                    {advancing ? '…' : '✉ Send the form link again'}
                   </button>
                 )}
 

@@ -210,7 +210,13 @@ export async function runSubmissionReview(onboardingId: string): Promise<Automat
   }
 
   // ── Beneficial ownership / third parties (reg 28(4)) ──────────────────────
-  if (f.acting_for_other === 'yes') { add('Beneficial ownership', 'Acting for another person', 'fail', str(f, 'acting_for_details') || 'No details given'); high.push('Property is held for, or benefits, another person — identify and verify them') }
+  const contacts = ((f.other_contacts as Array<Record<string, unknown>> | undefined) ?? []).filter(c => String(c.name ?? '').trim())
+  const describe = (c: Record<string, unknown>) => [c.name, c.relationship ? `(${c.relationship})` : '', c.email, c.phone].filter(Boolean).join(' ')
+  if (f.acting_for_other === 'yes') {
+    const actsFor = contacts.filter(c => c.acts_for)
+    add('Beneficial ownership', 'Acting for another person', 'fail', [actsFor.map(describe).join('; '), str(f, 'acting_for_details')].filter(Boolean).join(' — ') || 'No details given')
+    high.push('Property is held for, or benefits, another person — identify and verify them')
+  }
   else add('Beneficial ownership', 'Acting for another person', f.acting_for_other === 'no' ? 'pass' : 'review', f.acting_for_other === 'no' ? 'Declared no other owner or beneficiary' : 'Not answered')
   if (company) {
     add('Beneficial ownership', 'Directors and 25%+ owners listed', str(f, 'directors') ? 'review' : 'fail', 'Check against the Companies House register (and PSC register) and report any discrepancy')

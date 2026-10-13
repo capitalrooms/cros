@@ -84,7 +84,13 @@ export function missingFor(section: SectionKey, f: F): string[] {
         if (f.j_pep === 'yes') need(has(f, 'j_pep_details'), 'Second landlord: details of the public position held')
       }
       need(f.acting_for_other === 'yes' || f.acting_for_other === 'no', 'Whether you act on behalf of anyone else')
-      if (f.acting_for_other === 'yes') need(has(f, 'acting_for_details'), 'Who you act on behalf of')
+      if (f.acting_for_other === 'yes') {
+        const actsFor = ((f.other_contacts as Array<{ name?: string; acts_for?: boolean }> | undefined) ?? []).filter(c => c.acts_for && c.name?.trim())
+        need(actsFor.length > 0 || has(f, 'acting_for_details'), 'The people you are providing information for (name and how they are connected)')
+      }
+      for (const c of ((f.other_contacts as Array<{ name?: string; email?: string; phone?: string; acts_for?: boolean }> | undefined) ?? [])) {
+        if ((c.email || c.phone) && !c.name?.trim()) { need(false, 'A name for each contact you have added'); break }
+      }
       need(has(f, 'source_of_funds'), 'How the property was funded')
       need(has(f, 'source_of_funds_details'), 'A short explanation of the source of funds')
       need(has(f, 'country_of_residence'), 'Country of residence')

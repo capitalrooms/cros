@@ -136,6 +136,9 @@ export async function generateOnboardingAMLReport(input: OnboardingReportInput):
 
   // ── Persons ───────────────────────────────────────────────────────────
   heading('Persons identified')
+  for (const c of ((f.other_contacts as Array<Record<string, unknown>> | undefined) ?? []).filter(c => String(c.name ?? '').trim())) {
+    row(c.acts_for ? 'Acting for' : 'Other contact', [c.name, c.relationship ? `(${c.relationship})` : '', c.email, c.phone, !c.acts_for ? (c.may_discuss ? '· may discuss the account' : '· not to discuss the account') : ''].filter(Boolean).join(' '))
+  }
   if (f.entity_type === 'company') {
     row('Company', `${str(f, 'company_name')} (${str(f, 'company_reg')})`)
     if (str(f, 'company_country')) row('Registered in', `${str(f, 'company_country')}${str(f, 'overseas_entity_id') ? ` · UK overseas entity ${str(f, 'overseas_entity_id')}` : ''}`)
