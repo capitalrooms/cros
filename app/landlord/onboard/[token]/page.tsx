@@ -1503,7 +1503,7 @@ export default function LandlordOnboardPage() {
   if (activeSection === 'compliance') {
     const propertyNames = form.property_count === 'multiple'
       ? form.properties.map((p, i) => p.line1?.trim() || `Property ${i + 1}`)
-      : [form.prop_line1?.trim() || 'Your property']
+      : [form.prop_line1?.trim() || 'your property']
     // Uploads made with the earlier one-box-per-certificate version of this step.
     const otherNames = ((form as any).other_doc_names ?? []) as string[]
     const earlier = [
