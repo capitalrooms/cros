@@ -90,7 +90,7 @@ export const ONBOARDING_DOC_LABELS: Record<string, string> = {
   id_document: 'Photo ID — first landlord', proof_of_address: 'Proof of address — first landlord',
   joint_id_document: 'Photo ID — second landlord', joint_proof_of_address: 'Proof of address — second landlord',
   proof_of_ownership: 'Proof of ownership', certificate_of_incorporation: 'Certificate of Incorporation',
-  articles_of_association: 'Articles of Association', director_id: 'Director ID', director_address: 'Director proof of address',
+  articles_of_association: 'Articles of Association', director_id: 'Director ID', director_address: 'Director proof of address', ownership_structure: 'Ownership structure / register of members',
   gas_safety_certificate: 'Gas Safety Certificate', eicr: 'EICR', epc: 'EPC', fire_risk_assessment: 'Fire Risk Assessment',
   fire_detection_certificate: 'Fire alarm certificate', emergency_lighting_certificate: 'Emergency lighting certificate',
   pat_test_record: 'PAT test record', legionella_risk_assessment: 'Legionella risk assessment', hmo_licence: 'HMO licence',

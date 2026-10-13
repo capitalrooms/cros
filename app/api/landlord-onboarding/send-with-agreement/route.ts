@@ -75,7 +75,22 @@ export async function POST(req: NextRequest) {
       salutation: a.clientTitle ?? '', first_name: a.clientFirstName ?? '', last_name: a.clientLastName ?? '',
       joint: isJoint ? 'yes' : '',
       ...(isJoint ? { j_salutation: a.client2Title ?? '', j_first_name: a.client2FirstName ?? '', j_last_name: a.client2LastName ?? '', j_contact_email: joint_email?.trim().toLowerCase() || '' } : {}),
-    } : { company_name: a.companyName ?? '', company_reg: a.companyReg ?? '' }),
+    } : (() => {
+      // a company: what we already know, so whoever fills it in (e.g. a director) only checks it. A UK overseas entity
+      // number (OE…) goes in its own box — the home-country registration number is theirs to give.
+      const reg = String(a.companyReg ?? '').trim()
+      const oe = /^OE\d+$/i.test(reg.replace(/\s/g, ''))
+      const rc = a.agreementType === 'rent_collection' ? rentCollectionTermsFrom(a.rentCollection) : null
+      return {
+        company_name: a.companyName ?? '',
+        company_reg: oe ? '' : reg,
+        overseas_entity_id: oe ? reg.replace(/\s/g, '').toUpperCase() : '',
+        company_country: a.companyCountry ?? '',
+        registered_office: (a.clientAddress ?? []).join('\n'),
+        contact_name: full_name.trim(),
+        contact_role: rc?.signatoryRole ?? '',
+      }
+    })()),
     __service_type: service_type || 'full_management',
     __agreement: { ...agreementFields, service_type: service_type || 'full_management', sent_at: new Date().toISOString(), version: 1 },
   }
@@ -133,26 +148,31 @@ export async function POST(req: NextRequest) {
 
   // 4. Build the filename
   const isRC       = agreementFields.agreementType === 'rent_collection'
-  const typeLabel  = agreementFields.agreementType === 'hmo' ? 'Multi-Let' : isRC ? 'Rent-Collection' : 'Single-Let'
+  const isLetting  = isRC && rentCollectionTermsFrom(agreementFields.rentCollection).version === 'letting'   // Joe Rosen's version
+  const typeLabel  = agreementFields.agreementType === 'hmo' ? 'Multi-Let' : isLetting ? 'Letting-Rent-Collection' : isRC ? 'Rent-Collection' : 'Single-Let'
   const propSlug   = (agreementFields.properties[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
   const dateSlug   = (agreementFields.agreementDate ?? new Date().toISOString()).slice(0, 10)
   const filename   = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${dateSlug}.pdf`
 
   // 5. Send welcome email with agreement attached
-  const firstName = full_name.trim().split(' ')[0]
+  // "Dear Ms Rosen" when the name starts with a title (titles are compulsory), otherwise their first name
+  const nameParts = full_name.trim().split(/\s+/)
+  const firstName = /^(Mr|Mrs|Ms|Miss|Mx|Dr|Prof|Rev)\.?$/i.test(nameParts[0]) && nameParts.length >= 2
+    ? `${nameParts[0]} ${nameParts[nameParts.length - 1].replace(/&$/, '')}`
+    : nameParts[0]
   const feeDesc   = agreementFields.agreementType === 'hmo'
     ? `${agreementFields.managementFee}% of rent collected (multi-let)`
     : `${agreementFields.managementFee}% of rent collected (single let)`
   const rc = isRC ? rentCollectionTermsFrom(agreementFields.rentCollection) : null
 
   const bodyHtml = welcomeWithAgreementHtml(firstName, full_name.trim(), formUrl, rc ? {
-    agreementName:   'rent collection agreement',
+    agreementName:   isLetting ? 'letting and rent collection agreement' : 'rent collection agreement',
     propertyLabel:   agreementFields.properties.length > 1 ? 'Properties' : 'Property',
     propertyAddress: (agreementFields.properties as string[]).map(p => p.replace(/\n/g, ', ')).join('; '),
     feeLabel:        'Service fee',
     managementFee:   rc.serviceFee,
-    letFeeLabel:     'Working float',
-    letFee:          `£${rc.floatAmount.toLocaleString('en-GB')} held in the client account`,
+    letFeeLabel:     isLetting ? 'Letting (each room)' : 'Working float',
+    letFee:          isLetting ? rc.lettingFee : `£${rc.floatAmount.toLocaleString('en-GB')} held in the client account`,
     commencementDate: agreementFields.commencementDate,
   } : {
     propertyAddress: (agreementFields.properties[0] ?? '').replace(/\n/g, ', '),
@@ -164,7 +184,7 @@ export async function POST(req: NextRequest) {
   const recipients = Array.from(new Set([email, joint_email].filter(Boolean).map((e: string) => e.trim().toLowerCase())))
   const { ok: emailSent, error: emailError } = await sendEmail(
     recipients,
-    `Welcome to Capital Rooms — Your ${isRC ? 'Rent Collection' : 'Management'} Agreement & Registration Form`,
+    `Welcome to Capital Rooms — Your ${isLetting ? 'Letting & Rent Collection' : isRC ? 'Rent Collection' : 'Management'} Agreement & Registration Form`,
     bodyHtml,
     {
       req,

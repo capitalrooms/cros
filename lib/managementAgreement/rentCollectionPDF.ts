@@ -33,6 +33,12 @@ function clientName(d: ManagementAgreementData): string {
 
 export async function generateRentCollectionAgreementPDF(data: ManagementAgreementData, rec?: AgreementBlock[]): Promise<Buffer> {
   const t = rentCollectionTermsFrom(data.rentCollection)
+  // the letting & rent collection version agreed with Joe Rosen (Wings Properties), 13 Oct 2026 — see rentCollectionTerms
+  const L = t.version === 'letting'
+  const TITLE = L ? 'LETTING AND RENT COLLECTION AGREEMENT' : 'RENT COLLECTION AGREEMENT'
+  const SUB = L ? 'Letting, Rent Collection & Client Account Administration — Capital Rooms' : 'Rent Collection & Client Account Administration — Capital Rooms'
+  // clause numbers referred to in the text (the letting version has an extra clause 2)
+  const FIXED_NO = L ? 6 : 5, EXTRA_NO = L ? 13 : 12
   return new Promise((resolve, reject) => {
     const { logoImg, footerImg, fontReg, fontBold } = loadPDFLetterheadAssets()
     const biz = data.bizSettings ?? {
@@ -47,7 +53,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     const doc = new PDFDocument({
       size: 'A4',
       margins: { top: MARGIN, bottom: FOOTER_BAND_H + 20, left: MARGIN, right: MARGIN },
-      info: { Title: `Capital Rooms — Rent Collection Agreement — ${client}`, Author: 'Capital Rooms' },
+      info: { Title: `Capital Rooms — ${L ? 'Letting and Rent Collection' : 'Rent Collection'} Agreement — ${client}`, Author: 'Capital Rooms' },
     })
     const chunks: Buffer[] = []
     doc.on('data', (c: Buffer) => chunks.push(c))
@@ -133,11 +139,11 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
-    rec?.push({ kind: 'title', text: 'RENT COLLECTION AGREEMENT', sub: 'Rent Collection & Client Account Administration — Capital Rooms', date: formatDate(data.agreementDate) })
-    doc.save().font(fontBold).fontSize(14).fillColor(BLACK).text('RENT COLLECTION AGREEMENT', MARGIN, y).restore()
-    y += 20
+    rec?.push({ kind: 'title', text: TITLE, sub: SUB, date: formatDate(data.agreementDate) })
+    doc.save().font(fontBold).fontSize(14).fillColor(BLACK).text(TITLE, MARGIN, y, { width: COL_W - LOGO_W - 16 }).restore()
+    y += doc.font(fontBold).fontSize(14).heightOfString(TITLE, { width: COL_W - LOGO_W - 16 }) + 4
     doc.save().font(fontReg).fontSize(10).fillColor(GREY)
-      .text('Rent Collection & Client Account Administration — Capital Rooms', MARGIN, y, { width: COL_W - LOGO_W - 16 }).restore()
+      .text(SUB, MARGIN, y, { width: COL_W - LOGO_W - 16 }).restore()
     y += 14
     y = Math.max(y, MARGIN + LOGO_H + 12)
     doc.save().font(fontReg).fontSize(9).fillColor(GREY).text(formatDate(data.agreementDate), MARGIN, y).restore()
@@ -146,9 +152,12 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
 
     section('PARTIES', () => {
       para(`Agent: Capital Rooms (a trading name of the managing company), whose registered office is at ${biz.address_line1}, ${biz.city} ${biz.postcode} ("the Agent").`)
-      const who = data.entityType === 'company'
-        ? `${client}${data.companyReg ? `, registered in ${data.companyCountry || 'England and Wales'} under company number ${data.companyReg}` : ''}, whose registered office is at ${data.clientAddress.join(', ')}${t.signatoryName ? `, acting by its ${t.signatoryRole.toLowerCase()} ${t.signatoryName}` : ''}`
-        : `${client}, of ${data.clientAddress.join(', ')}`
+      const overseas = /^OE\d+$/i.test(String(data.companyReg ?? '').replace(/\s/g, ''))
+      const who = data.entityType !== 'company'
+        ? `${client}, of ${data.clientAddress.join(', ')}`
+        : overseas
+          ? `${client}, a company registered in ${data.companyCountry || 'its home country'} whose registered office is at ${data.clientAddress.join(', ')}, registered in the UK as an overseas entity under number ${String(data.companyReg).toUpperCase().replace(/\s/g, '')}${t.signatoryName ? `, represented by its ${t.signatoryRole.toLowerCase()} ${t.signatoryName}` : ''}`
+          : `${client}${data.companyReg ? `, registered in ${data.companyCountry || 'England and Wales'} under company number ${data.companyReg}` : ''}, whose registered office is at ${data.clientAddress.join(', ')}${t.signatoryName ? `, acting by its ${t.signatoryRole.toLowerCase()} ${t.signatoryName}` : ''}`
       para(`Client: ${who} ("the Client"). The Client is the owner of ${prop}.`)
     })
 
@@ -167,8 +176,15 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     }
 
     // ── Clauses ───────────────────────────────────────────────────────────────
-    clause('Appointment and Scope',
-      `The Client appoints the Agent to provide the rent collection, client account and administration services set out in Schedule 1 ("the Services") for ${prop} from the commencement date. The Agent is not appointed as managing agent for ${prop}. Anything not listed in Schedule 1 is outside the scope of this agreement unless agreed in writing under clause 12.`)
+    if (L) {
+      clause('Appointment and Scope',
+        `The Client appoints the Agent from the commencement date (a) as its sole agent to let rooms in ${prop}, and (b) to provide the rent collection, client account and administration services, each as set out in Schedule 1 ("the Services"). Letting is the principal Service. The Agent is not appointed as managing agent for ${prop}. Anything not listed in Schedule 1 is outside the scope of this agreement unless agreed in writing under clause ${EXTRA_NO}.`)
+      clause('Letting',
+        `The Client shall notify the Agent of every room in ${prop} that will become vacant as soon as it knows the date the tenant will leave, and the Agent shall have the sole right to let that room. The Agent shall find a suitable tenant (including marketing and viewings), carry out referencing and Right to Rent checks, prepare the tenancy paperwork and inventory and protect the deposit, at the rent and on the terms agreed with the Client and for the letting fee in Schedule 4. If the Agent has not agreed a let by the date the outgoing tenant vacates, the Client may let the room itself or through others, telling the Agent if it does so, and no letting fee is then payable for that room.`)
+    } else {
+      clause('Appointment and Scope',
+        `The Client appoints the Agent to provide the rent collection, client account and administration services set out in Schedule 1 ("the Services") for ${prop} from the commencement date. The Agent is not appointed as managing agent for ${prop}. Anything not listed in Schedule 1 is outside the scope of this agreement unless agreed in writing under clause ${EXTRA_NO}.`)
+    }
 
     clause('The Client Manages ' + Prop.replace('The ', 'the '),
       `The Client remains the manager of ${prop} and the tenants' main point of contact, and is responsible for the matters set out in Schedule 3, including maintenance, repairs, complaints, emergencies, rent queries and arrears, contractors, house rules, notices and all other tenancy and day-to-day management matters. The Client shall present itself to tenants as the manager of ${prop} and shall not hold the Agent out to tenants or third parties as the managing agent.`)
@@ -177,7 +193,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
       durationSentence(data))
 
     clause('Rent Collection',
-      `Tenants shall pay rent into the Agent's designated client account. The Agent shall record all rent received against each property and tenancy. The Agent may contact tenants about payment details and the accounting of rent, but shall not chase or recover arrears, which remain the Client's responsibility. The Agent shall tell the Client of any rent not received or short-paid in each monthly statement, and sooner where practicable.`)
+      `Tenants shall pay rent into the Agent's designated client account. The Agent shall record all rent received against each property and tenancy. The Agent may contact tenants about payment details and the accounting of rent, but shall not chase or recover arrears, which remain the Client's responsibility. The Agent shall tell the Client of any rent not received or short-paid ${L ? 'as soon as practicable' : 'in each monthly statement, and sooner where practicable'}.`)
 
     clause('Agreed Fixed Outgoings',
       `The fixed property outgoings listed in Schedule 2 ("the Agreed Fixed Outgoings") are agreed in writing by the parties. The Client gives the Agent standing authority to pay the Agreed Fixed Outgoings from funds held for the Client as they fall due, including by direct debit from the client account. An outgoing may only be added to, removed from or changed in Schedule 2 by written agreement of both parties (email is sufficient). The Agent shall not make any other payment from the client account without the Client's prior written instruction. Contractor invoices, repairs, maintenance and other variable expenditure shall not be paid through the client account unless the Client gives written instruction for a specific payment. The Agent shall obtain and keep the supplier statements and invoices for the Agreed Fixed Outgoings.`)
@@ -185,23 +201,29 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     clause('Working Float',
       `The Client shall maintain a working float of ${money(t.floatAmount)} in the client account so that the Agreed Fixed Outgoings can be paid as they fall due, and the Agent may retain the float from rent received before paying any balance to the Client. If the funds held for the Client are not enough to pay an Agreed Fixed Outgoing, the Agent shall notify the Client and the Client shall pay the shortfall into the client account within ${t.floatTopUpDays} days. The Agent is never obliged to use its own funds and is not liable for any late payment charge, interruption of supply or other loss caused by insufficient funds.`)
 
-    clause('Monthly Statements and Payment of Balances',
-      `Each month the Agent shall provide the Client with a statement for each property showing rent received, Agreed Fixed Outgoings paid, the Agent's fees, the float and the balance, together with copies of the relevant supplier statements. After deducting the Agreed Fixed Outgoings, the Agent's fees and any sum needed to restore the float, the Agent shall pay the balance to the Client's nominated account each month.`)
-
-    clause('Annual Summary',
-      `After the end of each tax year the Agent shall provide reasonable assistance by preparing, for each property, a summary of rent collected, Agreed Fixed Outgoings paid, the Agent's fees and deposits held, for use by the Client and its accountant. The Agent does not provide tax or accounting advice.`)
+    if (L) {
+      clause('Monthly Bank Statements and Payment of Balances',
+        `Each month the Agent shall provide the Client with an electronic bank statement for the designated client account showing rent received, Agreed Fixed Outgoings paid, the Agent's fees, the float and the balance, so that the Client can load the transactions directly. After deducting the Agreed Fixed Outgoings, the Agent's fees and any sum needed to restore the float, the Agent shall pay the balance to the Client's nominated account each month. The Agent shall upload the supplier statements and invoices supporting each Agreed Fixed Outgoing paid to the Client's management portal.`)
+      clause('Year-end Assistance',
+        `After the end of each tax year the Agent shall, if the Client asks, give reasonable assistance in allocating any receipts or payments left unallocated during the year. The Agent does not provide tax or accounting advice.`)
+    } else {
+      clause('Monthly Statements and Payment of Balances',
+        `Each month the Agent shall provide the Client with a statement for each property showing rent received, Agreed Fixed Outgoings paid, the Agent's fees, the float and the balance, together with copies of the relevant supplier statements. After deducting the Agreed Fixed Outgoings, the Agent's fees and any sum needed to restore the float, the Agent shall pay the balance to the Client's nominated account each month.`)
+      clause('Annual Summary',
+        `After the end of each tax year the Agent shall provide reasonable assistance by preparing, for each property, a summary of rent collected, Agreed Fixed Outgoings paid, the Agent's fees and deposits held, for use by the Client and its accountant. The Agent does not provide tax or accounting advice.`)
+    }
 
     clause('Tenancy Deposits',
-      `Tenant deposits shall be paid to the Agent. The Agent shall protect each deposit with a government-authorised tenancy deposit scheme and give the tenant and any relevant person the prescribed information, in each case within 30 days of receiving the deposit. At the end of each tenancy the Agent shall administer the release of the deposit, repaying it in accordance with any deductions agreed between the Client and the tenant; where deductions are disputed, the Agent shall refer the dispute to the scheme's dispute resolution service using evidence supplied by the Client. As the Client manages ${prop}, the Client shall supply the check-in inventory, check-out report and any other evidence needed to support a deduction. Deposits held by the Client or a previous agent at the commencement date shall be transferred into the Agent's protection; the Client shall arrange the transfer with the current holder and provide the details the Agent requires. The Agent is not responsible for any failure to protect a deposit or to give prescribed information before that deposit is transferred to it.`)
+      `Tenant deposits shall be paid to the Agent. The Agent shall protect each deposit with a government-authorised tenancy deposit scheme and give the tenant and any relevant person the prescribed information, in each case within 30 days of receiving the deposit. At the end of each tenancy the Agent shall administer the release of the deposit, repaying it in accordance with any deductions agreed between the Client and the tenant; where deductions are disputed, the Agent shall refer the dispute to the scheme's dispute resolution service using evidence supplied by the Client. As the Client manages ${prop}, the Client shall supply the check-in inventory, check-out report and any other evidence needed to support a deduction. Deposits held by ${L ? 'any' : 'the Client or a'} previous agent at the commencement date shall be transferred into the Agent's protection; the Client shall arrange the transfer with the current holder and provide the details the Agent requires. The Agent is not responsible for any failure to protect a deposit or to give prescribed information before that deposit is transferred to it.`)
 
     clause('Inspections',
       `The Agent shall inspect ${props.length === 1 ? 'the Property' : 'each property'} every ${t.inspectionMonths} months and send the Client a written report noting any repair, maintenance or compliance matters observed. Inspections are visual and non-invasive and are not a survey or compliance check. The Client remains responsible for acting on any matter reported, and shall give tenants the notice required for access and arrange access for each inspection.`)
 
     clause('Communication',
-      `The parties shall hold a check-in each month to review the statements and any matters arising. Tenant and day-to-day management communication remains with the Client; the Agent shall deal with the Client's nominated contact on matters within the Services.`)
+      `The parties shall hold a check-in ${L ? 'meeting each month to review the client account bank statements' : 'each month to review the statements'} and any matters arising. Tenant and day-to-day management communication remains with the Client; the Agent shall deal with the Client's nominated contact on matters within the Services.`)
 
     clause('Additional Services',
-      `Services outside Schedule 1 are only provided if agreed in writing in advance, at the fees in Schedule 4. In particular: (a) any visit to a property other than a scheduled inspection or a visit for a letting is charged at ${money(t.visitFee)} per visit; (b) letting services (marketing, viewings, referencing and tenancy agreements) are charged at a price agreed in writing before each letting; and (c) any request to deal with maintenance, contractors, tenant enquiries, arrears, notices or compliance matters will be quoted separately and is only undertaken once agreed in writing.`)
+      `Services outside Schedule 1 are only provided if agreed in writing in advance, at the fees in Schedule 4. In particular: (a) any visit to a property other than a scheduled inspection or a visit for a letting is charged at ${money(t.visitFee)} per visit; ${L ? '' : '(b) letting services (marketing, viewings, referencing and tenancy agreements) are charged at a price agreed in writing before each letting; '}and (${L ? 'b' : 'c'}) any request to deal with maintenance, contractors, tenant enquiries, arrears, notices or compliance matters will be quoted separately and is only undertaken once agreed in writing.`)
 
     clause('Compliance and Safety',
       `The Client is solely responsible for ensuring that ${prop} comply with all applicable legislation, including any HMO licence and its conditions, gas safety, electrical safety (EICR), the Energy Performance Certificate, smoke and carbon monoxide alarms (including testing), fire doors and fire safety measures (including testing and fire risk assessments), the display of any licence and required notices, and Right to Rent checks (other than for a letting the Agent is instructed to carry out). The Agent may keep copies of certificates and documents supplied by the Client but does not accept responsibility for checking, arranging or renewing them.`)
@@ -238,7 +260,28 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
     // ── Schedules ─────────────────────────────────────────────────────────────
     ensureSpace(60)
     label('SCHEDULE 1 — SERVICES PROVIDED BY THE AGENT')
-    bullets([
+    bullets(L ? [
+      'Let every room the Client notifies as becoming vacant, as sole agent (clause 2), including marketing and viewings',
+      'Reference prospective tenants and carry out Right to Rent checks',
+      'Prepare the tenancy paperwork and inventory, and protect the deposit',
+      "Receive tenants' rent into the Agent's designated client account",
+      'Record rent received against each property and tenancy',
+      'Tell the Client of any rent not received or short-paid',
+      'Pay the Agreed Fixed Outgoings in Schedule 2 as they fall due',
+      'Obtain and keep supplier statements and invoices for the Agreed Fixed Outgoings',
+      "Upload supplier invoices and statements to the Client's management portal when paid",
+      'Hold and account for the working float',
+      'Protect tenant deposits with a government-authorised scheme and give the prescribed information',
+      "Take existing deposits into the Agent's protection on commencement",
+      'Administer the release of deposits at the end of each tenancy, including referring disputes to the scheme',
+      'Provide a monthly electronic bank statement for the designated client account',
+      'Give the Client view-only access to the designated client account so it can download transactions electronically',
+      "Pay the monthly balance to the Client's nominated account",
+      'Give reasonable help at year end allocating any unallocated receipts or payments, if asked',
+      `Inspect ${props.length === 1 ? 'the Property' : 'each property'} every ${t.inspectionMonths} months and provide a written report`,
+      'Hold a monthly check-in meeting with the Client',
+      'Keep accurate records of all transactions relating to ' + prop,
+    ] : [
       "Receive tenants' rent into the Agent's designated client account",
       'Record rent received against each property and tenancy',
       'Tell the Client of any rent not received or short-paid',
@@ -259,7 +302,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
 
     ensureSpace(80)
     label('SCHEDULE 2 — AGREED FIXED OUTGOINGS')
-    para('The Agent is authorised to pay the following from funds held for the Client as they fall due. Changes only by written agreement of both parties (clause 5).')
+    para(`The Agent is authorised to pay the following from funds held for the Client as they fall due. Changes only by written agreement of both parties (clause ${FIXED_NO}).`)
     if (t.fixedOutgoings.length) bullets(t.fixedOutgoings)
     else para('To be agreed in writing before the commencement date.', { colour: GREY })
     y += 10; rule('#999'); y += 20
@@ -286,7 +329,17 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
 
     ensureSpace(320)
     label('SCHEDULE 4 — FEES')
-    table(['Fee', 'Details'], [
+    table(['Fee', 'Details'], L ? [
+      ['Letting (each room)', t.lettingFee],
+      ['Rent collection & client account service', t.serviceFee || 'To be agreed'],
+      ['Deposit protection and release', 'Included'],
+      ['Monthly bank statements, portal uploads and year-end help', 'Included'],
+      [`Inspections (every ${t.inspectionMonths} months)`, 'Included'],
+      ['Additional property visit', `${money(t.visitFee)} per visit (outside lettings and scheduled inspections)`],
+      ['Working float', `${money(t.floatAmount)} held in the client account (not a fee)`],
+      ['Other services outside Schedule 1', 'Quoted and agreed in writing in advance'],
+      ['Court attendance', 'By separate quotation, agreed in advance'],
+    ] : [
       ['Rent collection & client account service', t.serviceFee || 'To be agreed'],
       ['Deposit protection and release', 'Included'],
       ['Monthly statements and annual summary', 'Included'],
@@ -330,7 +383,7 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
       .text('Print name', MARGIN, y, { width: halfW, lineBreak: false })
       .text('Print name', rightX, y, { width: halfW, lineBreak: false }).restore()
     y += 30
-    para(`Agreement reference: Rent Collection — ${client} — ${props.join('; ')} — ${formatDate(data.agreementDate)}`, { colour: '#888', size: 7.5 })
+    para(`Agreement reference: ${L ? 'Letting & Rent Collection' : 'Rent Collection'} — ${client} — ${props.join('; ')} — ${formatDate(data.agreementDate)}`, { colour: '#888', size: 7.5 })
 
     doc.end()
   })

@@ -39,14 +39,14 @@ export async function POST(req: NextRequest) {
     // An editable Word copy (for a landlord who wants to suggest changes) — same words as the PDF; nothing is saved
     if (body.format === 'docx') {
       const docx = await generateManagementAgreementDocx({ ...body, bizSettings })
-      const kind = body.agreementType === 'hmo' ? 'Multi-Let' : body.agreementType === 'rent_collection' ? 'Rent-Collection' : 'Single-Let'
+      const kind = body.agreementType === 'hmo' ? 'Multi-Let' : body.agreementType === 'rent_collection' ? ((body as any).rentCollection?.version === 'letting' ? 'Letting-Rent-Collection' : 'Rent-Collection') : 'Single-Let'
       const name = `Capital-Rooms-Management-Agreement_${kind}_${(body.properties[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)}_${(body.agreementDate ?? new Date().toISOString()).slice(0, 10)}.docx`
       return new NextResponse(new Uint8Array(docx), { headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Content-Disposition': `attachment; filename="${name}"` } })
     }
 
     const buffer = await generateManagementAgreementPDF({ ...body, bizSettings })
 
-    const typeLabel = body.agreementType === 'hmo' ? 'Multi-Let' : body.agreementType === 'rent_collection' ? 'Rent-Collection' : 'Single-Let'
+    const typeLabel = body.agreementType === 'hmo' ? 'Multi-Let' : body.agreementType === 'rent_collection' ? ((body as any).rentCollection?.version === 'letting' ? 'Letting-Rent-Collection' : 'Rent-Collection') : 'Single-Let'
     const propSlug  = (body.properties[0] ?? 'Agreement').replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)
     const dateSlug  = (body.agreementDate ?? new Date().toISOString()).slice(0, 10)
     const filename  = `Capital-Rooms-Management-Agreement_${typeLabel}_${propSlug}_${dateSlug}.pdf`

@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
        <ul style="margin:0 0 18px;padding-left:18px;font-size:14px;color:#333;line-height:1.7">${check.diffs.map(d => `<li><strong>${esc(d.field)}:</strong> ${esc(d.fromLandlord)}</li>`).join('')}</ul>`
     : `<p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">The details you confirmed match your agreement, so no changes were needed.</p>`
   const prop = (check.updated.properties?.[0] ?? '').replace(/\n/g, ', ')
-  const kind = check.updated.agreementType === 'rent_collection' ? 'rent collection' : 'management'
+  const kind = check.updated.agreementType === 'rent_collection' ? ((check.updated as any).rentCollection?.version === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'
   const html = `
 <p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">Dear ${esc(onboardingName(row))},</p>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Thank you for completing your registration. We have now reviewed your information and documents, and your identity and anti-money laundering checks are <strong>complete</strong>.</p>
