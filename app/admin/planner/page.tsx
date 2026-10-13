@@ -327,6 +327,14 @@ export default function PlannerPage() {
     }))
   }
 
+  /** Who's responsible / when — free text ("Damian", "18 Oct", "Spring 26"), saved when you leave the box */
+  function setField(itemId: string, field: 'responsible' | 'date', value: string) {
+    const v = value.trim() || (field === 'date' ? '—' : '')
+    save(boards.map(b => b.id !== activeBoardId ? b : {
+      ...b, items: b.items.map(i => i.id !== itemId || i[field] === v ? i : { ...i, [field]: v })
+    }))
+  }
+
   function submitNewItem(groupName: string, groupColor: string) {
     if (!newItemTitle.trim() || !activeBoardId) return
     const item: PlannerItem = { id: uid(), groupName, groupColor, title: newItemTitle.trim(), status: 'discuss', responsible: 'Harry', date: '—', updates: [] }
@@ -446,8 +454,10 @@ export default function PlannerPage() {
   const workspaceBoards = boards.filter(b => b.section === 'workspace')
 
   return (
-    <div className="flex flex-col" style={{ height: '100vh', background: '#faf9f7', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="planner-root flex h-full flex-col" style={{ background: '#faf9f7', fontFamily: "'Inter', system-ui, sans-serif" }}>
       <AppBar left={<BackButton href="/admin" />} />
+      {/* phones: 16px text boxes so iPhone doesn't zoom in when you tap to type */}
+      <style>{`@media (max-width: 767px) { .planner-root input, .planner-root textarea, .planner-root select { font-size: 16px !important; } }`}</style>
 
       <div className="flex-shrink-0">
         <PageHero title="Planner" subtitle="Your boards — landlords and the workspace"
@@ -489,6 +499,34 @@ export default function PlannerPage() {
                 </button>
               ))}
             </>}
+            {/* new board — the desktop sidebar has the same */}
+            <div style={{ borderTop: '1px solid #e5e2db', marginTop: 8, padding: '12px 16px 0' }}>
+              {showNewBoard ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <input autoFocus value={newBoardTitle} onChange={e => setNewBoardTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { submitNewBoard(); setShowMobileSidebar(false) } }}
+                    placeholder="Board name…"
+                    style={{ border: '1px solid #d6d3cb', borderRadius: 8, padding: '9px 12px', outline: 'none', background: '#fff', color: '#1c1917', fontFamily: 'inherit' }} />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {(['landlords', 'workspace'] as const).map(sec => (
+                      <button key={sec} onClick={() => setNewBoardSection(sec)}
+                        style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: newBoardSection === sec ? '#1c1917' : '#e5e2db', color: newBoardSection === sec ? '#fff' : '#78716c' }}>
+                        {sec === 'landlords' ? 'Landlord' : 'Personal'}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => { submitNewBoard(); setShowMobileSidebar(false) }} style={{ flex: 1, fontSize: 14, background: '#1c1917', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 0', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Add board</button>
+                    <button onClick={() => { setShowNewBoard(false); setNewBoardSection('landlords') }} style={{ fontSize: 14, color: '#78716c', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: '0 10px' }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setShowNewBoard(true)}
+                  style={{ fontSize: 14, fontWeight: 600, color: '#6b6460', background: '#fff', border: '1px dashed #d6d3cb', borderRadius: 8, padding: '10px 12px', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  ＋ New board
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -570,7 +608,7 @@ export default function PlannerPage() {
           {activeBoard ? (
             <>
               {/* Board header */}
-              <div style={{ background: '#fff', borderBottom: '1px solid #e5e2db', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+              <div style={{ background: '#fff', borderBottom: '1px solid #e5e2db', padding: '12px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                 <div title="Change colour" onClick={e => openBoardColorPicker(e, activeBoard.id)} style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg,${activeBoard.colorA},${activeBoard.colorB})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700, color: '#fff', flexShrink: 0, cursor: 'pointer' }}>{activeBoard.title[0]}</div>
                 <div>
                   <h1 style={{ fontSize: 16, fontWeight: 600, color: '#1c1917', margin: 0, letterSpacing: '-.02em' }}>{activeBoard.title}</h1>
@@ -591,11 +629,11 @@ export default function PlannerPage() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid #e5e2db', background: '#f7f5f2' }}>
-                        <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', padding: '8px 12px 8px 20px', width: '46%' }}>Item</th>
+                        <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', padding: '8px 12px 8px 20px' }}>Item</th>
                         <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', padding: '8px 12px', width: 110 }}>Status</th>
-                        <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', padding: '8px 12px', width: 90 }}>Person</th>
-                        <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', padding: '8px 12px', width: 80 }}>Date</th>
-                        <th style={{ width: 36 }}></th>
+                        <th className="hidden md:table-cell" style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', padding: '8px 12px', width: 90 }}>Person</th>
+                        <th className="hidden md:table-cell" style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', padding: '8px 12px', width: 80 }}>Date</th>
+                        <th className="hidden md:table-cell" style={{ width: 36 }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -632,18 +670,24 @@ export default function PlannerPage() {
                                 style={{ borderBottom: '1px solid #eeebe6', cursor: 'pointer', background: sel ? 'rgba(251,191,36,.06)' : '#fff', transition: 'background .1s' }}
                                 onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLTableRowElement).style.background = '#f9f7f4' }}
                                 onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLTableRowElement).style.background = '#fff' }}>
-                                <td style={{ padding: '9px 12px 9px 24px' }}>
-                                  <p style={{ fontSize: 13, fontWeight: 500, color: '#1c1917', margin: 0, lineHeight: 1.35 }}>{item.title}</p>
+                                <td style={{ padding: '10px 12px 10px 20px' }}>
+                                  <p style={{ fontSize: 14, fontWeight: 500, color: '#1c1917', margin: 0, lineHeight: 1.35 }}>{item.title}</p>
                                   {item.updates.length > 0 && (
-                                    <p style={{ fontSize: 11, color: '#a8a29e', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 360 }}>{item.updates[item.updates.length - 1].body}</p>
+                                    <p className="max-w-[60vw] md:max-w-[360px]" style={{ fontSize: 12, color: '#a8a29e', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.updates[item.updates.length - 1].body}</p>
+                                  )}
+                                  {/* phones: who and when, under the title */}
+                                  {(item.responsible || item.date || item.updates.length > 0) && (
+                                    <p className="md:hidden" style={{ fontSize: 11, color: '#b5b0a8', margin: '3px 0 0' }}>
+                                      {[item.responsible, item.date].filter(Boolean).join(' · ')}{item.updates.length > 0 ? ` · 💬 ${item.updates.length}` : ''}{hasAttachments ? ' 📎' : ''}
+                                    </p>
                                   )}
                                 </td>
                                 <td style={{ padding: '9px 12px' }}>
                                   <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-md ${st.pill}`}>{st.label}</span>
                                 </td>
-                                <td style={{ padding: '9px 12px', fontSize: 12, color: '#78716c' }}>{item.responsible}</td>
-                                <td style={{ padding: '9px 12px', fontSize: 11, color: '#b5b0a8' }}>{item.date}</td>
-                                <td style={{ padding: '9px 8px', textAlign: 'center', fontSize: 11, color: '#d6d3cb', whiteSpace: 'nowrap' }}>
+                                <td className="hidden md:table-cell" style={{ padding: '9px 12px', fontSize: 12, color: '#78716c' }}>{item.responsible}</td>
+                                <td className="hidden md:table-cell" style={{ padding: '9px 12px', fontSize: 11, color: '#b5b0a8' }}>{item.date}</td>
+                                <td className="hidden md:table-cell" style={{ padding: '9px 8px', textAlign: 'center', fontSize: 11, color: '#d6d3cb', whiteSpace: 'nowrap' }}>
                                   {item.updates.length > 0 && <span title="Has notes">💬</span>}
                                   {hasAttachments && <span title="Has attachments" style={{ marginLeft: 2 }}>📎</span>}
                                 </td>
@@ -667,7 +711,7 @@ export default function PlannerPage() {
                                   </div>
                                 ) : (
                                   <button onClick={() => { setAddingTo(group.name); setNewItemTitle('') }}
-                                    style={{ fontSize: 11.5, color: '#c8c4be', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', padding: 0 }}
+                                    style={{ fontSize: 12.5, color: '#b5b0a8', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'inherit', padding: '6px 0' }}
                                     onMouseEnter={e => (e.currentTarget.style.color = '#c4873a')}
                                     onMouseLeave={e => (e.currentTarget.style.color = '#c8c4be')}>
                                     ＋ Add item
@@ -686,7 +730,7 @@ export default function PlannerPage() {
                                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 7, padding: '6px 14px 6px 24px', background: '#fafaf9', borderBottom: '1px solid #eeebe6', borderTop: '1px solid #eeebe6', cursor: 'pointer', border: 'none', borderTopWidth: 1, borderBottomWidth: 1, borderStyle: 'solid', borderColor: '#eeebe6', fontFamily: 'inherit', textAlign: 'left' }}>
                                   <span style={{ fontSize: 10, color: '#b5b0a8', transform: doneOpen ? 'none' : 'rotate(-90deg)', display: 'inline-block', transition: 'transform .15s' }}>▾</span>
                                   <span style={{ fontSize: 11, fontWeight: 600, color: '#b5b0a8', letterSpacing: '.01em' }}>✓ {doneItems.length} completed</span>
-                                  <span style={{ fontSize: 10, color: '#c8c4be' }}>— click to {doneOpen ? 'hide' : 'show'}</span>
+                                  <span style={{ fontSize: 10, color: '#c8c4be' }}>— tap to {doneOpen ? 'hide' : 'show'}</span>
                                 </button>
                               </td>
                             </tr>,
@@ -704,8 +748,8 @@ export default function PlannerPage() {
                                   <td style={{ padding: '8px 12px' }}>
                                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-green-50 text-green-700 ring-1 ring-green-200">Done</span>
                                   </td>
-                                  <td style={{ padding: '8px 12px', fontSize: 11, color: '#a8a29e' }}>{item.responsible}</td>
-                                  <td style={{ padding: '8px 12px', fontSize: 11, color: '#c8c4be' }}>{item.date}</td>
+                                  <td className="hidden md:table-cell" style={{ padding: '8px 12px', fontSize: 11, color: '#a8a29e' }}>{item.responsible}</td>
+                                  <td className="hidden md:table-cell" style={{ padding: '8px 12px', fontSize: 11, color: '#c8c4be' }}>{item.date}</td>
                                   <td style={{ padding: '8px 8px', textAlign: 'center' }}>
                                     <button
                                       title="Reopen this item"
@@ -752,9 +796,8 @@ export default function PlannerPage() {
                   <>
                   {/* Mobile backdrop */}
                   <div className="fixed inset-0 z-40 md:hidden" style={{ background: 'rgba(0,0,0,.4)' }} onClick={() => setSelectedItemId(null)} />
-                  <div className="fixed bottom-0 left-0 right-0 z-50 md:static md:z-auto md:bottom-auto md:h-full" style={{ maxHeight: '90vh', background: '#fff', borderRadius: '16px 16px 0 0', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderLeft: '1px solid #e5e2db', flexShrink: 0, width: 300 }}
-                    // desktop overrides via inline - Tailwind md: only handles display not exact style
-                  >
+                  <div className="fixed bottom-0 left-0 right-0 z-50 w-full rounded-t-2xl md:static md:z-auto md:h-full md:w-[300px] md:max-h-none md:rounded-none"
+                    style={{ maxHeight: '88dvh', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderLeft: '1px solid #e5e2db', flexShrink: 0 }}>
                   {/* Drag handle for mobile */}
                   <div className="md:hidden w-12 h-1.5 rounded-full bg-neutral-200 mx-auto mt-2.5 mb-1 flex-shrink-0" />
                     <div style={{ height: 3, background: `linear-gradient(90deg,${activeBoard.colorA},${activeBoard.colorB})`, flexShrink: 0 }} />
@@ -778,7 +821,7 @@ export default function PlannerPage() {
                               {selectedItem.title} <span style={{ fontSize: 10, color: '#c8c4be', fontWeight: 400 }}>✏</span>
                             </h2>
                           )}
-                          <button onClick={() => setSelectedItemId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#b5b0a8', fontSize: 14, lineHeight: 1, flexShrink: 0, padding: 2, marginTop: 1 }}>✕</button>
+                          <button onClick={() => setSelectedItemId(null)} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a8a29e', fontSize: 18, lineHeight: 1, flexShrink: 0, padding: '2px 6px', marginTop: -2 }}>✕</button>
                         </div>
                         <p style={{ fontSize: 11, color: '#a8a29e', margin: '4px 0 10px' }}>{selectedItem.groupName} · {activeBoard.title}</p>
                         {/* Compile button */}
@@ -798,9 +841,15 @@ export default function PlannerPage() {
                               {(Object.entries(STATUSES) as [Status, typeof STATUSES[Status]][]).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                             </select>
                           )},
-                          { label: 'Responsible', content: <span style={{ fontSize: 12, color: '#57534e' }}>{selectedItem.responsible}</span> },
+                          { label: 'Responsible', content: <input key={selectedItem.id + '-responsible'} defaultValue={selectedItem.responsible === '—' ? '' : selectedItem.responsible} placeholder="Who?"
+                              onBlur={e => setField(selectedItem.id, 'responsible', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                              style={{ width: '100%', fontSize: 12, color: '#57534e', border: '1px solid transparent', borderRadius: 6, padding: '3px 6px', marginLeft: -6, outline: 'none', background: 'transparent', fontFamily: 'inherit' }}
+                              onFocus={e => (e.target.style.borderColor = '#d4b483')} /> },
                           { label: 'Property', content: <span style={{ fontSize: 12, color: '#57534e' }}>{selectedItem.groupName}</span> },
-                          { label: 'Date', content: <span style={{ fontSize: 12, color: '#57534e' }}>{selectedItem.date}</span> },
+                          { label: 'Date', content: <input key={selectedItem.id + '-date'} defaultValue={selectedItem.date === '—' ? '' : selectedItem.date} placeholder="When?"
+                              onBlur={e => setField(selectedItem.id, 'date', e.target.value)} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                              style={{ width: '100%', fontSize: 12, color: '#57534e', border: '1px solid transparent', borderRadius: 6, padding: '3px 6px', marginLeft: -6, outline: 'none', background: 'transparent', fontFamily: 'inherit' }}
+                              onFocus={e => (e.target.style.borderColor = '#d4b483')} /> },
                         ].map((field, i) => (
                           <div key={i} style={{ padding: '10px 14px', borderRight: i % 2 === 0 ? '1px solid #eeebe6' : 'none', borderTop: i >= 2 ? '1px solid #eeebe6' : 'none' }}>
                             <p style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', margin: '0 0 5px' }}>{field.label}</p>
@@ -868,7 +917,7 @@ export default function PlannerPage() {
                     </div>
 
                     {/* ── Note composer ── */}
-                    <div style={{ borderTop: '1px solid #e5e2db', padding: '10px 12px 12px', flexShrink: 0, background: '#faf9f7' }}>
+                    <div style={{ borderTop: '1px solid #e5e2db', padding: '10px 12px max(12px, env(safe-area-inset-bottom))', flexShrink: 0, background: '#faf9f7' }}>
                       {/* Draft attachments preview */}
                       {(draftLinks.length > 0 || draftImages.length > 0) && (
                         <div style={{ marginBottom: 8, padding: '7px 10px', background: '#f2f0ec', borderRadius: 8, border: '1px solid #e5e2db' }}>
@@ -907,7 +956,7 @@ export default function PlannerPage() {
 
                       <textarea value={updateDraft} onChange={e => setUpdateDraft(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter' && e.metaKey) saveUpdate() }}
-                        placeholder="Add a note… (⌘↵ to save)"
+                        placeholder="Add a note…"
                         rows={2}
                         style={{ width: '100%', fontSize: 12, border: '1px solid #e5e2db', borderRadius: 8, padding: '7px 10px', outline: 'none', background: '#fff', color: '#1c1917', fontFamily: 'inherit', resize: 'none', lineHeight: 1.45, boxSizing: 'border-box' }}
                         onFocus={e => (e.target.style.borderColor = '#d4b483')}
@@ -992,7 +1041,7 @@ export default function PlannerPage() {
 
       {/* ── Compile & Send modal ── */}
       {showCompile && compileItem && activeBoard && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
           onClick={e => { if (e.target === e.currentTarget) setShowCompile(false) }}>
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
             {/* Modal header */}
@@ -1041,7 +1090,7 @@ export default function PlannerPage() {
               {/* Contractor details */}
               <div style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: '#b5b0a8', margin: 0 }}>Send to</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
                     <label style={{ fontSize: 11, color: '#78716c', display: 'block', marginBottom: 4 }}>Name</label>
                     <input value={contractorName} onChange={e => setContractorName(e.target.value)} placeholder="Damian"
