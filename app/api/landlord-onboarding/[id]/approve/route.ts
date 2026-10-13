@@ -36,9 +36,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await svc().storage.from('valuations').upload(storagePath, pdf, { contentType: 'application/pdf', upsert: false }).catch(() => null)
 
   const recipients = Array.from(new Set([row.email, f.j_contact_email].filter(Boolean).map((e: string) => e.trim().toLowerCase())))
-  const changes = check.diffs.length
+  // only the changes the office accepted (agreementCheck — refused ones keep what the agreement said)
+  const used = check.diffs.filter(d => d.accepted)
+  const changes = used.length
     ? `<p style="margin:0 0 8px;font-size:15px;color:#333;line-height:1.6">I have updated the agreement with the details you confirmed:</p>
-       <ul style="margin:0 0 18px;padding-left:18px;font-size:14px;color:#333;line-height:1.7">${check.diffs.map(d => `<li><strong>${esc(d.field)}:</strong> ${esc(d.fromLandlord)}</li>`).join('')}</ul>`
+       <ul style="margin:0 0 18px;padding-left:18px;font-size:14px;color:#333;line-height:1.7">${used.map(d => `<li><strong>${esc(d.field)}:</strong> ${esc(d.fromLandlord)}</li>`).join('')}</ul>`
     : `<p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">The details you confirmed match your agreement, so no changes were needed.</p>`
   const prop = (check.updated.properties?.[0] ?? '').replace(/\n/g, ', ')
   const kind = check.updated.agreementType === 'rent_collection' ? ((check.updated as any).rentCollection?.version === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'
@@ -68,5 +70,15 @@ ${changes}
   }).eq('id', id)
   if (saveErr) return NextResponse.json({ error: `Email sent, but the record could not be updated: ${saveErr.message}` }, { status: 500 })
 
-  return NextResponse.json({ ok: true, sentTo: recipients, changes: check.diffs.length })
+  // Repopulate the saved agreement on the Agreements page with the accepted details, so reopening it shows the final version
+  if (check.formPatch && Object.keys(check.formPatch).length) {
+    const { data: saved } = await svc().from('management_agreements').select('id, form, version').eq('onboarding_id', id).is('deleted_at', null).order('updated_at', { ascending: false }).limit(1).maybeSingle()
+    if (saved) await svc().from('management_agreements').update({
+      form: { ...((saved.form as object) ?? {}), ...check.formPatch, agreementDate: check.updated.agreementDate },
+      ...(check.formPatch.companyName ? { client_name: check.formPatch.companyName } : check.formPatch.clientFirst ? { client_name: [check.formPatch.clientTitle, check.formPatch.clientFirst, check.formPatch.clientLast].filter(Boolean).join(' ') } : {}),
+      properties: check.updated.properties, pdf_path: storagePath, version: (saved.version ?? 1) + 1, updated_by: 'Onboarding approval', updated_at: now,
+    }).eq('id', saved.id).then(() => null, () => null)
+  }
+
+  return NextResponse.json({ ok: true, sentTo: recipients, changes: used.length })
 }

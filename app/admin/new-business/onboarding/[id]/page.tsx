@@ -18,7 +18,7 @@ interface Review {
   people: { role: string; name: string; screening?: { listDate: string; matches: { strength: string; entry: { name: string; id: string; regime: string; dob: string } }[] }; screeningError?: string }[]
 }
 interface Decision { risk_level: string; risk_reason: string; risk_mitigation?: string; identity_verified: boolean; reviewer_name: string; reviewed_at: string }
-interface Diff { field: string; inAgreement: string; fromLandlord: string }
+interface Diff { key: string; field: string; inAgreement: string; fromLandlord: string; accepted: boolean }
 
 const RISK_STYLE: Record<string, string> = {
   low: 'bg-green-50 text-green-800 border-green-200',
@@ -91,6 +91,17 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : 'Something went wrong' })
     } finally { setBusy(null) }
+  }
+
+  // accept / refuse one of the landlord's changes to the agreement (saved on the record; the preview and approval follow it)
+  async function toggleDiff(key: string) {
+    if (!diffs) return
+    const reject = diffs.filter(d => (d.key === key ? d.accepted : !d.accepted)).map(d => d.key)
+    setBusy('agreement')
+    const r = await adminFetch(`/api/landlord-onboarding/${id}/agreement`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reject }) })
+    const d = await r.json().catch(() => ({}))
+    if (r.ok) setDiffs(d.diffs); else alert(d.error ?? 'Could not save that')
+    setBusy(null)
   }
 
   const rerun = () => act('rerun', () => adminFetch(`/api/landlord-onboarding/${id}/review`, { method: 'POST' }), 'Checks re-run')
@@ -317,13 +328,16 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
               {!hasSnapshot && <p className="text-sm text-neutral-600">This record was created without an agreement on file, so there is nothing to compare. Generate one from the Management Agreement page.</p>}
               {hasSnapshot && diffs && (diffs.length ? (
                 <div className="space-y-sm mb-md">
-                  <p className="text-sm text-neutral-700">These details differ from the agreement you sent. The final agreement will use the landlord’s confirmed details:</p>
+                  <p className="text-sm text-neutral-700">The landlord gave different details from the agreement you sent. Ticked changes go into the final agreement (and the saved copy on Agreements); untick any you don’t accept to keep what you sent.</p>
                   {diffs.map(d => (
-                    <div key={d.field} className="rounded-lg border border-amber-200 bg-amber-50 px-sm py-xs text-xs">
-                      <p className="font-semibold text-amber-900">{d.field}</p>
-                      <p className="text-neutral-600">Agreement: {d.inAgreement}</p>
-                      <p className="text-neutral-900">Landlord: {d.fromLandlord}</p>
-                    </div>
+                    <label key={d.key} className={`flex cursor-pointer items-start gap-sm rounded-lg border px-sm py-xs text-xs ${d.accepted ? 'border-green-300 bg-green-50' : 'border-neutral-200 bg-neutral-50'}`}>
+                      <input type="checkbox" className="mt-0.5" checked={d.accepted} disabled={busy === 'agreement'} onChange={() => toggleDiff(d.key)} />
+                      <span className="min-w-0">
+                        <span className="block font-semibold text-neutral-900">{d.field} <span className={`font-normal ${d.accepted ? 'text-green-800' : 'text-neutral-500'}`}>· {d.accepted ? 'use theirs' : 'keep the agreement’s'}</span></span>
+                        <span className={`block ${d.accepted ? 'text-neutral-500 line-through' : 'text-neutral-900'}`}>Agreement: {d.inAgreement}</span>
+                        <span className={`block ${d.accepted ? 'text-neutral-900' : 'text-neutral-500 line-through'}`}>Landlord: {d.fromLandlord}</span>
+                      </span>
+                    </label>
                   ))}
                 </div>
               ) : <p className="text-sm text-green-700 mb-md">The landlord’s details match the agreement you sent.</p>)}
