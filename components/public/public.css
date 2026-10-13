@@ -84,10 +84,8 @@ select.pub-input { appearance: auto; }
   .pub-enter, .pub-enter-2, .pub-drift-l, .pub-drift-r, .pub-arch-open, .pub-zoom, .pub-rise { animation: none; }
 }
 
-/* Default margins live in a layer so a page's own spacing classes (mb-6, mb-8 …) win — before 13 Oct 2026 these were
-   unlayered "margin: 0" rules that silently cancelled every gap on the landlord form (headings sat on the text below). */
-@layer components {
-  .pub-h2 { margin: 0; }
-  .pub-h3 { margin: .5rem 0 0; }
-  .pub-intro, .pub-note, .pub-error { margin: 0; }
-}
+/* Default margins at zero weight (:where) so a page's own spacing classes (mb-6, mb-8 …) win — before 13 Oct 2026 these
+   were plain "margin: 0" rules that silently cancelled every gap on the landlord form (headings sat on the text below). */
+:where(.pub-h2) { margin: 0; }
+:where(.pub-h3) { margin: .5rem 0 0; }
+:where(.pub-intro, .pub-note, .pub-error) { margin: 0; }
