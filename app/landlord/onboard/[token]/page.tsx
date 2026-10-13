@@ -87,6 +87,8 @@ interface FormData {
   j_pep_details: string
   acting_for_other: YesNo
   acting_for_details: string
+  /** people they act for (acts_for) and other contacts for the account, with their details (Harry, 13 Oct 2026) */
+  other_contacts: OnbContact[]
   source_of_funds: string
   source_of_funds_details: string
   country_of_residence: string
@@ -101,6 +103,43 @@ interface UploadSlot {
   uploading: boolean
   files: string[]  // paths stored in Supabase
   error: string | null
+}
+
+interface OnbContact { name: string; relationship: string; email: string; phone: string; acts_for: boolean; may_discuss: boolean }
+const blankContact = (acts_for: boolean): OnbContact => ({ name: '', relationship: '', email: '', phone: '', acts_for, may_discuss: !acts_for ? false : true })
+
+/** Rows of people: the ones the landlord acts for (actsFor) or other contacts for their account. */
+function ContactRows({ all, actsFor, onChange, inp, lbl, addLabel, relationshipHint }: {
+  all: OnbContact[]; actsFor: boolean; onChange: (all: OnbContact[]) => void; inp: string; lbl: string; addLabel: string; relationshipHint: string
+}) {
+  const rows = all.map((c, i) => ({ c, i })).filter(({ c }) => !!c.acts_for === actsFor)
+  const set = (i: number, patch: Partial<OnbContact>) => onChange(all.map((c, j) => (j === i ? { ...c, ...patch } : c)))
+  return (
+    <div className="space-y-4">
+      {rows.map(({ c, i }, n) => (
+        <div key={i} className="rounded-xl border border-neutral-200 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="m-0 text-[14px] font-semibold">{actsFor ? 'Person' : 'Contact'} {n + 1}</p>
+            <button type="button" onClick={() => onChange(all.filter((_, j) => j !== i))} className="text-[13px] font-semibold text-neutral-500 underline">Remove</button>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div><label className={lbl}>Full name *</label><input value={c.name} onChange={e => set(i, { name: e.target.value })} className={inp} placeholder="e.g. Mrs Aisha Rislan" /></div>
+            <div><label className={lbl}>{actsFor ? 'How they are connected *' : 'Who they are'}</label><input value={c.relationship} onChange={e => set(i, { relationship: e.target.value })} className={inp} placeholder={relationshipHint} /></div>
+            <div><label className={lbl}>Email</label><input type="email" value={c.email} onChange={e => set(i, { email: e.target.value })} className={inp} placeholder="name@example.com" /></div>
+            <div><label className={lbl}>Phone</label><input type="tel" value={c.phone} onChange={e => set(i, { phone: e.target.value })} className={inp} placeholder="07700 900000" /></div>
+          </div>
+          {!actsFor && (
+            <label className="mt-3 flex items-start gap-2 text-[14px]">
+              <input type="checkbox" className="mt-1" checked={c.may_discuss} onChange={e => set(i, { may_discuss: e.target.checked })} />
+              Capital Rooms may discuss my account with this person
+            </label>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...all, blankContact(actsFor)])}
+        className="rounded-xl border border-dashed border-neutral-400 px-4 py-2 text-[15px] font-semibold text-neutral-700">+ {addLabel}</button>
+    </div>
+  )
 }
 
 function blank(): FormData {
@@ -122,7 +161,7 @@ function blank(): FormData {
     j_same_address: true, j_addr_line1: '', j_addr_line2: '', j_addr_town: '', j_addr_county: '', j_addr_postcode: '',
     j_contact_phone: '', j_contact_email: '',
     pep: '', pep_details: '', j_pep: '', j_pep_details: '',
-    acting_for_other: '', acting_for_details: '',
+    acting_for_other: '', acting_for_details: '', other_contacts: [],
     source_of_funds: '', source_of_funds_details: '', country_of_residence: 'United Kingdom',
     account_holder: '',
   }
@@ -1373,8 +1412,20 @@ export default function LandlordOnboardPage() {
           <p className="text-[16px] font-semibold mb-3">Is anyone other than {joint ? 'the two of you' : 'yourself'} the owner of, or entitled to the rent from, the property — for example through a trust, nominee or on someone else's behalf? *</p>
           <YesNoButtons value={form.acting_for_other} onChange={v => set('acting_for_other', v)} />
           {form.acting_for_other === 'yes' && (
-            <div className="mt-4"><label className={lbl}>Who, and how they are connected *</label><textarea rows={3} value={form.acting_for_details} onChange={e => set('acting_for_details', e.target.value)} className={inp} placeholder="Full name(s), relationship, and any trust or company name" /></div>
+            <div className="mt-4 space-y-4">
+              <p className="m-0 text-[15px]" style={{ color: '#4A4741' }}>Add each person you are providing information for, with their contact details — we may need to verify their identity too.</p>
+              <ContactRows all={form.other_contacts ?? []} actsFor onChange={v => set('other_contacts', v)} inp={inp} lbl={lbl}
+                addLabel="Add a person" relationshipHint="e.g. my mother, co-owner, beneficiary of a trust" />
+              <div><label className={lbl}>Anything else we should know <span className="font-normal">(optional)</span></label><textarea rows={2} value={form.acting_for_details} onChange={e => set('acting_for_details', e.target.value)} className={inp} placeholder="e.g. the name of a trust or company, or how the arrangement works" /></div>
+            </div>
           )}
+        </div>
+
+        <div className={card}>
+          <h2 className="pub-h3 mb-1">Other contacts <span className="text-[15px] font-normal" style={{ color: '#4A4741' }}>(optional)</span></h2>
+          <p className="text-[15px] leading-relaxed mb-5" style={{ color: '#4A4741' }}>Anyone else we should have on file for your account — for example an accountant, a family member or someone who helps you manage your property.</p>
+          <ContactRows all={form.other_contacts ?? []} actsFor={false} onChange={v => set('other_contacts', v)} inp={inp} lbl={lbl}
+            addLabel="Add a contact" relationshipHint="e.g. accountant, brother, property manager" />
         </div>
 
         <div className={card}>
