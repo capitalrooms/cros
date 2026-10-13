@@ -23,3 +23,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="Management Agreement - updated (preview).pdf"' },
   })
 }
+
+// POST { reject: string[] } → which of the landlord's changes NOT to use (keys from GET); the rest go into the final
+// agreement. Kept on the record so the preview, the approval and the saved agreement all match.
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id } = await params
+  const body = await req.json().catch(() => ({}))
+  const reject = (Array.isArray(body.reject) ? body.reject : []).filter((k: unknown) => typeof k === 'string' && /^[a-z_]{2,40}$/.test(k))
+  const { data: row } = await svc().from('landlord_onboarding').select('form_data').eq('id', id).single()
+  if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const { error } = await svc().from('landlord_onboarding').update({ form_data: { ...(row.form_data ?? {}), __agreement_reject: reject }, updated_at: new Date().toISOString() }).eq('id', id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const check = checkAgreement({ ...(row.form_data ?? {}), __agreement_reject: reject })
+  return NextResponse.json({ ok: true, hasSnapshot: check.hasSnapshot, diffs: check.diffs })
+}

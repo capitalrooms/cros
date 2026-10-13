@@ -807,7 +807,7 @@ export default function LandlordOnboardPage() {
               Your {agreementType === 'rent_collection' ? (agreementVersion === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the sections below.
             </p>
             <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
-              If you did not receive it or need any changes made, reply to Harry’s email and he will come back to you straight away.
+              If any of your details in it aren’t quite right — names, addresses or your bank account — just give the correct ones in the form below. We’ll check them and update your agreement to match before you sign. For anything else, reply to Harry’s email and he will come back to you straight away.
             </p>
             <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>{progressText}</p>
           </div>

@@ -299,6 +299,10 @@ function welcomeWithAgreementHtml(
         Our online form collects your identity and property details for our Anti-Money Laundering compliance — a regulatory
         requirement before we can ${details.agreementName ? 'act for you' : 'manage your property'}. You can save your progress at any time and return to it later.
       </p>
+      <p style="margin:6px 0 0;font-size:13px;color:#555;line-height:1.5;">
+        If any of your details in the agreement aren’t quite right — names, addresses or your bank account — just give the
+        correct ones in the form. We’ll check them and update your agreement to match before you sign.
+      </p>
     </td>
   </tr>
 </table>
