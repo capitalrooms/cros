@@ -23,7 +23,7 @@ interface Data {
 }
 
 const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-const input = 'w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900'
+const input = 'w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-base sm:text-sm text-neutral-900'   // 16px on phones so iPhone doesn't zoom in
 const ROLE: Record<string, string> = { cleaner: 'Cleaner', contractor: 'Contractor', lettings: 'Lettings', landlord: 'Landlord' }
 
 async function uploadPhotos(boardId: string, files: FileList | null): Promise<Photo[]> {
