@@ -84,7 +84,7 @@ export default function LandlordPlanner({ previewBoardId }: { previewBoardId?: s
   const groups = Array.from(new Set(live.map(e => e.property ?? ''))).sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b, 'en', { numeric: true }))
 
   const [closed, setClosed] = [collapsedGroups, setCollapsedGroups] as const
-  const row = (e: Entry) => <PlannerRow key={e.id} e={e} isOpen={open === e.id} onToggle={() => setOpen(open === e.id ? null : e.id)} readOnly={readOnly} boardId={boardId} post={post} reload={load} />
+  const row = (e: Entry, i: number) => <PlannerRow key={e.id} e={e} stripe={i % 2 === 1} isOpen={open === e.id} onToggle={() => setOpen(open === e.id ? null : e.id)} readOnly={readOnly} boardId={boardId} post={post} reload={load} />
   const head = (
     <div className="hidden md:grid grid-cols-[minmax(0,1fr)_120px_110px_80px_56px] gap-3 px-3 py-2 text-[10.5px] uppercase tracking-[.14em]" style={{ color: MUTED }}>
       <span>Item</span><span className="text-center">Status</span><span>Person</span><span>Due</span><span className="text-center">Notes</span>
@@ -136,8 +136,8 @@ export default function LandlordPlanner({ previewBoardId }: { previewBoardId?: s
   )
 }
 
-function PlannerRow({ e, isOpen, onToggle, readOnly, boardId, post, reload }: {
-  e: Entry; isOpen: boolean; onToggle: () => void; readOnly: boolean; boardId: string
+function PlannerRow({ e, stripe, isOpen, onToggle, readOnly, boardId, post, reload }: {
+  e: Entry; stripe: boolean; isOpen: boolean; onToggle: () => void; readOnly: boolean; boardId: string
   post: (b: Record<string, unknown>) => Promise<any>; reload: () => Promise<void>
 }) {
   const [reply, setReply] = useState('')
@@ -152,7 +152,7 @@ function PlannerRow({ e, isOpen, onToggle, readOnly, boardId, post, reload }: {
   }
 
   return (
-    <div style={{ borderBottom: `1px solid ${RULE}`, background: isOpen ? '#FAF8F4' : '#fff' }}>
+    <div style={{ borderBottom: `1px solid ${RULE}`, background: isOpen ? '#EFEBE3' : stripe ? '#F6F4F0' : '#fff' }}>
       <button type="button" onClick={onToggle} aria-expanded={isOpen}
         className="grid w-full grid-cols-[minmax(0,1fr)_104px] items-center gap-3 bg-transparent px-3 py-2.5 text-left md:grid-cols-[minmax(0,1fr)_120px_110px_80px_56px]" style={{ color: '#111', minHeight: 48 }}>
         <span className="min-w-0">
