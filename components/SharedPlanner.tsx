@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 
-interface Photo { path: string; url: string | null }
+export interface Photo { path: string; url: string | null }
 interface Reply { id: string; body: string; author: string; createdAt: string; links: string[]; photos: Photo[] }
 interface Entry {
   id: string; title: string; body: string; status: 'open' | 'done'; dueDate: string | null; createdAt: string
@@ -26,7 +26,7 @@ const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : is
 const input = 'w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-base sm:text-sm text-neutral-900'   // 16px on phones so iPhone doesn't zoom in
 const ROLE: Record<string, string> = { cleaner: 'Cleaner', contractor: 'Contractor', lettings: 'Lettings', landlord: 'Landlord' }
 
-async function uploadPhotos(boardId: string, files: FileList | null): Promise<Photo[]> {
+export async function uploadPhotos(boardId: string, files: FileList | null): Promise<Photo[]> {
   const out: Photo[] = []
   for (const f of Array.from(files ?? []).slice(0, 6)) {
     const fd = new FormData(); fd.append('file', f); fd.append('boardId', boardId)
@@ -81,7 +81,7 @@ function Composer({ boardId, placeholder, onSend, withTitle, properties }: {
   }
   return (
     <div className="space-y-sm">
-      {withTitle && <input className={input} placeholder="What’s it about? e.g. Check the loft hatch at 12 Saltwell Street" value={title} onChange={e => setTitle(e.target.value)} />}
+      {withTitle && <input className={input} placeholder="What’s it about? e.g. Gutter at the back needs clearing" value={title} onChange={e => setTitle(e.target.value)} />}
       <textarea rows={withTitle ? 3 : 2} className={input} placeholder={placeholder} value={body} onChange={e => setBody(e.target.value)} />
       {withTitle && (
         <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">

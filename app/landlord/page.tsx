@@ -5,13 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import { displayName } from '@/lib/people'
-import AppBar from '@/components/AppBar'
-import SignOutButton from '@/app/components/SignOutButton'
-import RoleGreeting from '@/app/components/RoleGreeting'
-import BackButton from '@/app/components/BackButton'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
 import PropertyFinancialSummary from '@/app/components/PropertyFinancialSummary'
-import SharedPlanner from '@/components/SharedPlanner'
+import LandlordPlanner from '@/components/LandlordPlanner'
+import PublicShell from '@/components/public/PublicShell'
 import { landlordSections, type LandlordSection } from '@/lib/access/landlordSections'
 
 // Notification categories the landlord can self-manage
@@ -183,55 +180,36 @@ export default function LandlordDashboard() {
   const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton />} />
-        <main className="mx-auto max-w-6xl px-lg py-2xl">
-          <div className="animate-pulse">
-            <div className="h-10 w-64 bg-neutral-300 rounded-lg mb-lg"></div>
-            <div className="h-6 w-96 bg-neutral-200 rounded-lg"></div>
-          </div>
-        </main>
-      </div>
-    )
+    return <PublicShell><p className="pub-muted mx-auto max-w-6xl px-6 py-24 text-[16px] md:px-14">Loading…</p></PublicShell>
   }
 
+  // the landlord-onboarding look (components/public) — 14 Oct 2026, Harry: "do it in the onboarding landlord style"
+  const wrap = 'mx-auto max-w-6xl px-6 md:px-14'
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
-      {viewingAs && (
-        <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
+    <PublicShell label={viewingAs ? `Viewing as ${name}` : 'Your account'}>
+      {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
+
+      <section className={`${wrap} pt-10 md:pt-14`}>
+        <p className="pub-eyebrow pub-enter m-0 mb-4">Capital Rooms · landlord</p>
+        <h1 className="pub-serif pub-enter m-0 text-[44px] leading-[1.02] md:text-[72px]">Hello, {name || 'there'}</h1>
+        <p className="pub-intro pub-enter-2 mt-6 max-w-2xl">
+          {sections.includes('planner')
+            ? 'Your planner with Capital Rooms. Everything we’re working on together, by property — tap an item to see the notes and reply, or add something new.'
+            : sections.includes('statements') ? 'Financial summaries for your properties.' : 'Welcome to Capital Rooms.'}
+        </p>
+      </section>
+
+      {/* Shared planner with the office — both sides add and edit; viewing as them, the same screen read only */}
+      {sections.includes('planner') && (
+        <section className={`${wrap} pt-12 md:pt-16`}>
+          <h2 className="pub-h2 mb-8">Planner</h2>
+          {viewingAs
+            ? (boardId ? <LandlordPlanner previewBoardId={boardId} /> : <p className="pub-note">No board yet — switch the planner on from their profile.</p>)
+            : <LandlordPlanner />}
+        </section>
       )}
-      <AppBar
-        right={
-          <div className="flex items-center gap-md">
-            <a href="/landlord/profile" className="shrink-0 transition-colors hover:opacity-80 flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10" title="Profile settings">
-              <span className="text-lg leading-none">⚙️</span>
-            </a>
-            <SignOutButton onSignOut={handleSignOut} />
-          </div>
-        }
-      />
 
-      <main className="mx-auto max-w-6xl px-lg py-2xl">
-        <RoleGreeting role="Landlord Dashboard" name={name}
-          subtitle={sections.includes('statements') ? 'Financial summaries for your properties.' : sections.includes('planner') ? 'Your shared planner with Capital Rooms — add notes, jobs, photos and links, and reply to ours.' : 'Welcome to Capital Rooms.'} />
-
-        {/* Shared planner with the office — both sides add and edit */}
-        {sections.includes('planner') && (
-          <div className="mb-2xl">
-            {viewingAs ? (
-              <div className="rounded-2xl border border-neutral-200 bg-white px-lg py-lg text-sm text-neutral-600">
-                {name} sees your shared planner here.{' '}
-                {boardId ? <a className="font-semibold text-blue-600 hover:underline" href={`/admin/planner/shared?board=${boardId}`}>Open the board →</a> : 'No board yet — switch the planner on from their profile.'}
-              </div>
-            ) : boardId ? (
-              <SharedPlanner mode="member" />
-            ) : (
-              <div className="rounded-2xl border border-neutral-200 bg-white px-lg py-lg text-sm text-neutral-600">Your planner with Capital Rooms will appear here shortly.</div>
-            )}
-          </div>
-        )}
-
+      <section className={`${wrap} pt-12`}>
         {sections.includes('statements') && (<>
 
         {/* Portfolio summary */}
@@ -359,7 +337,13 @@ export default function LandlordDashboard() {
             )}
           </div>
         )}
-      </main>
-    </div>
+      </section>
+
+      {/* account */}
+      <section className={`${wrap} flex flex-wrap items-center gap-6 pb-16 pt-16`}>
+        <a href="/account" className="pub-eyebrow inline-flex min-h-[44px] items-center" style={{ color: '#111' }}>Password &amp; sign-in</a>
+        {!viewingAs && <button type="button" onClick={handleSignOut} className="pub-eyebrow inline-flex min-h-[44px] items-center" style={{ color: '#111' }}>Sign out</button>}
+      </section>
+    </PublicShell>
   )
 }
