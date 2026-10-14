@@ -14,6 +14,7 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { withOptionalColumns } from '@/lib/optionalColumns'
 import { onboardingFiles } from '@/lib/landlordOnboarding/propertyDocs'
 import { openStoredFile } from '@/lib/files/openFile'
+import LandlordAppAccess from '@/components/admin/LandlordAppAccess'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -493,6 +494,11 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
               </button>
             }
           />
+        </div>
+
+        {/* what they see in their app — administrators switch parts on as and when (14 Oct 2026) */}
+        <div className="mb-xl">
+          <LandlordAppAccess personId={personId} name={landlordName} />
         </div>
 
         {/* ══ OVERVIEW ══ */}
