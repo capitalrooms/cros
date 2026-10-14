@@ -6,6 +6,7 @@
  *        { action: 'reply', entryId, body?, links?, photos? }
  *        { action: 'status', entryId, status: 'open'|'done' }
  *        { action: 'archive_board', boardId }               office only
+ *        { action: 'import_board', personId, plannerBoardId, itemIds }  office only — copy from the office's own Planner
  * The other side gets an in-app notification and a push for a new entry or reply. Office = administrator/admin.
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -14,6 +15,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { loadPrivateBoards, importItems } from '@/lib/planner/importBoard'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -133,6 +135,38 @@ export async function POST(req: NextRequest) {
     const { data, error } = await s.from('planner_shared_boards').insert({ member_person_id: p.id, title: String(b.title || `${name(p)} & Capital Rooms`).slice(0, 120), created_by: caller.email }).select('id').single()
     if (error) return NextResponse.json({ error: missing(error) ? 'Run migration 200 in Supabase first' : error.message }, { status: 400 })
     return NextResponse.json({ boardId: data.id })
+  }
+
+  // Bring a board from the office's own Planner in (lib/planner/importBoard) — office only; the private board is
+  // left as it is. { action: 'import_board', personId, plannerBoardId, itemIds }. One notification, not one per item.
+  if (b.action === 'import_board') {
+    if (!isOffice(caller)) return NextResponse.json({ error: 'Only the office can do that' }, { status: 403 })
+    const boards = await loadPrivateBoards(s)
+    const src = boards.find(x => x.id === b.plannerBoardId)
+    if (!src) return NextResponse.json({ error: 'That planner board wasn’t found' }, { status: 404 })
+    const ids = new Set((Array.isArray(b.itemIds) ? b.itemIds : []).map(String))
+    const items = src.items.filter(i => ids.has(i.id))
+    if (!items.length) return NextResponse.json({ error: 'Tick at least one item' }, { status: 400 })
+    const { data: p } = await s.from('people').select('id, role, salutation, first_name, last_name, full_name, company, access_areas').eq('id', b.personId).maybeSingle() as { data: any }
+    if (!p) return NextResponse.json({ error: 'Person not found' }, { status: 404 })
+    let { data: board } = await s.from('planner_shared_boards').select('*').eq('member_person_id', p.id).is('archived_at', null).maybeSingle() as { data: any }
+    if (!board) {
+      const { data, error } = await s.from('planner_shared_boards')
+        .insert({ member_person_id: p.id, title: `${name(p)} & Capital Rooms`.slice(0, 120), kind: p.role === 'landlord' ? 'landlord' : 'staff', created_by: caller.email }).select('*').single()
+      if (error) return NextResponse.json({ error: missing(error) ? 'Run migration 200 in Supabase first' : error.message }, { status: 400 })
+      board = data
+    }
+    // a landlord whose app parts have been chosen: sharing a board with them switches their planner on
+    if (p.role === 'landlord' && Array.isArray(p.access_areas) && !p.access_areas.includes('planner')) {
+      await s.from('people').update({ access_areas: [...p.access_areas, 'planner'] }).eq('id', p.id)
+    }
+    try {
+      const r = await importItems(s, { boardId: board.id, authorId: caller.personId, items })
+      await tell(s, caller, board, 'Shared with you', `Capital Rooms has shared ${r.entries} item${r.entries === 1 ? '' : 's'} with you on your planner.`)
+      return NextResponse.json({ ok: true, boardId: board.id, ...r })
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : 'Not copied', boardId: board.id }, { status: 500 })
+    }
   }
 
   if (b.action === 'entry') {
