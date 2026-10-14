@@ -10,6 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { oneLine } from '@/lib/lettings/letWording'
 
 const STATUS: Record<string, string> = { discuss: 'To discuss', discussed: 'Discussed', progress: 'In progress', done: 'Done', parked: 'Parked' }
+const STAGE_KEY: Record<string, string> = { discuss: 'discuss', discussed: 'discussed', progress: 'progress', parked: 'parked' }
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
 export interface PrivateItem { id: string; groupName: string; title: string; status: string; responsible?: string; date?: string; updates?: { id: string; author?: string; when?: string; body?: string; links?: string[]; images?: string[] }[] }
@@ -76,16 +77,25 @@ export async function importItems(s: SupabaseClient, opts: { boardId: string; au
     const due = dayMonth(date)
     // a date like "5 Sep" becomes the due date; anything else ("Spring 26", "Nov") stays in the line
     const line = [it.status !== 'done' ? STATUS[it.status] : '', (it.responsible ?? '').trim(), due ? '' : date].filter(Boolean).join(' · ')
-    const { data: e, error } = await s.from('planner_shared_entries').insert({
+    const base = {
       board_id: opts.boardId,
       title: (propertyId || !it.groupName ? it.title : `${it.groupName} — ${it.title}`).slice(0, 300),
-      body: line,
       property_id: propertyId,
       due_date: due,
       status: it.status === 'done' ? 'done' : 'open',
       done_at: it.status === 'done' ? new Date().toISOString() : null,
       created_by: opts.authorId,
+    }
+    // with migration 223: status, person and a non-date "when" in their own columns; before it, as the first line
+    let { data: e, error } = await s.from('planner_shared_entries').insert({
+      ...base, body: '',
+      stage: it.status in STAGE_KEY ? STAGE_KEY[it.status] : null,
+      responsible: (it.responsible ?? '').trim() || null,
+      due_note: due ? null : date || null,
     }).select('id').single()
+    if (error && /stage|responsible|due_note|schema cache/.test(error.message)) {
+      ({ data: e, error } = await s.from('planner_shared_entries').insert({ ...base, body: line }).select('id').single())
+    }
     if (error || !e) throw new Error(error?.message ?? 'An item wasn’t copied')
     entries++
     for (const u of it.updates ?? []) {

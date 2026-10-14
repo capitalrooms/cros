@@ -61,7 +61,8 @@ async function loadBoard(s: S, board: any) {
   const urls = await signed(s, paths)
   const photo = (p: string) => ({ path: p, url: urls.get(p) ?? null })
   return (entries ?? []).map(e => ({
-    id: e.id, title: e.title, body: e.body, status: e.status, dueDate: e.due_date, createdAt: e.created_at, doneAt: e.done_at,
+    id: e.id, title: e.title, body: e.body, status: e.status, dueDate: e.due_date,
+    stage: e.stage ?? null, responsible: e.responsible ?? null, dueNote: e.due_note ?? null,   // migration 223 createdAt: e.created_at, doneAt: e.done_at,
     property: e.properties?.name ? shortAddress(e.properties.name) : null, propertyId: e.property_id,
     author: name(e.people), links: e.links ?? [], photos: (e.photos ?? []).map(photo),
     replies: (replies ?? []).filter(r => r.entry_id === e.id).map(r => ({
@@ -198,10 +199,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ entryId: data.id })
   }
 
-  if (b.action === 'reply' || b.action === 'status') {
+  if (b.action === 'reply' || b.action === 'status' || b.action === 'update') {
     const { data: entry } = await s.from('planner_shared_entries').select('id, title, board_id').eq('id', String(b.entryId ?? '')).maybeSingle() as { data: any }
     const board = entry ? await boardFor(s, caller, entry.board_id) : null
     if (!entry || !board) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    // status / person / when from the grid (migration 223) — either side; no notification, it's a tidy-up
+    // { action: 'update', entryId, stage?: discuss|discussed|progress|parked|open|done, responsible?, dueNote?, dueDate? }
+    if (b.action === 'update') {
+      const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+      if (b.stage !== undefined) {
+        const st = String(b.stage)
+        if (!['discuss', 'discussed', 'progress', 'parked', 'open', 'done'].includes(st)) return NextResponse.json({ error: 'Unknown status' }, { status: 400 })
+        const done = st === 'done'
+        Object.assign(patch, { status: done ? 'done' : 'open', done_at: done ? new Date().toISOString() : null, done_by: done ? caller.personId : null })
+        if (!done) patch.stage = st === 'open' ? null : st
+      }
+      if (b.responsible !== undefined) patch.responsible = String(b.responsible ?? '').trim().slice(0, 60) || null
+      if (b.dueNote !== undefined) patch.due_note = String(b.dueNote ?? '').trim().slice(0, 40) || null
+      if (b.dueDate !== undefined) patch.due_date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.dueDate ?? '')) ? b.dueDate : null
+      const { error } = await s.from('planner_shared_entries').update(patch).eq('id', entry.id)
+      if (error) return NextResponse.json({ error: /stage|responsible|due_note|schema cache/.test(error.message) ? 'Run migration 223 in Supabase first' : error.message }, { status: 400 })
+      if (b.stage === 'done') await tell(s, caller, board, `✅ ${who} ticked off`, entry.title)
+      return NextResponse.json({ ok: true })
+    }
     if (b.action === 'status') {
       const done = b.status === 'done'
       const { error } = await s.from('planner_shared_entries').update({ status: done ? 'done' : 'open', done_at: done ? new Date().toISOString() : null, done_by: done ? caller.personId : null, updated_at: new Date().toISOString() }).eq('id', entry.id)

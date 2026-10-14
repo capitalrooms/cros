@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
+import LandlordPlanner from '@/components/LandlordPlanner'
 
 export interface Photo { path: string; url: string | null }
 interface Reply { id: string; body: string; author: string; createdAt: string; links: string[]; photos: Photo[] }
@@ -176,7 +177,15 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
             post={post} onClose={() => setImporting(false)}
             onDone={async id => { setImporting(false); setBoardId(id); await load(id) }} />
         )}
-        {!board ? (
+        {mode === 'office' && board && board.role === 'landlord' ? (
+          // a landlord's board: the same grid they see in their app, editable here (components/LandlordPlanner)
+          <div className="pub rounded-2xl border border-neutral-200 bg-white p-6 md:p-8">
+            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" precedence="default" />
+            <p className="pub-eyebrow m-0 mb-1">With {board.member} · what they see in their app</p>
+            <h2 className="pub-h2 mb-6">Planner</h2>
+            <LandlordPlanner key={board.id} officeBoardId={board.id} />
+          </div>
+        ) : !board ? (
           <p className="rounded-2xl border border-neutral-200 bg-white p-lg text-sm text-neutral-600">
             {mode === 'office' ? 'Start a board with someone to share notes, jobs and photo ideas with them.' : 'Nothing shared with you yet — when the office adds something it appears here.'}
           </p>
