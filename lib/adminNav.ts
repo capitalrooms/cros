@@ -202,6 +202,18 @@ const ZONES_AS_WRITTEN: Zone[] = [
     ],
   },
   {
+    id: 'website',
+    emoji: '🌐',
+    label: 'Website',
+    home: '/admin/website',
+    routes: ['/admin/website'],
+    subnav: [
+      { emoji: '📰', label: 'Advice posts', href: '/admin/website?tab=advice' },
+      { emoji: '📄', label: 'Documents',    href: '/admin/website?tab=documents' },
+      { emoji: '🛏', label: 'Rooms',        href: '/admin/website?tab=rooms' },
+    ],
+  },
+  {
     id: 'biz',
     emoji: '📈',
     label: 'New Business',

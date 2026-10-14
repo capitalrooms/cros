@@ -7,7 +7,7 @@
 //   app/admin/layout   — the rail shows only their areas; any other page shows "not part of your access"
 // Safe to import in the browser (no server code).
 
-export type AreaKey = 'dashboard' | 'properties' | 'lettings' | 'diary' | 'maintenance' | 'compliance' | 'finance' | 'people' | 'comms' | 'newbusiness'
+export type AreaKey = 'dashboard' | 'properties' | 'lettings' | 'diary' | 'maintenance' | 'compliance' | 'finance' | 'people' | 'comms' | 'newbusiness' | 'website'
 
 export interface Area { key: AreaKey; label: string; hint: string; pages: string[]; api: string[]; apiRead?: string[] }
 
@@ -58,6 +58,8 @@ export const AREAS: Area[] = [
     pages: ['/admin/communications', '/admin/document-generator', '/admin/notify', '/admin/message-templates', '/admin/acknowledgment-notes'],
     api: ['/api/admin/notify', '/api/admin/message-templates', '/api/admin/communications', '/api/admin/document-generator', '/api/admin/letters', '/api/admin/quick-notify',
       '/api/admin/notices'] },
+  { key: 'website', label: 'Website', hint: 'Advice posts, which rooms the website shows, footer documents',
+    pages: ['/admin/website'], api: ['/api/admin/website'] },
   { key: 'newbusiness', label: 'New business', hint: 'Agreements, introductions, onboarding & AML, valuations',
     pages: ['/admin/new-business', '/admin/valuations'],
     api: ['/api/admin/new-business', '/api/admin/valuations', '/api/admin/management-agreements', '/api/admin/generate-management-agreement', '/api/landlord-onboarding', '/api/aml-report', '/api/landlord-aml-refresh', '/api/landlord-acquisition'] },
