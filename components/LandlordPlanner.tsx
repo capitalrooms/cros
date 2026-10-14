@@ -6,9 +6,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 import { uploadPhotos, type Photo } from '@/components/SharedPlanner'
+import '@/components/public/public.css'
 
 interface Reply { id: string; body: string; author: string; createdAt: string; links: string[]; photos: Photo[] }
-interface Entry { id: string; title: string; body: string; status: 'open' | 'done'; dueDate: string | null; createdAt: string; property: string | null; propertyId: string | null; author: string; links: string[]; photos: Photo[]; replies: Reply[] }
+interface Entry { id: string; title: string; body: string; status: 'open' | 'done'; dueDate: string | null; stage?: string | null; responsible?: string | null; dueNote?: string | null; createdAt: string; property: string | null; propertyId: string | null; author: string; links: string[]; photos: Photo[]; replies: Reply[] }
 
 const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 const MUTED = '#6F6B64', RULE = '#E4E0D8'
@@ -20,7 +21,13 @@ const STAGES: Record<string, { bg: string; fg: string }> = {
   'Open': { bg: '#F1EFEA', fg: '#3F3C37' }, 'Done': { bg: '#E2F1E4', fg: '#25643A' },
 }
 const GROUP_COLOURS = ['#C2410C', '#0F766E', '#4338CA', '#9D174D', '#B45309', '#15803D', '#1D4ED8', '#6D28D9']
+const STAGE_LABEL: Record<string, string> = { discuss: 'To discuss', discussed: 'Discussed', progress: 'In progress', parked: 'Parked' }
+const LABEL_KEY: Record<string, string> = { 'To discuss': 'discuss', 'Discussed': 'discussed', 'In progress': 'progress', 'Parked': 'parked', 'Open': 'open', 'Done': 'done' }
 function parse(e: Entry) {
+  // migration 223: status, person and "when" have their own fields
+  if (e.stage || e.responsible || e.dueNote) {
+    return { stage: e.status === 'done' ? 'Done' : STAGE_LABEL[e.stage ?? ''] ?? 'Open', person: e.responsible ?? '', when: e.dueDate ? day(e.dueDate) : e.dueNote ?? '', notes: (e.body || '').trim() }
+  }
   const lines = (e.body || '').split('\n')
   const parts = (lines[0] ?? '').split(' · ').map(x => x.trim()).filter(Boolean)
   const tagged = parts.length > 0 && parts[0] in STAGES
@@ -30,9 +37,17 @@ function parse(e: Entry) {
   const notes = [tagged ? '' : lines[0], ...lines.slice(1)].join('\n').trim()
   return { stage, person, when: e.dueDate ? day(e.dueDate) : extra, notes }
 }
-function Pill({ stage }: { stage: string }) {
+function Pill({ stage, onChange }: { stage: string; onChange?: (key: string) => void }) {
   const c = STAGES[stage] ?? STAGES.Open
-  return <span className="inline-flex h-[26px] w-full items-center justify-center px-2 text-[12px] font-medium" style={{ background: c.bg, color: c.fg }}>{stage}</span>
+  const cls = 'inline-flex h-[28px] w-full items-center justify-center px-2 text-[12px] font-medium'
+  if (!onChange) return <span className={cls} style={{ background: c.bg, color: c.fg }}>{stage}</span>
+  // tap the pill to change it — monday style; a native picker, so it works the same on a phone
+  return (
+    <select aria-label="Status" value={LABEL_KEY[stage] ?? 'open'} onClick={x => x.stopPropagation()} onChange={x => onChange(x.target.value)}
+      className={`${cls} cursor-pointer appearance-none border-0 text-center`} style={{ background: c.bg, color: c.fg, textAlignLast: 'center', fontFamily: 'inherit' }}>
+      {Object.keys(LABEL_KEY).map(l => <option key={l} value={LABEL_KEY[l]}>{l}</option>)}
+    </select>
+  )
 }
 
 function Attachments({ links, photos }: { links: string[]; photos: Photo[] }) {
@@ -48,8 +63,9 @@ function Attachments({ links, photos }: { links: string[]; photos: Photo[] }) {
   )
 }
 
-export default function LandlordPlanner({ previewBoardId }: { previewBoardId?: string | null }) {
+export default function LandlordPlanner({ previewBoardId, officeBoardId }: { previewBoardId?: string | null; officeBoardId?: string | null }) {
   const readOnly = !!previewBoardId
+  const boardParam = previewBoardId || officeBoardId
   const [boardId, setBoardId] = useState<string | null>(null)
   const [entries, setEntries] = useState<Entry[] | null>(null)
   const [props, setProps] = useState<{ id: string; name: string }[]>([])
@@ -60,11 +76,11 @@ export default function LandlordPlanner({ previewBoardId }: { previewBoardId?: s
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    const r = await adminFetch(`/api/planner/shared${previewBoardId ? `?board=${previewBoardId}` : ''}`)
+    const r = await adminFetch(`/api/planner/shared${boardParam ? `?board=${boardParam}` : ''}`)
     const d = await r.json().catch(() => ({}))
     if (!r.ok) { setError(d.error ?? 'Your planner didn’t load. Pull down to refresh.'); return }
     setBoardId(d.board?.id ?? null); setEntries(d.entries ?? []); if (!previewBoardId) setProps(d.properties ?? [])
-  }, [previewBoardId])
+  }, [previewBoardId, boardParam])
   useEffect(() => { load() }, [load])
 
   async function post(body: Record<string, unknown>) {
@@ -86,7 +102,7 @@ export default function LandlordPlanner({ previewBoardId }: { previewBoardId?: s
   const [closed, setClosed] = [collapsedGroups, setCollapsedGroups] as const
   const row = (e: Entry, i: number) => <PlannerRow key={e.id} e={e} stripe={i % 2 === 1} isOpen={open === e.id} onToggle={() => setOpen(open === e.id ? null : e.id)} readOnly={readOnly} boardId={boardId} post={post} reload={load} />
   const head = (
-    <div className="hidden md:grid grid-cols-[minmax(0,1fr)_120px_110px_80px_56px] gap-3 px-3 py-2 text-[10.5px] uppercase tracking-[.14em]" style={{ color: MUTED }}>
+    <div className="hidden md:grid grid-cols-[minmax(0,1fr)_124px_110px_80px_56px] gap-3 px-3 py-2 text-[10.5px] uppercase tracking-[.14em]" style={{ color: MUTED }}>
       <span>Item</span><span className="text-center">Status</span><span>Person</span><span>Due</span><span className="text-center">Notes</span>
     </div>
   )
@@ -111,7 +127,7 @@ export default function LandlordPlanner({ previewBoardId }: { previewBoardId?: s
             <button type="button" onClick={() => setClosed(c => { const n = new Set(c); if (n.has(g)) n.delete(g); else n.add(g); return n })}
               className="flex w-full items-center gap-3 bg-transparent py-2 text-left" aria-expanded={!shut}>
               <span className="text-[12px]" style={{ color: colour, display: 'inline-block', transform: shut ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }}>▼</span>
-              <span className="text-[16px] font-medium" style={{ color: colour }}>{g || 'General'}</span>
+              <span className="text-[17px] font-semibold tracking-[-.005em]" style={{ color: colour }}>{g || 'General'}</span>
               <span className="text-[12px]" style={{ color: MUTED }}>{items.length} item{items.length === 1 ? '' : 's'}</span>
             </button>
             {!shut && (
@@ -153,21 +169,34 @@ function PlannerRow({ e, stripe, isOpen, onToggle, readOnly, boardId, post, relo
 
   return (
     <div style={{ borderBottom: `1px solid ${RULE}`, background: isOpen ? '#EFEBE3' : stripe ? '#F6F4F0' : '#fff' }}>
-      <button type="button" onClick={onToggle} aria-expanded={isOpen}
-        className="grid w-full grid-cols-[minmax(0,1fr)_104px] items-center gap-3 bg-transparent px-3 py-2.5 text-left md:grid-cols-[minmax(0,1fr)_120px_110px_80px_56px]" style={{ color: '#111', minHeight: 48 }}>
+      <div role="button" tabIndex={0} onClick={onToggle} onKeyDown={x => { if (x.key === 'Enter' || x.key === ' ') { x.preventDefault(); onToggle() } }} aria-expanded={isOpen}
+        className="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_108px] items-center gap-3 px-3 py-2.5 text-left md:grid-cols-[minmax(0,1fr)_124px_110px_80px_56px]" style={{ color: '#111', minHeight: 48 }}>
         <span className="min-w-0">
           <span className="block text-[14.5px] leading-snug" style={{ textDecoration: e.status === 'done' ? 'line-through' : 'none', textDecorationColor: '#B9B4AA', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{e.title}</span>
           {/* phones: person, due date and notes under the title */}
           {(p.person || p.when || notes > 0) && <span className="block truncate text-[12px] md:hidden" style={{ color: MUTED }}>{[p.person, p.when, notes ? `${notes} note${notes === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</span>}
         </span>
-        <Pill stage={p.stage} />
+        <Pill stage={p.stage} onChange={readOnly ? undefined : key => act(() => post({ action: 'update', entryId: e.id, stage: key }))} />
         <span className="hidden truncate text-[13px] md:block" style={{ color: '#4A4741' }}>{p.person || '—'}</span>
         <span className="hidden truncate text-[13px] md:block" style={{ color: '#4A4741' }}>{p.when || '—'}</span>
         <span className="hidden text-center text-[13px] md:block" style={{ color: MUTED }}>{notes || ''}</span>
-      </button>
+      </div>
+      {err && !isOpen && <p className="pub-error mx-3 mb-3">{err}</p>}
 
       {isOpen && (
         <div className="flex flex-col gap-4 px-3 pb-6 pt-1 md:pl-6">
+          {!readOnly && (
+            <div className="grid grid-cols-2 gap-5 md:max-w-md">
+              <label className="pub-label">Person
+                <input className="pub-input" defaultValue={p.person} placeholder="Who’s on it"
+                  onBlur={x => { const v = x.target.value.trim(); if (v !== p.person) act(() => post({ action: 'update', entryId: e.id, responsible: v })) }} />
+              </label>
+              <label className="pub-label">Needed by
+                <input className="pub-input" type="date" defaultValue={e.dueDate ?? ''}
+                  onChange={x => act(() => post({ action: 'update', entryId: e.id, dueDate: x.target.value }))} />
+              </label>
+            </div>
+          )}
           {p.notes && <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>{p.notes}</p>}
           <Attachments links={e.links} photos={e.photos} />
           {e.replies.length > 0 && (
