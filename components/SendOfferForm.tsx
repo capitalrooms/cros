@@ -2,7 +2,6 @@
 
 import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/components/NameInput'
 import { useState, useEffect, useRef } from 'react'
-import { createClient } from '@/lib/supabase'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 
@@ -30,6 +29,7 @@ interface Room {
   current_asking_rent?: number | null
   property_name?: string
   property_address?: string
+  whole?: boolean
 }
 
 export default function SendOfferForm() {
@@ -62,20 +62,26 @@ export default function SendOfferForm() {
   }
   useEffect(() => { loadRecent() }, [])
 
+  // from the server (/api/lettings/invite-to-apply GET): addresses on one line, and whether each is a whole home
   async function loadRooms(): Promise<Room[]> {
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('rooms')
-      .select('id, name, property_id, current_asking_rent, properties(name, address)')
-      .order('name')
-    const list = (data || []).map((r: any) => ({
-      id:               r.id,
-      name:             r.name,
-      property_id:      r.property_id,
-      current_asking_rent: r.current_asking_rent,
-      property_name:    r.properties?.name || '',
-      property_address: r.properties?.address || '',
-    }))
+    const res = await fetch('/api/lettings/invite-to-apply').catch(() => null)
+    const d = await res?.json().catch(() => null)
+    if (!res?.ok || !d?.rooms) return rooms
+    const props = new Map<string, any>((d.properties ?? []).map((p: any) => [p.id, p]))
+    const list = (d.rooms as any[]).filter(r => props.has(r.property_id)).map(r => {
+      const p = props.get(r.property_id)
+      const name = p.name || p.address || ''
+      return {
+        id:               r.id,
+        name:             p.whole ? 'Whole property' : r.name,
+        property_id:      r.property_id,
+        current_asking_rent: r.current_asking_rent,
+        property_name:    name,
+        // only when it says more than the name (most properties are named by their address)
+        property_address: p.address && p.address !== name ? p.address : '',
+        whole:            !!p.whole,
+      }
+    })
     setRooms(list)
     return list
   }

@@ -45,6 +45,8 @@ export default function ReservePage() {
   const ref: string = room?.reference ?? 'HOLD'
   const propAddress: string = room?.property || ''
   const roomName: string | null = room?.name ?? null
+  // a whole house or flat: property words (the room lookup sends whole: true and no room name)
+  const theUnit = room?.whole ? 'the property' : 'the room'
   // from their offer (?a=), else the invite link's ?name=
   const firstName: string | null = room?.firstName ?? ((params.get('name') ?? '').replace(/[^\p{L}\p{M}' -]/gu, '').trim().slice(0, 40) || null)
   const gbp = (n: number | null) => n == null ? '' : n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -85,7 +87,7 @@ export default function ReservePage() {
           {room ? (
             <p className="pub-eyebrow m-0">{[roomName, propAddress].filter(Boolean).join(' · ')}</p>
           ) : (
-            <p className="pub-eyebrow m-0">Loading your room…</p>
+            <p className="pub-eyebrow m-0">Loading…</p>
           )}
           <p className="pub-serif m-0 text-[26px] leading-snug md:text-[34px]">
             Hold it with a deposit of one week’s rent. While we check your references, nobody else can take it.
@@ -131,13 +133,13 @@ export default function ReservePage() {
                 <p className="pub-serif m-0 text-[40px] leading-tight md:text-[56px]">Thank you{firstName ? `, ${firstName}` : ''}.</p>
                 <p className="m-0 text-[16px] leading-relaxed" style={{ color: '#D8D3C8' }}>
                   We’re so excited to welcome you on board. We’ll check your holding deposit has reached our account and confirm by email with
-                  your receipt — {roomName ? `${roomName} is` : 'the room is'} held for you while we do.
+                  your receipt — {roomName ? `${roomName} is` : `${theUnit} is`} held for you while we do.
                 </p>
               </div>
             ) : (
               <div className="flex flex-col gap-4">
                 <h2 className="pub-serif m-0 text-[34px] leading-tight md:text-[44px]">Sent the holding deposit?</h2>
-                <p className="m-0 text-[15px]" style={{ color: '#C9C4BA' }}>Let us know here as soon as the transfer has gone, so we can take the room off the market.</p>
+                <p className="m-0 text-[15px]" style={{ color: '#C9C4BA' }}>Let us know here as soon as the transfer has gone, so we can take {theUnit} off the market.</p>
                 <input
                   value={paidNote}
                   onChange={e => setPaidNote(e.target.value)}
@@ -171,7 +173,7 @@ export default function ReservePage() {
                 <div className="flex flex-col gap-1">
                   <p className="m-0 text-[16px] font-semibold">{step.title}{done ? ' — done' : ''}</p>
                   <p className="m-0 text-[14px] leading-relaxed" style={{ color: '#4A4741' }}>
-                    {i === 0 && weekly != null ? `Send £${gbp(weekly)} to the account above using the reference shown${applicantId ? ', then press “I’ve paid the holding deposit”' : ', then let us know'}. We’ll take the room off the market and reserve it for you.` : step.body}
+                    {i === 0 && weekly != null ? `Send £${gbp(weekly)} to the account above using the reference shown${applicantId ? ', then press “I’ve paid the holding deposit”' : ', then let us know'}. We’ll take ${theUnit} off the market and reserve it for you.` : step.body.replace(/the room/g, theUnit)}
                   </p>
                 </div>
               </li>
@@ -184,7 +186,7 @@ export default function ReservePage() {
       {/* Holding deposit terms — Tenant Fees Act 2019, Schedule 2 */}
       <section className="mx-auto max-w-6xl px-6 pt-14 md:px-14">
         <p className="m-0 max-w-3xl text-[13px] leading-relaxed" style={{ color: '#4A4741', borderLeft: '1px solid #111', paddingLeft: 16 }}>
-          <strong style={{ color: '#111' }}>Important:</strong> Paying the holding deposit takes the room off the market for you while we complete
+          <strong style={{ color: '#111' }}>Important:</strong> Paying the holding deposit takes {theUnit} off the market for you while we complete
           your checks. It isn’t an extra fee: it comes off the balance you pay before moving in. It is returned to you within
           7 days if we or the landlord decide not to go ahead. We may keep it only if you pull out, fail a Right to Rent
           check, give us false or misleading information, or don’t take reasonable steps to sign the agreement within

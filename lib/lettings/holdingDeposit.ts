@@ -8,6 +8,7 @@ import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
 import { displayName } from '@/lib/people'
+import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -20,6 +21,8 @@ export interface DepositContext {
     offer_id: string | null; converted_person_id: string | null; room_id: string; property_id: string
   }
   roomName: string
+  /** a whole house or flat (single let) — property words, not room words */
+  whole?: boolean
   propertyName: string
   propertyAddress: string
   billsIncluded: boolean | null
@@ -45,7 +48,7 @@ export async function agreedRent(svc: SupabaseClient, a: { id: string; offered_r
 
 export async function loadDepositContext(svc: SupabaseClient, applicantId: string): Promise<DepositContext | null> {
   const { data: a } = await svc.from('applicants')
-    .select('id, salutation, first_name, last_name, full_name, email, profession, bio, profession_description, interests, sociability, house_preferences, preferred_start_date, preferred_term, offered_rent, rent_offer_type, pipeline_stage, offer_id, converted_person_id, room_id, property_id, rooms(name, current_asking_rent), properties(name, address, bills_included, landlord_id)')
+    .select('id, salutation, first_name, last_name, full_name, email, profession, bio, profession_description, interests, sociability, house_preferences, preferred_start_date, preferred_term, offered_rent, rent_offer_type, pipeline_stage, offer_id, converted_person_id, room_id, property_id, rooms(name, current_asking_rent), properties(name, address, bills_included, landlord_id, property_type)')
     .eq('id', applicantId).maybeSingle() as { data: any }
   if (!a) return null
 
@@ -76,8 +79,9 @@ export async function loadDepositContext(svc: SupabaseClient, applicantId: strin
   return {
     applicant: a,
     roomName: a.rooms?.name ?? 'the room',
+    whole: isWholeLet(a.properties?.property_type, a.rooms?.name),
     propertyName: a.properties?.name ?? '',
-    propertyAddress: a.properties?.address || a.properties?.name || '',
+    propertyAddress: oneLine(a.properties?.address || a.properties?.name),
     billsIncluded: a.properties?.bills_included ?? null,
     rent,
     startDate: a.preferred_start_date ?? offer?.move_in_date ?? null,
@@ -150,16 +154,17 @@ export interface DepositDrafts {
 
 export function landlordMessage(ctx: DepositContext, bio: string): { subject: string; message: string } {
   const a = ctx.applicant
-  const place = [ctx.roomName, ctx.propertyAddress].filter(Boolean).join(', ')
+  const place = placeLabel(!!ctx.whole, ctx.roomName, ctx.propertyAddress)
+  const unit = ctx.whole ? 'property' : 'room'   // a whole house or flat (lib/lettings/letWording)
   const bills = ctx.billsIncluded == null ? '' : ctx.billsIncluded ? ', inclusive of bills' : ', exclusive of bills'
   return {
     subject: `Applicant secured — ${place}`,
     message: [
       `Dear ${ctx.landlord?.greeting ?? 'Sir or Madam'},`,
       `Re: ${place}`,
-      'We are delighted to let you know that, further to your instructions, we have secured an applicant for the above room, subject to satisfactory references and your approval.',
-      'We have taken a holding deposit and have therefore taken the room off the market while references are obtained.',
-      `The prospective tenant is ${displayName(a)}, who will be taking the room${ctx.rent ? ` at a rent of ${gbp(ctx.rent)} pcm, payable in advance${bills}` : ''}, on an assured periodic tenancy.${ctx.startDate ? ` The tenancy is provisionally set to start on ${longDate(ctx.startDate)}.` : ''}`,
+      'We are delighted to let you know that, further to your instructions, we have secured an applicant for the above ${unit}, subject to satisfactory references and your approval.',
+      'We have taken a holding deposit and have therefore taken the ${unit} off the market while references are obtained.',
+      `The prospective tenant is ${displayName(a)}, who will be taking the ${unit}${ctx.rent ? ` at a rent of ${gbp(ctx.rent)} pcm, payable in advance${bills}` : ''}, on an assured periodic tenancy.${ctx.startDate ? ` The tenancy is provisionally set to start on ${longDate(ctx.startDate)}.` : ''}`,
       ...(bio.trim() ? [bio.trim()] : []),
       'We hope this is to your satisfaction. Should you need any further information, please do not hesitate to contact us.',
       'Kind regards,',

@@ -3,6 +3,7 @@ import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { emailHtml, tableRow } from '@/lib/emailTemplate'
 import { senderFields } from '@/lib/email/sender'
+import { oneLine } from '@/lib/lettings/letWording'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
   `
 
   const html = await emailHtml(emailContent, { req: req })
-  const subject = `Compliance Certificates — ${propertyName}`
+  const subject = oneLine(`Compliance Certificates — ${propertyName}`)
 
   const recipients: { email: string; name: string; type: string }[] = []
 

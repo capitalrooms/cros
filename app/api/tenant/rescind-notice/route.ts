@@ -3,6 +3,7 @@ import { createServiceClient, createServerClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFields } from '@/lib/email/sender'
+import { oneLine } from '@/lib/lettings/letWording'
 
 /** POST — tenant requests to rescind their notice
  *  Body: { tenancyId, personId, note? }
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         ...(await senderFields()),
         to: process.env.ADMIN_EMAIL || 'admin@capitalrooms.co.uk',
-        subject: `Rescind notice request — ${roomName}, ${address}`,
+        subject: oneLine(`Rescind notice request — ${roomName}, ${address}`),
         html: await buildEmail(rescindBody),
       }),
     }).catch(e => console.error('Admin rescind notify failed:', e))

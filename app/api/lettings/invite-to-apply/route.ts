@@ -7,6 +7,8 @@ import { senderFields } from '@/lib/email/sender'
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
+import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
+import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 export const runtime = 'nodejs'
 
@@ -19,11 +21,11 @@ function weeklyRent(monthly: number) {
 
 
 // Fallback HTML when DB template isn't loaded yet — body content only, wrapper applied via buildEmail
-async function applyEmailHtml(vars: { firstName: string; roomName: string; propAddress: string; applyUrl: string }, req: Request): Promise<string> {
+async function applyEmailHtml(vars: { firstName: string; roomName: string; propAddress: string; applyUrl: string; whole?: boolean }, req: Request): Promise<string> {
   return buildEmail(`
 <p style="font-size:16px;margin:0 0 16px">Hi ${vars.firstName},</p>
 <p style="font-size:15px;line-height:1.6;margin:0 0 16px;color:#444">
-  Thanks for viewing <strong>${vars.roomName}</strong>${vars.propAddress ? ` at ${vars.propAddress}` : ''}.
+  Thanks for viewing ${vars.whole ? `<strong>${vars.propAddress || 'the property'}</strong>` : `<strong>${vars.roomName}</strong>${vars.propAddress ? ` at ${vars.propAddress}` : ''}`}.
   We'd love to invite you to submit a formal application — it takes less than 5 minutes.
 </p>
 <div style="text-align:center;margin:28px 0">
@@ -35,6 +37,27 @@ async function applyEmailHtml(vars: { firstName: string; roomName: string; propA
 <p style="font-size:13px;color:#555;word-break:break-all;background:#f5f5f5;padding:10px 12px;border-radius:6px;margin:0">${vars.applyUrl}</p>`, { req })
 }
 
+
+// GET — what the Invite to Apply page offers: recent viewings, every property and its rooms. Served from here (the
+// page used to read the database itself, and on a phone whose sign-in was still waking up it got nothing back — an
+// empty property list, so no invite could be sent; 14 Oct 2026). Addresses come back on one line.
+export async function GET(request: NextRequest) {
+  if (!(await requireStaff(request))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const since = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10)
+  const [v, p, r] = await Promise.all([
+    supabase.from('viewings')
+      .select('id, visitor_name, visitor_email, visitor_phone, viewing_date, viewing_slot, room_id, property_id, rooms(name, is_let_only), properties(name, address, property_type)')
+      .gte('viewing_date', since).order('viewing_date', { ascending: false }),
+    supabase.from('properties').select('id, name, address, property_type, is_demo'),
+    supabase.from('rooms').select('id, name, property_id, is_let_only, current_asking_rent').order('name'),
+  ])
+  const err = v.error || p.error || r.error
+  if (err) return NextResponse.json({ error: err.message }, { status: 500 })
+  const viewings = (v.data ?? []).map((x: any) => ({ ...x, properties: x.properties ? { ...x.properties, name: oneLine(x.properties.name), address: oneLine(x.properties.address), whole: isWholeLet(x.properties.property_type, x.rooms?.name) } : null }))
+  const properties = sortPropertiesNumerically(((p.data ?? []) as any[]).filter(x => !x.is_demo).map(x => ({ id: x.id, name: oneLine(x.name), address: oneLine(x.address), whole: isWholeLet(x.property_type) })))
+  return NextResponse.json({ viewings, properties, rooms: r.data ?? [] })
+}
 
 export async function POST(request: NextRequest) {
   // a real office sign-in (audit 12 Oct 2026: it only checked that some "Bearer …" header was present, so anyone
@@ -62,10 +85,12 @@ export async function POST(request: NextRequest) {
   let roomId: string | null = null
   let propertyId: string | null = null
   let viewingRow: any = null
+  let whole = false
 
   if (manual) {
-    visitorName  = manual.name  || 'there'
-    firstName    = visitorName.replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(' ')[0]   // "Hi Harry", not "Hi Mr"
+    // the page sends title / first / surname (manual.name was always empty, so emails said "Hi there")
+    visitorName  = manual.name || [manual.salutation, manual.first_name, manual.last_name].filter(Boolean).join(' ') || 'there'
+    firstName    = String(manual.first_name || '').trim() || visitorName.replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(' ')[0]   // "Hi Harry", not "Hi Mr"
     visitorEmail = manual.email || null
     visitorPhone = manual.phone || null
 
@@ -75,14 +100,15 @@ export async function POST(request: NextRequest) {
       propertyId = manual.property_id || null
       const { data: roomRow } = await supabase
         .from('rooms')
-        .select('id, name, current_asking_rent, property_id, properties(name, address, property_code)')
+        .select('id, name, current_asking_rent, property_id, properties(name, address, property_code, property_type)')
         .eq('id', manual.room_id)
         .single()
       if (roomRow) {
         roomLabel  = roomRow.name || ''
         const prop = (roomRow.properties as any)
-        propAddress = prop?.address || prop?.name || ''
+        propAddress = oneLine(prop?.address || prop?.name)
         propCode    = prop?.property_code || null
+        whole       = isWholeLet(prop?.property_type, roomRow.name)
         monthly     = roomRow.current_asking_rent || null
         weekly      = monthly ? weeklyRent(monthly) : null
         if (!propertyId) propertyId = roomRow.property_id
@@ -104,7 +130,7 @@ export async function POST(request: NextRequest) {
   } else {
     const { data: viewing, error } = await supabase
       .from('viewings')
-      .select('id, visitor_name, visitor_email, visitor_phone, room_id, property_id, viewing_date, viewing_slot, rooms(name, current_asking_rent), properties(name, address, property_code)')
+      .select('id, visitor_name, visitor_email, visitor_phone, room_id, property_id, viewing_date, viewing_slot, rooms(name, current_asking_rent), properties(name, address, property_code, property_type)')
       .eq('id', viewingId)
       .single()
 
@@ -115,7 +141,8 @@ export async function POST(request: NextRequest) {
     viewingRow   = viewing
     roomLabel    = (viewing.rooms as any)?.name || 'Your room'
     const propName = (viewing.properties as any)?.name || ''
-    propAddress  = (viewing.properties as any)?.address || propName
+    propAddress  = oneLine((viewing.properties as any)?.address || propName)
+    whole        = isWholeLet((viewing.properties as any)?.property_type, (viewing.rooms as any)?.name)
     propCode     = (viewing.properties as any)?.property_code || null
     monthly      = (viewing.rooms as any)?.current_asking_rent || null
     weekly       = monthly ? weeklyRent(monthly) : null
@@ -197,8 +224,11 @@ export async function POST(request: NextRequest) {
       result.emailError = 'No email address on this viewing'
     } else {
       // Try DB template first, fall back to inline builders
-      const templateSlug = isReserve ? 'applicant-offer-deposit' : 'applicant-offer-letter'
+      // a whole house or flat never gets the room wording: its own saved template ("…-whole") if there is one,
+      // otherwise the built-in emails with property words (lib/lettings/letWording)
+      const templateSlug = (isReserve ? 'applicant-offer-deposit' : 'applicant-offer-letter') + (whole ? '-whole' : '')
       const tpl = await getTemplate(templateSlug)
+      const place = placeLabel(whole, roomLabel, propAddress)
 
       let subject: string
       let html: string
@@ -221,23 +251,23 @@ export async function POST(request: NextRequest) {
         const body = render(tpl.template_text, tokenVars)
         html    = /<html/i.test(body) ? body : await buildEmail(body.includes('<') ? body : body.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { req: request })
       } else if (isReserve && monthly && weekly) {
-        subject = `THE SEARCH IS OVER! — ${roomLabel}${propAddress ? `, ${propAddress}` : ''}`
+        subject = `THE SEARCH IS OVER! — ${place}`
         html    = await buildSearchIsOverEmail({   // the same email as Send Offer Letter
           applicantName: firstName, roomName: roomLabel, propertyAddress: propAddress, propertyCity: 'London',
-          advertisedRent: Number(monthly), moveInDate: undefined, applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef,
+          advertisedRent: Number(monthly), moveInDate: undefined, applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef, whole,
         }, request)
       } else if (isFastTrack) {
-        subject = `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
-        html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl: fastUrl }, request)
+        subject = whole ? `Your application for ${place}` : `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
+        html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl: fastUrl, whole }, request)
       } else {
-        subject = `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
-        html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl }, request)
+        subject = whole ? `Your application for ${place}` : `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
+        html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl, whole }, request)
       }
 
       const emailRes = await fetch(RESEND_ENDPOINT, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(await senderFields(request)), to: [visitorEmail], subject, html }),
+        body: JSON.stringify({ ...(await senderFields(request)), to: [visitorEmail], subject: oneLine(subject), html }),
       })
       if (emailRes.ok) {
         result.emailSent = true
@@ -260,8 +290,8 @@ export async function POST(request: NextRequest) {
       result.smsError = 'No phone number on this viewing'
     } else {
       const body = isReserve
-        ? `Hi ${firstName}, your room at ${propAddress || roomLabel} is ready to reserve — pay the holding deposit (£${weekly ?? '?'}) to secure it: ${reserveUrl} — Capital Rooms`
-        : `Hi ${firstName}, thanks for viewing ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}. Apply in under 5 mins: ${isFastTrack ? fastUrl : applyUrl} — Capital Rooms`
+        ? `Hi ${firstName}, ${whole ? `${propAddress || 'the property'} is` : `your room at ${propAddress || roomLabel} is`} ready to reserve — pay the holding deposit (£${weekly ?? '?'}) to secure it: ${reserveUrl} — Capital Rooms`
+        : `Hi ${firstName}, thanks for viewing ${placeLabel(whole, roomLabel, propAddress) || 'the property'}. Apply in under 5 mins: ${isFastTrack ? fastUrl : applyUrl} — Capital Rooms`
 
       const twilioRes = await fetch(
         `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,

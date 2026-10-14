@@ -13,6 +13,7 @@
 
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFor, type EmailSender } from '@/lib/email/sender'
+import { oneLine } from '@/lib/lettings/letWording'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -80,7 +81,7 @@ export async function sendEmail(
   const payload: Record<string, unknown> = {
     from: opts.from ?? sender.from,
     to: Array.isArray(to) ? to : [to],
-    subject,
+    subject: oneLine(subject),   // a line break (e.g. from a multi-line address) makes the email service refuse it
     html,
   }
   payload.reply_to = opts.replyTo ?? sender.replyTo

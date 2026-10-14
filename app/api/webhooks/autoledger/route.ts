@@ -28,6 +28,7 @@ import {
   UNMATCHED_SLUG,
 } from '@/lib/expense-categories'
 import { senderFieldsSdk } from '@/lib/email/sender'
+import { oneLine } from '@/lib/lettings/letWording'
 
 // Give Vercel up to 5 minutes — background AI processing of a large PDF needs it
 export const maxDuration = 300
@@ -985,7 +986,7 @@ ${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" s
     await resend.emails.send({
       ...(await senderFieldsSdk()),
       to: ['harry@capitalrooms.co.uk'],
-      subject: `⚡ AutoLedger: ${inserted} expenses imported — ${property!.name || property!.address}`,
+      subject: oneLine(`⚡ AutoLedger: ${inserted} expenses imported — ${property!.name || property!.address}`),
       html: notifyHtml,
     })
   } catch (e) {

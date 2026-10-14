@@ -8,6 +8,7 @@ import NameInput, { emptyName, toFullName, parseFullName } from '@/app/component
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import PublicShell from '@/components/public/PublicShell'
+import { letWords } from '@/lib/lettings/letWording'
 
 interface PreviousAddress {
   address: string
@@ -22,6 +23,15 @@ const STANDARD = [
   'You try to resolve small issues yourself before reporting — and know when a professional is needed',
   'You contribute fairly to communal supplies and shared upkeep',
   'You understand the cleaner is here for deep cleans, not day-to-day tidying',
+  'When something isn\'t right, you raise it calmly and directly',
+]
+// the same standard for a whole house or flat (single let) — no housemates, no communal spaces (14 Oct 2026)
+const STANDARD_WHOLE = [
+  'You look after the home as if it were your own',
+  'You keep it clean and well aired — windows open, extractor fans on — so damp never takes hold',
+  'You try to resolve small issues yourself before reporting — and know when a professional is needed',
+  'You’re a considerate neighbour — noise, bins and shared entrances',
+  'You pay the rent on time, every month',
   'When something isn\'t right, you raise it calmly and directly',
 ]
 const ROMAN = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix']
@@ -55,6 +65,9 @@ export default function ApplicantForm() {
   // first name from the invite link, for the greeting
   const greetName = (searchParams.get('name') ?? '').replace(/[^\p{L}\p{M}' -]/gu, '').trim().slice(0, 40)
   const [roomInfo, setRoomInfo] = useState<{ name: string | null; property: string }>({ name: null, property: '' })
+  // a whole house or flat rather than a room in a shared house: same form, property words (lib/lettings/letWording)
+  const [whole, setWhole] = useState(false)
+  const w = letWords(whole)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -103,7 +116,7 @@ export default function ApplicantForm() {
   // the room's asking rent — for the rent question, the affordability check and the guarantor figures
   useEffect(() => {
     if (!roomId) return
-    fetch(`/api/applicant/room/${roomId}`).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.monthly) setAdvertisedRent(Number(d.monthly)); if (d) setRoomInfo({ name: d.name ?? null, property: d.property ?? '' }) }).catch(() => {})
+    fetch(`/api/applicant/room/${roomId}`).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.monthly) setAdvertisedRent(Number(d.monthly)); if (d) { setRoomInfo({ name: d.name ?? null, property: d.property ?? '' }); setWhole(!!d.whole) } }).catch(() => {})
   }, [roomId])
   const [rentOfferType, setRentOfferType] = useState('asking') // 'asking' or 'below_asking'
   const [offeredRent, setOfferedRent] = useState<number | null>(null)
@@ -237,7 +250,7 @@ export default function ApplicantForm() {
     }
     return {
       status: 'fail' as const,
-      message: `Based on the salary entered, you are unlikely to pass standard referencing for this room (threshold: ${fmt(minSalary)}/yr). To proceed you will need one of the following:`,
+      message: `Based on the salary entered, you are unlikely to pass standard referencing for ${w.thisUnit} (threshold: ${fmt(minSalary)}/yr). To proceed you will need one of the following:`,
       options: [
         `Savings of ${fmt(minSavings)}, held for at least 3 months`,
         `A UK-based guarantor earning at least ${fmt(guarantorMinSalary)}/yr`,
@@ -272,7 +285,7 @@ export default function ApplicantForm() {
 
     // Validate standards agreement
     if (!standardsAgreed) {
-      setError('Please confirm you meet the Capital Rooms house standard before applying')
+      setError('Please confirm you meet the Capital Rooms standard before applying')
       setLoading(false)
       return
     }
@@ -371,7 +384,7 @@ export default function ApplicantForm() {
         <section className={`${wrap} py-24`}>
           <p className="pub-serif pub-display pub-enter m-0">Sent.</p>
           <p className="m-0 mt-6 text-[18px] pub-muted">
-            {fastTrack ? 'Taking you to secure the room now…' : 'Thank you — we’ve received your details. Taking you to the next page…'}
+            {fastTrack ? `Taking you to secure ${w.theUnit} now…` : 'Thank you — we’ve received your details. Taking you to the next page…'}
           </p>
         </section>
       </PublicShell>
@@ -452,10 +465,12 @@ export default function ApplicantForm() {
         <div className="pub-rise flex flex-col gap-5 p-6 md:p-10" style={{ background: '#111', color: '#F3F0EA' }}>
           <h2 className="pub-serif m-0 text-[32px] leading-tight md:text-[40px]">The Capital Rooms Standard</h2>
           <p className="m-0 max-w-3xl text-[15px] leading-relaxed" style={{ color: '#C9C4BA' }}>
-            Shared living works best when everyone plays their part. Our houses attract people who are naturally considerate and self-motivated — the kind of housemates others genuinely enjoy living with.
+            {whole
+              ? 'A home stays at its best when it’s looked after. Our tenants are naturally considerate and self-motivated — the kind of people landlords and neighbours are glad to have.'
+              : 'Shared living works best when everyone plays their part. Our houses attract people who are naturally considerate and self-motivated — the kind of housemates others genuinely enjoy living with.'}
           </p>
           <ul className="m-0 grid list-none gap-3 p-0 md:grid-cols-2 md:gap-x-10">
-            {STANDARD.map((item, i) => (
+            {(whole ? STANDARD_WHOLE : STANDARD).map((item, i) => (
               <li key={item} className="flex gap-3 text-[14.5px] leading-relaxed">
                 <span className="pub-serif italic" style={{ color: '#C9B48E' }}>{ROMAN[i]}.</span>{item}
               </li>
@@ -466,7 +481,7 @@ export default function ApplicantForm() {
             className="flex min-h-[52px] items-center gap-3 px-4 text-left text-[15px]"
             style={{ border: '1px solid #F3F0EA', background: standardsAgreed ? '#F3F0EA' : 'transparent', color: standardsAgreed ? '#111' : '#F3F0EA' }}>
             <span aria-hidden="true">{standardsAgreed ? '✓' : '○'}</span>
-            This sounds like me — I’m ready to be a great housemate.
+            {whole ? 'This sounds like me — I’ll look after the home.' : 'This sounds like me — I’m ready to be a great housemate.'}
           </button>
         </div>
       </section>
@@ -539,8 +554,9 @@ export default function ApplicantForm() {
 
           <Section n={3} id="a3" title="About you">
             <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
-              We share this with the landlord. If you take the room, we also send your future housemates a short hello
-              (your first name, what you do and your interests), never your surname, contact or financial details.
+              {whole
+                ? 'We share this with the landlord, so they can get to know who’ll be looking after their home.'
+                : 'We share this with the landlord. If you take the room, we also send your future housemates a short hello (your first name, what you do and your interests), never your surname, contact or financial details.'}
             </p>
             <label className="pub-label">Bio *
               <textarea className="pub-input" value={bio} onChange={e => setBio(e.target.value)} placeholder="Who are you? What do you do? (2-3 sentences)" required />
@@ -553,7 +569,8 @@ export default function ApplicantForm() {
             </label>
           </Section>
 
-          <Section n={4} id="a4" title="What are you like to live with?">
+          <Section n={4} id="a4" title={whole ? 'Who will be living there?' : 'What are you like to live with?'}>
+            {!whole && <>
             <p className="pub-label m-0">How would you describe yourself?</p>
             <div className="flex flex-wrap gap-2">
               {(['sociable', 'flexible', 'keep-to-self'] as const).map(o => (
@@ -562,16 +579,18 @@ export default function ApplicantForm() {
                 </button>
               ))}
             </div>
-            <label className="pub-label">What’s important to you in a shared house?
-              <textarea className="pub-input" value={housePreferences} onChange={e => setHousePreferences(e.target.value)} placeholder="e.g., quiet hours, cleanliness, cooking together, regular house meetings" />
+            </>}
+            <label className="pub-label">{whole ? 'Who will live in the property? *' : 'What’s important to you in a shared house?'}
+              <textarea className="pub-input" value={housePreferences} onChange={e => setHousePreferences(e.target.value)} required={whole}
+                placeholder={whole ? 'e.g., just me; me and my partner, Sam Jones; two friends — please give each person’s full name, and any children or pets' : 'e.g., quiet hours, cleanliness, cooking together, regular house meetings'} />
             </label>
             <label className="pub-label">How do you prefer to communicate and resolve issues?
-              <textarea className="pub-input" value={communicationStyle} onChange={e => setCommunicationStyle(e.target.value)} placeholder="e.g., direct conversations, house meetings, group chat" />
+              <textarea className="pub-input" value={communicationStyle} onChange={e => setCommunicationStyle(e.target.value)} placeholder={whole ? 'e.g., email, a phone call, WhatsApp' : 'e.g., direct conversations, house meetings, group chat'} />
             </label>
           </Section>
 
-          <Section n={5} id="a5" title="About this room">
-            <label className="pub-label">What do you need in this room?
+          <Section n={5} id="a5" title={`About ${w.thisUnit}`}>
+            <label className="pub-label">What do you need in {whole ? 'your new home' : 'this room'}?
               <textarea className="pub-input" value={roomRequirements} onChange={e => setRoomRequirements(e.target.value)} placeholder="e.g., natural light, quiet, space for WFH, double bed fit, storage" />
             </label>
             <label className="pub-label">Any specific conditions based on what you’ve seen?
@@ -581,7 +600,7 @@ export default function ApplicantForm() {
 
           <Section n={6} id="a6" title="About the rent">
             <p className="m-0 text-[16px]">
-              The advertised rent for this room is <span className="pub-serif text-[28px]">£{advertiserRent ? advertiserRent.toFixed(0) : '---'}</span>/month <span className="pub-muted">(all bills included)</span>
+              The advertised rent for {w.thisUnit} is <span className="pub-serif text-[28px]">£{advertiserRent ? advertiserRent.toFixed(0) : '---'}</span>/month{!whole && <span className="pub-muted"> (all bills included)</span>}
             </p>
             <p className="pub-label m-0">Your offer</p>
             <div>
@@ -609,7 +628,7 @@ export default function ApplicantForm() {
 
           <Section n={7} id="a7" title={`Will you need a guarantor?${isStudent ? '' : ' *'}`}>
             <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
-              To pass referencing for this room you’ll need to show <strong>earnings of at least {guarantorFigures.income} a year</strong>, or <strong>savings of at least {guarantorFigures.savings}</strong> held for 3 months or more.
+              To pass referencing for {w.thisUnit} you’ll need to show <strong>earnings of at least {guarantorFigures.income} a year</strong>, or <strong>savings of at least {guarantorFigures.savings}</strong> held for 3 months or more.
               If not, a UK guarantor earning at least <strong>{guarantorFigures.gIncome} a year</strong> can support your application.
             </p>
             {isStudent ? (

@@ -8,6 +8,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
 import { agreedRent } from '@/lib/lettings/holdingDeposit'
+import { isWholeLet, oneLine } from '@/lib/lettings/letWording'
 
 export const dynamic = 'force-dynamic'
 const UUID = /^[0-9a-f-]{36}$/i
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ room
   if (!UUID.test(roomId)) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
   const svc = createServiceClient()
   const { data: room } = await svc.from('rooms')
-    .select('id, name, current_asking_rent, properties(name, address)').eq('id', roomId).maybeSingle()
+    .select('id, name, current_asking_rent, properties(name, address, property_type)').eq('id', roomId).maybeSingle()
   if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
   const p: any = room.properties
   let monthly = Number(room.current_asking_rent) || null
@@ -39,10 +40,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ room
   }
 
   return NextResponse.json({
-    name: room.name,
+    // a whole house or flat (single let): the pages use property words, never "room" (lib/lettings/letWording)
+    whole: isWholeLet(p?.property_type, room.name),
+    name: isWholeLet(p?.property_type, room.name) ? null : room.name,
     monthly,
     weekly: monthly ? oneWeekRent(monthly) : null,
-    property: String(p?.name || p?.address || '').split('\n')[0],
+    property: oneLine(p?.address || p?.name),
     reference: holdingDepositRef(p?.name, room.name),
     firstName,
   })

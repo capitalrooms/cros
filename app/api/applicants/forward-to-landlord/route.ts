@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { requireStaff } from '@/lib/portalAuth'
 import { emailHtml, FROM, tableRow } from '@/lib/emailTemplate'
 import { displayName } from '@/lib/people'
+import { oneLine } from '@/lib/lettings/letWording'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         from:    FROM,
         to:      [landlordEmail],
-        subject: `New application: ${displayName(applicant)} — ${roomName}, ${propAddress}`,
+        subject: oneLine(`New application: ${displayName(applicant)} — ${roomName}, ${propAddress}`),
         html:    await emailHtml(body, { req: request }),
       }),
     })

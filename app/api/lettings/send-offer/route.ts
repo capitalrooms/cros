@@ -7,6 +7,7 @@ import { senderFields } from '@/lib/email/sender'
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
 import { buildEmail } from '@/lib/emailWrapper'
+import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
 
     const { data: roomData } = await supabase
       .from('rooms')
-      .select('id, name, property_id, current_asking_rent, properties(property_code)')
+      .select('id, name, property_id, current_asking_rent, properties(property_code, property_type)')
       .eq('id', data.roomId)
       .single()
 
@@ -114,6 +115,8 @@ export async function POST(request: Request) {
       .eq('id', data.propertyId)
       .single()
 
+    // the form sends title / first name / surname; applicantName was always empty, so emails said "Hi there"
+    if (!data.applicantName) data.applicantName = [data.salutation, data.firstName, data.lastName].filter(Boolean).join(' ').trim() || ''
     const applicationToken = randomBytes(32).toString('hex')
     const tokenExpiresAt = new Date()
     tokenExpiresAt.setDate(tokenExpiresAt.getDate() + 30)
@@ -197,13 +200,16 @@ export async function POST(request: Request) {
     const weekly         = weeklyRent(monthly)
     const propCode       = (roomData?.properties as any)?.property_code || null
     const roomName       = roomData?.name || 'Room'
-    const propAddress    = propertyData?.address || propertyData?.name || ''
+    const propAddress    = oneLine(propertyData?.address || propertyData?.name)   // some addresses are saved on several lines
+    // a whole house or flat: the same offer, property words (lib/lettings/letWording) — never the room template
+    const whole          = isWholeLet((roomData?.properties as any)?.property_type, roomName)
+    const place          = placeLabel(whole, roomName, propAddress)
     const payRef         = holdingDepositRef(propertyData?.name || propertyData?.address, roomName)
-    const firstName      = data.applicantName ? data.applicantName.split(' ')[0] : 'there'
+    const firstName      = String(data.firstName || '').trim() || (data.applicantName ? data.applicantName.replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(' ')[0] : 'there')
     const moveInDisplay  = data.moveInDate || 'To be confirmed'
 
     // Try DB template first; fall back to lib/emailTemplates.ts builders
-    const templateSlug = data.requestDeposit ? 'applicant-offer-deposit' : 'applicant-offer-letter'
+    const templateSlug = (data.requestDeposit ? 'applicant-offer-deposit' : 'applicant-offer-letter') + (whole ? '-whole' : '')
     const tpl = await getTemplate(templateSlug)
 
     let subject: string
@@ -224,9 +230,9 @@ export async function POST(request: Request) {
       subject   = render(tpl.subject_line, tokenVars)
       emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars), request)
     } else if (data.requestDeposit) {
-      subject = `THE SEARCH IS OVER! — ${roomName}${propAddress ? `, ${propAddress}` : ''}`
+      subject = `THE SEARCH IS OVER! — ${place}`
       emailHtml = await buildSearchIsOverEmail({
-        applicantName:   data.applicantName,
+        applicantName:   firstName === 'there' ? undefined : firstName,
         roomName,
         propertyAddress: propAddress,
         propertyCity:    'London',
@@ -235,11 +241,12 @@ export async function POST(request: Request) {
         applicationUrl,
         holdingDeposit:  weekly,
         holdingRef:      payRef,
+        whole,
       }, request)
     } else {
-      subject = `Your application for ${roomName}${propAddress ? ` at ${propAddress}` : ''}`
+      subject = whole ? `Your application for ${place}` : `Your application for ${roomName}${propAddress ? ` at ${propAddress}` : ''}`
       emailHtml = await buildOfferLetterEmail({
-        applicantName:   data.applicantName,
+        applicantName:   firstName === 'there' ? undefined : firstName,
         roomName,
         propertyAddress: propAddress,
         propertyCity:    'London',
@@ -248,6 +255,7 @@ export async function POST(request: Request) {
         applicationUrl,
         holdingDeposit:  weekly,
         holdingRef:      payRef,
+        whole,
       }, request)
     }
 
@@ -260,11 +268,16 @@ export async function POST(request: Request) {
     const emailRes = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...(await senderFields(request)), to: [data.applicantEmail], subject, html: emailHtml }),
+      body: JSON.stringify({ ...(await senderFields(request)), to: [data.applicantEmail], subject: oneLine(subject), html: emailHtml }),
     })
 
     if (!emailRes.ok) {
       const err = await emailRes.json().catch(() => ({}))
+      // nothing went out — don't leave an "offer sent" behind (the applicant stays, ready for the next try)
+      if (offerId) {
+        await supabase.from('applicants').update({ offer_id: null }).eq('offer_id', offerId)
+        await supabase.from('offers').delete().eq('id', offerId)
+      }
       return Response.json({ error: `Email failed to send: ${(err as any)?.message || emailRes.statusText}` }, { status: 502 })
     }
 

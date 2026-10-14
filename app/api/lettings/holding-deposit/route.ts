@@ -17,6 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { oneLine } from '@/lib/lettings/letWording'
 import { createClient } from '@supabase/supabase-js'
 import { requireStaff, STAFF_ROLES } from '@/lib/portalAuth'
 import { sendEmail } from '@/lib/sendEmail'
@@ -47,15 +48,18 @@ export async function GET(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = svc()
   const { data: offers } = await s.from('offers')
-    .select('id, applicant_id, applicant_name, applicant_email, advertised_rent, status, sent_at, rooms(name), properties(name)')
-    .order('sent_at', { ascending: false }).limit(15) as { data: any[] | null }
-  const ids = (offers ?? []).map(o => o.applicant_id).filter(Boolean)
+    .select('id, applicant_id, applicant_name, applicant_email, advertised_rent, status, sent_at, room_id, rooms(name), properties(name)')
+    .order('sent_at', { ascending: false }).limit(40) as { data: any[] | null }
+  // one line per person and room — the latest offer (sending again, or a send that failed, used to show duplicates)
+  const seen = new Set<string>()
+  const latest = (offers ?? []).filter(o => { const k = `${o.applicant_id || String(o.applicant_email || '').toLowerCase()}|${o.room_id}`; if (seen.has(k)) return false; seen.add(k); return true }).slice(0, 15)
+  const ids = latest.map(o => o.applicant_id).filter(Boolean)
   const { data: apps } = ids.length ? await s.from('applicants').select('id, pipeline_stage').in('id', ids) : { data: [] as any[] }
   const stage = new Map((apps ?? []).map((a: any) => [a.id, a.pipeline_stage]))
   return NextResponse.json({
-    offers: (offers ?? []).map(o => ({
+    offers: latest.map(o => ({
       id: o.id, applicantId: o.applicant_id, name: o.applicant_name || o.applicant_email, email: o.applicant_email,
-      room: o.rooms?.name ?? '', property: o.properties?.name ?? '', rent: o.advertised_rent, sentAt: o.sent_at,
+      room: o.rooms?.name ?? '', property: oneLine(o.properties?.name), rent: o.advertised_rent, sentAt: o.sent_at,
       state: o.status === 'deposit_paid' ? 'paid' : o.status === 'deposit_claimed' ? 'claimed' : AFTER_APPLYING.includes(stage.get(o.applicant_id) ?? '') ? 'completed' : 'sent',
     })),
   })
