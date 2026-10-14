@@ -3,6 +3,7 @@
 // statement will take, lib/statements/draft). Months before CROS took over collecting come from the statements
 // imported from the previous agent, so history still shows (marked as collected by them).
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { importedRentFor } from '@/lib/finance/importedRent'
 import { ledgerStart } from '@/lib/clientLedger'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -57,14 +58,26 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   // ── Before CROS collected rent: what the previous agent's statements show ──
   if (start < takeover) {
     const out: RollProperty[] = []
+    // statements emailed in (statements@) keep rent as lines, not a room table — each line in the month it's for
+    const imported = await importedRentFor(s, month)
+    const importedRefs = new Map<string, string>()
+    if (imported.length) {
+      const { data: refs } = await s.from('landlord_statements').select('id, statement_reference').in('id', [...new Set(imported.map(l => l.statementId))])
+      for (const r of (refs ?? []) as any[]) importedRefs.set(r.id, r.statement_reference)
+    }
     for (const p of properties) {
       const sts = ((statements.data ?? []) as any[]).filter(st => st.property_id === p.id)
       const lines = sts.flatMap(st => (Array.isArray(st.rooms) ? st.rooms : []).map((r: any) => ({ r, st })))
-      const rollRooms: RollRoom[] = lines.map(({ r, st }): RollRoom => ({
+      const fromLines: RollRoom[] = imported.filter(l => l.propertyId === p.id).map((l): RollRoom => ({
+        roomId: null, room: l.room ? `Room ${l.room}` : 'Rent', tenant: l.tenant, tenancyId: null, reference: null, chargeId: null, chargeNo: null,
+        due: null, received: l.amount, difference: null, status: 'collected_by_previous_agent' as RoomStatus, receipts: [] as Receipt[],
+        paidOver: l.amount, statement: importedRefs.get(l.statementId) ?? '',
+      }))
+      const rollRooms: RollRoom[] = [...fromLines, ...lines.map(({ r, st }): RollRoom => ({
         roomId: null, room: `Room ${r.room_number ?? ''}`.trim(), tenant: r.tenant_name || '', tenancyId: null, reference: null, chargeId: null, chargeNo: null,
         due: null, received: r2(Number(r.rent_income || 0)), difference: null, status: 'collected_by_previous_agent' as RoomStatus, receipts: [] as Receipt[],
         paidOver: r2(Number(r.rent_income || 0)), statement: st.statement_reference,
-      })).sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
+      }))].sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
       if (!rollRooms.length && !roomsOf(p.id).some(r => tenancyFor(r.id))) continue
       const received = r2(rollRooms.reduce((t, r) => t + r.received, 0))
       out.push({ id: p.id, name: first(p.name), code: p.property_code, landlord: landlordName.get(p.landlord_id) || '', rooms: rollRooms,

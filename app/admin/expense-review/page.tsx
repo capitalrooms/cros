@@ -11,6 +11,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import {
   PROPERTY_WIDE_CATEGORIES,
@@ -147,7 +148,7 @@ export default function ExpenseReviewPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin/accounts" />} />
-      <PageHero eyebrow="Finance" title="Expense Review" subtitle="Assign categories to uncategorised expense lines. Changes are invisible to landlords — they just see correct data." />
+      <PageHero eyebrow="Finance" title="Expense Review" subtitle="The lines read off statements you email to statements@ — check any the system wasn’t sure about. Changes are invisible to landlords." tabs={financeTabs('expense-review')} />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
         <div className="flex items-start justify-between gap-lg">
           <div>

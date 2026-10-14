@@ -9,6 +9,8 @@ const TABS: [key: string, label: string, href: (month?: string) => string][] = [
   ['payment-run', '3 · Payment run', m => `/admin/payment-run${m ? `?month=${m}` : ''}`],
   ['bank', 'Bank & matching', () => '/admin/reconciliation'],
   ['expenses', 'Expenses', () => '/admin/expense-log'],
+  // the lines read off statements emailed to statements@ (AutoLedger) — its emails' "Review in CROS" lands here
+  ['expense-review', 'Expense review', () => '/admin/expense-review'],
   ['arrears', 'Arrears', () => '/admin/arrears'],
   ['client-money', 'Client money', () => '/admin/client-money'],
   ['deposits', 'Deposits', () => '/admin/deposits'],
