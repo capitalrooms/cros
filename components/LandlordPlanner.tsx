@@ -19,7 +19,7 @@ const STAGES: Record<string, { bg: string; fg: string }> = {
   'In progress': { bg: '#ECE6FB', fg: '#4B3596' }, 'Parked': { bg: '#EFEDE8', fg: '#5F5B54' },
   'Open': { bg: '#F1EFEA', fg: '#3F3C37' }, 'Done': { bg: '#E2F1E4', fg: '#25643A' },
 }
-const GROUP_COLOURS = ['#C2410C', '#B45309', '#0F766E', '#4338CA', '#9D174D', '#15803D', '#1D4ED8', '#6D28D9']
+const GROUP_COLOURS = ['#C2410C', '#0F766E', '#4338CA', '#9D174D', '#B45309', '#15803D', '#1D4ED8', '#6D28D9']
 function parse(e: Entry) {
   const lines = (e.body || '').split('\n')
   const parts = (lines[0] ?? '').split(' · ').map(x => x.trim()).filter(Boolean)
