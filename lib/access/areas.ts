@@ -74,6 +74,12 @@ export const ROLE_PRESETS: Record<string, AreaKey[]> = {
   lettings: ['lettings', 'diary', 'properties'],   // properties: rooms, photos and let-only houses are lettings work
 }
 
+/** Two-step sign-in compulsory for administrators? Off by Harry's choice (14 Oct 2026: "one password fine — the app
+ *  itself needs to be secure, not user logins"). Two-step (Face ID or an app) stays available to everyone on /account,
+ *  and new-device sign-ins email the account owner (app/api/auth/sign-in-alert). Turn this on to require it again —
+ *  then also run migration 222 for the database. */
+export const REQUIRE_TWO_STEP_FOR_ADMINS = false
+
 export const OFFICE_ROLES = ['administrator', 'admin', 'lettings']
 export const isOfficeRole = (role: string | null | undefined) => OFFICE_ROLES.includes(role ?? '')
 export const isAdministrator = (role: string | null | undefined) => role === 'administrator' || role === 'admin'

@@ -31,6 +31,8 @@ export default function ConfirmPage({ searchParams }: { searchParams: PageSearch
     setBusy(true); setError('')
     const { error: err } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: type as any })
     if (err) { setError('This link has expired or has already been used. Ask for a new one from the login page.'); setBusy(false); return }
+    // new-device sign-in alert (app/api/auth/sign-in-alert) — not for a password reset (that link is the owner fixing it)
+    if (type !== 'recovery') { const { data: s } = await sb.auth.getSession(); if (s.session) fetch('/api/auth/sign-in-alert', { method: 'POST', keepalive: true, headers: { Authorization: `Bearer ${s.session.access_token}` } }).catch(() => {}) }
     if (await needsTwoStep(sb)) { setCode(true); setBusy(false); return }
     window.location.replace(dest)
   }
