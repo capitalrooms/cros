@@ -11,7 +11,29 @@ interface Reply { id: string; body: string; author: string; createdAt: string; l
 interface Entry { id: string; title: string; body: string; status: 'open' | 'done'; dueDate: string | null; createdAt: string; property: string | null; propertyId: string | null; author: string; links: string[]; photos: Photo[]; replies: Reply[] }
 
 const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-const MUTED = '#6F6B64', RULE = '#D9D5CD'
+const MUTED = '#6F6B64', RULE = '#E4E0D8'
+// monday.com-style status pills (14 Oct 2026, Harry: "more monday.com … griddy to start then drop down"). Boards
+// brought in from the office Planner carry their status and person on the first line ("In progress · Damian").
+const STAGES: Record<string, { bg: string; fg: string }> = {
+  'To discuss': { bg: '#FBEFD5', fg: '#7A4E06' }, 'Discussed': { bg: '#E3ECF9', fg: '#1F4A86' },
+  'In progress': { bg: '#ECE6FB', fg: '#4B3596' }, 'Parked': { bg: '#EFEDE8', fg: '#5F5B54' },
+  'Open': { bg: '#F1EFEA', fg: '#3F3C37' }, 'Done': { bg: '#E2F1E4', fg: '#25643A' },
+}
+const GROUP_COLOURS = ['#C2410C', '#B45309', '#0F766E', '#4338CA', '#9D174D', '#15803D', '#1D4ED8', '#6D28D9']
+function parse(e: Entry) {
+  const lines = (e.body || '').split('\n')
+  const parts = (lines[0] ?? '').split(' · ').map(x => x.trim()).filter(Boolean)
+  const tagged = parts.length > 0 && parts[0] in STAGES
+  const stage = e.status === 'done' ? 'Done' : tagged ? parts[0] : 'Open'
+  const person = tagged && parts[1] && !/\d/.test(parts[1]) ? parts[1] : ''
+  const extra = tagged ? parts.slice(person ? 2 : 1).join(' · ') : ''   // e.g. "Spring 26"
+  const notes = [tagged ? '' : lines[0], ...lines.slice(1)].join('\n').trim()
+  return { stage, person, when: e.dueDate ? day(e.dueDate) : extra, notes }
+}
+function Pill({ stage }: { stage: string }) {
+  const c = STAGES[stage] ?? STAGES.Open
+  return <span className="inline-flex h-[26px] w-full items-center justify-center px-2 text-[12px] font-medium" style={{ background: c.bg, color: c.fg }}>{stage}</span>
+}
 
 function Attachments({ links, photos }: { links: string[]; photos: Photo[] }) {
   if (!links.length && !photos.length) return null
@@ -34,6 +56,7 @@ export default function LandlordPlanner({ previewBoardId }: { previewBoardId?: s
   const [open, setOpen] = useState<string | null>(null)
   const [showDone, setShowDone] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
@@ -60,32 +83,53 @@ export default function LandlordPlanner({ previewBoardId }: { previewBoardId?: s
   // grouped under each property, in the order of their houses; anything general last
   const groups = Array.from(new Set(live.map(e => e.property ?? ''))).sort((a, b) => (a ? 0 : 1) - (b ? 0 : 1) || a.localeCompare(b, 'en', { numeric: true }))
 
+  const [closed, setClosed] = [collapsedGroups, setCollapsedGroups] as const
   const row = (e: Entry) => <PlannerRow key={e.id} e={e} isOpen={open === e.id} onToggle={() => setOpen(open === e.id ? null : e.id)} readOnly={readOnly} boardId={boardId} post={post} reload={load} />
+  const head = (
+    <div className="hidden md:grid grid-cols-[minmax(0,1fr)_120px_110px_80px_56px] gap-3 px-3 py-2 text-[10.5px] uppercase tracking-[.14em]" style={{ color: MUTED }}>
+      <span>Item</span><span className="text-center">Status</span><span>Person</span><span>Due</span><span className="text-center">Notes</span>
+    </div>
+  )
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <p className="pub-eyebrow m-0">{live.length} open{done.length ? ` · ${done.length} done` : ''}</p>
-        {!readOnly && !adding && <button type="button" className="pub-btn-ghost" onClick={() => setAdding(true)}>Add something</button>}
+        {!readOnly && !adding && <button type="button" className="pub-btn-ghost" onClick={() => setAdding(true)}>Add new note</button>}
       </div>
 
       {adding && boardId && <Composer boardId={boardId} properties={props} onCancel={() => setAdding(false)}
         onSend={async v => { await post({ action: 'entry', boardId, ...v }); setAdding(false); await load() }} />}
 
       {live.length === 0 && <p className="pub-muted m-0 text-[15px]">Nothing open right now.</p>}
-      {groups.map(g => (
-        <div key={g || 'general'}>
-          <p className="pub-eyebrow m-0 mb-3" style={{ color: '#111' }}>{g || 'General'}</p>
-          <div style={{ borderTop: '1px solid #111' }}>{live.filter(e => (e.property ?? '') === g).map(row)}</div>
-        </div>
-      ))}
+      {groups.map((g, gi) => {
+        const colour = GROUP_COLOURS[gi % GROUP_COLOURS.length]
+        const items = live.filter(e => (e.property ?? '') === g)
+        const shut = closed.has(g)
+        return (
+          <div key={g || 'general'}>
+            <button type="button" onClick={() => setClosed(c => { const n = new Set(c); if (n.has(g)) n.delete(g); else n.add(g); return n })}
+              className="flex w-full items-center gap-3 bg-transparent py-2 text-left" aria-expanded={!shut}>
+              <span className="text-[12px]" style={{ color: colour, display: 'inline-block', transform: shut ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }}>▼</span>
+              <span className="text-[16px] font-medium" style={{ color: colour }}>{g || 'General'}</span>
+              <span className="text-[12px]" style={{ color: MUTED }}>{items.length} item{items.length === 1 ? '' : 's'}</span>
+            </button>
+            {!shut && (
+              <div style={{ borderLeft: `4px solid ${colour}`, borderTop: `1px solid ${RULE}` }}>
+                {head}
+                {items.map(row)}
+              </div>
+            )}
+          </div>
+        )
+      })}
 
       {done.length > 0 && (
         <div>
           <button type="button" onClick={() => setShowDone(v => !v)} className="pub-eyebrow inline-flex min-h-[44px] items-center" style={{ color: '#111' }}>
             {showDone ? '− ' : '+ '}Done ({done.length})
           </button>
-          {showDone && <div style={{ borderTop: '1px solid #111' }}>{done.map(row)}</div>}
+          {showDone && <div style={{ borderLeft: '4px solid #25643A', borderTop: `1px solid ${RULE}` }}>{head}{done.map(row)}</div>}
         </div>
       )}
     </div>
@@ -99,11 +143,8 @@ function PlannerRow({ e, isOpen, onToggle, readOnly, boardId, post, reload }: {
   const [reply, setReply] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  const [first, ...rest] = (e.body || '').split('\n')
+  const p = parse(e)
   const notes = e.replies.length
-  const last = notes ? e.replies[notes - 1].createdAt : null
-  // the line under the title: status line / first line of the notes, the due date, and how many notes
-  const sub = [first?.trim(), e.dueDate ? `due ${day(e.dueDate)}` : '', notes ? `${notes} note${notes === 1 ? '' : 's'} · last ${day(last!)}` : ''].filter(Boolean).join(' · ')
 
   async function act(fn: () => Promise<unknown>) {
     setBusy(true); setErr('')
@@ -111,22 +152,26 @@ function PlannerRow({ e, isOpen, onToggle, readOnly, boardId, post, reload }: {
   }
 
   return (
-    <div style={{ borderBottom: `1px solid ${RULE}` }}>
+    <div style={{ borderBottom: `1px solid ${RULE}`, background: isOpen ? '#FAF8F4' : '#fff' }}>
       <button type="button" onClick={onToggle} aria-expanded={isOpen}
-        className="flex w-full items-center gap-4 bg-transparent py-5 text-left" style={{ color: '#111', minHeight: 64 }}>
-        <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="text-[17px] font-medium leading-snug md:text-[19px]" style={{ textDecoration: e.status === 'done' ? 'line-through' : 'none', textDecorationColor: '#B9B4AA' }}>{e.title}</span>
-          {sub && <span className="truncate text-[13px]" style={{ color: MUTED }}>{sub}</span>}
+        className="grid w-full grid-cols-[minmax(0,1fr)_104px] items-center gap-3 bg-transparent px-3 py-2.5 text-left md:grid-cols-[minmax(0,1fr)_120px_110px_80px_56px]" style={{ color: '#111', minHeight: 48 }}>
+        <span className="min-w-0">
+          <span className="block text-[14.5px] leading-snug" style={{ textDecoration: e.status === 'done' ? 'line-through' : 'none', textDecorationColor: '#B9B4AA', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{e.title}</span>
+          {/* phones: person, due date and notes under the title */}
+          {(p.person || p.when || notes > 0) && <span className="block truncate text-[12px] md:hidden" style={{ color: MUTED }}>{[p.person, p.when, notes ? `${notes} note${notes === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</span>}
         </span>
-        <span className="pub-serif shrink-0 text-[28px] leading-none" aria-hidden="true">{isOpen ? '−' : '+'}</span>
+        <Pill stage={p.stage} />
+        <span className="hidden truncate text-[13px] md:block" style={{ color: '#4A4741' }}>{p.person || '—'}</span>
+        <span className="hidden truncate text-[13px] md:block" style={{ color: '#4A4741' }}>{p.when || '—'}</span>
+        <span className="hidden text-center text-[13px] md:block" style={{ color: MUTED }}>{notes || ''}</span>
       </button>
 
       {isOpen && (
-        <div className="flex flex-col gap-5 pb-8">
-          {rest.join('\n').trim() && <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>{rest.join('\n').trim()}</p>}
+        <div className="flex flex-col gap-4 px-3 pb-6 pt-1 md:pl-6">
+          {p.notes && <p className="m-0 whitespace-pre-wrap text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>{p.notes}</p>}
           <Attachments links={e.links} photos={e.photos} />
           {e.replies.length > 0 && (
-            <div className="flex flex-col gap-4" style={{ borderLeft: '1px solid #111', paddingLeft: 16 }}>
+            <div className="flex flex-col gap-3" style={{ borderLeft: '1px solid #111', paddingLeft: 14 }}>
               {e.replies.map(r => (
                 <div key={r.id}>
                   <p className="pub-eyebrow m-0 mb-1">{r.author} · {day(r.createdAt)}</p>
@@ -136,6 +181,7 @@ function PlannerRow({ e, isOpen, onToggle, readOnly, boardId, post, reload }: {
               ))}
             </div>
           )}
+          {e.replies.length === 0 && !p.notes && <p className="pub-muted m-0 text-[14px]">No notes yet.</p>}
           {!readOnly && (
             <>
               <label className="pub-label">Add a note
@@ -143,7 +189,7 @@ function PlannerRow({ e, isOpen, onToggle, readOnly, boardId, post, reload }: {
               </label>
               {err && <p className="pub-error">{err}</p>}
               <div className="flex flex-wrap gap-3">
-                <button type="button" className="pub-btn" disabled={busy || !reply.trim()}
+                <button type="button" className="pub-btn" style={{ minHeight: 46 }} disabled={busy || !reply.trim()}
                   onClick={() => act(async () => { await post({ action: 'reply', entryId: e.id, body: reply }); setReply('') })}>{busy ? 'Saving…' : 'Reply'}</button>
                 <button type="button" className="pub-btn-ghost" disabled={busy}
                   onClick={() => act(() => post({ action: 'status', entryId: e.id, status: e.status === 'open' ? 'done' : 'open' }))}>{e.status === 'open' ? 'Mark as done' : 'Reopen'}</button>
@@ -178,7 +224,7 @@ function Composer({ boardId, properties, onSend, onCancel }: {
   }
   return (
     <div className="flex flex-col gap-6 py-6" style={{ borderTop: '1px solid #111', borderBottom: '1px solid #111' }}>
-      <label className="pub-label">What’s it about? *
+      <label className="pub-label">Note *
         <input className="pub-input" value={title} onChange={x => setTitle(x.target.value)} placeholder="Gutter at the back needs clearing" />
       </label>
       {properties.length > 0 && (
@@ -189,7 +235,7 @@ function Composer({ boardId, properties, onSend, onCancel }: {
           </select>
         </label>
       )}
-      <label className="pub-label">Notes
+      <label className="pub-label">Description
         <textarea className="pub-input" value={body} onChange={x => setBody(x.target.value)} placeholder="Anything we should know" />
       </label>
       <div className="grid gap-6 md:grid-cols-2">

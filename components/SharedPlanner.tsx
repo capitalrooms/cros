@@ -81,7 +81,7 @@ function Composer({ boardId, placeholder, onSend, withTitle, properties }: {
   }
   return (
     <div className="space-y-sm">
-      {withTitle && <input className={input} placeholder="What’s it about? e.g. Gutter at the back needs clearing" value={title} onChange={e => setTitle(e.target.value)} />}
+      {withTitle && <input className={input} placeholder="Note — e.g. Gutter at the back needs clearing" value={title} onChange={e => setTitle(e.target.value)} />}
       <textarea rows={withTitle ? 3 : 2} className={input} placeholder={placeholder} value={body} onChange={e => setBody(e.target.value)} />
       {withTitle && (
         <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
@@ -185,7 +185,7 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
             <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
               <h2 className="text-lg font-bold text-neutral-900">{mode === 'office' ? `With ${board.member}` : 'With Capital Rooms'}</h2>
               <p className="mb-md text-xs text-neutral-500">{mode === 'office' ? 'They get a notification for each new entry and reply.' : 'The office gets a notification when you post or reply.'}</p>
-              <Composer boardId={board.id} withTitle placeholder="Notes (optional)" properties={mode === 'office' ? data.properties : undefined}
+              <Composer boardId={board.id} withTitle placeholder="Description (optional)" properties={mode === 'office' ? data.properties : undefined}
                 onSend={async v => { await post({ action: 'entry', boardId: board.id, ...v }); await load(board.id) }} />
             </div>
 

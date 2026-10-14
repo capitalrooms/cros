@@ -191,18 +191,18 @@ export default function LandlordDashboard() {
 
       <section className={`${wrap} pt-10 md:pt-14`}>
         <p className="pub-eyebrow pub-enter m-0 mb-4">Capital Rooms · landlord</p>
-        <h1 className="pub-serif pub-enter m-0 text-[44px] leading-[1.02] md:text-[72px]">Hello, {name || 'there'}</h1>
-        <p className="pub-intro pub-enter-2 mt-6 max-w-2xl">
+        <h1 className="pub-serif pub-enter m-0 text-[34px] leading-[1.05] md:text-[56px]">Hello, {name || 'there'}</h1>
+        <p className="pub-intro pub-enter-2 mt-4 max-w-2xl">
           {sections.includes('planner')
-            ? 'Your planner with Capital Rooms. Everything we’re working on together, by property — tap an item to see the notes and reply, or add something new.'
+            ? 'Everything we’re working on together, by property. Tap a line to open it.'
             : sections.includes('statements') ? 'Financial summaries for your properties.' : 'Welcome to Capital Rooms.'}
         </p>
       </section>
 
       {/* Shared planner with the office — both sides add and edit; viewing as them, the same screen read only */}
       {sections.includes('planner') && (
-        <section className={`${wrap} pt-12 md:pt-16`}>
-          <h2 className="pub-h2 mb-8">Planner</h2>
+        <section className={`${wrap} pt-8 md:pt-12`}>
+          <h2 className="pub-h2 mb-5">Planner</h2>
           {viewingAs
             ? (boardId ? <LandlordPlanner previewBoardId={boardId} /> : <p className="pub-note">No board yet — switch the planner on from their profile.</p>)
             : <LandlordPlanner />}
