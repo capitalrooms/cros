@@ -193,7 +193,8 @@ export async function POST(request: Request) {
 
     // Build application URL
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
-    const applicationUrl = `${appUrl}/applicant/apply?token=${applicationToken}&roomId=${data.roomId}&propertyId=${data.propertyId}`
+    // &a= lets the form show the rent agreed on this offer (a whole home often has no asking rent saved)
+    const applicationUrl = `${appUrl}/applicant/apply?token=${applicationToken}&roomId=${data.roomId}&propertyId=${data.propertyId}${applicantId ? `&a=${applicantId}` : ''}`
 
     // Computed values for template tokens
     const monthly        = data.advertisedRent || 0

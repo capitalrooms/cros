@@ -163,12 +163,12 @@ export async function POST(request: NextRequest) {
   // first name for the page's greeting ("Hi Harry, ready to lock it down?") — never a title, never "there"
   const greetName   = String(visitorName || firstName || '').trim().replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(/\s+/)[0] ?? ''
   const nameQ       = greetName && greetName.toLowerCase() !== 'there' ? `&name=${encodeURIComponent(greetName)}` : ''
-  const applyUrl    = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}${nameQ}` : `${APP_URL}/applicant/apply`
-  const fastUrl     = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}&fasttrack=1${nameQ}` : `${APP_URL}/applicant/apply?fasttrack=1`
-  const reserveUrl  = roomId && propertyId ? `${APP_URL}/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}${nameQ}` : `${APP_URL}/applicant/reserve`
+  let applyUrl    = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}${nameQ}` : `${APP_URL}/applicant/apply`
+  let fastUrl     = roomId && propertyId ? `${APP_URL}/applicant/apply?roomId=${roomId}&propertyId=${propertyId}&fasttrack=1${nameQ}` : `${APP_URL}/applicant/apply?fasttrack=1`
+  let reserveUrl  = roomId && propertyId ? `${APP_URL}/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}${nameQ}` : `${APP_URL}/applicant/reserve`
   const isReserve   = mode === 'reserve'
   const isFastTrack = mode === 'fasttrack'
-  const sendUrl     = isReserve ? reserveUrl : isFastTrack ? fastUrl : applyUrl
+  let sendUrl       = isReserve ? reserveUrl : isFastTrack ? fastUrl : applyUrl
 
   const result: Record<string, any> = { link: sendUrl }
 
@@ -213,6 +213,14 @@ export async function POST(request: NextRequest) {
     } catch {
       // Graceful — applicants table may not be deployed yet
     }
+  }
+
+  // the links name the application, so the form and reserve page show the rent agreed with them
+  if (result.applicantId) {
+    const aq = `&a=${result.applicantId}`
+    applyUrl += aq; fastUrl += aq; reserveUrl += aq
+    sendUrl = isReserve ? reserveUrl : isFastTrack ? fastUrl : applyUrl
+    result.link = sendUrl
   }
 
   // ── Email ──────────────────────────────────────────────────────────────────
