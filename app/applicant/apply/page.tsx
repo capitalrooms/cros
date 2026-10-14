@@ -116,7 +116,9 @@ export default function ApplicantForm() {
   // the room's asking rent — for the rent question, the affordability check and the guarantor figures
   useEffect(() => {
     if (!roomId) return
-    fetch(`/api/applicant/room/${roomId}`).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.monthly) setAdvertisedRent(Number(d.monthly)); if (d) { setRoomInfo({ name: d.name ?? null, property: d.property ?? '' }); setWhole(!!d.whole) } }).catch(() => {})
+    // ?a=<applicant> (on offer links): the rent agreed on their offer — whole homes often have no asking rent saved
+    const a = searchParams.get('a')
+    fetch(`/api/applicant/room/${roomId}${a && /^[0-9a-f-]{36}$/i.test(a) ? `?a=${a}` : ''}`).then(r => (r.ok ? r.json() : null)).then(d => { if (d?.monthly) setAdvertisedRent(Number(d.monthly)); if (d) { setRoomInfo({ name: d.name ?? null, property: d.property ?? '' }); setWhole(!!d.whole) } }).catch(() => {})
   }, [roomId])
   const [rentOfferType, setRentOfferType] = useState('asking') // 'asking' or 'below_asking'
   const [offeredRent, setOfferedRent] = useState<number | null>(null)
