@@ -37,6 +37,8 @@ export async function signIn(email: string, password: string) {
   if (error) {
     return { success: false, error: error.message }
   }
+  // new-device sign-in alert (app/api/auth/sign-in-alert) — never holds up signing in
+  if (data.session?.access_token) fetch('/api/auth/sign-in-alert', { method: 'POST', keepalive: true, headers: { Authorization: `Bearer ${data.session.access_token}` } }).catch(() => {})
 
   // Check if email is registered in people table
   const { data: assignment, error: assignmentError } = await supabase

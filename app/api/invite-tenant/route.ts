@@ -1,4 +1,4 @@
-import { authLink } from '@/lib/auth/links'
+import { welcomeLink, greeting } from '@/lib/auth/accounts'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -57,7 +57,8 @@ export async function POST(req: NextRequest) {
 
   // Generate Supabase admin link (password reset acts as invite for new users)
   // our own one-time link (lib/auth/links) — Supabase's action_link bounced via its Site URL (localhost)
-  const signInLink = await authLink(supabase as any, person.email, 'magiclink', '/')
+  // the standard sign-in link (lib/auth/accounts): never set up → sign in, then choose a password
+  const signInLink = await welcomeLink(supabase as any, person.email)
     ?? `${APP_URL}/login?email=${encodeURIComponent(person.email)}`
 
   const firstName = getFirstName(person)
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
     </table>` : ''
 
   const body = `
-    <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#1c1917;">Dear ${firstName},</p>
+    <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#1c1917;">${greeting(person)}</p>
     <p style="margin:0 0 18px;font-size:14px;color:#3f3f46;line-height:1.7;">
       We are delighted to welcome you to Capital Rooms. Your tenancy is now set up on our
       management platform — please use the button below to access your tenant portal.

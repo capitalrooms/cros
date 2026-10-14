@@ -52,39 +52,70 @@ const APP_NAME: Record<string, string> = {
 
 const button = (href: string, label: string) =>
   `<p style="margin:0 0 22px;"><a href="${href}" style="display:inline-block;background:#181614;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px;">${label}</a></p>`
+const para = (t: string) => `<p style="margin:0 0 14px;font-size:15px;color:#1c1917;line-height:1.6;">${t}</p>`
+const note = (t: string, last = false) => `<p style="margin:0 0 ${last ? 0 : 8}px;font-size:13px;color:#57534e;line-height:1.5;">${t}</p>`
 
-/** Invite (no login yet) or password reset (has one). Never returns the link. */
-export async function sendAccountEmail(s: SupabaseClient, person: { email: string; first_name?: string | null; role: string }, req?: Request | null, users?: Map<string, any>)
+type AccountPerson = { email: string; role?: string | null; salutation?: string | null; first_name?: string | null; last_name?: string | null }
+
+/** "Dear Mr Smith," — titles always (Harry, 14 Oct 2026); first name only when there's no title on file. */
+export function greeting(p?: Partial<AccountPerson> | null): string {
+  if (p?.salutation && p.last_name) return `Dear ${p.salutation} ${p.last_name},`
+  if (p?.first_name) return `Dear ${p.first_name},`
+  return 'Hello,'
+}
+
+/**
+ * The one sign-in link for a person (14 Oct 2026, "a standard way for all users"): someone with no login, or one
+ * they've never used, signs in and is asked to choose a password (/account?setup=1); anyone already set up just signs
+ * in. Used by every welcome/invite email, so nobody is ever left with an account they have no password for.
+ */
+export async function welcomeLink(s: SupabaseClient, email: string, users?: Map<string, any>): Promise<string | null> {
+  const e = email.trim().toLowerCase()
+  users = users ?? await authUsersByEmail(s)
+  const u = users.get(e)
+  if (u && statusOf(u).off) return null
+  if (!u) return authLink(s, e, 'invite', '/account?setup=1')
+  return statusOf(u).confirmed ? authLink(s, e, 'magiclink', '/') : authLink(s, e, 'magiclink', '/account?setup=1')
+}
+
+/**
+ * Every sign-in email CROS sends goes through here, so they all look and read the same:
+ *   no login yet (or never used)  → "Set up my account" (sign in → choose a password)
+ *   has a login                    → "Choose a new password" (one-time reset link)
+ * by: 'office' when staff pressed the button (People), 'self' when the person used "Forgot password?".
+ * Never returns the link.
+ */
+export async function sendAccountEmail(s: SupabaseClient, person: AccountPerson, req?: Request | null, users?: Map<string, any>, by: 'office' | 'self' = 'office')
   : Promise<{ ok: boolean; sent?: 'invite' | 'reset'; error?: string }> {
   const email = person.email.trim().toLowerCase()
   users = users ?? await authUsersByEmail(s)
   const existing = users.get(email)
   if (existing && statusOf(existing).off) return { ok: false, error: 'their sign-in is turned off — turn it back on first' }
-  const hi = person.first_name ? `Hi ${person.first_name},` : 'Hello,'
-  const app = APP_NAME[person.role] ?? 'Capital Rooms'
+  const app = APP_NAME[person.role ?? ''] ?? 'your Capital Rooms account'
+  const hi = para(greeting(person))
 
   if (!existing || !statusOf(existing).confirmed) {
-    // a brand-new login, or one invited before but never used: a fresh invite (an old one may have expired)
-    // /auth/confirm signs them in, then /account asks them to choose a password
-    const link = existing ? await authLink(s, email, 'magiclink', '/account?setup=1') : await authLink(s, email, 'invite', '/account?setup=1')
+    const link = await welcomeLink(s, email, users)
     if (!link) return { ok: false, error: 'Supabase would not make an invite link' }
-    const r = await sendEmail(email, 'Your Capital Rooms account is ready', `
-      <p style="margin:0 0 14px;font-size:15px;color:#1c1917;">${hi}</p>
-      <p style="margin:0 0 14px;font-size:15px;color:#1c1917;">You’ve been given access to ${app}. Tap below to sign in and choose your password.</p>
-      ${button(link, 'Set up my account')}
-      <p style="margin:0 0 8px;font-size:13px;color:#57534e;">The link works once. If it has expired, go to ${PORTAL_URL}/login and use “Forgot password”.</p>
-      <p style="margin:0;font-size:13px;color:#57534e;">Your browser or phone can save the password for you, so you never need to remember it.</p>`, { req, signature: false })
+    const r = await sendEmail(email, 'Set up your Capital Rooms account', hi
+      + para(by === 'self'
+        ? `You asked to sign in to ${app}, but your account hasn’t been set up yet. Tap below to sign in and choose your password.`
+        : `You’ve been given access to ${app}. Tap below to sign in and choose your password.`)
+      + button(link, 'Set up my account')
+      + note(`The link works once. If it has expired, go to ${PORTAL_URL}/login and use “Forgot password?”.`)
+      + note('Your browser or phone can save the password for you, so you never need to remember it.', true), { req, signature: false })
     return r.ok ? { ok: true, sent: 'invite' } : { ok: false, error: r.error }
   }
 
   const link = await authLink(s, email, 'recovery')
   if (!link) return { ok: false, error: 'Supabase would not make a reset link' }
-  const r = await sendEmail(email, 'Choose a new Capital Rooms password', `
-    <p style="margin:0 0 14px;font-size:15px;color:#1c1917;">${hi}</p>
-    <p style="margin:0 0 14px;font-size:15px;color:#1c1917;">The Capital Rooms office has sent you a link to choose a new password for ${app}.</p>
-    ${button(link, 'Choose a new password')}
-    <p style="margin:0 0 8px;font-size:13px;color:#57534e;">The link works once and expires within the hour. Your current password keeps working until you change it.</p>
-    <p style="margin:0;font-size:13px;color:#57534e;">If you weren’t expecting this, you can ignore it.</p>`, { req, signature: false })
+  const r = await sendEmail(email, 'Reset your Capital Rooms password', hi
+    + para(by === 'self'
+      ? `We received a request to reset the password for ${app}.`
+      : `The Capital Rooms office has sent you a link to choose a new password for ${app}.`)
+    + button(link, 'Choose a new password')
+    + note('The link works once and expires within the hour. Your current password keeps working until you change it.')
+    + note(by === 'self' ? 'If this wasn’t you, ignore this email — your password stays as it is.' : 'If you weren’t expecting this, you can ignore it.', true), { req, signature: false })
   return r.ok ? { ok: true, sent: 'reset' } : { ok: false, error: r.error }
 }
 

@@ -1,3 +1,5 @@
+-- ⛔ DO NOT RUN (14 Oct 2026): Harry chose optional two-step sign-in. Only run this if REQUIRE_TWO_STEP_FOR_ADMINS in
+-- lib/access/areas.ts is switched back on AND Harry has two-step set up.
 -- 222 — Administrators need two-step sign-in, enforced by the database itself (14 Oct 2026, "fort knox").
 -- The app already refuses an administrator who hasn't set up / entered their authenticator code (lib/auth/aal);
 -- this makes the database's own access rules agree, so a stolen password alone can't read anything by talking to

@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { needsTwoStep } from '@/components/TwoStepCode'
 
 import { ZONES, type Zone } from '@/lib/adminNav'
-import { areasFor, canOpenPage, homeFor, isAdministrator, type AreaKey } from '@/lib/access/areas'
+import { areasFor, canOpenPage, homeFor, isAdministrator, REQUIRE_TWO_STEP_FOR_ADMINS, type AreaKey } from '@/lib/access/areas'
 import MobileTabBar from './components/MobileTabBar'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 import Footer from '@/app/components/Footer'
@@ -51,9 +51,9 @@ function ProfileMenu() {
       if (p?.first_name) { setFirst(p.first_name); setInitial(p.first_name[0].toUpperCase()) }
       setIsAdmin(isAdministrator((p as any)?.role))
       // administrators must have two-step sign-in (lib/auth/aal — the server refuses them until it's set up)
-      if (isAdministrator((p as any)?.role)) {
+      if (REQUIRE_TWO_STEP_FOR_ADMINS && isAdministrator((p as any)?.role)) {
         const { data: f } = await sb.auth.mfa.listFactors()
-        if (!(f?.totp ?? []).some(x => x.status === 'verified')) router.replace('/account?setup=two-step')
+        if (!(f?.all ?? []).some(x => x.status === 'verified')) router.replace('/account?setup=two-step')
       }
     })
   }, [router])

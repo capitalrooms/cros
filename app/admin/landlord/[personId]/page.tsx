@@ -233,7 +233,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
   /* ── Invite ── */
   async function handleInvite() {
     setInviting(true); setInviteMsg(null)
-    const res  = await fetch('/api/invite-tenant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId }) })
+    const res  = await fetch('/api/invite-landlord', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId }) })
     const json = await res.json()
     setInviting(false)
     setInviteMsg(res.ok ? `✓ Invite sent to ${json.sentTo}` : `⚠ ${json.error}`)
