@@ -14,6 +14,10 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { genStatementRef } from '@/lib/references'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import StatementSend from './StatementSend'
+import { statementDue } from '@/lib/finance/dates'
+
+const mon = (m: string) => new Date(`${m}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+const monthsBetween = (a: string, b: string) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7)) + 1
 interface Property { id: string; name: string; address: string; management_fee_pct: number | null; property_code?: string | null; letting_type?: string | null }
 interface Landlord { id: string; name: string | null; email: string; property_id: string | null }
 interface StatementRow {
@@ -94,6 +98,9 @@ export default function AdminStatementsPage() {
   const [matchNote, setMatchNote] = useState('')
   const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null)
   const [demoIds, setDemoIds] = useState<Set<string>>(new Set())
+  // the agency's set-up dates (Settings › Your records): statements are expected from recordsStart; uploaded before
+  // ledgerStart, prepared in CROS from it
+  const [dates, setDates] = useState<{ recordsStart: string; ledgerStart: string } | null>(null)
   const [lets, setLets] = useState<{ property_id: string; start_date: string | null; end_date: string | null; let_cancelled_at: string | null }[]>([])
   // "Fill from rent received": the month to build, and what saving it must mark as paid over
   const [genMonth, setGenMonth] = useState(() => new Date().toISOString().slice(0, 7))
@@ -129,6 +136,8 @@ export default function AdminStatementsPage() {
       // which months each house had tenants — a month with none needs no statement (the house sits dormant)
       const { data: tl } = await supabase.from('tenancies').select('property_id, start_date, end_date, let_cancelled_at')
       setLets(((tl as any[]) || []))
+      const fd = await adminFetch('/api/admin/finance-dates').then(r => (r.ok ? r.json() : null)).catch(() => null)
+      if (fd?.recordsStart) setDates(fd)
       // people has no "name" column — build the label the dropdowns show
       setLandlords(((lls as any[]) || []).map((l) => ({ ...l, name: [l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ') || l.full_name || null })))
       await loadStatements()
@@ -367,17 +376,35 @@ export default function AdminStatementsPage() {
   // Statements on file, house by month — so a missing month shows as a gap rather than having to be noticed
   const coverage = useMemo(() => {
     const monthOf = (st: StatementRow) => String(st.period_start || st.statement_date || '').slice(0, 7)
-    const have = statements.map(monthOf).filter(Boolean).sort()
-    if (!have.length) return null
-    const months: string[] = []
     const now = new Date().toISOString().slice(0, 7)
-    for (let [y, m] = have[0].split('-').map(Number); `${y}-${String(m).padStart(2, '0')}` <= now && months.length < 18; m === 12 ? (y++, m = 1) : m++) months.push(`${y}-${String(m).padStart(2, '0')}`)
+    // from the month your records start (Settings › Your records) to this month — not from the oldest statement on file
+    const first = dates?.recordsStart.slice(0, 7) ?? statements.map(monthOf).filter(Boolean).sort()[0]
+    if (!first) return null
+    const months: string[] = []
+    for (let [y, m] = first.split('-').map(Number); `${y}-${String(m).padStart(2, '0')}` <= now && months.length < 24; m === 12 ? (y++, m = 1) : m++) months.push(`${y}-${String(m).padStart(2, '0')}`)
     const houses = properties.filter((p) => !demoIds.has(p.id) && p.letting_type !== 'let_only')
+    // a statement counts for every month its period covers (e.g. one for March–April)
+    const covers = (st: StatementRow, month: string) => {
+      const a = String(st.period_start || st.statement_date || '').slice(0, 7)
+      const pe = String(st.period_end || '')
+      // a period ending on the 1st ("1 April – 1 May") doesn't cover that last month
+      let b = pe.slice(0, 7) || a
+      if (pe.slice(8, 10) === '01' && b > a) { const [y, m] = b.split('-').map(Number); b = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
+      return !!a && month >= a && month <= b
+    }
     const cell = (pid: string, month: string) => statements.filter((st) => st.property_id === pid && monthOf(st) === month)
+    const covered = (pid: string, month: string) => statements.some((st) => st.property_id === pid && covers(st, month))
     const monthEnd = (m: string) => { const [y, mm] = m.split('-').map(Number); return new Date(Date.UTC(y, mm, 0)).toISOString().slice(0, 10) }
     const tenanted = (pid: string, month: string) => lets.some((t) => t.property_id === pid && !t.let_cancelled_at && !!t.start_date && t.start_date <= monthEnd(month) && (!t.end_date || t.end_date >= `${month}-01`))
-    return { months, houses, cell, tenanted }
-  }, [statements, properties, demoIds, lets])
+    const due = (month: string) => dates ? statementDue(month, dates, now) : 'upload'
+    // what's still to do: per house, the months with tenants and no statement — to upload (before CROS collected) or prepare
+    const todo = houses.map((h) => ({
+      house: h,
+      upload: months.filter((m) => due(m) === 'upload' && tenanted(h.id, m) && !covered(h.id, m)),
+      prepare: months.filter((m) => due(m) === 'prepare' && tenanted(h.id, m) && !covered(h.id, m)),
+    })).filter((t) => t.upload.length || t.prepare.length)
+    return { months, houses, cell, covered, tenanted, due, todo }
+  }, [statements, properties, demoIds, lets, dates])
 
   if (loading) {
     return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href="/admin/accounts" />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
@@ -552,7 +579,18 @@ export default function AdminStatementsPage() {
         {grouped.length === 0 && <p className="mt-sm text-sm text-neutral-500">No statements yet.</p>}
         {coverage && (
           <div className="mt-md rounded-2xl border border-neutral-200 bg-white">
-            <p className="px-md pt-sm text-xs text-neutral-500">What each landlord was paid, month by month. A gap means no statement is on file — months before CROS took over rent are imported from your old system (<Link href="/admin/statements/import" className="font-semibold text-blue-700 hover:underline">Import</Link>).</p>
+            <p className="px-md pt-sm text-xs text-neutral-500">What each landlord was paid, month by month{dates ? `, from ${new Date(dates.recordsStart + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} when your records start (Settings › Your records)` : ''}. <strong>Upload</strong> = a month before CROS collected rent — import the statement from your old system (<Link href="/admin/statements/import" className="font-semibold text-blue-700 hover:underline">Import</Link>). <strong>Prepare</strong> = CROS makes it in the monthly cycle.</p>
+            {coverage.todo.length > 0 && (
+              <div className="mx-md mt-sm rounded-xl border border-amber-200 bg-amber-50 p-md text-sm text-amber-950">
+                <p className="font-bold">{coverage.todo.reduce((n, t) => n + t.upload.length, 0)} statement{coverage.todo.reduce((n, t) => n + t.upload.length, 0) === 1 ? '' : 's'} to upload{coverage.todo.some((t) => t.prepare.length) ? `, ${coverage.todo.reduce((n, t) => n + t.prepare.length, 0)} to prepare` : ''}</p>
+                <ul className="mt-xs space-y-0.5">
+                  {coverage.todo.map((t) => {
+                    const span = (ms: string[]) => ms.length ? (ms.length === 1 ? mon(ms[0]) : `${mon(ms[0])} – ${mon(ms[ms.length - 1])}${ms.length < monthsBetween(ms[0], ms[ms.length - 1]) ? ` (${ms.length} months)` : ''}`) : ''
+                    return <li key={t.house.id}><strong>{t.house.name || t.house.address}</strong>{t.upload.length ? ` — upload ${span(t.upload)}` : ''}{t.prepare.length ? `${t.upload.length ? ';' : ' —'} prepare ${span(t.prepare)}` : ''}</li>
+                  })}
+                </ul>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="mt-xs w-full text-xs">
                 <thead>
@@ -573,9 +611,15 @@ export default function AdminStatementsPage() {
                               <button key={st.id} type="button" title={st.statement_reference}
                                 onClick={() => { setExpandedStatementId(st.id); setTimeout(() => document.getElementById(`st-${st.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50) }}
                                 className="block w-full text-right font-semibold text-green-800 hover:underline">£{Number(st.net_to_landlord).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
-                            )) : coverage.tenanted(h.id, m)
-                              ? <span className="rounded bg-amber-50 px-xs text-amber-800" title="Tenants that month but no statement on file">missing</span>
-                              : <span className="text-neutral-400" title="No tenants on record that month — no statement needed">no tenants</span>}
+                            )) : coverage.covered(h.id, m)
+                              ? <span className="text-green-800" title="Covered by a statement for more than one month">✓</span>
+                              : !coverage.tenanted(h.id, m)
+                              ? <span className="text-neutral-400" title="No tenants on record that month — no statement needed">no tenants</span>
+                              : coverage.due(m) === 'current'
+                              ? <span className="text-neutral-400" title="This month — the statement comes once it’s over">this month</span>
+                              : coverage.due(m) === 'prepare'
+                              ? <span className="rounded bg-blue-50 px-xs text-blue-800" title="Tenants that month — CROS prepares this statement in the monthly cycle">prepare</span>
+                              : <span className="rounded bg-amber-50 px-xs text-amber-800" title="Tenants that month and no statement on file — import it from your old system">upload</span>}
                           </td>
                         )
                       })}

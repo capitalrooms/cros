@@ -177,6 +177,9 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* ── Your records: the two set-up dates (lib/finance/dates; 14 Oct 2026) ── */}
+        <RecordsDates onSaved={(text) => { setBanner({ type: 'ok', text }); loadSettings() }} onError={(text) => setBanner({ type: 'err', text })} />
+
         {/* ── Rent ── */}
         <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
           <div className="px-lg py-md border-b border-neutral-100">
@@ -245,3 +248,55 @@ export default function AdminSettingsPage() {
     </div>
   )
 }
+
+// Your records — when the books start in CROS, and when CROS starts collecting rent. Chosen once when an agency starts.
+function RecordsDates({ onSaved, onError }: { onSaved: (t: string) => void; onError: (t: string) => void }) {
+  const [d, setD] = useState<{ recordsStart: string; ledgerStart: string } | null>(null)
+  const [records, setRecords] = useState('')
+  const [ledger, setLedger] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    fetch('/api/admin/finance-dates').then(r => r.json()).then(j => { if (j.recordsStart) { setD(j); setRecords(j.recordsStart.slice(0, 7)); setLedger(j.ledgerStart.slice(0, 7)) } }).catch(() => null)
+  }, [])
+  if (!d) return null
+  const long = (m: string) => new Date(`${m}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+  const changed = records !== d.recordsStart.slice(0, 7) || ledger !== d.ledgerStart.slice(0, 7)
+  const bad = !!records && !!ledger && records > ledger
+  async function save() {
+    if (ledger !== d!.ledgerStart.slice(0, 7) && !confirm(`Change when CROS starts collecting rent to ${long(ledger)}? Arrears, bank matching and the client account will count from then.`)) return
+    setBusy(true)
+    try {
+      const r = await fetch('/api/admin/finance-dates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recordsStart: `${records}-01`, ledgerStart: `${ledger}-01` }) })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(j.error || 'Not saved')
+      setD(j); onSaved(`Saved — your records start ${long(records)}; CROS collects rent from ${long(ledger)}.`)
+    } catch (e: any) { onError(e.message) } finally { setBusy(false) }
+  }
+  const input = 'rounded-xl border border-neutral-300 bg-white px-md py-sm text-base sm:text-sm text-neutral-900'
+  return (
+    <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">
+      <div className="px-lg py-md border-b border-neutral-100">
+        <h2 className="font-bold text-neutral-900 text-base">Your records</h2>
+        <p className="text-xs text-neutral-500 mt-xs">Set once, when you start using CROS. Tenancies can begin long before either date — you only need statements and rent records from these months on.</p>
+      </div>
+      <div className="px-lg py-lg grid gap-lg md:grid-cols-2">
+        <label className="flex flex-col gap-xs">
+          <span className="text-sm font-semibold text-neutral-900">Your records start</span>
+          <span className="text-xs text-neutral-500">The first month you keep the books in CROS. Landlord statements are expected from this month. Months before it aren’t needed.</span>
+          <input type="month" className={input} value={records} max={ledger || undefined} onChange={e => setRecords(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-xs">
+          <span className="text-sm font-semibold text-neutral-900">CROS collects rent from</span>
+          <span className="text-xs text-neutral-500">The month CROS takes over collecting rent. Before it, upload the statements from your old system; from it, CROS prepares them, and arrears and bank matching start.</span>
+          <input type="month" className={input} value={ledger} min={records || undefined} onChange={e => setLedger(e.target.value)} />
+        </label>
+      </div>
+      <div className="px-lg pb-lg flex flex-wrap items-center gap-md">
+        <button type="button" onClick={save} disabled={!changed || bad || busy} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-semibold text-white disabled:opacity-40">{busy ? 'Saving…' : 'Save dates'}</button>
+        {bad ? <span className="text-xs text-red-700">Your records can’t start after CROS starts collecting rent.</span>
+          : <span className="text-xs text-neutral-500">Statements to upload: {long(records)} – {ledger > records ? long(new Date(Date.UTC(+ledger.slice(0, 4), +ledger.slice(5, 7) - 2, 1)).toISOString().slice(0, 7)) : '—'}. See Finance › Statements.</span>}
+      </div>
+    </div>
+  )
+}
+
