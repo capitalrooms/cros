@@ -11,6 +11,8 @@ import RoleGreeting from '@/app/components/RoleGreeting'
 import BackButton from '@/app/components/BackButton'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
 import PropertyFinancialSummary from '@/app/components/PropertyFinancialSummary'
+import SharedPlanner from '@/components/SharedPlanner'
+import { landlordSections, type LandlordSection } from '@/lib/access/landlordSections'
 
 // Notification categories the landlord can self-manage
 const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
@@ -55,6 +57,9 @@ export default function LandlordDashboard() {
   const [showNotifPrefs, setShowNotifPrefs] = useState(false)
   const [viewingAs, setViewingAs]       = useState<{ id: string; name: string; role: string } | null>(null)
   const [portfolioPeriod, setPortfolioPeriod] = useState<'3m' | '6m' | '12m' | 'all'>('12m')
+  // the parts of the app the office has switched on for this landlord (lib/access/landlordSections, 14 Oct 2026)
+  const [sections, setSections] = useState<LandlordSection[]>([])
+  const [boardId, setBoardId] = useState<string | null>(null)
 
   const searchParams = useSearchParams()
 
@@ -106,8 +111,19 @@ export default function LandlordDashboard() {
 
       // Load notification prefs
       if (pid) {
-        const { data: personRow } = await supabase.from('people').select('landlord_comms_enabled').eq('id', pid).single()
+        const { data: personRow } = await supabase.from('people').select('landlord_comms_enabled, access_areas').eq('id', pid).single()
         setCommsEnabled(personRow?.landlord_comms_enabled ?? false)
+        // their planner board with the office: their own (from the planner route), or — viewing as them — looked up
+        let board: string | null = null
+        if (asParam && isAdmin) {
+          const { data: b } = await supabase.from('planner_shared_boards').select('id').eq('member_person_id', pid).is('archived_at', null).maybeSingle()
+          board = (b as any)?.id ?? null
+        } else {
+          const d = await fetch('/api/planner/shared').then(r => (r.ok ? r.json() : null)).catch(() => null)
+          board = d?.board?.id ?? null
+        }
+        setBoardId(board)
+        setSections(landlordSections((personRow as any)?.access_areas, !!board))
 
         const { data: prefsData } = await supabase
           .from('landlord_notification_prefs').select('category, enabled').eq('person_id', pid)
@@ -197,7 +213,26 @@ export default function LandlordDashboard() {
       />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
-        <RoleGreeting role="Landlord Dashboard" name={name} subtitle="Financial summaries for your properties." />
+        <RoleGreeting role="Landlord Dashboard" name={name}
+          subtitle={sections.includes('statements') ? 'Financial summaries for your properties.' : sections.includes('planner') ? 'Your shared planner with Capital Rooms — add notes, jobs, photos and links, and reply to ours.' : 'Welcome to Capital Rooms.'} />
+
+        {/* Shared planner with the office — both sides add and edit */}
+        {sections.includes('planner') && (
+          <div className="mb-2xl">
+            {viewingAs ? (
+              <div className="rounded-2xl border border-neutral-200 bg-white px-lg py-lg text-sm text-neutral-600">
+                {name} sees your shared planner here.{' '}
+                {boardId ? <a className="font-semibold text-blue-600 hover:underline" href={`/admin/planner/shared?board=${boardId}`}>Open the board →</a> : 'No board yet — switch the planner on from their profile.'}
+              </div>
+            ) : boardId ? (
+              <SharedPlanner mode="member" />
+            ) : (
+              <div className="rounded-2xl border border-neutral-200 bg-white px-lg py-lg text-sm text-neutral-600">Your planner with Capital Rooms will appear here shortly.</div>
+            )}
+          </div>
+        )}
+
+        {sections.includes('statements') && (<>
 
         {/* Portfolio summary */}
         {statements.length > 0 && (
@@ -276,8 +311,10 @@ export default function LandlordDashboard() {
           )
         }
 
+        </>)}
+
         {/* ─── Notification Preferences ─── */}
-        {commsEnabled && (
+        {commsEnabled && sections.includes('notifications') && (
           <div className="mt-3xl">
             <button
               onClick={() => setShowNotifPrefs(v => !v)}

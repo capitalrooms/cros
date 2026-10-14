@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
+import { landlordSections } from '@/lib/access/landlordSections'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import SignOutButton from '@/app/components/SignOutButton'
@@ -67,6 +68,11 @@ export default function StatementDetail() {
       const statementId = params.statementId as string
       // Admin can view any statement; landlord is scoped to their own
       const landlordId = isAdmin ? undefined : (data.assignment as any)?.id
+      // statements only once the office has switched them on for this landlord (lib/access/landlordSections)
+      if (landlordId) {
+        const { data: me } = await supabase.from('people').select('access_areas').eq('id', landlordId).maybeSingle()
+        if (!landlordSections((me as any)?.access_areas).includes('statements')) { router.replace('/landlord'); return }
+      }
 
       // Get statement — admin not filtered by landlord_id
       const query = supabase
