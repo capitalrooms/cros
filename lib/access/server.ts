@@ -2,7 +2,7 @@
 // (every /api/admin request) and lib/adminAuth.requireAdmin, so both decide the same way (lib/access/areas).
 // A short in-memory memo per sign-in token saves a lookup on every request a page makes in quick succession.
 import { createClient } from '@supabase/supabase-js'
-import { secondStepMissing } from '@/lib/auth/aal'
+import { secondStepMissing, administratorWithoutTwoStep } from '@/lib/auth/aal'
 import { areasFor, isOfficeRole, type AreaKey } from '@/lib/access/areas'
 
 export interface OfficeCaller { email: string; personId: string; role: string; areas: AreaKey[] }
@@ -20,7 +20,7 @@ export async function officeCaller(token: string | null | undefined): Promise<Of
   const { data: { user } } = await svc.auth.getUser(token)
   if (user?.email && !secondStepMissing(user, token)) {
     const { data: p } = await svc.from('people').select('id, role, access_areas').ilike('email', user.email).order('created_at').limit(1).maybeSingle()
-    if (p && isOfficeRole(p.role)) who = { email: user.email, personId: p.id, role: p.role, areas: areasFor(p.role, p.access_areas) }
+    if (p && isOfficeRole(p.role) && !administratorWithoutTwoStep(p.role, user)) who = { email: user.email, personId: p.id, role: p.role, areas: areasFor(p.role, p.access_areas) }
   }
   if (memo.size > 500) memo.clear()
   memo.set(token, { at: Date.now(), who })

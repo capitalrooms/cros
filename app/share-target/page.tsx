@@ -40,7 +40,10 @@ export default function ShareTargetPage() {
   )
   const [saving, setSaving]          = useState(false)
   const [saved, setSaved]            = useState(false)
-  const [error, setError]            = useState('')
+  const shareProblem = searchParams.get('error')
+  const [error, setError]            = useState(
+    shareProblem === 'signin' ? 'Open CROS on this phone and sign in once, then share again — files can only be shared from a signed-in phone.'
+      : shareProblem === 'type' ? 'Only photos and PDFs up to 15 MB can be shared into CROS.' : '')
   const [userRole, setUserRole]      = useState('')
 
   useEffect(() => {

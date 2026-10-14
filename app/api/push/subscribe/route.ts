@@ -2,7 +2,6 @@ import { NextResponse, NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { logAudit, getClientIp } from '@/lib/auditLog'
-import { validateEmail, validateUUID } from '@/lib/validation'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -31,17 +30,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { endpoint, p256dh, auth: authKey, personId, email: bodyEmail, role } = await req.json()
-    if (!endpoint || !p256dh || !authKey) {
+    // Who the device belongs to comes ONLY from the signed-in caller's own record — never from the request body.
+    // (Before 14 Oct 2026 the body's personId / email / role were trusted, so any signed-in user could register a
+    // device as an administrator and receive office notifications, or as another person and receive theirs.)
+    const { endpoint, p256dh, auth: authKey } = await req.json()
+    if (!endpoint || !p256dh || !authKey || typeof endpoint !== 'string' || !/^https:\/\//.test(endpoint)) {
       return NextResponse.json({ error: 'Missing subscription fields' }, { status: 400 })
-    }
-
-    if (personId && !validateUUID(personId)) {
-      return NextResponse.json({ error: 'Invalid personId format' }, { status: 400 })
-    }
-
-    if (bodyEmail && !validateEmail(bodyEmail)) {
-      return NextResponse.json({ error: 'Invalid email format' }, { status: 400 })
     }
 
     // Use service role to bypass RLS for upsert
@@ -50,10 +44,12 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     )
+    const { data: me } = await supabase.from('people').select('id, email, role').ilike('email', email).order('created_at').limit(1).maybeSingle()
+    if (!me) return NextResponse.json({ error: 'No account found for you' }, { status: 403 })
     const { error: dbErr } = await supabase
       .from('push_subscriptions')
       .upsert(
-        { endpoint, p256dh, auth: authKey, person_id: personId ?? null, email: bodyEmail ?? email, role: role ?? null },
+        { endpoint, p256dh, auth: authKey, person_id: me.id, email: me.email, role: me.role ?? null },
         { onConflict: 'endpoint' }
       )
     if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })

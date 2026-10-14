@@ -45,9 +45,16 @@ function ProfileMenu() {
       if (!email) return
       // two-step sign-in set up but the code not entered: the server refuses everything, so go and enter it
       if (await needsTwoStep(sb)) { router.replace('/account'); return }
+      // this device's "Share to CROS" key (lib/shareKey) — lets the phone's share sheet send files in
+      if (data.session?.access_token) fetch('/api/auth/share-key', { method: 'POST', headers: { Authorization: `Bearer ${data.session.access_token}` } }).catch(() => {})
       const { data: p } = await sb.from('people').select('salutation, first_name, role').ilike('email', email).order('created_at').limit(1).maybeSingle()
       if (p?.first_name) { setFirst(p.first_name); setInitial(p.first_name[0].toUpperCase()) }
       setIsAdmin(isAdministrator((p as any)?.role))
+      // administrators must have two-step sign-in (lib/auth/aal — the server refuses them until it's set up)
+      if (isAdministrator((p as any)?.role)) {
+        const { data: f } = await sb.auth.mfa.listFactors()
+        if (!(f?.totp ?? []).some(x => x.status === 'verified')) router.replace('/account?setup=two-step')
+      }
     })
   }, [router])
 
