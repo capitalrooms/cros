@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { oneLine } from '@/lib/lettings/letWording'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { createServerClient } from '@/lib/supabase'
@@ -55,16 +56,17 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
   const payRef = holdingDepositRef(property?.name || property?.address || null, room?.name || null)
   const firstName = applicant.full_name?.split(' ')[0] || 'there'
   const roomName = room?.name || 'the room'
-  const propAddress = property?.address || property?.name || ''
+  const propAddress = oneLine(property?.address || property?.name)
+  const whole = !!ctx?.whole   // a whole house or flat — property words (lib/lettings/letWording)
   const reserveUrl = `${APP_URL}/applicant/reserve?roomId=${applicant.room_id}&propertyId=${applicant.property_id}&a=${applicant.id}`
 
   // the same "search is over" email as Send Offer Letter — one version everywhere
   const html = await buildSearchIsOverEmail({
     applicantName: firstName, roomName, propertyAddress: propAddress, propertyCity: 'London',
-    advertisedRent: Number(monthly), applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef,
+    advertisedRent: Number(monthly), applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef, whole,
   }, request)
 
-  const subject = `Your offer has been accepted — secure ${roomName} now`
+  const subject = oneLine(`Your offer has been accepted — secure ${whole ? 'the property' : roomName} now`)
 
   // Send email
   const apiKey = process.env.RESEND_API_KEY

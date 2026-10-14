@@ -5,11 +5,13 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import PublicShell from '@/components/public/PublicShell'
+import { isWholeLet, letWords, oneLine } from '@/lib/lettings/letWording'
 
-const NEXT_STEPS = [
-  { title: 'Application review', body: 'We’ll look over your application to make sure you’re a good fit for the house. This usually takes 1–2 working days.' },
-  { title: 'Your offer', body: 'If you’re successful, we’ll email you an offer with a link to reserve the room.' },
-  { title: 'Holding deposit', body: 'Lock it down! Pay one week’s rent as a holding deposit by bank transfer and we’ll take the room off the market for you.' },
+// a whole house or flat gets property words (lib/lettings/letWording)
+const nextSteps = (whole: boolean) => [
+  { title: 'Application review', body: `We’ll look over your application to make sure you’re a good fit for ${whole ? 'the property' : 'the house'}. This usually takes 1–2 working days.` },
+  { title: 'Your offer', body: `If you’re successful, we’ll email you an offer with a link to reserve ${letWords(whole).theUnit}.` },
+  { title: 'Holding deposit', body: `Lock it down! Pay one week’s rent as a holding deposit by bank transfer and we’ll take ${letWords(whole).theUnit} off the market for you.` },
   { title: 'Referencing', body: 'You’ll get an email to start your referencing online through Homeppl — they have a handy online chat if you have questions.' },
   { title: 'Signing & getting the keys', body: 'Passed the checks? We’ll email the tenancy pack to review, then an Adobe Sign email to sign. On move-in day, meet us at the property for the grand tour and key handover.' },
 ]
@@ -66,7 +68,9 @@ export default function ReviewPage() {
   const room = applicant.rooms
   const first = applicant.first_name || String(applicant.full_name || '').split(' ')[0] || ''
   const canReopen = ['invited', 'applied'].includes(applicant.pipeline_stage) && applicant.room_id && applicant.property_id
-  const where = [room?.name, property?.name].filter(Boolean).join(' · ')
+  const whole = isWholeLet(property?.property_type, room?.name)
+  const NEXT_STEPS = nextSteps(whole)
+  const where = whole ? oneLine(property?.address || property?.name) : [room?.name, oneLine(property?.name)].filter(Boolean).join(' · ')
 
   function reopen() {
     // the form loads the answers with this email, so nobody else can open them from the link alone

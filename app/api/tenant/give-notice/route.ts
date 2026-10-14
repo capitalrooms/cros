@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/serverAuth'
 import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFields } from '@/lib/email/sender'
+import { oneLine } from '@/lib/lettings/letWording'
 
 /** POST — tenant submits standard notice via portal
  *  Body: { tenancyId, personId, intendedMoveOutDate }
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         ...(await senderFields()),
         to: adminEmail,
-        subject: `Notice given — ${roomName}, ${propertyAddress}`,
+        subject: oneLine(`Notice given — ${roomName}, ${propertyAddress}`),
         html: await buildEmail(notifyBody),
       }),
     }).catch(e => console.error('Admin notify failed:', e))

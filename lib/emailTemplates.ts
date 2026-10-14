@@ -8,6 +8,7 @@
  */
 
 import { buildEmail } from '@/lib/emailWrapper'
+import { letWords, oneLine } from '@/lib/lettings/letWording'
 
 export { FROM } from '@/lib/emailWrapper'
 
@@ -22,6 +23,15 @@ interface OfferEmailContext {
   holdingDeposit: number
   /** the holding-deposit payment reference for this room (lib/offers/holdingRef) */
   holdingRef?: string
+  /** a whole house or flat (single let) — same email, property words instead of room words (lib/lettings/letWording) */
+  whole?: boolean
+}
+
+/** The place, one line per part: room name (rooms only), address, city (when the address doesn't already end in it). */
+function placeLines(c: OfferEmailContext): string {
+  const addr = oneLine(c.propertyAddress)
+  const city = c.propertyCity && !addr.toLowerCase().includes(c.propertyCity.toLowerCase()) ? c.propertyCity : ''
+  return [c.whole ? '' : c.roomName, addr, city].filter(Boolean).join('<br>')
 }
 
 /**
@@ -29,27 +39,26 @@ interface OfferEmailContext {
  */
 export async function buildOfferLetterEmail(context: OfferEmailContext, req?: Request | null): Promise<string> {
   const greeting = context.applicantName ? `Hi ${context.applicantName},` : 'Dear Applicant,'
+  const w = letWords(!!context.whole)
 
   const inner = `
     <h1 style="font-size:26px;font-weight:700;color:#86284a;margin:0 0 20px;text-align:center;">We'd like to make you an offer!</h1>
 
     <p>${greeting}</p>
 
-    <p>Thank you for your interest in our rooms at:</p>
+    <p>Thank you for your interest in ${w.ourUnits === 'our rooms' ? 'our rooms at' : 'the property at'}:</p>
 
     <p style="font-weight:600;color:#1c1917;font-size:15px;">
-      ${context.roomName}<br>
-      ${context.propertyAddress}<br>
-      ${context.propertyCity}
+      ${placeLines(context)}
     </p>
 
-    <p>We think you'd be a great fit for this room and would like to invite you to apply.</p>
+    <p>We think you'd be a great fit for ${w.thisUnit} and would like to invite you to apply.</p>
 
-    <h2 style="font-size:18px;font-weight:700;color:#86284a;margin:24px 0 14px;">Room Details</h2>
+    <h2 style="font-size:18px;font-weight:700;color:#86284a;margin:24px 0 14px;">${w.details.replace('details', 'Details')}</h2>
     <table style="width:100%;border-collapse:collapse;margin:0 0 20px;font-size:14px;">
       <tr style="border-bottom:1px solid #e7e5e4;">
         <td style="padding:12px 0;color:#78716c;width:120px;font-weight:600;">Rent</td>
-        <td style="padding:12px 0;font-weight:600;">£${context.advertisedRent.toFixed(2)}/month (all bills included)</td>
+        <td style="padding:12px 0;font-weight:600;">£${context.advertisedRent.toFixed(2)}/month${w.bills}</td>
       </tr>
       <tr style="border-bottom:1px solid #e7e5e4;">
         <td style="padding:12px 0;color:#78716c;font-weight:600;">Minimum Term</td>
@@ -82,6 +91,7 @@ export async function buildOfferLetterEmail(context: OfferEmailContext, req?: Re
  */
 export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: Request | null): Promise<string> {
   const greeting = context.applicantName ? `Hi ${context.applicantName},` : 'Dear Applicant,'
+  const w = letWords(!!context.whole)
 
   const inner = `
     <h1 style="font-size:30px;font-weight:700;color:#86284a;margin:0 0 8px;text-align:center;">THE SEARCH IS OVER!</h1>
@@ -90,24 +100,22 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: R
 
     <p>${greeting}</p>
 
-    <p>Thank you for your interest in our rooms at:</p>
+    <p>Thank you for your interest in ${w.ourUnits === 'our rooms' ? 'our rooms at' : 'the property at'}:</p>
 
     <p style="font-weight:600;color:#1c1917;font-size:15px;margin:16px 0;">
-      ${context.roomName}<br>
-      ${context.propertyAddress}<br>
-      ${context.propertyCity}
+      ${placeLines(context)}
     </p>
 
     <div style="background:#f3f1ef;padding:16px;border-radius:8px;margin:20px 0;border-left:4px solid #86284a;">
-      <p style="margin:0;font-weight:700;color:#86284a;">We're pleased to confirm this room is yours!</p>
+      <p style="margin:0;font-weight:700;color:#86284a;">We're pleased to confirm ${w.thisUnit} is yours!</p>
       <p style="margin:8px 0 0;font-size:13px;">To secure it, we just need a holding deposit from you.</p>
     </div>
 
-    <h2 style="font-size:18px;font-weight:700;color:#86284a;margin:24px 0 14px;">Room Details</h2>
+    <h2 style="font-size:18px;font-weight:700;color:#86284a;margin:24px 0 14px;">${w.details.replace('details', 'Details')}</h2>
     <table style="width:100%;border-collapse:collapse;margin:0 0 20px;font-size:14px;">
       <tr style="border-bottom:1px solid #e7e5e4;">
         <td style="padding:12px 0;color:#78716c;width:120px;font-weight:600;">Rent</td>
-        <td style="padding:12px 0;font-weight:600;">£${context.advertisedRent.toFixed(2)}/month (all bills included)</td>
+        <td style="padding:12px 0;font-weight:600;">£${context.advertisedRent.toFixed(2)}/month${w.bills}</td>
       </tr>
       <tr style="border-bottom:1px solid #e7e5e4;">
         <td style="padding:12px 0;color:#78716c;font-weight:600;">Minimum Term</td>
@@ -119,7 +127,7 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: R
       </tr>
     </table>
 
-    <h2 style="font-size:18px;font-weight:700;color:#86284a;margin:24px 0 14px;">How to Secure Your Room 🏦</h2>
+    <h2 style="font-size:18px;font-weight:700;color:#86284a;margin:24px 0 14px;">How to Secure ${context.whole ? 'Your New Home' : 'Your Room'} 🏦</h2>
 
     <p>The holding deposit is <span style="color:#dc2626;font-weight:700;">one week's rent (£${context.holdingDeposit.toFixed(2)})</span> and is <strong>not an extra fee</strong> — it will be deducted from your final balance.</p>
 
@@ -149,7 +157,7 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: R
     <p style="font-size:12px;color:#78716c;text-align:center;margin-top:12px;">Don't forget: you'll also need to fill out your full application details using the link above.</p>
 
     <p style="background:#fef3c7;padding:12px;border-radius:6px;margin:20px 0;font-size:13px;border-left:4px solid #f59e0b;">
-      <strong>⏰ Act quickly!</strong> We'd appreciate receiving your deposit within 48 hours to secure the room. This link expires in 30 days.
+      <strong>⏰ Act quickly!</strong> We'd appreciate receiving your deposit within 48 hours to secure ${w.theUnit}. This link expires in 30 days.
     </p>
 
     <p style="margin-top:28px;margin-bottom:8px;">Should you have any questions, we're here to help:</p>

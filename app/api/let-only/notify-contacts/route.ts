@@ -24,6 +24,7 @@ import { getTemplate, render } from '@/lib/messageTemplate'
 import { senderFields, senderFor } from '@/lib/email/sender'
 import { requireStaff } from '@/lib/portalAuth'
 import { getCommsLive, getElectedCommsLive } from '@/lib/comms'
+import { oneLine } from '@/lib/lettings/letWording'
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 
@@ -62,10 +63,10 @@ function buildEmailBody(params: {
   let intro = ''
 
   if (event === 'booked') {
-    subject = `Viewing booked — ${address}`
+    subject = oneLine(`Viewing booked — ${address}`)
     intro = `A viewing has been booked at your property${roomStr} on <strong>${dateStr} at ${timeStr}</strong>.`
   } else if (event === 'rescheduled') {
-    subject = `Viewing rescheduled — ${address}`
+    subject = oneLine(`Viewing rescheduled — ${address}`)
     intro = `A viewing at your property${roomStr} has been rescheduled to <strong>${dateStr} at ${timeStr}</strong>.`
   } else {
     subject = `Viewing cancelled — ${address}`

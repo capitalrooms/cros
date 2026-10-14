@@ -4,7 +4,6 @@ import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/compone
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
@@ -38,23 +37,23 @@ export default function InviteToApplyPage() {
     [manual.property_id, rooms]
   )
 
+  const [loadError, setLoadError] = useState('')
   useEffect(() => {
-    const load = async () => {
-      const since = new Date()
-      since.setDate(since.getDate() - 60)
-      const [viewingsRes, propertiesRes, roomsRes] = await Promise.all([
-        supabase
-          .from('viewings')
-          .select('id, visitor_name, visitor_email, visitor_phone, viewing_date, viewing_slot, room_id, property_id, rooms(name, is_let_only), properties(name, address)')
-          .gte('viewing_date', since.toISOString().split('T')[0])
-          .order('viewing_date', { ascending: false }),
-        supabase.from('properties').select('id, name, address'),
-        supabase.from('rooms').select('id, name, property_id, is_let_only, current_asking_rent').order('name'),
-      ])
-      const loadedViewings = viewingsRes.data || []
+    // the lists come from the server (/api/lettings/invite-to-apply GET) — reading the database from the page gave an
+    // empty property list on a phone whose sign-in hadn't woken up yet (14 Oct 2026)
+    const load = async (attempt = 1): Promise<void> => {
+      const res = await fetch('/api/lettings/invite-to-apply').catch(() => null)
+      const d = await res?.json().catch(() => null)
+      if (!res?.ok || !d?.properties) {
+        if (attempt < 3) { await new Promise(r => setTimeout(r, 800 * attempt)); return load(attempt + 1) }
+        setLoadError(d?.error || 'The properties didn’t load. Check your connection, then pull down to refresh.')
+        setLoading(false); return
+      }
+      setLoadError('')
+      const loadedViewings = d.viewings || []
       setViewings(loadedViewings)
-      setProperties(sortPropertiesNumerically(propertiesRes.data || []))
-      setRooms(roomsRes.data || [])
+      setProperties(d.properties || [])
+      setRooms(d.rooms || [])
       // Auto-select if navigated here with ?viewingId=
       if (preselectedViewingId) {
         const match = loadedViewings.find((v: any) => v.id === preselectedViewingId)
@@ -76,6 +75,8 @@ export default function InviteToApplyPage() {
     setManualMode(true)
     setResult(null)
   }
+
+  const wholeChosen = !!manual.property_id && !!properties.find(p => p.id === manual.property_id)?.whole
 
   const contactEmail = manualMode ? manual.email : selected?.visitor_email
   const contactPhone = manualMode ? manual.phone : selected?.visitor_phone
@@ -130,6 +131,7 @@ export default function InviteToApplyPage() {
       <PageHero title="Invite to Apply" subtitle="Send a personalised application link by email or text after a viewing" />
       <div className="mx-auto max-w-6xl py-xl px-lg">
 
+        {loadError && <p className="mb-lg rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-800">{loadError}</p>}
         {/* Step 1 — Pick a viewing or enter manually */}
         <div className="bg-white rounded-xl border border-neutral-200 p-lg mb-lg">
           <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-md">
@@ -142,7 +144,7 @@ export default function InviteToApplyPage() {
           ) : (
             <div className="space-y-sm max-h-72 overflow-y-auto pr-xs">
               {viewings.map((v) => {
-                const room = (v.rooms as any)?.name || 'Room'
+                const room = (v.properties as any)?.whole ? 'Whole property' : (v.rooms as any)?.name || 'Room'
                 const isLetOnly = (v.rooms as any)?.is_let_only
                 const prop = (v.properties as any)?.address || (v.properties as any)?.name || ''
                 const isSelected = !manualMode && selected?.id === v.id
@@ -199,8 +201,8 @@ export default function InviteToApplyPage() {
           {/* Manual entry form */}
           {manualMode && (
             <div className="mt-md space-y-sm border border-neutral-200 rounded-lg p-md bg-neutral-50">
-              <div className="grid grid-cols-2 gap-sm">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
+                <div className="sm:col-span-2">
                   <NameInput value={manualNm} required titleRequired
                     onChange={n => { setManualNm(n); setManual(m => ({ ...m, name: toLegalName(n) })) }}
                     inputClass="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
@@ -215,7 +217,7 @@ export default function InviteToApplyPage() {
                     value={manual.email}
                     onChange={e => setManual(m => ({ ...m, email: e.target.value }))}
                     placeholder="e.g. sarah@email.com"
-                    className="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
+                    className="w-full text-base sm:text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
                   />
                 </div>
                 <div>
@@ -227,23 +229,34 @@ export default function InviteToApplyPage() {
                     value={manual.phone}
                     onChange={e => setManual(m => ({ ...m, phone: e.target.value }))}
                     placeholder="e.g. 07700 900000"
-                    className="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
+                    className="w-full text-base sm:text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
                   />
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <label className="text-xs font-medium text-neutral-600 block mb-xs">Property *</label>
                   <select
                     value={manual.property_id}
-                    onChange={e => setManual(m => ({ ...m, property_id: e.target.value, room_id: '' }))}
-                    className="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
+                    onChange={e => {
+                      const pid = e.target.value
+                      const own = rooms.filter(r => r.property_id === pid)
+                      // a whole house or flat has one unit — pick it, there's nothing to choose
+                      const auto = properties.find(p => p.id === pid)?.whole && own.length === 1 ? own[0].id : ''
+                      setManual(m => ({ ...m, property_id: pid, room_id: auto }))
+                    }}
+                    className="w-full text-base sm:text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white"
                   >
                     <option value="">Select property…</option>
                     {properties.map(p => (
-                      <option key={p.id} value={p.id}>{p.name || p.address}</option>
+                      <option key={p.id} value={p.id}>{p.name || p.address}{p.whole ? ' — whole property' : ''}</option>
                     ))}
                   </select>
                 </div>
               </div>
+              {wholeChosen ? (
+                <p className="rounded-lg border border-neutral-200 bg-white px-sm py-xs text-sm text-neutral-700">
+                  Whole property{filteredRooms[0]?.current_asking_rent ? ` · £${filteredRooms[0].current_asking_rent}/mo` : ''} — the invite and their application use property wording, not room wording.
+                </p>
+              ) : (
               <div>
                 <label className="text-xs font-medium text-neutral-600 block mb-xs">
                   Room *
@@ -253,7 +266,7 @@ export default function InviteToApplyPage() {
                   value={manual.room_id}
                   onChange={e => setManual(m => ({ ...m, room_id: e.target.value }))}
                   disabled={!manual.property_id}
-                  className="w-full text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full text-base sm:text-sm border border-neutral-300 rounded-lg px-sm py-xs focus:outline-none focus:border-neutral-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Select room…</option>
                   {filteredRooms.map(r => (
@@ -262,8 +275,10 @@ export default function InviteToApplyPage() {
                     </option>
                   ))}
                 </select>
+                {manual.property_id && !filteredRooms.length && <p className="mt-xs text-xs text-amber-700">This property has no rooms set up yet — add them on the property first.</p>}
               </div>
-              <p className="text-xs text-neutral-400">* Name, room, and at least email or phone are required</p>
+              )}
+              <p className="text-xs text-neutral-400">* Name, {wholeChosen ? 'property' : 'room'}, and at least email or phone are required</p>
             </div>
           )}
         </div>
@@ -274,7 +289,7 @@ export default function InviteToApplyPage() {
             <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-md">
               2 · What to send
             </h2>
-            <div className="grid grid-cols-3 gap-md mb-lg">
+            <div className="grid grid-cols-1 gap-md mb-lg sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setMode('apply')}
