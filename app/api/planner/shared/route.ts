@@ -16,6 +16,7 @@ import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { loadPrivateBoards, importItems } from '@/lib/planner/importBoard'
+import { shortAddress } from '@/lib/lettings/letWording'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -61,7 +62,7 @@ async function loadBoard(s: S, board: any) {
   const photo = (p: string) => ({ path: p, url: urls.get(p) ?? null })
   return (entries ?? []).map(e => ({
     id: e.id, title: e.title, body: e.body, status: e.status, dueDate: e.due_date, createdAt: e.created_at, doneAt: e.done_at,
-    property: e.properties?.name ? String(e.properties.name).split('\n')[0] : null, propertyId: e.property_id,
+    property: e.properties?.name ? shortAddress(e.properties.name) : null, propertyId: e.property_id,
     author: name(e.people), links: e.links ?? [], photos: (e.photos ?? []).map(photo),
     replies: (replies ?? []).filter(r => r.entry_id === e.id).map(r => ({
       id: r.id, body: r.body, author: name(r.people), mine: false, authorId: r.author_id, createdAt: r.created_at, links: r.links ?? [], photos: (r.photos ?? []).map(photo),
@@ -107,12 +108,19 @@ export async function GET(req: NextRequest) {
       // staff first (cleaners, contractors, lettings), then landlords; properties in address order
       people: ((people ?? []) as any[]).map(p => ({ id: p.id, name: name(p), role: p.role }))
         .sort((a, b) => (a.role === 'landlord' ? 1 : 0) - (b.role === 'landlord' ? 1 : 0) || a.name.localeCompare(b.name)),
-      properties: sortPropertiesNumerically((properties ?? []) as any[]).map((p: any) => ({ id: p.id, name: String(p.name ?? '').split('\n')[0] })),
+      properties: sortPropertiesNumerically((properties ?? []) as any[]).map((p: any) => ({ id: p.id, name: shortAddress(p.name) })),
     })
   }
   const { data: board, error } = await s.from('planner_shared_boards').select('*').eq('member_person_id', caller.personId).is('archived_at', null).maybeSingle() as { data: any; error: any }
   if (error) return NextResponse.json(missing(error) ? { setupNeeded: true, board: null, entries: [] } : { error: error.message }, { status: missing(error) ? 200 : 500 })
-  return NextResponse.json({ office: false, board: board ? { id: board.id, title: board.title } : null, entries: board ? await loadBoard(s, board) : [] })
+  // a landlord can tag an entry with one of their own properties (14 Oct 2026)
+  const { data: mine } = caller.role === 'landlord'
+    ? await s.from('properties').select('id, name, address').eq('landlord_id', caller.personId)
+    : { data: [] as any[] }
+  return NextResponse.json({
+    office: false, board: board ? { id: board.id, title: board.title } : null, entries: board ? await loadBoard(s, board) : [],
+    properties: sortPropertiesNumerically((mine ?? []) as any[]).map((p: any) => ({ id: p.id, name: shortAddress(p.name || p.address) })),
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -174,9 +182,15 @@ export async function POST(req: NextRequest) {
     if (!board) return NextResponse.json({ error: 'Board not found' }, { status: 404 })
     const title = String(b.title ?? '').trim().slice(0, 200)
     if (!title) return NextResponse.json({ error: 'Give it a title' }, { status: 400 })
+    // the office may tag any property; anyone else only one of their own (a landlord's houses)
+    let propertyId: string | null = b.propertyId ? String(b.propertyId) : null
+    if (propertyId && !isOffice(caller)) {
+      const { data: own } = await s.from('properties').select('id').eq('id', propertyId).eq('landlord_id', caller.personId).maybeSingle()
+      if (!own) propertyId = null
+    }
     const { data, error } = await s.from('planner_shared_entries').insert({
       board_id: board.id, title, body: String(b.body ?? '').trim().slice(0, 4000),
-      property_id: b.propertyId || null, due_date: /^\d{4}-\d{2}-\d{2}$/.test(String(b.dueDate ?? '')) ? b.dueDate : null,
+      property_id: propertyId, due_date: /^\d{4}-\d{2}-\d{2}$/.test(String(b.dueDate ?? '')) ? b.dueDate : null,
       links: cleanLinks(b.links), photos: cleanPhotos(b.photos, board.id), created_by: caller.personId,
     }).select('id').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

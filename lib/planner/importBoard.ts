@@ -73,13 +73,15 @@ export async function importItems(s: SupabaseClient, opts: { boardId: string; au
   for (const it of opts.items) {
     const propertyId = propertyFor(it.groupName, plist)
     const date = it.date && it.date !== '—' ? it.date.trim() : ''
-    const line = [it.status !== 'done' ? STATUS[it.status] : '', (it.responsible ?? '').trim(), date].filter(Boolean).join(' · ')
+    const due = dayMonth(date)
+    // a date like "5 Sep" becomes the due date; anything else ("Spring 26", "Nov") stays in the line
+    const line = [it.status !== 'done' ? STATUS[it.status] : '', (it.responsible ?? '').trim(), due ? '' : date].filter(Boolean).join(' · ')
     const { data: e, error } = await s.from('planner_shared_entries').insert({
       board_id: opts.boardId,
       title: (propertyId || !it.groupName ? it.title : `${it.groupName} — ${it.title}`).slice(0, 300),
       body: line,
       property_id: propertyId,
-      due_date: dayMonth(date),
+      due_date: due,
       status: it.status === 'done' ? 'done' : 'open',
       done_at: it.status === 'done' ? new Date().toISOString() : null,
       created_by: opts.authorId,
