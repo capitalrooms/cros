@@ -16,7 +16,9 @@ export function oneLine(s?: string | null): string {
 /** "Room 1, 44 Claverton Street, London" — or just the address for a whole home (never "Whole Property, …"). */
 export function placeLabel(whole: boolean, roomName?: string | null, address?: string | null): string {
   const a = oneLine(address)
-  return whole ? a : [String(roomName ?? '').trim(), a].filter(Boolean).join(', ')
+  const r = String(roomName ?? '').trim()
+  // a let-only room named after its street ("95 Rope Street") would print the address twice
+  return whole || !r || a.toLowerCase().includes(r.toLowerCase()) ? a : `${r}, ${a}`
 }
 
 export interface LetWords {
