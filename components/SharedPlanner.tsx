@@ -15,7 +15,7 @@ interface Entry {
 }
 interface Data {
   office: boolean; setupNeeded?: boolean
-  boards?: { id: string; title: string; member: string; role: string; open: number }[]
+  boards?: { id: string; title: string; member: string; role: string; open: number; personId?: string }[]
   board: { id: string; title: string; member?: string; role?: string } | null
   entries: Entry[]
   people?: { id: string; name: string; role: string }[]
@@ -114,6 +114,7 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
   const [error, setError] = useState('')
   const [showDone, setShowDone] = useState(false)
   const [startWith, setStartWith] = useState('')
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async (id?: string) => {
     const r = await adminFetch(`/api/planner/shared${id ? `?board=${id}` : ''}`)
@@ -161,10 +162,20 @@ export default function SharedPlanner({ mode, initialBoard }: { mode: 'office' |
             </button>
             <p className="text-[11px] text-neutral-500">Landlord boards are for chosen project landlords only.</p>
           </div>
+          <button type="button" onClick={() => setImporting(true)}
+            className="w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-left text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
+            ⇪ Bring in a board from your planner
+            <span className="block text-xs font-normal text-neutral-500">Share what you’ve already written — nothing to retype</span>
+          </button>
         </aside>
       )}
 
       <section className="min-w-0 space-y-md">
+        {mode === 'office' && importing && (
+          <ImportPanel people={data.people ?? []} preselect={data.board?.id ? (data.boards ?? []).find(b => b.id === data.board!.id)?.personId : undefined}
+            post={post} onClose={() => setImporting(false)}
+            onDone={async id => { setImporting(false); setBoardId(id); await load(id) }} />
+        )}
         {!board ? (
           <p className="rounded-2xl border border-neutral-200 bg-white p-lg text-sm text-neutral-600">
             {mode === 'office' ? 'Start a board with someone to share notes, jobs and photo ideas with them.' : 'Nothing shared with you yet — when the office adds something it appears here.'}
@@ -232,5 +243,110 @@ function EntryCard({ e, boardId, post, reload }: { e: Entry; boardId: string; po
           : <button type="button" onClick={() => setReplying(true)} className="text-sm font-semibold text-blue-700 hover:underline">Reply</button>}
       </div>
     </article>
+  )
+}
+
+// ── Bring a board in from the office's own Planner (lib/planner/importBoard) ──────────────────────────────────────
+interface PItem { id: string; groupName: string; title: string; status: string; responsible?: string; date?: string; updates?: { body?: string; images?: string[] }[] }
+interface PBoard { id: string; title: string; subtitle?: string; items: PItem[] }
+const PSTATUS: Record<string, string> = { discuss: 'To discuss', discussed: 'Discussed', progress: 'In progress', done: 'Done', parked: 'Parked' }
+
+function ImportPanel({ people, preselect, post, onClose, onDone }: {
+  people: { id: string; name: string; role: string }[]; preselect?: string
+  post: (b: Record<string, unknown>) => Promise<any>; onClose: () => void; onDone: (boardId: string) => Promise<void>
+}) {
+  const [boards, setBoards] = useState<PBoard[] | null>(null)
+  const [boardId, setBoardId] = useState('')
+  const [personId, setPersonId] = useState(preselect ?? '')
+  const [ticked, setTicked] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    adminFetch('/api/admin/planner').then(r => r.json()).then(d => setBoards((d.boards ?? []) as PBoard[])).catch(() => setErr('Your planner didn’t load'))
+  }, [])
+  const src = boards?.find(b => b.id === boardId) ?? null
+  function pick(id: string) {
+    setBoardId(id)
+    const b = boards?.find(x => x.id === id)
+    setTicked(new Set((b?.items ?? []).map(i => i.id)))
+    // a board named after someone ("Richard") — suggest them
+    if (b && !personId) { const first = b.title.trim().split(/\s+/)[0].toLowerCase(); const hit = people.filter(p => p.name.toLowerCase().split(/\s+/).includes(first)); if (hit.length === 1) setPersonId(hit[0].id) }
+  }
+  const groups = src ? Array.from(new Set(src.items.map(i => i.groupName))) : []
+  const who = people.find(p => p.id === personId)
+  async function go() {
+    if (!src || !personId || !ticked.size) return
+    setBusy(true); setErr('')
+    try {
+      const d = await post({ action: 'import_board', personId, plannerBoardId: src.id, itemIds: [...ticked] })
+      await onDone(d.boardId)
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Not shared') }
+    finally { setBusy(false) }
+  }
+  return (
+    <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg space-y-md">
+      <div className="flex items-start justify-between gap-md">
+        <div>
+          <h2 className="text-lg font-bold text-neutral-900">Bring in a board from your planner</h2>
+          <p className="text-xs text-neutral-500">Everything ticked is copied across — items, notes, links and photos. Your own planner board stays exactly as it is.</p>
+        </div>
+        <button type="button" onClick={onClose} className="text-sm font-semibold text-neutral-500 hover:text-neutral-900">Close</button>
+      </div>
+      {!boards ? <p className="text-sm text-neutral-500">{err || 'Loading your planner…'}</p> : (
+        <div className="grid grid-cols-1 gap-sm sm:grid-cols-2">
+          <select className={input} value={boardId} onChange={e => pick(e.target.value)}>
+            <option value="">Which of your boards?</option>
+            {boards.map(b => <option key={b.id} value={b.id}>{b.title} · {b.items.length} items</option>)}
+          </select>
+          <select className={input} value={personId} onChange={e => setPersonId(e.target.value)}>
+            <option value="">Share with…</option>
+            {people.map(p => <option key={p.id} value={p.id}>{p.name} · {ROLE[p.role] ?? p.role}</option>)}
+          </select>
+        </div>
+      )}
+      {src && (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-sm">
+            <p className="text-sm text-neutral-700"><strong>Untick anything {who ? who.name : 'they'} shouldn’t see</strong> — your notes on each item go across too.</p>
+            <div className="flex gap-sm text-xs font-semibold">
+              <button type="button" className="text-blue-700 hover:underline" onClick={() => setTicked(new Set(src.items.map(i => i.id)))}>Tick all</button>
+              <button type="button" className="text-blue-700 hover:underline" onClick={() => setTicked(new Set())}>Untick all</button>
+            </div>
+          </div>
+          <div className="max-h-[50vh] space-y-md overflow-y-auto rounded-xl border border-neutral-200 p-md">
+            {groups.map(g => (
+              <div key={g}>
+                <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-500">{g}</p>
+                <ul className="space-y-xs">
+                  {src.items.filter(i => i.groupName === g).map(i => {
+                    const on = ticked.has(i.id)
+                    const last = i.updates?.length ? i.updates[i.updates.length - 1].body : ''
+                    return (
+                      <li key={i.id}>
+                        <label className={`flex cursor-pointer gap-sm rounded-lg px-sm py-xs ${on ? 'bg-neutral-50' : 'opacity-50'}`}>
+                          <input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={on}
+                            onChange={() => setTicked(t => { const n = new Set(t); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n })} />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold text-neutral-900">{i.title}</span>
+                            <span className="block text-xs text-neutral-500">{[PSTATUS[i.status] ?? i.status, i.responsible, i.date && i.date !== '—' ? i.date : '', i.updates?.length ? `${i.updates.length} note${i.updates.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')}</span>
+                            {last && <span className="block truncate text-xs text-neutral-400">“{last}”</span>}
+                          </span>
+                        </label>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+          {err && <p className="text-sm text-red-700">{err}</p>}
+          <button type="button" onClick={go} disabled={busy || !personId || !ticked.size}
+            className="w-full rounded-xl bg-neutral-900 py-sm text-sm font-bold text-white disabled:opacity-40">
+            {busy ? 'Sharing…' : `Share ${ticked.size} item${ticked.size === 1 ? '' : 's'}${who ? ` with ${who.name}` : ''}`}
+          </button>
+          <p className="text-xs text-neutral-500">They get one notification. Shared items can be ticked off and replied to by both of you.</p>
+        </>
+      )}
+    </div>
   )
 }
