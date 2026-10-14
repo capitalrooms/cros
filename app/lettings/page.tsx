@@ -304,6 +304,8 @@ export default function LettingsPage() {
 
       const role = data.assignment?.role
       if (!['lettings', 'administrator', 'admin'].includes(role)) { router.push('/login'); return }
+      // this phone's "Share to CROS" key (lib/shareKey)
+      supabase.auth.getSession().then(({ data: s }) => { if (s.session?.access_token) fetch('/api/auth/share-key', { method: 'POST', headers: { Authorization: `Bearer ${s.session.access_token}` } }).catch(() => {}) })
 
       // a notification link can open a tab (?tab=available)
       const tabParam = searchParams.get('tab')

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { readShareKey, SHARE_COOKIE } from '@/lib/shareKey'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,6 +19,11 @@ export const dynamic = 'force-dynamic'
  * user data without the cookie check below.
  */
 export async function POST(request: NextRequest) {
+  // Only a signed-in staff device may upload (its signed "share key" cookie, lib/shareKey) — 14 Oct 2026: this
+  // route used to accept files from anyone on the internet.
+  if (!readShareKey(request.cookies.get(SHARE_COOKIE)?.value)) {
+    return NextResponse.redirect(new URL('/share-target?error=signin', request.url), 303)
+  }
   let formData: FormData
   try {
     formData = await request.formData()
@@ -32,6 +38,10 @@ export async function POST(request: NextRequest) {
 
   // If a file was shared, upload it to Supabase temp storage
   if (file && file.size > 0) {
+    // photos and PDFs only, up to 15 MB
+    if (!/^(image\/(jpeg|png|webp|heic|heif|gif)|application\/pdf)$/.test(file.type) || file.size > 15 * 1024 * 1024) {
+      return NextResponse.redirect(new URL('/share-target?error=type', request.url), 303)
+    }
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceKey) {
       // Fallback: redirect without pre-upload — user will upload manually

@@ -8,3 +8,9 @@ export function secondStepMissing(user: { factors?: Array<{ status: string }> | 
     return claims.aal !== 'aal2'
   } catch { return true }
 }
+
+/** Administrators must have two-step sign-in set up at all (14 Oct 2026, "fort knox"): an administrator login with
+ *  no authenticator app is refused by every office route until it is set up on /account. */
+export function administratorWithoutTwoStep(role: string | null | undefined, user: { factors?: Array<{ status: string }> | null } | null | undefined): boolean {
+  return (role === 'administrator' || role === 'admin') && !(user?.factors ?? []).some(f => f.status === 'verified')
+}

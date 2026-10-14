@@ -14,7 +14,8 @@ const ROLE: Record<string, string> = { administrator: 'Administrator', admin: 'A
 const STAFF = ['administrator', 'admin', 'lettings']
 
 export default function AccountPage({ searchParams }: { searchParams: PageSearchParams }) {
-  const setup = one(use(searchParams).setup) === '1'
+  const setupParam = one(use(searchParams).setup)
+  const setup = setupParam === '1'
   const [sb] = useState(() => createClient())
   const [state, setState] = useState<'loading' | 'code' | 'ready'>('loading')
   const [me, setMe] = useState<{ email: string; name: string; role: string } | null>(null)
@@ -52,7 +53,10 @@ export default function AccountPage({ searchParams }: { searchParams: PageSearch
             </div>
             {setup && <p className="rounded-2xl border border-green-200 bg-green-50 p-md text-sm text-green-900">Welcome to Capital Rooms. Choose your password below to finish setting up your account.</p>}
             <PasswordCard sb={sb} email={me.email} setup={setup} home={HOME[me.role]} />
-            <TwoStepCard sb={sb} factor={twoStep} staff={STAFF.includes(me.role)} onChange={load} />
+            {!twoStep && (setupParam === 'two-step' || ['administrator', 'admin'].includes(me.role)) && (
+              <p className="rounded-2xl border border-amber-300 bg-amber-50 p-md text-sm text-amber-900"><strong>Set up two-step sign-in to carry on.</strong> Administrator accounts can see everything in CROS, so they need a code from your phone as well as your password. It takes about a minute: press “Set up two-step sign-in” below and scan the code with an authenticator app (Google Authenticator, Microsoft Authenticator or 1Password).</p>
+            )}
+            <TwoStepCard sb={sb} factor={twoStep} staff={STAFF.includes(me.role)} required={['administrator', 'admin'].includes(me.role)} onChange={load} />
             <section className={card}>
               <h2 className="text-base font-bold text-neutral-900">Sign out</h2>
               <p className="mt-xs text-sm text-neutral-600">Signs you out on this device.</p>
@@ -107,7 +111,7 @@ function PasswordCard({ sb, email, setup, home }: { sb: ReturnType<typeof create
   )
 }
 
-function TwoStepCard({ sb, factor, staff, onChange }: { sb: ReturnType<typeof createClient>; factor: { id: string } | null; staff: boolean; onChange: () => void }) {
+function TwoStepCard({ sb, factor, staff, required = false, onChange }: { sb: ReturnType<typeof createClient>; factor: { id: string } | null; staff: boolean; required?: boolean; onChange: () => void }) {
   const [enrol, setEnrol] = useState<{ id: string; qr: string; secret: string } | null>(null)
   const [code, setCode] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('')
 
@@ -149,7 +153,9 @@ function TwoStepCard({ sb, factor, staff, onChange }: { sb: ReturnType<typeof cr
       </div>
       {error && <p className="mt-md rounded-xl border border-red-200 bg-red-50 p-sm text-sm text-red-700">{error}</p>}
       {factor ? (
-        <button type="button" onClick={remove} disabled={busy} className="mt-md rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">Turn off</button>
+        required
+          ? <p className="mt-md text-xs text-neutral-500">Always on for administrator accounts. Changed phone? Ask for it to be reset from People › Office, then set it up again.</p>
+          : <button type="button" onClick={remove} disabled={busy} className="mt-md rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">Turn off</button>
       ) : enrol ? (
         <form onSubmit={finishSetup} className="mt-md space-y-sm">
           <p className="text-sm text-neutral-700"><strong>1.</strong> On your phone, open an authenticator app (Google Authenticator, Microsoft Authenticator, or iPhone’s Passwords app) and scan this code:</p>
