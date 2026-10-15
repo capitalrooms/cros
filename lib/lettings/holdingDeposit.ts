@@ -39,16 +39,25 @@ export interface DepositContext {
  * tenancy. NEVER the room's advertised rent (rooms are often let below the advert — Raphael Wassermann, 2 Oct 2026, was
  * asked for a £950-based holding deposit on a £925 offer). Null when none is known: callers must stop and ask.
  */
-export async function agreedRent(svc: SupabaseClient, a: { id: string; offered_rent?: number | null; rent_offer_type?: string | null; converted_person_id?: string | null; room_id?: string | null }, offer?: { advertised_rent?: number | null } | null): Promise<number | null> {
+export async function agreedRent(svc: SupabaseClient, a: { id: string; offered_rent?: number | null; rent_offer_type?: string | null; advertised_rent?: number | null; converted_person_id?: string | null; room_id?: string | null }, offer?: { advertised_rent?: number | null } | null): Promise<number | null> {
+  // in order: the lower offer we accepted · the rent on our offer · the rent they applied at · their tenancy ·
+  // the room's asking rent when they applied AT the asking rent (15 Oct 2026: applicants who applied at the asking
+  // rent had nothing saved, so the reserve email refused and the only way on was re-sending the application form)
   if (a.rent_offer_type === 'below_asking' && Number(a.offered_rent) > 0) return Number(a.offered_rent)
   if (Number(offer?.advertised_rent) > 0) return Number(offer!.advertised_rent)
+  if (Number(a.advertised_rent) > 0) return Number(a.advertised_rent)
   const { data: t } = await svc.from('tenancies').select('rent_amount').eq('applicant_id', a.id).is('let_cancelled_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle()
-  return Number((t as any)?.rent_amount) > 0 ? Number((t as any).rent_amount) : null
+  if (Number((t as any)?.rent_amount) > 0) return Number((t as any).rent_amount)
+  if (a.rent_offer_type !== 'below_asking' && a.room_id) {
+    const { data: r } = await svc.from('rooms').select('current_asking_rent').eq('id', a.room_id).maybeSingle()
+    if (Number((r as any)?.current_asking_rent) > 0) return Number((r as any).current_asking_rent)
+  }
+  return null
 }
 
 export async function loadDepositContext(svc: SupabaseClient, applicantId: string): Promise<DepositContext | null> {
   const { data: a } = await svc.from('applicants')
-    .select('id, salutation, first_name, last_name, full_name, email, profession, bio, profession_description, interests, sociability, house_preferences, preferred_start_date, preferred_term, offered_rent, rent_offer_type, pipeline_stage, offer_id, converted_person_id, room_id, property_id, rooms(name, current_asking_rent), properties(name, address, bills_included, landlord_id, property_type)')
+    .select('id, salutation, first_name, last_name, full_name, email, profession, bio, profession_description, interests, sociability, house_preferences, preferred_start_date, preferred_term, offered_rent, rent_offer_type, advertised_rent, pipeline_stage, offer_id, converted_person_id, room_id, property_id, rooms(name, current_asking_rent), properties(name, address, bills_included, landlord_id, property_type)')
     .eq('id', applicantId).maybeSingle() as { data: any }
   if (!a) return null
 

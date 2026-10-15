@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { randomBytes } from 'crypto'
 import { hiName, personFromText } from '@/lib/people'
 import { deliverEmail } from '@/lib/sendEmail'
 import { oneLine } from '@/lib/lettings/letWording'
@@ -51,8 +52,12 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
   const property = room?.properties
   // the rent agreed on the offer (lib/lettings/holdingDeposit agreedRent) — never the advertised rent
   const ctx = await loadDepositContext(supabase as any, applicantId)
-  const monthly = ctx?.rent ?? 0
-  if (!monthly) return NextResponse.json({ error: 'No agreed rent found for this applicant — send them an offer (Send Offer Letter) with the rent first. Nothing was emailed.' }, { status: 409 })
+  // the agreed rent (lib/lettings/holdingDeposit agreedRent); when there is genuinely none on file the screen asks
+  // you for it — never a dead end that sends them back to the application form (15 Oct 2026)
+  const body = await request.json().catch(() => ({}))
+  const typed = Number(body?.rent) > 0 && Number(body.rent) < 100000 ? Math.round(Number(body.rent) * 100) / 100 : null
+  const monthly = ctx?.rent ?? typed ?? 0
+  if (!monthly) return NextResponse.json({ error: 'What monthly rent has been agreed?', needRent: true }, { status: 409 })
   const weekly = oneWeekRent(monthly)
   const payRef = holdingDepositRef(property?.name || property?.address || null, room?.name || null)
   const firstName = hiName((applicant as any).first_name ? applicant as any : personFromText(applicant.full_name))   // lib/people
@@ -83,10 +88,25 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
     return NextResponse.json({ error: 'Failed to send email' }, { status: 500 })
   }
 
+  // Pin the rent we've just quoted on an offer record, so the reserve page and the holding deposit always use this
+  // figure — even if the room's advert changes later
+  let offerId = ctx?.offerId ?? null
+  if (!offerId) {
+    const { data: o } = await supabase.from('offers').insert({
+      room_id: applicant.room_id, property_id: applicant.property_id, applicant_email: applicant.email,
+      applicant_name: applicant.full_name || null, advertised_rent: monthly, request_deposit: true,
+      application_token: randomBytes(32).toString('hex'), token_expires_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      applicant_id: applicant.id, status: 'sent', sent_at: new Date().toISOString(),
+    }).select('id').single()
+    offerId = (o as any)?.id ?? null
+  } else if (!(ctx?.rent) && typed) {
+    await supabase.from('offers').update({ advertised_rent: typed }).eq('id', offerId)
+  }
+
   // Advance pipeline stage to offer_sent
   await supabase
     .from('applicants')
-    .update({ pipeline_stage: 'offer_sent', updated_at: new Date().toISOString() })
+    .update({ pipeline_stage: 'offer_sent', ...(offerId ? { offer_id: offerId } : {}), updated_at: new Date().toISOString() })
     .eq('id', applicantId)
 
   return NextResponse.json({ success: true, emailSent: applicant.email, reserveUrl })

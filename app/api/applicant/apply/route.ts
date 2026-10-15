@@ -15,6 +15,18 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Missing required fields: fullName, email, roomId' }, { status: 400 })
     }
 
+    // the rent they're applying at — saved with the application so the reserve email and holding deposit always have
+    // it: the form's figure, else the rent on the offer we sent them, else the room's asking rent (15 Oct 2026)
+    let appliedRent = Number(data.advertisedRent) > 0 ? Number(data.advertisedRent) : null
+    if (!appliedRent && data.roomId && data.email) {
+      const { data: o } = await supabase.from('offers').select('advertised_rent').eq('room_id', data.roomId).ilike('applicant_email', String(data.email).trim()).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      appliedRent = Number((o as any)?.advertised_rent) > 0 ? Number((o as any).advertised_rent) : null
+      if (!appliedRent) {
+        const { data: r } = await supabase.from('rooms').select('current_asking_rent').eq('id', data.roomId).maybeSingle()
+        appliedRent = Number((r as any)?.current_asking_rent) > 0 ? Number((r as any).current_asking_rent) : null
+      }
+    }
+
     const payload = {
       full_name:            data.fullName,
       salutation:           typeof data.salutation === 'string' ? data.salutation.slice(0, 10) || null : null,
@@ -38,7 +50,7 @@ export async function POST(request: Request) {
       communication_style:  data.communicationStyle   || null,
       room_requirements:    data.roomRequirements     || null,
       room_conditions:      data.roomConditions       || null,
-      advertised_rent:      data.advertisedRent       || null,
+      advertised_rent:      appliedRent,
       rent_offer_type:      data.rentOfferType        || 'asking',
       offered_rent:         data.offeredRent          || null,
       previous_addresses:   data.previousAddresses    || [],
