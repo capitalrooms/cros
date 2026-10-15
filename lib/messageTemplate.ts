@@ -11,6 +11,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { dearName, hiName, type PersonLike } from '@/lib/people'
 
 export interface TemplateParts {
   subject_line: string
@@ -63,8 +64,15 @@ export async function getTemplate(slug: string): Promise<TemplateParts | null> {
  * Missing vars resolve to '' (never left as raw {{var}}).
  * Values are NOT HTML-escaped — pass pre-escaped content or plain text.
  */
-export function render(template: string, vars: Record<string, string | number | null | undefined>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+export function render(template: string, vars: Record<string, string | number | null | undefined>, who?: PersonLike | null): string {
+  // The greeting always follows the one rule (lib/people, 15 Oct 2026), whatever token a saved template uses:
+  // "Dear {{first_name}}" → "Dear Mr Noives", "Hi {{tenant_name}}" → "Hi Martin". Pass `who` — the recipient.
+  let t = template
+  if (who) {
+    t = t.replace(/\b(Dear)\s*\{\{\s*\w+\s*\}\}/g, () => `Dear ${dearName(who)}`)
+         .replace(/\b(Hi|Hello)\s*\{\{\s*\w+\s*\}\}/g, (_m, w) => `${w} ${hiName(who)}`)
+  }
+  return t.replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
     const val = vars[key]
     return val != null ? String(val) : ''
   })
@@ -76,12 +84,13 @@ export function render(template: string, vars: Record<string, string | number | 
  */
 export async function getAndRender(
   slug: string,
-  vars: Record<string, string | number | null | undefined>
+  vars: Record<string, string | number | null | undefined>,
+  who?: PersonLike | null,
 ): Promise<{ subject: string; body: string } | null> {
   const tpl = await getTemplate(slug)
   if (!tpl) return null
   return {
-    subject: render(tpl.subject_line, vars),
-    body:    render(tpl.template_text, vars),
+    subject: render(tpl.subject_line, vars, who),
+    body:    render(tpl.template_text, vars, who),
   }
 }

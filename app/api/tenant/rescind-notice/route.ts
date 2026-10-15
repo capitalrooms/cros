@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { createServiceClient, createServerClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { buildEmail } from '@/lib/emailWrapper'
-import { senderFields } from '@/lib/email/sender'
+
 import { oneLine } from '@/lib/lettings/letWording'
 
 /** POST — tenant requests to rescind their notice
@@ -69,16 +70,11 @@ export async function POST(req: NextRequest) {
         ${note ? `<li><strong>Reason:</strong> ${note}</li>` : ''}
       </ul>
       <p style="margin:0">Please review and approve or reject in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a>.</p>`
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-      body: JSON.stringify({
-        ...(await senderFields()),
+    await deliverEmail({
         to: process.env.ADMIN_EMAIL || 'admin@capitalrooms.co.uk',
         subject: oneLine(`Rescind notice request — ${roomName}, ${address}`),
         html: await buildEmail(rescindBody),
-      }),
-    }).catch(e => console.error('Admin rescind notify failed:', e))
+      }).catch(e => console.error('Admin rescind notify failed:', e))
   }
 
   return NextResponse.json({ ok: true })

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { emailHtml, tableRow, ctaButton } from '@/lib/emailTemplate'
-import { senderFields } from '@/lib/email/sender'
+
 import { displayName } from '@/lib/people'
 
 export const runtime = 'nodejs'
@@ -156,16 +157,11 @@ export async function GET(req: NextRequest) {
       </div>
     `
 
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...(await senderFields(req)),
+    await deliverEmail({
         to: ['harry@capitalrooms.co.uk'],
         subject: `🎉 Counter-offer: ${firstName} has matched the asking rent — ${roomName}`,
         html: await emailHtml(notifyBody, { req: req }),
-      }),
-    }).catch(e => console.error('Counter-offer notify failed:', e))
+      }, { req: req }).catch(e => console.error('Counter-offer notify failed:', e))
   }
 
   return new NextResponse(SUCCESS_HTML, { status: 200, headers: { 'Content-Type': 'text/html' } })

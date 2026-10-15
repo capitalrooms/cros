@@ -1,11 +1,12 @@
 import { welcomeLink, greeting } from '@/lib/auth/accounts'
+import { deliverEmail } from '@/lib/sendEmail'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { firstName as getFirstName } from '@/lib/people'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields } from '@/lib/email/sender'
+
 
 function createServiceClient() {
   return createClient(
@@ -15,7 +16,6 @@ function createServiceClient() {
   )
 }
 
-const RESEND = 'https://api.resend.com/emails'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
 
 // POST /api/invite-tenant
@@ -125,16 +125,11 @@ export async function POST(req: NextRequest) {
     ? render(tpl.subject_line, { first_name: firstName })
     : 'Welcome to Capital Rooms — your tenant portal is ready'
 
-  const emailRes = await fetch(RESEND, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-    body: JSON.stringify({
-      ...(await senderFields(req)),
+  const emailRes = await deliverEmail({
       to:   [person.email],
       subject: emailSubject,
       html,
-    }),
-  })
+    }, { req: req })
 
   if (!emailRes.ok) {
     const err = await emailRes.text()

@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { deliverEmail } from '@/lib/sendEmail'
 import { emailHtml, PORTAL_URL, ctaButton } from './emailTemplate'
 
 const esc = (v: string) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
-import { senderFields, senderFor } from '@/lib/email/sender'
+import { senderFor } from '@/lib/email/sender'
 import { dearName } from '@/lib/people'
 
 /**
@@ -176,11 +177,7 @@ async function sendEmailToAll(
         ${content.link ? ctaButton('View details', `${appUrl}${content.link}`) : ''}
         <p style="font-size:12px;color:#78716c;">You can also <a href="${loginUrl}" style="color:#1a1a1a;">sign in to the Capital Rooms app</a> as ${esc(person.email)}.</p>
       `, { sender })
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-        body: JSON.stringify({ from: sender.from, reply_to: sender.replyTo, to: [person.email], subject: content.title, html }),
-      })
+      await deliverEmail({ to: [person.email], subject: content.title, html }, { sender })
     }))
 
     return targets.length
@@ -266,19 +263,7 @@ export async function tryEmailFallback(
       `)
 
       // Fire and forget — don't await individually to avoid slowing the caller
-      fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        },
-        body: JSON.stringify({
-          ...(await senderFields()),
-          to:      [person.email],
-          subject: content.title,
-          html,
-        }),
-      }).catch(() => {})  // never propagate
+      deliverEmail({ to: [person.email], subject: content.title, html }).catch(() => {})  // never propagate
     }
   } catch {
     // Best-effort — never block the caller

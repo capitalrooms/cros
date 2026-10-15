@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
+import { deliverEmail } from '@/lib/sendEmail'
 import { oneLine } from '@/lib/lettings/letWording'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { createServerClient } from '@/lib/supabase'
-import { senderFields } from '@/lib/email/sender'
+
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
@@ -14,7 +15,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
 const SORT_CODE = '20-18-93'
 const ACCOUNT_NUMBER = '40162574'
@@ -74,11 +74,7 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
     return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
   }
 
-  const emailRes = await fetch(RESEND_ENDPOINT, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...(await senderFields(request)), to: [applicant.email], subject, html }),
-  })
+  const emailRes = await deliverEmail({ to: [applicant.email], subject, html }, { req: request })
 
   if (!emailRes.ok) {
     const err = await emailRes.text()

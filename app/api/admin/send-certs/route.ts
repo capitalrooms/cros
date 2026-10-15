@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { requireStaff } from '@/lib/portalAuth'
 import { expandJoint } from '@/lib/serverNotify'
 import { createClient } from '@supabase/supabase-js'
 import { emailHtml, tableRow } from '@/lib/emailTemplate'
-import { senderFields } from '@/lib/email/sender'
+
 import { oneLine } from '@/lib/lettings/letWording'
 
 export const runtime = 'nodejs'
@@ -162,11 +163,7 @@ export async function POST(req: NextRequest) {
   let sent = 0
   const errors: string[] = []
   for (const r of recipients) {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-      body: JSON.stringify({ ...(await senderFields(req)), to: [r.email], subject, html }),
-    })
+    const res = await deliverEmail({ to: [r.email], subject, html }, { req: req })
     if (res.ok) sent++
     else {
       const err = await res.json().catch(() => ({}))

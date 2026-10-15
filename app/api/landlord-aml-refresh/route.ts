@@ -1,10 +1,11 @@
 import { requireAdmin } from '@/lib/adminAuth'
+import { deliverEmail } from '@/lib/sendEmail'
 import { dearFromText } from '@/lib/people'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
-import { senderFields } from '@/lib/email/sender'
+
 
 const svc = () =>
   createClient(
@@ -67,19 +68,11 @@ export async function POST(req: NextRequest) {
 
   // Send re-verification email (shared wrapper applied via buildEmail)
   const html = await amlRefreshHtml(landlordName ?? landlord.email.split('@')[0], formUrl, req)
-  const emailRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      ...(await senderFields(req)),
+  const emailRes = await deliverEmail({
       to: landlord.email,
       subject: amlSubject,
       html,
-    }),
-  })
+    }, { req: req })
 
   let emailSent = false
   let emailError: string | undefined

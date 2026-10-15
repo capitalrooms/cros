@@ -1,15 +1,16 @@
 import { createServiceClient } from '@/lib/supabase'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName, personFromText } from '@/lib/people'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { buildOfferLetterEmail, buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { randomBytes } from 'crypto'
-import { senderFields } from '@/lib/email/sender'
+
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
 import { buildEmail } from '@/lib/emailWrapper'
 import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 // saved message templates hold the body only — give them the house email (an old full-page one is sent as is)
 async function wrapTemplate(body: string, req: Request) {
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
       const weekly  = weeklyRent(monthly)
       const roomName    = data.customRoomDesc || 'Room'
       const propAddress = data.customAddress  || ''
-      const firstName   = data.applicantName ? data.applicantName.split(' ')[0] : 'there'
+      const firstName   = hiName(personFromText(data.applicantName))
       const moveInDisplay = data.moveInDate || 'To be confirmed'
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
       const applicationUrl = `${appUrl}/applicant/apply?email=${encodeURIComponent(data.applicantEmail)}`
@@ -66,8 +67,8 @@ export async function POST(request: Request) {
           monthly_rent: String(monthly.toLocaleString()), weekly_rent: String(weekly.toLocaleString()),
           payment_ref: holdingDepositRef(null, null, data.applicantName), apply_url: applicationUrl, reserve_url: applicationUrl,
         }
-        subject   = render(tpl.subject_line, tokenVars)
-        emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars), request)
+        subject   = render(tpl.subject_line, tokenVars, data.applicantName ? personFromText(data.applicantName) : null)
+        emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars, data.applicantName ? personFromText(data.applicantName) : null), request)
       } else if (data.requestDeposit) {
         subject = `THE SEARCH IS OVER! — ${roomName}${propAddress ? `, ${propAddress}` : ''}`
         emailHtml = await buildSearchIsOverEmail({
@@ -86,11 +87,7 @@ export async function POST(request: Request) {
 
       const apiKey = process.env.RESEND_API_KEY
       if (!apiKey) return Response.json({ error: 'Email service not configured' }, { status: 500 })
-      const emailRes = await fetch(RESEND_ENDPOINT, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(await senderFields(request)), to: [data.applicantEmail], subject, html: emailHtml }),
-      })
+      const emailRes = await deliverEmail({ to: [data.applicantEmail], subject, html: emailHtml }, { req: request })
       if (!emailRes.ok) {
         const err = await emailRes.json().catch(() => ({}))
         return Response.json({ error: `Email failed: ${(err as any)?.message || emailRes.statusText}` }, { status: 502 })
@@ -228,8 +225,8 @@ export async function POST(request: Request) {
         apply_url:                applicationUrl,
         reserve_url:              `${appUrl}/applicant/reserve?roomId=${data.roomId}&propertyId=${data.propertyId}${applicantId ? `&a=${applicantId}` : ''}`,
       }
-      subject   = render(tpl.subject_line, tokenVars)
-      emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars), request)
+      subject   = render(tpl.subject_line, tokenVars, data.applicantName ? personFromText(data.applicantName) : null)
+      emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars, data.applicantName ? personFromText(data.applicantName) : null), request)
     } else if (data.requestDeposit) {
       subject = `THE SEARCH IS OVER! — ${place}`
       emailHtml = await buildSearchIsOverEmail({
@@ -266,11 +263,7 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Email service not configured (RESEND_API_KEY missing)' }, { status: 500 })
     }
 
-    const emailRes = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...(await senderFields(request)), to: [data.applicantEmail], subject: oneLine(subject), html: emailHtml }),
-    })
+    const emailRes = await deliverEmail({ to: [data.applicantEmail], subject: oneLine(subject), html: emailHtml }, { req: request })
 
     if (!emailRes.ok) {
       const err = await emailRes.json().catch(() => ({}))

@@ -4,8 +4,8 @@
 // Does NOT update tenancies.rent_amount — that happens separately when rent takes effect.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
 import {
   generateCoverLetter,
   generateForm4A,
@@ -15,7 +15,7 @@ import {
 import { getDeemedServiceDate, getDeemedServiceDescription } from '@/lib/rent-increase/deemedServiceDate'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { landlordFormalNames, dearName, displayName } from '@/lib/people'
-import { senderFieldsSdk, senderFor } from '@/lib/email/sender'
+import { senderFor } from '@/lib/email/sender'
 import { buildEmail } from '@/lib/emailWrapper'
 
 function serviceClient() {
@@ -227,15 +227,13 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Email to tenant ───────────────────────────────────────────────────────
-  const resend = new Resend(process.env.RESEND_API_KEY)
 
   const effFormatted = new Date(effectiveDate + 'T12:00:00').toLocaleDateString('en-GB', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
 
   try {
-    await resend.emails.send({
-      ...(await senderFieldsSdk(req)),
+    await deliverEmail({
       to:      [person.email, co?.email].filter(Boolean) as string[],
       subject: `Important: Section 13 rent increase notice — effective ${effFormatted}`,
       attachments: [
@@ -256,7 +254,7 @@ export async function POST(req: NextRequest) {
             <li><strong>Form 4A</strong> — the statutory Section 13 notice required by law</li>
           </ol>
           <p>Please read both documents carefully. If you have any questions, reply to this email or call us on <strong>0207 112 9163</strong>.</p>`, { sender: await senderFor(req) }),
-    })
+    }, { req: req })
   } catch (emailErr: any) {
     console.error('Email send failed', emailErr)
     // Don't fail the whole request — notice is already recorded in DB

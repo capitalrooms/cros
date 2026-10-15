@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { hiName } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
 import { expandJoint } from '@/lib/serverNotify'
 import { createServerClient } from '@/lib/supabase'
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
   for (const tenancy of expandJoint<any>(tenancies)) {   // both tenants on a joint tenancy
     const person = tenancy.people as any
     const phone  = person?.phone
-    const name   = person?.first_name || 'Resident'
+    const name   = hiName(person)
 
     if (!phone || seen.has(phone)) continue
     seen.add(phone)

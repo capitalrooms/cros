@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName, personFromText } from '@/lib/people'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { expandJoint } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
@@ -9,9 +11,8 @@ import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import twilio from 'twilio'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 
 async function sendConfirmationSms(
   supabase: ReturnType<typeof import('@supabase/supabase-js').createClient>,
@@ -109,19 +110,11 @@ export async function POST(request: NextRequest) {
   const roomId = viewing.rooms?.id
 
   async function send(to: string, subject: string, html: string) {
-    const res = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...(await senderFields(request)),
+    const res = await deliverEmail({
         to: [to],
         subject,
         html,
-      }),
-    })
+      }, { req: request })
     return res.ok
   }
 
@@ -132,7 +125,7 @@ export async function POST(request: NextRequest) {
     month: 'long',
   })} at ${viewing.viewing_slot}`
 
-  const visitorFirstName = viewing.visitor_name?.split(' ')[0] || 'there'
+  const visitorFirstName = hiName(personFromText(viewing.visitor_name))   // "Mr John Smith" → John, never "Mr"
   const propertyNameAddress = `${propertyName}${propertyAddress ? `, ${propertyAddress}` : ''}`
   const visitorEmailSuffix = viewing.visitor_email ? ` (${viewing.visitor_email})` : ''
 
@@ -217,11 +210,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     for (const tenancies of expandJoint<any>(tenancyRow ? [tenancyRow] : [])) if (tenancies?.people?.email && ((tenancies as any).people?.notify_by_email !== false)) {
-      const tenantName = (tenancies.people as any).first_name || 'Tenant'
+      const tenantName = hiName(tenancies.people as any)
       const roomSubject = tenantTpl
         ? render(tenantTpl.subject_line, { ...viewingVars, tenant_name: tenantName, room_or_at_property: 'on your room' })
         : `A viewing has been booked on your room — ${roomName}`
-      await send(tenancies.people.email, roomSubject, buildTenantViewingEmail(tenantName, 'on your room'))
+      await send(tenancies.people.email, roomSubject, await buildTenantViewingEmail(tenantName, 'on your room'))
       sent.push(tenancies.people.email)
     }
   }
@@ -237,11 +230,11 @@ export async function POST(request: NextRequest) {
 
     for (const tenancy of expandJoint<any>(allTenancies)) {
       if (tenancy.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
-        const tenantName = (tenancy.people as any).first_name || 'Tenant'
+        const tenantName = hiName(tenancy.people as any)
         const otherSubject = tenantTpl
           ? render(tenantTpl.subject_line, { ...viewingVars, tenant_name: tenantName, room_or_at_property: 'at your property' })
           : `A viewing is booked at the house — ${propertyName}`
-        await send(tenancy.people.email, otherSubject, buildTenantViewingEmail(tenantName, 'at your property'))
+        await send(tenancy.people.email, otherSubject, await buildTenantViewingEmail(tenantName, 'at your property'))
         sent.push(tenancy.people.email)
       }
     }

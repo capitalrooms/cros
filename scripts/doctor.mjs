@@ -118,6 +118,19 @@ async function main() {
   }
   if (!anyGap && !Object.keys(KNOWN_GAPS).length) console.log(`  ${C.dim}none${C.x}`);
 
+  // 6 ── Email rules (15 Oct 2026) ─────────────────────────────────────
+  // One way out (lib/sendEmail: sendEmail / deliverEmail) and one greeting rule (lib/people) — Harry: "we don't want
+  // ten components doing the same thing". Reading inbound mail (/emails/receiving, /emails/inbound) is fine.
+  section('Email rules');
+  const { execSync } = await import('node:child_process');
+  const grep = (re) => { try { return execSync(`grep -rnE "${re}" app lib --include='*.ts' --include='*.tsx'`, { encoding: 'utf8' }).trim().split('\n').filter(Boolean) } catch { return [] } };
+  const direct = grep("api\\.resend\\.com/emails['\\`]|new Resend\\(").filter(l => !l.startsWith('lib/sendEmail.ts'));
+  if (direct.length) fail(`${direct.length} place(s) send email without lib/sendEmail`, direct.slice(0, 5).join(' · '));
+  else pass('every email goes out through lib/sendEmail');
+  const greet = grep("(Dear|Hi) [$][{][^}]*(first_name|full_name|[.]name)[^}]*[}]").filter(l => !/dearName|hiName|dearFrom|personFromText/.test(l));
+  if (greet.length) warn(`${greet.length} greeting(s) built from a raw name — use lib/people dearName / hiName`, greet.slice(0, 5).join(' · '));
+  else pass('greetings use lib/people');
+
   summary();
 }
 

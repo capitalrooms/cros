@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
@@ -7,9 +8,8 @@ import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 
 /**
  * Tells the tenant their job has been held for batching.
@@ -96,11 +96,7 @@ export async function POST(request: NextRequest) {
 
   const html = await emailHtml(body, { req: request })
 
-  const res = await fetch(RESEND_ENDPOINT, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...(await senderFields(request)), to: [reporter.email], subject, html }),
-  })
+  const res = await deliverEmail({ to: [reporter.email], subject, html }, { req: request })
 
   if (!res.ok) {
     return NextResponse.json({ error: await res.text() }, { status: 502 })
