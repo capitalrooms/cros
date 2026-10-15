@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { insertNotifications, tryPush } from '@/lib/serverNotify'
 import { STAFF_ROLES } from '@/lib/portalAuth'
+import { sendEmail } from '@/lib/sendEmail'
+import { loadDepositContext } from '@/lib/lettings/holdingDeposit'
+import { oneWeekRent } from '@/lib/tenancy/deposit'
+import { holdingDepositRef } from '@/lib/offers/holdingRef'
 
 // The applicant's "I've paid the holding deposit" button on /applicant/reserve (the link in our reserve email
 // carries their applicant id). It's their word, not a bank check: the offer is marked 'deposit_claimed' and the
@@ -20,7 +24,7 @@ export async function POST(request: Request) {
 
     const { data: applicant, error } = await supabase
       .from('applicants')
-      .select('id, full_name, email, room_id, pipeline_stage, admin_notes, offer_id, rooms(name, properties(name))')
+      .select('id, full_name, email, phone, room_id, pipeline_stage, admin_notes, offer_id, rooms(name, properties(name))')
       .eq('id', applicantId)
       .single()
 
@@ -67,6 +71,39 @@ export async function POST(request: Request) {
       await insertNotifications(supabase, ids, { title, body, type: 'lettings', link: '/admin/applicants' }, { roomId: applicant.room_id })
       await tryPush(ids, title, body, '/admin/applicants')
     }
+
+    // …and an email to the office, with what to do next (Harry, 15 Oct 2026: "I should really get an email … that I
+    // must now start Homeppl"). Office addresses only — never a test account.
+    try {
+      const { data: office } = await supabase.from('people').select('email').in('role', ['administrator', 'lettings']).ilike('email', '%@capitalrooms.co.uk').not('email', 'ilike', '%+%')
+      const to = [...new Set(((office ?? []) as any[]).map(p => String(p.email).toLowerCase()))]
+      if (to.length) {
+        const ctx = await loadDepositContext(supabase as any, applicantId).catch(() => null)
+        const amount = ctx?.rent ? oneWeekRent(ctx.rent) : null
+        const ref = holdingDepositRef(room?.properties?.name ?? null, room?.name ?? null)
+        const due = new Date(Date.now() + 15 * 86_400_000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+        const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+        const app = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+        await sendEmail(to, `🔑 Holding deposit paid — ${applicant.full_name}, ${roomLabel}`, `
+          <p>Hello,</p>
+          <p><strong>${esc(String(applicant.full_name ?? 'An applicant'))}</strong> has just pressed “I’ve paid” for the holding deposit on <strong>${esc(roomLabel)}</strong>.</p>
+          <table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px;">
+            ${amount ? `<tr><td style="padding:4px 0;color:#78716c;width:160px;">Holding deposit</td><td style="padding:4px 0;font-weight:700;">£${amount.toFixed(2)}${ctx?.rent ? ` <span style="font-weight:400;color:#78716c;">(one week of £${ctx.rent.toFixed(2)} pcm)</span>` : ''}</td></tr>` : ''}
+            <tr><td style="padding:4px 0;color:#78716c;">Their reference</td><td style="padding:4px 0;font-weight:700;">${esc(ref)}</td></tr>
+            <tr><td style="padding:4px 0;color:#78716c;">Email</td><td style="padding:4px 0;">${esc(String(applicant.email ?? '—'))}</td></tr>
+            <tr><td style="padding:4px 0;color:#78716c;">Phone</td><td style="padding:4px 0;">${esc(String((applicant as any).phone ?? '—'))}</td></tr>
+            ${extra ? `<tr><td style="padding:4px 0;color:#78716c;">Their note</td><td style="padding:4px 0;">${esc(extra)}</td></tr>` : ''}
+          </table>
+          <p style="margin:0 0 6px;"><strong>What to do now</strong></p>
+          <ol style="margin:0 0 16px;padding-left:20px;line-height:1.7;">
+            <li>Check the bank for ${amount ? `£${amount.toFixed(2)}` : 'the holding deposit'} with reference <strong>${esc(ref)}</strong>.</li>
+            <li>In CROS › Applicants, press <strong>Holding deposit received</strong> — this takes the room off the market and opens the letting file.</li>
+            <li>Start their referencing on <strong>Homeppl</strong>.</li>
+            <li>The agreement needs signing within 15 days of the deposit — by about <strong>${due}</strong> — unless a later date is agreed in writing.</li>
+          </ol>
+          <p><a href="${app}/admin/applicants" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Open Applicants</a></p>`)
+      }
+    } catch (e) { console.error('confirm-deposit: office email failed', e) }
 
     return Response.json({ success: true })
   } catch (err) {

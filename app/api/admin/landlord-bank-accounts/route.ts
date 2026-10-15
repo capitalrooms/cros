@@ -34,6 +34,8 @@ async function auth(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  // office only — this returned landlords' bank details to anyone until 15 Oct 2026 (the check below was never called)
+  if (!(await auth(req))) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   const landlord_id = req.nextUrl.searchParams.get('landlord_id')
   if (!landlord_id) return NextResponse.json({ error: 'landlord_id required' }, { status: 400 })
 
