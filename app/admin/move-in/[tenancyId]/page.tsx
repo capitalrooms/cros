@@ -125,6 +125,16 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
     finally { setBusy('') }
   }
 
+  // the paperwork has gone quiet: same link and documents, with a friendly nudge (both tenants on a joint tenancy)
+  async function remind(p: Pack) {
+    if (!window.confirm(`Send ${data?.context.tenant.name ?? 'the tenant'} a reminder about this paperwork, with the documents attached again?`)) return
+    setBusy('remind'); setError('')
+    const r = await adminFetch(`/api/admin/move-in/packs/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'remind' }) })
+    const d = await r.json().catch(() => ({}))
+    setBusy('')
+    if (!r.ok) setError(d.error || 'Could not send the reminder'); else { setNotice(`Reminder sent to ${d.sentTo?.join(', ')}.`); load(false) }
+  }
+
   async function withdraw(p: Pack) {
     if (!window.confirm('Withdraw this link? The tenant will be told it has been replaced.')) return
     const r = await adminFetch(`/api/admin/move-in/packs/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'withdraw' }) })
@@ -267,7 +277,8 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
             <ul className="mt-sm divide-y divide-neutral-100">
               {data.packs.map(p => {
                 const opened = new Set(p.tenancy_pack_events.filter(e => e.event === 'opened_document').map(e => e.document_key))
-                const sentTo = p.tenancy_pack_events.find(e => e.event === 'sent')?.document_key
+                const sentTo = p.tenancy_pack_events.find(e => e.event === 'sent' && !e.document_key?.startsWith('reminder:'))?.document_key
+                const reminders = p.tenancy_pack_events.filter(e => e.event === 'sent' && e.document_key?.startsWith('reminder:')).sort((a, b) => a.at.localeCompare(b.at))
                 const avail = p.documents.filter(d => d.available)
                 return (
                   <li key={p.id} className="py-md text-sm">
@@ -283,11 +294,15 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                       {p.first_viewed_at ? `First opened ${when(p.first_viewed_at)}` : 'Not opened yet'} · {opened.size} of {avail.length} documents opened
                       {p.confirmed_at ? ` · confirmed by “${p.confirmed_name}” ${when(p.confirmed_at)}` : ''}
                     </p>
+                    {reminders.length > 0 && <p className="text-xs text-neutral-500">Reminder{reminders.length > 1 ? 's' : ''} sent {reminders.map(e => when(e.at)).join(', ')}</p>}
                     {p.tenant_questions && <p className="mt-xs rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900 whitespace-pre-line">Questions: {p.tenant_questions}</p>}
                     {p.status !== 'withdrawn' && (
                       <div className="mt-xs flex flex-wrap gap-sm">
                         <button onClick={() => navigator.clipboard?.writeText(p.link).then(() => setNotice('Link copied.'))} className="text-xs font-bold text-neutral-700 underline">Copy link</button>
                         <a href={p.link} target="_blank" rel="noreferrer" className="text-xs font-bold text-neutral-700 underline">Open as tenant</a>
+                        {p.status !== 'confirmed' && !sentTo?.startsWith('test:') && (
+                          <button onClick={() => remind(p)} disabled={!!busy} className="text-xs font-bold text-neutral-900 underline disabled:opacity-40">{busy === 'remind' ? 'Sending…' : 'Send a reminder'}</button>
+                        )}
                         <button onClick={() => withdraw(p)} className="text-xs font-bold text-neutral-500 underline">Withdraw</button>
                       </div>
                     )}

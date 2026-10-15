@@ -43,3 +43,30 @@ export function packEmailHtml(ctx: PackContext, docs: PackDoc[], link: string, m
     <ul style="margin:0 0 18px;padding-left:20px;">${list}</ul>
     <p style="color:#78716c;font-size:13px;">Your agreement and check-in balance are also attached to this email.</p>`
 }
+
+/** The follow-up when the paperwork has gone quiet (Harry, 15 Oct 2026: "a reminder on our email then send the docs
+ *  again … we would like to get the paperwork completed"). Same link, same documents; the wording follows what the
+ *  tenant has done so far — not opened yet, or opened but not confirmed. */
+export const packReminderSubject = (ctx: PackContext) => `Reminder: your tenancy paperwork - ${ctx.address.split(',').slice(0, 2).join(',')}`
+
+export function packReminderHtml(ctx: PackContext, link: string, o: { sentAt: string; opened: boolean; phone: string }): string {
+  const sent = ukLongDate(new Date(o.sentAt))
+  const moveIn = day(ctx.startDate)
+  const where = esc(ctx.address)
+  const nudge = o.opened
+    ? `<p>Thank you for taking a look at your documents. When you’re happy with everything, just press <strong>“I’ve read everything and I’m ready to sign”</strong> on the page — or simply reply to this email — and we’ll send your agreement over to sign online.</p>`
+    : `<p>It looks like you haven’t had a chance to open them yet — no problem at all, everything is just one click away below.</p>`
+  return `
+    <p>Dear ${esc(ctx.tenant.dear)},</p>
+    <p>Just a friendly reminder about your tenancy paperwork for <strong>${where}</strong>, which we sent over on ${sent}.</p>
+    ${nudge}
+    <p>We’d love to get everything completed${moveIn ? ` well ahead of your move-in on <strong>${moveIn}</strong>` : ''}, so that the agreement can be signed, your balance received and your keys ready and waiting for you.</p>
+    ${ctaButton('View your tenancy documents', link)}
+    <table style="width:100%;border-collapse:collapse;margin:8px 0 18px;">
+      ${moveIn ? tableRow('Move-in date', moveIn) : ''}
+      ${tableRow('Balance to pay', `${gbp(ctx.amountDue)}${ctx.payBy ? ` by ${day(ctx.payBy)}` : ''}`)}
+      ${tableRow('Payment reference', esc(ctx.paymentRef))}
+    </table>
+    <p>If anything is holding you up — a question about the agreement, the payments or your move-in day — just reply to this email or call us on ${esc(o.phone)}. We’re always happy to help.</p>
+    <p style="color:#78716c;font-size:13px;">For convenience, your agreement and check-in balance are attached again.</p>`
+}
