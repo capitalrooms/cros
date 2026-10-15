@@ -231,6 +231,7 @@ export default function ApplicantsPage() {
   }
 
   async function acceptOffer(applicant: Applicant) {
+    if (applicant.pipeline_stage === 'offer_sent' && !confirm(`Email ${applicant.full_name} the link to reserve (pay the holding deposit)?`)) return
     setAcceptingSending(applicant.id)
     try {
       const res = await fetch(`/api/applicants/${applicant.id}/accept-offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
@@ -748,8 +749,10 @@ export default function ApplicantsPage() {
                         )}
 
 
-                        {/* Accept offer — only shown on 'applied' stage */}
-                        {applicant.pipeline_stage === 'applied' && (
+                        {/* Accept offer & send the reserve email — on 'applied', and again on 'offer_sent' (no holding deposit yet:
+                            recording one moves them on to referencing). An offer email that failed used to leave people at
+                            'offer_sent' with no way to send the link (Chloe, 15 Oct 2026). */}
+                        {(applicant.pipeline_stage === 'applied' || applicant.pipeline_stage === 'offer_sent') && (
                           <button
                             onClick={() => acceptOffer(applicant)}
                             disabled={acceptingSending === applicant.id || acceptSentFor.has(applicant.id)}
@@ -758,8 +761,8 @@ export default function ApplicantsPage() {
                             {acceptingSending === applicant.id
                               ? 'Sending…'
                               : acceptSentFor.has(applicant.id)
-                                ? '✓ Offer sent'
-                                : '✓ Accept offer & send reserve email'}
+                                ? '✓ Reserve email sent'
+                                : applicant.pipeline_stage === 'offer_sent' ? 'Resend reserve email' : '✓ Accept offer & send reserve email'}
                           </button>
                         )}
 
