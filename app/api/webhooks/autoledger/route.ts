@@ -17,7 +17,6 @@ import { NextRequest, NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import crypto from 'crypto'
-import { Resend } from 'resend'
 import { AI_MODEL } from '@/lib/ai-classify'
 import { buildEmail } from '@/lib/emailWrapper'
 import { genStatementRef } from '@/lib/references'
@@ -27,8 +26,7 @@ import {
   ROOM_SPECIFIC_CATEGORY_TYPES,
   UNMATCHED_SLUG,
 } from '@/lib/expense-categories'
-import { senderFieldsSdk } from '@/lib/email/sender'
-import { sendEmail } from '@/lib/sendEmail'
+import { sendEmail, deliverEmail } from '@/lib/sendEmail'
 import { requireAdministrator } from '@/lib/adminAuth'
 import { oneLine } from '@/lib/lettings/letWording'
 
@@ -1020,7 +1018,6 @@ Respond with JSON only in this exact shape:
   if (!quiet) {
   // Email notification (shared wrapper applied via buildEmail)
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY)
     const notifyBody = `
 <h2 style="color:#111;margin:0 0 12px;">⚡ AutoLedger ran</h2>
 <p style="color:#555;margin:0 0 16px;">Statement from <strong>${landlordName}</strong> processed automatically.</p>
@@ -1031,8 +1028,7 @@ Respond with JSON only in this exact shape:
 </table>
 ${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" style="display:inline-block;background:#86284a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Review in CROS →</a>` : ''}`
     const notifyHtml = await buildEmail(notifyBody)
-    await resend.emails.send({
-      ...(await senderFieldsSdk()),
+    await deliverEmail({
       to: ['harry@capitalrooms.co.uk'],
       subject: oneLine(`⚡ AutoLedger: ${inserted} expenses imported — ${property!.name || property!.address}`),
       html: notifyHtml,

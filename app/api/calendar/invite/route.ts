@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { buildIcs } from '@/lib/ics'
 import { buildEmail, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 
 /**
  * Emails a staff member a calendar invite (.ics attachment) for something they
@@ -56,17 +56,12 @@ export async function POST(request: NextRequest) {
     : `📅 ${title} — ${when}`
 
   try {
-    const res = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...(await senderFields(request)),
+    const res = await deliverEmail({
         to: [recipient],
         subject: calSubject,
         html,
         attachments: [{ filename: 'invite.ics', content: icsBase64 }],
-      }),
-    })
+      }, { req: request })
     if (!res.ok) {
       const detail = await res.text()
       return NextResponse.json({ sent: false, error: `Email failed: ${detail.slice(0, 200)}` }, { status: 502 })

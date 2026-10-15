@@ -13,12 +13,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import twilio from 'twilio'
 import { createClient } from '@supabase/supabase-js'
 import { emailHtml } from '@/lib/emailTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 const PORTAL_URL = 'https://cros-sigma.vercel.app'
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'harry@capitalrooms.co.uk'
 
@@ -36,11 +36,7 @@ function twiml(message: string): NextResponse {
 async function notifyAdmin(subject: string, html: string) {
   const key = process.env.RESEND_API_KEY
   if (!key) return
-  await fetch(RESEND_ENDPOINT, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...(await senderFields()), to: [ADMIN_EMAIL], subject, html }),
-  })
+  await deliverEmail({ to: [ADMIN_EMAIL], subject, html })
 }
 
 export async function POST(request: NextRequest) {

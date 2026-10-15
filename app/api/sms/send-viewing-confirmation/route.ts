@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { hiName, personFromText } from '@/lib/people'
 import { createServerClient } from '@/lib/supabase'
 import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const signOff = await getSmsSignOff(user.user.email || '')
 
-    const message = `Hi ${visitorName}, your viewing at ${roomAddress} is confirmed for ${viewingDate} at ${viewingTime}. Reply to this message or call/text us directly. -${signOff}`
+    const message = `Hi ${hiName(personFromText(visitorName))}, your viewing at ${roomAddress} is confirmed for ${viewingDate} at ${viewingTime}. Reply to this message or call/text us directly. -${signOff}`
 
     const client = twilio(sid, token)
     await client.messages.create({ body: message, from, to: phone })

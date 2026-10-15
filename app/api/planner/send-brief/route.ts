@@ -1,8 +1,9 @@
 import { getCurrentUser } from '@/lib/serverAuth'
-import { senderFields, senderFor } from '@/lib/email/sender'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName, personFromText } from '@/lib/people'
+import { senderFor } from '@/lib/email/sender'
 import { buildEmail } from '@/lib/emailWrapper'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 interface Update {
   id: string
@@ -24,7 +25,7 @@ function buildBriefHtml(params: {
   updates: Update[]
 }) {
   const { contractorName, personalMsg, boardTitle, itemTitle, groupName, status, updates } = params
-  const greeting = contractorName ? `Hi ${contractorName},` : 'Hi,'
+  const greeting = `Hi ${hiName(personFromText(contractorName))},`
 
   const allLinks  = updates.flatMap(u => u.links  || [])
   const allImages = updates.flatMap(u => u.images || [])
@@ -90,11 +91,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.RESEND_API_KEY
     if (!apiKey) return Response.json({ error: 'Email service not configured' }, { status: 500 })
 
-    const emailRes = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...(await senderFields(request)), to: [contractorEmail], subject, html }),
-    })
+    const emailRes = await deliverEmail({ to: [contractorEmail], subject, html }, { req: request })
 
     if (!emailRes.ok) {
       const err = await emailRes.json().catch(() => ({}))

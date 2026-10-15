@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { emailHtml, ctaButton } from '@/lib/emailTemplate'
-import { senderFields } from '@/lib/email/sender'
+
 
 export const runtime = 'nodejs'
 
@@ -123,16 +124,11 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   // Send via Resend
   const resendKey = process.env.RESEND_API_KEY
   if (resendKey) {
-    const emailRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...(await senderFields(req)),
+    const emailRes = await deliverEmail({
         to: [applicant.email],
         subject,
         html: fullHtml,
-      }),
-    })
+      }, { req: req })
     if (!emailRes.ok) {
       const err = await emailRes.json().catch(() => ({}))
       console.error('Rejection email failed:', err)

@@ -12,7 +12,7 @@
 export const SALUTATIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Mx'] as const
 export type Salutation = typeof SALUTATIONS[number]
 
-interface PersonLike {
+export interface PersonLike {
   salutation?: string | null
   first_name?: string | null
   middle_name?: string | null
@@ -158,7 +158,7 @@ export const dearLine = (p: PersonLike | null | undefined) => `Dear ${dearName(p
 
 /** The name after "Hi" — the first name for a person, the formal name for a business record. */
 export function hiName(p: PersonLike | null | undefined): string {
-  if (!p) return 'there'
+  if (!p || ![p.first_name, p.last_name, p.full_name, p.name, p.company].some(v => String(v ?? '').trim())) return 'there'
   if (looksLikeEntity(p)) return dearName(p)
   const f = String(p.first_name ?? '').trim()
   return f || dearName(p)
@@ -183,4 +183,19 @@ export function dearFromText(text: string | null | undefined): string {
   const title = parts[0].replace(/\.$/, '')
   if (/^(mr|mrs|ms|miss|mx|dr|prof|rev)$/i.test(title) && parts.length >= 2) return `${title.charAt(0).toUpperCase()}${title.slice(1).toLowerCase()} ${parts[parts.length - 1]}`
   return t
+}
+
+/** A person from a name typed as text ("Mr John Smith", "John Smith", "Page Properties Ltd") — for greetings when there's
+ *  no people record (let-only contacts, typed contractor or cleaner names, viewing visitors). */
+export function personFromText(text: string | null | undefined): PersonLike {
+  const t = String(text ?? '').trim()
+  if (!t || ENTITY_WORD.test(t)) return { full_name: t || null, company: t || null }
+  const parts = t.split(/\s+/)
+  const title = /^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?$/i.test(parts[0]) ? parts.shift()!.replace(/\.$/, '') : null
+  return {
+    salutation: title ? title.charAt(0).toUpperCase() + title.slice(1).toLowerCase() : null,
+    first_name: parts.length ? parts[0] : null,
+    last_name: parts.length > 1 ? parts[parts.length - 1] : null,
+    full_name: t,
+  }
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { hiName, personFromText } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase'
 import { getSmsSignOff } from '@/lib/auth'
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
   const person = tenancy?.people as any
   // a let-only occupant who isn't in CROS: the admin types their mobile when booking
   const phone  = (typeof phoneOverride === 'string' && phoneOverride.trim()) || person?.phone
-  const name   = (typeof nameOverride === 'string' && nameOverride.trim().split(' ')[0]) || person?.first_name || 'Resident'
+  const name   = typeof nameOverride === 'string' && nameOverride.trim() ? hiName(personFromText(nameOverride)) : hiName(person)
 
   if (!phone) {
     return NextResponse.json({ ok: true, smsSent: false, reason: 'no_phone' })
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
     // the joint tenant on the same tenancy gets the same text
     const co = (tenancy as any)?.co
     if (!phoneOverride && co?.phone && co.phone !== phone) {
-      await client.messages.create({ body: msg.replace(`Hi ${name},`, `Hi ${co.first_name || 'Resident'},`), from, to: co.phone }).catch(() => null)
+      await client.messages.create({ body: msg.replace(`Hi ${name},`, `Hi ${hiName(co)},`), from, to: co.phone }).catch(() => null)
     }
     return NextResponse.json({ ok: true, smsSent: true })
   } catch (e: any) {

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { personFromText } from '@/lib/people'
 import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
-import { senderFields } from '@/lib/email/sender'
+
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
@@ -12,7 +14,6 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
 export const runtime = 'nodejs'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
 
 function weeklyRent(monthly: number) {
@@ -254,9 +255,9 @@ export async function POST(request: NextRequest) {
       }
 
       if (tpl) {
-        subject = render(tpl.subject_line, tokenVars)
+        subject = render(tpl.subject_line, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
         // saved templates hold the body only; an old full-page template is sent as it is
-        const body = render(tpl.template_text, tokenVars)
+        const body = render(tpl.template_text, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
         html    = /<html/i.test(body) ? body : await buildEmail(body.includes('<') ? body : body.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { req: request })
       } else if (isReserve && monthly && weekly) {
         subject = `THE SEARCH IS OVER! — ${place}`
@@ -272,11 +273,7 @@ export async function POST(request: NextRequest) {
         html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl, whole }, request)
       }
 
-      const emailRes = await fetch(RESEND_ENDPOINT, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...(await senderFields(request)), to: [visitorEmail], subject: oneLine(subject), html }),
-      })
+      const emailRes = await deliverEmail({ to: [visitorEmail], subject: oneLine(subject), html }, { req: request })
       if (emailRes.ok) {
         result.emailSent = true
       } else {

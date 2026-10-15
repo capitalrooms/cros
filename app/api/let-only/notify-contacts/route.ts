@@ -18,10 +18,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName, personFromText } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields, senderFor } from '@/lib/email/sender'
+import { senderFor } from '@/lib/email/sender'
 import { requireStaff } from '@/lib/portalAuth'
 import { getCommsLive, getElectedCommsLive } from '@/lib/comms'
 import { oneLine } from '@/lib/lettings/letWording'
@@ -147,7 +149,7 @@ export async function POST(req: NextRequest) {
     contacts
       .filter(c => c.email)
       .map(async contact => {
-        const contactName = (contact.full_name || '').split(' ')[0] || 'there'
+        const contactName = hiName(personFromText(contact.full_name))   // "Mr John Smith" → John (lib/people)
 
         let subject: string
         let html: string
@@ -178,19 +180,11 @@ export async function POST(req: NextRequest) {
           html = await buildEmail(result.body, { req: req })
         }
 
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...(await senderFields(req)),
+        const res = await deliverEmail({
             to: [contact.email],
             subject,
             html,
-          }),
-        })
+          }, { req: req })
 
         if (!res.ok) {
           const err = await res.json()

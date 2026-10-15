@@ -18,7 +18,6 @@ export const maxDuration = 30
 const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 /** "Mr Rislan" — lib/people dearFromText (never a lone first name) */
-const greeting = (full: string) => dearFromText(full)
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const formUrl = `${SITE}/landlord/onboard/${row.token}`
   const started = Array.isArray(f.__sections_saved) && f.__sections_saved.length > 0
   const html = `
-<p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">Dear ${esc(greeting(String(row.full_name ?? '')))},</p>
+<p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.6">Dear ${esc(dearFromText(String(row.full_name ?? '')))},</p>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">As requested, here is the link to your Capital Rooms landlord registration form again.${started ? ' Everything you have entered so far is saved, so you can carry on where you left off.' : ''}</p>
 <p style="margin:0 0 22px"><a href="${formUrl}" style="display:inline-block;background:#181614;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 22px;border-radius:10px">Open my registration form</a></p>
 ${attachments ? `<p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Your ${kind} agreement is attached again. If any of your details in it aren’t quite right — names, addresses or your bank account — just give the correct ones in the form and we’ll update the agreement to match before you sign.</p>` : ''}

@@ -5,11 +5,10 @@
 // with a one-click link to review and file.
 
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { createClient } from '@supabase/supabase-js'
 import { scanDocument, fileHash } from '@/lib/scan-engine'
-import { Resend } from 'resend'
 import crypto from 'crypto'
-import { senderFieldsSdk } from '@/lib/email/sender'
 import { buildEmail } from '@/lib/emailWrapper'
 import { handleInvoiceEmail } from '@/lib/capture/email'
 
@@ -277,7 +276,6 @@ export async function POST(req: NextRequest) {
   // Send smart admin notification
   if (storedResults.length > 0) {
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY)
 
       const docCards = storedResults.map(r => {
         const ai = r.ai_result as any
@@ -306,8 +304,7 @@ export async function POST(req: NextRequest) {
           </div>`
       }).join('')
 
-      await resend.emails.send({
-        ...(await senderFieldsSdk()),
+      await deliverEmail({
         to: ['harry@capitalrooms.co.uk'],
         subject: `📄 ${storedResults.length} document${storedResults.length > 1 ? 's' : ''} received — ready to file`,
         html: await buildEmail(`

@@ -1,23 +1,20 @@
 import { NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName, personFromText } from '@/lib/people'
 import { createServiceClient } from '@/lib/supabase'
 import { requireStaff } from '@/lib/portalAuth'
 import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 const ukDay = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 
 async function sendEmail(to: string, subject: string, html: string, req: Request) {
   const key = process.env.RESEND_API_KEY
   if (!key) { console.warn('RESEND_API_KEY not set — email skipped'); return false }
-  const res = await fetch(RESEND_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ ...(await senderFields(req)), to, subject, html }),
-  })
+  const res = await deliverEmail({ to, subject, html }, { req: req })
   if (!res.ok) { console.error('Resend error:', await res.text()); return false }
   return true
 }
@@ -135,7 +132,7 @@ export async function POST(request: Request) {
     let tenantEmailSent = false
     if (emailTenant && tenantEmail) {
       const tenantSubject = tenantCheckoutTpl?.subject_line
-        ? render(tenantCheckoutTpl.subject_line, { move_out_date: moveOutDate, tenant_name: tenantName || '' })
+        ? render(tenantCheckoutTpl.subject_line, { move_out_date: moveOutDate, tenant_name: tenantName || '' }, personFromText(tenantName))
         : 'Your notice period has been recorded — Capital Rooms'
 
       // Prefer DB template body (enables admin to edit heading/content via WYSIWYG)
@@ -151,7 +148,7 @@ export async function POST(request: Request) {
           move_out_date: moveOutFormatted,
           pro_rata_amount: proRataAmount != null ? `£${proRataAmount}` : '',
         }
-        tenantHtml = await buildEmail(render(tenantCheckoutTpl.template_text, tplVars), { req: request })
+        tenantHtml = await buildEmail(render(tenantCheckoutTpl.template_text, tplVars, personFromText(tenantName)), { req: request })
       } else if (checkoutEmailHtml) {
         // Already fully wrapped by buildCheckoutEmail() on the frontend
         tenantHtml = checkoutEmailHtml
@@ -193,7 +190,7 @@ export async function POST(request: Request) {
     if (emailCleaner && cleanerId) {
       if (cleanerEmail) {
         const cleanerEmailHtml = await buildEmail(cleanerEmailBody({
-          cleanerName: cleanerName || 'Cleaner',
+          cleanerName: cleanerName || '',
           roomName: roomName || 'Room',
           propertyAddress: propertyAddress || '',
           moveOutDate,
@@ -257,7 +254,7 @@ function cleanerEmailBody(data: {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
   return `
-    <p style="margin:0 0 16px">Hi ${data.cleanerName},</p>
+    <p style="margin:0 0 16px">Hi ${hiName(personFromText(data.cleanerName))},</p>
     <p style="margin:0 0 16px">A room will need cleaning after the current tenant moves out. Details below — please confirm your availability as soon as possible.</p>
     <table style="width:100%;border-collapse:collapse;margin:0 0 20px">
       <tr><td style="padding:10px 12px;border:1px solid #e5e7eb;font-weight:600;width:40%;background:#f9fafb">Room</td>

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName } from '@/lib/people'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { expandJoint } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
@@ -9,9 +11,8 @@ import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 
 export async function POST(request: NextRequest) {
   // Step 1: Verify authentication
@@ -91,19 +92,11 @@ export async function POST(request: NextRequest) {
   const roomId = appointment.room_id
 
   async function send(to: string, subject: string, html: string) {
-    const res = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...(await senderFields(request)),
+    const res = await deliverEmail({
         to: [to],
         subject,
         html,
-      }),
-    })
+      }, { req: request })
     return res.ok
   }
 
@@ -154,14 +147,14 @@ export async function POST(request: NextRequest) {
 
       // both tenants on a joint tenancy (lib/serverNotify expandJoint)
       for (const tenancies of expandJoint<any>(tenancyRow ? [tenancyRow] : [])) if (tenancies && (tenancies as any).people?.email && ((tenancies as any).people?.notify_by_email !== false)) {
-        const tenantName = (tenancies as any).people.first_name || (tenancies as any).people.name || 'Tenant'
+        const tenantName = hiName((tenancies as any).people)
         const roomSubject = tenantTpl
           ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: roomName, property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'on your room' })
           : `A viewing has been booked for your room — ${roomName}`
         await send(
           (tenancies as any).people.email,
           roomSubject,
-          buildViewingEmail(tenantName, 'on your room')
+          await buildViewingEmail(tenantName, 'on your room')
         )
         sent.push(tenancies.people.email)
       }
@@ -177,14 +170,14 @@ export async function POST(request: NextRequest) {
       if (allTenancies && allTenancies.length > 0) {
         for (const tenancy of expandJoint<any>(allTenancies)) {
           if ((tenancy as any).people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
-            const tenantName = (tenancy as any).people.first_name || (tenancy as any).people.name || 'Tenant'
+            const tenantName = hiName((tenancy as any).people)
             const otherSubject = tenantTpl
               ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: roomName ?? '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'at your property' })
               : `A viewing is booked at the house — ${propertyName}`
             await send(
               (tenancy as any).people.email,
               otherSubject,
-              buildViewingEmail(tenantName, 'at your property')
+              await buildViewingEmail(tenantName, 'at your property')
             )
             sent.push(tenancy.people.email)
           }
@@ -201,14 +194,14 @@ export async function POST(request: NextRequest) {
       if (allTenancies && allTenancies.length > 0) {
         for (const tenancy of expandJoint<any>(allTenancies)) {
           if ((tenancy as any).people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
-            const tenantName = (tenancy as any).people.first_name || (tenancy as any).people.name || 'Tenant'
+            const tenantName = hiName((tenancy as any).people)
             const allSubject = tenantTpl
               ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: '', property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'at your property' })
               : `A viewing is booked at the house — ${propertyName}`
             await send(
               (tenancy as any).people.email,
               allSubject,
-              buildViewingEmail(tenantName, 'at your property')
+              await buildViewingEmail(tenantName, 'at your property')
             )
             sent.push(tenancy.people.email)
           }

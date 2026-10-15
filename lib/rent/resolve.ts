@@ -11,6 +11,7 @@
 //   agreePlan/endPlan — an arrangement to clear arrears (e.g. £50 a month on top of the rent)
 // Money already paid over to the landlord is never taken back here — those steps refuse and say why.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { hiName } from '@/lib/people'
 import { ledgerStart } from '@/lib/clientLedger'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { CLIENT_ACCOUNT } from '@/lib/movein/pack'
@@ -75,7 +76,7 @@ export async function rentPosition(s: SupabaseClient, tenancyId: string) {
 
 /** The message to the tenant: month by month what's still due, the total, and how to pay. */
 export function tenantMessage(pos: Awaited<ReturnType<typeof rentPosition>>, extra = '') {
-  const t = pos.tenancy, first = t.people?.first_name || 'there'
+  const t = pos.tenancy, first = hiName(t.people)
   const lines = pos.months.filter(m => m.outstanding > 0.005)
   const rows = lines.map(m => `${monthName(m.month)}: ${gbp(m.due)} due, ${gbp(m.received)} received — ${gbp(m.outstanding)} still to pay`)
   const plan = (pos.plans as any[]).find(p => p.status === 'active')

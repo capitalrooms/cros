@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName } from '@/lib/people'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { expandJoint } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
@@ -8,9 +10,8 @@ import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 
 export async function POST(request: NextRequest) {
   // Master switch: tenant/applicant messaging is paused until go-live.
@@ -56,19 +57,11 @@ export async function POST(request: NextRequest) {
   const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
   async function send(to: string, subject: string, html: string) {
-    const res = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...(await senderFields(request)),
+    const res = await deliverEmail({
         to: [to],
         subject,
         html,
-      }),
-    })
+      }, { req: request })
     return res.ok
   }
 
@@ -112,8 +105,8 @@ export async function POST(request: NextRequest) {
 
     // both tenants on a joint tenancy (lib/serverNotify expandJoint)
     for (const tenancy of expandJoint<any>(tenancyRow ? [tenancyRow] : [])) if (tenancy?.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
-      const tenantName = (tenancy.people as any).full_name || (tenancy.people as any).first_name || 'Tenant'
-      const tenantSubject = completedTpl ? render(completedTpl.subject_line, { ...completedVars, tenant_name: tenantName }) : `Your repair is complete — ${category}`
+      const tenantName = hiName(tenancy.people)   // lib/people — the one greeting rule
+      const tenantSubject = completedTpl ? render(completedTpl.subject_line, { ...completedVars, tenant_name: tenantName }, tenancy.people) : `Your repair is complete — ${category}`
       await send(
         tenancy.people.email,
         tenantSubject,
@@ -154,7 +147,7 @@ export async function POST(request: NextRequest) {
     if (otherTenancies && otherTenancies.length > 0) {
       for (const tenancy of expandJoint<any>(otherTenancies)) {
         if (tenancy.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
-          const tenantName = (tenancy.people as any).full_name || (tenancy.people as any).first_name || 'Tenant'
+          const tenantName = hiName(tenancy.people)   // lib/people — the one greeting rule
           await send(
             tenancy.people.email,
             `Maintenance completed at your property — ${category}`,

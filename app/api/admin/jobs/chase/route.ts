@@ -7,6 +7,7 @@
  *                                          turned notifications on. Office staff press send; nothing goes automatically.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { hiName } from '@/lib/people'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { insertNotifications } from '@/lib/serverNotify'
@@ -49,7 +50,7 @@ async function stalledJobs(s: ReturnType<typeof createServiceClient>, ids?: stri
     const notBooked = !t.booked_date && (t.approved_at ?? t.created_at) < twoDaysAgo
     if (!ids?.length && !overdue && !notBooked) continue
     const c = byId.get(t.contractor_id) ?? {}
-    const first = c.first_name || String(c.full_name || '').split(' ')[0] || 'there'
+    const first = hiName(c)
     const where = [t.rooms?.name, String(t.properties?.name || t.properties?.address || '').split('\n')[0]].filter(Boolean).join(', ')
     const job = `“${String(t.title || 'Maintenance job').trim()}” at ${where}`
     const message = overdue

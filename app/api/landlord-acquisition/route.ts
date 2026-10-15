@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { requireAdmin } from '@/lib/adminAuth'
 import { acquisitionEmailHtml } from '@/lib/email-templates/acquisition'
-import { senderFields } from '@/lib/email/sender'
+
 
 // POST /api/landlord-acquisition
 // Body: { firstName, email, greeting?, headshotUrl?, igUrl?, fbUrl? }
@@ -34,19 +35,11 @@ export async function POST(req: NextRequest) {
     discountedLettingFee: discountedLettingFee?.trim() || undefined,
   })
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      ...(await senderFields(req)),
+  const res = await deliverEmail({
       to: email.trim(),
       subject: `Let us make property simple, ${firstName.trim()}.`,
       html,
-    }),
-  })
+    }, { req: req })
 
   if (!res.ok) {
     const text = await res.text()

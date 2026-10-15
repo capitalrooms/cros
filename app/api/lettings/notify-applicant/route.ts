@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { hiName, personFromText } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
 import twilio from 'twilio'
 import { requireStaff } from '@/lib/portalAuth'
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     .eq('id', b.viewing_id).maybeSingle() as { data: any }
   if (!v) return NextResponse.json({ error: 'Viewing not found' }, { status: 404 })
 
-  const first = String(v.visitor_name || '').trim().split(/\s+/)[0] || 'there'
+  const first = hiName(personFromText(v.visitor_name))
   const out: { smsSent: boolean; emailSent: boolean; smsError?: string; emailError?: string } = { smsSent: false, emailSent: false }
 
   if (wantSms) {

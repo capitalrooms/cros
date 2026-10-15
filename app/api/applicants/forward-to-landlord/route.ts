@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { createClient } from '@supabase/supabase-js'
 import { requireStaff } from '@/lib/portalAuth'
-import { emailHtml, FROM, tableRow } from '@/lib/emailTemplate'
+import { emailHtml, tableRow } from '@/lib/emailTemplate'
 import { displayName } from '@/lib/people'
 import { oneLine } from '@/lib/lettings/letWording'
 
@@ -88,19 +89,11 @@ export async function POST(request: Request) {
       </p>
     `
 
-    const resendRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from:    FROM,
-        to:      [landlordEmail],
-        subject: oneLine(`New application: ${displayName(applicant)} — ${roomName}, ${propAddress}`),
-        html:    await emailHtml(body, { req: request }),
-      }),
-    })
+    const resendRes = await deliverEmail({
+      to:      [landlordEmail],
+      subject: `New application: ${displayName(applicant)} — ${roomName}, ${propAddress}`,
+      html:    await emailHtml(body, { req: request }),
+    }, { req: request })
 
     if (!resendRes.ok) {
       const err = await resendRes.text()

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { hiName } from '@/lib/people'
 import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { getSmsSignOff } from '@/lib/auth'
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
     const { data: occ } = await sb.from('tenancies').select('people!person_id(salutation, first_name, full_name, phone), co:people!co_tenant_id(salutation, first_name, full_name, phone)')
       .eq('room_id', room_id).is('end_date', null).limit(1).maybeSingle() as { data: any }
     const phone    = occ?.people?.phone as string | undefined
-    const name     = occ?.people?.first_name || occ?.people?.full_name?.split(' ')[0] || 'Resident'
+    const name     = hiName(occ?.people)
     const address  = (room?.properties as any)?.address || ''
     const dateStr  = new Date(viewing_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
     const timeStr  = viewing_slot || ''
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
           // the joint tenant on the same tenancy gets the same text
           const co = occ?.co
           if (co?.phone && co.phone !== phone) {
-            const coName = co.first_name || co.full_name?.split(' ')[0] || 'Resident'
+            const coName = hiName(co)
             await client.messages.create({ body: msg.replace(`Hi ${name},`, `Hi ${coName},`), from, to: co.phone }).catch(() => null)
           }
         } catch (e: any) {

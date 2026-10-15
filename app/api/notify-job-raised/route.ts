@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName } from '@/lib/people'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -8,9 +10,8 @@ import { tellContractor } from '@/lib/contractorContact'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendServerPush } from '@/lib/serverPush'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 
 function jobHeading(
   category: string | null,
@@ -78,19 +79,11 @@ export async function POST(request: NextRequest) {
   const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
   async function send(to: string, subject: string, html: string) {
-    const res = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...(await senderFields(request)),
+    const res = await deliverEmail({
         to: [to],
         subject,
         html,
-      }),
-    })
+      }, { req: request })
     return res.ok
   }
 
@@ -167,12 +160,10 @@ export async function POST(request: NextRequest) {
   // Contractor — the new job, the way they've asked to hear from us (text / app / email, lib/contractorContact).
   // Texts come from CAPITAL RMS, so they confirm and book from the link, never by replying.
   if (contractor) {
-    const contractorName = contractor.salutation && contractor.last_name
-      ? `${contractor.salutation} ${contractor.last_name}`
-      : contractor.first_name || contractor.full_name || 'there'
+    const contractorName = hiName(contractor)   // lib/people — the one greeting rule
     const contractorVars = { ...vars, contractor_name: contractorName }
-    const subject = tplContractor ? render(tplContractor.subject_line, contractorVars) : `New job assigned — ${heading}`
-    const body = tplContractor ? render(tplContractor.template_text, contractorVars) : `
+    const subject = tplContractor ? render(tplContractor.subject_line, contractorVars, contractor) : `New job assigned — ${heading}`
+    const body = tplContractor ? render(tplContractor.template_text, contractorVars, contractor) : `
         <h2 style="margin:0 0 8px;font-size:22px">Hi ${contractorName}, you've been assigned a job</h2>
         <p style="margin:0 0 24px;font-size:18px;font-weight:600;line-height:1.5">${heading}</p>
         <table style="width:100%;border-collapse:collapse;font-size:14px">

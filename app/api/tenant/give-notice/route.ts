@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { createServiceClient, createServerClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { buildEmail } from '@/lib/emailWrapper'
-import { senderFields } from '@/lib/email/sender'
+
 import { oneLine } from '@/lib/lettings/letWording'
 
 /** POST — tenant submits standard notice via portal
@@ -108,16 +109,11 @@ export async function POST(req: NextRequest) {
         <li><strong>Intended move-out:</strong> ${moveOutFormatted}</li>
       </ul>
       <p style="margin:0">Please review in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a> and send the checkout email once you have confirmed the pro-rata rent.</p>`
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-      body: JSON.stringify({
-        ...(await senderFields()),
+    await deliverEmail({
         to: adminEmail,
         subject: oneLine(`Notice given — ${roomName}, ${propertyAddress}`),
         html: await buildEmail(notifyBody),
-      }),
-    }).catch(e => console.error('Admin notify failed:', e))
+      }).catch(e => console.error('Admin notify failed:', e))
   }
 
   return NextResponse.json({ ok: true, noticeReceivedDate: todayStr, moveOutDate: intendedMoveOutDate })

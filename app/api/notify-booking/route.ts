@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { displayName } from '@/lib/people'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
@@ -9,9 +11,8 @@ import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 
 // Resend's shared sender — works with no domain set up. Swap for
 // bookings@capitalrooms.co.uk once the domain is verified in Resend.
@@ -112,26 +113,18 @@ export async function POST(request: NextRequest) {
     : { data: null }
 
   const attending = contractor
-    ? `${contractor.name ?? contractor.email}${contractor.phone ? ` · ${contractor.phone}` : ''}`
+    ? `${displayName(contractor) || contractor.email}${contractor.phone ? ` · ${contractor.phone}` : ''}`
     : 'Not yet assigned'
 
   async function send(to: string, subject: string, html: string, attachIcs: boolean) {
-    const res = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...(await senderFields(request)),
+    const res = await deliverEmail({
         to: [to],
         subject,
         html,
         ...(attachIcs && {
           attachments: [{ filename: 'repair-visit.ics', content: icsBase64 }],
         }),
-      }),
-    })
+      }, { req: request })
     if (res.ok) sent.push(to)
     else failed.push({ to, error: await res.text() })
   }

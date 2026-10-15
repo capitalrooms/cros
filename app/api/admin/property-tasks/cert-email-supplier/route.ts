@@ -16,11 +16,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { getCurrentUser } from '@/lib/serverAuth'
-import { senderFields, senderFor } from '@/lib/email/sender'
+import { senderFor } from '@/lib/email/sender'
 import { buildEmail } from '@/lib/emailWrapper'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
@@ -39,20 +39,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'supplier_email, subject and body are required' }, { status: 400 })
   }
 
-  const res = await fetch(RESEND_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      ...(await senderFields(req)),
+  const res = await deliverEmail({
       to:      [supplier_email],
       subject,
       text:    emailBody,
       html:    await buildEmail(String(emailBody).replace(/[&<>]/g, (c: string) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!)).split(/\n{2,}/).map((p: string) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { sender: await senderFor(req) }),
-    }),
-  })
+    }, { req: req })
 
   if (!res.ok) {
     const err = await res.text()

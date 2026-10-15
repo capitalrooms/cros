@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
+import { hiName } from '@/lib/people'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { expandJoint } from '@/lib/serverNotify'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
-import { senderFields } from '@/lib/email/sender'
+
 import { getCommsLive } from '@/lib/comms'
 
 const svc = () =>
@@ -71,7 +73,7 @@ export async function GET(req: Request) {
     const email = person?.email
     if (!email) continue
 
-    const tenantName = person.first_name || person.full_name || 'Tenant'
+    const tenantName = hiName(person)
     const moveOutDate = new Date((t.end_date as string) + 'T12:00:00').toLocaleDateString('en-GB', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     })
@@ -84,18 +86,14 @@ export async function GET(req: Request) {
     }
 
     const subject = tpl?.subject_line
-      ? render(tpl.subject_line, vars)
+      ? render(tpl.subject_line, vars, person)
       : `Reminder: your move-out is in 2 weeks — ${moveOutDate}`
 
     const html = tpl?.template_text
-      ? await buildEmail(render(tpl.template_text, vars))
+      ? await buildEmail(render(tpl.template_text, vars, person))
       : await buildEmail(fallbackReminderBody(vars))
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-      body: JSON.stringify({ ...(await senderFields()), to: email, subject, html }),
-    })
+    const res = await deliverEmail({ to: email, subject, html })
 
     if (res.ok) {
       await supabase

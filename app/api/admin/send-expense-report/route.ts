@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { createClient } from '@supabase/supabase-js'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getCurrentUser } from '@/lib/serverAuth'
-import { senderFields } from '@/lib/email/sender'
+
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -121,16 +122,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'RESEND_API_KEY not configured' }, { status: 500 })
   }
 
-  const emailRes = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${resendKey}` },
-    body: JSON.stringify({
-      ...(await senderFields(request)),
+  const emailRes = await deliverEmail({
       to: ACCOUNTS_EMAIL,
       subject: `Property recharge expenses — ${monthLabel}`,
       html: await buildEmail(emailBody, { req: request }),
-    }),
-  })
+    }, { req: request })
 
   if (!emailRes.ok) {
     const err = await emailRes.text()

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { deliverEmail } from '@/lib/sendEmail'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { expandJoint } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
@@ -8,9 +9,8 @@ import { getCurrentUser } from '@/lib/serverAuth'
 import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
-import { senderFields } from '@/lib/email/sender'
 
-const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
 
 export async function POST(request: NextRequest) {
   const supabaseServer = await createServerClient()
@@ -43,19 +43,11 @@ export async function POST(request: NextRequest) {
   )
 
   async function send(to: string, subject: string, html: string) {
-    const res = await fetch(RESEND_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        ...(await senderFields(request)),
+    const res = await deliverEmail({
         to: [to],
         subject,
         html,
-      }),
-    })
+      }, { req: request })
     return res.ok
   }
 
