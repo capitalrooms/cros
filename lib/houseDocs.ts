@@ -39,7 +39,7 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
   if (!prop) return null
   const [{ data: docs }, { data: lets }] = await Promise.all([
     s.from('property_documents').select('document_type, storage_url, uploaded_at').eq('property_id', propertyId).order('uploaded_at', { ascending: false }),
-    s.from('tenancies').select('id, person_id, co_tenant_id, rooms(name), people!person_id(id, salutation, first_name, last_name, full_name, email)')
+    s.from('tenancies').select('id, person_id, co_tenant_id, rooms(name), people!person_id(id, salutation, first_name, last_name, full_name, email), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name, email)')
       .eq('property_id', propertyId).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
   ])
   const sixtyDaysAgo = iso(new Date(Date.now() - 60 * 86_400_000))
@@ -54,7 +54,7 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
   }))
   const seen = new Set<string>()
   const tenants: HouseTenant[] = []
-  for (const t of (lets ?? []) as any[]) {
+  for (const t of ((lets ?? []) as any[]).flatMap(t => [t, ...(t.co ? [{ ...t, people: t.co }] : [])])) {   // joint tenants too
     const p = t.people
     if (!p?.email || seen.has(p.id)) continue
     seen.add(p.id)

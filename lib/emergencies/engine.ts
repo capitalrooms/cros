@@ -101,8 +101,8 @@ export async function alertOffice(s: S, em: any, title: string, body: string, te
 async function household(s: S, em: any): Promise<string[]> {
   if (!em.property_id) return em.reporter_id ? [em.reporter_id] : []
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-  const { data } = await s.from('tenancies').select('person_id').eq('property_id', em.property_id).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
-  return [...new Set([em.reporter_id, ...((data ?? []) as any[]).map(t => t.person_id)].filter(Boolean))]
+  const { data } = await s.from('tenancies').select('person_id, co_tenant_id').eq('property_id', em.property_id).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
+  return [...new Set([em.reporter_id, ...((data ?? []) as any[]).flatMap(t => [t.person_id, t.co_tenant_id])].filter(Boolean))]   // joint tenants too
 }
 /** Tell the house what's happening (push + in-app). Respects the emergency_tenant_updates setting. */
 async function tellHouse(s: S, em: any, title: string, body: string) {

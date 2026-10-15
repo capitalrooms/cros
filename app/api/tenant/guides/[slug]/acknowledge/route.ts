@@ -22,7 +22,7 @@ async function getActiveTenancySR(personId: string) {
   const { data } = await sb
     .from('tenancies')
     .select('id, person_id, notice_received_date')
-    .eq('person_id', personId)
+    .or(`person_id.eq.${personId},co_tenant_id.eq.${personId}`)   // joint tenants too
     .lte('start_date', today)
     .or(`end_date.is.null,end_date.gte.${today}`)
     .order('start_date', { ascending: false })

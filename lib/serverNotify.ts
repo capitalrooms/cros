@@ -51,8 +51,23 @@ export async function insertNotifications(
   return { count: error ? 0 : rows.length, error: error?.message ?? null }
 }
 
+/** Everyone named on a tenancy: the tenant and, on a joint tenancy, the joint tenant (tenancies.co_tenant_id —
+ *  jointly and severally liable; both get every tenant message). Pass rows selected with `people!person_id(...)` and
+ *  `co:people!co_tenant_id(...)`, or with plain person_id / co_tenant_id. (15 Oct 2026) */
+export function tenancyPeople<T = any>(t: any): T[] {
+  if (!t) return []
+  const out = [t.people ?? t.person ?? null, t.co ?? t.co_tenant ?? null].filter(Boolean) as T[]
+  return out
+}
+export const tenancyPersonIds = (t: any): string[] => [t?.person_id, t?.co_tenant_id].filter(Boolean)
+/** One row per person on each tenancy: a joint tenancy gives a second row, a copy with `people` set to the joint
+ *  tenant — so a loop that messages `row.people` reaches both. Select `co:people!co_tenant_id(...)` alongside. */
+export function expandJoint<R = any>(rows: R[] | null | undefined): R[] {
+  return ((rows ?? []) as any[]).flatMap(r => r?.co ? [r, { ...r, people: r.co, person: r.co, person_id: r.co.id ?? r.co_tenant_id }] : [r]) as R[]
+}
+
 /**
- * Active-tenant person_ids for a property (or a single room). Tenancies key on
+ * Active-tenant person_ids for a property (or a single room) — joint tenants included. Tenancies key on
  * `person_id` (NOT tenant_id), and "active" = open-ended or not yet ended.
  */
 export async function activeTenantIds(
@@ -66,11 +81,11 @@ export async function activeTenantIds(
     // Direct query by room — no property join needed
     const { data } = await service
       .from('tenancies')
-      .select('person_id')
+      .select('person_id, co_tenant_id')
       .eq('room_id', roomId)
       .lte('start_date', today)   // not tenants who haven't moved in yet
       .or(`end_date.is.null,end_date.gte.${today}`)
-    return [...new Set((data || []).map((t: any) => t.person_id).filter(Boolean))]
+    return [...new Set((data || []).flatMap(tenancyPersonIds))]
   }
 
   // tenancies has room_id but NOT property_id, so get room IDs first
@@ -83,11 +98,11 @@ export async function activeTenantIds(
 
   const { data } = await service
     .from('tenancies')
-    .select('person_id')
+    .select('person_id, co_tenant_id')
     .in('room_id', roomIds)
     .lte('start_date', today)   // not tenants who haven't moved in yet
     .or(`end_date.is.null,end_date.gte.${today}`)
-  return [...new Set((data || []).map((t: any) => t.person_id).filter(Boolean))]
+  return [...new Set((data || []).flatMap(tenancyPersonIds))]
 }
 
 /**

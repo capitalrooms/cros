@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
+import { expandJoint } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -102,14 +103,15 @@ export async function POST(request: NextRequest) {
 
   // Send to tenant IN this room IF they've opted into maintenance notifications
   if (room?.id) {
-    const { data: tenancy } = await supabase
+    const { data: tenancyRow } = await supabase
       .from('tenancies')
-      .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
+      .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
       .eq('room_id', room.id)
       .is('end_date', null)
       .single()
 
-    if (tenancy?.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
+    // both tenants on a joint tenancy (lib/serverNotify expandJoint)
+    for (const tenancy of expandJoint<any>(tenancyRow ? [tenancyRow] : [])) if (tenancy?.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
       const tenantName = (tenancy.people as any).full_name || (tenancy.people as any).first_name || 'Tenant'
       const tenantSubject = completedTpl ? render(completedTpl.subject_line, { ...completedVars, tenant_name: tenantName }) : `Your repair is complete — ${category}`
       await send(
@@ -144,13 +146,13 @@ export async function POST(request: NextRequest) {
   if (property?.id) {
     const { data: otherTenancies } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
+      .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
       .eq('property_id', property.id)
       .neq('room_id', room?.id) // Exclude the room with the repair
       .is('end_date', null)
 
     if (otherTenancies && otherTenancies.length > 0) {
-      for (const tenancy of otherTenancies) {
+      for (const tenancy of expandJoint<any>(otherTenancies)) {
         if (tenancy.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
           const tenantName = (tenancy.people as any).full_name || (tenancy.people as any).first_name || 'Tenant'
           await send(

@@ -101,7 +101,7 @@ export default function AllUnitsPage() {
     const [props, rooms, tens, jobs] = await Promise.all([
       sb.from('properties').select(`id, name, address, postcode, property_code, property_type, letting_type, is_demo, landlord_id, has_gas, management_fee_type, management_fee_pct, management_fee_fixed, ${certCols}`),
       sb.from('rooms').select('id, name, unit_code, current_asking_rent, available_date, property_id'),
-      sb.from('tenancies').select('id, room_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, management_fee_type, management_fee_pct, management_fee_fixed, people!person_id(salutation, first_name, last_name, full_name, email)'),
+      sb.from('tenancies').select('id, room_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, management_fee_type, management_fee_pct, management_fee_fixed, people!person_id(salutation, first_name, last_name, full_name, email), co:people!co_tenant_id(salutation, first_name, last_name, full_name, email)'),
       sb.from('maintenance_tickets').select('property_id, status'),
     ])
     const allProps = (props.data ?? []) as any[]
@@ -111,7 +111,8 @@ export default function AllUnitsPage() {
     const now = today(), in60 = new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10)
     const live = ((tens.data ?? []) as any[]).filter(t => !t.let_cancelled_at && t.room_id)
     const openJobs = ((jobs.data ?? []) as any[]).filter(j => !['completed', 'closed', 'cancelled'].includes(j.status))
-    const who = (t: any): Who => ({ tenancyId: t.id, name: personName(t.people), short: personShort(t.people), rent: t.rent_amount != null ? Number(t.rent_amount) : null, start: t.start_date ?? null, end: t.end_date ?? null })
+    // a joint tenancy names both
+    const who = (t: any): Who => ({ tenancyId: t.id, name: [personName(t.people), t.co ? personName(t.co) : ''].filter(Boolean).join(' & '), short: [personShort(t.people), t.co ? personShort(t.co) : ''].filter(Boolean).join(' & '), rent: t.rent_amount != null ? Number(t.rent_amount) : null, start: t.start_date ?? null, end: t.end_date ?? null })
 
     const out: House[] = managed.map(p => {
       const rows: Row[] = ((rooms.data ?? []) as any[]).filter(r => r.property_id === p.id).map(r => {

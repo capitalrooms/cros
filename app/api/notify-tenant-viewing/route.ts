@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
+import { expandJoint } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase'
@@ -62,15 +63,15 @@ export async function POST(request: NextRequest) {
 
   if (notifyType === 'room_tenant') {
     // Notify the tenant in this specific room (if they've opted in to viewings)
-    const { data: tenancy } = await supabase
+    const { data: tenancyRow } = await supabase
       .from('tenancies')
-      .select('id, people!person_id(email, salutation, first_name, full_name, notify_by_email)')
+      .select('id, people!person_id(email, salutation, first_name, full_name, notify_by_email), co:people!co_tenant_id(email, salutation, first_name, full_name, notify_by_email)')
       .eq('room_id', roomId)
       .is('end_date', null)
       .limit(1)
       .maybeSingle() as { data: any }
 
-    if (tenancy?.people?.email && tenancy.people.notify_by_email !== false) {
+    for (const tenancy of expandJoint<any>(tenancyRow ? [tenancyRow] : [])) if (tenancy?.people?.email && tenancy.people.notify_by_email !== false) {
       const success = await send(
         tenancy.people.email,
         'Notice of scheduled viewing at your property',
@@ -95,12 +96,12 @@ export async function POST(request: NextRequest) {
 
     const { data: otherTenancies } = await supabase
       .from('tenancies')
-      .select('id, people!person_id(email, salutation, first_name, full_name, notify_by_email), rooms(name)')
+      .select('id, people!person_id(email, salutation, first_name, full_name, notify_by_email), co:people!co_tenant_id(email, salutation, first_name, full_name, notify_by_email), rooms(name)')
       .eq('property_id', propertyId)
       .neq('room_id', roomId)
       .is('end_date', null) as { data: any[] | null }
 
-    for (const tenancy of otherTenancies || []) {
+    for (const tenancy of expandJoint<any>(otherTenancies)) {
       if (tenancy?.people?.email && tenancy.people.notify_by_email !== false) {
         const success = await send(
           tenancy.people.email,
