@@ -159,8 +159,9 @@ async function alertFailed(subject: string, files: string[], why: string) {
 }
 
 /** The previous agent's own statement date and number: "Statement at 03/06/2026" (subject) and "Statement LS0993.pdf". */
-function agentStatement(subject: string, files: string[]): { date: string | null; number: string | null } {
-  const m = subject.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+function agentStatement(subject: string, files: string[], body = ''): { date: string | null; number: string | null } {
+  // the subject ("Statement at 03/06/2026"), else the forwarded email's own text ("Statement at …" / "Date: …")
+  const m = subject.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/) ?? body.match(/Statement (?:at|dated?:?)\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i)
   const date = m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null
   const number = files.map(f => f.match(/\bLS\d{3,}\b/i)?.[0]).find(Boolean)?.toUpperCase() ?? null
   return { date: date && !isNaN(Date.parse(date)) ? date : null, number }
@@ -177,7 +178,7 @@ async function processStatement(body: any) {
 
   console.log('AutoLedger processing start:', { inboundEmailId, from, subject, attachments_count: attachments.length })
   const fileNames = attachments.map(a => String(a.filename || a.name || '')).filter(Boolean)
-  const agent = agentStatement(subject, fileNames)
+  const agent = agentStatement(subject, fileNames, textBody || htmlBody.replace(/<[^>]+>/g, ' '))
   const fail = (why: string) => alertFailed(subject, fileNames, why)
 
   // Fetch attachment content — Resend doesn't include base64 in the webhook payload
