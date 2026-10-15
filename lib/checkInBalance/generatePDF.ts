@@ -58,7 +58,15 @@ function parseDate(iso: string): Date {
 const fmtDate = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 const joinNames = (names: string[]) => names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`
 
+/** The check-in balance every route uses — the spruced-up design (lib/checkInBalance/moveInStatement), the default
+ *  from 15 Oct 2026 (Harry: "Your move in balance looks great that can be the new default"). Same figures. */
 export async function generateCheckInBalancePDF(data: CheckInBalanceData): Promise<Buffer> {
+  const { generateMoveInStatement } = await import('@/lib/checkInBalance/moveInStatement')
+  return generateMoveInStatement(data)
+}
+
+/** The previous invoice-style layout — kept for reference; nothing calls it. */
+export async function generateCheckInBalanceInvoiceStylePDF(data: CheckInBalanceData): Promise<Buffer> {
   // ── Rent for the first period (unchanged calculation) ──────────────────
   // Same calculation as the tenancy agreement's "initial rent payment" (lib/tenancy/firstRent), so the two
   // documents always agree: pro-rata = start date to the day before the 1st, at monthly × 12 ÷ 365 per day.

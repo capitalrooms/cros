@@ -948,6 +948,20 @@ export async function renderTenancyAgreementPdf(template: Buffer, opts: RenderOp
           }
           const h = own + gap + nextH
           if (nextH && (heading || leadIn || next?.kind === 'table') && h < PAGE_CAPACITY && y + h > CONTENT_BOTTOM) newPage()
+          // a short section — a heading and everything up to the next heading or page break (e.g. the Supporting
+          // Documents Checklist and its list) — starts on a fresh page rather than splitting across two
+          // (Harry, 15 Oct 2026: "check the pages start in the right places"). Long sections still flow.
+          else if (heading && y > CONTENT_TOP + 1) {
+            let run = 0, sectionH = 0   // blank lines after the section's last words don't count
+            for (let j = i; j < bs.length; j++) {
+              const x = bs[j]
+              if (j > i && (x.kind === 'pagebreak' || (x.kind === 'p' && paraText(x).trim() && isHeading(x)))) break
+              run += x.kind === 'p' ? measurePara(x, width) + x.boxes.reduce((s2, bx) => s2 + measureBox(bx, width), 0)
+                : x.kind === 'table' ? measureTable(x, width) : x.kind === 'bills' ? billsHeight(x.texts) : 0
+              if (hasContent(x)) sectionH = run - (x.kind === 'p' ? x.after : 0)
+            }
+            if (sectionH < PAGE_CAPACITY * 0.35 && y + sectionH > CONTENT_BOTTOM) newPage()
+          }
         }
       }
       if (flow && b.kind === 'table') {
