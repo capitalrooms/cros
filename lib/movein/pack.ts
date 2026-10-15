@@ -8,6 +8,7 @@ import { firstRentPayment, parseTenancyDate, ukLongDate, type FirstRent } from '
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { landlordFormalNames, formalName, dearName } from '@/lib/people'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
+import { oneLine, placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import { generateTenancyAgreement } from '@/lib/tenancyAgreement/generate'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
@@ -51,7 +52,8 @@ const CERT_EXPIRY_COL: Record<string, string> = { gas: 'gas_safe_cert_expiry', e
 
 export interface PackContext {
   tenancyId: string
-  tenant: { id: string; name: string; formalName: string; firstName: string; dear: string; email: string }
+  // a joint tenancy (co_tenant_id): both tenants are named on the agreement and greeted, and both get the pack
+  tenant: { id: string; name: string; formalName: string; firstName: string; dear: string; email: string; names: string[]; emails: string[] }
   room: { id: string; name: string }
   property: { id: string; name: string; address: string; propertyId: string }
   address: string                   // "Room 5, 208 Rotherhithe Street, London, SE16 7RB"
@@ -78,7 +80,7 @@ const agreementDate = (d: Date) => `${ordinal(d.getDate())} ${d.toLocaleDateStri
 
 export async function loadPackContext(s: SupabaseClient, tenancyId: string): Promise<PackContext | null> {
   const { data: t } = await s.from('tenancies')
-    .select('id, start_date, rent_amount, rent_due_day, deposit_amount, holding_deposit_received, payment_reference, person_id, room_id, property_id, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email), rooms(id, name)')
+    .select('id, start_date, rent_amount, rent_due_day, deposit_amount, holding_deposit_received, payment_reference, person_id, room_id, property_id, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email), co:people!co_tenant_id(id, salutation, first_name, middle_name, last_name, full_name, email), rooms(id, name)')
     .eq('id', tenancyId).maybeSingle()
   if (!t) return null
   const { data: prop } = await s.from('properties').select('*').eq('id', (t as any).property_id).maybeSingle()
@@ -90,7 +92,11 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
   const p = (t as any).people ?? {}
   const room = (t as any).rooms ?? { id: (t as any).room_id, name: '' }
   const tenantName = [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Tenant'
-  const houseAddress = fullAddress(prop?.name, prop?.address, prop?.postcode)
+  const co = (t as any).co ?? null
+  const coName = co ? [co.salutation, co.first_name, co.last_name].filter(Boolean).join(' ') || co.full_name || '' : ''
+  // one line, never doubled: some houses are named after their address ("75 Crownfield Road, E15 2AB") and some
+  // addresses are saved on several lines (lib/lettings/letWording oneLine; fullAddress drops repeated parts)
+  const houseAddress = fullAddress(null, oneLine([prop?.name, prop?.address].filter(Boolean).join('\n')), prop?.postcode)
   const rentMonthly = Number(t.rent_amount || 0)
   const rentDueDay = Number(t.rent_due_day || 1)
   const deposit = Number(t.deposit_amount || 0)
@@ -131,11 +137,20 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
   // formalName = title, first, middle and surname — it goes on the agreement
   return {
     tenancyId,
-    tenant: { id: p.id, name: tenantName, formalName: formalName(p) !== '—' ? formalName(p) : tenantName, firstName: p.first_name || tenantName.split(' ')[0], dear: dearName(p), email: p.email || '' },
+    tenant: {
+      id: p.id,
+      name: [tenantName, coName].filter(Boolean).join(' and '),
+      formalName: [formalName(p) !== '—' ? formalName(p) : tenantName, co ? (formalName(co) !== '—' ? formalName(co) : coName) : ''].filter(Boolean).join(' and '),
+      firstName: [p.first_name || tenantName.split(' ')[0], co?.first_name].filter(Boolean).join(' and '),
+      dear: [dearName(p), co ? dearName(co) : ''].filter(Boolean).join(' and '),
+      email: p.email || '',
+      names: [tenantName, coName].filter(Boolean),
+      emails: [p.email, co?.email].filter(Boolean),
+    },
     room: { id: room.id, name: room.name || '' },
     property: { id: prop?.id, name: prop?.name || '', address: houseAddress, propertyId: prop?.id },
     lettingType: (prop as any)?.letting_type ?? null,
-    address: [room.name, houseAddress].filter(Boolean).join(', '),
+    address: placeLabel(isWholeLet(prop?.property_type, room.name), room.name, houseAddress),   // a whole home: just the address, never "Whole Property, …"
     landlordName: landlord ? landlordFormalNames(landlord as any) : '',
     startDate: t.start_date, rentMonthly, rentDueDay, deposit, holdingDeposit,
     paymentRef: t.payment_reference || generatedRef,
@@ -172,7 +187,7 @@ export async function renderAgreement(ctx: PackContext, opts: { parking?: boolea
     rent_due_day: ctx.rentDueDay,
     when_rent_due: ordinal(ctx.rentDueDay),
     deposit: gbp(ctx.deposit),
-    tenant_email: ctx.tenant.email,
+    tenant_email: ctx.tenant.emails.join(", "),   // both tenants on a joint tenancy
     bank_account_name: CLIENT_ACCOUNT.name,
     bank_name: CLIENT_ACCOUNT.bank,
     bank_sort_code: CLIENT_ACCOUNT.sortCode,
@@ -183,7 +198,7 @@ export async function renderAgreement(ctx: PackContext, opts: { parking?: boolea
 
 export async function renderCheckIn(ctx: PackContext) {
   return generateCheckInBalancePDF({
-    tenantNames: [ctx.tenant.name],
+    tenantNames: ctx.tenant.names,
     propertyAddress: ctx.address,
     rentMonthly: ctx.rentMonthly,
     depositAmount: ctx.deposit,
