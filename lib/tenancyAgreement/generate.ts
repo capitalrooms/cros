@@ -26,6 +26,9 @@ export const AGREEMENT_TEMPLATES = {
 } as const
 const templateFile = (t: string) => (t === 'apt-cr' ? 'apt-cr.docx' : 'apt-ns.docx')
 const PARKING_CLAUSE = /In order to access the Estate via vehicle/i
+// let-only (Nigel) tenants don't get these two guides, so they're not on the "documents received" checklist
+// (Harry, 15 Oct 2026). The managed agreement keeps them. The Word file itself is never edited.
+const LET_ONLY_NOT_SENT = [/^[\s•\-–]*The Jedi Housemate Guide\s*$/i, /^[\s•\-–]*Checking Out Guide\s*$/i]
 
 // The template's first-payment sentence assumes a full month. When rent is due on a different day from the
 // start (e.g. the 1st), the first payment is pro-rata — the same figure as the check-in balance demand.
@@ -103,6 +106,6 @@ export async function generateTenancyAgreement(input: AgreementInput, biz?: PDFB
     cleaning,
     title: agreementFileName(input).replace(/\.pdf$/, ''),
     biz: settings,
-    omitParagraphs: template === 'apt-base' ? [PARKING_CLAUSE] : [],
+    omitParagraphs: template === 'apt-base' ? [PARKING_CLAUSE, ...LET_ONLY_NOT_SENT] : template === 'apt-ns' ? LET_ONLY_NOT_SENT : [],
   })
 }
