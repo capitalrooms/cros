@@ -14,6 +14,7 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { genStatementRef } from '@/lib/references'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import StatementSend from './StatementSend'
+import StatementEmails from './StatementEmails'
 import { statementDue } from '@/lib/finance/dates'
 
 const mon = (m: string) => new Date(`${m}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
@@ -575,6 +576,9 @@ export default function AdminStatementsPage() {
         </div>
 
         {/* Existing */}
+        {/* every email forwarded to statements@, and re-reading them (15 Oct 2026) */}
+        <StatementEmails onChanged={() => loadStatements()} />
+
         <h2 className="mt-2xl text-xl font-bold text-neutral-900">Statements on file</h2>
         {grouped.length === 0 && <p className="mt-sm text-sm text-neutral-500">No statements yet.</p>}
         {coverage && (

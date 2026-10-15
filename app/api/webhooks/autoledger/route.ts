@@ -29,6 +29,7 @@ import {
 } from '@/lib/expense-categories'
 import { senderFieldsSdk } from '@/lib/email/sender'
 import { sendEmail } from '@/lib/sendEmail'
+import { requireAdministrator } from '@/lib/adminAuth'
 import { oneLine } from '@/lib/lettings/letWording'
 
 // Give Vercel up to 5 minutes — background AI processing of a large PDF needs it
@@ -167,7 +168,8 @@ function agentStatement(subject: string, files: string[], body = ''): { date: st
   return { date: date && !isNaN(Date.parse(date)) ? date : null, number }
 }
 
-async function processStatement(body: any) {
+type ReadResult = { outcome: 'stamped' | 'already' | 'created' | 'failed'; detail: string }
+async function processStatement(body: any): Promise<ReadResult> {
   const emailData = body.data ?? body
   const inboundEmailId: string = emailData.email_id || emailData.id || ''
   const from: string = emailData.from || emailData.sender || ''
@@ -179,7 +181,9 @@ async function processStatement(body: any) {
   console.log('AutoLedger processing start:', { inboundEmailId, from, subject, attachments_count: attachments.length })
   const fileNames = attachments.map(a => String(a.filename || a.name || '')).filter(Boolean)
   const agent = agentStatement(subject, fileNames, textBody || htmlBody.replace(/<[^>]+>/g, ' '))
-  const fail = (why: string) => alertFailed(subject, fileNames, why)
+  // re-read from the office screen: the screen shows each result, so no alert emails (15 Oct 2026)
+  const quiet = !!body?.reread
+  const fail = (why: string) => quiet ? Promise.resolve() : alertFailed(subject, fileNames, why)
 
   // Fetch attachment content — Resend doesn't include base64 in the webhook payload
   if (inboundEmailId && attachments.length) {
@@ -216,7 +220,7 @@ async function processStatement(body: any) {
   const senderEmail = from.replace(/.*<(.+)>/, '$1').trim().toLowerCase()
   if (!senderEmail) {
     console.error('AutoLedger: no sender email')
-    return
+    return { outcome: 'failed', detail: 'Not imported' }
   }
 
   const supabase = serviceClient()
@@ -232,7 +236,7 @@ async function processStatement(body: any) {
 
     if (!allProperties?.length) {
       console.error('AutoLedger: no properties in system')
-      return
+      return { outcome: 'failed', detail: 'Not imported' }
     }
 
     const pdfAtt = attachments.find(a =>
@@ -283,7 +287,7 @@ async function processStatement(body: any) {
     if (!property || !landlord) {
       console.warn(`AutoLedger: could not identify property from PDF. Subject: "${subject}"`)
       await fail('CROS couldn’t tell which property it’s for. Check the PDF names the property, or upload it on Finance › Statements › Import.')
-      return
+      return { outcome: 'failed', detail: 'CROS couldn’t tell which property it’s for. Check the PDF names the property, or upload it on Finance › Statements › Import.' }
     }
   } else {
     const { data: landlordData } = await supabase
@@ -296,7 +300,7 @@ async function processStatement(body: any) {
     if (!landlordData) {
       console.warn(`AutoLedger: unknown sender ${senderEmail}`)
       await fail(`It came from ${senderEmail}, which isn’t a landlord or the office in CROS.`)
-      return
+      return { outcome: 'failed', detail: `It came from ${senderEmail}, which isn’t a landlord or the office in CROS.` }
     }
     landlord = landlordData
 
@@ -307,7 +311,7 @@ async function processStatement(body: any) {
 
     if (!properties?.length) {
       console.warn('AutoLedger: no properties for landlord', landlord.email)
-      return
+      return { outcome: 'failed', detail: 'Not imported' }
     }
 
     let picked = properties[0]
@@ -441,7 +445,7 @@ Respond with JSON only in this exact shape:
   if (!rawItems.length) {
     console.warn('AutoLedger: no expense items found')
     await fail(fileNames.length ? 'No lines could be read from the PDF.' : 'There was no PDF attached to the email.')
-    return
+    return { outcome: 'failed', detail: fileNames.length ? 'No lines could be read from the PDF.' : 'There was no PDF attached to the email.' }
   }
 
   // Batch categorise — income lines are pre-assigned; only categorise expense lines
@@ -486,25 +490,45 @@ Respond with JSON only in this exact shape:
     const { data: hits } = await supabase.from('statement_line_items').select('statement_id, dedup_hash').eq('property_id', property.id).in('dedup_hash', [...new Set(incoming)])
     const byStmt = new Map<string, Set<string>>()
     for (const h of (hits ?? []) as any[]) { if (!h.statement_id) continue; const set = byStmt.get(h.statement_id) ?? new Set<string>(); set.add(h.dedup_hash); byStmt.set(h.statement_id, set) }
-    const dupOf = [...byStmt.entries()].find(([, set]) => incoming.every(x => set.has(x)))?.[0]
+    let dupOf = [...byStmt.entries()].find(([, set]) => incoming.every(x => set.has(x)))?.[0]
+    // stronger checks (15 Oct 2026 — reading a PDF again can word a line differently, so line matches alone could let
+    // a re-read through as a second copy):
+    //  1. the agent's own statement number (LS0993) is already on this property → the same statement
+    //  2. an un-numbered statement on this property with the same rent and net totals, within a month of the agent's
+    //     date (or, with no date, the best line match) → the same statement; it gets the number and date stamped
+    const { data: onProp } = await supabase.from('landlord_statements').select('id, statement_reference, statement_date, period_start, gross_rent, net_to_landlord').eq('property_id', property.id) as { data: any[] | null }
+    if (!dupOf && agent.number) dupOf = (onProp ?? []).find(x => String(x.statement_reference ?? '').toUpperCase().startsWith(agent.number!))?.id
+    if (!dupOf) {
+      const g = Math.round(rawItems.filter(r => r.line_type === 'income').reduce((t, r) => t + Number(r.amount || 0), 0) * 100) / 100
+      const n = Math.round((g - rawItems.filter(r => r.line_type !== 'income').reduce((t, r) => t + Number(r.amount || 0), 0)) * 100) / 100
+      const months = (iso: string) => { const [y, m] = iso.slice(0, 7).split('-').map(Number); return y * 12 + m }
+      const near = (x: any) => !agent.date || [x.statement_date, x.period_start].filter(Boolean).some((d: string) => Math.abs(months(d) - months(agent.date!)) <= 1)
+      const cands = (onProp ?? []).filter(x => !/^LS\d+/i.test(String(x.statement_reference ?? '')) && Math.abs(Number(x.gross_rent) - g) < 0.011 && Math.abs(Number(x.net_to_landlord) - n) < 0.011 && near(x))
+      const overlap = (id: string) => byStmt.get(id)?.size ?? 0
+      dupOf = cands.sort((a, b) => overlap(b.id) - overlap(a.id) || (agent.date ? Math.abs(months(a.statement_date) - months(agent.date)) - Math.abs(months(b.statement_date) - months(agent.date)) : 0))[0]?.id
+    }
     if (dupOf) {
       const { data: prev } = await supabase.from('landlord_statements').select('statement_reference, created_at').eq('id', dupOf).maybeSingle()
       // sent again with the agent's own date/number, which the first import didn't keep: correct the original's date
       // (nothing is added twice — 15 Oct 2026, so re-forwarding fixes which month each statement is for)
-      if (agent.date && agent.number && !/^LS\d+/i.test(String(prev?.statement_reference ?? ''))) {
-        const label = new Date(agent.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
-        await supabase.from('landlord_statements').update({ statement_date: agent.date, statement_reference: `${agent.number} · ${label}` }).eq('id', dupOf)
+      if (agent.number && !/^LS\d+/i.test(String(prev?.statement_reference ?? ''))) {
+        const { data: orig } = await supabase.from('landlord_statements').select('statement_date').eq('id', dupOf).maybeSingle()
+        const when = agent.date ?? String(orig?.statement_date ?? today)
+        const label = new Date(when).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+        await supabase.from('landlord_statements').update({ statement_date: when, statement_reference: `${agent.number} · ${label}` }).eq('id', dupOf)
         console.log('AutoLedger: duplicate — dated the original', agent.number, agent.date)
-        return
+        return { outcome: 'stamped', detail: `${agent.number} · ${label} stamped on the statement already in CROS (${property.name || property.address})` }
       }
       const when = prev?.created_at ? new Date(prev.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : 'earlier'
       const what = `${property.name || property.address} — ${prev?.statement_reference ?? 'statement'}`
       console.log('AutoLedger: duplicate statement rejected —', what)
       const { data: admins } = await supabase.from('people').select('id, email').in('role', ['administrator', 'admin'])
       const primary = ((admins ?? []) as any[]).find(a => String(a.email || '').endsWith('@capitalrooms.co.uk') && !String(a.email).includes('+test')) ?? (admins ?? [])[0]
-      if (primary) await supabase.from('notifications').insert({ user_id: primary.id, title: `Statement already imported — skipped`, body: `${what} was already imported on ${when}. Nothing was added twice.`, type: 'statement', link: '/admin/statements', read: false })
-      await sendEmail('harry@capitalrooms.co.uk', oneLine(`AutoLedger: already imported — ${what}`), `<p>This statement was already imported on ${when}, so it was <strong>not added again</strong>:</p><p><strong>${what}</strong></p><p>Nothing to do — this is just to let you know the copy was rejected.</p>`, { signature: false }).catch(() => null)
-      return
+      if (!quiet) {
+        if (primary) await supabase.from('notifications').insert({ user_id: primary.id, title: `Statement already imported — skipped`, body: `${what} was already imported on ${when}. Nothing was added twice.`, type: 'statement', link: '/admin/statements', read: false })
+        await sendEmail('harry@capitalrooms.co.uk', oneLine(`AutoLedger: already imported — ${what}`), `<p>This statement was already imported on ${when}, so it was <strong>not added again</strong>:</p><p><strong>${what}</strong></p><p>Nothing to do — this is just to let you know the copy was rejected.</p>`, { signature: false }).catch(() => null)
+      }
+      return { outcome: 'already', detail: `${what} is already in CROS — not added again` }
     }
   }
 
@@ -545,7 +569,7 @@ Respond with JSON only in this exact shape:
     if (stmtErr || !newStmt) {
       console.error('AutoLedger: statement insert failed', JSON.stringify(stmtErr))
       await fail(`It couldn’t be saved (${stmtErr?.message ?? 'database error'}).`)
-      return
+      return { outcome: 'failed', detail: `It couldn’t be saved (${stmtErr?.message ?? 'database error'}).` }
     }
     stmtRow = newStmt
   }
@@ -964,7 +988,7 @@ Respond with JSON only in this exact shape:
   // recipient so the bell can filter by user_id if needed later.  The communications
   // API already shows all Statement notifications to every admin regardless.
   try {
-    if (inserted > 0) {
+    if (inserted > 0 && !quiet) {
       const { data: admins } = await supabase
         .from('people')
         .select('id, email')
@@ -993,6 +1017,7 @@ Respond with JSON only in this exact shape:
     console.warn('AutoLedger: in-app notify failed', e)
   }
 
+  if (!quiet) {
   // Email notification (shared wrapper applied via buildEmail)
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)
@@ -1015,11 +1040,35 @@ ${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" s
   } catch (e) {
     console.warn('AutoLedger: email notify failed', e)
   }
+  }
+  return { outcome: 'created', detail: `New statement for ${property!.name || property!.address}${agent.number ? ` — ${agent.number}` : ''}: ${inserted} line${inserted === 1 ? '' : 's'}` }
 }
 
 // ── Webhook entry point ────────────────────────────────────────────────────────
+/** The real inbound email, straight from the email service — so what's imported is never taken from a request. */
+async function inboundEmail(id: string): Promise<any | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+  const r = await fetch(`https://api.resend.com/emails/receiving/${id}`, { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` } }).catch(() => null)
+  if (!r?.ok) return null
+  const e = await r.json().catch(() => null)
+  return e?.id ? { email_id: e.id, from: e.from, to: e.to, subject: e.subject, text: e.text, html: e.html, attachments: (e.attachments ?? []).map((a: any) => ({ id: a.id, filename: a.filename, content_type: a.content_type })) } : null
+}
+
 export async function POST(req: NextRequest) {
+  // Office "re-read this email" (Finance › Statements › Statement emails, 15 Oct 2026): an administrator names an email
+  // that reached statements@; it's fetched from the email service and imported again — a statement already in CROS is
+  // never added twice (it gets the agent's number and date instead). Runs to the end so the screen can show the result.
+  if (req.headers.get('x-cros-reread')) {
+    if (!(await requireAdministrator(req))) return NextResponse.json({ error: 'Only an administrator can re-read statements.' }, { status: 403 })
+    const { emailId } = await req.json().catch(() => ({}))
+    const email = await inboundEmail(String(emailId ?? ''))
+    if (!email || !String(email.to ?? '').toLowerCase().includes('statements@')) return NextResponse.json({ error: 'That statement email wasn’t found.' }, { status: 404 })
+    try { return NextResponse.json({ ok: true, ...(await processStatement({ data: email, reread: true })) }) }
+    catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'Not read' }, { status: 500 }) }
+  }
+
   let body: any
+  let signed = false
   try {
     const rawBody = await req.text()
 
@@ -1036,6 +1085,7 @@ export async function POST(req: NextRequest) {
         const expected = `v1,${hmac}`
         const valid = svixSig.split(' ').some(s => crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected)))
         if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        signed = true
       }
     }
 
@@ -1044,8 +1094,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
+  // Not signed by the email service: never trust what was posted — use the real email it names, or nothing (15 Oct 2026;
+  // before this an unsigned post was imported as sent)
+  if (!signed) {
+    const real = await inboundEmail(String((body?.data ?? body)?.email_id ?? (body?.data ?? body)?.id ?? ''))
+    if (!real) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    body = { data: real }
+  }
+
   const emailData = body.data ?? body
-  const recipient: string = (emailData.to?.[0] || '').toLowerCase()
+  const recipient: string = (Array.isArray(emailData.to) ? emailData.to[0] : emailData.to || '').toLowerCase()
 
   // Only process emails addressed to statements@
   if (recipient && !recipient.includes('statements@')) {
