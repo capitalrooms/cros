@@ -23,9 +23,11 @@ const svc = () =>
  */
 export async function GET(req: Request) {
   // Verify cron secret
-  const auth = req.headers ? new URL(req.url).searchParams.get('secret') : null
+  // Vercel's scheduler sends "Authorization: Bearer <CRON_SECRET>"; a ?secret= link still works for a manual run.
+  // (Until 15 Oct 2026 only ?secret= was accepted, so every scheduled run was refused.)
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && auth !== cronSecret) {
+  const supplied = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || new URL(req.url).searchParams.get('secret')
+  if (cronSecret && supplied !== cronSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

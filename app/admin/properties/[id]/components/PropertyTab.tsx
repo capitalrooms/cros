@@ -52,7 +52,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   const [landlordAccounts, setLandlordAccounts] = useState<any[]>([])
   useEffect(() => {
     if (!selectedLandlordId) { setLandlordAccounts([]); return }
-    fetch(`/api/admin/landlord-bank-accounts?landlord_id=${selectedLandlordId}`).then(r => r.json()).then(j => setLandlordAccounts(j.accounts || [])).catch(() => setLandlordAccounts([]))
+    adminFetch(`/api/admin/landlord-bank-accounts?landlord_id=${selectedLandlordId}`).then(r => r.json()).then(j => setLandlordAccounts(j.accounts || [])).catch(() => setLandlordAccounts([]))
   }, [selectedLandlordId])
   // Postcode lookup result — merged into the save patch when the admin accepts the modal
   const [lookupResult, setLookupResult] = useState<PostcodeLookupResult | null>(null)

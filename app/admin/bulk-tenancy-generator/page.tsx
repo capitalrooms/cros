@@ -276,7 +276,7 @@ export default function BulkTenancyGenerator() {
   useEffect(() => {
     if (!selectedLandlordId) { setBankAccounts([]); return }
     setGlobalBankId('')
-    fetch(`/api/admin/landlord-bank-accounts?landlord_id=${selectedLandlordId}`)
+    adminFetch(`/api/admin/landlord-bank-accounts?landlord_id=${selectedLandlordId}`)
       .then(r => r.json())
       .then(d => {
         setBankAccounts(d.accounts || [])
@@ -405,7 +405,7 @@ export default function BulkTenancyGenerator() {
     if (!payload) { alert(payloadError); return }
     setGenerating(prev => new Set(prev).add(row._id))
     try {
-      const res = await fetch('/api/admin/bulk-tenancy-generator', {
+      const res = await adminFetch('/api/admin/bulk-tenancy-generator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
 
@@ -231,6 +232,8 @@ async function fetchSpareRoomValuation(postcode: string, property_type: string):
 }
 
 export async function POST(req: NextRequest) {
+  // office only — this wrote to any property for anyone until 15 Oct 2026 (audit)
+  if (!(await requireStaff(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const { property_id, fields_to_refresh } = (await req.json()) as RefreshRequest
 

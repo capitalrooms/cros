@@ -22,12 +22,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateTenancyAgreement, agreementFileName } from '@/lib/tenancyAgreement/generate'
 import { contentDisposition } from '@/lib/contentDisposition'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 10
 
 export async function POST(req: NextRequest) {
+  // office only — an agreement on our letterhead must never be producible by anyone on the internet (audit 15 Oct 2026)
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   try {
     const body = await req.json()
     const pdf = await generateTenancyAgreement(body)

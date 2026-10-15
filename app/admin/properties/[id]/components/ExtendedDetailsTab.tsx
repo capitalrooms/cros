@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
 
 interface ExtendedDetails {
@@ -116,7 +117,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
     setSuccess(null)
 
     try {
-      const res = await fetch('/api/properties/extended-details/refresh', {
+      const res = await adminFetch('/api/properties/extended-details/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
