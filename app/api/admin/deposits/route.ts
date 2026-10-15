@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const BASE = 'id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, property_id, rooms(name), properties(name), people!person_id(salutation, first_name, last_name, full_name)'
-const NEW_COLS = ', deposit_scheme, deposit_protected_at, prescribed_info_served_at'
+const NEW_COLS = ', deposit_scheme, deposit_protected_at, prescribed_info_served_at, deposit_protection_assumed'
 
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const protectedAt = t.deposit_protected_at ?? null
     const hasDeposit = Number(t.deposit_amount || 0) > 0
     const status = !hasDeposit ? 'no_deposit'
-      : (protectedAt || t.deposit_scheme_ref) ? 'protected'
+      : (protectedAt || t.deposit_scheme_ref || t.deposit_protection_assumed) ? 'protected'   // assumed = began before CROS records
       : deadline && today > deadline ? 'overdue' : 'due'
     return {
       tenancyId: t.id, tenant: [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || 'Tenant',

@@ -352,7 +352,9 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 {property.landlord_name && (
                   <span className="text-xs text-neutral-500">Landlord: <strong className="text-neutral-700">{property.landlord_name}</strong></span>
                 )}
-                <span className="text-xs text-neutral-500"><strong className="text-neutral-700">{property.rooms?.length || property.bedrooms || 0}</strong> rooms</span>
+                {property.property_type === 'single_let'
+                  ? <span className="text-xs text-neutral-500"><strong className="text-neutral-700">Whole property</strong>{property.bedrooms ? ` · ${property.bedrooms} bedroom${property.bedrooms === 1 ? '' : 's'}` : ''}</span>
+                  : (() => { const n = property.rooms?.length || property.bedrooms || 0; return <span className="text-xs text-neutral-500"><strong className="text-neutral-700">{n}</strong> room{n === 1 ? '' : 's'}</span> })()}
                 {tickets.length > 0 && (
                   <span className="text-xs text-neutral-500"><strong className="text-amber-700">{tickets.length}</strong> maintenance</span>
                 )}
@@ -437,7 +439,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {/* ── Units ────────────────────────────────────────────────────── */}
           {activeTab === 'units' && (
             <div className="p-lg">
-              <UnitsTab propertyId={id} bedrooms={property.bedrooms} initialRoomId={initialRoomId} propertyName={property.name} propertyAddress={property.address} propertyCode={property.property_code} />
+              <UnitsTab propertyId={id} propertyType={property.property_type} bedrooms={property.bedrooms} initialRoomId={initialRoomId} propertyName={property.name} propertyAddress={property.address} propertyCode={property.property_code} />
             </div>
           )}
 

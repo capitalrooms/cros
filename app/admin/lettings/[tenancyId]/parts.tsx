@@ -15,6 +15,7 @@ import SetOnNoticeModal, { type OnNoticeData } from '@/app/components/SetOnNotic
 import { createClient } from '@/lib/supabase'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
 import { displayName } from '@/lib/people'
+import { firstRentPayment } from '@/lib/tenancy/firstRent'
 
 type Patch = (body: Record<string, unknown>) => Promise<void>
 
@@ -407,6 +408,13 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
     ['Deposit number', t.deposit_no ?? '—'],
     ['Letting fee number', t.letting_fee_no ?? '—'],
     ['Rent review date', day(t.rent_review_date)],
+    // the first payment — pro rata to the rent day, or a full month (lib/tenancy/firstRent; same as the check-in balance)
+    ['First payment', (() => {
+      const fr = t.start_date && Number(t.rent_amount) > 0 ? firstRentPayment(t.start_date, Number(t.rent_amount), Number(t.rent_due_day) || 1) : null
+      if (!fr) return '—'
+      const dd = (x: Date) => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      return fr.full ? `Full month — ${gbp(fr.amount)} for ${dd(fr.from)} – ${dd(fr.to)}` : `Pro rata — ${gbp(fr.amount)} for ${fr.days} days (${dd(fr.from)} – ${dd(fr.to)}); set the rent due day to the start day for a full first month`
+    })()],
   ]
   return (
     <section className={`${card} space-y-md`}>
@@ -451,8 +459,50 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
           <button type="button" onClick={save} disabled={busy} className={btnDark}>{busy ? 'Saving…' : 'Save terms'}</button>
         </div>
       )}
+      {file.stage !== 'fell_through' && <JointTenant file={file} patch={patch} />}
       {!edit && file.stage !== 'fell_through' && (file as any).undo?.ok && <WrongRoom file={file} patch={patch} />}
     </section>
+  )
+}
+
+// A second named tenant on the same tenancy — jointly and severally liable; both get the tenant app and every message
+function JointTenant({ file, patch }: { file: LettingFile; patch: Patch }) {
+  const joint = (file as any).jointTenant as { id: string; name: string; email: string | null } | null
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<{ id: string; name: string; email: string | null }[]>([])
+  const [err, setErr] = useState('')
+  async function search(v: string) {
+    setQ(v)
+    if (v.trim().length < 2) { setResults([]); return }
+    const { data } = await createClient().from('people').select('id, salutation, first_name, last_name, full_name, email')
+      .or(`full_name.ilike.%${v}%,first_name.ilike.%${v}%,last_name.ilike.%${v}%,email.ilike.%${v}%`).limit(8)
+    setResults(((data ?? []) as any[]).filter(p => p.id !== file.tenant.id).map(p => ({ id: p.id, name: displayName(p), email: p.email })))
+  }
+  async function set(personId: string | null) {
+    setErr('')
+    try { await patch({ action: 'joint_tenant', personId }); setOpen(false); setQ(''); setResults([]) } catch (e) { setErr(e instanceof Error ? e.message : 'Not saved') }
+  }
+  return (
+    <div className="rounded-xl border border-neutral-200 px-md py-sm space-y-xs">
+      <p className={label}>Joint tenant</p>
+      {joint ? (
+        <div className="flex flex-wrap items-center justify-between gap-sm">
+          <p className="text-sm text-neutral-900">{joint.name}{joint.email ? <span className="text-neutral-500"> · {joint.email}</span> : null}</p>
+          <button type="button" className="text-xs font-semibold text-red-700 hover:underline" onClick={() => { if (confirm(`Remove ${joint.name} from this tenancy?`)) set(null) }}>Remove</button>
+        </div>
+      ) : open ? (
+        <div className="space-y-xs">
+          <input className={`${input} w-full`} autoFocus value={q} onChange={e => search(e.target.value)} placeholder="Search by name or email…" />
+          {results.map(r => <button key={r.id} type="button" onClick={() => set(r.id)} className="block w-full rounded-lg px-sm py-xs text-left text-sm hover:bg-neutral-50">{r.name}{r.email ? <span className="text-neutral-500"> · {r.email}</span> : null}</button>)}
+          <button type="button" className="text-xs text-neutral-500 hover:underline" onClick={() => { setOpen(false); setQ(''); setResults([]) }}>Cancel</button>
+        </div>
+      ) : (
+        <button type="button" className="text-sm font-semibold text-neutral-700 hover:text-neutral-900" onClick={() => setOpen(true)}>+ Add a joint tenant</button>
+      )}
+      <p className="text-xs text-neutral-500">Both are named on the tenancy and jointly and severally liable. Both get the tenant app and every message.</p>
+      {err && <p className="text-xs text-red-700">{err}</p>}
+    </div>
   )
 }
 
