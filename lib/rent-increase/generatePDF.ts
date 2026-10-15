@@ -211,7 +211,7 @@ export async function generateCoverLetter(d: RentIncreaseData): Promise<Buffer> 
   y += 12
 
   // Salutation — shared helper ensures correct spacing on all letters
-  y = drawPDFSalutation(doc, y, d.tenantFirstName, fontReg)
+  y = drawPDFSalutation(doc, y, `${d.tenantTitle} ${d.tenantFullName}`, fontReg)   // "Dear Miss Rumsey" — drawPDFSalutation makes it title + surname
 
   // Body paragraphs
   const area    = d.marketAreaDescription || postcode(d.propertyAddress) || 'the local area'

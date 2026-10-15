@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
   const { data: inboxFiled } = await s.from('property_documents').select('id, file_name, document_type').ilike('storage_url', '%/inbox-docs/%')
   const start = await ledgerStart(s)
   const preLedger = await preLedgerCharges(s, start, demo)
+  const fromImports = await importedStatementCharges(s)
   const startLabel = new Date(start + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const roomChanges = await syncRoomStatuses(s, { apply: false }).catch(() => [])
   const feeFixes = await feeFixesFromStatements(s).catch(() => [])
@@ -91,6 +92,10 @@ export async function GET(req: NextRequest) {
       detail: `Rent before ${startLabel} was collected by your previous agent, so CROS can’t see whether it was paid. These charges would show as arrears and chase the tenant. Clearing them marks them as not collected by CROS — they stay on record.`,
       items: preLedger.map(c => ({ label: `${c.rooms?.name ?? 'Room'}, ${String(c.properties?.name || '').split('\n')[0]} · ${new Date(c.charge_month + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} · £${Number(c.amount_due).toFixed(2)}${Number(c.amount_received) > 0 ? ` (£${Number(c.amount_received).toFixed(2)} received)` : ''}` })),
       fix: { action: 'void_pre_ledger', label: `Clear ${preLedger.length} charge${preLedger.length === 1 ? '' : 's'}` } },
+    { key: 'imported_charges', title: 'Rent charges made from imported statements', ok: !fromImports.length, count: fromImports.length,
+      detail: 'Statements emailed in from your previous agent used to raise rent charges in CROS (and confirming their room lines marked them paid). That rent was collected by the previous agent, so these charges make CROS’s own rent, arrears and client money wrong. Clearing them cancels them — they stay on record, and the statements and their room lines are untouched.',
+      items: fromImports.slice(0, 60).map(c => ({ label: `${String(c.properties?.name || '').split('\n')[0]} · ${new Date(c.charge_month + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} · £${Number(c.amount_due).toFixed(2)} · ${c.status}` })),
+      fix: { action: 'void_imported_charges', label: `Clear ${fromImports.length} charge${fromImports.length === 1 ? '' : 's'}` } },
     { key: 'inbox_files', title: 'Filed documents still stored in the email inbox', ok: !(inboxFiled ?? []).length, count: (inboxFiled ?? []).length,
       detail: 'These certificates and documents were filed from emails but still point at the inbox folder, which is being made private. Moving them copies each into its property’s documents — nothing is lost.',
       items: ((inboxFiled ?? []) as any[]).slice(0, 50).map(d => ({ label: `${d.file_name || 'Document'} · ${String(d.document_type || '').replace(/_/g, ' ')}` })),
@@ -175,6 +180,24 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: true, filled: done, message: `Cleared ${done} charge${done === 1 ? '' : 's'} from before CROS took over rent. They’re kept on record, marked as collected by the previous agent.` })
   }
+  if (b.action === 'void_imported_charges') {
+    const list = await importedStatementCharges(s)
+    const now = new Date().toISOString()
+    const note = 'Made from an imported statement — the previous agent collected this rent, not CROS'
+    let done = 0
+    for (const c of list) {
+      const { error } = await s.from('rent_charges')
+        .update({ status: 'waived', voided: true, voided_at: now, voided_by: admin.personId, voided_note: note })
+        .eq('id', c.id).is('tenancy_id', null).eq('voided', false)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      await s.from('payment_audit_log').insert({
+        rent_charge_id: c.id, action: 'voided', performed_by: admin.personId, performed_at: now,
+        old_value: { status: c.status, amount_due: c.amount_due, amount_received: c.amount_received }, new_value: { status: 'waived', voided: true }, note,
+      })
+      done++
+    }
+    return NextResponse.json({ ok: true, filled: done, message: `Cleared ${done} charge${done === 1 ? '' : 's'} made from imported statements. They’re kept on record as cancelled; the statements are untouched.` })
+  }
   if (b.action === 'apply_statement_fees') {
     const fixes = await feeFixesFromStatements(s)
     for (const f of fixes) {
@@ -204,3 +227,18 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json({ ok: true, filled, skipped: tens.length - filled })
 }
+
+/** Rent charges an imported statement made (AutoLedger / Bank & matching, before 15 Oct 2026): no tenancy, linked from a
+ *  statement's room line, not yet cancelled. CROS's own charges always belong to a tenancy (migration 217). */
+async function importedStatementCharges(s: ReturnType<typeof createServiceClient>) {
+  const { data: lsr } = await s.from('landlord_statement_rooms').select('rent_charge_id').not('rent_charge_id', 'is', null)
+  const ids = [...new Set(((lsr ?? []) as any[]).map(r => r.rent_charge_id))]
+  if (!ids.length) return [] as any[]
+  const out: any[] = []
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data } = await s.from('rent_charges').select('id, charge_month, status, amount_due, amount_received, properties(name)').in('id', ids.slice(i, i + 200)).is('tenancy_id', null).eq('voided', false)
+    out.push(...((data ?? []) as any[]))
+  }
+  return out.sort((a, b) => String(a.charge_month).localeCompare(String(b.charge_month)))
+}
+

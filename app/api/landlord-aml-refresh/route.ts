@@ -1,4 +1,5 @@
 import { requireAdmin } from '@/lib/adminAuth'
+import { dearFromText } from '@/lib/people'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
@@ -116,13 +117,13 @@ export async function GET(req: NextRequest) {
 // ── Email template (body content only — wrapper applied via buildEmail) ──────────
 
 async function amlRefreshHtml(name: string, formUrl: string, req?: Request): Promise<string> {
-  const firstName = name.split(' ')[0]
+  const dear = dearFromText(name)   // "Mr Page" (lib/people)
   const body = `
 <p style="margin:0 0 6px;font-size:11px;color:#666;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;background:#fafaf9;border-bottom:1px solid #e8e8e8;padding:10px 0;">
   🔒 Anti-Money Laundering · Periodic Re-verification
 </p>
 
-<p style="margin:20px 0;font-size:15px;color:#333;line-height:1.6">Dear ${firstName},</p>
+<p style="margin:20px 0;font-size:15px;color:#333;line-height:1.6">Dear ${dear},</p>
 
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
   As part of our obligations under the <strong>Money Laundering, Terrorist Financing and Transfer of Funds

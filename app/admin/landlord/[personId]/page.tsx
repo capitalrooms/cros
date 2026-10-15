@@ -9,7 +9,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromPeople, LandlordCardData, LandlordProperty } from '@/app/components/LandlordCard'
-import { landlordName } from '@/lib/people'
+import { landlordName, looksLikeEntity } from '@/lib/people'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { withOptionalColumns } from '@/lib/optionalColumns'
 import { onboardingFiles } from '@/lib/landlordOnboarding/propertyDocs'
@@ -679,6 +679,12 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                         <input className={inputCls()} value={contactForm.last_name} onChange={e => setContactForm((p: any) => ({ ...p, last_name: e.target.value }))} />
                       </div>
                     </div>
+                    {/* every email opens "Dear <title> <surname>" (lib/people dearName) — catch a company or a missing title here */}
+                    {looksLikeEntity({ first_name: contactForm.first_name, last_name: contactForm.last_name })
+                      ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-md py-sm text-xs text-amber-900">“{[contactForm.first_name, contactForm.last_name].filter(Boolean).join(' ')}” looks like a company. Put it in Company below, and the person’s title, first name and surname here — otherwise emails open “Dear Sir or Madam”.</p>
+                      : (!contactForm.salutation && (contactForm.first_name || contactForm.last_name))
+                      ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-md py-sm text-xs text-amber-900">Choose a title — emails open “Dear {'<title>'} {contactForm.last_name || 'Surname'}”.</p>
+                      : null}
                     <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md">
                       <p className="text-xs font-semibold text-neutral-700 mb-md">Joint landlord <span className="font-normal text-neutral-400">(optional — shares this entry; both names appear on agreements and statements)</span></p>
                       <div className="grid grid-cols-1 sm:grid-cols-4 gap-md">

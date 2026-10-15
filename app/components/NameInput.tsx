@@ -1,5 +1,7 @@
 'use client'
 
+import { looksLikeEntity } from '@/lib/people'
+
 /**
  * NameInput — standard name capture component used across the entire app.
  *
@@ -140,6 +142,12 @@ export default function NameInput({
           />
         </div>
       </div>
+      {/* a company typed into the name boxes gets "Dear Sir or Madam" on every email — catch it here (15 Oct 2026) */}
+      {looksLikeEntity({ first_name: value.first_name, last_name: value.last_name }) && (
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          That looks like a company name. Put the company in its own box, and the person’s title, first name and surname here — emails greet them as “Dear {value.salutation || 'Mr'} Smith”.
+        </p>
+      )}
     </div>
   )
 }

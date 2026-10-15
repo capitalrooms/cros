@@ -1,4 +1,5 @@
 import { requireAdmin } from '@/lib/adminAuth'
+import { dearFromText } from '@/lib/people'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
 function welcomePackBodyHtml(name: string, formUrl: string): string {
   const firstName = name.split(' ')[0]
   return `
-<p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${name},</p>
+<p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${dearFromText(name)},</p>
 
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
   Thank you for choosing Capital Rooms. We are looking forward to managing your property. This email contains

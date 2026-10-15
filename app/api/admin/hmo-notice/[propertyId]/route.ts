@@ -22,8 +22,8 @@ const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.en
 const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 const KEY = 'hmo_licence_notice'
 
-function emailBody(firstName: string, f: HmoNoticeFields) {
-  return `<p>Dear ${esc(firstName)},</p>
+function emailBody(dear: string, f: HmoNoticeFields) {
+  return `<p>Dear ${esc(dear)},</p>
 <p>Please find attached a notice that we will be ${f.kind === 'renewal' ? 'applying to renew the HMO licence' : 'applying for an HMO licence'} for <strong>${esc(f.propertyAddress)}</strong>. The application will go to ${esc(f.council.name)}${f.submitBy ? ` on or before ${esc(new Date(f.submitBy + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }))}` : ''}.</p>
 <p>You don’t need to do anything. If you have any questions, just reply to this email.</p>`
 }
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
   if (!chosen.length) return NextResponse.json({ error: 'Pick at least one tenant.' }, { status: 400 })
   const recipients = []
   for (const t of chosen) {        // one email each — tenants never see each other's addresses
-    const r = await sendEmail(t.email, subject, emailBody(t.firstName, f), { req, attachments })
+    const r = await sendEmail(t.email, subject, emailBody(t.dear, f), { req, attachments })
     recipients.push({ person_id: t.personId, name: t.name, email: t.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
   }
   // the record keeps the exact wording, so the letter each tenant got can be reproduced (proof the notice was served)

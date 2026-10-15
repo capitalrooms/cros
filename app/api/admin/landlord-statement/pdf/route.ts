@@ -24,7 +24,7 @@ import {
   PAGE_W, PAGE_H, MARGIN, COL_W, FOOTER_BAND_H,
   LOGO_W, LOGO_H, BLACK, GREY,
 } from '@/lib/pdfLetterhead'
-import { landlordFormalNames } from '@/lib/people'
+import { landlordFormalNames, dearLine } from '@/lib/people'
 import { contentDisposition } from '@/lib/contentDisposition'
 import { resolveFee, feeAmount } from '@/lib/fees/managementFee'
 
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   // ── Fetch landlord ───────────────────────────────────────────────────────────
   const { data: landlord } = await supabase
     .from('people')
-    .select('id, first_name, last_name, email, home_address, joint_salutation, joint_first_name, joint_last_name, salutation')
+    .select('id, first_name, last_name, company, email, home_address, joint_salutation, joint_first_name, joint_last_name, salutation')
     .eq('id', landlordId).single()
   if (!landlord) return NextResponse.json({ error: 'Landlord not found' }, { status: 404 })
 
@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
 
     // Opening line
     doc.font(fontReg).fontSize(9.5).fillColor(BLACK)
-      .text(`Dear ${landlord.first_name || landlordName},`, MARGIN, y)
+      .text(dearLine(landlord as any), MARGIN, y)
     y += 22
     doc.font(fontReg).fontSize(9).fillColor(GREY)
       .text('Please find below your remittance statement for the period shown above. A summary of rent collected, management fees deducted, and any expenses recharged is set out per property below.', MARGIN, y, { width: COL_W, lineGap: 2 })

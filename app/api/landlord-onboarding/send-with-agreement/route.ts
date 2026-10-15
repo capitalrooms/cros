@@ -1,4 +1,5 @@
 import { requireAdmin } from '@/lib/adminAuth'
+import { dearFromText } from '@/lib/people'
 /**
  * POST /api/landlord-onboarding/send-with-agreement
  *
@@ -156,10 +157,7 @@ export async function POST(req: NextRequest) {
 
   // 5. Send welcome email with agreement attached
   // "Dear Ms Rosen" when the name starts with a title (titles are compulsory), otherwise their first name
-  const nameParts = full_name.trim().split(/\s+/)
-  const firstName = /^(Mr|Mrs|Ms|Miss|Mx|Dr|Prof|Rev)\.?$/i.test(nameParts[0]) && nameParts.length >= 2
-    ? `${nameParts[0]} ${nameParts[nameParts.length - 1].replace(/&$/, '')}`
-    : nameParts[0]
+  const firstName = dearFromText(full_name)   // lib/people — "Ms Rosen", never a lone first name
   const feeDesc   = agreementFields.agreementType === 'hmo'
     ? `${agreementFields.managementFee}% of rent collected (multi-let)`
     : `${agreementFields.managementFee}% of rent collected (single let)`
@@ -240,7 +238,7 @@ function welcomeWithAgreementHtml(
   }
 
   return `
-<p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${fullName},</p>
+<p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${firstName},</p>
 
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
   Thank you for choosing Capital Rooms. I'm delighted to be working with you. Your ${agreement}

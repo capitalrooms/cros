@@ -13,6 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { dearName, dearFromText } from '@/lib/people'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
 import {
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest, { params: paramsPromise }: { params:
     .restore()
   y = drawPDFLetterRule(doc, y + 16)
 
-  y = drawPDFSalutation(doc, y, firstName, fontReg)
+  y = drawPDFSalutation(doc, y, person ? dearName(person as any) : dearFromText(tenantName), fontReg)   // "Dear Miss Pious" (lib/people)
 
   doc.font(fontReg).fontSize(9).fillColor(GREY)
     .text('Thank you — we have received your rent payment. Please retain this receipt for your records.', MARGIN, y, { width: COL_W, lineGap: 2 })

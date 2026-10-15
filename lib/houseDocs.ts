@@ -28,7 +28,8 @@ function nextDue(prop: Record<string, any>, d: (typeof HOUSE_DOCS)[number]): str
 }
 
 export interface HouseDoc { key: string; label: string; url: string | null; uploadedAt: string | null; nextDue: string | null; recent: boolean }
-export interface HouseTenant { personId: string; name: string; firstName: string; email: string; room: string }
+// dear = the name after "Dear" (lib/people dearName — "Mr Page", never a lone first name; 15 Oct 2026)
+export interface HouseTenant { personId: string; name: string; firstName: string; dear: string; email: string; room: string }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 
@@ -58,7 +59,7 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
     if (!p?.email || seen.has(p.id)) continue
     seen.add(p.id)
     const name = [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
-    tenants.push({ personId: p.id, name, firstName: p.first_name || name.split(' ')[0], email: p.email, room: t.rooms?.name ?? '' })
+    tenants.push({ personId: p.id, name, firstName: p.first_name || name.split(' ')[0], dear: dearName(p), email: p.email, room: t.rooms?.name ?? '' })
   }
   tenants.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
   // the landlord can be sent the same certificates (ticked by hand — never by default)
@@ -67,7 +68,7 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
     const { data: l } = await s.from('people').select('id, salutation, first_name, last_name, full_name, company, email').eq('id', prop.landlord_id).maybeSingle()
     if (l?.email) {
       const name = [l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ') || l.company || l.full_name || l.email
-      landlord = { personId: l.id, name, firstName: l.first_name || name.split(' ')[0], email: l.email, room: 'Landlord' }
+      landlord = { personId: l.id, name, firstName: l.first_name || name.split(' ')[0], dear: dearName(l), email: l.email, room: 'Landlord' }
     }
   }
   return { property: { id: prop.id, name: prop.name, address: fullAddress(prop.name, prop.address, prop.postcode) }, documents, tenants, landlord }
@@ -81,11 +82,11 @@ export const defaultHouseMessage = 'We are pleased to let you know the following
 /** the same message for the landlord: it's their property, not their home */
 export const landlordHouseMessage = (message: string) => message === defaultHouseMessage ? message.replace('at your home', 'at your property') : message
 
-export function houseEmailHtml(firstName: string, address: string, docs: HouseDoc[], message: string) {
+export function houseEmailHtml(dear: string, address: string, docs: HouseDoc[], message: string) {
   const rows = docs.map(d => tableRow(esc(d.label),
     `${d.url ? `<a href="${esc(d.url)}" style="color:#1a1a1a;">View certificate</a>` : 'To follow'}${d.nextDue ? ` <span style="color:#78716c;font-weight:400;">· ${dueText(d.nextDue)}</span>` : ''}`)).join('')
   return `
-    <p>Dear ${esc(firstName)},</p>
+    <p>Dear ${esc(dear)},</p>
     ${esc(message).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')}
     <p><strong>${esc(address)}</strong></p>
     <table style="width:100%;border-collapse:collapse;margin:12px 0 18px;">${rows}</table>

@@ -7,6 +7,7 @@
  */
 
 import { buildEmail } from '@/lib/emailWrapper'
+import { dearFromText } from '@/lib/people'
 import type { EmailSender } from '@/lib/email/sender'
 
 export interface CheckoutEmailData {
@@ -69,7 +70,7 @@ export async function buildCheckoutEmail(data: CheckoutEmailData, sender?: Email
 </div>
 
 <div class="co-section">
-  <p>Dear ${data.tenantName},</p>
+  <p>Dear ${dearFromText(data.tenantName)},</p>
   <p>We are sorry to hear you are leaving us on <strong>${moveOutFormatted}</strong>.</p>
   <p>We hope you enjoyed your stay and wish you all the best in the future.</p>
 </div>

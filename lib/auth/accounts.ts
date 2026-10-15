@@ -5,6 +5,7 @@
 //   setAccess(...)          — turn someone's sign-in off (their records stay) or back on
 // Nobody — not the office, not Supabase — can see a password: they're stored scrambled. Resets replace them.
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { dearLine } from '@/lib/people'
 import { authLink } from '@/lib/auth/links'
 import { sendEmail } from '@/lib/sendEmail'
 import { PORTAL_URL } from '@/lib/emailWrapper'
@@ -59,9 +60,7 @@ type AccountPerson = { email: string; role?: string | null; salutation?: string 
 
 /** "Dear Mr Smith," — titles always (Harry, 14 Oct 2026); first name only when there's no title on file. */
 export function greeting(p?: Partial<AccountPerson> | null): string {
-  if (p?.salutation && p.last_name) return `Dear ${p.salutation} ${p.last_name},`
-  if (p?.first_name) return `Dear ${p.first_name},`
-  return 'Hello,'
+  return p && (p.last_name || p.first_name) ? dearLine(p) : 'Hello,'   // lib/people — never a lone first name
 }
 
 /**

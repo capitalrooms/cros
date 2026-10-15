@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
-import { landlordFormalNames, landlordName } from '@/lib/people'
+import { landlordFormalNames, landlordName, dearName } from '@/lib/people'
 import { adminFetch } from '@/lib/adminFetch'
 import { FEES, type FeeCode } from '@/lib/invoices/fees'
 import SendToLandlord, { type AgreementDoc } from './SendToLandlord'
@@ -479,9 +479,7 @@ export default function BulkTenancyGenerator() {
     }
   })
   const landlordAny = landlord as (Landlord & { joint_first_name?: string | null; joint_email?: string | null }) | undefined
-  const greetingName = landlordAny
-    ? [landlordAny.first_name, landlordAny.joint_first_name].filter(Boolean).join(' and ') || landlordFormalNames(landlordAny as any)
-    : ''
+  const greetingName = landlordAny ? dearName(landlordAny as any) : ''   // "Mr Page" / "Mr Smith and Mrs Smith" (lib/people)
   const billNames = (who: 'landlord' | 'tenant') => (Object.keys(BILL_LABELS) as BillKey[]).filter(k => bills[k] === who).map(k => BILL_LABELS[k])
 
   return (

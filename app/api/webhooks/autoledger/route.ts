@@ -28,6 +28,7 @@ import {
   UNMATCHED_SLUG,
 } from '@/lib/expense-categories'
 import { senderFieldsSdk } from '@/lib/email/sender'
+import { sendEmail } from '@/lib/sendEmail'
 import { oneLine } from '@/lib/lettings/letWording'
 
 // Give Vercel up to 5 minutes — background AI processing of a large PDF needs it
@@ -449,6 +450,28 @@ Respond with JSON only in this exact shape:
     .eq('property_id', property.id)
     .maybeSingle()
 
+  // A statement already imported (sent again, or forwarded twice): every one of its lines is already on a single
+  // statement for this property → reject the whole thing, nothing saved (15 Oct 2026, Harry: "reject a statement if
+  // all details are the same as this will defo be a double import"). A retry of the same email is still allowed.
+  if (!existingStmt && rawItems.length) {
+    const incoming = rawItems.map(r => dedupHash(property.id, r.date || today, r.description, r.amount))
+    const { data: hits } = await supabase.from('statement_line_items').select('statement_id, dedup_hash').eq('property_id', property.id).in('dedup_hash', [...new Set(incoming)])
+    const byStmt = new Map<string, Set<string>>()
+    for (const h of (hits ?? []) as any[]) { if (!h.statement_id) continue; const set = byStmt.get(h.statement_id) ?? new Set<string>(); set.add(h.dedup_hash); byStmt.set(h.statement_id, set) }
+    const dupOf = [...byStmt.entries()].find(([, set]) => incoming.every(x => set.has(x)))?.[0]
+    if (dupOf) {
+      const { data: prev } = await supabase.from('landlord_statements').select('statement_reference, created_at').eq('id', dupOf).maybeSingle()
+      const when = prev?.created_at ? new Date(prev.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : 'earlier'
+      const what = `${property.name || property.address} — ${prev?.statement_reference ?? 'statement'}`
+      console.log('AutoLedger: duplicate statement rejected —', what)
+      const { data: admins } = await supabase.from('people').select('id, email').in('role', ['administrator', 'admin'])
+      const primary = ((admins ?? []) as any[]).find(a => String(a.email || '').endsWith('@capitalrooms.co.uk') && !String(a.email).includes('+test')) ?? (admins ?? [])[0]
+      if (primary) await supabase.from('notifications').insert({ user_id: primary.id, title: `Statement already imported — skipped`, body: `${what} was already imported on ${when}. Nothing was added twice.`, type: 'statement', link: '/admin/statements', read: false })
+      await sendEmail('harry@capitalrooms.co.uk', oneLine(`AutoLedger: already imported — ${what}`), `<p>This statement was already imported on ${when}, so it was <strong>not added again</strong>:</p><p><strong>${what}</strong></p><p>Nothing to do — this is just to let you know the copy was rejected.</p>`, { signature: false }).catch(() => null)
+      return
+    }
+  }
+
   let stmtRow = existingStmt
   if (!stmtRow) {
     // Compute date range from line items
@@ -795,52 +818,14 @@ Respond with JSON only in this exact shape:
       }
     })
 
-    // ── Auto-create rent_charges for resolved slots ────────────────────────────
+    // ── Rent charges: none from imported statements ────────────────────────────
     // The statement is our source of truth for what rent was due that month.
     // If no rent_charge exists for this room + month, create one (status=pending).
     // If one exists, just link to it.
-    const chargeMonth = periodEnd.slice(0, 7) + '-01'
-    const resolvedRoomIds = [...new Set(resolvedSlots.filter(s => s.roomId).map(s => s.roomId!))]
-    const { data: existingCharges } = resolvedRoomIds.length > 0
-      ? await supabase
-          .from('rent_charges')
-          .select('id, room_id, amount_due, status')
-          .in('room_id', resolvedRoomIds)
-          .eq('charge_month', chargeMonth)
-      : { data: [] }
-
+    // Imported statements are the previous agent's record — they collected that rent, so nothing is raised or settled in
+    // CROS's own rent charges (15 Oct 2026: imports had made 171 charges, some "paid" in CROS months). The room lines
+    // below are kept, unlinked; the rent roll reads them directly (lib/finance/importedRent).
     const chargeByRoom = new Map<string, { id: string; status: string }>()
-    ;(existingCharges || []).forEach((c: any) => chargeByRoom.set(c.room_id, { id: c.id, status: c.status }))
-
-    // For rooms with multiple slots (two tenants): use the LARGER rent figure as the charge amount
-    // (the statement total for the room). If two slots share a room, we use one charge per room.
-    const roomRentTotals = new Map<string, number>()
-    for (const s of resolvedSlots) {
-      if (s.roomId) roomRentTotals.set(s.roomId, (roomRentTotals.get(s.roomId) ?? 0) + s.rent)
-    }
-
-    let chargesCreated = 0
-    for (const [rId, totalRent] of roomRentTotals.entries()) {
-      if (!chargeByRoom.has(rId)) {
-        // No existing charge — create one from the statement figures
-        const { data: newCharge } = await supabase
-          .from('rent_charges')
-          .insert({
-            room_id:      rId,
-            property_id:  property!.id,
-            charge_month: chargeMonth,
-            amount_due:   totalRent,
-            status:       'pending',
-          })
-          .select('id')
-          .single()
-        if (newCharge) {
-          chargeByRoom.set(rId, { id: newCharge.id, status: 'pending' })
-          chargesCreated++
-        }
-      }
-    }
-    if (chargesCreated > 0) console.log(`AutoLedger: auto-created ${chargesCreated} rent_charge row(s) for ${chargeMonth}`)
 
     // ── Insert LSR rows ────────────────────────────────────────────────────────
     const lsrInserts = resolvedSlots.map((slot, i) => {

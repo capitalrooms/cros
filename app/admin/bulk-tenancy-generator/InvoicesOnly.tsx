@@ -4,6 +4,7 @@
 // one invoice per property per payer — the landlord's invoices ticked, tenant/other payers unticked.
 
 import { useEffect, useState } from 'react'
+import { dearFromText } from '@/lib/people'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
 import RecipientSend, { type RecipientDoc } from './RecipientSend'
@@ -52,9 +53,8 @@ const money = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionD
 const num = (s: string) => { const n = Number(String(s).replace(/[£,\s]/g, '')); return Number.isFinite(n) ? n : NaN }
 const looksLikeAddress = (p: string) => /\s/.test(p.trim())
 const tenancyAddress = (room: string, property: string) => (looksLikeAddress(property) ? `${room}${property}` : '')
-// "Mr Joel Smith & Miss Ana Lee" → "Joel and Ana"
-const greetingFor = (name: string) => name.split(/\s*(?:&|\/|,|\band\b)\s*/i)
-  .map(p => p.replace(/^(mr|mrs|miss|ms|mx|dr|prof)\.?\s+/i, '').trim().split(/\s+/)[0]).filter(Boolean).join(' and ')
+// "Mr Joel Smith & Miss Ana Lee" → "Mr Smith and Miss Lee" (lib/people — titles always, 15 Oct 2026)
+const greetingFor = (name: string) => name.split(/\s*(?:&|\/|,|\band\b)\s*/i).filter(p => p.trim()).map(p => dearFromText(p)).join(' and ')
 
 function buildGroups(p: Props): Group[] {
   const d = new Date()

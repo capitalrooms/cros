@@ -3,6 +3,7 @@
  * ║  Capital Rooms — THE single PDF letterhead/footer component                 ║
  * ║                                                                              ║
  * ║  ▸ EVERY PDF generator MUST import from here — never recreate inline.       ║
+import { dearFromText } from '@/lib/people'
  * ║  ▸ Footer contact details come from business_settings DB table — change      ║
  * ║    once → every PDF updates automatically.                                  ║
  * ║  ▸ Letterhead assets live in public/ as files:                              ║
@@ -156,7 +157,7 @@ export function drawPDFSalutation(
 ): number {
   doc.save()
     .font(fontReg).fontSize(9.5).fillColor(BLACK)
-    .text(`Dear ${name},`, MARGIN, y)
+    .text(`Dear ${dearFromText(name)},`, MARGIN, y)   // "Sarah Jones" → never a lone first name (lib/people)
     .restore()
   return y + 24   // 9.5pt text + ~14.5pt visual gap = consistent with para spacing
 }
