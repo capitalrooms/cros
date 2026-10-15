@@ -22,7 +22,7 @@ export const AREAS: Area[] = [
     // (removing a property is administrators only — not in any area)
     api: ['/api/admin/property-tasks', '/api/admin/house-docs', '/api/admin/hmo-notice', '/api/admin/files',
       '/api/admin/ensure-storage', '/api/admin/create-property', '/api/admin/delete-photo', '/api/admin/house-info-extract', '/api/admin/property-insights',
-      '/api/admin/property-policies', '/api/admin/upload-photo'] },
+      '/api/admin/property-policies', '/api/admin/upload-photo', '/api/admin/key-safe'] },
   { key: 'lettings', label: 'Lettings', hint: 'Available rooms, applicants, offers, let-only houses, agreements, tenancies',
     // tenant and landlord profiles and letters too: the letting file links to them (they're also in People / Comms)
     pages: ['/admin/lettings', '/admin/available-and-lettings', '/admin/applicants', '/admin/invite-to-apply', '/admin/let-only', '/admin/let-only-properties', '/admin/tenant',

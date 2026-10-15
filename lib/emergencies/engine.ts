@@ -11,6 +11,7 @@
 // Status changes are conditional updates, so two ticks running at once can never both confirm someone.
 
 import crypto from 'node:crypto'
+import { readKeySafe } from '@/lib/access/keySafe'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendSms } from '@/lib/sms'
 // texts to contractors come from the name CAPITAL RMS — they answer by tapping the link, never by replying
@@ -64,8 +65,10 @@ export async function log(s: S, emergencyId: string, kind: string, note: string,
 
 async function load(s: S, id: string) {
   const { data } = await s.from('emergencies')
-    .select('*, properties(id, name, address, postcode, key_safe_code), rooms(name), people!reporter_id(id, salutation, first_name, last_name, full_name, phone)')
+    .select('*, properties(id, name, address, postcode), rooms(name), people!reporter_id(id, salutation, first_name, last_name, full_name, phone)')
     .eq('id', id).maybeSingle() as { data: any }
+  // the key safe code lives apart from the property record (lib/access/keySafe)
+  if (data?.properties) data.properties.key_safe_code = await readKeySafe(s as any, data.property_id ?? data.properties.id)
   return data
 }
 const addressOf = (em: any) => {

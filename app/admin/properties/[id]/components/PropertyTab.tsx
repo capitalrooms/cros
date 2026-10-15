@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import FloorPlanMap from './FloorPlanMap'
 import HouseInfoEditor from './HouseInfoEditor'
 import PostcodeLookupWidget, { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
@@ -27,6 +28,16 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   const [success, setSuccess] = useState<string | null>(null)
   // Local display copy — updated on save so values reflect immediately without a page reload
   const [displayed, setDisplayed] = useState(property)
+  // the key safe code comes from the server (it isn't on the property record any more — lib/access/keySafe)
+  useEffect(() => {
+    let live = true
+    adminFetch(`/api/admin/key-safe?propertyId=${property.id}`).then(r => r.ok ? r.json() : null).then(d => {
+      if (!live || !d) return
+      setDisplayed((prev: any) => ({ ...prev, key_safe_code: d.keySafe ?? null }))
+      setFormData((f: any) => ({ ...f, key_safe_code: d.keySafe ?? '' }))
+    }).catch(() => {})
+    return () => { live = false }
+  }, [property.id])
   const [uploadingFloorPlan, setUploadingFloorPlan] = useState(false)
   const [scanningPlan, setScanningPlan] = useState(false)
   const [floorPlanResult, setFloorPlanResult] = useState<{ detected: any[]; notes: string; bathrooms_count?: number; ensuite_room_labels?: string[]; layout_notes?: string } | null>(null)
@@ -195,7 +206,6 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       total_area: formData.total_area ? parseFloat(formData.total_area) : null,
       description: formData.description || null,
       property_type: formData.property_type,
-      key_safe_code: formData.key_safe_code.trim() || null,
       // the property's default management fee (a tenancy can override it) — never assumed
       management_fee_type: formData.management_fee_type,
       management_fee_pct: formData.management_fee_type !== 'fixed' && formData.management_fee_pct !== '' ? parseFloat(formData.management_fee_pct) : null,
@@ -228,10 +238,18 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       if (lookupResult.lat != null)        patch.lat                = lookupResult.lat
       if (lookupResult.lng != null)        patch.lng                = lookupResult.lng
     }
-    const { error: err } = await supabase
+    const { error: err0 } = await supabase
       .from('properties')
       .update(patch)
       .eq('id', property.id)
+    // the key safe code is kept apart from the property record, so only the office can read it (lib/access/keySafe)
+    let err = err0
+    const code = formData.key_safe_code.trim() || null
+    if (!err && code !== ((displayed as any).key_safe_code || null)) {
+      const r = await adminFetch('/api/admin/key-safe', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: property.id, code }) })
+      if (!r.ok) err = { message: 'key safe' } as any
+      else (patch as any).key_safe_code = code
+    }
 
     if (err) {
       setError('Failed to save changes')

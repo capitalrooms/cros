@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import PoppingByVisit from '@/app/components/PoppingByVisit'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -378,6 +379,7 @@ export default function ContractorDashboard() {
                 ))}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+                <PoppingByVisit className="rounded-xl bg-white/10 px-md py-sm text-left text-sm font-bold text-white hover:bg-white/20" />
                 <a href={`/contractor/invoices${asId ? `?as=${asId}` : ''}`} style={{ display: 'block', padding: '9px 12px', borderRadius: 9, background: '#F6F3EC', color: '#181614', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>🧾 Invoices</a>
                 <a href="/planner" style={{ display: 'block', padding: '8px 12px', borderRadius: 9, color: 'rgba(246,243,236,0.8)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}>🗂️ With Capital Rooms</a>
               </div>
@@ -757,6 +759,8 @@ export default function ContractorDashboard() {
                 <StatTile value={dayJobs.length} label="Today" valueColor="text-blue-400" />
               </button>
             </div>
+
+            <div className="mb-md"><PoppingByVisit className="w-full rounded-xl bg-white/10 border border-white/20 px-md py-sm text-sm font-bold text-white hover:bg-white/20" /></div>
 
             {/* 7-day week strip with prev/next arrows */}
             <div className="flex items-center gap-xs">

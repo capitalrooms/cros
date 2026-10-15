@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import PoppingByVisit from '@/app/components/PoppingByVisit'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser, signOut } from '@/lib/auth'
@@ -535,7 +536,10 @@ export default function LettingsPage() {
           <div style={{ background: '#181614', color: '#F6F3EC', padding: '26px 32px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h1 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, margin: '0 0 3px', fontWeight: 800 }}>Diary &amp; Leads</h1>
-              <StaffNotificationBell />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <PoppingByVisit className="rounded-xl bg-white/10 px-md py-sm text-sm font-bold text-white hover:bg-white/20" />
+                <StaffNotificationBell />
+              </div>
             </div>
             <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,243,236,0.6)' }}>
               {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -736,6 +740,7 @@ export default function LettingsPage() {
       {/* ── Tab content ────────────────────────────────────────────────────── */}
       <main className="mx-auto max-w-2xl px-lg pb-3xl">
         <div className="pt-md"><EnableNotifications /></div>
+        <div className="mt-sm"><PoppingByVisit className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900" /></div>
         <a href="/planner" className="mt-sm flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🗂️ With Capital Rooms — notes, jobs &amp; photos<span aria-hidden="true">›</span></a>
 
         {/* ── VIEWINGS ─────────────────────────────────────────────────────── */}
