@@ -10,6 +10,7 @@ import { landlordFormalNames, formalName, dearName } from '@/lib/people'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
 import { oneLine, placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import { generateTenancyAgreement } from '@/lib/tenancyAgreement/generate'
+import { generateSingleLetAgreement } from '@/lib/tenancyAgreement/singleLet'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 
@@ -53,7 +54,7 @@ const CERT_EXPIRY_COL: Record<string, string> = { gas: 'gas_safe_cert_expiry', e
 export interface PackContext {
   tenancyId: string
   // a joint tenancy (co_tenant_id): both tenants are named on the agreement and greeted, and both get the pack
-  tenant: { id: string; name: string; formalName: string; firstName: string; dear: string; email: string; names: string[]; emails: string[] }
+  tenant: { id: string; name: string; formalName: string; firstName: string; dear: string; email: string; names: string[]; formalNames: string[]; emails: string[] }
   room: { id: string; name: string }
   property: { id: string; name: string; address: string; propertyId: string }
   address: string                   // "Room 5, 208 Rotherhithe Street, London, SE16 7RB"
@@ -70,6 +71,11 @@ export interface PackContext {
   payBy: string | null              // YYYY-MM-DD — cleared funds 24h before check-in
   warnings: string[]
   lettingType: string | null      // 'let_only' → the let-only agreement; otherwise the Capital Rooms one
+  /** a whole house or flat → the single-let agreement (NRLA, lib/tenancyAgreement/singleLet); a room → the APT room agreement */
+  wholeLet: boolean
+  /** let-only: where the rent goes (the landlord's account saved on the property) and who the tenant contacts */
+  landlordBank: { name: string; bank: string; sortCode: string; accountNo: string; iban?: string; swift?: string } | null
+  landlordContact: { address: string; email: string; phone: string } | null
   documents: PackDoc[]
 }
 
@@ -140,6 +146,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
     tenant: {
       id: p.id,
       name: [tenantName, coName].filter(Boolean).join(' and '),
+      formalNames: [formalName(p) !== '—' ? formalName(p) : tenantName, co ? (formalName(co) !== '—' ? formalName(co) : coName) : ''].filter(Boolean),
       formalName: [formalName(p) !== '—' ? formalName(p) : tenantName, co ? (formalName(co) !== '—' ? formalName(co) : coName) : ''].filter(Boolean).join(' and '),
       firstName: [p.first_name || tenantName.split(' ')[0], co?.first_name].filter(Boolean).join(' and '),
       dear: [dearName(p), co ? dearName(co) : ''].filter(Boolean).join(' and '),
@@ -150,6 +157,9 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
     room: { id: room.id, name: room.name || '' },
     property: { id: prop?.id, name: prop?.name || '', address: houseAddress, propertyId: prop?.id },
     lettingType: (prop as any)?.letting_type ?? null,
+    wholeLet: isWholeLet((prop as any)?.property_type, room.name),
+    landlordBank: (prop as any)?.bank_account_number ? { name: (prop as any).bank_account_name || '', bank: '', sortCode: (prop as any).bank_sort_code || '', accountNo: (prop as any).bank_account_number, iban: (prop as any).bank_iban || undefined, swift: (prop as any).bank_swift || undefined } : null,
+    landlordContact: landlord ? { address: oneLine((landlord as any).home_address || ''), email: (landlord as any).email || '', phone: (landlord as any).phone || '' } : null,
     address: placeLabel(isWholeLet(prop?.property_type, room.name), room.name, houseAddress),   // a whole home: just the address, never "Whole Property, …"
     landlordName: landlord ? landlordFormalNames(landlord as any) : '',
     startDate: t.start_date, rentMonthly, rentDueDay, deposit, holdingDeposit,
@@ -173,6 +183,27 @@ export function moneySummary(ctx: PackContext) {
 
 /** The two generated documents — built from the same context, so their figures always match. */
 export async function renderAgreement(ctx: PackContext, opts: { parking?: boolean } = {}) {
+  // a whole house or flat: the NRLA single-let agreement with our cover page (15 Oct 2026) — managed or let-only
+  if (ctx.wholeLet) {
+    const letOnly = ctx.lettingType === 'let_only'
+    return generateSingleLetAgreement({
+      tenantNames: ctx.tenant.formalNames,
+      tenantEmails: ctx.tenant.emails,
+      landlordName: ctx.landlordName || 'The Landlord',
+      address: ctx.address,
+      startDate: ctx.startDate!,
+      rentMonthly: ctx.rentMonthly,
+      rentDueDay: ctx.rentDueDay,
+      deposit: ctx.deposit,
+      paymentRef: ctx.paymentRef,
+      managedBy: letOnly ? 'let_only' : 'managed',
+      bank: letOnly
+        ? (ctx.landlordBank ?? { name: '', bank: '', sortCode: '', accountNo: '' })
+        : { name: CLIENT_ACCOUNT.name, bank: CLIENT_ACCOUNT.bank, sortCode: CLIENT_ACCOUNT.sortCode, accountNo: CLIENT_ACCOUNT.accountNo, iban: CLIENT_ACCOUNT.iban, swift: CLIENT_ACCOUNT.swift },
+      landlordContact: ctx.landlordContact ?? undefined,
+      biz: await fetchPDFBizSettings(),
+    })
+  }
   const start = parseTenancyDate(ctx.startDate)
   return generateTenancyAgreement({
     // managed tenancies get the Capital Rooms agreement; a let-only (landlord-managed) property gets the let-only one

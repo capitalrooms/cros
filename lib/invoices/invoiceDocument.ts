@@ -143,10 +143,11 @@ export async function renderInvoiceStyleDocument(d: InvoiceStyleDocument): Promi
   doc.font(B).fontSize(9.5).fillColor(BLACK).text(d.pay.title ?? 'How to pay', MARGIN + 14, y + 12)
   d.pay.rows.forEach(([k, v], i) => {
     doc.font(R).fontSize(9).fillColor(GREY).text(k, MARGIN + 14, y + 32 + i * 14, { width: 110 })
-    doc.font(B).fontSize(9).fillColor(BLACK).text(v, MARGIN + 124, y + 32 + i * 14, { width: COL_W * 0.52 - 124 })
+    // wide enough for an IBAN on one line (it used to wrap onto the SWIFT row)
+    doc.font(B).fontSize(9).fillColor(BLACK).text(v, MARGIN + 124, y + 32 + i * 14, { width: COL_W * 0.58 - 124, lineBreak: false })
   })
   if (d.pay.note) {
-    doc.font(R).fontSize(8.5).fillColor(GREY).text(d.pay.note, MARGIN + COL_W * 0.52, y + 32, { width: COL_W * 0.45, lineGap: 2 })
+    doc.font(R).fontSize(8.5).fillColor(GREY).text(d.pay.note, MARGIN + COL_W * 0.6, y + 32, { width: COL_W * 0.37, lineGap: 2 })
   }
 
   doc.end()
