@@ -145,6 +145,27 @@ Respond with JSON array only:
 }
 
 // ── All the heavy lifting happens here, after 202 is already sent ──────────────
+/** An emailed statement that couldn't be imported — tell the office instead of failing silently (15 Oct 2026). */
+async function alertFailed(subject: string, files: string[], why: string) {
+  try {
+    const supabase = serviceClient()
+    const what = `${subject || '(no subject)'}${files.length ? ` — ${files.join(', ')}` : ''}`
+    const { data: admins } = await supabase.from('people').select('id, email').in('role', ['administrator', 'admin'])
+    const primary = ((admins ?? []) as any[]).find(a => String(a.email || '').endsWith('@capitalrooms.co.uk') && !String(a.email).includes('+test')) ?? (admins ?? [])[0]
+    if (primary) await supabase.from('notifications').insert({ user_id: primary.id, title: 'Statement not imported', body: `${what}: ${why}`, type: 'statement', link: '/admin/statements', read: false })
+    await sendEmail('harry@capitalrooms.co.uk', oneLine(`AutoLedger: not imported — ${subject || 'statement'}`),
+      `<p>This emailed statement was <strong>not imported</strong>:</p><p><strong>${what.replace(/</g, '&lt;')}</strong></p><p>${why}</p><p>Please send it again to statements@ (forward the original email with its PDF attached).</p>`, { signature: false }).catch(() => null)
+  } catch (e) { console.warn('AutoLedger: failure alert failed', e) }
+}
+
+/** The previous agent's own statement date and number: "Statement at 03/06/2026" (subject) and "Statement LS0993.pdf". */
+function agentStatement(subject: string, files: string[]): { date: string | null; number: string | null } {
+  const m = subject.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  const date = m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null
+  const number = files.map(f => f.match(/\bLS\d{3,}\b/i)?.[0]).find(Boolean)?.toUpperCase() ?? null
+  return { date: date && !isNaN(Date.parse(date)) ? date : null, number }
+}
+
 async function processStatement(body: any) {
   const emailData = body.data ?? body
   const inboundEmailId: string = emailData.email_id || emailData.id || ''
@@ -155,6 +176,9 @@ async function processStatement(body: any) {
   const attachments: Array<Record<string, any>> = emailData.attachments || []
 
   console.log('AutoLedger processing start:', { inboundEmailId, from, subject, attachments_count: attachments.length })
+  const fileNames = attachments.map(a => String(a.filename || a.name || '')).filter(Boolean)
+  const agent = agentStatement(subject, fileNames)
+  const fail = (why: string) => alertFailed(subject, fileNames, why)
 
   // Fetch attachment content — Resend doesn't include base64 in the webhook payload
   if (inboundEmailId && attachments.length) {
@@ -257,6 +281,7 @@ async function processStatement(body: any) {
 
     if (!property || !landlord) {
       console.warn(`AutoLedger: could not identify property from PDF. Subject: "${subject}"`)
+      await fail('CROS couldn’t tell which property it’s for. Check the PDF names the property, or upload it on Finance › Statements › Import.')
       return
     }
   } else {
@@ -269,6 +294,7 @@ async function processStatement(body: any) {
 
     if (!landlordData) {
       console.warn(`AutoLedger: unknown sender ${senderEmail}`)
+      await fail(`It came from ${senderEmail}, which isn’t a landlord or the office in CROS.`)
       return
     }
     landlord = landlordData
@@ -413,6 +439,7 @@ Respond with JSON only in this exact shape:
 
   if (!rawItems.length) {
     console.warn('AutoLedger: no expense items found')
+    await fail(fileNames.length ? 'No lines could be read from the PDF.' : 'There was no PDF attached to the email.')
     return
   }
 
@@ -461,6 +488,14 @@ Respond with JSON only in this exact shape:
     const dupOf = [...byStmt.entries()].find(([, set]) => incoming.every(x => set.has(x)))?.[0]
     if (dupOf) {
       const { data: prev } = await supabase.from('landlord_statements').select('statement_reference, created_at').eq('id', dupOf).maybeSingle()
+      // sent again with the agent's own date/number, which the first import didn't keep: correct the original's date
+      // (nothing is added twice — 15 Oct 2026, so re-forwarding fixes which month each statement is for)
+      if (agent.date && agent.number && !/^LS\d+/i.test(String(prev?.statement_reference ?? ''))) {
+        const label = new Date(agent.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+        await supabase.from('landlord_statements').update({ statement_date: agent.date, statement_reference: `${agent.number} · ${label}` }).eq('id', dupOf)
+        console.log('AutoLedger: duplicate — dated the original', agent.number, agent.date)
+        return
+      }
       const when = prev?.created_at ? new Date(prev.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : 'earlier'
       const what = `${property.name || property.address} — ${prev?.statement_reference ?? 'statement'}`
       console.log('AutoLedger: duplicate statement rejected —', what)
@@ -493,8 +528,9 @@ Respond with JSON only in this exact shape:
       .insert({
         property_id: property.id,
         landlord_id: landlord.id,
-        statement_reference: readableRef,
-        statement_date: periodEnd,
+        // the agent's own number and date when the email/PDF carries them ("LS0993 · Jun 2026", 3 June 2026)
+        statement_reference: agent.number ? `${agent.number} · ${fmtMY(agent.date ?? periodEnd)}` : readableRef,
+        statement_date: agent.date ?? periodEnd,
         period_start: periodStart,
         period_end: periodEnd,
         gross_rent: 0,       // updated below after line items inserted
@@ -507,6 +543,7 @@ Respond with JSON only in this exact shape:
       .single()
     if (stmtErr || !newStmt) {
       console.error('AutoLedger: statement insert failed', JSON.stringify(stmtErr))
+      await fail(`It couldn’t be saved (${stmtErr?.message ?? 'database error'}).`)
       return
     }
     stmtRow = newStmt
@@ -1022,6 +1059,8 @@ export async function POST(req: NextRequest) {
       await processStatement(body)
     } catch (e) {
       console.error('AutoLedger: unhandled error in processStatement', e)
+      const d = body?.data ?? body
+      await alertFailed(String(d?.subject || ''), ((d?.attachments || []) as any[]).map(a => String(a.filename || '')).filter(Boolean), `Something went wrong reading it (${e instanceof Error ? e.message : 'unknown error'}).`)
     }
   })
 

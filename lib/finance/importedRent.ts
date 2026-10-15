@@ -1,7 +1,8 @@
 // Rent shown on statements imported from the previous agent (statements@ / AutoLedger, 14 Oct 2026). Their statements
 // run payout to payout ("30 Jun – 31 Aug"), not month by month, so each rent line is put in the month it is FOR:
 //   1. the rent period on the line itself ("Rent 01/08/2026 - 31/08/2026 - Room 4 …") — most lines carry one
-//   2. else the month most of that statement's other rent lines are for (when most of them say)
+//   2. else the month most of that statement's other rent lines are for (when most of them say); else the agent's own
+//      statement date when CROS has it ("LS0993 · Jun 2026")
 //   3. else the first month in the statement's dates that doesn't already hold most of that rent (payout-to-payout
 //      statements: "1 Jun – 3 Jul" is July's rent when June's is already on file)
 // Used by the rent roll / Finance home for months before CROS collects rent (lib/finance/rentRoll).
@@ -35,7 +36,7 @@ export async function importedRentFor(s: SupabaseClient, month: string): Promise
   // read a wide window: where an undated statement belongs depends on its neighbours
   const from = `${addMonths(month, -5)}-01`, to = `${addMonths(month, 5)}-28`
   const { data } = await s.from('statement_line_items')
-    .select('statement_id, property_id, description, amount, period_start, period_end, statement_date, landlord_statements!inner(id, rooms, period_start, period_end)')
+    .select('statement_id, property_id, description, amount, period_start, period_end, statement_date, landlord_statements!inner(id, rooms, period_start, period_end, statement_date, statement_reference)')
     .eq('category', 'rent_income').gte('statement_date', from).lte('statement_date', to)
   const rows = ((data ?? []) as any[]).filter(r => !(Array.isArray(r.landlord_statements?.rooms) && r.landlord_statements.rooms.length))   // those use their room table
   const amt = (r: any) => Math.round(Number(r.amount || 0) * 100) / 100
@@ -53,6 +54,8 @@ export async function importedRentFor(s: SupabaseClient, month: string): Promise
     if (!rest.length) continue
     if (dated * 2 >= ls.length) { const usual = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0]; for (const r of rest) monthOf.set(r, usual); continue }
     const st = ls[0].landlord_statements ?? {}
+    // the agent's own statement date ("LS0993 · Jun 2026", dated 3 June): that's the month it's for
+    if (/^LS\d+/i.test(String(st.statement_reference ?? '')) && st.statement_date) { for (const r of rest) monthOf.set(r, String(st.statement_date).slice(0, 7)); continue }
     undated.push({ id, property: ls[0].property_id, start: st.period_start ?? ls[0].period_start ?? ls[0].statement_date, end: st.period_end ?? ls[0].period_end ?? ls[0].statement_date, total: rest.reduce((t, r) => t + amt(r), 0), lines: rest })
   }
 
