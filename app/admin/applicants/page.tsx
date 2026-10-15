@@ -94,6 +94,9 @@ export default function ApplicantsPage() {
   // Stage advance
   const [advancing, setAdvancing] = useState<string | null>(null)
   const [depositFor, setDepositFor] = useState<string | null>(null)
+  // archiving asks why on the card itself (a browser pop-up was easy to miss and some browsers block it)
+  const [archiveFor, setArchiveFor] = useState<string | null>(null)
+  const [archiveReason, setArchiveReason] = useState('Not interested')
   const [depositBanner, setDepositBanner] = useState('')
   const [lettingFiles, setLettingFiles] = useState<Record<string, string>>({})   // applicant id → their tenancy's letting file
 
@@ -267,12 +270,12 @@ export default function ApplicantsPage() {
     }
   }
 
-  async function setArchived(applicant: Applicant, archive: boolean) {
-    const reason = archive ? window.prompt(`Archive ${applicant.full_name}? They leave the list but are kept, and can be restored.\n\nWhy? (e.g. withdrew, duplicate, test)`) : ''
-    if (archive && !reason?.trim()) return
+  async function setArchived(applicant: Applicant, archive: boolean, reason = '') {
+    if (archive && !reason.trim()) return
     const res = await fetch(`/api/applicants/${applicant.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archive, reason }) })
     if (!res.ok) { const err = await res.json().catch(() => ({})); alert(err.error || 'Could not save'); return }
     setApplicants(prev => prev.map(a => a.id === applicant.id ? { ...a, archived_at: archive ? new Date().toISOString() : null, archived_reason: archive ? reason : null } : a))
+    setArchiveFor(null)
   }
 
   async function saveNote(applicantId: string) {
@@ -785,10 +788,24 @@ export default function ApplicantsPage() {
                           </button>
                         )}
 
-                        <button type="button" onClick={() => setArchived(applicant, !applicant.archived_at)}
-                          className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800">
-                          {applicant.archived_at ? `Restore (archived: ${applicant.archived_reason ?? ''})` : 'Archive'}
-                        </button>
+                        {archiveFor === applicant.id ? (
+                          <span className="flex flex-wrap items-center gap-xs rounded-lg bg-neutral-100 px-sm py-xs text-xs">
+                            <span className="font-semibold text-neutral-700">Archive — why?</span>
+                            <select value={['Not interested', 'Withdrew', 'Duplicate', 'Test'].includes(archiveReason) ? archiveReason : 'Other'} onChange={e => setArchiveReason(e.target.value === 'Other' ? '' : e.target.value)} className="rounded border border-neutral-300 bg-white px-xs py-0.5 text-xs">
+                              {['Not interested', 'Withdrew', 'Duplicate', 'Test', 'Other'].map(x => <option key={x}>{x}</option>)}
+                            </select>
+                            {!['Not interested', 'Withdrew', 'Duplicate', 'Test'].includes(archiveReason) && (
+                              <input autoFocus value={archiveReason} onChange={e => setArchiveReason(e.target.value)} placeholder="Reason" className="w-36 rounded border border-neutral-300 bg-white px-xs py-0.5 text-xs" />
+                            )}
+                            <button type="button" disabled={!archiveReason.trim()} onClick={() => setArchived(applicant, true, archiveReason)} className="rounded bg-neutral-900 px-sm py-0.5 font-bold text-white disabled:opacity-40">Archive</button>
+                            <button type="button" onClick={() => setArchiveFor(null)} className="font-semibold text-neutral-500 underline">Cancel</button>
+                          </span>
+                        ) : (
+                          <button type="button" onClick={() => applicant.archived_at ? setArchived(applicant, false) : (setArchiveFor(applicant.id), setArchiveReason('Not interested'))}
+                            className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800">
+                            {applicant.archived_at ? `Restore (archived: ${applicant.archived_reason ?? ''})` : 'Archive'}
+                          </button>
+                        )}
 
                         {/* Move to any stage without sending anything (e.g. already referencing, offer agreed by phone) */}
                         {!isConverted && (
