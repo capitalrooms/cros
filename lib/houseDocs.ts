@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { tableRow } from '@/lib/emailWrapper'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
 import { parseTenancyDate, ukLongDate } from '@/lib/tenancy/firstRent'
+import { dearName } from '@/lib/people'
 
 // expiry = the property's expiry column; done + months = when only the test date is recorded, the next due
 // date is that plus the usual interval (same rule as the Compliance certificates grid)

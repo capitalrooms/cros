@@ -6,7 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { firstRentPayment, parseTenancyDate, ukLongDate, type FirstRent } from '@/lib/tenancy/firstRent'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
-import { landlordFormalNames, formalName } from '@/lib/people'
+import { landlordFormalNames, formalName, dearName } from '@/lib/people'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
 import { generateTenancyAgreement } from '@/lib/tenancyAgreement/generate'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'

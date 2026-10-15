@@ -13,6 +13,7 @@ import { syncRoomStatuses } from '@/lib/rooms/syncStatus'
 import { feeFixesFromStatements } from '@/lib/fees/fromStatements'
 import { resolveFee } from '@/lib/fees/managementFee'
 import { fileIntoProperty, parseStorageUrl } from '@/lib/files/storage'
+import { createServiceClient } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
