@@ -6,8 +6,7 @@
  *
  * On confirm:
  *   - Marks the LSR row confirmed
- *   - If rent_charge_id is set: updates rent_charges (amount_received, status='paid')
- *   - If no rent_charge_id but room_id + charge_month present: creates/upserts the charge
+ *   - Nothing else — rent charges are never raised or settled from imported statements (15 Oct 2026)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -61,53 +60,10 @@ export async function POST(req: NextRequest) {
   // action === 'confirm'
   const now = new Date().toISOString()
 
-  // Determine charge_month from statement period
-  const periodEnd = lsr.statement?.period_end || lsr.statement?.statement_date
-  const chargeMonth = periodEnd ? periodEnd.slice(0, 7) + '-01' : null
-
-  let rentChargeId = lsr.rent_charge_id
-
-  if (!rentChargeId && lsr.room_id && chargeMonth) {
-    // Try to find or create the rent_charge row
-    const { data: existing } = await supabase
-      .from('rent_charges')
-      .select('id')
-      .eq('room_id', lsr.room_id)
-      .eq('charge_month', chargeMonth)
-      .order('created_at').limit(1)            // a changeover month can have two (one per tenancy, migration 217)
-      .maybeSingle()
-
-    if (existing) {
-      rentChargeId = existing.id
-    } else {
-      // Create one — we know the room and month, use LSR amount as amount_due
-      const { data: created } = await supabase
-        .from('rent_charges')
-        .insert({
-          room_id: lsr.room_id,
-          property_id: lsr.property_id,
-          charge_month: chargeMonth,
-          amount_due: lsr.rent_income,
-          amount_received: 0,
-          status: 'pending',
-        })
-        .select('id')
-        .single()
-      rentChargeId = created?.id ?? null
-    }
-  }
-
-  // Update the rent_charge as paid
-  if (rentChargeId) {
-    const { error: rcErr } = await supabase
-      .from('rent_charges')
-      .update({
-        amount_received: lsr.rent_income,
-        status: 'paid',
-      })
-      .eq('id', rentChargeId)
-    if (rcErr) console.error('reconciliation: rent_charges update failed', rcErr.message)
-  }
+  // Confirming only confirms the match (room, tenant). It never raises or settles CROS's own rent charges: these lines
+  // come from the previous agent's statements — they collected that rent (15 Oct 2026; it used to mark charges "paid"
+  // with the statement's figure, including CROS's own). The rent roll reads the lines directly (lib/finance/importedRent).
+  const rentChargeId = null as string | null
 
   // Mark LSR confirmed
   const { error: lsrErr } = await supabase

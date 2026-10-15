@@ -3,6 +3,7 @@
 // Body: { email? } — a corrected address to use (and keep) from now on.
 // Only while the form is still open (not yet submitted); their progress is kept, so they carry on where they left off.
 import { NextRequest, NextResponse } from 'next/server'
+import { dearFromText } from '@/lib/people'
 import { requireAdmin } from '@/lib/adminAuth'
 import { svc } from '@/lib/landlordOnboarding/store'
 import { generateManagementAgreementPDF } from '@/lib/managementAgreement/generatePDF'
@@ -16,11 +17,8 @@ export const maxDuration = 30
 
 const SITE = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
-/** "Mr Rislan" when the name starts with a title, otherwise their first name */
-function greeting(full: string) {
-  const parts = full.trim().split(/\s+/)
-  return /^(Mr|Mrs|Ms|Miss|Mx|Dr|Prof|Rev)\.?$/i.test(parts[0]) && parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1]}` : parts[0] || 'there'
-}
+/** "Mr Rislan" — lib/people dearFromText (never a lone first name) */
+const greeting = (full: string) => dearFromText(full)
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -51,7 +51,7 @@ const CERT_EXPIRY_COL: Record<string, string> = { gas: 'gas_safe_cert_expiry', e
 
 export interface PackContext {
   tenancyId: string
-  tenant: { id: string; name: string; formalName: string; firstName: string; email: string }
+  tenant: { id: string; name: string; formalName: string; firstName: string; dear: string; email: string }
   room: { id: string; name: string }
   property: { id: string; name: string; address: string; propertyId: string }
   address: string                   // "Room 5, 208 Rotherhithe Street, London, SE16 7RB"
@@ -131,7 +131,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
   // formalName = title, first, middle and surname — it goes on the agreement
   return {
     tenancyId,
-    tenant: { id: p.id, name: tenantName, formalName: formalName(p) !== '—' ? formalName(p) : tenantName, firstName: p.first_name || tenantName.split(' ')[0], email: p.email || '' },
+    tenant: { id: p.id, name: tenantName, formalName: formalName(p) !== '—' ? formalName(p) : tenantName, firstName: p.first_name || tenantName.split(' ')[0], dear: dearName(p), email: p.email || '' },
     room: { id: room.id, name: room.name || '' },
     property: { id: prop?.id, name: prop?.name || '', address: houseAddress, propertyId: prop?.id },
     lettingType: (prop as any)?.letting_type ?? null,

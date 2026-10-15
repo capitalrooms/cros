@@ -141,7 +141,7 @@ async function sendEmailToAll(
     const sender = await senderFor(req)
     const { data: people } = await service
       .from('people')
-      .select('id, full_name, salutation, first_name, email')
+      .select('id, full_name, salutation, first_name, last_name, company, email')
       .in('id', ids)
 
     const targets = (people ?? []).filter((p: any) => p.email)
@@ -150,11 +150,11 @@ async function sendEmailToAll(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || PORTAL_URL
 
     await Promise.allSettled(targets.map(async (person: any) => {
-      const firstName = person.first_name || person.full_name?.split(' ')[0] || 'there'
+      const dear = dearName(person)   // "Mr Page" — never a lone first name (lib/people)
       const loginUrl  = `${appUrl}/login?email=${encodeURIComponent(person.email)}`
       // house email: the shared top bar and the sender's signature come from the wrapper
       const html = await emailHtml(`
-        <p>Dear ${esc(firstName)},</p>
+        <p>Dear ${esc(dear)},</p>
         <p><strong>${esc(content.title)}</strong></p>
         ${esc(content.body).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')}
         ${content.link ? ctaButton('View details', `${appUrl}${content.link}`) : ''}
@@ -218,7 +218,7 @@ export async function tryEmailFallback(
     // Fetch their emails
     const { data: people } = await service
       .from('people')
-      .select('id, salutation, first_name, last_name, full_name, email')
+      .select('id, salutation, first_name, last_name, full_name, company, email')
       .in('id', withoutPush)
 
     const targets = (people ?? []).filter((p: any) => p.email)
@@ -227,11 +227,11 @@ export async function tryEmailFallback(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || PORTAL_URL
 
     for (const person of targets as { id: string; name: string; email: string }[]) {
-      const firstName = (person as any).first_name || (person as any).full_name?.split(' ')[0] || 'there'
+      const dear = dearName(person as any)
       const loginUrl  = `${appUrl}/login?email=${encodeURIComponent(person.email)}`
 
       const html = await emailHtml(`
-        <p style="margin:0 0 14px;font-size:15px;font-weight:700;">Dear ${firstName},</p>
+        <p style="margin:0 0 14px;font-size:15px;font-weight:700;">Dear ${esc(dear)},</p>
         <p style="margin:0 0 10px;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">${content.title}</p>
         <p style="margin:0 0 24px;font-size:14px;line-height:1.7;">${content.body}</p>
         ${content.link ? `<p style="margin:0 0 24px;">

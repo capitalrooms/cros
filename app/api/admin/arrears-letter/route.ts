@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { dearName, dearFromText } from '@/lib/people'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
 import {
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
     .restore()
   y = drawPDFLetterRule(doc, y + 16)
 
-  y = drawPDFSalutation(doc, y, firstName, fontReg)
+  y = drawPDFSalutation(doc, y, person ? dearName(person as any) : dearFromText(tenantName), fontReg)   // "Dear Miss Pious" (lib/people)
 
   // Body
   doc.font(fontReg).fontSize(9.5).fillColor(BLACK)

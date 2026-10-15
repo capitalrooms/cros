@@ -7,7 +7,7 @@ import { z } from 'zod/v4'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
-import { displayName } from '@/lib/people'
+import { displayName, dearName } from '@/lib/people'
 import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -64,11 +64,11 @@ export async function loadDepositContext(svc: SupabaseClient, applicantId: strin
   let landlord: DepositContext['landlord'] = null
   if (a.properties?.landlord_id) {
     const { data: l } = await svc.from('people')
-      .select('id, first_name, last_name, full_name, salutation, email, joint_first_name, joint_email')
+      .select('id, first_name, last_name, full_name, salutation, company, email, joint_salutation, joint_first_name, joint_last_name, joint_email')
       .eq('id', a.properties.landlord_id).maybeSingle() as { data: any }
     if (l) landlord = {
       id: l.id,
-      greeting: [l.first_name, l.joint_first_name].filter(Boolean).join(' and ') || l.full_name || 'Sir or Madam',
+      greeting: dearName(l),   // "Mr Page" / "Mr Smith and Mrs Smith" / "Sir or Madam" (lib/people)
       email: [l.email, l.joint_email].filter(Boolean),
       name: [l.salutation, l.first_name, l.last_name].filter(Boolean).join(' ') || l.full_name || '',
     }

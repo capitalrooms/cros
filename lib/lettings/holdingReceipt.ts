@@ -6,6 +6,7 @@
 // optional step. Server-only.
 
 import { oneWeekRent } from '@/lib/tenancy/deposit'
+import { dearName, dearFromText } from '@/lib/people'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { renderFormalLetter, type FormalLetter } from '@/lib/letters/formalLetter'
 import { signerForRequest } from '@/lib/letters/letterFromRequest'
@@ -121,7 +122,7 @@ export function receiptLetter(rec: HoldingDeposit, ctx: DepositContext, recipien
     date: rec.recorded_at.slice(0, 10),
     reference: rec.hold_no,
     subject: `Holding deposit receipt ${rec.hold_no}`,
-    salutation: `Dear ${first}`,
+    salutation: `Dear ${(ctx.applicant as any).last_name ? dearName(ctx.applicant as any) : dearFromText(ctx.applicant.full_name || rec.payer_name)}`,
     body: [
       `Thank you for your holding deposit for ${where}${ctx.rent ? ` at ${gbp(ctx.rent)} per month` : ''}. This letter is your receipt — please keep it.`,
       rows.join('\n'),

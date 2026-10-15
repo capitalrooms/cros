@@ -14,7 +14,7 @@ import {
 } from '@/lib/rent-increase/generatePDF'
 import { getDeemedServiceDate, getDeemedServiceDescription } from '@/lib/rent-increase/deemedServiceDate'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
-import { landlordFormalNames } from '@/lib/people'
+import { landlordFormalNames, dearName } from '@/lib/people'
 import { senderFieldsSdk, senderFor } from '@/lib/email/sender'
 import { buildEmail } from '@/lib/emailWrapper'
 
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       html: await buildEmail(`
-          <p>Dear ${data.tenantFirstName},</p>
+          <p>Dear ${dearName({ salutation: person.salutation || bodyTitle || null, first_name: person.first_name, last_name: person.last_name, full_name: person.full_name })},</p>
           <p>Please find enclosed two documents regarding a proposed change to your rent, effective from <strong>${effFormatted}</strong>:</p>
           <ol style="padding-left:20px;">
             <li style="margin-bottom:8px;"><strong>Cover letter</strong> — explains the increase and your options in plain English</li>

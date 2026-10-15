@@ -11,7 +11,7 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export const DraftSchema = z.object({
   subject: z.string().describe('Short subject for the "Re:" line, e.g. "Revised management fees from 1 January 2027"'),
-  salutation: z.string().describe('e.g. "Dear Mr Smith" or "Dear Nigel" — no trailing comma'),
+  salutation: z.string().describe('e.g. "Dear Mr Smith" — title and surname, never a first name alone; "Dear Sir or Madam" for a company — no trailing comma'),
   body: z.string().describe('The letter body in the plain-text format described in the instructions — no salutation, closing or signature'),
   closing: z.enum(CLOSINGS),
   coverEmail: z.string().describe('A short covering email (2–4 sentences, plain text, starting "Dear …" and ending "Kind regards,") to send with the letter attached'),
@@ -36,7 +36,7 @@ Writing style
 - Keep placeholders to facts only the sender can know (a date, an amount, a name). If a sentence would only exist to hold a placeholder and the notes don't need it, leave the sentence out.
 - Legal or regulatory points (notices, deposits, fees under the Tenant Fees Act, etc.): state what the notes say accurately; do not add legal claims of your own.
 - Closing: "Yours sincerely" when the recipient is addressed by name, "Yours faithfully" for "Dear Sir or Madam". Use "Kind regards" only if the notes ask for a friendlier letter.
-- Salutation: use the title and surname for a formal letter ("Dear Mr Smith"); a first name only if the notes use one or ask for a friendlier tone.
+- Salutation: always the title and surname ("Dear Mr Smith"); two people "Dear Mr Smith and Mrs Smith"; a company "Dear Sir or Madam". Never a first name on its own.
 - Today is ${today}. Write dates in full, e.g. 1 January 2027.
 
 Body format (plain text — it is rendered to PDF exactly by these rules)

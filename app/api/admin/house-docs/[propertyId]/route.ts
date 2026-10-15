@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
   const sender = await senderFor(req)
 
   if (b.action === 'preview') {
-    return NextResponse.json({ subject, html: await buildEmail(houseEmailHtml(house.tenants[0]?.firstName || 'Tenant', house.property.address, docs, message), { sender }) })
+    return NextResponse.json({ subject, html: await buildEmail(houseEmailHtml(house.tenants[0]?.dear || 'Sir or Madam', house.property.address, docs, message), { sender }) })
   }
   if (!docs.length) return NextResponse.json({ error: 'Tick at least one certificate that has a file uploaded.' }, { status: 400 })
 
@@ -61,12 +61,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pro
   if (!chosen.length && !toLandlord) return NextResponse.json({ error: 'Pick at least one tenant or the landlord.' }, { status: 400 })
   const recipients = []
   for (const t of chosen) {        // one email each — tenants never see each other's addresses
-    const r = await sendEmail(t.email, subject, houseEmailHtml(t.firstName, house.property.address, docs, message), { req })
+    const r = await sendEmail(t.email, subject, houseEmailHtml(t.dear, house.property.address, docs, message), { req })
     recipients.push({ person_id: t.personId, name: t.name, email: t.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
   }
   if (toLandlord) {
     const l = house.landlord!
-    const r = await sendEmail(l.email, subject, houseEmailHtml(l.firstName, house.property.address, docs, landlordHouseMessage(message)), { req })
+    const r = await sendEmail(l.email, subject, houseEmailHtml(l.dear, house.property.address, docs, landlordHouseMessage(message)), { req })
     recipients.push({ person_id: l.personId, name: `${l.name} (landlord)`, email: l.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
   }
   const { error } = await s.from('house_document_sends').insert({

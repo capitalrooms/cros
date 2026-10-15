@@ -120,3 +120,67 @@ export function nameFields(first: string, last: string, middle?: string | null) 
     ...(middle !== undefined ? { middle_name: (middle ?? '').trim() || null } : {}),
   }
 }
+
+// ── Greetings (15 Oct 2026, Harry: Richard Page's certificate email said "Dear Page" — "make sure it never happens
+// again anywhere"). Every email and letter takes its greeting from here:
+//   dearName — formal ("Dear …"): title + surname ("Mr Page"); joint owners "Mr Smith and Mrs Smith"; a company with no
+//              person, or a record whose "name" is a company ("Page" "Properties"), "Sir or Madam". Never a lone first name.
+//   hiName   — friendly ("Hi …", tenants, applicants, contractors): the first name — unless the record is a company.
+const ENTITY_WORD = /\b(ltd|limited|llp|plc|inc|properties|property|lettings|letting|estates?|holdings?|group|investments?|services|homes|developments?|management|partners|partnership|trust|ventures|capital|assets|realty|company|co)\b\.?/i
+
+/** A record whose "name" is really a business — company only, or a company typed into the name boxes. */
+export function looksLikeEntity(p: PersonLike | null | undefined): boolean {
+  if (!p) return false
+  const first = String(p.first_name ?? '').trim(), last = String(p.last_name ?? '').trim()
+  if (!first && !last) return !!p.company || ENTITY_WORD.test(String(p.full_name ?? p.name ?? ''))
+  if (ENTITY_WORD.test(first) || ENTITY_WORD.test(last)) return true
+  const company = String(p.company ?? '').trim().toLowerCase()
+  return !!company && company.startsWith(`${first} ${last}`.trim().toLowerCase()) && !p.salutation
+}
+
+function formalOne(salutation?: string | null, first?: string | null, last?: string | null): string {
+  const s = String(salutation ?? '').trim(), f = String(first ?? '').trim(), l = String(last ?? '').trim()
+  if (s && l) return `${s} ${l}`
+  return [s, f, l].filter(Boolean).join(' ')   // no title on file: the whole name, never just a first name
+}
+
+/** The name after "Dear" — "Mr Page", "Mr Smith and Mrs Smith", or "Sir or Madam". */
+export function dearName(p: PersonLike | null | undefined): string {
+  if (!p || looksLikeEntity(p)) return 'Sir or Madam'
+  const primary = formalOne(p.salutation, p.first_name, p.last_name) || (ENTITY_WORD.test(String(p.full_name ?? '')) ? '' : String(p.full_name ?? '').trim())
+  const joint = formalOne(p.joint_salutation, p.joint_first_name, p.joint_last_name)
+  if (!primary) return joint || 'Sir or Madam'
+  return joint ? `${primary} and ${joint}` : primary
+}
+
+/** "Dear Mr Page," — the whole opening line. */
+export const dearLine = (p: PersonLike | null | undefined) => `Dear ${dearName(p)},`
+
+/** The name after "Hi" — the first name for a person, the formal name for a business record. */
+export function hiName(p: PersonLike | null | undefined): string {
+  if (!p) return 'there'
+  if (looksLikeEntity(p)) return dearName(p)
+  const f = String(p.first_name ?? '').trim()
+  return f || dearName(p)
+}
+
+/** From a typed full name and a title (forms, applicants, onboarding rows): "Ms" + "Joanna Rosen" → "Ms Rosen". */
+export function dearFromFull(salutation: string | null | undefined, fullName: string | null | undefined): string {
+  const name = String(fullName ?? '').trim().replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '')
+  if (!name || ENTITY_WORD.test(name)) return 'Sir or Madam'
+  const parts = name.split(/\s+/)
+  return dearName({ salutation: salutation || null, first_name: parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0], last_name: parts.length > 1 ? parts[parts.length - 1] : null })
+}
+
+/** From a name as text that may start with a title ("Mr Richard Page" → "Mr Page"); a business → "Sir or Madam";
+ *  no title → the whole name, never a lone first name. For emails that only have the name as a string. */
+export function dearFromText(text: string | null | undefined): string {
+  const t = String(text ?? '').trim().replace(/\s*&\s*$/, '')
+  if (!t || ENTITY_WORD.test(t)) return 'Sir or Madam'
+  const joint = t.split(/\s+(?:&|and)\s+/i)
+  if (joint.length === 2) return `${dearFromText(joint[0])} and ${dearFromText(joint[1])}`
+  const parts = t.split(/\s+/)
+  const title = parts[0].replace(/\.$/, '')
+  if (/^(mr|mrs|ms|miss|mx|dr|prof|rev)$/i.test(title) && parts.length >= 2) return `${title.charAt(0).toUpperCase()}${title.slice(1).toLowerCase()} ${parts[parts.length - 1]}`
+  return t
+}

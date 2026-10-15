@@ -17,6 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { dearName, dearFromText } from '@/lib/people'
 import { oneLine } from '@/lib/lettings/letWording'
 import { createClient } from '@supabase/supabase-js'
 import { requireStaff, STAFF_ROLES } from '@/lib/portalAuth'
@@ -175,7 +176,7 @@ export async function POST(req: NextRequest) {
       }
       if (!pdf) result.errors.push('Receipt not emailed: the PDF couldn’t be read')
       else {
-        const first = (ctx.applicant.full_name || rec.payer_name).trim().split(/\s+/)[0]
+        const first = (ctx.applicant as any).last_name ? dearName(ctx.applicant as any) : dearFromText(ctx.applicant.full_name || rec.payer_name)   // "Miss Diafuku" (lib/people)
         const text = `Dear ${first},\n\nThank you for reserving ${ctx.roomName}, ${ctx.propertyName} — we’re so excited to welcome you on board! We have received your holding deposit of ${gbp(Number(rec.amount))} on ${longDate(rec.received_on)}, and the room is now off the market for you.\n\nYour receipt (${rec.hold_no}) is attached — please keep it. It also explains what happens to your holding deposit.\n\nSo, what happens now?\n\n${processGuideText(1)}\n\n${PROCESS_GUIDE_SIGNOFF}`
         const { ok, error } = await sendEmail(to, `Your holding deposit receipt — ${rec.hold_no}`, messageHtml(text), {
           req, attachments: [{ filename: `Holding deposit receipt ${rec.hold_no}.pdf`, content: pdf.toString('base64') }],

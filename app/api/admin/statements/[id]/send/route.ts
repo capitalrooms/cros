@@ -2,6 +2,7 @@
 //   { preview: true }                               → { html, from, to, subject, message } for the send dialog
 //   { to, cc?, subject, message }                    → emails the statement PDF from the signed-in admin; logs sent_at
 import { NextRequest, NextResponse } from 'next/server'
+import { dearLine } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
 import { sendEmail } from '@/lib/sendEmail'
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (/^X/.test(String(st.statement_reference || ''))) return NextResponse.json({ error: 'This is a practice statement — it can’t be emailed to anyone' }, { status: 409 })
   const sender = await senderFor(req)
   const where = property?.name || property?.address || 'your property'
-  const hello = landlord?.first_name ? `Dear ${landlord.first_name}${landlord.joint_first_name ? ` and ${landlord.joint_first_name}` : ''},` : 'Dear Landlord,'
+  const hello = dearLine(landlord as any)   // "Dear Mr Page," / "Dear Mr Smith and Mrs Smith," (lib/people)
   const suggestedSubject = `Your statement for ${where} — ${st.statement_reference}`
   const suggestedMessage = `${hello}\n\nPlease find attached your statement for ${where} for ${st.statement_reference}.\n\nRent received ${gbp(st.gross_rent || 0)}, less our management fee and any expenses, leaves ${gbp(st.net_to_landlord || 0)} ${st.paid_date ? 'paid to you' : 'to be paid to you'}.\n\nIf anything doesn't look right, just reply to this email.`
 

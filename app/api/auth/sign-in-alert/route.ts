@@ -7,6 +7,7 @@
  * The first sign-in after this went live is recorded quietly, so nobody gets a flood of alerts on day one.
  */
 import crypto from 'node:crypto'
+import { dearName } from '@/lib/people'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/sendEmail'
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   const where = [city, country].filter(Boolean).join(', ') || 'an unknown location'
   const when = new Date().toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
   const name = [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || user.email
-  const greet = p.salutation && p.last_name ? `${p.salutation} ${p.last_name}` : p.first_name || 'there'
+  const greet = dearName(p)
   const html = `
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Dear ${esc(greet)},</p>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">Your Capital Rooms account was just signed in to from a device we haven’t seen before:</p>

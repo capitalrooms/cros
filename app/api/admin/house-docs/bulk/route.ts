@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const subject = defaultHouseSubject(h.property.address)
     const recipients = []
     for (const t of h.tenants) {
-      const r = await sendEmail(t.email, subject, houseEmailHtml(t.firstName, h.property.address, docs, message), { req })
+      const r = await sendEmail(t.email, subject, houseEmailHtml(t.dear, h.property.address, docs, message), { req })
       recipients.push({ person_id: t.personId, name: t.name, email: t.email, ok: r.ok, ...(r.ok ? {} : { error: r.error }) })
     }
     await s.from('house_document_sends').insert({

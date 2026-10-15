@@ -26,7 +26,7 @@ export function packEmailHtml(ctx: PackContext, docs: PackDoc[], link: string, m
   const paras = esc(message).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')
   const list = docs.map(d => `<li style="margin:2px 0;">${esc(d.label)}${d.available ? '' : ' <span style="color:#a16207;">(to follow)</span>'}</li>`).join('')
   return `
-    <p>Dear ${esc(ctx.tenant.firstName)},</p>
+    <p>Dear ${esc(ctx.tenant.dear)},</p>
     ${paras}
     <p style="margin-top:18px;"><strong>${esc(ctx.address)}</strong></p>
     ${ctaButton('View your tenancy documents', link)}

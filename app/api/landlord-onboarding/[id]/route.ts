@@ -1,4 +1,5 @@
 import { requireAdmin } from '@/lib/adminAuth'
+import { dearFromText } from '@/lib/people'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/sendEmail'
@@ -94,7 +95,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
 function approvalEmailBody(name: string) {
   return `
-<p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${name},</p>
+<p style="margin:0 0 20px;font-size:15px;color:#333;line-height:1.6">Dear ${dearFromText(name)},</p>
 <p style="margin:0 0 16px;font-size:15px;color:#333;line-height:1.6">
   We are pleased to confirm that your identity and property documentation have been verified and our
   Anti-Money Laundering checks are now complete.
