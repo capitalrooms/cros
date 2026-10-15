@@ -7,6 +7,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import { genTenancyRefs } from '@/lib/references'
 import SetOnNoticeModal, { OnNoticeData } from '@/app/components/SetOnNoticeModal'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
+import { firstRentPayment } from '@/lib/tenancy/firstRent'
 import { fiveWeeksDeposit, oneWeekRent } from '@/lib/tenancy/deposit'
 import { resolveFee, describeFee } from '@/lib/fees/managementFee'
 
@@ -62,6 +63,7 @@ interface RoomPhoto {
 }
 
 interface UnitsTabProps {
+  propertyType?: string | null
   propertyId: string
   bedrooms: number
   initialRoomId?: string
@@ -122,7 +124,9 @@ function statusPill(room: RoomRow) {
 
 /* ─── Component ──────────────────────────────────────────── */
 
-export default function UnitsTab({ propertyId, bedrooms, initialRoomId, propertyName, propertyAddress, propertyCode }: UnitsTabProps) {
+export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRoomId, propertyName, propertyAddress, propertyCode }: UnitsTabProps) {
+  // a single let (whole house or flat): one unit, unit wording, no rooms to add (15 Oct 2026)
+  const wholeLet = propertyType === 'single_let'
   // a tenancy's letting file; Back returns to this room on this property
   const lettingFile = (tenancyId: string) => `/admin/lettings/${tenancyId}?from=${encodeURIComponent(`/admin/properties/${propertyId}?tab=units&room=${selectedRoom?.id ?? ''}`)}`
   const router = useRouter()
@@ -166,6 +170,9 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   const [newTenancyPersonResults, setNewTenancyPersonResults] = useState<{ id: string; name: string; email: string }[]>([])
   const [newTenancyPerson, setNewTenancyPerson] = useState<{ id: string; name: string; email: string } | null>(null)
   // a second named tenant, jointly and severally liable (tenancies.co_tenant_id) — 15 Oct 2026
+  // the month your records start (Settings › Your records) — a backdated tenancy gets a note (15 Oct 2026)
+  const [recordsStart, setRecordsStart] = useState<string | null>(null)
+  useEffect(() => { adminFetch('/api/admin/finance-dates').then(r => (r.ok ? r.json() : null)).then(d => setRecordsStart(d?.recordsStart ?? null)).catch(() => null) }, [])
   const [jointOpen, setJointOpen] = useState(false)
   const [jointSearch, setJointSearch] = useState('')
   const [jointResults, setJointResults] = useState<{ id: string; name: string; email: string }[]>([])
@@ -383,7 +390,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
         const refreshed = await supabase.from('rooms').select('id, name, unit_code, property_id, room_type, description, status, current_asking_rent').eq('id', confirmDepartureRoom.id).maybeSingle()
         if (refreshed.data) setSelectedRoom({ ...selectedRoom, ...(refreshed.data as any), tenancy: null })
       }
-      setSuccess('Tenancy closed — room is now available')
+      setSuccess((wholeLet ? 'Tenancy closed — the property is now available' : 'Tenancy closed — room is now available'))
       setTimeout(() => setSuccess(null), 4000)
     } catch (err: any) {
       setError(err.message || 'Failed to confirm departure')
@@ -470,6 +477,9 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
         deposit_amount: newTenancyDeposit ? Number(newTenancyDeposit) : null,
         deposit_held_by: newTenancyDepositHeldBy,
         deposit_scheme_ref: newTenancyDepositSchemeRef || null,
+        // started before your records begin (Settings › Your records): the deposit was taken and protected by the
+        // previous agent — treated as protected, as for every earlier tenancy (migration 191), so no false 30-day alarm
+        deposit_protection_assumed: !!(recordsStart && newTenancyStart < recordsStart && Number(newTenancyDeposit) > 0 && !newTenancyDepositSchemeRef.trim()),
         agreement_type: newTenancyAgreementType,
         is_periodic: newTenancyIsPeriodic,
         holding_deposit_received: newTenancyHoldingDeposit ? Number(newTenancyHoldingDeposit) : null,
@@ -634,7 +644,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
     }
     const { error: e } = await supabase.from('rooms').update({ status, ...(available_date ? { available_date } : {}) }).eq('id', room.id)
     if (e) { setError(e.message); return }
-    setSuccess(status === 'available' ? `${room.name} is available again — it’s back on Available Rooms` : `${room.name} marked as let`)
+    setSuccess(status === 'available' ? (wholeLet ? 'The property is available again — it’s back on Available Rooms' : `${room.name} is available again — it’s back on Available Rooms`) : `${room.name} marked as let`)
     setSelectedRoom(r => r && r.id === room.id ? { ...r, status } : r)
     loadRooms()
   }
@@ -709,13 +719,18 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
       {view === 'list' && (
         <div>
           <div className="flex items-center justify-between mb-lg">
-            <p className="text-sm text-neutral-500">{rooms.length} room{rooms.length !== 1 ? 's' : ''} · {bedrooms} bedroom{bedrooms !== 1 ? 's' : ''} in record</p>
-            <button
-              onClick={() => setIsAddingRoom(true)}
-              className="px-lg py-sm bg-neutral-900 text-white rounded-lg font-semibold text-sm hover:bg-neutral-700 transition"
-            >
-              + Add room
-            </button>
+            <p className="text-sm text-neutral-500">{wholeLet
+              ? `Whole property${bedrooms ? ` · ${bedrooms} bedroom${bedrooms !== 1 ? 's' : ''}` : ''}`
+              : `${rooms.length} room${rooms.length !== 1 ? 's' : ''} · ${bedrooms} bedroom${bedrooms !== 1 ? 's' : ''} in record`}</p>
+            {/* a single let is one unit — no rooms to add (15 Oct 2026) */}
+            {!(wholeLet && rooms.length >= 1) && (
+              <button
+                onClick={() => setIsAddingRoom(true)}
+                className="px-lg py-sm bg-neutral-900 text-white rounded-lg font-semibold text-sm hover:bg-neutral-700 transition"
+              >
+                {wholeLet ? '+ Add the property as a unit' : '+ Add room'}
+              </button>
+            )}
           </div>
 
           {rooms.length === 0 ? (
@@ -731,7 +746,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 border-b border-neutral-200">
-                    <th className="px-md sm:px-lg py-sm">Room</th>
+                    <th className="px-md sm:px-lg py-sm">{wholeLet ? 'Unit' : 'Room'}</th>
                     <th className="px-lg py-sm hidden md:table-cell">Type</th>
                     <th className="px-md sm:px-lg py-sm">Tenant</th>
                     <th className="px-lg py-sm hidden sm:table-cell">Rent</th>
@@ -831,7 +846,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
               {/* ── Stat bar ── */}
               <div className="grid grid-cols-4 border-b border-neutral-100">
                 {[
-                  { label: 'Room', value: selectedRoom.unit_code || selectedRoom.name, mono: true },
+                  { label: wholeLet ? 'Unit' : 'Room', value: selectedRoom.unit_code || selectedRoom.name, mono: true },
                   { label: 'Rent', value: selectedRoom.tenancy?.rent_amount ? `£${selectedRoom.tenancy.rent_amount.toLocaleString()} pcm` : '—' },
                   { label: 'Move-out', value: selectedRoom.tenancyEndDate ? fmtDate(selectedRoom.tenancyEndDate) : '—', amber: !!selectedRoom.tenancyEndDate },
                   { label: 'Status', status: true },
@@ -1058,7 +1073,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                         <div className="w-8 h-8 rounded-lg bg-amber-200 flex items-center justify-center text-base flex-shrink-0">✓</div>
                         <div>
                           <p className="text-sm font-semibold text-amber-900">Confirm tenant has left</p>
-                          <p className="text-xs text-amber-700">Closes tenancy · marks room available</p>
+                          <p className="text-xs text-amber-700">Closes tenancy · marks {wholeLet ? 'the property' : 'room'} available</p>
                         </div>
                       </button>
                     )}
@@ -1093,7 +1108,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                     {/* Available state: no actions beyond adding tenant */}
                     {selectedRoom.status === 'available' && (
                       <div className="rounded-xl border border-dashed border-neutral-300 px-md py-sm text-center">
-                        <p className="text-xs text-neutral-400">Room is available — add a tenancy above to re-let it</p>
+                        <p className="text-xs text-neutral-400">{wholeLet ? 'The property is available' : 'Room is available'} — add a tenancy above to re-let it</p>
                       </div>
                     )}
 
@@ -1103,7 +1118,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                         <span className="text-xs text-neutral-400">{selectedRoom.room_type || 'Type not set'}</span>
                         {selectedRoom.description && <span className="text-xs text-neutral-300">·</span>}
                         {selectedRoom.description && <span className="text-xs text-neutral-400 truncate max-w-[180px]">{selectedRoom.description}</span>}
-                        <button onClick={() => setEditingRoom(selectedRoom)} className="ml-auto text-xs text-blue-600 hover:underline">Edit room</button>
+                        <button onClick={() => setEditingRoom(selectedRoom)} className="ml-auto text-xs text-blue-600 hover:underline">{wholeLet ? 'Edit unit' : 'Edit room'}</button>
                       </div>
                     </div>
 
@@ -1144,7 +1159,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
               <p className="text-sm font-semibold text-neutral-800">{confirmDepartureRoom.currentTenant?.name}</p>
               <p className="text-xs text-neutral-500">{confirmDepartureRoom.unit_code || confirmDepartureRoom.name}</p>
             </div>
-            <p className="text-sm text-neutral-600 mb-lg">Confirming departure will close this tenancy and mark the room as available for re-letting.</p>
+            <p className="text-sm text-neutral-600 mb-lg">Confirming departure will close this tenancy and mark {wholeLet ? 'the property' : 'the room'} as available for re-letting.</p>
             <div className="mb-lg">
               <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm block">Actual departure date</label>
               <input
@@ -1188,7 +1203,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-md py-sm">
                   <div className="flex items-start justify-between gap-md">
                     <div>
-                      <p className="text-xs font-semibold text-blue-900 mb-xs">Active applicant for this room</p>
+                      <p className="text-xs font-semibold text-blue-900 mb-xs">Active applicant for {wholeLet ? 'this property' : 'this room'}</p>
                       <p className="text-sm font-semibold text-neutral-900">{roomApplicant.name}</p>
                       <p className="text-xs text-neutral-500">{roomApplicant.email}</p>
                       {roomApplicant.offered_rent && (
@@ -1456,8 +1471,8 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                     <label className="block text-xs text-neutral-500 mb-xs">Due day</label>
                     <select value={newTenancyRentDueDay} onChange={e => setNewTenancyRentDueDay(e.target.value)}
                       className="w-full px-sm py-sm border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
-                      {Array.from({length:28},(_,i)=>i+1).map(d => (
-                        <option key={d} value={d}>{d}{d===1?'st':d===2?'nd':d===3?'rd':'th'}</option>
+                      {Array.from({length:31},(_,i)=>i+1).map(d => (
+                        <option key={d} value={d}>{d}{d%10===1&&d!==11?'st':d%10===2&&d!==12?'nd':d%10===3&&d!==13?'rd':'th'}</option>
                       ))}
                     </select>
                   </div>
@@ -1468,15 +1483,41 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                     className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
                     {[1,2,3,6].map(n => <option key={n} value={n}>{n} month{n>1?'s':''} {n===1?'(standard)':n===2?'(two months upfront)':'('+n+' months upfront)'}</option>)}
                   </select>
+                  {/* First payment — pro rata to the rent day, or a full month: the same rule as the letting file, the
+                      check-in balance and the agreement (lib/tenancy/firstRent) — 15 Oct 2026 */}
+                  {newTenancyStart && Number(newTenancyRent) > 0 && (() => {
+                    const fr = firstRentPayment(newTenancyStart, Number(newTenancyRent), Number(newTenancyRentDueDay) || 1)
+                    if (!fr) return null
+                    const startDay = Number(newTenancyStart.slice(8, 10))
+                    const d = (x: Date) => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                    const ord = (n: number) => `${n}${n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th'}`
+                    return (
+                      <div className="mt-sm rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm text-xs text-neutral-700 space-y-xs">
+                        <p className="font-semibold text-neutral-900">First payment</p>
+                        {fr.full
+                          ? <p>A full month: £{fr.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} for {d(fr.from)} – {d(fr.to)}, then £{Number(newTenancyRent).toLocaleString()} on the {ord(Number(newTenancyRentDueDay) || startDay)} of each month.</p>
+                          : <p>Pro rata: £{fr.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} for {fr.days} days ({d(fr.from)} – {d(fr.to)}, £{Number(newTenancyRent).toLocaleString()} × 12 ÷ 365 a day), then £{Number(newTenancyRent).toLocaleString()} on the {ord(Number(newTenancyRentDueDay) || 1)} of each month.</p>}
+                        <div className="flex flex-wrap gap-xs pt-xs">
+                          <button type="button" onClick={() => setNewTenancyRentDueDay('1')}
+                            className={`rounded-md border px-sm py-xs font-semibold ${!fr.full ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-700'}`} disabled={startDay === 1}>Pro rata to the 1st</button>
+                          <button type="button" onClick={() => setNewTenancyRentDueDay(String(startDay))}
+                            className={`rounded-md border px-sm py-xs font-semibold ${fr.full ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-700'}`}>Full month — rent due on the {ord(startDay)}</button>
+                        </div>
+                        {recordsStart && newTenancyStart < recordsStart && <p className="text-neutral-500">Backdated: this tenancy started before your records begin ({new Date(recordsStart + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}), so CROS doesn’t raise or chase rent for the months before then — the first payment is shown for the record and the agreement.</p>}
+                      </div>
+                    )
+                  })()}
                   {newTenancyRent && (() => {
-                    const rentDue = Number(newTenancyRent) * Number(newTenancyRentInAdvance)
+                    // the first payment is the pro-rata amount when the start and the rent day differ (lib/tenancy/firstRent)
+                    const fr0 = newTenancyStart ? firstRentPayment(newTenancyStart, Number(newTenancyRent), Number(newTenancyRentDueDay) || 1) : null
+                    const rentDue = (fr0 ? fr0.amount : Number(newTenancyRent)) + Number(newTenancyRent) * (Number(newTenancyRentInAdvance) - 1)
                     const depositBalance = newTenancyDeposit
                       ? Math.max(0, Number(newTenancyDeposit) - (newTenancyHoldingDeposit ? Number(newTenancyHoldingDeposit) : 0))
                       : 0
                     const total = rentDue + depositBalance
                     return (
                       <p className="text-[11px] text-neutral-400 mt-xs">
-                        Rent due: £{rentDue.toLocaleString()}
+                        Rent due: £{rentDue.toLocaleString('en-GB', { maximumFractionDigits: 2 })}
                         {newTenancyDeposit ? ` + £${depositBalance.toLocaleString()} deposit balance = £${total.toLocaleString()} total due on move-in` : ''}
                         {newTenancyHoldingDeposit && newTenancyDeposit ? ` (holding deposit of £${Number(newTenancyHoldingDeposit).toLocaleString()} already received)` : ''}
                       </p>

@@ -6,6 +6,7 @@
 // call finds the same tenancy. Server-only (service client).
 
 import { agreedRent } from '@/lib/lettings/holdingDeposit'
+import { recordsStart } from '@/lib/finance/dates'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { fiveWeeksDeposit } from '@/lib/tenancy/deposit'
@@ -107,6 +108,8 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
         deposit_amount: body.deposit_amount ?? (rentAmount ? fiveWeeksDeposit(Number(rentAmount)) : null),
         deposit_held_by: body.deposit_held_by || 'agent',
         deposit_scheme_ref: body.deposit_scheme_ref || null,
+        // began before your records (Settings › Your records): deposit taken as protected by the previous agent
+        deposit_protection_assumed: (body.start_date || applicant.preferred_start_date || today) < (await recordsStart(sb)) && !body.deposit_scheme_ref,
         holding_deposit_received: body.holding_deposit_received ?? null,
         agreement_type: body.agreement_type || 'assured_periodic',
         is_periodic: body.is_periodic ?? true,

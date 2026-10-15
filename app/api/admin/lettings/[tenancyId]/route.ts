@@ -120,7 +120,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
       if (def.kind === 'int') { v = raw === '' || raw == null ? null : parseInt(String(raw), 10); if (v != null && !Number.isFinite(v as number)) return NextResponse.json({ error: `${def.label}: enter a number` }, { status: 400 }) }
       if (def.kind === 'text') v = String(raw ?? '').trim().slice(0, 4000) || null
       if (k === 'payment_reference' && v) { v = String(v).toUpperCase().replace(/\s+/g, ''); if (!/^[A-Z0-9\-\/]{3,18}$/.test(v as string)) return NextResponse.json({ error: 'Payment reference: letters and numbers only (3–18)' }, { status: 400 }) }
-      if (k === 'rent_due_day' && v != null && ((v as number) < 1 || (v as number) > 28)) return NextResponse.json({ error: 'Rent due day must be 1–28' }, { status: 400 })
+      if (k === 'rent_due_day' && v != null && ((v as number) < 1 || (v as number) > 31)) return NextResponse.json({ error: 'Rent due day must be 1–31' }, { status: 400 })
       if (String(cur?.[k] ?? '') === String(v ?? '')) continue
       update[k] = v
       notes.push(k === 'office_notes' || k === 'special_clauses' || k === 'permitted_occupiers' ? `${def.label} updated` : `${def.label}: ${cur?.[k] ?? '—'} → ${v ?? '—'}${k === 'payment_reference' && !beforeMoveIn ? ` (corrected: ${String(b.reason).trim().slice(0, 300)})` : ''}`)
@@ -129,6 +129,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     const { error } = await s.from('tenancies').update(update).eq('id', tenancyId)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     await logTenancyEvent(s, tenancyId, 'terms', notes.join(' · '), caller.email)
+    return NextResponse.json({ ok: true })
+  }
+
+  // a second named tenant, jointly and severally liable (tenancies.co_tenant_id); null removes them (15 Oct 2026)
+  if (b.action === 'joint_tenant') {
+    const pid = b.personId ? String(b.personId) : null
+    const { data: cur } = await s.from('tenancies').select('person_id, co_tenant_id').eq('id', tenancyId).single() as { data: any }
+    let label = '—'
+    if (pid) {
+      if (pid === cur?.person_id) return NextResponse.json({ error: 'That’s already the tenant on this tenancy.' }, { status: 400 })
+      const { data: p } = await s.from('people').select('id, salutation, first_name, last_name, full_name, email').eq('id', pid).maybeSingle() as { data: any }
+      if (!p) return NextResponse.json({ error: 'Person not found' }, { status: 404 })
+      label = [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
+    }
+    if ((cur?.co_tenant_id ?? null) === pid) return NextResponse.json({ ok: true, unchanged: true })
+    const { error } = await s.from('tenancies').update({ co_tenant_id: pid }).eq('id', tenancyId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    await logTenancyEvent(s, tenancyId, 'terms', pid ? `Joint tenant: ${label}` : 'Joint tenant removed', caller.email)
     return NextResponse.json({ ok: true })
   }
 
