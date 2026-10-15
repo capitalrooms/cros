@@ -46,9 +46,19 @@ export async function getTemplate(slug: string): Promise<TemplateParts | null> {
       .eq('slug', slug)
       .eq('is_hardcoded', false)
       .eq('is_system_message', true)
+      // some templates were saved twice (Sept 2026); asking for "the one" then failed and the built-in wording was
+      // always used, so edits never showed (audit 15 Oct 2026). The most recently edited copy is the one.
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
-    const result: TemplateParts | null = data
+    // A holding deposit can't be described as non-refundable (Tenant Fees Act 2019: it's returned unless the
+    // applicant pulls out, fails Right to Rent, gives false information or doesn't sign by the deadline). A saved
+    // template that says so is skipped and the built-in wording used, until it's reworded on the Templates screen.
+    const misleading = !!data && /non[-\s]?refundable/i.test(`${data.subject_line ?? ''} ${data.template_text ?? ''}`)
+    if (misleading) console.warn(`[messageTemplate] "${slug}" calls the holding deposit non-refundable — using the built-in wording`)
+
+    const result: TemplateParts | null = data && !misleading
       ? { subject_line: data.subject_line ?? '', template_text: data.template_text ?? '' }
       : null
 
