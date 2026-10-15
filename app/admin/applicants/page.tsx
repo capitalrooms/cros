@@ -234,8 +234,15 @@ export default function ApplicantsPage() {
     if (applicant.pipeline_stage === 'offer_sent' && !confirm(`Email ${applicant.full_name} the link to reserve (pay the holding deposit)?`)) return
     setAcceptingSending(applicant.id)
     try {
-      const res = await fetch(`/api/applicants/${applicant.id}/accept-offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-      const data = await res.json()
+      let res = await fetch(`/api/applicants/${applicant.id}/accept-offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      let data = await res.json()
+      if (!res.ok && data.needRent) {
+        // no rent on file for this applicant — ask, rather than sending them back to the application form
+        const typed = window.prompt(`No agreed rent is saved for ${applicant.full_name}. What monthly rent (£) has been agreed? The holding deposit is one week of this.`)
+        if (!typed || !(Number(typed.replace(/[£,\s]/g, '')) > 0)) return
+        res = await fetch(`/api/applicants/${applicant.id}/accept-offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rent: Number(typed.replace(/[£,\s]/g, '')) }) })
+        data = await res.json()
+      }
       if (!res.ok) { alert(data.error || 'Failed to send'); return }
       setAcceptSentFor(prev => new Set([...prev, applicant.id]))
       setApplicants(prev => prev.map(a => a.id === applicant.id ? { ...a, pipeline_stage: 'offer_sent' } : a))
