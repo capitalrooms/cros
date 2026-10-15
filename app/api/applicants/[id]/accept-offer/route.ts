@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { hiName, personFromText } from '@/lib/people'
 import { deliverEmail } from '@/lib/sendEmail'
 import { oneLine } from '@/lib/lettings/letWording'
 import { NextRequest, NextResponse } from 'next/server'
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
   // Load applicant + room + property
   const { data: applicant, error: aErr } = await supabase
     .from('applicants')
-    .select('id, full_name, email, phone, room_id, property_id, pipeline_stage, rooms(id, name, current_asking_rent, properties(name, address, property_code))')
+    .select('id, full_name, salutation, first_name, last_name, email, phone, room_id, property_id, pipeline_stage, rooms(id, name, current_asking_rent, properties(name, address, property_code))')
     .eq('id', applicantId)
     .single()
 
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
   if (!monthly) return NextResponse.json({ error: 'No agreed rent found for this applicant — send them an offer (Send Offer Letter) with the rent first. Nothing was emailed.' }, { status: 409 })
   const weekly = oneWeekRent(monthly)
   const payRef = holdingDepositRef(property?.name || property?.address || null, room?.name || null)
-  const firstName = applicant.full_name?.split(' ')[0] || 'there'
+  const firstName = hiName((applicant as any).first_name ? applicant as any : personFromText(applicant.full_name))   // lib/people
   const roomName = room?.name || 'the room'
   const propAddress = oneLine(property?.address || property?.name)
   const whole = !!ctx?.whole   // a whole house or flat — property words (lib/lettings/letWording)

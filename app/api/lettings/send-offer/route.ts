@@ -145,6 +145,7 @@ export async function POST(request: Request) {
 
     const offerId = offer?.[0]?.id
     let applicantId: string | null = null
+    let previousStage: string | null = null   // put back if the email fails, so they aren't stuck at "offer sent"
 
     // Upsert applicants row linked to this offer (best-effort, table may not be deployed yet)
     try {
@@ -158,6 +159,7 @@ export async function POST(request: Request) {
       const newStage = data.requestDeposit ? 'offer_sent' : 'offer_sent'
       if (existing) {
         applicantId = existing.id
+        previousStage = existing.pipeline_stage ?? null
         await supabase.from('applicants').update({
           offer_id:       offerId,
           pipeline_stage: newStage,
@@ -269,7 +271,7 @@ export async function POST(request: Request) {
       const err = await emailRes.json().catch(() => ({}))
       // nothing went out — don't leave an "offer sent" behind (the applicant stays, ready for the next try)
       if (offerId) {
-        await supabase.from('applicants').update({ offer_id: null }).eq('offer_id', offerId)
+        await supabase.from('applicants').update({ offer_id: null, ...(previousStage ? { pipeline_stage: previousStage } : {}) }).eq('offer_id', offerId)
         await supabase.from('offers').delete().eq('id', offerId)
       }
       return Response.json({ error: `Email failed to send: ${(err as any)?.message || emailRes.statusText}` }, { status: 502 })
