@@ -3,6 +3,7 @@ import { emailHtml, PORTAL_URL, ctaButton } from './emailTemplate'
 
 const esc = (v: string) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 import { senderFields, senderFor } from '@/lib/email/sender'
+import { dearName } from '@/lib/people'
 
 /**
  * The single correct way to write notifications.

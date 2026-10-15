@@ -3,7 +3,6 @@
  * ║  Capital Rooms — THE single PDF letterhead/footer component                 ║
  * ║                                                                              ║
  * ║  ▸ EVERY PDF generator MUST import from here — never recreate inline.       ║
-import { dearFromText } from '@/lib/people'
  * ║  ▸ Footer contact details come from business_settings DB table — change      ║
  * ║    once → every PDF updates automatically.                                  ║
  * ║  ▸ Letterhead assets live in public/ as files:                              ║
@@ -22,6 +21,7 @@ import { dearFromText } from '@/lib/people'
 import fs   from 'fs'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
+import { dearFromText } from '@/lib/people'
 
 // ── Shared page geometry (A4 in PDF points) ───────────────────────────────────
 
