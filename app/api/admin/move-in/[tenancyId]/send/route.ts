@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   if (missing.length) return NextResponse.json({ error: `Add the ${missing.join(', ')} first.` }, { status: 400 })
   if (!docs.length) return NextResponse.json({ error: 'Pick at least one document.' }, { status: 400 })
 
-  let to = split(b.to).length ? split(b.to) : [ctx.tenant.email]
+  let to = split(b.to).length ? split(b.to) : ctx.tenant.emails   // both tenants on a joint tenancy
   const cc = split(b.cc)
   if (action === 'test') to = [sender.replyTo]
   if (action === 'send') {

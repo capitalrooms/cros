@@ -20,7 +20,7 @@ interface Pack {
 }
 interface Data {
   context: {
-    tenancyId: string; tenant: { name: string; email: string; formalName: string }; address: string; landlordName: string
+    tenancyId: string; tenant: { name: string; email: string; emails?: string[]; formalName: string }; address: string; landlordName: string
     property: { id: string }; startDate: string | null; rentMonthly: number; rentDueDay: number; deposit: number; holdingDeposit: number
     paymentRef: string; paymentRefStored: boolean; warnings: string[]; documents: Doc[]
   }
@@ -109,7 +109,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
 
   async function go(action: 'link' | 'test' | 'send') {
     if (dirty) return setError('Save the figures first.')
-    if (action === 'send' && !window.confirm(`Email the move-in pack to ${data?.context.tenant.email}?`)) return
+    if (action === 'send' && !window.confirm(`Email the move-in pack to ${(data?.context.tenant.emails ?? [data?.context.tenant.email]).join(' and ')}?`)) return
     setBusy(action); setError(''); setNotice('')
     try {
       const r = await adminFetch(`/api/admin/move-in/${tenancyId}/send`, {
@@ -144,7 +144,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/tenancies" />} title="Move-in pack" />
-      <PageHero eyebrow="Lettings · Move-in pack" title={c.tenant.formalName} subtitle={`${c.address} · ${c.tenant.email || 'no email'}${c.landlordName ? ` · landlord ${c.landlordName}` : ''}`} />
+      <PageHero eyebrow="Lettings · Move-in pack" title={c.tenant.formalName} subtitle={`${c.address} · ${(c.tenant.emails ?? [c.tenant.email]).filter(Boolean).join(', ') || 'no email'}${c.landlordName ? ` · landlord ${c.landlordName}` : ''}`} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
 
         {data.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{data.setupNeeded}</p>}
@@ -241,7 +241,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
           <h2 className="font-bold text-neutral-900">Email to the tenant</h2>
           <div className="mt-sm grid gap-lg lg:grid-cols-2">
             <div className="space-y-sm">
-              <label className="block text-xs font-semibold text-neutral-700">To<input className={input} value={c.tenant.email} readOnly /></label>
+              <label className="block text-xs font-semibold text-neutral-700">To<input className={input} value={(c.tenant.emails ?? [c.tenant.email]).filter(Boolean).join(', ')} readOnly /></label>
               <label className="block text-xs font-semibold text-neutral-700">CC<input className={input} value={cc} onChange={e => setCc(e.target.value)} /></label>
               <label className="block text-xs font-semibold text-neutral-700">Subject<input className={input} value={subject} onChange={e => setSubject(e.target.value)} /></label>
               <label className="block text-xs font-semibold text-neutral-700">Message<textarea rows={8} className={input} value={message} onChange={e => setMessage(e.target.value)} /></label>
