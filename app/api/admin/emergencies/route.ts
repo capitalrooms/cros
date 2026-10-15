@@ -10,6 +10,7 @@
  * Office staff; the list and settings are administrators only.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { readKeySafe } from '@/lib/access/keySafe'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { officeAction, settings, tick } from '@/lib/emergencies/engine'
@@ -41,12 +42,13 @@ export async function GET(req: NextRequest) {
 
   if (id) {
     const [{ data: em, error }, { data: rs }, { data: ev }] = await Promise.all([
-      s.from('emergencies').select('*, properties(name, address, postcode, key_safe_code), rooms(name), people!reporter_id(salutation, first_name, last_name, full_name, phone, email)').eq('id', id).maybeSingle(),
+      s.from('emergencies').select('*, properties(name, address, postcode), rooms(name), people!reporter_id(salutation, first_name, last_name, full_name, phone, email)').eq('id', id).maybeSingle(),
       s.from('emergency_responses').select('*, people!contractor_id(id, salutation, first_name, last_name, full_name, company, phone)').eq('emergency_id', id).order('sent_at'),
       s.from('emergency_events').select('*').eq('emergency_id', id).order('at', { ascending: false }),
     ]) as any[]
     if (error) return NextResponse.json(missing(error) ? { setupNeeded: true } : { error: error.message }, { status: missing(error) ? 200 : 500 })
     if (!em) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (em.properties) em.properties.key_safe_code = await readKeySafe(s as any, em.property_id)   // lib/access/keySafe
     return NextResponse.json({
       emergency: { ...em, kindLabel: KINDS[em.kind as EmergencyKind]?.label ?? em.kind, steps: KINDS[em.kind as EmergencyKind]?.steps ?? [], property: firstLine(em.properties?.name), room: em.rooms?.name ?? null, tenant: em.people ? { name: pname(em.people), phone: em.people.phone, email: em.people.email } : null },
       responses: ((rs ?? []) as any[]).map(r => ({ ...r, name: pname(r.people), phone: r.people?.phone ?? null, chosen: r.id === em.chosen_response_id })),

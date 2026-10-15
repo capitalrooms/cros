@@ -6,6 +6,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import { TIME_SLOTS, earliestBookableDate, bookingLeadTimeNote, slotLabel } from '@/lib/booking'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
@@ -28,7 +29,7 @@ interface Job {
   notes?: string | null
   property_id: string
   room_id?: string
-  properties: { name: string; address: string; lat: number | null; lng: number | null; key_safe_code?: string | null }
+  properties: { name: string; address: string; lat: number | null; lng: number | null }
   rooms?: { name: string }
   location?: string
   return_needed?: boolean | null       // a return visit is needed (columns: return_needed / return_date / return_reason)
@@ -72,6 +73,7 @@ export default function JobDetailPage() {
   const jobId        = params.jobId as string
 
   const [job, setJob] = useState<Job | null>(null)
+  const [keySafe, setKeySafe] = useState<string | null>(null)
   // Opened from a quote request (?quote=<id>): the job isn't theirs yet — price only, no booking/completion.
   const quoteId = searchParams.get('quote')
   const [quoteOnly, setQuoteOnly] = useState(false)
@@ -132,11 +134,13 @@ export default function JobDetailPage() {
       const supabase = createClient()
       const { data: jobData } = await supabase
         .from('maintenance_tickets')
-        .select('*, properties(name, address, lat, lng, key_safe_code), rooms(name)')
+        .select('*, properties(name, address, lat, lng), rooms(name)')
         .eq('id', jobId)
         .single()
       if (jobData) {
         setJob(jobData as any)
+        // the key safe code comes from the server, and only for a booked job (lib/access/keySafe)
+        adminFetch(`/api/contractor/key-safe?jobId=${jobId}`).then(r => r.ok ? r.json() : null).then(d => setKeySafe(d?.keySafe ?? null)).catch(() => {})
         setNotes((jobData as any).notes || '')
         setBookDate((jobData as any).booked_date || '')
         setBookSlot((jobData as any).booked_slot || '')
@@ -735,12 +739,12 @@ export default function JobDetailPage() {
         )}
 
         {/* Key safe code — only shown after job is booked */}
-        {isBooked && job.properties?.key_safe_code && (
+        {isBooked && keySafe && (
           <div className="mb-lg rounded-2xl border-2 border-neutral-800 bg-neutral-900 text-white p-lg flex items-center justify-between gap-lg">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-white/60 mb-xs">🔐 Key Safe Code</p>
-              <p className="text-3xl font-bold tracking-widest">{job.properties.key_safe_code}</p>
-              <p className="text-xs text-white/50 mt-xs">House key safe · front of property</p>
+              <p className="text-3xl font-bold tracking-widest">{keySafe}</p>
+              <p className="text-xs text-white/50 mt-xs">House key safe · front of property · opens the house only — never go into a tenant’s room unless this job is in it</p>
             </div>
           </div>
         )}
