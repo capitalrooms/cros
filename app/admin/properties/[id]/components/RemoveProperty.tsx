@@ -8,81 +8,65 @@ import { useRouter } from 'next/navigation'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
 
-export default function RemoveProperty({ propertyId, code }: { propertyId: string; code: string | null }) {
+export default function RemoveProperty({ propertyId, code, name }: { propertyId: string; code: string | null; name?: string | null }) {
   const router = useRouter()
-  const [check, setCheck] = useState<{ canRemove: boolean; linked: { table: string; count: number }[] } | null>(null)
-  const [confirm, setConfirm] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  // merge a duplicate into the property to keep (15 Oct 2026)
   const [others, setOthers] = useState<{ id: string; name: string }[]>([])
   const [intoId, setIntoId] = useState('')
+  const label = String(name ?? code ?? 'this property').split('\n')[0]
+
+  // Delete: one "are you sure", listing what goes with it (Harry, 15 Oct 2026)
+  async function del() {
+    setBusy(true); setErr('')
+    const r = await adminFetch(`/api/admin/property-remove?id=${propertyId}`)
+    const d = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok) { setErr(d.error ?? 'Could not check'); return }
+    const what = (d.linked ?? []).map((l: { table: string; count: number }) => `${l.count} ${l.table.replace(/_/g, ' ')}`).join(', ')
+    if (!window.confirm(`Delete ${label}${what ? ` and everything attached to it — ${what}` : ''}? Documents and photos are deleted too. This can’t be undone.`)) return
+    setBusy(true)
+    const r2 = await adminFetch('/api/admin/property-remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: propertyId }) })
+    const d2 = await r2.json().catch(() => ({}))
+    setBusy(false)
+    if (!r2.ok) { setErr(d2.error ?? 'Could not delete it'); return }
+    router.push('/admin/active-rooms')
+  }
+  // A duplicate of a property you're keeping: move everything across, then remove this one
   async function loadOthers() {
     const { data } = await createClient().from('properties').select('id, name, is_demo').neq('id', propertyId).order('name')
     setOthers(((data ?? []) as any[]).filter(p => !p.is_demo).map(p => ({ id: p.id, name: String(p.name ?? '').replace(/\n/g, ', ') })))
   }
   async function merge() {
     const into = others.find(o => o.id === intoId)
-    if (!into || !window.confirm(`Move everything on this property to “${into.name}”, then remove this one? A copy of its record is kept in the audit log.`)) return
+    if (!into || !window.confirm(`Move everything on ${label} to “${into.name}”, then delete ${label}?`)) return
     setBusy(true); setErr('')
-    const r = await adminFetch('/api/admin/property-remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: propertyId, confirm, action: 'merge', intoId }) })
+    const r = await adminFetch('/api/admin/property-remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: propertyId, action: 'merge', intoId }) })
     const d = await r.json().catch(() => ({}))
     setBusy(false)
     if (!r.ok) { setErr(d.error ?? 'Could not merge'); return }
     router.push(`/admin/properties/${intoId}`)
   }
 
-  async function look() {
-    setBusy(true); setErr('')
-    const r = await adminFetch(`/api/admin/property-remove?id=${propertyId}`)
-    const d = await r.json().catch(() => ({}))
-    setBusy(false)
-    if (!r.ok) { setErr(d.error ?? 'Could not check'); return }
-    setCheck(d)
-  }
-  async function remove() {
-    if (!window.confirm('Remove this property for good? A copy of its record is kept in the audit log.')) return
-    setBusy(true); setErr('')
-    const r = await adminFetch('/api/admin/property-remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: propertyId, confirm }) })
-    const d = await r.json().catch(() => ({}))
-    setBusy(false)
-    if (!r.ok) { setErr(d.error ?? 'Could not remove it'); return }
-    router.push('/admin/active-rooms')
-  }
-
   return (
-    <div className="border-t border-neutral-200 pt-lg">
-      <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">Remove this property</p>
-      <p className="text-sm text-neutral-600">For a property added by mistake or twice. Only possible when nothing is attached to it — no rooms, tenancies, certificates, documents, jobs or money.</p>
-      {!check ? (
-        <button type="button" onClick={look} disabled={busy} className="mt-sm rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40">{busy ? 'Checking…' : 'Check if it can be removed'}</button>
-      ) : check.canRemove ? (
-        <div className="mt-sm flex flex-wrap items-center gap-sm">
-          <span className="text-sm text-neutral-700">Nothing is attached. Type <span className="font-mono font-semibold">{code}</span> to confirm:</span>
-          <input value={confirm} onChange={e => setConfirm(e.target.value)} className="w-36 rounded-lg border border-neutral-300 px-sm py-xs font-mono text-sm" />
-          <button type="button" onClick={remove} disabled={busy || confirm.trim().toUpperCase() !== String(code ?? '').toUpperCase()}
-            className="rounded-lg border border-red-300 px-md py-xs text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40">{busy ? 'Removing…' : 'Remove property'}</button>
-        </div>
-      ) : (
-        <div className="mt-sm space-y-sm">
-          <p className="text-sm text-neutral-700">It has {check.linked.map(l => `${l.count} ${l.table.replace(/_/g, ' ')}`).join(', ')}. If it’s a duplicate, merge it into the property to keep — everything moves across, then this one is removed.</p>
-          {!others.length ? (
-            <button type="button" onClick={loadOthers} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Merge into another property…</button>
-          ) : (
-            <div className="flex flex-wrap items-center gap-sm">
+    <div className="border-t border-neutral-200 pt-lg space-y-sm">
+      <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Delete this property</p>
+      <div className="flex flex-wrap items-center gap-sm">
+        <button type="button" onClick={del} disabled={busy} className="rounded-lg border border-red-300 px-md py-xs text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40">{busy ? 'Working…' : 'Delete property'}</button>
+        {!others.length
+          ? <button type="button" onClick={loadOthers} disabled={busy} className="text-sm font-semibold text-neutral-600 hover:text-neutral-900">It’s a duplicate — merge it into another property…</button>
+          : (
+            <>
               <select value={intoId} onChange={e => setIntoId(e.target.value)} className="rounded-lg border border-neutral-300 px-sm py-xs text-sm">
                 <option value="">The property to keep…</option>
                 {others.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
-              <span className="text-sm text-neutral-700">Type <span className="font-mono font-semibold">{code}</span>:</span>
-              <input value={confirm} onChange={e => setConfirm(e.target.value)} className="w-28 rounded-lg border border-neutral-300 px-sm py-xs font-mono text-sm" />
-              <button type="button" onClick={merge} disabled={busy || !intoId || confirm.trim().toUpperCase() !== String(code ?? '').toUpperCase()}
-                className="rounded-lg border border-red-300 px-md py-xs text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40">{busy ? 'Merging…' : 'Merge and remove this one'}</button>
-            </div>
+              <button type="button" onClick={merge} disabled={busy || !intoId} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">Merge and delete this one</button>
+            </>
           )}
-        </div>
-      )}
-      {err && <p className="mt-xs text-sm text-red-700">{err}</p>}
+      </div>
+      <p className="text-xs text-neutral-500">Delete removes the property and everything attached to it. Merge moves everything to the property you keep first.</p>
+      {err && <p className="text-sm text-red-700">{err}</p>}
     </div>
   )
 }
