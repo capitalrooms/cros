@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { expandJoint } from '@/lib/serverNotify'
 import { createServerClient } from '@/lib/supabase'
 import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
   // Look up active tenants for all selected rooms in one query
   const { data: tenancies } = await sb
     .from('tenancies')
-    .select('room_id, people!person_id(salutation, first_name, phone)')
+    .select('room_id, people!person_id(salutation, first_name, phone), co:people!co_tenant_id(salutation, first_name, phone)')
     .in('room_id', room_ids)
     .is('end_date', null)
 
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
 
   const client = twilio(sid, token)
 
-  for (const tenancy of tenancies || []) {
+  for (const tenancy of expandJoint<any>(tenancies)) {   // both tenants on a joint tenancy
     const person = tenancy.people as any
     const phone  = person?.phone
     const name   = person?.first_name || 'Resident'

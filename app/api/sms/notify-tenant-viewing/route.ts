@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   // Find the active tenancy for this room and get the tenant's phone
   const { data: tenancy } = await sb
     .from('tenancies')
-    .select('id, people!person_id(salutation, first_name, phone)')
+    .select('id, people!person_id(salutation, first_name, phone), co:people!co_tenant_id(salutation, first_name, phone)')
     .eq('room_id', room_id)
     // current tenancy — including one on notice (it has an end date, and that's when viewings happen)
     .lte('start_date', new Date().toISOString().slice(0, 10))
@@ -81,6 +81,11 @@ export async function POST(req: NextRequest) {
   try {
     const client = twilio(sid, token)
     await client.messages.create({ body: msg, from, to: phone })
+    // the joint tenant on the same tenancy gets the same text
+    const co = (tenancy as any)?.co
+    if (!phoneOverride && co?.phone && co.phone !== phone) {
+      await client.messages.create({ body: msg.replace(`Hi ${name},`, `Hi ${co.first_name || 'Resident'},`), from, to: co.phone }).catch(() => null)
+    }
     return NextResponse.json({ ok: true, smsSent: true })
   } catch (e: any) {
     return NextResponse.json({ ok: true, smsSent: false, reason: e?.message || 'sms_failed' })

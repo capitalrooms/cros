@@ -61,7 +61,7 @@ export default function EarlyMoveOutPage() {
       const { data: t } = await supabase
         .from('tenancies')
         .select('id, property_id, room_id, start_date, end_date, rent_amount, notice_received_date, rooms(name), properties(name, address)')
-        .eq('person_id', pid)
+        .or(`person_id.eq.${pid},co_tenant_id.eq.${pid}`)   // joint tenants too
         .is('end_date', null)
         .maybeSingle()
 

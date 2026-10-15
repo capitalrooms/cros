@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
+import { expandJoint } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -208,14 +209,14 @@ export async function POST(request: NextRequest) {
 
   // Send to tenant IN this room: "A viewing has been booked on your room"
   if (roomId) {
-    const { data: tenancies } = await supabase
+    const { data: tenancyRow } = await supabase
       .from('tenancies')
-      .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
+      .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
       .eq('room_id', roomId)
       .is('end_date', null)
       .single()
 
-    if (tenancies?.people?.email && ((tenancies as any).people?.notify_by_email !== false)) {
+    for (const tenancies of expandJoint<any>(tenancyRow ? [tenancyRow] : [])) if (tenancies?.people?.email && ((tenancies as any).people?.notify_by_email !== false)) {
       const tenantName = (tenancies.people as any).first_name || 'Tenant'
       const roomSubject = tenantTpl
         ? render(tenantTpl.subject_line, { ...viewingVars, tenant_name: tenantName, room_or_at_property: 'on your room' })
@@ -229,12 +230,12 @@ export async function POST(request: NextRequest) {
   if (propertyId) {
     const { data: allTenancies } = await supabase
       .from('tenancies')
-      .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
+      .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
       .eq('property_id', propertyId)
       .neq('room_id', roomId)
       .is('end_date', null)
 
-    for (const tenancy of allTenancies ?? []) {
+    for (const tenancy of expandJoint<any>(allTenancies)) {
       if (tenancy.people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
         const tenantName = (tenancy.people as any).first_name || 'Tenant'
         const otherSubject = tenantTpl

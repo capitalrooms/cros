@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
+import { expandJoint } from '@/lib/serverNotify'
 import { createClient } from '@supabase/supabase-js'
 import { emailHtml, tableRow } from '@/lib/emailTemplate'
 import { senderFields } from '@/lib/email/sender'
@@ -139,11 +140,11 @@ export async function POST(req: NextRequest) {
     const today = new Date().toISOString().split('T')[0]
     const { data: tenancies } = await sb
       .from('tenancies')
-      .select('people!person_id(id, salutation, first_name, last_name, email)')
+      .select('people!person_id(id, salutation, first_name, last_name, email), co:people!co_tenant_id(id, salutation, first_name, last_name, email)')
       .eq('property_id', property_id)
       .lte('start_date', today)
       .or(`end_date.is.null,end_date.gte.${today}`)
-    for (const t of tenancies || []) {
+    for (const t of expandJoint<any>(tenancies)) {   // both tenants on a joint tenancy
       const p = (t as any).people
       if (p?.email) recipients.push({ email: p.email, name: `${[p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ')}`.trim(), type: 'tenant' })
     }

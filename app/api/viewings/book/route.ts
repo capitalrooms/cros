@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   // Text the current occupant — only while tenant comms are live (kill-switch)
   if (sms_occupant && await getCommsLive()) {
     const { data: room } = await sb.from('rooms').select('name, properties(address)').eq('id', room_id).single()
-    const { data: occ } = await sb.from('tenancies').select('people!person_id(salutation, first_name, full_name, phone)')
+    const { data: occ } = await sb.from('tenancies').select('people!person_id(salutation, first_name, full_name, phone), co:people!co_tenant_id(salutation, first_name, full_name, phone)')
       .eq('room_id', room_id).is('end_date', null).limit(1).maybeSingle() as { data: any }
     const phone    = occ?.people?.phone as string | undefined
     const name     = occ?.people?.first_name || occ?.people?.full_name?.split(' ')[0] || 'Resident'
@@ -84,6 +84,12 @@ export async function POST(req: NextRequest) {
           const client = twilio(sid, token)
           await client.messages.create({ body: msg, from, to: phone })
           smsSent = true
+          // the joint tenant on the same tenancy gets the same text
+          const co = occ?.co
+          if (co?.phone && co.phone !== phone) {
+            const coName = co.first_name || co.full_name?.split(' ')[0] || 'Resident'
+            await client.messages.create({ body: msg.replace(`Hi ${name},`, `Hi ${coName},`), from, to: co.phone }).catch(() => null)
+          }
         } catch (e: any) {
           smsError = e?.message || 'SMS failed'
         }

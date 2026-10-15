@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const { data: tenancy } = await sb
     .from('tenancies')
     .select('property_id, rooms!inner(property_id)')
-    .eq('person_id', person.id)
+    .or(`person_id.eq.${person.id},co_tenant_id.eq.${person.id}`)   // joint tenants too
     .lte('start_date', today)
     .or(`end_date.is.null,end_date.gte.${today}`)
     .order('start_date', { ascending: false })

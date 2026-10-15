@@ -35,7 +35,7 @@ export async function getActiveTenancy(personId: string): Promise<ActiveTenancy 
     .select(
       'id, property_id, room_id, start_date, end_date, notice_received_date, rent_amount, rent_due_day, properties(name, address), rooms(name)'
     )
-    .eq('person_id', personId)
+    .or(`person_id.eq.${personId},co_tenant_id.eq.${personId}`)   // joint tenants too
     .lte('start_date', today)
     // Open-ended, or not yet ended.
     .or(`end_date.is.null,end_date.gte.${today}`)

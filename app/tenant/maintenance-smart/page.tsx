@@ -42,7 +42,7 @@ export default function SmartTroubleshootingPage() {
       const supabase = createClient();
       const { data: tenancy } = await supabase
         .from('tenancies').select('id, property_id, room_id')
-        .eq('person_id', data.assignment?.id)
+        .or(`person_id.eq.${data.assignment?.id},co_tenant_id.eq.${data.assignment?.id}`)   // joint tenants too
         .not('end_date', 'is', null)
         .or('end_date.gte.' + new Date().toISOString().split('T')[0])
         .single();

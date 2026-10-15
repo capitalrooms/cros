@@ -14,7 +14,7 @@ import {
 } from '@/lib/rent-increase/generatePDF'
 import { getDeemedServiceDate, getDeemedServiceDescription } from '@/lib/rent-increase/deemedServiceDate'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
-import { landlordFormalNames, dearName } from '@/lib/people'
+import { landlordFormalNames, dearName, displayName } from '@/lib/people'
 import { senderFieldsSdk, senderFor } from '@/lib/email/sender'
 import { buildEmail } from '@/lib/emailWrapper'
 
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     .select(`
       id, start_date, end_date, notice_received_date, rent_amount, rent_due_day, person_id, room_id, property_id,
       is_fixed_term, last_rent_change_date, previous_rent_amount,
-      person:people!tenancies_person_id_fkey(id, full_name, salutation, first_name, last_name, email),
+      person:people!tenancies_person_id_fkey(id, full_name, salutation, first_name, last_name, email), co:people!co_tenant_id(id, full_name, salutation, first_name, last_name, email),
       room:rooms!tenancies_room_id_fkey(id, name),
       property:properties!tenancies_property_id_fkey(id, name, address, landlord_id,
         landlord:people!properties_landlord_id_fkey(*)
@@ -83,6 +83,8 @@ export async function POST(req: NextRequest) {
   }
 
   const person   = tenancy.person   as any
+  // a joint tenancy: the notice is addressed and sent to both named tenants (Section 13 must reach every tenant)
+  const co       = (tenancy as any).co as any
   const room     = tenancy.room     as any
   const property = tenancy.property as any
   const landlord = property?.landlord as any
@@ -155,7 +157,7 @@ export async function POST(req: NextRequest) {
 
   const data: RentIncreaseData = {
     tenantTitle:         bodyTitle || 'Mx',
-    tenantFullName:      person.full_name || nameParts.join(' '),
+    tenantFullName:      (person.full_name || nameParts.join(' ')) + (co ? ` & ${displayName(co)}` : ''),
     tenantFirstName:     person.first_name || nameParts[0] || person.full_name,
     roomName:            room.name,
     propertyAddress:     property.address,
@@ -234,7 +236,7 @@ export async function POST(req: NextRequest) {
   try {
     await resend.emails.send({
       ...(await senderFieldsSdk(req)),
-      to:      [person.email],
+      to:      [person.email, co?.email].filter(Boolean) as string[],
       subject: `Important: Section 13 rent increase notice — effective ${effFormatted}`,
       attachments: [
         {
@@ -247,7 +249,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       html: await buildEmail(`
-          <p>Dear ${dearName({ salutation: person.salutation || bodyTitle || null, first_name: person.first_name, last_name: person.last_name, full_name: person.full_name })},</p>
+          <p>Dear ${dearName({ salutation: person.salutation || bodyTitle || null, first_name: person.first_name, last_name: person.last_name, full_name: person.full_name })}${co ? ` and ${dearName(co)}` : ''},</p>
           <p>Please find enclosed two documents regarding a proposed change to your rent, effective from <strong>${effFormatted}</strong>:</p>
           <ol style="padding-left:20px;">
             <li style="margin-bottom:8px;"><strong>Cover letter</strong> — explains the increase and your options in plain English</li>
@@ -268,6 +270,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok:       true,
     noticeId: notice.id,
-    message:  `Section 13 notice served to ${person.email} — effective ${effFormatted}`,
+    message:  `Section 13 notice served to ${[person.email, co?.email].filter(Boolean).join(' and ')} — effective ${effFormatted}`,
   })
 }

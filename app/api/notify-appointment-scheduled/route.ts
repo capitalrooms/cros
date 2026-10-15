@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
+import { expandJoint } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase'
@@ -144,14 +145,15 @@ export async function POST(request: NextRequest) {
     // If a specific room was selected
     if (roomId && roomName) {
       // Send to tenant IN this room: "A viewing has been booked on your room"
-      const { data: tenancies } = await supabase
+      const { data: tenancyRow } = await supabase
         .from('tenancies')
-        .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
+        .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
         .eq('room_id', roomId)
         .is('end_date', null)
         .single()
 
-      if (tenancies && (tenancies as any).people?.email && ((tenancies as any).people?.notify_by_email !== false)) {
+      // both tenants on a joint tenancy (lib/serverNotify expandJoint)
+      for (const tenancies of expandJoint<any>(tenancyRow ? [tenancyRow] : [])) if (tenancies && (tenancies as any).people?.email && ((tenancies as any).people?.notify_by_email !== false)) {
         const tenantName = (tenancies as any).people.first_name || (tenancies as any).people.name || 'Tenant'
         const roomSubject = tenantTpl
           ? render(tenantTpl.subject_line, { tenant_name: tenantName, when, room_name: roomName, property_name: propertyName, property_name_address: propertyNameAddress, room_or_at_property: 'on your room' })
@@ -167,13 +169,13 @@ export async function POST(request: NextRequest) {
       // Send to all OTHER tenants in the property: "A viewing is booked at the house"
       const { data: allTenancies } = await supabase
         .from('tenancies')
-        .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
+        .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
         .eq('property_id', propertyId)
         .neq('room_id', roomId)
         .is('end_date', null)
 
       if (allTenancies && allTenancies.length > 0) {
-        for (const tenancy of allTenancies) {
+        for (const tenancy of expandJoint<any>(allTenancies)) {
           if ((tenancy as any).people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
             const tenantName = (tenancy as any).people.first_name || (tenancy as any).people.name || 'Tenant'
             const otherSubject = tenantTpl
@@ -192,12 +194,12 @@ export async function POST(request: NextRequest) {
       // No specific room selected — notify all tenants in the property
       const { data: allTenancies } = await supabase
         .from('tenancies')
-        .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
+        .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
         .eq('property_id', propertyId)
         .is('end_date', null)
 
       if (allTenancies && allTenancies.length > 0) {
-        for (const tenancy of allTenancies) {
+        for (const tenancy of expandJoint<any>(allTenancies)) {
           if ((tenancy as any).people?.email && ((tenancy as any).people?.notify_by_email !== false)) {
             const tenantName = (tenancy as any).people.first_name || (tenancy as any).people.name || 'Tenant'
             const allSubject = tenantTpl

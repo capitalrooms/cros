@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { expandJoint } from '@/lib/serverNotify'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFields } from '@/lib/email/sender'
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
     .select(`
       id, end_date, rent_amount,
       people:person_id (salutation, first_name, last_name, full_name, email),
+      co:people!co_tenant_id(salutation, first_name, last_name, full_name, email),
       rooms(name),
       properties(address)
     `)
@@ -64,7 +66,7 @@ export async function GET(req: Request) {
   const sent: string[] = []
   const failed: string[] = []
 
-  for (const t of tenancies ?? []) {
+  for (const t of expandJoint<any>(tenancies)) {   // both tenants on a joint tenancy
     const person = (t as any).people
     const email = person?.email
     if (!email) continue

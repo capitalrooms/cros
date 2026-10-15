@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
       .from('tenancies')
       .select('id')
       .eq('room_id', ticket.room_id)
-      .eq('person_id', personId)
+      .or(`person_id.eq.${personId},co_tenant_id.eq.${personId}`)   // joint tenants too
       .limit(1)
 
     if (!tenancy?.length) {
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
         const { data: anyTenancy } = await service
           .from('tenancies')
           .select('id, rooms!inner(property_id)')
-          .eq('person_id', personId)
+          .or(`person_id.eq.${personId},co_tenant_id.eq.${personId}`)   // joint tenants too
           .limit(1)
 
         const tenantInProp = (anyTenancy as any)?.[0]?.rooms?.property_id === ticket.property_id

@@ -165,6 +165,11 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   const [newTenancyPersonSearch, setNewTenancyPersonSearch] = useState('')
   const [newTenancyPersonResults, setNewTenancyPersonResults] = useState<{ id: string; name: string; email: string }[]>([])
   const [newTenancyPerson, setNewTenancyPerson] = useState<{ id: string; name: string; email: string } | null>(null)
+  // a second named tenant, jointly and severally liable (tenancies.co_tenant_id) — 15 Oct 2026
+  const [jointOpen, setJointOpen] = useState(false)
+  const [jointSearch, setJointSearch] = useState('')
+  const [jointResults, setJointResults] = useState<{ id: string; name: string; email: string }[]>([])
+  const [jointPerson, setJointPerson] = useState<{ id: string; name: string; email: string } | null>(null)
   const [newTenancyStart, setNewTenancyStart] = useState('')
   const [newTenancyEnd, setNewTenancyEnd] = useState('')
   const [newTenancyTermMonths, setNewTenancyTermMonths] = useState('')
@@ -243,7 +248,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
       (roomsData || []).map(async (room) => {
         const { data: tenancy } = await supabase
           .from('tenancies')
-          .select('id, person_id, start_date, end_date, notice_received_date, rent_amount, people!person_id(id, full_name, salutation, first_name, last_name, email)')
+          .select('id, person_id, start_date, end_date, notice_received_date, rent_amount, people!person_id(id, full_name, salutation, first_name, last_name, email), co:people!co_tenant_id(id, full_name, salutation, first_name, last_name, email)')
           .eq('room_id', room.id)
           .lte('start_date', today)   // the tenant living there now — not someone let agreed to move in later
           .or(`end_date.is.null,end_date.gte.${today}`)
@@ -252,7 +257,10 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
           .maybeSingle()
 
         const p = tenancy?.people as any
-        const tenantName = [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || p?.email || null
+        const c = (tenancy as any)?.co
+        const one = (x: any) => [x?.salutation, x?.first_name, x?.last_name].filter(Boolean).join(' ') || x?.full_name || x?.email || ''
+        // a joint tenancy names both ("Mr Martin Noives & Miss Jane Doe")
+        const tenantName = [one(p), c ? one(c) : ''].filter(Boolean).join(' & ') || null
 
         return {
           ...room,
@@ -401,14 +409,14 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
   }, [addingTenancyRoom])
 
   // ── Person search for add tenancy modal ──
-  async function searchPeople(q: string) {
-    if (q.length < 2) { setNewTenancyPersonResults([]); return }
+  async function searchPeople(q: string, into: (r: { id: string; name: string; email: string }[]) => void = setNewTenancyPersonResults) {
+    if (q.length < 2) { into([]); return }
     const { data } = await supabase
       .from('people')
       .select('id, salutation, first_name, last_name, full_name, email')
       .or(`full_name.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`)
       .limit(8)
-    setNewTenancyPersonResults((data || []).map((p: any) => ({
+    into((data || []).map((p: any) => ({
       id: p.id,
       name: [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email,
       email: p.email,
@@ -451,6 +459,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
         room_id: addingTenancyRoom.id,
         property_id: propertyId,
         person_id: newTenancyPerson.id,
+        co_tenant_id: jointPerson && jointPerson.id !== newTenancyPerson.id ? jointPerson.id : null,
         start_date: newTenancyStart,
         // an Assured Periodic Tenancy has no end date: it continues until notice is recorded
         end_date: newTenancyAgreementType === 'assured_periodic' ? null : (newTenancyEnd || null),
@@ -491,6 +500,7 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
       await loadRooms()
       setAddingTenancyRoom(null)
       setNewTenancyPerson(null)
+      setJointPerson(null); setJointOpen(false); setJointSearch(''); setJointResults([])
       setNewTenancyPersonSearch('')
       setNewTenancyStart('')
       setNewTenancyEnd('')
@@ -1227,6 +1237,47 @@ export default function UnitsTab({ propertyId, bedrooms, initialRoomId, property
                       </div>
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* Joint tenant — two named tenants, jointly and severally liable; both get every tenant message */}
+              <div>
+                {jointPerson ? (
+                  <>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Joint tenant</p>
+                    <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-md py-sm">
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-900">{jointPerson.name}</p>
+                        <p className="text-xs text-neutral-500">{jointPerson.email}</p>
+                      </div>
+                      <button onClick={() => { setJointPerson(null); setJointSearch('') }} className="text-xs text-neutral-400 hover:text-neutral-600">Remove</button>
+                    </div>
+                    <p className="mt-xs text-[11px] text-neutral-500">Both are named on the tenancy and jointly and severally liable for the rent. Both get the tenant app and every message.</p>
+                  </>
+                ) : jointOpen ? (
+                  <>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-sm">Joint tenant</p>
+                    <div className="relative">
+                      <input type="text" value={jointSearch} autoFocus
+                        onChange={e => { setJointSearch(e.target.value); searchPeople(e.target.value, setJointResults) }}
+                        placeholder="Search by name or email…"
+                        className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+                      {jointResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-xs bg-white border border-neutral-200 rounded-lg shadow-lg z-10 overflow-hidden">
+                          {jointResults.filter(p => p.id !== newTenancyPerson?.id).map(p => (
+                            <button key={p.id} onClick={() => { setJointPerson(p); setJointResults([]) }}
+                              className="w-full text-left px-md py-sm hover:bg-neutral-50 transition border-b border-neutral-100 last:border-0">
+                              <p className="text-sm font-medium text-neutral-900">{p.name}</p>
+                              <p className="text-xs text-neutral-400">{p.email}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button type="button" onClick={() => { setJointOpen(false); setJointSearch(''); setJointResults([]) }} className="mt-xs text-xs text-neutral-400 hover:text-neutral-600">Cancel</button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => setJointOpen(true)} className="text-sm font-semibold text-neutral-700 hover:text-neutral-900">+ Add a joint tenant</button>
                 )}
               </div>
 

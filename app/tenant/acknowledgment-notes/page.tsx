@@ -46,7 +46,7 @@ export default function AcknowledgmentNotesPage() {
       const { data: tenancies } = await supabase
         .from('tenancies')
         .select('room_id')
-        .eq('person_id', data.assignment.id)
+        .or(`person_id.eq.${data.assignment.id},co_tenant_id.eq.${data.assignment.id}`)   // joint tenants too
         .single()
 
       if (tenancies) {
@@ -113,7 +113,7 @@ export default function AcknowledgmentNotesPage() {
       const { data: tenancies } = await supabase
         .from('tenancies')
         .select('room_id')
-        .eq('person_id', user.id)
+        .or(`person_id.eq.${user.id},co_tenant_id.eq.${user.id}`)   // joint tenants too
         .single()
 
       if (tenancies) {
