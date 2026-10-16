@@ -473,7 +473,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       </Link>
       <span className="hidden md:block min-w-0 text-sm text-neutral-700">{detail}</span>
       <span className="hidden md:block text-xs tabular-nums text-neutral-600">{(p as any).phone || <span className="text-neutral-300">No phone</span>}</span>
-      <span className="relative z-10 flex items-center justify-end gap-xs" data-row-menu>
+      <span className={`relative ${menu === p.id ? 'z-30' : 'z-10'} flex items-center justify-end gap-xs`} data-row-menu>   {/* the open row sits above the rows below it */}
         {extra}
         {AccountChip(p)}
         <span title={notifyOn.has(p.id) ? 'Notifications on' : 'Notifications off'} className={`hidden sm:inline-block h-2 w-2 rounded-full ${notifyOn.has(p.id) ? 'bg-green-500' : 'bg-neutral-300'}`} />

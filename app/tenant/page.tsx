@@ -350,7 +350,7 @@ export default function TenantDashboard() {
             .select('id, title, body, type, link, read, created_at')
             .order('created_at', { ascending: false })
             .limit(20)
-          return asParam2 && isAdmin ? nb.eq('person_id', effectiveId) : nb
+          return asParam2 && isAdmin ? nb.eq('user_id', effectiveId) : nb   // notifications are keyed by user_id (= the person's id)
         })(),
       ])
 

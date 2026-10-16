@@ -66,7 +66,7 @@ export default function TenantSafetyChecksPage() {
       const { data: checksData } = await supabase
         .from('tenant_self_checks')
         .select('*, rooms(name), properties(name, address)')
-        .eq('response_received_at', null)
+        .is('response_received_at', null)   // .eq(…, null) is refused by the database — the list was always empty
         .order('request_sent_at', { ascending: false })
 
       if (checksData) {
@@ -133,7 +133,7 @@ export default function TenantSafetyChecksPage() {
       const { data: checksData } = await supabase
         .from('tenant_self_checks')
         .select('*, rooms(name), properties(name, address)')
-        .eq('response_received_at', null)
+        .is('response_received_at', null)   // .eq(…, null) is refused by the database — the list was always empty
         .order('request_sent_at', { ascending: false })
 
       if (checksData) {
