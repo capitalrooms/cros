@@ -1,12 +1,14 @@
 'use client'
 
-// Quick Notify for lettings staff: tell the tenants at a property (push + email, via
-// /api/admin/quick-notify-lettings) or the applicant coming to a viewing (text and/or email, via
-// /api/lettings/notify-applicant).
+// Quick Notify for lettings staff: tell the tenants at a property (push + email + text, via
+// /api/admin/quick-notify-lettings), or "Applicants & anyone else" — applicants, viewers, or people pasted from an
+// email at a house that isn't on CROS (text and/or email, via /api/notify/contacts; 17 Oct 2026).
 //
 // Tenant messages never name the room — a viewing outs the tenant who is leaving (see LettingsViewingNotifyModal).
 
 import { useMemo, useState } from 'react'
+import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
+import AddressField from '@/app/components/AddressField'
 
 export interface NotifyProperty { id: string; name: string }
 export interface NotifyViewing {
@@ -50,6 +52,8 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
   const [tTime, setTTime] = useState('')
   const [tCustom, setTCustom] = useState({ subject: '', message: '' })
   const [pushOnly, setPushOnly] = useState(false)
+  const [textToo, setTextToo] = useState(true)
+  const [alsoTell, setAlsoTell] = useState<Recipient[]>([])   // people at the house who aren't recorded as tenants
 
   // ── Applicant ──
   const upcoming = useMemo(() => viewings.filter(v => v.viewing_date >= todayISO())
@@ -63,6 +67,9 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
   const [aCustom, setACustom] = useState('')
   const [bySms, setBySms] = useState(true)
   const [byEmail, setByEmail] = useState(true)
+  const [people, setPeople] = useState<Recipient[]>(() => viewing && (viewing.visitor_email || viewing.visitor_phone)
+    ? [{ name: viewing.visitor_name, email: viewing.visitor_email?.toLowerCase() ?? null, phone: viewing.visitor_phone, from: 'Viewing', propertyName: viewing.property_name }] : [])
+  const [place, setPlace] = useState(viewing?.property_name ?? '')
 
   const propName = properties.find(p => p.id === propertyId)?.name ?? ''
 
@@ -84,13 +91,20 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
   }
 
   const applicantMsg = (): string => {
-    const place = viewing?.property_name || 'the property'
+    const where = place.trim() || 'the property'
     switch (aPreset) {
-      case 'running_late': return `I'm running about ${lateBy} minutes late for your viewing at ${place} — sorry! I'll be with you as soon as I can.`
-      case 'outside': return `I'm outside ${place} now for your viewing — see you at the door.`
-      case 'moved': return `your viewing at ${place} has moved to ${newDate ? niceDate(newDate) : '[date]'}${newTime ? ` at ${newTime}` : ''}. Please let me know if that doesn't suit.`
+      case 'running_late': return `I'm running about ${lateBy} minutes late for your viewing at ${where} — sorry! I'll be with you as soon as I can.`
+      case 'outside': return `I'm outside ${where} now for your viewing — see you at the door.`
+      case 'moved': return `your viewing at ${where} has moved to ${newDate ? niceDate(newDate) : '[date]'}${newTime ? ` at ${newTime}` : ''}. Please let me know if that doesn't suit.`
       case 'custom': return aCustom
     }
+  }
+  const toContacts = async (list: Recipient[], subject: string, message: string, sms: boolean, email: boolean) => {
+    const res = await fetch('/api/notify/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipients: list.map(r => ({ name: r.name, email: r.email, phone: r.phone })), subject, message, sms, email }) })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok && !d.texted && !d.emailed) throw new Error(d.error || (d.failed ?? []).map((f: any) => `${f.who}: ${f.text ?? f.email}`).join(' · ') || 'Could not send')
+    return d as { texted: number; emailed: number; failed: { who: string; text?: string; email?: string }[] }
   }
 
   async function send() {
@@ -102,24 +116,25 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
         if (!subject.trim() || !message.trim()) throw new Error('Write a subject and message')
         const res = await fetch('/api/admin/quick-notify-lettings', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ property_id: propertyId, subject, message, channels: pushOnly ? 'push_only' : 'push_email' }),
+          body: JSON.stringify({ property_id: propertyId, subject, message, channels: pushOnly ? 'push_only' : textToo ? 'push_email_sms' : 'push_email' }),
         })
         const d = await res.json().catch(() => ({}))
         if (!res.ok || d.success === false) throw new Error(d.error || d.message || 'Could not send')
-        onSent(d.recipientCount ? `✅ Sent to ${d.recipientCount} tenant${d.recipientCount === 1 ? '' : 's'} at ${propName}` : `No current tenants at ${propName} to notify`)
+        const parts = [d.recipientCount ? `${d.recipientCount} tenant${d.recipientCount === 1 ? '' : 's'} at ${propName}${textToo && !pushOnly ? ` (${d.smsCount ?? 0} texted)` : ''}` : `no current tenants recorded at ${propName}`]
+        let notSent = d.smsFailed?.length ? ` — not texted: ${d.smsFailed.join(', ')}` : ''
+        if (alsoTell.length) {
+          const o = await toContacts(alsoTell, subject, message, !pushOnly, !pushOnly)
+          parts.push(`${alsoTell.length} other${alsoTell.length === 1 ? '' : 's'}`)
+          if (o.failed.length) notSent += ` — not sent: ${o.failed.map(f => f.who).join(', ')}`
+        }
+        onSent(`✅ Sent to ${parts.join(' and ')}${notSent}`)
       } else {
         const message = applicantMsg()
-        if (!viewingId) throw new Error('Choose the viewing')
+        if (!people.length) throw new Error('Choose who to send it to — search, type an email or mobile, or paste them')
         if (!message.trim()) throw new Error('Write a message')
-        const res = await fetch('/api/lettings/notify-applicant', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ viewing_id: viewingId, message, sms: bySms && !!viewing?.visitor_phone, email: byEmail && !!viewing?.visitor_email }),
-        })
-        const d = await res.json().catch(() => ({}))
-        if (!res.ok && !d.smsSent && !d.emailSent) throw new Error(d.error || [d.smsError, d.emailError].filter(Boolean).join(' · ') || 'Could not send')
-        const sent = [d.smsSent && 'text', d.emailSent && 'email'].filter(Boolean).join(' and ')
-        const failed = [!d.smsSent && d.smsError, !d.emailSent && d.emailError].filter(Boolean).join(' · ')
-        onSent(`✅ ${viewing?.visitor_name || 'Applicant'} sent a ${sent}${failed ? ` (not sent: ${failed})` : ''}`)
+        const d = await toContacts(people, place.trim() ? `Your viewing at ${place.trim()}` : 'A message from Capital Rooms', message, bySms, byEmail)
+        const sent = [d.texted && `${d.texted} text${d.texted === 1 ? '' : 's'}`, d.emailed && `${d.emailed} email${d.emailed === 1 ? '' : 's'}`].filter(Boolean).join(' and ')
+        onSent(`✅ Sent ${sent}${d.failed.length ? ` — not sent: ${d.failed.map(f => `${f.who} (${f.text && f.text !== 'sent' ? f.text : f.email})`).join(', ')}` : ''}`)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send')
@@ -132,7 +147,7 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
     `rounded-lg border px-md py-sm text-xs font-semibold transition-colors ${active ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500'}`
   const field = 'w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 bg-white'
   const lbl = 'block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs'
-  const preview = mode === 'tenants' ? tenantMsg() : { subject: '', message: `Hi ${(viewing?.visitor_name || '').split(' ')[0] || 'there'}, ${applicantMsg()}` }
+  const preview = mode === 'tenants' ? tenantMsg() : { subject: '', message: `Hi ${(people[0]?.name || '').split(' ')[0] || 'there'}, ${applicantMsg()}` }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !sending && onClose()}>
@@ -144,7 +159,7 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
 
         <div className="grid grid-cols-2 gap-xs mb-lg">
           <button type="button" className={chip(mode === 'tenants')} onClick={() => setMode('tenants')}>🏠 Tenants at a property</button>
-          <button type="button" className={chip(mode === 'applicant')} onClick={() => setMode('applicant')}>👤 Applicant for a viewing</button>
+          <button type="button" className={chip(mode === 'applicant')} onClick={() => setMode('applicant')}>👤 Applicants &amp; anyone else</button>
         </div>
 
         {error && <div className="mb-md rounded-xl border border-red-200 bg-red-50 px-md py-sm text-sm text-red-800">{error}</div>}
@@ -180,31 +195,26 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
                 </div>
               </>
             )}
-            <label className="flex items-center gap-sm text-sm text-neutral-700">
-              <input type="checkbox" checked={pushOnly} onChange={e => setPushOnly(e.target.checked)} />
-              App notification only (no email)
-            </label>
-            <p className="text-[11px] text-neutral-500">Goes to every current tenant at the property. Messages never mention which room is being shown.</p>
+            <div className="flex flex-wrap gap-x-lg gap-y-xs text-sm text-neutral-700">
+              <label className="flex items-center gap-sm"><input type="checkbox" checked={textToo && !pushOnly} disabled={pushOnly} onChange={e => setTextToo(e.target.checked)} /> Text them too</label>
+              <label className="flex items-center gap-sm"><input type="checkbox" checked={pushOnly} onChange={e => setPushOnly(e.target.checked)} /> App notification only</label>
+            </div>
+            <div>
+              <label className={lbl}>Also tell <span className="font-normal normal-case text-neutral-400">(people there who aren’t on CROS — optional)</span></label>
+              <PeoplePicker value={alsoTell} onChange={setAlsoTell} compact />
+            </div>
+            <p className="text-[11px] text-neutral-500">Goes to every current tenant at the property. Messages never mention which room is being shown.
+              {' '}House not on CROS? <button type="button" className="font-semibold underline" onClick={() => setMode('applicant')}>Send to people instead</button>.</p>
           </div>
         ) : (
           <div className="space-y-md">
             <div>
-              <label className={lbl}>Viewing</label>
-              {upcoming.length === 0 ? (
-                <p className="text-sm text-neutral-500">No upcoming viewings.</p>
-              ) : (
-                <select className={field} value={viewingId} onChange={e => {
-                  const v = viewings.find(x => x.id === e.target.value)
-                  setViewingId(e.target.value); setNewDate(v?.viewing_date ?? ''); setNewTime(hhmm(v?.viewing_slot ?? null))
-                }}>
-                  {upcoming.map(v => (
-                    <option key={v.id} value={v.id}>
-                      {v.viewing_date === todayISO() ? 'Today' : new Date(`${v.viewing_date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
-                      {v.viewing_slot ? ` ${hhmm(v.viewing_slot)}` : ''} — {v.visitor_name || 'Viewer'} · {v.property_name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <label className={lbl}>Who</label>
+              <PeoplePicker value={people} onChange={v => { setPeople(v); if (!place && v.find(r => r.propertyName)) setPlace(String(v.find(r => r.propertyName)!.propertyName)) }} />
+            </div>
+            <div>
+              <label className={lbl}>Where <span className="font-normal normal-case text-neutral-400">(the house — type it if it isn’t on CROS)</span></label>
+              <AddressField value={place} onChange={setPlace} className={field} placeholder="e.g. 95 Rope Street" />
             </div>
             <div className="flex flex-wrap gap-sm">
               <button type="button" className={chip(aPreset === 'running_late')} onClick={() => setAPreset('running_late')}>⏰ Running late</button>
@@ -229,18 +239,10 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
                 <textarea rows={3} className={field} value={aCustom} placeholder="Starts after “Hi {name},”" onChange={e => setACustom(e.target.value)} />
               </div>
             )}
-            {viewing && (
-              <div className="flex flex-wrap gap-lg text-sm text-neutral-700">
-                <label className={`flex items-center gap-sm ${viewing.visitor_phone ? '' : 'opacity-40'}`}>
-                  <input type="checkbox" disabled={!viewing.visitor_phone} checked={bySms && !!viewing.visitor_phone} onChange={e => setBySms(e.target.checked)} />
-                  Text {viewing.visitor_phone ? `(${viewing.visitor_phone})` : '— no number'}
-                </label>
-                <label className={`flex items-center gap-sm ${viewing.visitor_email ? '' : 'opacity-40'}`}>
-                  <input type="checkbox" disabled={!viewing.visitor_email} checked={byEmail && !!viewing.visitor_email} onChange={e => setByEmail(e.target.checked)} />
-                  Email {viewing.visitor_email ? '' : '— no address'}
-                </label>
-              </div>
-            )}
+            <div className="flex flex-wrap gap-lg text-sm text-neutral-700">
+              <label className="flex items-center gap-sm"><input type="checkbox" checked={bySms} onChange={e => setBySms(e.target.checked)} /> Text <span className="text-neutral-400">({people.filter(r => r.phone).length})</span></label>
+              <label className="flex items-center gap-sm"><input type="checkbox" checked={byEmail} onChange={e => setByEmail(e.target.checked)} /> Email <span className="text-neutral-400">({people.filter(r => r.email).length})</span></label>
+            </div>
           </div>
         )}
 
@@ -255,7 +257,7 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
         <div className="flex gap-md pt-lg">
           <button onClick={onClose} disabled={sending} className="flex-1 rounded-xl border border-neutral-300 py-md text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">Cancel</button>
           <button onClick={send}
-            disabled={sending || (mode === 'tenants' ? !propertyId : !viewingId || !((bySms && viewing?.visitor_phone) || (byEmail && viewing?.visitor_email)))}
+            disabled={sending || (mode === 'tenants' ? !propertyId : !people.length || !((bySms && people.some(r => r.phone)) || (byEmail && people.some(r => r.email))))}
             className="flex-1 rounded-xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-40 transition-colors">
             {sending ? 'Sending…' : 'Send'}
           </button>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 
 interface QuickNotifyModalProps {
   propertyId: string
@@ -44,6 +45,15 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
+  // people at the house who aren't on CROS (or aren't recorded as tenants) — the same picker as lettings (17 Oct 2026)
+  const [alsoTell, setAlsoTell] = useState<Recipient[]>([])
+  const tellOthers = async (subject: string, message: string) => {
+    if (!alsoTell.length) return ''
+    const r = await fetch('/api/notify/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipients: alsoTell.map(x => ({ name: x.name, email: x.email, phone: x.phone })), subject, message }) })
+    const d = await r.json().catch(() => ({}))
+    return (d.failed ?? []).length ? ` — not sent to: ${(d.failed as any[]).map(f => f.who).join(', ')}` : ''
+  }
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -322,6 +332,8 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
 
         if (!response.ok) throw new Error('Failed to send notification')
         const result = await response.json()
+        const othersNote = await tellOthers(subject, message)
+        if (othersNote) setError(`Sent to the tenants${othersNote}`)
         const channelLabel = channels === 'push_email' ? 'push + email' : channels === 'push_only' ? 'push notification' : 'email'
         setSentReceipt({
           recipientCount: result.recipientCount ?? 0,
@@ -334,7 +346,8 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
         return
       }
 
-      setSuccess('Notification sent successfully!')
+      const othersNote = notificationCategory === 'noticeboard' ? '' : await tellOthers(subject, message)
+      setSuccess(`Notification sent successfully!${alsoTell.length ? ` Also sent to ${alsoTell.length} other${alsoTell.length === 1 ? '' : 's'}.` : ''}${othersNote}`)
       setTimeout(() => {
         onSuccess?.()
         onClose()
@@ -849,6 +862,14 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
                 <span className="text-xs text-blue-400 ml-md">Scheduled {new Date(scheduledAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
               )}
             </div>
+          </div>
+        )}
+
+        {/* People who aren't on CROS */}
+        {!sentReceipt && notificationCategory !== 'noticeboard' && (
+          <div className="mt-md rounded-lg bg-white p-md text-neutral-900">
+            <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-600">Also tell <span className="font-normal normal-case text-neutral-400">(people there who aren’t on CROS — optional)</span></p>
+            <PeoplePicker value={alsoTell} onChange={setAlsoTell} compact />
           </div>
         )}
 

@@ -202,6 +202,12 @@ export default function LettingsPage() {
 
   const [viewings, setViewings] = useState<Viewing[]>([])
   const [quickMenu, setQuickMenu] = useState(false)
+  // who can go to a photos / other appointment — the office, contractors and cleaners (17 Oct 2026)
+  const [goers, setGoers] = useState<{ id: string; name: string; role: string }[]>([])
+  useEffect(() => {
+    supabase.from('people').select('id, salutation, first_name, last_name, full_name, company, role').in('role', ['administrator', 'admin', 'lettings', 'contractor', 'cleaner']).order('first_name')
+      .then(({ data }) => setGoers(((data ?? []) as any[]).filter(p => !/example\.com$|^Test |Lettings Agent|Admin User/.test(`${p.full_name ?? ''}`)).map(p => ({ id: p.id, role: p.role, name: displayName(p) || p.company || p.full_name || '' })).filter(p => p.name)))
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   const [popOpen, setPopOpen] = useState(0)
   useEffect(() => {
     if (!quickMenu) return
@@ -1185,6 +1191,8 @@ export default function LettingsPage() {
           onClose={() => { if (!savingViewing) { setAddingViewing(false); setBanner('') } }}
           onSave={handleCreateViewing}
           onAddProperty={() => setAddingLetOnly(true)}
+          me={name}
+          goers={goers}
         />
       )}
 
@@ -1335,9 +1343,19 @@ interface BookViewingModalProps {
   onClose: () => void
   onSave: () => void
   onAddProperty: () => void
+  /** the person booking — "Who's going" starts as them */
+  me?: string
+  goers?: { id: string; name: string; role: string }[]
 }
 
-function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose, onSave, onAddProperty }: BookViewingModalProps) {
+function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose, onSave, onAddProperty, me = '', goers = [] }: BookViewingModalProps) {
+  // photos / other: whoever's booking is going, unless they pick someone else (a contractor going in that nobody has
+  // told the tenants about, the cleaner, another of the office)
+  useEffect(() => {
+    if (form.kind !== 'viewing' && !form.visitor_name && me) setForm(f => ({ ...f, visitor_name: me }))
+    if (form.kind === 'viewing' && form.visitor_name === me) setForm(f => ({ ...f, visitor_name: '' }))
+  }, [form.kind])   // eslint-disable-line react-hooks/exhaustive-deps
+  const ROLE: Record<string, string> = { administrator: 'Office', admin: 'Office', lettings: 'Lettings', contractor: 'Contractor', cleaner: 'Cleaner' }
   const [propertyId, setPropertyId] = useState(() => bookingRooms.find(r => r.id === form.room_id)?.property_id ?? '')
   // a room picked from outside (a let-only house just added) brings its property with it
   useEffect(() => {
@@ -1490,13 +1508,25 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">{form.kind === 'viewing' ? <>Visitor name <span className="text-red-500">*</span></> : <>Who&apos;s going <span className="font-normal normal-case text-neutral-400">(optional)</span></>}</label>
-              <input
-                type="text"
-                value={form.visitor_name}
-                onChange={e => setForm(f => ({ ...f, visitor_name: e.target.value }))}
-                placeholder="Jane Smith"
-                className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
-              />
+              {form.kind !== 'viewing' && (goers.length > 0) && !(form.visitor_name && !goers.some(g => g.name === form.visitor_name) && form.visitor_name !== me) ? (
+                <select value={form.visitor_name} onChange={e => setForm(f => ({ ...f, visitor_name: e.target.value === '__other' ? ' ' : e.target.value }))}
+                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 bg-white">
+                  {me && <option value={me}>{me} (me)</option>}
+                  {(['administrator', 'lettings', 'contractor', 'cleaner'] as const).map(r => {
+                    const list = goers.filter(g => (r === 'administrator' ? ['administrator', 'admin'].includes(g.role) : g.role === r) && g.name !== me)
+                    return list.length ? <optgroup key={r} label={ROLE[r]}>{list.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}</optgroup> : null
+                  })}
+                  <option value="__other">Someone else…</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={form.visitor_name.trimStart()}
+                  onChange={e => setForm(f => ({ ...f, visitor_name: e.target.value }))}
+                  placeholder={form.kind === 'viewing' ? 'Jane Smith' : 'Their name'}
+                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
+                />
+              )}
             </div>
             {form.kind === 'viewing' && <>
             <div>
