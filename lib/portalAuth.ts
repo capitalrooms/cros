@@ -10,16 +10,27 @@ export const STAFF_ROLES = ['administrator', 'admin', 'lettings']
 
 const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { autoRefreshToken: false, persistSession: false } })
 
+// A warm server remembers who a token belongs to for a minute (as lib/access/server officeCaller does), so a page's
+// several calls don't each re-check the sign-in with the auth service and look the person up again (16 Oct 2026).
+const MEMO_MS = 60_000
+const memo = new Map<string, { at: number; who: Caller | null }>()
+
 /** The signed-in person making the request (from the Bearer token the apps send), or null. */
 export async function requireSignedIn(req: NextRequest): Promise<Caller | null> {
   const token = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim()
   if (!token) return null
+  const hit = memo.get(token)
+  if (hit && Date.now() - hit.at < MEMO_MS) return hit.who
   const s = svc()
+  let who: Caller | null = null
   const { data: { user } } = await s.auth.getUser(token)
-  if (!user?.email || secondStepMissing(user, token)) return null
-  const { data: p } = await s.from('people').select('id, role').ilike('email', user.email).order('created_at').limit(1).maybeSingle()
-  if (!p || p.role === 'inactive' || administratorWithoutTwoStep(p.role, user)) return null
-  return { userId: user.id, email: user.email, personId: p.id, role: p.role }
+  if (user?.email && !secondStepMissing(user, token)) {
+    const { data: p } = await s.from('people').select('id, role').ilike('email', user.email).order('created_at').limit(1).maybeSingle()
+    if (p && p.role !== 'inactive' && !administratorWithoutTwoStep(p.role, user)) who = { userId: user.id, email: user.email, personId: p.id, role: p.role }
+  }
+  if (memo.size > 500) memo.clear()
+  memo.set(token, { at: Date.now(), who })
+  return who
 }
 
 export const isStaff = (c: Caller | null) => !!c && STAFF_ROLES.includes(c.role)

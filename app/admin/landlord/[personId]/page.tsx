@@ -191,15 +191,14 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
         management_fee_notes: p.management_fee_notes || '',
       })
 
-      const { data: props } = await supabase
-        .from('properties')
-        .select('id, name, address, management_fee_pct, property_type, cc_emails')
-        .eq('landlord_id', personId).order('name')
+      // these don't depend on each other — fetched together, not one after another (16 Oct 2026)
+      const [{ data: props }, { data: records }, { data: prefs }, { data: banks }] = await Promise.all([
+        supabase.from('properties').select('id, name, address, management_fee_pct, property_type, cc_emails').eq('landlord_id', personId).order('name'),
+        supabase.from('landlord_onboarding').select('*').eq('landlord_people_id', personId).order('created_at', { ascending: false }),
+        supabase.from('landlord_notification_prefs').select('category, enabled').eq('person_id', personId),
+        supabase.from('landlord_bank_accounts').select('*').eq('landlord_id', personId).order('is_default', { ascending: false }),
+      ])
       setProperties(sortPropertiesNumerically(props || []))
-
-      const { data: records } = await supabase
-        .from('landlord_onboarding').select('*')
-        .eq('landlord_people_id', personId).order('created_at', { ascending: false })
       setAmlRecords(records || [])
 
       const { data: stmts } = await supabase
@@ -209,15 +208,10 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
         .order('created_at', { ascending: false }).limit(12)
       setStatements(stmts || [])
 
-      const { data: prefs } = await supabase
-        .from('landlord_notification_prefs').select('category, enabled').eq('person_id', personId)
       const prefsMap: Record<string, boolean> = {}
       for (const pr of prefs || []) prefsMap[pr.category] = pr.enabled
       setNotifPrefs(prefsMap)
 
-      const { data: banks } = await supabase
-        .from('landlord_bank_accounts').select('*')
-        .eq('landlord_id', personId).order('is_default', { ascending: false })
       setBankAccounts(banks || [])
 
       const propsMapped: LandlordProperty[] = (props || []).map((pp: any) => ({

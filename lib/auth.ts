@@ -76,6 +76,7 @@ export async function signUp(email: string, password: string) {
 
 export async function signOut() {
   const supabase = createClient()
+  forgetCurrentUser()
   await supabase.auth.signOut()
 }
 
@@ -94,14 +95,37 @@ export async function getUserAssignment(email: string) {
   return data as { email: string; role: UserRole; property_id?: string; room_id?: string }
 }
 
-export async function getCurrentUser(supabaseInstance?: SupabaseClient) {
+// Who is using this screen. Screens only use this to decide what to show — every read and write is checked again by
+// the database's row rules and the server routes — so it reads the sign-in the browser already holds instead of asking
+// the auth service over the network (that alone took ~1.6s on every page, 16 Oct 2026), and remembers the person's
+// record for two minutes while moving between pages. On the server it still verifies with the auth service.
+type CurrentUser = { user: any; assignment: Awaited<ReturnType<typeof getUserAssignment>> }
+let _current: { userId: string; at: number; value: CurrentUser } | null = null
+let _pending: Promise<CurrentUser | null> | null = null
+const CURRENT_MS = 120_000
+
+export async function getCurrentUser(supabaseInstance?: SupabaseClient): Promise<CurrentUser | null> {
   const supabase = supabaseInstance || createClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
-
-  if (error || !user) {
-    return null
+  const inBrowser = typeof window !== 'undefined'
+  let user: any = null
+  if (inBrowser) {
+    const { data: { session } } = await supabase.auth.getSession()
+    user = session?.user ?? null
+  } else {
+    const { data, error } = await supabase.auth.getUser()
+    user = error ? null : data.user
   }
-
-  const assignment = await getUserAssignment(user.email || '')
-  return { user, assignment }
+  if (!user) { _current = null; return null }
+  if (!inBrowser) return { user, assignment: await getUserAssignment(user.email || '') }
+  if (_current && _current.userId === user.id && Date.now() - _current.at < CURRENT_MS) return _current.value
+  if (_pending) return _pending
+  _pending = (async () => {
+    const value = { user, assignment: await getUserAssignment(user.email || '') }
+    _current = { userId: user.id, at: Date.now(), value }
+    return value
+  })().finally(() => { _pending = null })
+  return _pending
 }
+
+/** Forget the remembered person — after signing out, or after changing their own record. */
+export function forgetCurrentUser() { _current = null }
