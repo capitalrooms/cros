@@ -201,6 +201,14 @@ export default function LettingsPage() {
   const [personId, setPersonId] = useState<string | undefined>()
 
   const [viewings, setViewings] = useState<Viewing[]>([])
+  const [quickMenu, setQuickMenu] = useState(false)
+  const [popOpen, setPopOpen] = useState(0)
+  useEffect(() => {
+    if (!quickMenu) return
+    const away = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('[data-quick-menu]')) setQuickMenu(false) }
+    document.addEventListener('mousedown', away)
+    return () => document.removeEventListener('mousedown', away)
+  }, [quickMenu])
   // photos and other visits booked from here (property_appointments) — shown in the diary beside viewings
   const [visits, setVisits] = useState<{ id: string; appointment_type: string; appointment_date: string; appointment_time: string | null; visitor_name: string | null; notes: string | null; property_id: string; properties: { name: string } | null; rooms: { name: string } | null }[]>([])
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([])
@@ -674,7 +682,7 @@ export default function LettingsPage() {
             {activeTab === 'available' && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                  <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: '#181614' }}>{availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} to let</h2>
+                  <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: '#181614' }}>Availability <span style={{ fontSize: 13, color: '#78716c', fontWeight: 600 }}>· {availableRooms.length}</span></h2>
                   <a href="/admin/let-only-properties" style={{ background: '#181614', color: 'white', textDecoration: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-block' }}>+ Let-only property</a>
                 </div>
                 {availableRooms.length === 0 ? (
@@ -822,8 +830,21 @@ export default function LettingsPage() {
       {/* ── Tab content ────────────────────────────────────────────────────── */}
       <main className="mx-auto max-w-2xl px-lg pb-3xl">
         <div className="pt-md"><EnableNotifications /></div>
-        <div className="mt-sm"><PoppingByVisit className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900" /></div>
-        <a href="/planner" className="mt-sm flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🗂️ With Capital Rooms — notes, jobs &amp; photos<span aria-hidden="true">›</span></a>
+        {/* one slim button for the quick things (Harry, 17 Oct 2026 — the three big buttons wasted the top of the screen) */}
+        <div className="relative mt-sm" data-quick-menu>
+          <button type="button" onClick={() => setQuickMenu(m => !m)} aria-expanded={quickMenu}
+            className="flex w-full items-center justify-between rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm font-bold text-neutral-900">
+            <span>⚡ Quick notify</span><span aria-hidden="true" className="text-neutral-400">{quickMenu ? '▴' : '▾'}</span>
+          </button>
+          {quickMenu && (
+            <div className="absolute left-0 right-0 top-full z-40 mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm shadow-lg">
+              <button type="button" onClick={() => { setQuickMenu(false); setQuickNotify({ mode: 'tenants' }) }} className="block w-full px-md py-sm text-left font-semibold hover:bg-neutral-50">✉️ Message the tenants at a house</button>
+              <button type="button" onClick={() => { setQuickMenu(false); setPopOpen(k => k + 1) }} className="block w-full border-t border-neutral-100 px-md py-sm text-left font-semibold hover:bg-neutral-50">🔑 Popping by a property (key safe)</button>
+              <a href="/planner" className="block border-t border-neutral-100 px-md py-sm font-semibold hover:bg-neutral-50">🗂️ Notes, jobs &amp; photos with Capital Rooms</a>
+            </div>
+          )}
+        </div>
+        <PoppingByVisit hideButton openKey={popOpen} />
 
         {/* ── VIEWINGS ─────────────────────────────────────────────────────── */}
         {activeTab === 'viewings' && (
@@ -858,16 +879,12 @@ export default function LettingsPage() {
               >Next ›</button>
             </div>
 
-            {/* Always-present actions */}
-            <div className="grid grid-cols-2 gap-sm mb-sm">
+            {/* Always-present action (Quick notify is the menu at the top) */}
+            <div className="mb-sm">
               <button
                 onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
-                className="rounded-2xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
+                className="w-full rounded-2xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
               >+ Book appointment</button>
-              <button
-                onClick={() => setQuickNotify({ mode: 'tenants' })}
-                className="rounded-2xl border border-neutral-300 bg-white py-md text-sm font-bold text-neutral-900 hover:bg-neutral-50 transition-colors"
-              >⚡ Quick Notify</button>
             </div>
             <p className="text-xs text-neutral-500 mb-lg text-center">Tap an empty time to book · tap a viewing to move it or message people</p>
 
@@ -983,7 +1000,7 @@ export default function LettingsPage() {
           <div className="pt-lg">
             <div className="flex items-center justify-between mb-lg">
               <h2 className="text-base font-bold text-neutral-900">
-                {availableRooms.length} room{availableRooms.length !== 1 ? 's' : ''} to let
+                Availability <span className="text-sm font-semibold text-neutral-500">· {availableRooms.length}</span>
               </h2>
               <a
                 href="/admin/let-only-properties"

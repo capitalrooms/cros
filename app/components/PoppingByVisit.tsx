@@ -14,8 +14,10 @@ const londonToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Eu
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 const nextQuarter = () => { const d = new Date(); d.setMinutes(Math.ceil((d.getMinutes() + 1) / 15) * 15, 0, 0); return d }
 
-export default function PoppingByVisit({ className = '', label = 'Popping by a property' }: { className?: string; label?: string }) {
+// openKey: opened from elsewhere (the lettings Quick notify menu) — each new number opens it; hideButton: no button of its own
+export default function PoppingByVisit({ className = '', label = 'Popping by a property', openKey = 0, hideButton = false }: { className?: string; label?: string; openKey?: number; hideButton?: boolean }) {
   const [open, setOpen] = useState(false)
+  useEffect(() => { if (openKey) setOpen(true) }, [openKey])
   const [opts, setOpts] = useState<Option[] | null>(null)
   const [canRoom, setCanRoom] = useState(false)
   const [propertyId, setPropertyId] = useState('')
@@ -58,9 +60,9 @@ export default function PoppingByVisit({ className = '', label = 'Popping by a p
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={className || 'rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-bold text-neutral-900 hover:bg-neutral-50'}>
+      {!hideButton && <button type="button" onClick={() => setOpen(true)} className={className || 'rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-bold text-neutral-900 hover:bg-neutral-50'}>
         🔑 {label}
-      </button>
+      </button>}
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={close}>
