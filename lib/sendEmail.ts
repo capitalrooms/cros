@@ -21,6 +21,11 @@ import { oneLine } from '@/lib/lettings/letWording'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
+/** Every email CROS sends is also blind-copied here (16 Oct 2026 — Harry: "I have no idea if things are sending").
+ *  EMAIL_COPY_TO overrides it; set it to "off" to stop the copies. */
+export const COPY_TO = (process.env.EMAIL_COPY_TO ?? 'harry@capitalrooms.co.uk').trim()
+const copyOn = () => !!COPY_TO && COPY_TO.toLowerCase() !== 'off'
+
 interface SendOptions {
   /** The request that triggered this email — the signed-in staff member becomes the sender */
   req?: Request | null
@@ -99,6 +104,8 @@ export interface OutgoingEmail {
   attachments?: Array<{ filename: string; content: string; content_type?: string }>
   /** Normally unset — the sender's own address is used (lib/email/sender) */
   from?: string
+  /** internal: no office copy / no failure alert (the alerts themselves) */
+  noCopy?: boolean
   replyTo?: string
 }
 
@@ -123,7 +130,10 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
   }
   if (msg.text) payload.text = msg.text
   if (msg.cc?.length) payload.cc = msg.cc
-  if (msg.bcc?.length) payload.bcc = msg.bcc
+  // a blind copy of everything to the office, unless it's already going there
+  const everyone = [...(payload.to as string[]), ...(msg.cc ?? []), ...(msg.bcc ?? [])].map(a => String(a).toLowerCase())
+  const bcc = [...(msg.bcc ?? []), ...(copyOn() && !msg.noCopy && !everyone.some(a => a.includes(COPY_TO.toLowerCase())) ? [COPY_TO] : [])]
+  if (bcc.length) payload.bcc = bcc
   if (msg.attachments?.length) payload.attachments = msg.attachments
   try {
     const res = await fetch(RESEND_ENDPOINT, {
@@ -131,10 +141,32 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-    if (!res.ok) console.error('[deliverEmail] email service refused:', res.status, String(msg.subject).slice(0, 80))
+    if (!res.ok) {
+      console.error('[deliverEmail] email service refused:', res.status, String(msg.subject).slice(0, 80))
+      // tell the office straight away — a refused email otherwise only shows up in the server logs
+      if (!msg.noCopy) {
+        const why = await res.clone().json().then((j: any) => j?.message || j?.error || '').catch(() => '')
+        await tellOfficeNotSent(payload.to as string[], String(msg.subject), `The email service refused it${why ? `: ${why}` : ''} (${res.status}).`)
+      }
+    }
     return res
   } catch (err: any) {
     console.error('[deliverEmail] could not reach the email service:', err?.message)
+    if (!msg.noCopy) await tellOfficeNotSent(payload.to as string[], String(msg.subject), `CROS couldn’t reach the email service (${err?.message ?? 'network error'}).`)
     return Response.json({ message: err?.message ?? 'Could not reach the email service' }, { status: 502 })
   }
+}
+
+/** "Not sent" alert to the office for an email the service refused outright (bounces and blocked addresses are
+ *  found afterwards by lib/email/deliveryWatch). Never throws. */
+async function tellOfficeNotSent(to: string[], subject: string, why: string) {
+  try {
+    if (!copyOn()) return
+    const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+    await deliverEmail({
+      to: [COPY_TO], noCopy: true,
+      subject: `Not sent: ${subject}`.slice(0, 180),
+      html: `<p>An email from CROS did <b>not</b> go out.</p><p><b>To:</b> ${esc(to.join(', '))}<br><b>Subject:</b> ${esc(subject)}<br><b>Why:</b> ${esc(why)}</p><p>Please send it again from CROS once the problem is fixed, or contact them another way.</p>`,
+    })
+  } catch { /* never let an alert break the send it's reporting on */ }
 }
