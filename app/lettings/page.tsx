@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import PoppingByVisit from '@/app/components/PoppingByVisit'
+import PhoneTabBar, { ICONS } from '@/app/components/PhoneTabBar'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser, signOut } from '@/lib/auth'
@@ -781,6 +782,14 @@ export default function LettingsPage() {
           MOBILE LAYOUT — unchanged
       ═══════════════════════════════════════════════════════════════════════ */}
       <div className="lg:hidden">
+      {/* phone: the same bottom tab bar as the admin app (17 Oct 2026) — replaces the pill strip at the top */}
+      <PhoneTabBar fixed className="lg:hidden" label="Lettings sections" tabs={[
+        { key: 'viewings', label: 'Diary', icon: ICONS.calendar, onClick: () => { setActiveTab('viewings'); window.scrollTo({ top: 0 }) }, active: activeTab === 'viewings' },
+        { key: 'available', label: 'Availability', icon: ICONS.key, onClick: () => { setActiveTab('available'); window.scrollTo({ top: 0 }) }, active: activeTab === 'available' },
+        { key: 'leads', label: 'Leads', icon: ICONS.people, onClick: () => { setActiveTab('leads'); window.scrollTo({ top: 0 }) }, active: activeTab === 'leads' },
+        { key: 'let', label: 'Let', icon: ICONS.check, onClick: () => { setActiveTab('let'); window.scrollTo({ top: 0 }) }, active: activeTab === 'let' },
+        { key: 'me', label: 'Me', icon: ICONS.me, href: '/lettings/profile', active: false },
+      ]} />
 
       {/* ── Dark hero header ────────────────────────────────────────────────── */}
       <DarkHeroHeader
@@ -806,28 +815,6 @@ export default function LettingsPage() {
         </div>
       </DarkHeroHeader>
 
-      {/* ── Tab strip ──────────────────────────────────────────────────────── */}
-      <div
-        className="bg-white border-b border-neutral-200 sticky z-40 px-lg pt-md pb-0"
-        style={{ top: 'calc(env(safe-area-inset-top) + 52px)' }}
-      >
-        <div className="flex gap-xs">
-          {(['viewings', 'available', 'leads', 'let'] as Tab[]).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-lg py-sm rounded-full text-sm font-bold capitalize transition-all mb-sm ${
-                activeTab === tab
-                  ? 'bg-neutral-950 text-white'
-                  : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
-              }`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* ── Global banner ──────────────────────────────────────────────────── */}
       {banner && (
         <div className="mx-lg mt-md rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">
@@ -836,7 +823,7 @@ export default function LettingsPage() {
       )}
 
       {/* ── Tab content ────────────────────────────────────────────────────── */}
-      <main className="mx-auto max-w-2xl px-lg pb-3xl">
+      <main className="mx-auto max-w-2xl px-lg pb-[120px]">
         <div className="pt-md"><EnableNotifications /></div>
         {/* one slim button for the quick things (Harry, 17 Oct 2026 — the three big buttons wasted the top of the screen) */}
         <div className="relative mt-sm" data-quick-menu>
