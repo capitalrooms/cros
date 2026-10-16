@@ -124,7 +124,8 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
   if (deposit > Math.round(weekly * 5 * 100) / 100 + 0.01) warnings.push(`The deposit is more than 5 weeks’ rent (${gbp(weekly * 5)}) — the legal cap.`)
   if (holdingDeposit > Math.round(weekly * 100) / 100 + 0.01) warnings.push(`The holding deposit is more than 1 week’s rent (${gbp(weekly)}) — the legal cap.`)
 
-  const certDocs: PackDoc[] = CERTS.map(c => {
+  // no gas at the property → no gas safety certificate in the pack (properties.has_gas)
+  const certDocs: PackDoc[] = CERTS.filter(c => !(c.key === 'gas' && (prop as any)?.has_gas === false)).map(c => {
     const doc = (docs ?? []).find((d: any) => c.types.includes(String(d.document_type)))
     const expiry = prop?.[CERT_EXPIRY_COL[c.key]] as string | null | undefined
     const expired = expiry && expiry < iso(new Date())

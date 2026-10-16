@@ -65,6 +65,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
     postcode: p.postcode || '',
     council_tax_band: p.council_tax_band || '',
     bills_included: p.bills_included !== undefined ? p.bills_included : true,
+    has_gas: p.has_gas === false ? 'no' : 'yes',   // no gas → no gas safety certificate expected (compliance, dashboard, move-in pack)
     notice_period_months: p.notice_period_months || 2,
     license_date: p.license_date || '',
     license_expiry: p.license_expiry || '',
@@ -201,6 +202,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       landlord_id: selectedLandlordId || null,
       council_tax_band: formData.council_tax_band || null,
       bills_included: formData.bills_included,
+      has_gas: formData.has_gas !== 'no',
       notice_period_months: parseInt(formData.notice_period_months),
       bedrooms: parseInt(formData.bedrooms),
       bathrooms: parseInt(formData.bathrooms),
@@ -575,6 +577,17 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                   <option value="no">No</option>
                 </select>
               </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Gas supply</label>
+                <select
+                  value={formData.has_gas}
+                  onChange={(e) => setFormData({ ...formData, has_gas: e.target.value })}
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="yes">Yes — gas safety certificate needed</option>
+                  <option value="no">No gas at the property</option>
+                </select>
+              </div>
             </div>
 
             {/* Row 2: bedrooms, bathrooms, area, type */}
@@ -805,6 +818,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 ['Bathrooms', displayed.bathrooms || '—'],
                 ['Total area', displayed.total_area ? `${displayed.total_area} m²` : '—'],
                 ['Bills included', displayed.bills_included ? 'Yes' : 'No'],
+                ['Gas supply', (displayed as any).has_gas === false ? 'No gas' : 'Yes'],
                 ['Council tax band', displayed.council_tax_band ? `Band ${displayed.council_tax_band}` : '—'],
               ].map(([k, v]) => (
                 <div key={k as string} className="grid grid-cols-2 border-b border-neutral-100 py-1.5">
