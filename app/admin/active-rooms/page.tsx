@@ -19,6 +19,7 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { resolveFee, feeAmount, describeFee } from '@/lib/fees/managementFee'
 import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import { landlordName } from '@/lib/people'
+import { fullAddressLine } from '@/lib/formatAddress'
 
 type RoomState = 'let' | 'leaving' | 'let_agreed' | 'empty'
 interface Who { tenancyId: string; name: string; short: string; rent: number | null; start: string | null; end: string | null }
@@ -34,7 +35,7 @@ interface Row {
   fee: number                    // management fee a month on a current tenancy
 }
 interface House {
-  id: string; name: string; postcode: string | null; code: string | null; type: string; demo: boolean
+  id: string; name: string; displayName: string | null; postcode: string | null; code: string | null; type: string; demo: boolean
   landlord: string; feeLabel: string; rows: Row[]
   rentMonth: number; feeMonth: number; fullRent: number; let: number
   cert: { label: string; date: string; tone: 'red' | 'amber' | 'grey' } | null
@@ -144,7 +145,8 @@ export default function AllUnitsPage() {
       const l = ((landlords ?? []) as any[]).find(x => x.id === p.landlord_id)
       const houseFee = resolveFee(null, p)
       return {
-        id: p.id, name: firstLine(p.name) || firstLine(p.address), postcode: p.postcode ?? null, code: p.property_code ?? null, demo: !!p.is_demo,
+        // the full postal address — the display name is marketing wording and is only shown alongside when it differs
+        id: p.id, name: fullAddressLine(p), displayName: firstLine(p.name) || null, postcode: p.postcode ?? null, code: p.property_code ?? null, demo: !!p.is_demo,
         type: (p.property_type || 'hmo').replace('_', ' ').toUpperCase(),
         landlord: l ? landlordName(l) : 'No landlord set', feeLabel: houseFee.source === 'none' ? 'fee not set' : describeFee(houseFee).replace(' of rent received', '').replace(' of rent charged', ' of rent due'),
         rows,
@@ -160,7 +162,7 @@ export default function AllUnitsPage() {
 
   const q = query.toLowerCase().trim()
   const shownHouses = useMemo(() => houses.map(h => {
-    const houseHit = !q || [h.name, h.postcode, h.code, h.landlord].some(v => String(v ?? '').toLowerCase().includes(q))
+    const houseHit = !q || [h.name, h.displayName, h.postcode, h.code, h.landlord].some(v => String(v ?? '').toLowerCase().includes(q))
     const rows = h.rows.filter(r =>
       (houseHit || [r.name, r.code, r.shown?.name, r.incoming?.name].some(v => String(v ?? '').toLowerCase().includes(q))) &&
       (filter === 'all' || (filter === 'attention' ? r.state === 'empty' || (r.state === 'leaving' && !r.incoming) : r.state === 'let_agreed' || !!r.incoming)))
@@ -218,7 +220,7 @@ export default function AllUnitsPage() {
               <div className="min-w-0 flex-1 basis-60">
                 <Link href={`/admin/properties/${h.id}`} className="text-lg font-bold text-neutral-900 hover:underline" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{h.name}</Link>
                 {h.demo && <span className="ml-sm rounded-full bg-amber-100 px-sm py-0.5 text-[11px] font-bold text-amber-900">Practice house</span>}
-                <p className="text-xs text-neutral-500">{[h.postcode, h.landlord, h.feeLabel, h.type].filter(Boolean).join(' · ')}</p>
+                <p className="text-xs text-neutral-500">{[h.displayName && !h.name.toLowerCase().startsWith(String(h.displayName).toLowerCase()) ? `Advertised as “${h.displayName}”` : '', h.landlord, h.feeLabel, h.type].filter(Boolean).join(' · ')}</p>
               </div>
               <div className="flex flex-wrap items-center gap-sm text-xs">
                 <span className="text-neutral-700"><b>{h.let}/{h.rows.length}</b> let</span>
