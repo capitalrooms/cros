@@ -35,6 +35,20 @@ export async function sendSms(to: string | null | undefined, body: string, opts:
     await client.messages.create({ to: num, from, body })
     return { ok: true }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'text failed' }
+    const error = e instanceof Error ? e.message : 'text failed'
+    await tellOfficeTextFailed(num, body, error)
+    return { ok: false, error }
   }
+}
+
+/** A text the service refused → an email to the office straight away (16 Oct 2026: of the 7 texts CROS had ever sent,
+ *  5 failed and nobody knew). Texts that are accepted but fail later are caught by lib/email/deliveryWatch. */
+async function tellOfficeTextFailed(to: string, body: string, why: string) {
+  try {
+    const { deliverEmail, COPY_TO } = await import('@/lib/sendEmail')
+    if (!COPY_TO || COPY_TO.toLowerCase() === 'off') return
+    const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+    await deliverEmail({ to: [COPY_TO], noCopy: true, subject: `Text not sent to ${to}`,
+      html: `<p>A text from CROS did <b>not</b> go out.</p><p><b>To:</b> ${esc(to)}<br><b>Why:</b> ${esc(why)}</p><p><b>The text:</b><br>${esc(body).replace(/\n/g, '<br>')}</p><p>Please check the number and send it again, or call them.</p>` })
+  } catch { /* never let the alert break the caller */ }
 }

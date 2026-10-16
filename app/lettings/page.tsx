@@ -96,6 +96,7 @@ const blankViewingForm = (date = '', time = '') => ({
   visitor_phone: '',
   feedback: '',
   notifyTenants: true,
+  textTenants: true,     // email AND text the house (16 Oct 2026)
   notifyMessage: '',
 })
 
@@ -421,10 +422,15 @@ export default function LettingsPage() {
             subject: 'Viewing arranged',
             message: msg,
             notification_type: 'viewing',
+            channels: viewingForm.textTenants ? 'push_email_sms' : 'push_email',
           }),
         }).catch(() => null)
         const d = await res?.json().catch(() => ({}))
-        if (res?.ok && d?.success !== false) told.push(d?.recipientCount ? `${d.recipientCount} tenant${d.recipientCount === 1 ? '' : 's'} notified` : 'no current tenants to notify')
+        if (res?.ok && d?.success !== false) {
+          told.push(d?.recipientCount ? `${d.recipientCount} tenant${d.recipientCount === 1 ? '' : 's'} emailed` : 'no current tenants to notify')
+          if (viewingForm.textTenants && d?.recipientCount) told.push(`${d.smsCount ?? 0} texted`)
+          if (d?.smsFailed?.length) notTold = ` — NOT texted: ${d.smsFailed.join(', ')}`
+        }
         else notTold = ` — tenants NOT notified${d?.error || d?.message ? ` (${d.error || d.message})` : ''}`
       }
       if (viewingForm.notifyTenants && await notifyLetOnlyContacts(viewingForm.room_id, 'booked', viewingForm.viewing_date, viewingForm.viewing_slot, room?.name ?? '', name)) {
@@ -1421,9 +1427,15 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
                 className="rounded"
               />
               <label htmlFor="notify-tenants" className="text-sm font-bold text-blue-900">
-                Notify tenants at this property
+                Tell the tenants at this property (email)
               </label>
             </div>
+            {form.notifyTenants && (
+              <label className="flex items-center gap-sm text-sm text-blue-900">
+                <input type="checkbox" className="rounded" checked={form.textTenants !== false} onChange={e => setForm(f => ({ ...f, textTenants: e.target.checked }))} />
+                Text them too
+              </label>
+            )}
             {form.notifyTenants && (
               <textarea
                 rows={3}

@@ -1,4 +1,4 @@
-// Did it actually arrive? (16 Oct 2026) — the email service accepts an email and only finds out later that it
+// Did it actually arrive? (16 Oct 2026; texts too) — the email service accepts an email and only finds out later that it
 // bounced, or blocks it outright because that address bounced before (a "suppressed" address: every later email to
 // it is silently dropped — Claire Wambugu's complaint reply, 16 Oct). Nothing in CROS noticed. This looks at what
 // the service reports for recent emails and tells the office once about each one that didn't arrive.
@@ -37,14 +37,28 @@ export async function checkDeliveries(s: SupabaseClient, opts: { force?: boolean
     after = list[list.length - 1].id
   }
   const recent = emails.filter(e => Date.parse(e.created_at) >= since)
+
+  // texts too: accepted by the text service but then failed / undelivered (a refused text is reported at once by lib/sms)
+  const sid = process.env.TWILIO_ACCOUNT_SID, tok = process.env.TWILIO_AUTH_TOKEN
+  if (sid && tok) {
+    const day = new Date(since).toISOString().slice(0, 10)
+    const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json?PageSize=200&DateSent%3E=${day}`,
+      { headers: { Authorization: 'Basic ' + Buffer.from(`${sid}:${tok}`).toString('base64') } }).catch(() => null)
+    const j: any = r?.ok ? await r.json().catch(() => ({})) : {}
+    for (const m of (j.messages ?? []) as any[]) {
+      if (m.direction === 'inbound' || !['failed', 'undelivered'].includes(m.status)) continue
+      recent.push({ id: m.sid, created_at: new Date(m.date_created).toISOString(), to: [m.to], subject: `Text: ${String(m.body ?? '').slice(0, 90)}`,
+        last_event: 'text_failed', why: `Text ${m.status}${m.error_message ? ` — ${m.error_message}` : m.error_code ? ` (error ${m.error_code})` : ''}. Check the number.` })
+    }
+  }
   const late = (e: any) => e.last_event === 'delivery_delayed' && Date.now() - Date.parse(e.created_at) > 60 * 60_000
-  const problems = recent.filter(e => (BAD[e.last_event] || late(e)) && !reported.has(`${e.id}:${e.last_event}`)
+  const problems = recent.filter(e => (BAD[e.last_event] || late(e) || e.last_event === 'text_failed') && !reported.has(`${e.id}:${e.last_event}`)
     && !/^(Not sent|Didn’t arrive)/.test(String(e.subject)))
 
   if (problems.length) {
-    const addrs = [...new Set(problems.flatMap(e => e.to ?? []).map((a: string) => a.toLowerCase()))]
-    const { data: people } = await s.from('people').select('email, salutation, first_name, last_name, full_name, role').in('email', addrs)
-    const { data: apps } = await s.from('applicants').select('email, full_name').in('email', addrs)
+    const addrs = [...new Set(problems.flatMap(e => e.to ?? []).map((a: string) => a.toLowerCase()))].filter(a => a.includes('@'))
+    const { data: people } = await s.from('people').select('email, salutation, first_name, last_name, full_name, role').in('email', addrs.length ? addrs : ['-'])
+    const { data: apps } = await s.from('applicants').select('email, full_name').in('email', addrs.length ? addrs : ['-'])
     const who = (a: string) => {
       const p: any = (people ?? []).find((x: any) => String(x.email).toLowerCase() === a)
       if (p) return `${[p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name} (${p.role})`
@@ -58,12 +72,12 @@ export async function checkDeliveries(s: SupabaseClient, opts: { force?: boolean
       const when = new Date(e.created_at).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
       return `<tr><td style="padding:8px;border-bottom:1px solid #eee;vertical-align:top"><b>${esc(name || to)}</b>${name ? `<br><span style="color:#666">${esc(to)}</span>` : ''}</td>
         <td style="padding:8px;border-bottom:1px solid #eee;vertical-align:top">${esc(e.subject)}<br><span style="color:#666">${esc(when)}</span></td>
-        <td style="padding:8px;border-bottom:1px solid #eee;vertical-align:top">${esc(BAD[e.last_event] ?? 'Still not delivered after an hour — their provider is holding it.')}</td></tr>`
+        <td style="padding:8px;border-bottom:1px solid #eee;vertical-align:top">${esc(e.why ?? BAD[e.last_event] ?? 'Still not delivered after an hour — their provider is holding it.')}</td></tr>`
     }).join('')
     const res = await deliverEmail({
       to: [COPY_TO], noCopy: true,
-      subject: `Didn’t arrive: ${problems.length === 1 ? `${problems[0].subject}`.slice(0, 120) : `${problems.length} emails from CROS`}`,
-      html: `<p>${problems.length === 1 ? 'This email' : 'These emails'} from CROS did <b>not</b> reach the person:</p>
+      subject: `Didn’t arrive: ${problems.length === 1 ? `${problems[0].subject}`.slice(0, 120) : `${problems.length} messages from CROS`}`,
+      html: `<p>${problems.length === 1 ? 'This message' : 'These messages'} from CROS did <b>not</b> reach the person:</p>
         <table style="border-collapse:collapse;font-size:14px;width:100%"><tr style="text-align:left;color:#666"><th style="padding:8px">To</th><th style="padding:8px">Email</th><th style="padding:8px">What happened</th></tr>${rows}</table>
         <p><b>What to do:</b> check the email address with them (phone or text) and correct it in CROS, then send again.
         If the address was right all along, remove it from the blocked list in the email service (Resend › Suppressions) before sending again.</p>`,

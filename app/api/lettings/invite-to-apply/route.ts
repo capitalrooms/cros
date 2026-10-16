@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sendSms, smsConfigured } from '@/lib/sms'
 import { deliverEmail } from '@/lib/sendEmail'
 import { personFromText } from '@/lib/people'
 import { requireStaff } from '@/lib/portalAuth'
@@ -285,11 +286,9 @@ export async function POST(request: NextRequest) {
 
   // ── SMS (Twilio) ────────────────────────────────────────────────────────────
   if (method === 'sms' || method === 'both') {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID
-    const authToken  = process.env.TWILIO_AUTH_TOKEN
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER
-
-    if (!accountSid || !authToken || !fromNumber) {
+    // lib/sms — the right sender number (this used TWILIO_PHONE_NUMBER, which the text service rejects), +44 numbers,
+    // and the office is told if it fails
+    if (!smsConfigured()) {
       result.smsError = 'SMS not yet configured — use the copy link instead'
     } else if (!visitorPhone) {
       result.smsError = 'No phone number on this viewing'
@@ -298,16 +297,9 @@ export async function POST(request: NextRequest) {
         ? `Hi ${firstName}, ${whole ? `${propAddress || 'the property'} is` : `your room at ${propAddress || roomLabel} is`} ready to reserve — pay the holding deposit (£${weekly ?? '?'}) to secure it: ${reserveUrl} — Capital Rooms`
         : `Hi ${firstName}, thanks for viewing ${placeLabel(whole, roomLabel, propAddress) || 'the property'}. Apply in under 5 mins: ${isFastTrack ? fastUrl : applyUrl} — Capital Rooms`
 
-      const twilioRes = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ From: fromNumber, To: visitorPhone, Body: body }),
-        }
-      )
-      if (twilioRes.ok) result.smsSent = true
-      else result.smsError = 'Failed to send SMS'
+      const sent = await sendSms(visitorPhone, body)
+      if (sent.ok) result.smsSent = true
+      else result.smsError = `The text didn’t send: ${sent.error}`
     }
   }
 
