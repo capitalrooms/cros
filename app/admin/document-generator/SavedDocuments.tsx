@@ -159,13 +159,13 @@ export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: num
                   <td className="py-sm pr-sm text-neutral-700">{d.recipient_name}</td>
                   <td className="py-sm pr-sm text-right tabular-nums">{d.total != null ? money(Number(d.total)) : '—'}</td>
                   <td className="py-sm pr-sm text-xs text-neutral-500">{d.emailed_at ? `${when(d.emailed_at)}${d.emailed_to?.length ? ` · ${d.emailed_to.join(', ')}` : ''}` : 'Not emailed'}</td>
-                  <td className="py-sm whitespace-nowrap text-right">
+                  <td className="py-sm text-right"><div className="flex flex-wrap justify-end gap-x-sm gap-y-0.5 [&>button]:mr-0 [&>button]:whitespace-nowrap">
                     <button type="button" onClick={() => open(d, 'view')} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">View</button>
                     <button type="button" onClick={() => open(d, 'download')} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">Download</button>
                     <button type="button" onClick={() => { if (resend?.id === d.id) { setResend(null); return } startResend(d); setTimeout(() => document.getElementById('send-again')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50) }} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">{resend?.id === d.id ? 'Close' : 'Send again'}</button>
                     {onEdit && d.kind !== 'receipt' && <button type="button" onClick={() => onEdit(d)} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">Edit</button>}
                     <button type="button" onClick={() => remove(d)} disabled={!!busy} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
-                  </td>
+                  </div></td>
                 </tr>
               ))}
             </tbody>
