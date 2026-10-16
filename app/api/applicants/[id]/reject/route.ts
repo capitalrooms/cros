@@ -83,16 +83,6 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     return NextResponse.json({ error: 'Applicant has no email address' }, { status: 400 })
   }
 
-  // Mark as rejected
-  const { error: updateErr } = await sb
-    .from('applicants')
-    .update({ pipeline_stage: 'rejected', updated_at: new Date().toISOString() })
-    .eq('id', params.id)
-
-  if (updateErr) {
-    return NextResponse.json({ error: updateErr.message }, { status: 500 })
-  }
-
   // Build email HTML
   const bodyHtml = textToHtml(emailBody)
 
@@ -115,7 +105,9 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
   // GDPR footer
   const gdprFooter = `
     <p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e5e5e5;font-size:11px;color:#aaa;line-height:1.6;">
-      As your application was not progressed, your personal details will be permanently deleted from our system within 30 days in accordance with our privacy policy.
+      ${reason === 'asking_rent'
+        ? 'If we don’t hear from you, your application will close and your personal details will be permanently deleted from our system within 30 days, in accordance with our privacy policy.'
+        : 'As your application was not progressed, your personal details will be permanently deleted from our system within 30 days in accordance with our privacy policy.'}
     </p>
   `
 
@@ -132,9 +124,17 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     if (!emailRes.ok) {
       const err = await emailRes.json().catch(() => ({}))
       console.error('Rejection email failed:', err)
-      // Don't fail the whole request — stage is already updated
+      // nothing went out — leave them where they were, so the office can try again (16 Oct 2026)
+      return NextResponse.json({ error: `The email didn’t send: ${(err as any)?.message || 'unknown error'} — nothing was changed.` }, { status: 502 })
     }
   }
+
+  // Marked as declined only once they've been told
+  const { error: updateErr } = await sb
+    .from('applicants')
+    .update({ pipeline_stage: 'rejected', updated_at: new Date().toISOString() })
+    .eq('id', params.id)
+  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
 
   return NextResponse.json({ ok: true })
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { adminFetch } from '@/lib/adminFetch'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
@@ -20,6 +21,8 @@ const STAGES = [
   { key: 'referencing_passed', label: 'Ref. passed',        color: 'bg-sky-50 text-sky-700',           dot: 'bg-sky-500' },
   { key: 'docs_uploaded',      label: 'Docs uploaded',      color: 'bg-teal-50 text-teal-700',         dot: 'bg-teal-600' },
   { key: 'converted',          label: 'Let agreed ✓',        color: 'bg-green-50 text-green-700',       dot: 'bg-green-500' },
+  // offer below the asking rent declined — the email lets them come back at the asking rent (16 Oct 2026)
+  { key: 'rejected',           label: 'Offer declined',     color: 'bg-red-50 text-red-700',           dot: 'bg-red-400' },
 ] as const
 
 type Stage = typeof STAGES[number]['key']
@@ -97,6 +100,11 @@ export default function ApplicantsPage() {
   // archiving asks why on the card itself (a browser pop-up was easy to miss and some browsers block it)
   const [archiveFor, setArchiveFor] = useState<string | null>(null)
   const [archiveReason, setArchiveReason] = useState('Not interested')
+  // declining an offer below the asking rent (POST /api/applicants/[id]/reject, reason asking_rent — its email carries
+  // a "Yes, I'm happy to offer £asking" button that puts the application straight back in)
+  const [declineFor, setDeclineFor] = useState<string | null>(null)
+  const [declineText, setDeclineText] = useState({ subject: '', body: '' })
+  const [declining, setDeclining] = useState(false)
   const [depositBanner, setDepositBanner] = useState('')
   const [lettingFiles, setLettingFiles] = useState<Record<string, string>>({})   // applicant id → their tenancy's letting file
 
@@ -268,6 +276,28 @@ export default function ApplicantsPage() {
     } finally {
       setConverting(null)
     }
+  }
+
+  function openDecline(a: Applicant) {
+    const asking = (a.rooms as any)?.current_asking_rent
+    const room = (a.rooms as any)?.name || 'the room'
+    const place = String((a.properties as any)?.address || (a.properties as any)?.name || '').split('\n')[0]
+    const first = (a as any).first_name || a.full_name.split(' ')[0]
+    setDeclineFor(a.id)
+    setDeclineText({
+      subject: `Your offer for ${room}${place ? `, ${place}` : ''}`,
+      body: `Hi ${first},\n\nThank you for your offer of £${Number(a.offered_rent ?? 0).toLocaleString()} a month for ${room}${place ? ` at ${place}` : ''}, and for taking the time to apply.\n\nUnfortunately we’re not able to accept it — the rent for this room is £${Number(asking ?? 0).toLocaleString()} a month.\n\nIf you’d still like the room at £${Number(asking ?? 0).toLocaleString()} a month, just press the button below and we’ll pick your application straight back up — there’s no need to fill anything in again. Or, if you’d like to make a higher offer, simply reply to this email.\n\nKind regards,`,
+    })
+  }
+
+  async function sendDecline(a: Applicant) {
+    setDeclining(true)
+    const res = await adminFetch(`/api/applicants/${a.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'asking_rent', subject: declineText.subject, body: declineText.body }) })
+    const d = await res.json().catch(() => ({}))
+    setDeclining(false)
+    if (!res.ok) { alert(d.error || 'Could not send'); return }
+    setApplicants(prev => prev.map(x => x.id === a.id ? { ...x, pipeline_stage: 'rejected' as Stage } : x))
+    setDeclineFor(null)
   }
 
   async function setArchived(applicant: Applicant, archive: boolean, reason = '') {
@@ -762,6 +792,13 @@ export default function ApplicantsPage() {
                         {/* Accept offer & send the reserve email — on 'applied', and again on 'offer_sent' (no holding deposit yet:
                             recording one moves them on to referencing). An offer email that failed used to leave people at
                             'offer_sent' with no way to send the link (Chloe, 15 Oct 2026). */}
+                        {['applied', 'offer_sent'].includes(applicant.pipeline_stage) && applicant.rent_offer_type === 'below_asking' && applicant.offered_rent && (applicant.rooms as any)?.current_asking_rent && Number(applicant.offered_rent) < Number((applicant.rooms as any).current_asking_rent) && (
+                          <button type="button" onClick={() => declineFor === applicant.id ? setDeclineFor(null) : openDecline(applicant)}
+                            className="text-xs font-semibold border border-red-300 text-red-700 rounded-lg px-md py-sm hover:bg-red-50">
+                            Decline £{Number(applicant.offered_rent).toLocaleString()} offer…
+                          </button>
+                        )}
+
                         {(applicant.pipeline_stage === 'applied' || applicant.pipeline_stage === 'offer_sent') && (
                           <button
                             onClick={() => acceptOffer(applicant)}
@@ -772,7 +809,8 @@ export default function ApplicantsPage() {
                               ? 'Sending…'
                               : acceptSentFor.has(applicant.id)
                                 ? '✓ Reserve email sent'
-                                : applicant.pipeline_stage === 'offer_sent' ? 'Resend reserve email' : '✓ Accept offer & send reserve email'}
+                                : applicant.pipeline_stage === 'offer_sent' ? 'Resend reserve email'
+                                  : applicant.rent_offer_type === 'below_asking' && applicant.offered_rent ? `✓ Accept £${Number(applicant.offered_rent).toLocaleString()} offer & send reserve email` : '✓ Accept offer & send reserve email'}
                           </button>
                         )}
 
@@ -786,6 +824,19 @@ export default function ApplicantsPage() {
                           >
                             {advancing === applicant.id ? 'Updating…' : `→ Mark as ${nextStage.label}`}
                           </button>
+                        )}
+
+                        {declineFor === applicant.id && (
+                          <div className="basis-full rounded-xl border border-red-200 bg-red-50/40 p-md space-y-sm">
+                            <p className="text-xs font-bold uppercase tracking-wide text-red-800">Decline this offer — the email they’ll get</p>
+                            <input value={declineText.subject} onChange={e => setDeclineText(t => ({ ...t, subject: e.target.value }))} className="w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm" />
+                            <textarea value={declineText.body} onChange={e => setDeclineText(t => ({ ...t, body: e.target.value }))} rows={9} className="w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm" />
+                            <p className="text-xs text-neutral-600">Under your message they’ll see a button: <strong>“Yes — I’m happy to offer £{Number((applicant.rooms as any)?.current_asking_rent ?? 0).toLocaleString()} per month →”</strong>. Pressing it puts the application back to Applied at that rent and emails you. The application shows as “Offer declined” until then.</p>
+                            <div className="flex gap-sm">
+                              <button type="button" disabled={declining || !declineText.subject.trim() || !declineText.body.trim()} onClick={() => sendDecline(applicant)} className="rounded-lg bg-red-700 px-md py-xs text-sm font-bold text-white disabled:opacity-40">{declining ? 'Sending…' : 'Send and decline'}</button>
+                              <button type="button" onClick={() => setDeclineFor(null)} className="text-sm font-semibold text-neutral-600 underline">Cancel</button>
+                            </div>
+                          </div>
                         )}
 
                         {archiveFor === applicant.id ? (
