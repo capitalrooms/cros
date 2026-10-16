@@ -9,6 +9,7 @@ import DarkHeroHeader from '@/app/components/DarkHeroHeader'
 import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
+import PhoneTabBar, { ICONS } from '@/app/components/PhoneTabBar'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
 import MultiDayDiaryGrid, { DiaryJob } from '@/app/components/MultiDayDiaryGrid'
 import DesktopRightRail from '@/app/components/DesktopRightRail'
@@ -614,6 +615,12 @@ export default function CleanerDashboard() {
 
       {/* ── MOBILE (< lg) ─────────────────────────────────────────────────── */}
       <div className="lg:hidden min-h-screen bg-neutral-100">
+      {/* phone: the same bottom tab bar as the admin app (17 Oct 2026) — replaces the pill strip at the top */}
+      <PhoneTabBar fixed className="lg:hidden" label="Cleaner sections" tabs={[
+        ...TABS.map(t => ({ key: t.key, label: t.label.replace(/\s*\(\d+\)$/, ''), icon: t.key === 'today' ? ICONS.home : t.key === 'upcoming' ? ICONS.calendar : t.key === 'done' ? ICONS.check : ICONS.notes,
+          onClick: () => { setActiveTab(t.key); window.scrollTo({ top: 0 }) }, active: activeTab === t.key })),
+        { key: 'me', label: 'Me', icon: ICONS.me, href: '/cleaner/profile', active: false },
+      ]} />
 
       {/* ── Dark hero ──────────────────────────────────────────────────────── */}
       <DarkHeroHeader
@@ -697,27 +704,6 @@ export default function CleanerDashboard() {
       </DarkHeroHeader>
 
       {/* ── Tab strip — exact lettings pattern ─────────────────────────────── */}
-      <div
-        className="bg-white border-b border-neutral-200 sticky z-40 px-lg pt-md pb-0"
-        style={{ top: 'calc(env(safe-area-inset-top) + 52px)' }}
-      >
-        <div className="flex gap-xs overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          {TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className={`px-lg py-sm rounded-full text-sm font-bold whitespace-nowrap transition-all mb-sm ${
-                activeTab === key
-                  ? 'bg-neutral-950 text-white'
-                  : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* ── Global notices ─────────────────────────────────────────────────── */}
       {bookedNotice && (
         <div className="mx-lg mt-md rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">
@@ -731,14 +717,16 @@ export default function CleanerDashboard() {
       )}
 
       {/* ── Tab content ────────────────────────────────────────────────────── */}
-      <main className="mx-auto max-w-2xl px-lg pb-3xl">
+      <main className="mx-auto max-w-2xl px-lg pb-[120px]">
 
-        {/* Notifications prompt — shown once at top of first tab */}
+        {/* Notifications prompt, and the two other places — one slim row, not two big buttons (17 Oct 2026) */}
         {activeTab === 'today' && (
           <div className="pt-lg pb-sm">
             <EnableNotifications />
-            <a href="/planner" className="mt-sm flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🗂️ With Capital Rooms — notes, jobs &amp; photos<span aria-hidden="true">›</span></a>
-            <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="mt-sm flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🧾 Invoice your cleans<span aria-hidden="true">›</span></a>
+            <div className="mt-sm grid grid-cols-2 gap-sm">
+              <a href="/planner" className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">🗂️ Notes with Capital Rooms</a>
+              <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">🧾 Invoice your cleans</a>
+            </div>
           </div>
         )}
 
@@ -971,7 +959,7 @@ export default function CleanerDashboard() {
       {/* ── FAB ────────────────────────────────────────────────────────────── */}
       <div
         className="fixed z-30 right-lg"
-        style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom) + 16px))' }}
+        style={{ bottom: 'calc(max(env(safe-area-inset-bottom), 6px) + 76px)' }}   // above the bottom tab bar
       >
         {showFabMenu && (
           <div className="mb-sm flex flex-col gap-sm items-end">

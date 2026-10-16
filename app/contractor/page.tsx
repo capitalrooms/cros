@@ -10,6 +10,7 @@ import DarkHeroHeader from '@/app/components/DarkHeroHeader'
 import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
+import PhoneTabBar, { ICONS } from '@/app/components/PhoneTabBar'
 import Link from 'next/link'
 import { getTodayGMT, isDatePast, isDateToday, formatDateUK } from '@/lib/dateUtils'
 import MultiDayDiaryGrid, { type DiaryJob } from '@/app/components/MultiDayDiaryGrid'
@@ -70,6 +71,7 @@ function isoToDateParts(iso: string) {
 }
 
 type Tab = 'today' | 'quotes' | 'ongoing' | 'waiting' | 'booked' | 'done'
+const JOB_TABS: Tab[] = ['today', 'ongoing', 'waiting', 'booked']   // grouped as "Jobs" on the phone tab bar
 
 // ── Job card ──────────────────────────────────────────────────────────────────
 function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'waiting' | 'ongoing'; asParam?: string }) {
@@ -729,6 +731,14 @@ export default function ContractorDashboard() {
           MOBILE LAYOUT (< lg) — existing layout unchanged
       ════════════════════════════════════════════════════════════════════ */}
       <div className="lg:hidden">
+        {/* phone: the same bottom tab bar as the admin app (17 Oct 2026) */}
+        <PhoneTabBar fixed className="lg:hidden" label="Contractor sections" tabs={[
+          { key: 'jobs', label: needsAttention > 0 ? `Jobs (${needsAttention})` : 'Jobs', icon: ICONS.wrench, onClick: () => { setActiveTab('today'); window.scrollTo({ top: 0 }) }, active: JOB_TABS.includes(activeTab) },
+          { key: 'quotes', label: pendingQuotes.length ? `Quotes (${pendingQuotes.length})` : 'Quotes', icon: ICONS.notes, onClick: () => { setActiveTab('quotes'); window.scrollTo({ top: 0 }) }, active: activeTab === 'quotes' },
+          { key: 'done', label: 'Done', icon: ICONS.check, onClick: () => { setActiveTab('done'); window.scrollTo({ top: 0 }) }, active: activeTab === 'done' },
+          { key: 'invoices', label: 'Invoices', icon: ICONS.invoice, href: `/contractor/invoices${asId ? `?as=${asId}` : ''}`, active: false },
+          { key: 'me', label: 'Me', icon: ICONS.me, href: '/contractor/profile', active: false },
+        ]} />
 
         <DarkHeroHeader
           eyebrow="Contractor"
@@ -807,14 +817,15 @@ export default function ContractorDashboard() {
           </div>
         </DarkHeroHeader>
 
-        {/* Mobile tab strip */}
-        <div
+        {/* Mobile tab strip — only under Jobs */}
+        {JOB_TABS.includes(activeTab) && <div
           ref={tabStripRef}
           className="bg-white border-b border-neutral-200 sticky z-40 px-lg pt-md pb-0"
           style={{ top: 'calc(env(safe-area-inset-top) + 52px)' }}
         >
           <div className="flex gap-xs overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            {TABS.map(({ key, label, badge }) => (
+            {/* phone: just the job views here — Quotes, Done, Invoices and Me are on the bottom tab bar */}
+            {TABS.filter(t => JOB_TABS.includes(t.key)).map(({ key, label, badge }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
@@ -831,16 +842,15 @@ export default function ContractorDashboard() {
               </button>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Mobile tab content */}
-        <main className="mx-auto max-w-2xl px-lg pb-3xl">
+        <main className="mx-auto max-w-2xl px-lg pb-[120px]">
 
           {activeTab === 'today' && (
             <div className="pt-sm space-y-sm">
               <div className="pt-sm pb-sm"><EnableNotifications /></div>
-              <a href="/planner" className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🗂️ With Capital Rooms — notes, jobs &amp; photos<span aria-hidden="true">›</span></a>
-              <a href={`/contractor/invoices${asId ? `?as=${asId}` : ''}`} className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md text-sm font-bold text-neutral-900">🧾 Invoices — make and send a professional invoice<span aria-hidden="true">›</span></a>
+              <a href="/planner" className="block rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">🗂️ Notes, jobs &amp; photos with Capital Rooms</a>
               {/* visits that have passed (or still need a date) shouldn't hide behind another tab */}
               {needsAttention > 0 && (
                 <button type="button" onClick={() => goToTab('waiting')}
