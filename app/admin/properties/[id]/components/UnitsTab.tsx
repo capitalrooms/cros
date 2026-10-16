@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { initials as avatarInitials } from '@/lib/people'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
@@ -95,9 +96,7 @@ function tenantDisplayName(p: TenancyDetail['person']): string {
 }
 
 function initials(p: TenancyDetail['person']): string {
-  if (!p) return '?'
-  const name = [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.email
-  return name.split(' ').slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')
+  return p ? avatarInitials(p as any) : '?'   // lib/people — never the title
 }
 
 function fmtDate(d: string | null | undefined): string {

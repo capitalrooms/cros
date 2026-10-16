@@ -87,7 +87,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
       <AppBar left={<BackButton href={from} />} title="Letting file" />
       <PageHero
         eyebrow={<>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''} · {STAGE_LABEL[file.stage]} · {file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</>}
-        title={file.tenant.name || where}
+        title={[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ') || where}   // both joint tenants
         subtitle={<>{file.tenant.name ? `${where} · ` : ''}{file.stage === 'let_agreed' ? 'from' : 'since'} {day(tn.start_date)} · {gbp(tn.rent_amount)} pcm{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}</>}
         stats={[
           ...(file.liveHold ? [{ label: `Holding deposit · ${file.liveHold.status === 'applied' ? 'applied' : 'received'} ${day(file.liveHold.received_on)}`, value: gbp(file.liveHold.amount) }] : []),

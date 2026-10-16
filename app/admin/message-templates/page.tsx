@@ -429,12 +429,21 @@ export default function MessageTemplatesPage() {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('notification_templates')
-      .select('id, name, slug, category, group_name, sort_order, trigger_description, recipient_description, channels, is_hardcoded, route_path, subject_line, template_text')
+      .select('id, name, slug, category, group_name, sort_order, trigger_description, recipient_description, channels, is_hardcoded, route_path, subject_line, template_text, updated_at')
       .eq('is_system_message', true)
       .order('group_name')
       .order('sort_order')
     if (!error && data) {
-      setTemplates(data as MessageTemplate[])
+      // some templates were saved twice (Sept 2026) — show the one copy CROS sends (lib/messageTemplate getTemplate:
+      // the editable one, most recently changed), so an edit here is always the one that goes out (16 Oct 2026)
+      const keep = new Map<string, any>()
+      for (const t of data as any[]) {
+        if (!t.slug) continue
+        const k = keep.get(t.slug)
+        const better = !k || (k.is_hardcoded && !t.is_hardcoded) || (k.is_hardcoded === t.is_hardcoded && String(t.updated_at ?? '') > String(k.updated_at ?? ''))
+        if (better) keep.set(t.slug, t)
+      }
+      setTemplates((data as any[]).filter(t => !t.slug || keep.get(t.slug) === t) as MessageTemplate[])
     }
   }
 

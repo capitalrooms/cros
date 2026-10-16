@@ -263,7 +263,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       <PageHero
         eyebrow={[property.property_code, property.property_type === 'hmo' ? 'HMO' : property.property_type === 'single' || property.property_type === 'single_let' ? 'Single let' : property.property_type, property.letting_type === 'let_only' ? 'Let only' : 'Fully managed'].filter(Boolean).join(' · ')}
         title={property.name || '—'}
-        subtitle={String(property.address || '').split('\n').join(', ')}
+        // the address only when it says more than the name (most houses are named after their address)
+        subtitle={(() => { const addr = String(property.address || '').split('\n').join(', '); const sq = (v: string) => v.replace(/[\s,]/g, '').toLowerCase(); return sq(addr) === sq(String(property.name || '').split('\n').join(', ')) || sq(String(property.name || '')).includes(sq(addr)) ? undefined : addr })()}
         actions={<HeroButton onClick={() => setShowQuickNotify(true)}>📢 Quick Notify</HeroButton>}
       />
 

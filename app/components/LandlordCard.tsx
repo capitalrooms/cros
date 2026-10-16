@@ -1,6 +1,6 @@
 'use client'
 
-import { landlordName, onboardingName } from '@/lib/people'
+import { landlordName, onboardingName, initials as avatarInitials } from '@/lib/people'
 import { StoredImg } from '@/components/StoredImg'
 
 /**
@@ -178,9 +178,7 @@ function fmtDate(d: string | null | undefined) {
   return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-function initials(name: string): string {
-  return name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
-}
+const initials = (name: string): string => avatarInitials(name)   // lib/people — never the title
 
 /* ─── Component ─── */
 

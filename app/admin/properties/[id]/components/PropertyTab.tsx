@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { initials as avatarInitials } from '@/lib/people'
 import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
 import FloorPlanMap from './FloorPlanMap'
@@ -435,7 +436,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
             const linked = landlords.find(l => l.id === displayed.landlord_id)
             if (linked) {
               const name = linked.company || [linked.salutation, linked.first_name, linked.last_name].filter(Boolean).join(' ') || linked.full_name || '—'
-              const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+              const initials = avatarInitials(name)
               return (
                 <div className="flex items-center gap-md">
                   <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-xs font-semibold text-blue-700 flex-shrink-0">{initials}</div>

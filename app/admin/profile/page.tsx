@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { initials as avatarInitials } from '@/lib/people'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
@@ -18,7 +19,7 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 function Avatar({ name }: { name: string }) {
-  const initials = name.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase()
+  const initials = avatarInitials(name)
   return (
     <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center shrink-0">
       <span className="text-xl font-bold text-white">{initials || '?'}</span>
