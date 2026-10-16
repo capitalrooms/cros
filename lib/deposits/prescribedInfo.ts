@@ -18,15 +18,15 @@ import { oneLine, placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 export interface SchemeDetails { name: string; address: string; phone: string; email: string; website: string }
 
 /** The DPS's details as we hold them — editable on the Deposits screen (system_settings deposit_scheme_details).
- *  Check them against the DPS's current leaflet: they go on a legal notice. */
+ *  Taken from the DPS Terms and Conditions (v27, section 36 — public/tenancy-pack/dps-terms-and-conditions.pdf). */
 export const DPS_TERMS_FILE = 'tenancy-pack/dps-terms-and-conditions.pdf'
 export const DPS_GUIDE_FILE = 'tenancy-pack/deposit-protection-guide.pdf'
 
 export const DPS_DEFAULT: SchemeDetails = {
   name: 'The Deposit Protection Service (DPS) — custodial scheme',
   address: 'The Pavilions, Bridgwater Road, Bristol, BS99 6AA',
-  phone: '0330 303 0030',
-  email: 'Enquiry forms at www.depositprotection.com',
+  phone: '0330 303 0033',
+  email: 'Contact section at www.depositprotection.com (disputes: disputes@depositprotection.com)',
   website: 'www.depositprotection.com',
 }
 
@@ -132,14 +132,14 @@ ${c.tenants.length > 1 ? '\nAs joint tenants, you agree that a lead tenant is no
 ## How the deposit is repaid at the end of the tenancy
 - The deposit is held by the DPS in its custodial scheme, not by us or the landlord.
 - When the tenancy ends, we will tell you of any deductions the landlord proposes, with the reasons. Either you or we can then ask the DPS to repay the deposit through its online service.
-- Once you and the landlord agree how it should be split, the DPS repays the agreed amounts, normally within 5 working days.
+- Once you and the landlord agree how it should be split, the DPS repays the agreed amounts to each of you.
 - You are entitled to have the deposit back in full, less only deductions you agree to or that the DPS’s adjudicator decides are due.
 
 ## If either side can’t be contacted
-If you or the landlord don’t respond to a repayment request, the other side can ask the DPS to repay the deposit using its procedure for when one party cannot be contacted (a statutory declaration). The DPS will tell the other party and give them the chance to respond before any money is paid out. Full details are in the DPS leaflet.
+If you or the landlord don’t respond to a repayment request, the other side can ask the DPS to repay the deposit using a statutory declaration (section 19 of the DPS Terms and Conditions). The DPS will write to the other party and give them the chance to respond before any money is paid out.
 
 ## If you don’t agree about deductions
-Any amount in dispute stays protected with the DPS. The DPS offers a **free alternative dispute resolution (ADR) service**: an independent adjudicator decides on the written evidence from both sides. Using it is voluntary — you can go to court instead — but both sides must agree to it. The DPS repays any amount that isn’t in dispute straight away.
+Any amount in dispute stays protected with the DPS. The DPS offers a **free alternative dispute resolution (ADR) service**: an independent adjudicator decides on the written evidence from both sides. Using it is voluntary — you can go to court instead — but both sides must agree to it. The DPS repays any amount that isn’t in dispute (section 20 of the DPS Terms and Conditions).
 
 ## When deductions may be made
 The landlord may keep all or part of the deposit in the circumstances set out in **clause 5 (The deposit) of your tenancy agreement**. In summary, deductions may be made for:

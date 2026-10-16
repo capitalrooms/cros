@@ -34,7 +34,10 @@ export interface PackDoc {
 
 const STATIC: Omit<PackDoc, 'available' | 'source'>[] = [
   { key: 'renters_rights', label: 'Renters’ Rights Act information sheet', group: 'Your rights', url: '/tenancy-pack/renters-rights-act-information-sheet-2026.pdf', include: true },
-  { key: 'prescribed_info', label: 'Deposit prescribed information', group: 'Your deposit', url: '/tenancy-pack/deposit-prescribed-information.pdf', include: true },
+  { key: 'apt_guide', label: 'Assured periodic tenancies — a guide for tenants (GOV.UK)', group: 'Your rights', url: '/tenancy-pack/assured-periodic-tenancies-guide.pdf', include: true },
+  // the tenancy's own prescribed information is sent from Finance › Deposits once the deposit is protected
+  // (lib/deposits/prescribedInfo); the blank DPS form that used to sit here wasn't filled in for anyone (16 Oct 2026)
+  { key: 'dps_terms', label: 'DPS Terms and Conditions', group: 'Your deposit', url: '/tenancy-pack/dps-terms-and-conditions.pdf', include: true },
   { key: 'deposit_guide', label: 'Deposit protection — a guide for tenants', group: 'Your deposit', url: '/tenancy-pack/deposit-protection-guide.pdf', include: true },
   { key: 'fire_doors', label: 'Fire door guide', group: 'Living in the house', url: '/tenancy-pack/fire-door-guide.pdf', include: true },
   { key: 'legionnaires', label: 'Legionnaires’ guide', group: 'Living in the house', url: '/tenancy-pack/legionnaires-guide.pdf', include: true },
@@ -137,7 +140,8 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
     { key: 'agreement', label: 'Tenancy agreement', group: 'Your tenancy', source: 'generated', available: true, include: true },
     { key: 'check_in', label: 'Check-in balance', group: 'Your tenancy', source: 'generated', available: true, include: true },
     ...certDocs,
-    ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true })),
+    // let-only (Nigel) tenants don't get the housemate and checking-out guides (Harry, 15 Oct 2026)
+    ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true, include: d.include && !((prop as any)?.letting_type === 'let_only' && (d.key === 'jedi' || d.key === 'checking_out')) })),
   ]
 
   // formalName = title, first, middle and surname — it goes on the agreement
