@@ -4,7 +4,7 @@
 // A CSV with recognisable headings is read directly; anything else is read by the AI into the same rows.
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-export interface DpsLine { ref: string; tenant: string; address: string; postcode: string; amount: number | null; protectedOn: string | null }
+export interface DpsLine { ref: string; tenant: string; address: string; postcode: string; amount: number | null; protectedOn: string | null; startDate?: string | null; status?: string | null; notProtectedYet?: boolean }
 export interface DpsMatch { line: DpsLine; tenancyId: string | null; tenancyLabel: string | null; score: number; why: string[]; already: boolean }
 
 const POSTCODE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i
@@ -37,10 +37,38 @@ function parseCsv(text: string): string[][] {
   return rows
 }
 
+/** The DPS's own "All tenancies" export (Deposit ID, Deposit Status, Address line 1–3, Tenant 1–10 name, Deposit
+ *  balance, Date deposit paid into scheme…). Only deposits the DPS still holds — a balance above £0, not cancelled;
+ *  old tenancies already repaid are left out. "Awaiting bank transfer payment" isn't protected yet: flagged. */
+function readDpsExport(rows: string[][]): DpsLine[] | null {
+  const h = rows[0].map(c => c.replace(/^\uFEFF/, '').trim().toLowerCase())
+  const at = (name: string) => h.indexOf(name)
+  if (at('deposit id') < 0 || at('tenant 1 name') < 0) return null
+  const tenantCols = h.map((c, i) => /^tenant \d+ name$/.test(c) ? i : -1).filter(i => i >= 0)
+  return rows.slice(1).map(r => {
+    const cell = (name: string) => String(r[at(name)] ?? '').trim()
+    const status = cell('deposit status')
+    const balance = money(cell('deposit balance (£)'))
+    return {
+      ref: cell('deposit id'), status,
+      tenant: tenantCols.map(i => String(r[i] ?? '').trim()).filter(Boolean).join(' & '),
+      address: ['address line 1', 'address line 2', 'address line 3', 'city'].map(cell).filter(Boolean).join(', '),
+      postcode: pc(cell('postcode')),
+      amount: money(cell('deposit amount (£)')),
+      protectedOn: isoDate(cell('date deposit paid into scheme')),
+      startDate: isoDate(cell('tenancy start date')),
+      notProtectedYet: /awaiting bank transfer/i.test(status),
+      _held: (balance ?? 0) > 0 && !/cancelled/i.test(status),
+    }
+  }).filter((l: any) => l.ref && l.amount && l._held).map(({ _held, ...l }: any) => l)
+}
+
 /** Read a DPS export by its headings. Returns null if the headings aren't recognisable (then the AI reads it). */
 export function readDpsCsv(text: string): DpsLine[] | null {
-  const rows = parseCsv(text)
+  const rows = parseCsv(text.replace(/^\uFEFF/, ''))
   if (rows.length < 2) return null
+  const official = readDpsExport(rows)
+  if (official) return official
   const hi = rows.findIndex(r => r.some(c => /\b(dan|deposit (id|number|ref)|reference|protection (id|number))\b/i.test(c)) && r.some(c => /amount|value|deposit/i.test(c)))
   if (hi < 0) return null
   const h = rows[hi].map(c => c.toLowerCase())
@@ -102,10 +130,11 @@ export async function matchDps(s: SupabaseClient, lines: DpsLine[]): Promise<Dps
       if (lpc && tpc && lpc.toUpperCase() === tpc) { score += 30; why.push('postcode') }
       else if (laddr.length && words(`${t.properties?.name} ${t.properties?.address}`).filter(w => laddr.includes(w) && w.length > 3).length >= 2) { score += 20; why.push('street') }
       if (line.amount != null && Math.abs(Number(t.deposit_amount) - line.amount) < 0.011) { score += 25; why.push('amount') }
+      if (line.startDate && t.start_date && line.startDate === String(t.start_date).slice(0, 10)) { score += 20; why.push('start date') }
       if (t.deposit_scheme_ref && String(t.deposit_scheme_ref).trim().toUpperCase() === line.ref.toUpperCase()) { score += 100; why.unshift('already recorded') }
       if (!best || score > best.score) best = { t, score, why }
     }
-    const ok = best && best.score >= 70 && !used.has(best.t.id)
+    const ok = best && best.score >= 70 && !used.has(best.t.id) && !line.notProtectedYet
     if (ok) used.add(best!.t.id)
     const p = best?.t
     return {
