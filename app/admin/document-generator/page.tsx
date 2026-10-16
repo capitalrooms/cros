@@ -451,7 +451,8 @@ export default function DocumentGenerator() {
     setTo(email); setCc(''); setMissing([]); setChanges(''); setSendResult(null); setSaveNote('')
     setEmailMessage(`Dear ${dearFromText(d.kind === 'invoice' ? (c as DocInvoice).recipientName : c.letter?.recipientName)},\n\nPlease find attached ${d.kind === 'invoice' ? `invoice ${(c as DocInvoice).invoiceNumber ?? d.number}` : 'our letter'}.\n\nKind regards,`)
     setStep('check')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    // the admin page scrolls inside <main>, not the window
+    for (const el of [document.querySelector('main'), window] as const) el?.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function startAgain() {
