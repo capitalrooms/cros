@@ -161,7 +161,16 @@ async function alertFailed(subject: string, files: string[], why: string) {
 function agentStatement(subject: string, files: string[], body = ''): { date: string | null; number: string | null } {
   // the subject ("Statement at 03/06/2026"), else the forwarded email's own text ("Statement at …" / "Date: …")
   const m = subject.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/) ?? body.match(/Statement (?:at|dated?:?)\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i)
-  const date = m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null
+  let date = m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null
+  // written out — "Statement at 03 June 2026" (Bagshaw's emails, 16 Oct 2026), or the forwarded "Date: Wed, Jun 3, 2026"
+  if (!date) {
+    const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+    const w = body.match(/Statement (?:at|dated?:?)\s*(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,9})\s+(\d{4})/i)
+    const f = !w ? body.match(/Date:\s*(?:[A-Za-z]{3},\s*)?([A-Za-z]{3,9})\s+(\d{1,2}),\s*(\d{4})/i) : null
+    const day = w ? w[1] : f?.[2], mon = (w ? w[2] : f?.[1])?.slice(0, 3).toLowerCase(), year = w ? w[3] : f?.[3]
+    const mi = mon ? MONTHS.indexOf(mon) : -1
+    if (day && year && mi >= 0) date = `${year}-${String(mi + 1).padStart(2, '0')}-${day.padStart(2, '0')}`
+  }
   const number = files.map(f => f.match(/\bLS\d{3,}\b/i)?.[0]).find(Boolean)?.toUpperCase() ?? null
   return { date: date && !isNaN(Date.parse(date)) ? date : null, number }
 }
@@ -516,6 +525,16 @@ Respond with JSON only in this exact shape:
         await supabase.from('landlord_statements').update({ statement_date: when, statement_reference: `${agent.number} · ${label}` }).eq('id', dupOf)
         console.log('AutoLedger: duplicate — dated the original', agent.number, agent.date)
         return { outcome: 'stamped', detail: `${agent.number} · ${label} stamped on the statement already in CROS (${property.name || property.address})` }
+      }
+      // already numbered but filed under the wrong date (read off the PDF before the email's own date was understood):
+      // the agent's own date wins (16 Oct 2026 — Bagshaw's June and October statements had swapped months)
+      if (agent.number && agent.date && String(prev?.statement_reference ?? '').toUpperCase().startsWith(agent.number)) {
+        const { data: cur } = await supabase.from('landlord_statements').select('statement_date').eq('id', dupOf).maybeSingle()
+        if (cur && String(cur.statement_date ?? '').slice(0, 7) !== agent.date.slice(0, 7)) {
+          const label = new Date(agent.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+          await supabase.from('landlord_statements').update({ statement_date: agent.date, statement_reference: `${agent.number} · ${label}` }).eq('id', dupOf)
+          return { outcome: 'stamped', detail: `${agent.number} re-dated to ${label} (${property.name || property.address})` }
+        }
       }
       const when = prev?.created_at ? new Date(prev.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : 'earlier'
       const what = `${property.name || property.address} — ${prev?.statement_reference ?? 'statement'}`
