@@ -498,6 +498,15 @@ Respond with JSON only in this exact shape:
     const byStmt = new Map<string, Set<string>>()
     for (const h of (hits ?? []) as any[]) { if (!h.statement_id) continue; const set = byStmt.get(h.statement_id) ?? new Set<string>(); set.add(h.dedup_hash); byStmt.set(h.statement_id, set) }
     let dupOf = [...byStmt.entries()].find(([, set]) => incoming.every(x => set.has(x)))?.[0]
+    // the agent's statement number decides first (16 Oct 2026): a let with the same rent every month has identical
+    // lines each month, so the lines alone matched June's statement to October's and swapped their months. Same
+    // number → the same statement; lines matching a statement with a DIFFERENT number → a different month, not a copy.
+    if (agent.number) {
+      const { data: numbered } = await supabase.from('landlord_statements').select('id, statement_reference').eq('property_id', property.id).like('statement_reference', 'LS%')
+      const same = (numbered ?? []).find((x: any) => String(x.statement_reference).toUpperCase().startsWith(agent.number!))
+      if (same) dupOf = (same as any).id
+      else if (dupOf && (numbered ?? []).some((x: any) => x.id === dupOf)) dupOf = undefined
+    }
     // stronger checks (15 Oct 2026 — reading a PDF again can word a line differently, so line matches alone could let
     // a re-read through as a second copy):
     //  1. the agent's own statement number (LS0993) is already on this property → the same statement
