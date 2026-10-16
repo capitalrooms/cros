@@ -35,3 +35,13 @@ export function blockAddress(addr: string | null | undefined): string {
  * Address for use in generated text (emails, PDFs, strings) — inline comma form.
  */
 export const textAddress = inlineAddress
+
+/** The house's full postal address on one line (16 Oct 2026) — never the marketing display name. The postcode is
+ *  added if the address leaves it out, and spaced properly ("SE167TF" → "SE16 7TF"). */
+export function fullAddressLine(p: { address?: string | null; postcode?: string | null; name?: string | null }): string {
+  const fix = (v: string) => v.replace(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/gi, (_m, a: string, b: string) => `${a} ${b}`.toUpperCase())
+  const addr = fix(inlineAddress(p.address || p.name || '').replace(/\s*,\s*/g, ', ').replace(/,\s*,/g, ',').trim())
+  const pc = p.postcode ? fix(p.postcode.trim()) : ''
+  const has = pc && addr.replace(/\s/g, '').toUpperCase().includes(pc.replace(/\s/g, '').toUpperCase())
+  return pc && !has ? `${addr}${addr ? ', ' : ''}${pc}` : addr
+}
