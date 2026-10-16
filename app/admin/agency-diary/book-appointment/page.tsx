@@ -249,7 +249,7 @@ export default function BookAppointmentPage() {
                 ([type, { label, icon }]) => (
                   <button
                     key={type}
-                    onClick={() => setAppointmentType(type)}
+                    onClick={() => { setAppointmentType(type); if (type === 'viewing') setDurationMinutes(15) }}   // a viewing is 15 minutes
                     className={`px-md py-md rounded-lg border-2 transition-all ${
                       appointmentType === type
                         ? 'border-blue-500 bg-blue-900 text-white font-semibold'

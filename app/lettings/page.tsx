@@ -82,15 +82,13 @@ const DURATION_OPTIONS = [
   { label: '30 min', value: 30 },
   { label: '45 min', value: 45 },
   { label: '1 hour', value: 60 },
-  { label: '1½ hours', value: 90 },
-  { label: '2 hours', value: 120 },
 ]
 
 const blankViewingForm = (date = '', time = '') => ({
   room_id: '',
   viewing_date: date,
   viewing_slot: time,
-  duration_minutes: 60,
+  duration_minutes: 15,   // a viewing is 15 minutes unless changed (Harry, 17 Oct 2026)
   visitor_name: '',
   visitor_email: '',
   visitor_phone: '',
