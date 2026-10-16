@@ -8,6 +8,7 @@ import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { blockAddress, inlineAddress } from '@/lib/formatAddress'
+import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 
 interface Tenancy {
   id: string
@@ -36,13 +37,6 @@ interface LetOnlyProperty {
   landlord: { full_name: string | null; first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null
 }
 
-interface AllProperty {
-  id: string
-  name: string
-  address: string
-  letting_type: string | null
-}
-
 function pctToFraction(pct: number): string {
   const fractions: Record<number, string> = { 25: '¼', 33: '⅓', 50: '½', 67: '⅔', 75: '¾', 100: '1' }
   return fractions[Math.round(pct)] ? `${fractions[Math.round(pct)]} of first month's rent` : `${pct}% of first month's rent`
@@ -64,9 +58,9 @@ export default function LetOnlyPropertiesPage() {
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [letOnlyProperties, setLetOnlyProperties] = useState<LetOnlyProperty[]>([])
-  const [allProperties, setAllProperties] = useState<AllProperty[]>([])
-  const [showConvertPicker, setShowConvertPicker] = useState(false)
-  const [converting, setConverting] = useState<string | null>(null)
+  // "+ Add let-only property" takes a new address, landlord and rooms (16 Oct 2026) — it used to only offer to flip a
+  // managed house to let-only, which is never what's wanted here (that lives in the property's own settings)
+  const [showAdd, setShowAdd] = useState(false)
   const [generatingStatement, setGeneratingStatement] = useState<string | null>(null)
   const [generatingBalance, setGeneratingBalance] = useState<string | null>(null)
   // Rent-mode picker: tenancyId → show mode selector dropdown
@@ -85,7 +79,7 @@ export default function LetOnlyPropertiesPage() {
   }, [balancePicker])
 
   async function loadData() {
-    const [{ data: letOnly }, { data: all }] = await Promise.all([
+    const [{ data: letOnly }] = await Promise.all([
       supabase
         .from('properties')
         .select(`
@@ -102,11 +96,6 @@ export default function LetOnlyPropertiesPage() {
         `)
         .eq('letting_type', 'let_only')
         .order('name'),
-      supabase
-        .from('properties')
-        .select('id, name, address, letting_type')
-        .neq('letting_type', 'let_only')
-        .order('name'),
     ])
 
     setLetOnlyProperties((letOnly || []).map((p: any) => ({
@@ -119,7 +108,6 @@ export default function LetOnlyPropertiesPage() {
       }),
       landlord: p.people || null,
     })))
-    setAllProperties(all || [])
     const { data: occ } = await supabase.from('let_only_occupants').select('room_id, name, phone, move_in, rent, source').is('ended_at', null)
     setOccupants(new Map(((occ ?? []) as any[]).map(o => [o.room_id, o])))
     setLoading(false)
@@ -162,14 +150,6 @@ export default function LetOnlyPropertiesPage() {
     }
   }
 
-  async function convertToLetOnly(propertyId: string) {
-    setConverting(propertyId)
-    await supabase.from('properties').update({ letting_type: 'let_only' }).eq('id', propertyId)
-    setConverting(null)
-    setShowConvertPicker(false)
-    await loadData()
-  }
-
   function statusPill(status: string) {
     const cfg: Record<string, { cls: string; label: string }> = {
       occupied:  { cls: 'bg-blue-100 text-blue-800',    label: 'Occupied' },
@@ -204,7 +184,7 @@ export default function LetOnlyPropertiesPage() {
         ] : undefined}
         actions={<>
           <HeroButton onClick={() => router.push('/admin/let-only-properties/room-list')}>Update from landlord’s list</HeroButton>
-          <HeroButton primary onClick={() => setShowConvertPicker(true)}>+ Add let-only property</HeroButton>
+          <HeroButton primary onClick={() => setShowAdd(true)}>+ Add let-only property</HeroButton>
         </>}
       />
 
@@ -216,10 +196,10 @@ export default function LetOnlyPropertiesPage() {
             <p className="text-4xl mb-md">🔑</p>
             <p className="text-base font-semibold text-neutral-700">No let-only properties yet</p>
             <p className="text-sm text-neutral-400 mt-xs max-w-6xl mx-auto">
-              Mark an existing property as let-only and store the landlord&apos;s bank details here for statement generation.
+              Add the address, the landlord and the rooms — then send offers, book viewings and draw up agreements as usual.
             </p>
             <button
-              onClick={() => setShowConvertPicker(true)}
+              onClick={() => setShowAdd(true)}
               className="mt-lg rounded-xl bg-neutral-900 px-xl py-sm text-sm font-semibold text-white hover:bg-neutral-700 transition"
             >
               Add let-only property
@@ -461,46 +441,11 @@ export default function LetOnlyPropertiesPage() {
         )}
       </main>
 
-      {/* Convert picker modal */}
-      {showConvertPicker && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-neutral-200">
-            <div className="flex items-center justify-between px-xl py-lg border-b border-neutral-100">
-              <div>
-                <h3 className="text-base font-bold text-neutral-900">Mark as let-only</h3>
-                <p className="text-xs text-neutral-400 mt-0.5">Select a property from your existing portfolio</p>
-              </div>
-              <button onClick={() => setShowConvertPicker(false)} className="text-neutral-400 hover:text-neutral-700 text-lg leading-none w-7 h-7 flex items-center justify-center rounded-lg hover:bg-neutral-100 transition">✕</button>
-            </div>
-            <div className="px-xl py-lg max-h-96 overflow-y-auto">
-              {allProperties.length === 0 ? (
-                <p className="text-sm text-neutral-400 text-center py-xl">All properties are already let-only.</p>
-              ) : (
-                <div className="space-y-xs">
-                  {allProperties.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => convertToLetOnly(p.id)}
-                      disabled={converting === p.id}
-                      className="w-full flex items-center justify-between rounded-xl border border-neutral-200 px-md py-sm hover:bg-purple-50 hover:border-purple-200 transition text-left disabled:opacity-50 group"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-neutral-900 group-hover:text-purple-900">{p.name}</p>
-                        <p className="text-xs text-neutral-400">{p.address}</p>
-                      </div>
-                      <span className="text-xs font-semibold text-purple-600 ml-md whitespace-nowrap">
-                        {converting === p.id ? 'Marking…' : 'Mark let-only →'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="px-xl py-md border-t border-neutral-100 bg-neutral-50 rounded-b-2xl">
-              <p className="text-xs text-neutral-400">This can be changed back to fully managed at any time from Property Settings.</p>
-            </div>
-          </div>
-        </div>
+      {showAdd && (
+        <AddLetOnlyModal
+          onClose={() => setShowAdd(false)}
+          onSave={async () => { setShowAdd(false); await loadData() }}
+        />
       )}
     </div>
   )
