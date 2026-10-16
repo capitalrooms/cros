@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 
-interface Match { line: { ref: string; tenant: string; address: string; postcode: string; amount: number | null; protectedOn: string | null }; tenancyId: string | null; tenancyLabel: string | null; score: number; why: string[]; already: boolean }
+interface Match { line: { ref: string; tenant: string; address: string; postcode: string; amount: number | null; protectedOn: string | null; status?: string | null; notProtectedYet?: boolean }; tenancyId: string | null; tenancyLabel: string | null; score: number; why: string[]; already: boolean }
 interface Choice { id: string; label: string }
 
 const input = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
@@ -79,7 +79,7 @@ export default function DpsImport({ onDone }: { onDone: () => void }) {
                     {matches.map((m, i) => (
                       <tr key={i} className="align-top">
                         <td className="px-sm py-xs"><input type="checkbox" checked={!!tick[i]} disabled={!pick[i]} onChange={e => setTick({ ...tick, [i]: e.target.checked })} /></td>
-                        <td className="px-sm py-xs text-xs"><strong className="text-neutral-900">{m.line.ref}</strong> · {m.line.amount != null ? `£${m.line.amount.toFixed(2)}` : '—'}<br />{m.line.tenant}<br /><span className="text-neutral-500">{m.line.address}{m.line.postcode ? ` · ${m.line.postcode}` : ''}{m.line.protectedOn ? ` · protected ${m.line.protectedOn}` : ''}</span></td>
+                        <td className="px-sm py-xs text-xs"><strong className="text-neutral-900">{m.line.ref}</strong> · {m.line.amount != null ? `£${m.line.amount.toFixed(2)}` : '—'}<br />{m.line.tenant}<br /><span className="text-neutral-500">{m.line.address}{m.line.postcode ? ` · ${m.line.postcode}` : ''}{m.line.protectedOn ? ` · protected ${m.line.protectedOn}` : ''}</span>{m.line.status && <span className={`block ${m.line.notProtectedYet ? 'font-semibold text-red-700' : 'text-neutral-500'}`}>DPS: {m.line.status}{m.line.notProtectedYet ? ' — not protected yet' : ''}</span>}</td>
                         <td className="px-sm py-xs text-xs">
                           {m.already ? <span className="text-emerald-700">Already recorded — {m.tenancyLabel}</span> : (
                             <>
