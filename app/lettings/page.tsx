@@ -205,8 +205,10 @@ export default function LettingsPage() {
   // who can go to a photos / other appointment — the office, contractors and cleaners (17 Oct 2026)
   const [goers, setGoers] = useState<{ id: string; name: string; role: string }[]>([])
   useEffect(() => {
-    supabase.from('people').select('id, salutation, first_name, last_name, full_name, company, role').in('role', ['administrator', 'admin', 'lettings', 'contractor', 'cleaner']).order('first_name')
-      .then(({ data }) => setGoers(((data ?? []) as any[]).filter(p => !/example\.com$|^Test |Lettings Agent|Admin User/.test(`${p.full_name ?? ''}`)).map(p => ({ id: p.id, role: p.role, name: displayName(p) || p.company || p.full_name || '' })).filter(p => p.name)))
+    supabase.from('people').select('id, salutation, first_name, last_name, full_name, company, role, email').in('role', ['administrator', 'admin', 'lettings', 'contractor', 'cleaner']).order('first_name')
+      // real people only — not the example / test accounts or a shared inbox with no name
+      .then(({ data }) => setGoers(((data ?? []) as any[]).filter(p => !/@example\.com$|\+test@/i.test(p.email ?? '') && (p.first_name || p.company))
+        .map(p => ({ id: p.id, role: p.role, name: displayName(p) || p.company || '' })).filter(p => p.name && p.name !== '—')))
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   const [popOpen, setPopOpen] = useState(0)
   useEffect(() => {
