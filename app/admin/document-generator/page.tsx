@@ -9,7 +9,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
-import { formalName, landlordFormalNames } from '@/lib/people'
+import { dearFromText, formalName, landlordFormalNames } from '@/lib/people'
 import type { FormalLetter } from '@/lib/letters/formalLetter'
 import { invoiceNumberFor, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
 import SavedDocuments from './SavedDocuments'
@@ -429,6 +429,31 @@ export default function DocumentGenerator() {
     } finally { setSending(false) }
   }
 
+  // Reopen a saved letter / invoice to change it (16 Oct 2026). A letter opens as a new copy, so the list keeps a
+  // record of exactly what was sent before; an invoice keeps its number and is updated in place.
+  async function editSaved(d: { id: string; kind: string; number: string | null; recipient_email?: string | null; emailed_to?: string[] | null }) {
+    if ((letter || invoice) && !window.confirm('Open this saved document? The draft you have open now will be replaced.')) return
+    setError(null)
+    const r = await adminFetch(`/api/admin/documents/generated?id=${d.id}&content=1`)
+    const j = await r.json().catch(() => ({}))
+    const c = j.content
+    if (!r.ok || !c) { setError(j.error ?? 'That document could not be reopened'); return }
+    const email = d.emailed_to?.join(', ') || d.recipient_email || ''
+    if (d.kind === 'invoice') {
+      setDocType('invoice' as DocType); setInvoice(c as DocInvoice); setLetter(null); setSavedId(d.id); setNumberAuto(false)
+      setEmailSubject(`Invoice ${(c as DocInvoice).invoiceNumber ?? d.number} from Capital Rooms`)
+    } else {
+      if (!c.letter) { setError('That letter could not be reopened'); return }
+      setDocType('letter' as DocType); setLetter(c.letter as FormalLetter); setInvoice(null); setSavedId(null)
+      if (c.signer) setSigner(sg => ({ ...sg, ...c.signer }))
+      setEmailSubject(c.letter.subject ?? '')
+    }
+    setTo(email); setCc(''); setMissing([]); setChanges(''); setSendResult(null); setSaveNote('')
+    setEmailMessage(`Dear ${dearFromText(d.kind === 'invoice' ? (c as DocInvoice).recipientName : c.letter?.recipientName)},\n\nPlease find attached ${d.kind === 'invoice' ? `invoice ${(c as DocInvoice).invoiceNumber ?? d.number}` : 'our letter'}.\n\nKind regards,`)
+    setStep('check')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   function startAgain() {
     if (!window.confirm('Start a new document? The current draft will be cleared.')) return
     setStep('write'); setLetter(null); setInvoice(null); setSavedId(null); setNumberAuto(true); setSaveNote(''); setInstructions(''); setRecipient(EMPTY_RECIPIENT); setMissing([])
@@ -796,7 +821,7 @@ export default function DocumentGenerator() {
         )}
 
         <div className="mt-xl">
-          <SavedDocuments refreshKey={refreshKey} />
+          <SavedDocuments refreshKey={refreshKey} onEdit={editSaved} />
         </div>
       </div>
     </div>

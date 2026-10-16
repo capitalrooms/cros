@@ -2,6 +2,7 @@
  * Letters & Invoices — saved documents.
  *   GET                         → { documents }            (newest first, not deleted)
  *   GET ?id=…&mode=view|download → { url }                 (5-minute private link)
+ *   GET ?id=…&content=1          → { doc, content }        (to reopen it in the editor)
  *   GET ?next=<base>            → { number }               (first free invoice number for that day/code)
  *   POST { kind, id?, invoice | letter, signer?, recipientEmail?, respond?: 'json' }
  *                               → the PDF (header X-Document-Id), or { doc } with respond 'json'
@@ -37,6 +38,11 @@ export async function GET(req: NextRequest) {
     const { data, error } = await s.from('generated_documents').select(COLUMNS).eq('id', id).is('deleted_at', null).maybeSingle()
     if (error || !data) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
     const doc = data as GeneratedDocument
+    // ?content=1 → the letter / invoice as saved, to reopen it in the editor (16 Oct 2026)
+    if (sp.get('content')) {
+      const { data: c } = await s.from('generated_documents').select('content').eq('id', id).maybeSingle()
+      return NextResponse.json({ doc, content: (c as any)?.content ?? null })
+    }
     const download = sp.get('mode') === 'download' ? { download: fileNameFor(doc) } : undefined
     const { data: signed, error: signErr } = await s.storage.from(DOCS_BUCKET).createSignedUrl(doc.storage_path, 300, download)
     if (signErr || !signed) return NextResponse.json({ error: 'The PDF could not be opened' }, { status: 500 })
