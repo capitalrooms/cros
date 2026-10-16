@@ -16,6 +16,7 @@ import { displayName, landlordName, nameFields, initials as avatarInitials } fro
 import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { AREAS, ROLE_PRESETS, ALL_AREAS } from '@/lib/access/areas'
+import AddressField from '@/app/components/AddressField'
 
 type Tab = 'tenants' | 'contractors' | 'cleaners' | 'landlords' | 'office'
 const TAB_FROM_URL: Record<string, Tab> = { tenants: 'tenants', contractors: 'contractors', cleaners: 'cleaners', landlords: 'landlords', staff: 'office', office: 'office', administrators: 'office' }
@@ -678,8 +679,8 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
                         {/* Current / previous address */}
                         <div>
                           <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-md">Current / previous address</p>
-                          <textarea value={formData.previous_address} onChange={e => setFormData({ ...formData, previous_address: e.target.value })}
-                            rows={3} placeholder="Address line 1&#10;Address line 2&#10;Postcode"
+                          <AddressField multiline value={formData.previous_address ?? ''} onChange={v => setFormData({ ...formData, previous_address: v })}
+                            rows={3}
                             className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm resize-none" />
                         </div>
 

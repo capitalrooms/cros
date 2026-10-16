@@ -203,7 +203,7 @@ export default function BookAppointmentPage() {
             {addingLetOnly && (
               <AddLetOnlyModal
                 onClose={() => setAddingLetOnly(false)}
-                onSave={async (property: any) => {
+                onSave={async (property: any, roomIds: string[]) => {
                   setAddingLetOnly(false)
                   const { data: propsData } = await supabase.from('properties').select('id, name, address').order('name')
                   setProperties(sortPropertiesNumerically((propsData as any) || []))
@@ -211,7 +211,7 @@ export default function BookAppointmentPage() {
                   setSelectedProperty(property.id)
                   const { data: roomsData } = await supabase.from('rooms').select('id, name, property_id').eq('property_id', property.id).order('name')
                   setRooms((roomsData as any) || [])
-                  setSelectedRoom('')
+                  setSelectedRoom(roomIds[0] ?? '')
                 }}
               />
             )}

@@ -7,7 +7,7 @@
  * with letting type "let only" and puts the rooms under it, so let-only rooms use the same property/room structure
  * (landlord, bank account, photos, viewings, agreements) as managed houses.
  *
- * - Postcode → address lookup via PostcodeAddressLookup component
+ * - Address: type the street or postcode (AddressField); a house already on file is recognised and the rooms go under it
  * - Landlord search: type to search existing people (role=landlord), or enter new details
  * - At least one room: name, rent, available date, en-suite/shared bathroom/lounge (3-state)
  * - "+ Add another room" row for multi-room listings
@@ -16,7 +16,8 @@
 import { postcodesIn } from '@/lib/councils/london'
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import PostcodeAddressLookup, { ParsedAddress } from './PostcodeAddressLookup'
+import AddressField from './AddressField'
+import { sameHouse, nextRoomName } from '@/lib/letOnly/sameHouse'
 import { displayName } from '@/lib/people'
 
 interface RoomDraft {
@@ -41,7 +42,8 @@ interface LandlordSuggestion {
 
 interface Props {
   onClose: () => void
-  onSave: (listing: any) => void
+  /** the property, and the ids of the rooms just added or reopened (first = the one to book or offer) */
+  onSave: (listing: any, roomIds: string[]) => void
   createdByPersonId?: string
   /** what was typed in a search that found nothing — starts the address off */
   initialAddress?: string
@@ -132,6 +134,26 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
     })()
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Houses already on file — so the address you type is recognised straight away: the rooms go under that house,
+  // its landlord is kept, and the new room gets the next free number rather than "Room 1" (which would reopen the
+  // Room 1 that's already let)
+  const [houses, setHouses] = useState<any[]>([])
+  useEffect(() => {
+    supabase.from('properties').select('id, name, address, postcode, property_code, landlord_id, letting_type, rooms(id, name, status), people!landlord_id(salutation, first_name, last_name, full_name)')
+      .then(({ data }) => setHouses((data ?? []) as any[]))
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+  const onFile = address.trim() ? houses.find(h => sameHouse(h, address, postcode)) ?? null : null
+  const onFileRooms: any[] = onFile ? [...(onFile.rooms ?? [])].sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), 'en', { numeric: true })) : []
+  const roomsTouched = useRef(false)
+  useEffect(() => {
+    if (!onFile || roomsTouched.current) return
+    setRooms(prev => prev.length === 1 ? [{ ...prev[0], room_name: nextRoomName(onFileRooms) }] : prev)
+  }, [onFile?.id])   // eslint-disable-line react-hooks/exhaustive-deps
+  // the usual landlord (normally just one) is chosen for you — tap ✕ to change
+  useEffect(() => {
+    if (usual.length === 1 && !selectedLandlordId && !landlordQuery) pickLandlord(usual[0])
+  }, [usual])   // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Landlord autocomplete ──────────────────────────────────────────────────
 
   useEffect(() => {
@@ -174,19 +196,16 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
 
   // ── Address lookup callback ────────────────────────────────────────────────
 
-  function handleAddressPicked(parsed: ParsedAddress) {
-    setAddress(parsed.line1 || parsed.full)
-    setPostcode(parsed.postcode)
-  }
-
   // ── Room helpers ───────────────────────────────────────────────────────────
 
   function updateRoom(index: number, patch: Partial<RoomDraft>) {
+    if ('room_name' in patch) roomsTouched.current = true
     setRooms(prev => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
   }
 
   function addRoom() {
-    setRooms(prev => [...prev, { ...emptyRoom(), room_name: `Room ${prev.length + 1}` }])
+    roomsTouched.current = true
+    setRooms(prev => [...prev, { ...emptyRoom(), room_name: nextRoomName([...onFileRooms, ...prev.map(r => ({ name: r.room_name }))]) }])
   }
 
   function removeRoom(index: number) {
@@ -208,12 +227,8 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
       // address that's already set up puts it under that same property; nothing is ever deleted — rooms are marked
       // let, and made available again later.
       const norm = (v: string) => (v || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-      const pc = norm(postcode)
       const { data: existing } = await supabase.from('properties').select('id, name, address, postcode, property_code, landlord_id')
-      const street = norm(address.split(',')[0])
-      const match = (existing ?? []).find((p: any) =>
-        (!pc || !p.postcode || norm(p.postcode) === pc) &&
-        [p.name, p.address].some((v: string | null) => norm(String(v || '').split(/[,\n]/)[0]) === street))
+      const match = (existing ?? []).find((p: any) => sameHouse(p, address, postcode))
 
       let property: any = match
       if (!property) {
@@ -242,6 +257,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
         await supabase.from('properties').update({ landlord_id: selectedLandlordId }).eq('id', property.id)
       }
 
+      const roomIds: string[] = []
       // Rooms: an existing room of the same name is made available again (keeps its photos and marketing);
       // otherwise a new let-only room is added under the property
       const { data: current } = await supabase.from('rooms').select('id, name').eq('property_id', property.id)
@@ -259,13 +275,14 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
         }
         const same = (current ?? []).find((x: any) => norm(x.name) === norm(r.room_name))
         const n = parseInt(r.room_name.match(/\d+/)?.[0] ?? '')
-        const { error: rErr } = same
-          ? await supabase.from('rooms').update(fields).eq('id', same.id)
+        const { data: saved, error: rErr } = same
+          ? await supabase.from('rooms').update(fields).eq('id', same.id).select('id').single()
           : await supabase.from('rooms').insert({ ...fields, property_id: property.id, name: r.room_name.trim(),
-              unit_code: property.property_code && n ? `${property.property_code}${String(n).padStart(2, '0')}` : null })
+              unit_code: property.property_code && n ? `${property.property_code}${String(n).padStart(2, '0')}` : null }).select('id').single()
         if (rErr) throw new Error(rErr.message)
+        if (saved?.id) roomIds.push(saved.id)
       }
-      onSave(property)
+      onSave(property, roomIds)
     } catch (e: any) {
       setError(e?.message || 'Could not save')
       setSaving(false)
@@ -291,46 +308,35 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
           {/* ── Property address ── */}
           <section>
             <h3 className="text-sm font-semibold text-neutral-700 mb-md">Property details</h3>
-            <PostcodeAddressLookup
-              label="Address"
-              placeholder="Type postcode to look up…"
-              onSelectParsed={handleAddressPicked}
-              onSelect={setAddress}
-              initialValue={address}
-            />
-            {/* Manual fallback if address not filled by lookup */}
-            {address && (
-              <div className="mt-sm space-y-sm">
-                <div>
-                  <label className="block text-xs font-medium text-neutral-600 mb-xs">Street address</label>
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-neutral-600 mb-xs">Postcode</label>
-                  <input
-                    type="text"
-                    value={postcode}
-                    onChange={e => setPostcode(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
-                  />
-                </div>
-              </div>
-            )}
-            {!address && (
-              <div className="mt-sm">
-                <label className="block text-xs font-medium text-neutral-600 mb-xs">Or enter address manually</label>
-                <input
-                  type="text"
+            <div className="space-y-sm">
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-xs">Address — type the street or postcode</label>
+                <AddressField
                   value={address}
-                  onChange={e => setAddress(e.target.value)}
-                  placeholder="e.g. 45 Maple Road"
+                  onChange={setAddress}
+                  onPick={a => { setAddress(a.line1); setPostcode(a.postcode) }}
+                  placeholder="e.g. 95 Rope Street"
                   className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-neutral-600 mb-xs">Postcode</label>
+                <input
+                  type="text"
+                  value={postcode}
+                  onChange={e => setPostcode(e.target.value.toUpperCase())}
+                  placeholder="Filled in when you pick an address"
+                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900 font-mono focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none"
+                />
+              </div>
+            </div>
+            {onFile && (
+              <div className="mt-sm rounded-xl border border-emerald-200 bg-emerald-50 px-md py-sm text-xs text-emerald-900">
+                <p className="font-semibold">{String(onFile.name).split('\n')[0]} is already on file{onFile.letting_type === 'let_only' ? '' : ' (managed by us)'} — the room{rooms.length > 1 ? 's' : ''} below will be added to it.</p>
+                {onFileRooms.length > 0 && <p className="mt-0.5">Already there: {onFileRooms.map((r: any) => `${r.name}${r.status && r.status !== 'available' ? ` (${String(r.status).replace(/_/g, ' ')})` : ''}`).join(' · ')}</p>}
+                {rooms.some(r => onFileRooms.some((x: any) => String(x.name).toLowerCase().replace(/\s/g, '') === r.room_name.toLowerCase().replace(/\s/g, '') && x.status && x.status !== 'available')) && (
+                  <p className="mt-0.5 font-semibold text-amber-800">A room with that name is already let — saving puts it back on the market. Use a new room name if this is a different room.</p>
+                )}
               </div>
             )}
           </section>

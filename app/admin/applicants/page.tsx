@@ -12,6 +12,7 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import NameInput, { type NameValue, emptyName, toFullName, toLegalName } from '@/app/components/NameInput'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
+import HouseSearch from '@/app/components/HouseSearch'
 import { displayName } from '@/lib/people'
 
 const STAGES = [
@@ -95,7 +96,7 @@ export default function ApplicantsPage() {
   const [addSaving, setAddSaving] = useState(false)
   const [filteredAddRooms, setFilteredAddRooms] = useState<any[]>([])
   // an offer for a house we don't have on file yet (a one-off let-only) — add its address and rooms right here (16 Oct 2026)
-  const [showNewAddress, setShowNewAddress] = useState(false)
+  const [showNewAddress, setShowNewAddress] = useState<null | { address: string; postcode: string }>(null)
 
   // Stage advance
   const [advancing, setAdvancing] = useState<string | null>(null)
@@ -177,7 +178,7 @@ export default function ApplicantsPage() {
       sb.from('applicants')
         .select('*, rooms(name, current_asking_rent), properties(name, address), viewings(viewing_date, viewing_slot)')
         .order('created_at', { ascending: false }),
-      sb.from('properties').select('id, name, address').order('name'),
+      sb.from('properties').select('id, name, address, postcode, letting_type').order('name'),
       sb.from('rooms').select('id, name, property_id').order('name'),
     ])
 
@@ -421,11 +422,14 @@ export default function ApplicantsPage() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-neutral-600 mb-xs uppercase tracking-wide">Property</label>
-                <select value={addForm.property_id} onChange={e => setAddForm(f => ({ ...f, property_id: e.target.value }))} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm">
-                  <option value="">Select property…</option>
-                  {properties.map(p => <option key={p.id} value={p.id}>{p.name || p.address}</option>)}
-                </select>
-                <button type="button" onClick={() => setShowNewAddress(true)} className="mt-xs text-xs font-bold text-neutral-700 underline">Not listed? Add a let-only address</button>
+                <HouseSearch
+                  houses={properties}
+                  selectedId={addForm.property_id}
+                  onHouse={id => setAddForm(f => ({ ...f, property_id: id }))}
+                  onNew={(address, postcode) => setShowNewAddress({ address, postcode })}
+                  className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm"
+                />
+                <p className="mt-xs text-[11px] text-neutral-500">Type the house, street or postcode — a house we don’t have yet can be added as let-only from the list.</p>
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-neutral-600 mb-xs uppercase tracking-wide">Room *</label>
@@ -433,13 +437,25 @@ export default function ApplicantsPage() {
                   <option value="">Select room…</option>
                   {filteredAddRooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
+                {addForm.property_id && (() => {
+                  const h = properties.find(p => p.id === addForm.property_id)
+                  return h && (
+                    <button type="button" onClick={() => setShowNewAddress({ address: String(h.name || h.address || '').split(/[,\n]/)[0], postcode: h.postcode || '' })}
+                      className="mt-xs text-xs font-bold text-neutral-700 underline">
+                      {filteredAddRooms.length ? 'Room not listed? Add a let-only room here' : 'No rooms yet — add the let-only room'}
+                    </button>
+                  )
+                })()}
               </div>
             </div>
             {showNewAddress && (
               <AddLetOnlyModal
-                onClose={() => setShowNewAddress(false)}
-                onSave={async (property: any) => {
-                  setShowNewAddress(false)
+                initialAddress={showNewAddress.address}
+                initialPostcode={showNewAddress.postcode}
+                onClose={() => setShowNewAddress(null)}
+                onSave={async (property: any, roomIds: string[]) => {
+                  setShowNewAddress(null)
+                  pendingRoom.current = roomIds[0] ?? null
                   await loadAll()
                   setAddForm(f => ({ ...f, property_id: property.id }))
                 }}

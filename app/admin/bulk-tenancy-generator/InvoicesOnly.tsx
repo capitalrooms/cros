@@ -8,6 +8,7 @@ import { dearFromText } from '@/lib/people'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
 import RecipientSend, { type RecipientDoc } from './RecipientSend'
+import AddressField from '@/app/components/AddressField'
 
 export interface InvoiceLine {
   ref: string | null
@@ -243,7 +244,7 @@ export default function InvoicesOnly(props: Props) {
             </div>
             <div>
               <label className={label}>Correspondence address</label>
-              <textarea rows={2} className={input} value={g.address} onChange={e => setAddress(g, e.target.value)} placeholder={'House number and street\nTown, postcode'} />
+              <AddressField multiline rows={2} className={input} value={g.address} onChange={v => setAddress(g, v)} />
             </div>
             <div className="grid grid-cols-1 gap-sm">
               <div>

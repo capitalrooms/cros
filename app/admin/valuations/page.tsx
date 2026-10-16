@@ -12,6 +12,7 @@ import BackButton from '@/app/components/BackButton'
 import { ValuationData, ValuationType, PriceRow, RefurbItem } from '@/lib/valuations/ValuationDocument'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { downloadPdf } from '@/lib/adminFetch'
+import AddressField from '@/app/components/AddressField'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const VALUATION_TYPES: { value: ValuationType; label: string; desc: string }[] = [
@@ -348,7 +349,7 @@ export default function ValuationsPage() {
                 </div>
                 <div>
                   <label className={label}>Property address (on letter)</label>
-                  <input value={propertyAddress} onChange={e => setPropertyAddress(e.target.value)} className={inp} placeholder="e.g. 4 Willis Road, Coventry, CV1 4GG" />
+                  <AddressField value={propertyAddress} onChange={setPropertyAddress} className={inp} placeholder="e.g. 4 Willis Road, or the postcode" />
                 </div>
                 <div>
                   <label className={label}>Property reference (optional)</label>
@@ -364,7 +365,7 @@ export default function ValuationsPage() {
                 </div>
                 <div>
                   <label className={label}>Recipient address (one line per line)</label>
-                  <textarea value={recipientAddress} onChange={e => setRecipientAddress(e.target.value)} rows={3} className={inp} placeholder={'23 Example Street\nBirmingham\nB1 1AA'} />
+                  <AddressField multiline value={recipientAddress} onChange={setRecipientAddress} rows={3} className={inp} />
                 </div>
                 <div>
                   <label className={label}>Prepared by</label>

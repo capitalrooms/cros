@@ -1079,10 +1079,11 @@ export default function LettingsPage() {
         <AddLetOnlyModal
           createdByPersonId={personId}
           onClose={() => setAddingLetOnly(false)}
-          onSave={async (property: any) => {
+          onSave={async (property: any, roomIds: string[]) => {
             setAddingLetOnly(false)
             const rooms = await loadBookingRooms()
-            const first = rooms.filter(r => r.property_id === property?.id)
+            // the room just added (not simply the house's first room — that may be one already let)
+            const first = rooms.find(r => r.id === roomIds[0]) ?? rooms.filter(r => r.property_id === property?.id)
               .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'en', { numeric: true }))[0]
             if (first) setViewingForm(f => ({ ...f, room_id: first.id, notifyMessage: defaultNotifyMsg(first.properties?.name || '', f.viewing_date, f.viewing_slot) }))
           }}

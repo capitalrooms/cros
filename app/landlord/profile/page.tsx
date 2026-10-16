@@ -15,6 +15,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import NameInput from '@/app/components/NameInput'
 import BackButton from '@/app/components/BackButton'
+import AddressField from '@/app/components/AddressField'
 
 const SENSITIVE = ['salutation', 'first_name', 'last_name', 'company', 'home_address', 'company_number'] as const
 type SensitiveKey = typeof SENSITIVE[number]
@@ -234,9 +235,9 @@ export default function LandlordProfilePage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Home address</label>
-                  <textarea value={form.home_address}
-                    onChange={e => setForm(f => ({ ...f, home_address: e.target.value }))}
-                    rows={3} placeholder="Full home address"
+                  <AddressField multiline value={form.home_address ?? ''}
+                    onChange={v => setForm(f => ({ ...f, home_address: v }))}
+                    rows={3} placeholder="Start typing your home address or postcode"
                     className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                 </div>
               </div>

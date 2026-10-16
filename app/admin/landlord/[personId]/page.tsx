@@ -15,6 +15,7 @@ import { withOptionalColumns } from '@/lib/optionalColumns'
 import { onboardingFiles } from '@/lib/landlordOnboarding/propertyDocs'
 import { openStoredFile } from '@/lib/files/openFile'
 import LandlordAppAccess from '@/components/admin/LandlordAppAccess'
+import AddressField from '@/app/components/AddressField'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -715,7 +716,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Home / correspondence address</label>
-                      <textarea rows={2} className={inputCls()} value={contactForm.home_address} onChange={e => setContactForm((p: any) => ({ ...p, home_address: e.target.value }))} />
+                      <AddressField multiline rows={2} className={inputCls()} value={contactForm.home_address ?? ''} onChange={v => setContactForm((p: any) => ({ ...p, home_address: v }))} />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
                       <div>

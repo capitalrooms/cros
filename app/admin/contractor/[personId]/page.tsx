@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import AddressField from '@/app/components/AddressField'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -453,7 +454,7 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Address</label>
-                      <input className={inputCls()} value={contactForm.home_address} onChange={e => setContactForm((p: any) => ({ ...p, home_address: e.target.value }))} />
+                      <AddressField className={inputCls()} value={contactForm.home_address ?? ''} onChange={v => setContactForm((p: any) => ({ ...p, home_address: v }))} />
                     </div>
                   </div>
                   <div className="border-t border-neutral-100 pt-lg">

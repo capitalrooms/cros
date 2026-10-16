@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
+import AddressField from '@/app/components/AddressField'
 
 type Tab = 'new' | 'list' | 'details'
 interface Line { key: string; description: string; where: string; labour: string; parts: string; partsPaid: boolean; ticketId?: string; cleanId?: string; propertyId?: string; date?: string; receipt?: string | null }
@@ -183,7 +184,7 @@ function ContractorNew({ data, post, done, jobId }: { data: any; post: (b: Recor
             <NameInput value={contact} onChange={setContact} label="Client (the person)" inputClass={input} />
             <input className={input} value={client.company} onChange={e => setClient({ ...client, company: e.target.value })} placeholder="Company name (if it’s a business — optional)" />
             <input className={input} type="email" value={client.email} onChange={e => setClient({ ...client, email: e.target.value })} placeholder="Client email (to send it)" />
-            <textarea rows={2} className={input} value={client.address} onChange={e => setClient({ ...client, address: e.target.value })} placeholder="Client address" />
+            <AddressField multiline rows={2} className={input} value={client.address} onChange={v => setClient({ ...client, address: v })} placeholder="Client address — type it or the postcode" />
           </div>
         )}
       </div>
@@ -305,7 +306,7 @@ function Details({ data, post, saved }: { data: any; post: (b: Record<string, un
         <label className="text-xs text-neutral-600">{p.logoPath ? 'Change logo' : 'Using a generated logo — upload your own (optional)'}<input type="file" accept="image/png,image/jpeg" className="mt-1 block text-xs" onChange={e => logo(e.target.files?.[0])} /></label>
       </div>
       {f('tradingName', 'Business name')}
-      <label className="block"><span className={label}>Business address</span><textarea rows={2} className={input} value={v.address} onChange={e => setV({ ...v, address: e.target.value })} /></label>
+      <label className="block"><span className={label}>Business address</span><AddressField multiline rows={2} className={input} value={v.address ?? ''} onChange={a => setV({ ...v, address: a })} /></label>
       <div className="grid grid-cols-2 gap-2">{f('phone', 'Phone')}{f('email', 'Email (you get a copy here)', { type: 'email' })}</div>
       {f('bankName', 'Account name')}
       <div className="grid grid-cols-2 gap-2">{f('sortCode', 'Sort code', { inputMode: 'numeric', placeholder: '12-34-56' })}{f('accountNo', 'Account number', { inputMode: 'numeric' })}</div>
