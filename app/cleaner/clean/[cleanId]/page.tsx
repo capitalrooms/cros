@@ -78,6 +78,9 @@ export default function CleanDetailPage() {
   const [specials, setSpecials] = useState<string[]>([])
   const [notes, setNotes] = useState('')
   const [issue, setIssue] = useState('')
+  // a reminder the cleaner leaves for their next visit — kept with the house (property_cleaning_notes), shown at the
+  // top of the next clean and seen by the office (17 Oct 2026)
+  const [nextTime, setNextTime] = useState('')
   const [showFinish, setShowFinish] = useState(false)
   const [showExitReminder, setShowExitReminder] = useState(false)
 
@@ -258,21 +261,30 @@ export default function CleanDetailPage() {
         extra_charge_note: extraChargeNote || null,
         products_cost: productsCost ? Number(productsCost) : null,
       })
-      // Pencil in the next clean two weeks on, unless one is already booked — the cleaner confirms the exact time
-      // nearer the day, once they know their schedule. Nothing is sent to tenants for a pencilled clean.
+      // Pencil in the next clean at the house's usual gap (its cleaning frequency; two weeks if none is set), at the same
+      // time and length as this one — unless one is already booked. Nothing is sent to tenants for a pencilled clean.
       const today = new Date().toISOString().split('T')[0]
       const { data: ahead } = await supabase.from('cleans').select('id').eq('property_id', clean.property_id)
         .gt('clean_date', today).neq('status', 'cancelled').limit(1)
       if (!ahead?.length) {
-        const next = new Date(); next.setDate(next.getDate() + 14)
+        const weeks = Number(clean.clean_frequency_weeks || clean.properties?.clean_frequency_weeks || 2)
+        const from = new Date(`${clean.clean_date || today}T12:00:00`)
+        const next = new Date(from); next.setDate(from.getDate() + 7 * weeks)
+        while (next.toISOString().slice(0, 10) <= today) next.setDate(next.getDate() + 7 * weeks)   // a late write-up
         await supabase.from('cleans').insert({
           property_id: clean.property_id,
           cleaner_id: clean.cleaner_id,
           clean_date: next.toISOString().split('T')[0],
-          clean_time: null,
+          clean_time: clean.clean_time || null,
+          duration_hours: clean.duration_hours ?? null,
+          clean_type: clean.clean_type || 'routine',
+          clean_frequency_weeks: clean.clean_frequency_weeks ?? null,
           status: 'scheduled',
-          admin_note: 'Pencilled in two weeks after the last clean — confirm the exact time nearer the day.',
+          admin_note: `Pencilled in ${weeks === 1 ? 'a week' : `${weeks} weeks`} after the last clean${clean.clean_time ? `, same time (${String(clean.clean_time).slice(0, 5)})` : ''} — change it if that doesn’t suit.`,
         })
+      }
+      if (nextTime.trim()) {
+        await fetch('/api/cleaner/reminder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cleanId: clean.id, text: nextTime }) }).catch(() => null)
       }
       if (issue.trim()) {
         await supabase.from('maintenance_tickets').insert({
@@ -387,7 +399,7 @@ export default function CleanDetailPage() {
                 <div className="flex items-start justify-between gap-md">
                   <div className="flex-1">
                     <p className="text-xs font-bold uppercase tracking-wide text-blue-800">
-                      {note.cleaning_type ? `🧹 ${note.cleaning_type.replace(/_/g, ' ')}` : '📋 Cleaning task'}
+                      {note.cleaning_type === 'reminder' ? '📝 Your reminder' : note.cleaning_type ? `🧹 ${note.cleaning_type.replace(/_/g, ' ')}` : '📋 Cleaning task'}
                     </p>
                     {note.room_id && (
                       <p className="text-xs text-blue-700 mt-xs">📍 Specific room attention needed</p>
@@ -573,6 +585,14 @@ export default function CleanDetailPage() {
 
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
                   placeholder="Any other notes (optional)" className="w-full rounded-xl border border-neutral-300 p-md text-sm" />
+
+                <div>
+                  <h3 className="font-bold">Reminder for next time</h3>
+                  <p className="text-xs text-neutral-500">Shown at the top of your next clean here — the office sees it too.</p>
+                  <textarea value={nextTime} onChange={(e) => setNextTime(e.target.value)} rows={2}
+                    placeholder="e.g. Bring descaler for the shower · Bin day is Tuesday"
+                    className="mt-sm w-full rounded-xl border border-neutral-300 p-md text-sm" />
+                </div>
 
                 <button onClick={completeClean} disabled={busy === 'complete'}
                   className="w-full rounded-xl bg-green-700 py-lg text-sm font-bold text-white hover:bg-green-800 disabled:opacity-40">
