@@ -14,6 +14,7 @@
  */
 
 import { StoredImg, StoredLink } from '@/components/StoredImg'
+import { initials as avatarInitials } from '@/lib/people'
 import { useState } from 'react'
 
 export interface TenantCardTenant {
@@ -72,8 +73,7 @@ export function tenantDisplayName(t: TenantCardTenant | null | undefined): strin
 }
 
 function tenantInitials(t: TenantCardTenant): string {
-  const n = tenantDisplayName(t)
-  return n.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+  return avatarInitials(t as any) !== '?' ? avatarInitials(t as any) : avatarInitials(tenantDisplayName(t))   // lib/people
 }
 
 function fmtDate(d: string | null | undefined) {

@@ -199,3 +199,15 @@ export function personFromText(text: string | null | undefined): PersonLike {
     full_name: t,
   }
 }
+
+/** Two letters for an avatar — first name and surname, never the title ("Mr Joseph Edwards" → "JE"); a business →
+ *  its first two words ("Page Properties Ltd" → "PP"). The one rule for every avatar (16 Oct 2026). */
+export function initials(p: PersonLike | string | null | undefined): string {
+  const text = typeof p === 'string' ? p
+    : !p ? '' : [p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name || p.name || p.company || ''
+  const words = String(text).replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').replace(/\b(ltd|limited|llp|plc)\b\.?/gi, '').trim().split(/\s+/).filter(Boolean)
+  if (!words.length) return '?'
+  // a person record: first name + the start of the surname ("Diafuku Nsombi" → D)
+  const pick = typeof p !== 'string' && p && p.first_name && p.last_name ? [String(p.first_name).trim(), String(p.last_name).trim()] : words.slice(0, 2)
+  return pick.map(w => w[0]?.toUpperCase() ?? '').join('') || '?'
+}

@@ -141,7 +141,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
     { key: 'check_in', label: 'Check-in balance', group: 'Your tenancy', source: 'generated', available: true, include: true },
     ...certDocs,
     // let-only (Nigel) tenants don't get the housemate and checking-out guides (Harry, 15 Oct 2026)
-    ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true, include: d.include && !((prop as any)?.letting_type === 'let_only' && (d.key === 'jedi' || d.key === 'checking_out')) })),
+    ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true, include: d.include && !((prop as any)?.letting_type === 'let_only' && (d.key === 'jedi' || d.key === 'checking_out')) && !(isWholeLet((prop as any)?.property_type, room.name) && d.key === 'jedi') })),   // no housemates in a whole home
   ]
 
   // formalName = title, first, middle and surname — it goes on the agreement

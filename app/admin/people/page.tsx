@@ -12,7 +12,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import BackButton from '@/app/components/BackButton'
 import EditPersonModal from '../components/EditPersonModal'
-import { displayName, landlordName, nameFields } from '@/lib/people'
+import { displayName, landlordName, nameFields, initials as avatarInitials } from '@/lib/people'
 import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { AREAS, ROLE_PRESETS, ALL_AREAS } from '@/lib/access/areas'
@@ -459,7 +459,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   const profile = (p: Person) => p.role === 'tenant' ? `/admin/tenant/${p.id}` : p.role === 'landlord' ? `/admin/landlord/${p.id}` : p.role === 'contractor' ? `/admin/contractor/${p.id}` : `/admin/person/${p.id}`
   const startAdd = (role: string) => { setFormData({ ...formData, email: '', role, property_id: '', salutation: '', first_name: '', middle_name: '', last_name: '', phone: '' }); setShowAddPerson(true); setShowAddLandlord(false) }
   const tone = (role: string) => role === 'tenant' ? 'bg-sky-100 text-sky-800' : role === 'contractor' ? 'bg-amber-100 text-amber-800' : role === 'cleaner' ? 'bg-teal-100 text-teal-800' : role === 'landlord' ? 'bg-violet-100 text-violet-800' : 'bg-neutral-200 text-neutral-800'
-  const initials = (p: any) => (displayName(p) !== '—' ? displayName(p) : p.email || '?').split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase()).join('')
+  const initials = (p: any) => avatarInitials(p) !== '?' ? avatarInitials(p) : (p.email || '?')[0].toUpperCase()   // lib/people
 
   /** One person, one row: who, how to reach them, the details that matter for their role, and actions. */
   // plain functions, not components: defined inside the page, a component would be rebuilt (and lose clicks) on every change
