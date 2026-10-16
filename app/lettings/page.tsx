@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { displayName } from '@/lib/people'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-import RoomDetailTags from '@/app/components/RoomDetailTags'
+import { fullAddressLine } from '@/lib/formatAddress'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
 import DarkHeroHeader from '@/app/components/DarkHeroHeader'
 import StatTile from '@/app/components/StatTile'
@@ -93,6 +93,9 @@ const blankViewingForm = (date = '', time = '') => ({
   visitor_email: '',
   visitor_phone: '',
   feedback: '',
+  kind: 'viewing' as 'viewing' | 'photos' | 'other',   // Book appointment: a viewing, photos, or anything else
+  property_id: '',      // photos / other can be for the whole house (no room)
+  what: '',             // "Other": what it's for
   notifyTenants: true,
   textTenants: true,     // email AND text the house (16 Oct 2026)
   notifyMessage: '',
@@ -136,6 +139,16 @@ function defaultNotifyMsg(propertyName: string, date: string, time: string) {
   const t = time ? ` at ${time}` : ''
   const prop = propertyName || 'the property'
   return `🔑 A viewing has been arranged at ${prop} on ${d}${t}. We will have a management set of keys for access. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.`
+}
+
+/** The tenants' message for photos / another visit */
+function visitNotifyMsg(kind: string, what: string, propertyName: string, date: string, time: string, roomName?: string) {
+  const d = date ? isoToDate(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : ''
+  const t = time ? ` at ${String(time).slice(0, 5)}` : ''
+  const prop = propertyName || 'the property'
+  return kind === 'photos'
+    ? `📷 We'll be visiting ${prop} on ${d}${t} to take photos${roomName ? ` of ${roomName}` : ''}. We'll use the management keys and won't go into anyone else's room. Thank you!`
+    : `🔑 We'll be visiting ${prop} on ${d}${t} (${what}). We'll use the management keys. Thank you!`
 }
 
 /** Monday of the ISO week containing `iso` */
@@ -188,6 +201,8 @@ export default function LettingsPage() {
   const [personId, setPersonId] = useState<string | undefined>()
 
   const [viewings, setViewings] = useState<Viewing[]>([])
+  // photos and other visits booked from here (property_appointments) — shown in the diary beside viewings
+  const [visits, setVisits] = useState<{ id: string; appointment_type: string; appointment_date: string; appointment_time: string | null; visitor_name: string | null; notes: string | null; property_id: string; properties: { name: string } | null; rooms: { name: string } | null }[]>([])
   const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([])
   const [letRooms, setLetRooms] = useState<LetRoom[]>([])
   const [bookingRooms, setBookingRooms] = useState<BookingRoom[]>([])
@@ -245,6 +260,14 @@ export default function LettingsPage() {
       .order('viewing_slot', { ascending: true })
       .limit(200)
     setViewings((viewingsData as Viewing[]) || [])
+    const { data: visitData } = await supabase
+      .from('property_appointments')
+      .select('id, appointment_type, appointment_date, appointment_time, visitor_name, notes, property_id, properties(name), rooms(name)')
+      .in('appointment_type', ['photos', 'other'])
+      .gte('appointment_date', todayISO())
+      .order('appointment_date', { ascending: true })
+      .limit(200)
+    setVisits((visitData as any) || [])
 
     // All available rooms — both managed and let-only properties (unified via properties table)
     const { data: availableData } = await supabase
@@ -381,6 +404,7 @@ export default function LettingsPage() {
   // ── Book viewing ─────────────────────────────────────────────────────────────
 
   async function handleCreateViewing() {
+    if (viewingForm.kind !== 'viewing') return handleCreateVisit()
     if (!viewingForm.viewing_date || !viewingForm.room_id) {
       setBanner('A date and room are required')
       return
@@ -450,6 +474,54 @@ export default function LettingsPage() {
     }
   }
 
+  // Photos / anything else (17 Oct 2026 — Harry: "Book appointment … it could be photography or a viewing"):
+  // a visit to the house (room optional), saved as an appointment so it never counts as a viewing
+  async function handleCreateVisit() {
+    const f = viewingForm
+    const room = bookingRooms.find(r => r.id === f.room_id)
+    const propertyId = room?.property_id || f.property_id
+    if (!f.viewing_date || !propertyId) { setBanner('Choose the property and the date'); return }
+    if (f.kind === 'other' && !f.what.trim()) { setBanner('Say what the appointment is for'); return }
+    setSavingViewing(true)
+    try {
+      const label = f.kind === 'photos' ? 'Photos' : f.what.trim()
+      const { error } = await supabase.from('property_appointments').insert({
+        property_id: propertyId, room_id: f.room_id || null, appointment_type: f.kind,
+        appointment_date: f.viewing_date, appointment_time: f.viewing_slot || null, duration_minutes: f.duration_minutes,
+        visitor_name: f.visitor_name.trim() || null, notes: f.kind === 'other' ? label : (f.feedback || null),
+        notify_tenants: f.notifyTenants, created_by: personId ?? null,
+      })
+      if (error) throw new Error(error.message)
+      const told: string[] = []
+      let notTold = ''
+      if (f.notifyTenants) {
+        const res = await fetch('/api/admin/quick-notify-lettings', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ property_id: propertyId, subject: f.kind === 'photos' ? 'Photos being taken' : 'Visit arranged',
+            message: f.notifyMessage || visitNotifyMsg(f.kind, label, room?.properties?.name || '', f.viewing_date, f.viewing_slot, room?.name),
+            notification_type: 'viewing', channels: f.textTenants ? 'push_email_sms' : 'push_email' }),
+        }).catch(() => null)
+        const d = await res?.json().catch(() => ({}))
+        if (res?.ok && d?.success !== false) {
+          told.push(d?.recipientCount ? `${d.recipientCount} tenant${d.recipientCount === 1 ? '' : 's'} emailed` : 'no current tenants to notify')
+          if (f.textTenants && d?.recipientCount) told.push(`${d.smsCount ?? 0} texted`)
+          if (d?.smsFailed?.length) notTold = ` — NOT texted: ${d.smsFailed.join(', ')}`
+        } else notTold = ` — tenants NOT notified${d?.error || d?.message ? ` (${d.error || d.message})` : ''}`
+      }
+      setAddingViewing(false)
+      setViewingForm(blankViewingForm())
+      setSelectedDay(f.viewing_date)
+      setActiveTab('viewings')
+      await loadData()
+      setBanner(`✅ ${label} booked${told.length ? ` · ${told.join(' · ')}` : ''}${notTold}`)
+      setTimeout(() => setBanner(''), notTold ? 10000 : 5000)
+    } catch (err) {
+      setBanner(err instanceof Error ? err.message : 'Could not book it')
+    } finally {
+      setSavingViewing(false)
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) return <GenericPageSkeleton />
@@ -465,6 +537,12 @@ export default function LettingsPage() {
       sublabel: v.visitor_name ? `${v.visitor_name}${v.rooms?.name ? ` · ${v.rooms.name}` : ''}` : (v.rooms?.name ?? ''),
       isOverdue: new Date(v.viewing_date + 'T00:00:00') < new Date(new Date().toDateString()),
     }))
+    .concat(visits.map(a => ({
+      id: a.id, date: a.appointment_date, time: a.appointment_time ? String(a.appointment_time).slice(0, 5) : null,
+      label: `${a.appointment_type === 'photos' ? '📷 Photos' : `🔑 ${a.notes || 'Visit'}`} · ${a.properties?.name ?? ''}`,
+      sublabel: [a.rooms?.name, a.visitor_name].filter(Boolean).join(' · '),
+      isOverdue: false,
+    })))
 
   // Properties (from every room) and upcoming viewings, for Quick Notify and the viewing sheet
   const notifyProperties = Array.from(new Map(bookingRooms
@@ -576,7 +654,7 @@ export default function LettingsPage() {
                     <button
                       onClick={() => { setViewingForm(blankViewingForm(todayISO())); setAddingViewing(true) }}
                       style={{ background: '#4B6358', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                    >+ Book viewing</button>
+                    >+ Book appointment</button>
                   </div>
                 </div>
                 {banner && !addingViewing && (
@@ -602,7 +680,7 @@ export default function LettingsPage() {
                 {availableRooms.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center"><p className="text-sm text-neutral-400">No available rooms</p></div>
                 ) : (
-                  <div className="space-y-sm">{availableRooms.map(room => <AvailableRoomCard key={room.id} room={room} />)}</div>
+                  <div className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200 bg-white">{availableRooms.map(room => <AvailableRoomCard key={room.id} room={room} />)}</div>
                 )}
               </div>
             )}
@@ -785,7 +863,7 @@ export default function LettingsPage() {
               <button
                 onClick={() => { setViewingForm(blankViewingForm(selectedDay)); setAddingViewing(true) }}
                 className="rounded-2xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
-              >+ Book viewing</button>
+              >+ Book appointment</button>
               <button
                 onClick={() => setQuickNotify({ mode: 'tenants' })}
                 className="rounded-2xl border border-neutral-300 bg-white py-md text-sm font-bold text-neutral-900 hover:bg-neutral-50 transition-colors"
@@ -803,6 +881,11 @@ export default function LettingsPage() {
                 if (!slotMap[key]) slotMap[key] = []
                 slotMap[key].push(v)
               }
+              const visitMap: Record<string, typeof visits> = {}
+              for (const a of visits.filter(x => x.appointment_date === selectedDay)) {
+                const key = (a.appointment_time ?? '09:00').slice(0, 5)
+                ;(visitMap[key] ??= []).push(a)
+              }
               const rows: { h: number; m: number }[] = []
               for (let h = START_H; h < END_H; h++) {
                 for (const m of [0, 15, 30, 45]) rows.push({ h, m })
@@ -813,6 +896,7 @@ export default function LettingsPage() {
                   {rows.map(({ h, m }, i) => {
                     const key = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`
                     const slotViewings = slotMap[key] ?? []
+                    const slotVisits = visitMap[key] ?? []
                     const isHourStart = m === 0
                     return (
                       <div
@@ -842,9 +926,9 @@ export default function LettingsPage() {
                         </div>
                         {/* Slot content */}
                         <div
-                          style={{ flex: 1, padding: slotViewings.length ? '4px 8px' : '0 8px', cursor: slotViewings.length === 0 ? 'pointer' : undefined }}
+                          style={{ flex: 1, padding: slotViewings.length || slotVisits.length ? '4px 8px' : '0 8px', cursor: slotViewings.length + slotVisits.length === 0 ? 'pointer' : undefined }}
                           onClick={() => {
-                            if (slotViewings.length === 0) {
+                            if (slotViewings.length + slotVisits.length === 0) {
                               setViewingForm(f => ({
                                 ...blankViewingForm(selectedDay),
                                 viewing_date: selectedDay,
@@ -854,6 +938,14 @@ export default function LettingsPage() {
                             }
                           }}
                         >
+                          {slotVisits.map(a => (
+                            <div key={a.id} style={{ background: '#F3E8D2', borderLeft: '3px solid #A9782F', borderRadius: 7, padding: '5px 8px', marginBottom: 3 }}>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: '#1f2937', margin: 0, lineHeight: 1.3 }}>
+                                {a.appointment_type === 'photos' ? '📷 Photos' : `🔑 ${a.notes || 'Visit'}`}{a.visitor_name ? ` · ${a.visitor_name}` : ''}
+                              </p>
+                              <p style={{ fontSize: 11, color: '#7A5A22', margin: 0, lineHeight: 1.3 }}>{[a.rooms?.name, a.properties?.name].filter(Boolean).join(', ')}</p>
+                            </div>
+                          ))}
                           {slotViewings.map(v => (
                             <div
                               key={v.id}
@@ -906,7 +998,7 @@ export default function LettingsPage() {
                 <p className="text-sm text-neutral-400">No available rooms right now</p>
               </div>
             ) : (
-              <div className="space-y-sm">
+              <div className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200 bg-white">
                 {availableRooms.map(room => (
                   <AvailableRoomCard key={room.id} room={room} />
                 ))}
@@ -1183,51 +1275,34 @@ function ViewingCard({ viewing }: { viewing: Viewing }) {
   )
 }
 
+// One room to let — two tight lines (Harry, 17 Oct 2026: the cards were far too big, the address and the date hard to
+// find): the full address and the rent, then the room, when it's free, and what's notable. Days empty are counted
+// from the available date (the stored days_on_market was never kept up to date — it read 0 everywhere).
 function AvailableRoomCard({ room }: { room: AvailableRoom }) {
-  const href = room.is_let_only
-    ? `/admin/let-only-properties`
-    : `/admin/properties/${room.property_id}`
-
+  const href = room.is_let_only ? `/admin/let-only-properties` : `/admin/properties/${room.property_id}`
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const from = room.available_date ? String(room.available_date).slice(0, 10) : null
+  const empty = from && from <= today ? Math.round((Date.parse(today) - Date.parse(from)) / 86_400_000) : null
+  const when = !from ? 'Date not set' : from <= today ? 'Available now' : `From ${formatShortDate(from)}`
+  const tag = 'rounded px-1 py-px text-[10px] font-bold uppercase leading-none tracking-wide'
   return (
-    <Link
-      href={href}
-      className="block rounded-2xl bg-white border border-neutral-200 p-lg hover:border-neutral-900 transition-colors group shadow-sm"
-    >
-      <div className="flex items-start justify-between gap-md">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-sm flex-wrap">
-            <p className="font-bold text-neutral-900">{room.name}</p>
-            {room.is_let_only && (
-              <span className="rounded-full bg-purple-100 px-sm py-0.5 text-xs font-bold text-purple-700">
-                Let-only
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-neutral-500 mt-xs truncate">{room.property_address || room.property_name}</p>
-          <div className="mt-sm">
-            <RoomDetailTags
-              has_ensuite={room.has_ensuite}
-              has_shared_bathroom={room.has_shared_bathroom}
-              has_lounge={room.has_lounge}
-            />
-          </div>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-base font-black text-neutral-900">
-            {room.current_asking_rent ? `£${room.current_asking_rent.toLocaleString()}` : '—'}
-          </p>
-          <p className="text-xs text-neutral-400">pcm</p>
-          {room.days_on_market != null && (
-            <p className={`text-xs font-semibold mt-xs ${room.days_on_market > 28 ? 'text-red-500' : room.days_on_market > 14 ? 'text-amber-500' : 'text-neutral-400'}`}>
-              {room.days_on_market}d on market
-            </p>
-          )}
-          {room.available_date && (
-            <p className="text-xs text-neutral-400 mt-xs">{formatShortDate(room.available_date)}</p>
-          )}
-        </div>
+    <Link href={href} className="flex items-center gap-md px-md py-sm hover:bg-neutral-50">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-neutral-900">{fullAddressLine({ address: room.property_address, name: room.property_name })}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-sm gap-y-0.5 text-xs text-neutral-500">
+          <span className="font-semibold text-neutral-700">{room.name}</span>
+          <span className={from && from <= today ? 'font-semibold text-emerald-700' : ''}>{when}</span>
+          {room.is_let_only && <span className={`${tag} bg-purple-100 text-purple-700`}>Let-only</span>}
+          {room.has_ensuite === true && <span className={`${tag} bg-emerald-50 text-emerald-700`}>En-suite</span>}
+          {room.has_lounge === true && <span className={`${tag} bg-neutral-100 text-neutral-600`}>Lounge</span>}
+        </p>
       </div>
-      <span className="sr-only">View details →</span>
+      <div className="shrink-0 text-right">
+        <p className="text-sm font-black tabular-nums text-neutral-900">{room.current_asking_rent ? `£${room.current_asking_rent.toLocaleString()}` : '—'}</p>
+        {empty != null && empty > 0 && (
+          <p className={`text-[11px] font-semibold ${empty > 28 ? 'text-red-600' : empty > 14 ? 'text-amber-600' : 'text-neutral-400'}`}>{empty}d empty</p>
+        )}
+      </div>
     </Link>
   )
 }
@@ -1270,12 +1345,25 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-lg">
-          <h2 className="text-xl font-bold text-neutral-900">Book a viewing</h2>
+          <h2 className="text-xl font-bold text-neutral-900">Book an appointment</h2>
           <button onClick={onClose} className="text-2xl leading-none text-neutral-400 hover:text-neutral-900">×</button>
         </div>
 
         {banner && (
           <div className="mb-md rounded-xl border border-red-200 bg-red-50 px-md py-sm text-sm text-red-800">{banner}</div>
+        )}
+
+        {/* What it's for — a viewing, photos, or anything else (never blocked: photos / other don't need a room) */}
+        <div className="mb-md flex gap-xs" role="radiogroup" aria-label="Appointment type">
+          {([['viewing', 'Viewing'], ['photos', '📷 Photos'], ['other', 'Other']] as const).map(([k, l]) => (
+            <button key={k} type="button" role="radio" aria-checked={form.kind === k}
+              onClick={() => setForm(f => ({ ...f, kind: k, notifyMessage: '' }))}
+              className={`flex-1 rounded-xl border px-md py-sm text-sm font-bold ${form.kind === k ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700'}`}>{l}</button>
+          ))}
+        </div>
+        {form.kind === 'other' && (
+          <input value={form.what} onChange={e => setForm(f => ({ ...f, what: e.target.value }))} placeholder="What's it for? e.g. Measure up, inventory, key handover"
+            className="mb-md w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900" />
         )}
 
         <div className="space-y-md">
@@ -1294,8 +1382,9 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
                   const only = rooms.length === 1 ? rooms[0] : rooms.filter(r => r.status === 'available').length === 1 ? rooms.find(r => r.status === 'available') : undefined
                   setForm(f => ({
                     ...f,
-                    room_id: only?.id ?? '',
-                    notifyMessage: defaultNotifyMsg(rooms[0]?.properties?.name || '', f.viewing_date, f.viewing_slot),
+                    property_id: e.target.value,
+                    room_id: f.kind === 'viewing' ? (only?.id ?? '') : '',
+                    notifyMessage: f.kind === 'viewing' ? defaultNotifyMsg(rooms[0]?.properties?.name || '', f.viewing_date, f.viewing_slot) : '',
                   }))
                 }}
                 className="w-full rounded-xl border border-neutral-300 px-md py-md text-sm text-neutral-900"
@@ -1311,7 +1400,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
             </div>
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">
-                Room <span className="text-red-500">*</span>
+                Room {form.kind === 'viewing' ? <span className="text-red-500">*</span> : <span className="font-normal normal-case text-neutral-400">(optional — whole house if blank)</span>}
               </label>
               <select
                 value={form.room_id}
@@ -1383,7 +1472,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
           {/* Visitor */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">Visitor name <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">{form.kind === 'viewing' ? <>Visitor name <span className="text-red-500">*</span></> : <>Who&apos;s going <span className="font-normal normal-case text-neutral-400">(optional)</span></>}</label>
               <input
                 type="text"
                 value={form.visitor_name}
@@ -1392,6 +1481,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
                 className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
               />
             </div>
+            {form.kind === 'viewing' && <>
             <div>
               <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">Email</label>
               <input
@@ -1412,6 +1502,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
                 className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
               />
             </div>
+            </>}
           </div>
 
           {/* Notify tenants */}
@@ -1458,7 +1549,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
               disabled={saving}
               className="flex-1 rounded-xl bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors"
             >
-              {saving ? 'Booking…' : 'Book viewing'}
+              {saving ? 'Booking…' : form.kind === 'viewing' ? 'Book viewing' : form.kind === 'photos' ? 'Book photos' : 'Book appointment'}
             </button>
           </div>
         </div>
