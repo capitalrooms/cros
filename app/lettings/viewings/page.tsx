@@ -625,12 +625,12 @@ export default function ViewingsDiary() {
       {addingLetOnly && (
         <AddLetOnlyModal
           onClose={() => setAddingLetOnly(false)}
-          onSave={async (property: any) => {
+          onSave={async (property: any, roomIds: string[]) => {
             setAddingLetOnly(false);
             const { data } = await createClient().from('rooms').select('id, name, property_id, properties(id, name)').order('name');
             const list = ((data as any) || []) as Room[];
             setRooms(list);
-            const first = list.filter(r => r.property_id === property?.id).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'en', { numeric: true }))[0];
+            const first = list.find(r => r.id === roomIds[0]) ?? list.filter(r => r.property_id === property?.id).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'en', { numeric: true }))[0];
             if (first) setNewForm(f => ({ ...f, room_id: first.id, property_id: first.property_id }));
           }}
         />

@@ -13,6 +13,7 @@ import { formalName, landlordFormalNames } from '@/lib/people'
 import type { FormalLetter } from '@/lib/letters/formalLetter'
 import { invoiceNumberFor, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
 import SavedDocuments from './SavedDocuments'
+import AddressField from '@/app/components/AddressField'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -493,8 +494,8 @@ export default function DocumentGenerator() {
                 </div>
                 <div>
                   <label className={label}>Address</label>
-                  <textarea rows={4} className={input} value={recipient.address} placeholder={'House number and street\nTown\nPostcode'}
-                    onChange={e => setRecipient(r => ({ ...r, address: e.target.value }))} />
+                  <AddressField multiline rows={4} className={input} value={recipient.address}
+                    onChange={v => setRecipient(r => ({ ...r, address: v }))} />
                 </div>
               </div>
             </div>
@@ -587,8 +588,8 @@ export default function DocumentGenerator() {
                   <div>
                     <label className={label}>To</label>
                     <input className={input} value={invoice.recipientName} onChange={e => updateInvoice({ recipientName: e.target.value })} />
-                    <textarea rows={3} className={`${input} mt-xs`} value={invoice.recipientAddress} placeholder="Address"
-                      onChange={e => updateInvoice({ recipientAddress: e.target.value })} />
+                    <div className="mt-xs"><AddressField multiline rows={3} className={input} value={invoice.recipientAddress}
+                      onChange={v => updateInvoice({ recipientAddress: v })} /></div>
                   </div>
                   <div>
                     <label className={label}>Invoice number</label>
@@ -612,7 +613,7 @@ export default function DocumentGenerator() {
                       <option value="">Not one of our properties</option>
                       {properties.map(p => <option key={p.id} value={p.id}>{p.name.split('\n')[0]}{p.property_code ? ` · ${p.property_code}` : ''}</option>)}
                     </select>
-                    {!invoice.propertyId && <input className={`${input} mt-xs`} value={invoice.propertyAddress} placeholder="Address to show (optional)" onChange={e => updateInvoice({ propertyAddress: e.target.value })} />}
+                    {!invoice.propertyId && <div className="mt-xs"><AddressField className={input} value={invoice.propertyAddress} placeholder="Address to show (optional) — type it or the postcode" onChange={v => updateInvoice({ propertyAddress: v })} /></div>}
                   </div>
                 </div>
                 <div>
@@ -662,8 +663,8 @@ export default function DocumentGenerator() {
                   <div>
                     <label className={label}>To</label>
                     <input className={input} value={letter.recipientName} onChange={e => updateLetter({ recipientName: e.target.value })} />
-                    <textarea rows={3} className={`${input} mt-xs`} value={letter.recipientAddress} placeholder="Address"
-                      onChange={e => updateLetter({ recipientAddress: e.target.value })} />
+                    <div className="mt-xs"><AddressField multiline rows={3} className={input} value={letter.recipientAddress}
+                      onChange={v => updateLetter({ recipientAddress: v })} /></div>
                   </div>
                   <div>
                     <label className={label}>Date</label>

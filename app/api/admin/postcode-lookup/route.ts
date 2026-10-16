@@ -58,12 +58,48 @@ async function lookupPropertyInsights(query: string): Promise<string[] | null> {
     const addresses = items
       .map((a: any) => a.text as string)
       .filter(Boolean)
-      .map(t => titleCase(t.replace(/,\s*/g, ', ')))
+      .map(t => tidy(titleCase(t.replace(/,\s*/g, ', '))))
 
     return addresses.length ? addresses : null
   } catch {
     return null
   }
+}
+
+// ── Every home at a postcode (16 Oct 2026) ───────────────────────────────────
+// The autocomplete above stops at 10 suggestions, so a postcode search missed most of a street. The council tax
+// register (VOA, via Property Insights — free, 0 credits) lists every dwelling at an England/Wales postcode. Royal
+// Mail's wording wins where both have the same home (VOA sometimes names a different street, e.g. Royal Court is
+// "Greenland Passage" there but "Finland Street" for post); the register fills in everything else.
+async function everyHomeAt(postcode: string): Promise<string[] | null> {
+  const key = process.env.PROPERTY_INSIGHTS_API_KEY
+  if (!key) return null
+  try {
+    const res = await fetch(`https://propertyinsights.co.uk/api/v1/council-tax/property-candidates?postcode=${encodeURIComponent(formatPostcode(postcode))}`,
+      { headers: { Accept: 'application/json', 'x-api-key': key } })
+    if (!res.ok) return null
+    const json = await res.json()
+    const list: string[] = (json.data?.candidates ?? []).filter((t: unknown) => typeof t === 'string')
+    return list.length ? list.map(t => tidy(titleCase(t.replace(/,\s*/g, ', ')))) : null
+  } catch {
+    return null
+  }
+}
+
+/** postcode in capitals, "8, Royal Court" → "8 Royal Court" */
+function tidy(t: string) {
+  return t.replace(/\b([a-z]{1,2}\d[a-z\d]?)\s*(\d[a-z]{2})$/i, (_m: string, a: string, b: string) => `${a} ${b}`.toUpperCase())
+    .replace(/^(\d+[a-z]?), /i, '$1 ')
+}
+
+/** same home? — flat/house number + the next word ("8 royal", "flat 4 44") */
+const homeKey = (t: string) => t.toLowerCase().replace(/,/g, ' ').split(/\s+/).filter(Boolean).slice(0, 3).join(' ').replace(/^(\S+ \S+) .*$/, '$1')
+const numberOf = (t: string) => { const m = t.match(/\d+/); return m ? parseInt(m[0]) : Infinity }
+
+function mergeHomes(postal: string[], register: string[]): string[] {
+  const seen = new Set(postal.map(homeKey))
+  const all = [...postal, ...register.filter(r => !seen.has(homeKey(r)))]
+  return all.sort((a, b) => numberOf(a) - numberOf(b) || a.localeCompare(b, 'en', { numeric: true }))
 }
 
 // ── Tier 2a: OS DataHub Places API ───────────────────────────────────────────
@@ -189,6 +225,15 @@ export async function GET(req: NextRequest) {
   const looksLikePostcode = POSTCODE_RE.test(raw.replace(/\s+/g, ''))
 
   try {
+    // A postcode → EVERY home there (Royal Mail suggestions + the council tax register), never just the first 10
+    if (looksLikePostcode) {
+      const pc = normalisePostcode(raw)
+      const [postal, register] = await Promise.all([lookupPropertyInsights(pc), everyHomeAt(pc)])
+      if (register?.length) {
+        return NextResponse.json({ mode: 'full', postcode: formatPostcode(pc), addresses: mergeHomes(postal ?? [], register), ids: [] })
+      }
+    }
+
     // Tier 1 — Property Insights (free autocomplete, handles both postcodes and partial addresses)
     const piAddresses = await lookupPropertyInsights(looksLikePostcode ? normalisePostcode(raw) : raw)
     if (piAddresses?.length) {

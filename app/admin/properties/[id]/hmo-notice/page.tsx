@@ -9,6 +9,7 @@ import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { LONDON_COUNCILS } from '@/lib/councils/london'
 import type { HmoNoticeFields } from '@/lib/letters/hmoNotice'
+import AddressField from '@/app/components/AddressField'
 
 interface Tenant { personId: string; name: string; email: string; room: string }
 interface Send { id: string; sentAt: string; recipients: { name: string; ok: boolean }[]; fields: HmoNoticeFields | null }
@@ -119,7 +120,7 @@ export default function HmoNoticePage({ params }: { params: Promise<{ id: string
                 <label className={label}>Submitted on or before<input type="date" className={input} value={f.submitBy} onChange={e => set('submitBy', e.target.value)} /></label>
               </div>
               <div className="mt-sm grid gap-sm sm:grid-cols-[1fr_180px]">
-                <label className={label}>Property address (with postcode)<input className={input} value={f.propertyAddress} onChange={e => set('propertyAddress', e.target.value)} /></label>
+                <label className={label}>Property address (with postcode)<AddressField className={input} value={f.propertyAddress} onChange={v => set('propertyAddress', v)} /></label>
                 <label className={label}>Dear …<input className={input} value={f.salutation} onChange={e => set('salutation', e.target.value)} /></label>
               </div>
             </section>
@@ -129,7 +130,7 @@ export default function HmoNoticePage({ params }: { params: Promise<{ id: string
               <div className="grid gap-sm sm:grid-cols-2">
                 <label className={label}>Name<input className={input} value={f.manager.name} onChange={e => setIn('manager', { name: e.target.value })} /></label>
                 <label className={label}>Job title<input className={input} value={f.manager.title} onChange={e => setIn('manager', { title: e.target.value })} /></label>
-                <label className={`${label} sm:col-span-2`}>Address<input className={input} value={f.manager.address} onChange={e => setIn('manager', { address: e.target.value })} /></label>
+                <label className={`${label} sm:col-span-2`}>Address<AddressField className={input} value={f.manager.address} onChange={v => setIn('manager', { address: v })} /></label>
                 <label className={label}>Telephone<input className={input} value={f.manager.phone} onChange={e => setIn('manager', { phone: e.target.value })} /></label>
                 <label className={label}>Email<input className={input} value={f.manager.email} onChange={e => setIn('manager', { email: e.target.value })} /></label>
               </div>
@@ -139,7 +140,7 @@ export default function HmoNoticePage({ params }: { params: Promise<{ id: string
               <h2 className="mb-sm text-base font-bold text-neutral-900">Proposed licence holder</h2>
               <div className="grid gap-sm sm:grid-cols-2">
                 <label className={`${label} sm:col-span-2`}>Name(s)<input className={input} value={f.holder.name} onChange={e => setIn('holder', { name: e.target.value })} /></label>
-                <label className={`${label} sm:col-span-2`}>Address<input className={input} value={f.holder.address} onChange={e => setIn('holder', { address: e.target.value })} /></label>
+                <label className={`${label} sm:col-span-2`}>Address<AddressField className={input} value={f.holder.address} onChange={v => setIn('holder', { address: v })} /></label>
                 <label className={label}>Telephone<input className={input} value={f.holder.phone} onChange={e => setIn('holder', { phone: e.target.value })} /></label>
                 <label className={label}>Email(s), comma separated<input className={input} value={f.holder.emails.join(', ')} onChange={e => setIn('holder', { emails: e.target.value.split(',').map(x => x.trim()) })} /></label>
               </div>
@@ -157,7 +158,7 @@ export default function HmoNoticePage({ params }: { params: Promise<{ id: string
               {councilKey && LONDON_COUNCILS[councilKey].checked && <p className="mb-sm text-xs text-neutral-500">Licensing team details checked {when(LONDON_COUNCILS[councilKey].checked + 'T12:00:00')}.</p>}
               <div className="grid gap-sm sm:grid-cols-2">
                 <label className={`${label} sm:col-span-2`}>Name<input className={input} value={f.council.name} onChange={e => setIn('council', { name: e.target.value })} /></label>
-                <label className={`${label} sm:col-span-2`}>Address<input className={input} value={f.council.address} onChange={e => setIn('council', { address: e.target.value })} /></label>
+                <label className={`${label} sm:col-span-2`}>Address<AddressField className={input} value={f.council.address} onChange={v => setIn('council', { address: v })} /></label>
                 <label className={label}>Telephone<input className={input} value={f.council.phone} onChange={e => setIn('council', { phone: e.target.value })} /></label>
                 <label className={label}>Email<input className={input} value={f.council.email} onChange={e => setIn('council', { email: e.target.value })} /></label>
               </div>

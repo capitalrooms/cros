@@ -11,6 +11,7 @@ import { FEES, type FeeCode } from '@/lib/invoices/fees'
 import SendToLandlord, { type AgreementDoc } from './SendToLandlord'
 import InvoicesOnly, { type InvoiceLine } from './InvoicesOnly'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
+import AddressField from '@/app/components/AddressField'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1023,8 +1024,7 @@ export default function BulkTenancyGenerator() {
 
                   <div>
                     <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Correspondence address {landlord ? `— ${landlordFormalNames(landlord as any)}` : ''}</label>
-                    <textarea rows={3} value={invoiceAddress} onChange={e => setInvoiceAddress(e.target.value)}
-                      placeholder={'House number and street\nTown\nPostcode'}
+                    <AddressField multiline rows={3} value={invoiceAddress} onChange={setInvoiceAddress}
                       className="w-full rounded-lg border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900" />
                     <div className="flex flex-wrap items-center gap-sm mt-xs">
                       {landlord && invoiceAddress.trim() !== (landlord.home_address ?? '').trim() && (

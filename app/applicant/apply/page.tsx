@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import PublicShell from '@/components/public/PublicShell'
 import { letWords } from '@/lib/lettings/letWording'
+import AddressField from '@/app/components/AddressField'
 
 interface PreviousAddress {
   address: string
@@ -511,7 +512,7 @@ export default function ApplicantForm() {
               </label>
             </div>
             <label className="pub-label">Current address
-              <input className="pub-input" type="text" value={currentAddress} onChange={e => setCurrentAddress(e.target.value)} placeholder="Where do you live now?" />
+              <AddressField className="pub-input" value={currentAddress} onChange={setCurrentAddress} placeholder="Where do you live now? Start typing the address or postcode" />
             </label>
           </Section>
 
@@ -687,7 +688,7 @@ export default function ApplicantForm() {
                     <button type="button" onClick={() => removePreviousAddress(idx)} className="text-[13px] underline">Remove</button>
                   )}
                 </div>
-                <input className="pub-input" type="text" placeholder="Address" aria-label={`Previous address ${idx + 1}`} value={addr.address} onChange={e => updatePreviousAddress(idx, 'address', e.target.value)} />
+                <AddressField className="pub-input" placeholder="Start typing the address or postcode" aria-label={`Previous address ${idx + 1}`} value={addr.address} onChange={v => updatePreviousAddress(idx, 'address', v)} />
                 <div className="grid grid-cols-2 gap-5">
                   <label className="pub-label">Moved in
                     <input className="pub-input" type="text" placeholder="e.g. Sept 2021" value={addr.movedIn} onChange={e => updatePreviousAddress(idx, 'movedIn', e.target.value)} />
