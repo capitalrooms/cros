@@ -8,6 +8,8 @@ import PageHero from '@/components/PageHero'
 import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
+import DpsImport from './DpsImport'
+import SchemeDetails from './SchemeDetails'
 
 interface Row {
   tenancyId: string; tenant: string; room: string; property: string; startDate: string | null; rent: number; deposit: number; cap: number; overCap: boolean
@@ -29,6 +31,25 @@ export default function DepositsPage() {
   const [edit, setEdit] = useState<string | null>(null)
   const [form, setForm] = useState({ deposit_amount: '', deposit_scheme: 'DPS custodial', deposit_scheme_ref: '', deposit_protected_at: '', prescribed_info_served_at: '' })
   const [busy, setBusy] = useState(false)
+  const [piReady, setPiReady] = useState(false)
+  const [piBusy, setPiBusy] = useState<string | null>(null)
+  const [notice, setNotice] = useState('')
+  const onReady = useCallback((v: boolean) => setPiReady(v), [])
+
+  async function previewPi(id: string) {
+    const r = await adminFetch(`/api/admin/deposits/prescribed-info?tenancyId=${id}`)
+    if (!r.ok) { setError((await r.json().catch(() => ({}))).error || 'Could not make it'); return }
+    window.open(URL.createObjectURL(await r.blob()), '_blank')
+  }
+  async function sendPi(r: Row) {
+    if (!window.confirm(`Email the prescribed information to ${r.tenant}?`)) return
+    setPiBusy(r.tenancyId); setError(''); setNotice('')
+    const res = await adminFetch('/api/admin/deposits/prescribed-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId: r.tenancyId }) })
+    const j = await res.json().catch(() => ({}))
+    setPiBusy(null)
+    if (!res.ok) { setError(j.error || 'Could not send it'); return }
+    setNotice(`Prescribed information sent to ${j.sentTo?.join(', ')}.`); load()
+  }
 
   const load = useCallback(async () => {
     try {
@@ -71,6 +92,9 @@ export default function DepositsPage() {
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {setup && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{setup}</p>}
         {error && <p className="rounded-xl bg-red-50 px-md py-sm text-sm text-red-700">{error}</p>}
+        {notice && <p className="rounded-xl bg-emerald-50 px-md py-sm text-sm text-emerald-800">{notice}</p>}
+        <DpsImport onDone={load} />
+        <SchemeDetails onReady={onReady} />
         {rows && (
           <div className="flex flex-wrap gap-sm text-sm">
             {(['overdue', 'due', 'no_deposit', 'protected'] as const).map(k => <span key={k} className={`rounded-full px-md py-xs font-semibold ${STATUS[k][1]}`}>{STATUS[k][0]}: {counts[k] || 0}</span>)}
@@ -90,7 +114,15 @@ export default function DepositsPage() {
                       <td className="px-md py-sm text-neutral-700 whitespace-nowrap">{d(r.startDate)}{r.status !== 'protected' && r.deadline ? <span className="block text-xs text-neutral-500">deadline {d(r.deadline)}</span> : null}</td>
                       <td className="px-md py-sm text-right tabular-nums">{r.deposit ? gbp(r.deposit) : '—'}{r.overCap && <span className="block text-[11px] font-semibold text-red-700">over the {gbp(r.cap)} cap</span>}</td>
                       <td className="px-md py-sm text-xs text-neutral-700">{r.protectedAt || r.schemeRef ? <>{r.scheme || 'Scheme'}{r.schemeRef ? ` · ${r.schemeRef}` : ''}<br />{d(r.protectedAt)}</> : '—'}</td>
-                      <td className="px-md py-sm text-xs text-neutral-700">{r.prescribedInfoAt ? d(r.prescribedInfoAt) : r.prescribedInfoInPack ? <span className="text-neutral-500">In move-in pack {d(r.prescribedInfoInPack)}</span> : '—'}</td>
+                      <td className="px-md py-sm text-xs text-neutral-700">
+                        {r.prescribedInfoAt ? d(r.prescribedInfoAt) : r.prescribedInfoInPack ? <span className="text-amber-800">Only the blank DPS form (move-in pack {d(r.prescribedInfoInPack)})</span> : '—'}
+                        {r.deposit > 0 && (r.schemeRef || r.protectedAt) && (
+                          <span className="mt-0.5 flex gap-sm">
+                            <button onClick={() => previewPi(r.tenancyId)} className="font-bold text-neutral-700 underline">Preview</button>
+                            {!r.prescribedInfoAt && <button disabled={!piReady || piBusy === r.tenancyId} title={piReady ? '' : 'Save the scheme details and add the DPS Terms and Conditions first'} onClick={() => sendPi(r)} className="font-bold text-blue-700 underline disabled:text-neutral-400 disabled:no-underline">{piBusy === r.tenancyId ? 'Sending…' : 'Email to tenant'}</button>}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-md py-sm"><span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${STATUS[r.status][1]}`}>{STATUS[r.status][0]}</span></td>
                       <td className="px-md py-sm text-right"><button onClick={() => edit === r.tenancyId ? setEdit(null) : open(r)} className="text-xs font-bold text-neutral-700 underline">{edit === r.tenancyId ? 'Close' : 'Record'}</button></td>
                     </tr>
