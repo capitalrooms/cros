@@ -112,8 +112,10 @@ export async function activeTenantIds(
  * 'push_email' = push to those with subscriptions, email to all
  * 'push_only'  = push only (no email at all)
  * 'email_only' = email to all (no push)
+ * 'push_email_sms' = push + email + a text to everyone with a mobile (16 Oct 2026 — lettings tell a house about a
+ *                    viewing by email AND text)
  */
-export type NotifyChannels = 'push_email' | 'push_only' | 'email_only'
+export type NotifyChannels = 'push_email' | 'push_only' | 'email_only' | 'push_email_sms'
 
 /**
  * Dispatch a notification via the requested channels.
@@ -126,23 +128,45 @@ export async function dispatchChannels(
   channels: NotifyChannels = 'push_email',
   /** the request behind a staff mail-out, so it's sent from and signed by that person */
   req?: Request | null,
-): Promise<{ pushCount: number; emailCount: number }> {
+): Promise<{ pushCount: number; emailCount: number; smsCount?: number; smsFailed?: string[] }> {
   const ids = [...new Set(recipientPersonIds.filter(Boolean))]
   if (ids.length === 0) return { pushCount: 0, emailCount: 0 }
 
   let pushCount = 0
   let emailCount = 0
+  let sms: { smsCount: number; smsFailed: string[] } | null = null
 
-  if (channels === 'push_email' || channels === 'push_only') {
+  if (channels === 'push_email' || channels === 'push_only' || channels === 'push_email_sms') {
     await tryPush(ids, content.title, content.body, content.link)
     pushCount = ids.length // best-effort — we don't get individual receipts from push
   }
 
-  if (channels === 'push_email' || channels === 'email_only') {
+  if (channels === 'push_email' || channels === 'email_only' || channels === 'push_email_sms') {
     emailCount = await sendEmailToAll(service, ids, content, req)
   }
 
-  return { pushCount, emailCount }
+  if (channels === 'push_email_sms') sms = await sendSmsToAll(service, ids, content)
+
+  return { pushCount, emailCount, ...(sms ?? {}) }
+}
+
+/** A text to everyone with a mobile — "Hi Mr Wang, <message> – Capital Rooms". Failures are reported to the office by
+ *  lib/sms; the names of those who couldn't be texted come back so the screen can say so. */
+async function sendSmsToAll(service: SupabaseClient, ids: string[], content: NotifyContent): Promise<{ smsCount: number; smsFailed: string[] }> {
+  const { sendSms, smsConfigured } = await import('@/lib/sms')
+  const { data: people } = await service.from('people').select('id, salutation, first_name, last_name, full_name, phone').in('id', ids)
+  const failed: string[] = []
+  let count = 0
+  for (const p of (people ?? []) as any[]) {
+    const who = dearName(p)
+    if (!p.phone) { failed.push(`${who} (no mobile)`); continue }
+    if (!smsConfigured()) { failed.push(`${who} (texting not set up)`); continue }
+    // no emoji in a text — one makes it cost two or three texts
+    const r = await sendSms(p.phone, `Hi ${who}, ${content.body.replace(/\p{Extended_Pictographic}\uFE0F?\s*/gu, '').trim()} – Capital Rooms`, { asName: true })
+    if (r.ok) count++
+    else failed.push(`${who} (${r.error})`)
+  }
+  return { smsCount: count, smsFailed: failed }
 }
 
 /** Send branded email to ALL supplied person ids (not just those without push). */

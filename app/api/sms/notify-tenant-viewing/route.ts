@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sendSms, smsConfigured } from '@/lib/sms'
 import { hiName, personFromText } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@/lib/supabase'
@@ -6,7 +7,6 @@ import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { getElectedCommsLive } from '@/lib/comms'
 import { requireStaff } from '@/lib/portalAuth'
-import twilio from 'twilio'
 
 export const runtime = 'nodejs'
 
@@ -61,11 +61,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, smsSent: false, reason: 'no_phone' })
   }
 
-  const sid   = process.env.TWILIO_ACCOUNT_SID
-  const token = process.env.TWILIO_AUTH_TOKEN
-  const from  = process.env.TWILIO_FROM_NUMBER
-
-  if (!sid || !token || !from) {
+  if (!smsConfigured()) {
     return NextResponse.json({ ok: true, smsSent: false, reason: 'twilio_not_configured' })
   }
 
@@ -79,16 +75,11 @@ export async function POST(req: NextRequest) {
 
   const msg = `Hi ${name}, we wanted to let you know that someone will be viewing your room at ${property_address} on ${dateStr}${timeStr}. Please contact us if you have any questions. -${signOff}`
 
-  try {
-    const client = twilio(sid, token)
-    await client.messages.create({ body: msg, from, to: phone })
-    // the joint tenant on the same tenancy gets the same text
-    const co = (tenancy as any)?.co
-    if (!phoneOverride && co?.phone && co.phone !== phone) {
-      await client.messages.create({ body: msg.replace(`Hi ${name},`, `Hi ${hiName(co)},`), from, to: co.phone }).catch(() => null)
-    }
-    return NextResponse.json({ ok: true, smsSent: true })
-  } catch (e: any) {
-    return NextResponse.json({ ok: true, smsSent: false, reason: e?.message || 'sms_failed' })
-  }
+  // lib/sms: +44 numbers, the right sender, and the office is told if a text fails
+  const sent = await sendSms(phone, msg)
+  if (!sent.ok) return NextResponse.json({ ok: true, smsSent: false, reason: sent.error || 'sms_failed' })
+  // the joint tenant on the same tenancy gets the same text
+  const co = (tenancy as any)?.co
+  if (!phoneOverride && co?.phone && co.phone !== phone) await sendSms(co.phone, msg.replace(`Hi ${name},`, `Hi ${hiName(co)},`))
+  return NextResponse.json({ ok: true, smsSent: true })
 }

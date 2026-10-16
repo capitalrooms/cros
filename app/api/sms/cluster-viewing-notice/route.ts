@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sendSms, smsConfigured } from '@/lib/sms'
 import { hiName } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
 import { expandJoint } from '@/lib/serverNotify'
@@ -7,7 +8,6 @@ import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { getElectedCommsLive } from '@/lib/comms'
 import { requireStaff } from '@/lib/portalAuth'
-import twilio from 'twilio'
 
 export const runtime = 'nodejs'
 
@@ -50,11 +50,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'viewing_date, time_from, time_to required' }, { status: 400 })
   }
 
-  const sid   = process.env.TWILIO_ACCOUNT_SID
-  const token = process.env.TWILIO_AUTH_TOKEN
-  const from  = process.env.TWILIO_FROM_NUMBER
-
-  if (!sid || !token || !from) {
+  if (!smsConfigured()) {
     return NextResponse.json({ error: 'SMS provider not configured' }, { status: 503 })
   }
 
@@ -66,7 +62,9 @@ export async function POST(req: NextRequest) {
     .from('tenancies')
     .select('room_id, people!person_id(salutation, first_name, phone), co:people!co_tenant_id(salutation, first_name, phone)')
     .in('room_id', room_ids)
-    .is('end_date', null)
+    // current tenants — including anyone on notice (they have an end date and still live there)
+    .lte('start_date', new Date().toISOString().slice(0, 10))
+    .or(`end_date.is.null,end_date.gte.${new Date().toISOString().slice(0, 10)}`)
 
   const dateStr = new Date(viewing_date).toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -74,8 +72,6 @@ export async function POST(req: NextRequest) {
 
   const results: { phone: string; name: string; ok: boolean; error?: string }[] = []
   const seen = new Set<string>() // deduplicate by phone
-
-  const client = twilio(sid, token)
 
   for (const tenancy of expandJoint<any>(tenancies)) {   // both tenants on a joint tenancy
     const person = tenancy.people as any
@@ -88,12 +84,8 @@ export async function POST(req: NextRequest) {
     const body = customMessage ||
       `Hi ${name}, we're holding viewings in your area on ${dateStr} and may visit your property between ${time_from} and ${time_to}. We will knock on the entry door and then on your bedroom door before entering. Please get in touch if this is inconvenient. -${signOff}`
 
-    try {
-      await client.messages.create({ body, from, to: phone })
-      results.push({ phone, name, ok: true })
-    } catch (e: any) {
-      results.push({ phone, name, ok: false, error: e?.message })
-    }
+    const sent = await sendSms(phone, body)   // lib/sms — the office is told about any that fail
+    results.push({ phone, name, ok: sent.ok, error: sent.error })
   }
 
   const sent  = results.filter(r => r.ok).length

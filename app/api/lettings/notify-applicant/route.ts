@@ -10,9 +10,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { sendSms } from '@/lib/sms'
 import { hiName, personFromText } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
-import twilio from 'twilio'
 import { requireStaff } from '@/lib/portalAuth'
 import { getNewTenantCommsLive } from '@/lib/comms'
 import { getSmsSignOff } from '@/lib/auth'
@@ -21,15 +21,6 @@ import { messageHtml } from '@/lib/email/messageHtml'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-// "07700 900123" / "+44 (0)7700…" → "+447700900123"; anything else is passed through for Twilio to judge
-function toE164(raw: string): string {
-  const s = raw.replace(/[^\d+]/g, '').replace(/^\+44\(?0\)?/, '+44').replace(/^0044/, '+44')
-  if (s.startsWith('+')) return s
-  if (s.startsWith('44')) return `+${s}`
-  if (s.startsWith('0')) return `+44${s.slice(1)}`
-  return s
-}
 
 export async function POST(req: NextRequest) {
   const caller = await requireStaff(req)
@@ -56,17 +47,11 @@ export async function POST(req: NextRequest) {
   const out: { smsSent: boolean; emailSent: boolean; smsError?: string; emailError?: string } = { smsSent: false, emailSent: false }
 
   if (wantSms) {
-    const sid = process.env.TWILIO_ACCOUNT_SID, token = process.env.TWILIO_AUTH_TOKEN, from = process.env.TWILIO_FROM_NUMBER
     if (!v.visitor_phone) out.smsError = 'No phone number on this viewing'
-    else if (!sid || !token || !from) out.smsError = 'Text messages are not set up'
     else {
-      try {
-        const signOff = await getSmsSignOff(caller.email)
-        await twilio(sid, token).messages.create({ body: `Hi ${first}, ${message} -${signOff}`, from, to: toE164(v.visitor_phone) })
-        out.smsSent = true
-      } catch (e) {
-        out.smsError = e instanceof Error ? e.message : 'Text failed'
-      }
+      const sent = await sendSms(v.visitor_phone, `Hi ${first}, ${message} -${await getSmsSignOff(caller.email)}`)   // lib/sms
+      if (sent.ok) out.smsSent = true
+      else out.smsError = sent.error ?? 'Text failed'
     }
   }
 

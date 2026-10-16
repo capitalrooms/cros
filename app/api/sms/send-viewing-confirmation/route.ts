@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sendSms, smsConfigured } from '@/lib/sms'
 import { hiName, personFromText } from '@/lib/people'
 import { createServerClient } from '@/lib/supabase'
 import { getSmsSignOff } from '@/lib/auth'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { getNewTenantCommsLive } from '@/lib/comms'
-import twilio from 'twilio'
 
 export const runtime = 'nodejs'
 
@@ -24,11 +24,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Phone and visitor name required' }, { status: 400 })
     }
 
-    const sid   = process.env.TWILIO_ACCOUNT_SID
-    const token = process.env.TWILIO_AUTH_TOKEN
-    const from  = process.env.TWILIO_FROM_NUMBER
-
-    if (!sid || !token || !from) {
+    if (!smsConfigured()) {
       console.warn('Twilio env vars not set — SMS not sent')
       return NextResponse.json({ error: 'SMS provider not configured' }, { status: 503 })
     }
@@ -37,9 +33,8 @@ export async function POST(req: NextRequest) {
 
     const message = `Hi ${hiName(personFromText(visitorName))}, your viewing at ${roomAddress} is confirmed for ${viewingDate} at ${viewingTime}. Reply to this message or call/text us directly. -${signOff}`
 
-    const client = twilio(sid, token)
-    await client.messages.create({ body: message, from, to: phone })
-
+    const sent = await sendSms(phone, message)   // lib/sms: +44 numbers, the right sender, office told if it fails
+    if (!sent.ok) return NextResponse.json({ error: `The text didn’t send: ${sent.error}` }, { status: 502 })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('SMS send error:', error)
