@@ -1,8 +1,10 @@
 'use client'
 
-// Every letter and invoice made on this page: view, download or delete (delete hides it; the record is kept).
-import { useCallback, useEffect, useState } from 'react'
+// Every letter and invoice made on this page: view, download, send again (to any address — e.g. when the first one
+// bounced), edit, or delete (delete hides it; the record is kept).
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
+import { dearFromText } from '@/lib/people'
 
 interface Doc {
   id: string
@@ -10,6 +12,7 @@ interface Doc {
   number: string | null
   title: string
   recipient_name: string
+  recipient_email?: string | null
   total: number | null
   created_at: string
   created_by: string | null
@@ -20,13 +23,34 @@ interface Doc {
 const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
-export default function SavedDocuments({ refreshKey }: { refreshKey: number }) {
+export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: number; onEdit?: (doc: Doc) => void }) {
   const [docs, setDocs] = useState<Doc[] | null>(null)
   const [setupNeeded, setSetupNeeded] = useState(false)
   const [filter, setFilter] = useState<'all' | Doc['kind']>('all')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  // "Send again" opens under the row: same PDF, any address, a short covering email
+  const [resend, setResend] = useState<null | { id: string; to: string; cc: string; subject: string; message: string; sending?: boolean; result?: { ok: boolean; text: string } }>(null)
+  function startResend(d: Doc) {
+    const what = d.kind === 'invoice' ? `invoice ${d.number}` : d.kind === 'receipt' ? `receipt ${d.number}` : `our letter, “${d.title}”`
+    setResend({
+      id: d.id, cc: '',
+      to: (d.emailed_to?.join(', ') || d.recipient_email || ''),
+      subject: d.kind === 'letter' ? d.title : d.kind === 'invoice' ? `Invoice ${d.number} from Capital Rooms` : `Receipt ${d.number} from Capital Rooms`,
+      message: `Dear ${dearFromText(d.recipient_name)},\n\nPlease find attached ${what}.\n\nKind regards,`,
+    })
+  }
+  async function sendAgain() {
+    if (!resend) return
+    const split = (v: string) => v.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean)
+    setResend(r => r && { ...r, sending: true, result: undefined })
+    const r = await adminFetch('/api/admin/document-generator/send', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resendId: resend.id, to: split(resend.to), cc: split(resend.cc), subject: resend.subject, message: resend.message }) })
+    const d = await r.json().catch(() => ({}))
+    setResend(x => x && { ...x, sending: false, result: r.ok ? { ok: true, text: `Sent to ${d.to.join(', ')}${d.cc?.length ? `, cc ${d.cc.join(', ')}` : ''}.` } : { ok: false, text: d.error ?? 'The email was not sent' } })
+    if (r.ok) load()
+  }
 
   const load = useCallback(async () => {
     const r = await adminFetch('/api/admin/documents/generated')
@@ -104,7 +128,8 @@ export default function SavedDocuments({ refreshKey }: { refreshKey: number }) {
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {shown.map(d => (
-                <tr key={d.id} className="align-top">
+                <Fragment key={d.id}>
+                <tr className="align-top">
                   <td className="py-sm pr-sm whitespace-nowrap text-neutral-600 tabular-nums">{when(d.created_at)}</td>
                   <td className="py-sm pr-sm">
                     <p className="font-semibold text-neutral-900">{d.kind === 'letter' ? `✉️ ${d.title}` : `🧾 ${d.number}`}</p>
@@ -116,9 +141,27 @@ export default function SavedDocuments({ refreshKey }: { refreshKey: number }) {
                   <td className="py-sm whitespace-nowrap text-right">
                     <button type="button" onClick={() => open(d, 'view')} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">View</button>
                     <button type="button" onClick={() => open(d, 'download')} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">Download</button>
+                    <button type="button" onClick={() => resend?.id === d.id ? setResend(null) : startResend(d)} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">{resend?.id === d.id ? 'Close' : 'Send again'}</button>
+                    {onEdit && d.kind !== 'receipt' && <button type="button" onClick={() => onEdit(d)} disabled={!!busy} className="text-xs font-semibold text-blue-600 hover:underline mr-sm">Edit</button>}
                     <button type="button" onClick={() => remove(d)} disabled={!!busy} className="text-xs font-semibold text-red-600 hover:underline">Delete</button>
                   </td>
                 </tr>
+                {resend?.id === d.id && (
+                  <tr><td colSpan={6} className="bg-neutral-50 px-md py-md">
+                    <p className="mb-sm text-xs text-neutral-600">Sends the saved PDF exactly as it is. To change the {d.kind === 'invoice' ? 'invoice' : 'letter'} first, use <b>Edit</b>.</p>
+                    <div className="grid gap-sm sm:grid-cols-2">
+                      <label className="text-xs font-semibold text-neutral-700">To<input className="mt-0.5 w-full rounded-lg border border-neutral-300 bg-white px-sm py-1.5 text-sm font-normal" value={resend.to} onChange={e => setResend({ ...resend, to: e.target.value })} placeholder="name@example.com" /></label>
+                      <label className="text-xs font-semibold text-neutral-700">Cc<input className="mt-0.5 w-full rounded-lg border border-neutral-300 bg-white px-sm py-1.5 text-sm font-normal" value={resend.cc} onChange={e => setResend({ ...resend, cc: e.target.value })} placeholder="optional" /></label>
+                      <label className="text-xs font-semibold text-neutral-700 sm:col-span-2">Subject<input className="mt-0.5 w-full rounded-lg border border-neutral-300 bg-white px-sm py-1.5 text-sm font-normal" value={resend.subject} onChange={e => setResend({ ...resend, subject: e.target.value })} /></label>
+                      <label className="text-xs font-semibold text-neutral-700 sm:col-span-2">Email message<textarea rows={5} className="mt-0.5 w-full rounded-lg border border-neutral-300 bg-white px-sm py-1.5 text-sm font-normal" value={resend.message} onChange={e => setResend({ ...resend, message: e.target.value })} /></label>
+                    </div>
+                    <div className="mt-sm flex flex-wrap items-center gap-sm">
+                      <button type="button" onClick={sendAgain} disabled={resend.sending || !resend.to.trim()} className="rounded-lg bg-neutral-900 px-lg py-1.5 text-sm font-bold text-white disabled:bg-neutral-300">{resend.sending ? 'Sending…' : 'Send'}</button>
+                      {resend.result && <span className={`text-sm ${resend.result.ok ? 'text-emerald-700' : 'text-red-700'}`}>{resend.result.text}</span>}
+                    </div>
+                  </td></tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

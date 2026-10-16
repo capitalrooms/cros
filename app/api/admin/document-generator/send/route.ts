@@ -5,6 +5,7 @@
  * branded Capital Rooms email. The PDF is rendered here from the same letter the page previewed.
  *
  * Body: { to: string[], cc: string[], subject, message (plain text), letter: FormalLetter, signer?, preview?: true }
+ *   or { resendId, to, cc, subject, message } — send a saved letter / invoice again, exactly as saved, to any address
  * preview → { html, from } of the email as the recipient will see it; nothing is sent.
  */
 
@@ -20,6 +21,7 @@ import { invoiceFromBody } from '@/lib/invoices/fromDocumentGenerator'
 import { generateLandlordInvoice } from '@/lib/invoices/landlordInvoice'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { createServiceClient } from '@/lib/supabase'
+import { DOCS_BUCKET, fileNameFor, type GeneratedDocument } from '@/lib/documents/generated'
 
 // The saved copy (Letters & Invoices list) records when and to whom it was emailed. Best effort: the email has gone.
 async function markEmailed(documentId: unknown, to: string[]) {
@@ -54,6 +56,20 @@ export async function POST(req: NextRequest) {
   if (!to.length) return NextResponse.json({ error: 'Add the recipient’s email address' }, { status: 400 })
   if (bad.length) return NextResponse.json({ error: `Not a valid email address: ${bad.join(', ')}` }, { status: 400 })
   if (!subject) return NextResponse.json({ error: 'Add a subject' }, { status: 400 })
+
+  // Send a saved document again (16 Oct 2026 — e.g. the first address bounced): the stored PDF, unchanged
+  if (b.resendId) {
+    const db = createServiceClient()
+    const { data: doc } = await db.from('generated_documents').select('id, kind, number, title, recipient_name, storage_path').eq('id', String(b.resendId)).is('deleted_at', null).maybeSingle()
+    if (!doc) return NextResponse.json({ error: 'That document could not be found. Nothing was sent.' }, { status: 404 })
+    const { data: file, error: dlErr } = await db.storage.from(DOCS_BUCKET).download((doc as any).storage_path)
+    if (dlErr || !file) return NextResponse.json({ error: 'The saved PDF could not be opened. Nothing was sent.' }, { status: 500 })
+    const filename = fileNameFor(doc as GeneratedDocument)
+    const sent = await sendEmail(to, subject, messageHtml(message), { req, cc, attachments: [{ filename, content: Buffer.from(await file.arrayBuffer()).toString('base64') }] })
+    if (!sent.ok) return NextResponse.json({ error: `The email was not sent: ${sent.error ?? 'unknown error'}` }, { status: 502 })
+    await markEmailed((doc as any).id, to)
+    return NextResponse.json({ ok: true, to, cc, attachment: filename, sentAt: new Date().toISOString() })
+  }
 
   // An invoice from the same page: attach the standard invoice instead of a letter.
   if (b.invoice) {
