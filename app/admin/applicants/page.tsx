@@ -11,6 +11,7 @@ import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import NameInput, { type NameValue, emptyName, toFullName, toLegalName } from '@/app/components/NameInput'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
+import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import { displayName } from '@/lib/people'
 
 const STAGES = [
@@ -93,6 +94,8 @@ export default function ApplicantsPage() {
   const [addError, setAddError] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [filteredAddRooms, setFilteredAddRooms] = useState<any[]>([])
+  // an offer for a house we don't have on file yet (a one-off let-only) — add its address and rooms right here (16 Oct 2026)
+  const [showNewAddress, setShowNewAddress] = useState(false)
 
   // Stage advance
   const [advancing, setAdvancing] = useState<string | null>(null)
@@ -138,7 +141,7 @@ export default function ApplicantsPage() {
     if (!addForm.property_id) { setFilteredAddRooms([]); return }
     const list = rooms.filter(r => r.property_id === addForm.property_id)
     setFilteredAddRooms(list)
-    const keep = pendingRoom.current && list.some(r => r.id === pendingRoom.current) ? pendingRoom.current : ''
+    const keep = pendingRoom.current && list.some(r => r.id === pendingRoom.current) ? pendingRoom.current : list.length === 1 ? list[0].id : ''
     if (list.length) pendingRoom.current = null
     setAddForm(f => ({ ...f, room_id: keep }))
   }, [addForm.property_id, rooms])
@@ -422,6 +425,7 @@ export default function ApplicantsPage() {
                   <option value="">Select property…</option>
                   {properties.map(p => <option key={p.id} value={p.id}>{p.name || p.address}</option>)}
                 </select>
+                <button type="button" onClick={() => setShowNewAddress(true)} className="mt-xs text-xs font-bold text-neutral-700 underline">Not listed? Add a let-only address</button>
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-neutral-600 mb-xs uppercase tracking-wide">Room *</label>
@@ -431,6 +435,16 @@ export default function ApplicantsPage() {
                 </select>
               </div>
             </div>
+            {showNewAddress && (
+              <AddLetOnlyModal
+                onClose={() => setShowNewAddress(false)}
+                onSave={async (property: any) => {
+                  setShowNewAddress(false)
+                  await loadAll()
+                  setAddForm(f => ({ ...f, property_id: property.id }))
+                }}
+              />
+            )}
             {addError && <p className="mt-sm text-xs text-red-600">{addError}</p>}
             <div className="mt-md flex gap-sm">
               <button onClick={handleAdd} disabled={addSaving} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50">
