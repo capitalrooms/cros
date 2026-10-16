@@ -180,13 +180,13 @@ export default function LandlordDashboard() {
   const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   if (loading) {
-    return <PublicShell><p className="pub-muted mx-auto max-w-6xl px-6 py-24 text-[16px] md:px-14">Loading…</p></PublicShell>
+    return <PublicShell centred><p className="pub-muted mx-auto max-w-6xl px-6 py-24 text-[16px] md:px-14">Loading…</p></PublicShell>
   }
 
   // the landlord-onboarding look (components/public) — 14 Oct 2026, Harry: "do it in the onboarding landlord style"
   const wrap = 'mx-auto max-w-6xl px-6 md:px-14'
   return (
-    <PublicShell label={viewingAs ? `Viewing as ${name}` : 'Your account'}>
+    <PublicShell centred label={viewingAs ? `Viewing as ${name}` : 'Your account'}>
       {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
 
       <section className={`${wrap} pt-10 md:pt-14`}>
@@ -258,22 +258,29 @@ export default function LandlordDashboard() {
 
         {/* Property Selector */}
         {properties.length > 0 && (
-          <div className="mb-3xl rounded-2xl bg-neutral-900 text-white p-lg">
-            <label className="block text-xs font-bold uppercase tracking-widest text-white/60 mb-md">
-              Select Property
+          <div className="mb-3xl rounded-2xl p-lg" style={{ background: '#EEF0F3', border: '1px solid #DDE1E6' }}>
+            <label htmlFor="landlord-property" className="block text-xs font-bold uppercase tracking-widest mb-md" style={{ color: '#5B6470' }}>
+              {properties.length > 1 ? 'Select property' : 'Your property'}
             </label>
-            <select
-              value={selectedProperty}
-              onChange={(e) => setSelectedProperty(e.target.value)}
-              className="w-full bg-neutral-800 text-white rounded-lg px-md py-sm border border-neutral-700 text-base font-bold appearance-none cursor-pointer"
-              style={{ colorScheme: 'dark', color: '#ffffff' }}
-            >
-              {properties.map((prop) => (
-                <option key={prop.id} value={prop.id} style={{ backgroundColor: '#1f2937', color: '#ffffff' }}>
-                  {prop.name && prop.name !== prop.address ? `${prop.name} — ${prop.address}` : (prop.address || prop.name)}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="landlord-property"
+                value={selectedProperty}
+                onChange={(e) => setSelectedProperty(e.target.value)}
+                disabled={properties.length < 2}
+                className="w-full rounded-lg px-md py-sm pr-10 text-base font-bold appearance-none cursor-pointer disabled:cursor-default disabled:opacity-100"
+                style={{ background: '#fff', color: '#1F2329', border: '1px solid #D3D8DE' }}
+              >
+                {properties.map((prop) => {
+                  // the full address once — not "208 Rotherhithe Street — 208 Rotherhithe Street, London…"
+                  const addr = String(prop.address || '').replace(/\s*\n\s*/g, ', ')
+                  const name = String(prop.name || '').split('\n')[0]
+                  const label = !addr ? name : !name || addr.toLowerCase().startsWith(name.toLowerCase()) ? addr : `${name} — ${addr}`
+                  return <option key={prop.id} value={prop.id}>{label}</option>
+                })}
+              </select>
+              {properties.length > 1 && <span aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: '#5B6470' }}>▾</span>}
+            </div>
           </div>
         )}
 
