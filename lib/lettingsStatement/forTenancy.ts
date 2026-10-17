@@ -45,6 +45,15 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
 
   if (!property) return { error: 'Property not found' }
   // a statement with a blank rent or deposit would show the landlord £0 — say what's missing instead (it used to crash)
+  // once initial monies are recorded (migration 231), the statement shows exactly what came in and the fee taken
+  const { data: im } = await supabase.from('initial_monies').select('first_rent, deposit, fee, holding_amount').eq('tenancy_id', tenancyId).is('voided_at', null).maybeSingle()
+  if (im) {
+    ;(tenancy as any).rent_amount = Number((im as any).first_rent)
+    ;(tenancy as any).deposit_amount = Number((im as any).deposit)
+    ;(tenancy as any).rent_in_advance = 1
+    ;(tenancy as any).letting_fee_charged = Number((im as any).fee)
+    ;(tenancy as any).holding_deposit_received = Number((im as any).holding_amount)
+  }
   if (tenancy.rent_amount == null) return { error: 'Add the rent on the letting file (Terms) first' }
   if (tenancy.deposit_amount == null) return { error: 'Add the deposit amount on the letting file (Terms) first' }
 

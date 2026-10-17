@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
+import InitialMonies from './InitialMonies'
 import RentSortOut from '@/components/RentSortOut'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
 import DocUploadDrawer from '@/components/DocUploadDrawer'
@@ -579,6 +580,8 @@ export function MoneyTab({ file }: { file: LettingFile }) {
   const [sorting, setSorting] = useState(false)
   return (
     <div className="space-y-md">
+      {/* a let-only let's money before move-in: received, fee, landlord paid (migration 231) */}
+      {file.property.lettingType === 'let_only' && <InitialMonies tenancyId={t.id} onChanged={() => window.dispatchEvent(new Event('letting-file-changed'))} />}
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-sm mb-sm">
           <h2 className="text-lg font-bold">Rent account</h2>
