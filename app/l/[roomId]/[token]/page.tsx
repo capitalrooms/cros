@@ -11,7 +11,7 @@ import type { Metadata } from 'next'
 import PublicShell from '@/components/public/PublicShell'
 import { createServiceClient } from '@/lib/supabase'
 import { loadListing, listingToken, type Listing } from '@/lib/listing/listing'
-import { nearbyStations, type Station } from '@/lib/listing/area'
+import { nearbyStations, nearbyPlaces, type Station, type Place } from '@/lib/listing/area'
 import ListingGallery, { ShareButton } from './ListingGallery'
 
 export const dynamic = 'force-dynamic'
@@ -64,7 +64,9 @@ export default async function SharedListing({ params }: { params: Promise<{ room
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
   const title = l.headline || (l.wholeLet ? where : `${l.roomName} — ${where}`)
   const photos = l.media.filter(m => m.kind === 'photo'), videos = l.media.filter(m => m.kind === 'video')
-  const stations = l.approx ? await nearbyStations(l.approx.lat, l.approx.lng) : []
+  const [stations, places] = l.approx ? await Promise.all([nearbyStations(l.approx.lat, l.approx.lng), nearbyPlaces(l.approx.lat, l.approx.lng)]) : [[] as Station[], [] as Place[]]
+  const nearest = (k: Place['kind'], n: number) => places.filter(x => x.kind === k).slice(0, n)
+  const everyday: [string, Place[]][] = ([['Gyms', nearest('gym', 3)], ['Supermarkets', nearest('supermarket', 3)], ['Parks', nearest('park', 2)]] as [string, Place[]][]).filter(([, xs]) => xs.length)
   const description = l.description || autoDescription(l, where, stations)
   const pw = l.rent ? Math.round(l.rent * 12 / 52) : null
   const unit = l.wholeLet ? 'home' : 'room'
@@ -202,6 +204,23 @@ export default async function SharedListing({ params }: { params: Promise<{ room
                     </div>
                   </div>
                 )}
+              </section>
+            )}
+
+            {/* everyday places within a short walk (OpenStreetMap) — shown only when the lookup answered */}
+            {everyday.length > 0 && (
+              <section className="mt-10">
+                <h2 className="text-[22px]" style={{ fontFamily: 'var(--pub-serif), serif' }}>On your doorstep</h2>
+                <div className="mt-3 grid gap-6 sm:grid-cols-3">
+                  {everyday.map(([title, xs]) => (
+                    <div key={title}>
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-neutral-500">{title}</p>
+                      <ul className="mt-2 space-y-1.5 text-[15px]">
+                        {xs.map(x => <li key={x.name} className="flex justify-between gap-3"><span className="min-w-0 truncate">{x.name}</span><span className="shrink-0 tabular-nums text-neutral-500">{x.walkMin} min</span></li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               </section>
             )}
 
