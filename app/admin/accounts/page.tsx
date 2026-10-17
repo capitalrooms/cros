@@ -592,7 +592,7 @@ export default function AccountsPage() {
 
         {chargeMonth < '2026-10-01' && (
           <div className="mb-lg rounded-xl border border-blue-200 bg-blue-50 px-lg py-md text-sm text-blue-900">
-            Rent for {new Date(chargeMonth + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} was collected by the previous agent, so it isn’t in CROS’s rent records (they start on 1 October 2026).
+            Rent for {new Date(chargeMonth + 'T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} is in your import period, so it’s on the imported statements rather than in CROS’s own rent records.
             The <a href={`/admin/rent-roll?month=${chargeMonth.slice(0, 7)}`} className="font-semibold underline">rent roll</a> shows that month from their statements, and <a href="/admin/statements" className="font-semibold underline">Statements</a> has each one.
           </div>
         )}

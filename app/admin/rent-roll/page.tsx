@@ -33,7 +33,7 @@ const STATUS: Record<RollRoom['status'], { label: string; cls: string }> = {
   missing: { label: 'Missing', cls: 'bg-red-100 text-red-700' },
   over: { label: 'Paid more', cls: 'bg-blue-100 text-blue-800' },
   no_charge: { label: 'No charge raised', cls: 'bg-neutral-200 text-neutral-700' },
-  collected_by_previous_agent: { label: 'Collected by previous agent', cls: 'bg-neutral-100 text-neutral-600' },
+  collected_by_previous_agent: { label: 'Imported — before go-live', cls: 'bg-neutral-100 text-neutral-600' },
 }
 
 export default function RentRollPage({ searchParams }: { searchParams: PageSearchParams }) {
@@ -128,7 +128,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
       />
       <div className="mx-auto max-w-6xl px-lg py-lg">
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
-        {prevAgent && <p className="mb-md rounded-xl border border-neutral-200 bg-white px-lg py-md text-sm text-neutral-600">{monthLabel(month)} is before CROS took over collecting rent ({shortDate(roll!.takeover)}). This shows the rent on the statements imported from the previous agent — they collected it and paid the landlords.</p>}
+        {prevAgent && <p className="mb-md rounded-xl border border-neutral-200 bg-white px-lg py-md text-sm text-neutral-600">{monthLabel(month)} is before CROS took over collecting rent ({shortDate(roll!.takeover)}). This shows the rent on the statements imported for that month — collected and paid to landlords before CROS went live.</p>}
 
         <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
           <div className="inline-flex rounded-xl bg-white p-0.5 text-xs font-semibold">

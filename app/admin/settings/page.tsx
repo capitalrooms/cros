@@ -186,7 +186,7 @@ export default function AdminSettingsPage() {
             <h2 className="font-bold text-neutral-900 text-base">Rent</h2>
             <p className="text-xs text-neutral-500 mt-xs">
               {ledgerStart
-                ? <>CROS collects rent from <strong>{new Date(ledgerStart + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>. Earlier months were collected by your previous agent and never count as arrears.</>
+                ? <>CROS collects rent from <strong>{new Date(ledgerStart + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>. Earlier months are your import period — what you already collected and paid, copied in from your statements — and never count as arrears.</>
                 : 'When CROS starts collecting rent.'}
             </p>
           </div>

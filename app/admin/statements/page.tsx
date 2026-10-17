@@ -469,7 +469,7 @@ export default function AdminStatementsPage() {
                   <a href={propertyId ? `/admin/statements/prepare?property=${propertyId}&month=${genMonth}` : `/admin/rent-roll?month=${genMonth}`} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white">
                     Prepare statement →
                   </a>
-                  <span className="w-full text-xs text-neutral-500">This form is for entering statements from the previous agent. New statements are made from the rent roll, checked and approved there, then paid in the payment run.</span>
+                  <span className="w-full text-xs text-neutral-500">This form is for entering statements from your import period (before CROS went live). New statements are made from the rent roll, checked and approved there, then paid in the payment run.</span>
                 </div>
               </div>
               <div className="sm:col-span-2">
