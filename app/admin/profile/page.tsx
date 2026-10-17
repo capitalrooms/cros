@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import { SignOffPreview, PasswordLink, InstallAppLink } from '@/app/components/profile/ProfileParts'
 
 const SALUTATIONS = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Mx']
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
@@ -387,32 +388,8 @@ export default function AdminProfilePage() {
                 />
               </div>
 
-              {/* SMS sign-off preview */}
-              <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-md">
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">SMS sign-off preview</p>
-                <div className="flex justify-end">
-                  <div className="max-w-xs rounded-2xl rounded-br-sm bg-neutral-800 px-md py-sm text-sm text-white leading-relaxed">
-                    …Please get in touch if you have any questions.{' '}
-                    <span className="text-neutral-300">-{smsSignOff}</span>
-                  </div>
-                </div>
-                {!directPhone.trim() && (
-                  <p className="text-xs text-amber-600 mt-sm flex items-center gap-xs">
-                    <span>⚠</span>
-                    No mobile set — your email address will be used instead. Add a number so tenants can text back.
-                  </p>
-                )}
-              </div>
-
-              {/* PDF sign-off preview */}
-              <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-md">
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">PDF sign-off preview</p>
-                <p className="text-xs text-neutral-400 mb-sm">Yours sincerely,</p>
-                <p className="text-xs text-neutral-300 italic mb-sm">[signature]</p>
-                <p className="text-sm font-bold text-neutral-900">{displayName || firstName || 'Your Name'}</p>
-                {jobTitle    && <p className="text-xs text-neutral-500 mt-xs">{jobTitle}</p>}
-                {directPhone && <p className="text-xs text-neutral-500">{directPhone}</p>}
-              </div>
+              {/* how texts and letters are signed — the shared preview (app/components/profile) */}
+              <SignOffPreview smsSignOff={smsSignOff} letterName={displayName || firstName} jobTitle={jobTitle} phone={directPhone} />
 
             </div>
           </section>
@@ -438,6 +415,10 @@ export default function AdminProfilePage() {
               </div>
             </div>
           </section>
+
+          {/* the same two links as every staff profile */}
+          <PasswordLink />
+          <InstallAppLink />
 
           {/* ── Push Notifications ── */}
           <section className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">

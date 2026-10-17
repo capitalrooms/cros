@@ -14,6 +14,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import { SignOffPreview, PasswordLink, InstallAppLink, smsSignOffText } from '@/app/components/profile/ProfileParts'
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ''
 
@@ -298,14 +299,16 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
           </div>
         </div>
 
+        {/* how their texts and letters are signed (office staff) — the same preview as the admin profile */}
+        {isStaff && (
+          <div className="mt-lg rounded-2xl border border-neutral-200 bg-white p-lg">
+            <SignOffPreview smsSignOff={smsSignOffText('', form.first_name, form.direct_phone, person?.email ?? '')}
+              letterName={[form.first_name, form.last_name].filter(Boolean).join(' ')} jobTitle={form.job_title} phone={form.direct_phone} />
+          </div>
+        )}
+
         {/* ── Password & sign-in (shared My account page) ── */}
-        <a href="/account" className="mt-lg flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md hover:bg-neutral-50">
-          <span>
-            <span className="block text-sm font-semibold text-neutral-900">Password &amp; sign-in</span>
-            <span className="block text-xs text-neutral-500">Change your password or turn on two-step sign-in</span>
-          </span>
-          <span className="text-neutral-400">→</span>
-        </a>
+        <PasswordLink className="mt-lg" />
 
         {/* ── Push Notifications ──────────────────────────────────────────── */}
         <div className="mt-xl rounded-2xl border border-neutral-200 bg-white overflow-hidden">
@@ -369,22 +372,8 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
           </div>
         </div>
 
-        {/* ── Install the app ─────────────────────────────────────────────── */}
-        <Link
-          href="/install"
-          className="mt-xl flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md hover:bg-neutral-50 transition group"
-        >
-          <div className="flex items-center gap-md">
-            <span className="text-2xl">📲</span>
-            <div>
-              <p className="text-sm font-bold text-neutral-900">Install the app</p>
-              <p className="text-xs text-neutral-500 mt-xs">
-                Add to Home Screen to unlock push notifications, Share Sheet and more
-              </p>
-            </div>
-          </div>
-          <span className="text-neutral-400 group-hover:text-neutral-700 transition text-lg shrink-0">›</span>
-        </Link>
+        {/* ── Install the app ── */}
+        <InstallAppLink className="mt-xl" />
 
       </main>
     </div>

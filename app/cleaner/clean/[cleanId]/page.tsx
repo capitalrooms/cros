@@ -335,6 +335,8 @@ export default function CleanDetailPage() {
         <div className="rounded-3xl bg-gradient-to-br from-neutral-900 to-neutral-800 text-white p-lg">
           <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-md">Clean</p>
           <h1 className="text-2xl font-bold">{clean.properties?.name}</h1>
+          {/* the house's own page: usual visit, notes shared with the office, past cleans (17 Oct 2026) */}
+          <Link href={`/cleaner/house/${clean.property_id}`} className="mt-xs inline-block text-sm font-semibold underline">House notes &amp; past cleans →</Link>
           <p className="text-sm text-white/70">{clean.properties?.address}</p>
           <div className="mt-lg grid grid-cols-2 gap-lg">
             <div>
@@ -391,9 +393,10 @@ export default function CleanDetailPage() {
           </div>
         )}
 
-        {/* Property-level cleaning notes (sticky to property, not individual clean) */}
+        {/* Notes for this house — shared with the office (sticky to the house, not this clean) */}
         {cleaningNotes.length > 0 && (
           <div className="space-y-md">
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Notes for this house</p>
             {cleaningNotes.map((note) => (
               <div key={note.id} className="rounded-2xl border-2 border-blue-300 bg-blue-50 p-lg">
                 <div className="flex items-start justify-between gap-md">
@@ -511,7 +514,7 @@ export default function CleanDetailPage() {
 
             {/* Working notes + charges */}
             <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg space-y-md">
-              <h3 className="font-bold text-neutral-900">Notes for this clean</h3>
+              <h3 className="font-bold text-neutral-900">Notes for this visit</h3>
               <textarea value={cleanerNote} onChange={(e) => setCleanerNote(e.target.value)} rows={3}
                 placeholder="Things you noticed, what you need to bring, what to focus on next time…"
                 className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
