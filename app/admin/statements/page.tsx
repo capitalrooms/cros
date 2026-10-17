@@ -423,16 +423,20 @@ export default function AdminStatementsPage() {
       <PageHero eyebrow="Step 2 of 3 · monthly cycle" title="Landlord statements"
         subtitle="Room by room — rent, the fee at that property and any expenses. The totals roll up onto the landlord's page; upload a PDF to fill it in."
         tabs={financeTabs('statements')} />
-      <main className="mx-auto max-w-6xl px-lg py-xl">
+      <main className="mx-auto max-w-6xl px-lg py-lg">
 
         {error && <div className="mt-lg rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{error}</div>}
         {notice && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">✅ {notice}</div>}
 
-        <a href="/admin/statements/import" className="mt-lg flex items-center justify-between gap-md rounded-2xl bg-neutral-900 px-lg py-md text-white hover:bg-neutral-800">
+        <a href="/admin/statements/import" className="flex items-center justify-between gap-md rounded-[10px] bg-neutral-900 px-md py-sm text-white hover:bg-neutral-800">
           <span><span className="block font-bold">Upload a month of statements</span><span className="block text-xs text-neutral-300">Several PDFs at once, one per property — each checked before it’s saved</span></span>
           <span aria-hidden>→</span>
         </a>
 
+        {/* one statement by hand or from a single PDF — folded away so the list of statements is on screen (17 Oct 2026) */}
+        <details className="mt-md rounded-[10px] border border-[#D6DCE3] bg-white" open={!!propertyId || aiBusy || undefined}>
+          <summary className="cursor-pointer select-none px-md py-sm text-sm font-semibold text-neutral-800">Enter one statement by hand, or from a single PDF</summary>
+          <div className="border-t border-[#EDF0F3] px-md pb-md">
         <label className="mt-lg block cursor-pointer rounded-2xl border-2 border-dashed border-neutral-300 bg-white p-lg text-center hover:border-neutral-900">
           <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} disabled={aiBusy || busy} />
           <p className="text-2xl">📄</p>
@@ -560,9 +564,11 @@ export default function AdminStatementsPage() {
             <button type="button" onClick={resetForm} className="text-sm font-semibold text-neutral-500 hover:text-neutral-900">Clear</button>
           </div>
         </form>
+          </div>
+        </details>
 
         {/* Annual summary for a landlord's tax return */}
-        <div className="mt-2xl flex flex-wrap items-end gap-sm rounded-2xl border border-neutral-200 bg-white p-lg">
+        <div className="mt-md flex flex-wrap items-end gap-sm rounded-[10px] border border-[#D6DCE3] bg-white p-md">
           <div className="mr-auto">
             <h2 className="font-bold text-neutral-900">Annual summary</h2>
             <p className="text-xs text-neutral-500">Income and expenditure for a landlord’s tax return (6 April – 5 April), from their statements.</p>
