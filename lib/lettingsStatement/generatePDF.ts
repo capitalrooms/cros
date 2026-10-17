@@ -211,9 +211,13 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
     feeLabel = `Let fee @ ${fracLabel}`
   }
 
+  // The deposit and the rent are what the tenant paid us in full; the holding deposit was paid to us too and is part
+  // of those (it comes off the tenant's balance, not the landlord's). So it's shown for information and never taken
+  // off what we pay the landlord — it used to be, leaving the landlord a week's rent short (Harry, 17 Oct 2026: "we
+  // always send the deposit to Nigel").
   const totalIn = data.depositAmount + (data.rentAmount * rentMonths)
-  const holdingDeducted = data.holdingDepositReceived ?? 0
-  const dueToLandlord = totalIn - feeAmount - holdingDeducted
+  const holdingPaid = data.holdingDepositReceived ?? 0
+  const dueToLandlord = totalIn - feeAmount
 
   const finBoxY = y
 
@@ -249,8 +253,8 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
   if (feeAmount > 0) {
     finRow('DEDUCTIONS:', feeLabel, `-${fmtGBP(feeAmount)}`, ORANGE, ORANGE)
   }
-  if (holdingDeducted > 0) {
-    finRow('HOLDING DEPOSIT:', 'Already received', `-${fmtGBP(holdingDeducted)}`, ORANGE, ORANGE)
+  if (holdingPaid > 0) {
+    finRow('HOLDING DEPOSIT:', 'Paid to us — part of the above', fmtGBP(holdingPaid), GREY, GREY)
   }
 
   // separator line before total
