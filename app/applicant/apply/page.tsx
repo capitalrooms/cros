@@ -139,6 +139,7 @@ export default function ApplicantForm() {
   const [isStudent, setIsStudent] = useState(false)
   const [university, setUniversity] = useState('')
   const [courseStudied, setCourseStudied] = useState('')
+  const [company, setCompany] = useState('')   // employer — landlords ask for "profession & company" (17 Oct 2026)
   const [studyYear, setStudyYear] = useState('')
   const [guarantorConfirmed, setGuarantorConfirmed] = useState(false)
 
@@ -172,6 +173,7 @@ export default function ApplicantForm() {
       setSalutation(a.salutation ?? ''); setFirstName(a.first_name ?? ''); setMiddleName(a.middle_name ?? ''); setLastName(a.last_name ?? '')
       setEmail(a.email ?? ''); setPhone(a.phone ?? ''); setDateOfBirth(a.date_of_birth ?? ''); setCurrentAddress(a.current_address ?? '')
       setProfession(a.profession ?? ''); setSalary(a.salary ?? ''); setLinkedinUrl(a.linkedin_url ?? ''); setProfessionDescription(a.profession_description ?? '')
+      { const pr = a.applicant_profile?.application ?? {}; setCompany(pr.company ?? ''); if (pr.student) { setIsStudent(true); setUniversity(pr.university ?? ''); setCourseStudied(pr.course ?? ''); setStudyYear(pr.year ?? '') } }
       setPreferredStartDate(a.preferred_start_date ?? ''); setPreferredTerm(a.preferred_term ?? '12 months')
       setBio(a.bio ?? ''); setInterests(a.interests ?? ''); setSociability(a.sociability ?? 'flexible')
       setHousePreferences(a.house_preferences ?? ''); setCommunicationStyle(a.communication_style ?? '')
@@ -314,6 +316,8 @@ export default function ApplicantForm() {
           profession,
           salary,
           linkedinUrl,
+          company: company.trim(),
+          student: isStudent ? { university: university.trim(), course: courseStudied.trim(), year: studyYear } : null,
           professionDescription,
           preferredStartDate,
           preferredTerm,
@@ -524,6 +528,11 @@ export default function ApplicantForm() {
               <input className="pub-input" type="text" value={profession} onChange={e => setProfession(e.target.value)}
                 placeholder={isStudent ? 'e.g., Student, Part-time barista' : 'e.g., Software Engineer, Marketing Manager'} required={!isStudent} />
             </label>
+            {!isStudent && (
+              <label className="pub-label">Company
+                <input className="pub-input" type="text" value={company} onChange={e => setCompany(e.target.value)} placeholder="Who do you work for? e.g., Loewe, Deloitte, self-employed" />
+              </label>
+            )}
             {isStudent ? (
               <>
                 <div className="grid gap-5 md:grid-cols-2">

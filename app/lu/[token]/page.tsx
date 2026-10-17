@@ -1,14 +1,15 @@
 'use client'
 
 // The landlord's private page for one update about their incoming tenant (migration 228): the details we sent, the
-// tenant's documents to open, and — on an offer sent for review — "Happy to go ahead" / "Not this one".
+// tenant's documents to open in a quick viewer (or all of them as one PDF report), and — on an offer sent for review —
+// "Happy to go ahead" / "Not this one".
 // The link stops working after 7 days. Look: the shared public frame (components/public/PublicShell, design "C").
 import { use, useEffect, useState } from 'react'
 import PublicShell from '@/components/public/PublicShell'
 
 interface View {
   stage: string; title: string; subject: string | null; facts: { label: string; value: string }[]
-  docs: { id: string; label: string; fileName: string }[]
+  docs: { id: string; label: string; fileName: string; kind: 'pdf' | 'image' | 'other' }[]
   expires: string | null; answer: string | null; answerNote: string | null; answeredAt: string | null
 }
 const wrap = 'mx-auto max-w-6xl px-6 md:px-14'
@@ -21,6 +22,21 @@ export default function LandlordUpdatePage({ params }: { params: Promise<{ token
   const [note, setNote] = useState('')
   const [sending, setSending] = useState<string | null>(null)
   const [answerError, setAnswerError] = useState('')
+  const [viewing, setViewing] = useState<number | null>(null)   // the document open in the quick viewer
+
+  // ← → between documents, Esc to close
+  useEffect(() => {
+    if (viewing == null || !v) return
+    const n = v.docs.length
+    const on = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setViewing(null)
+      if (e.key === 'ArrowRight') setViewing(i => i == null ? i : (i + 1) % n)
+      if (e.key === 'ArrowLeft') setViewing(i => i == null ? i : (i - 1 + n) % n)
+    }
+    window.addEventListener('keydown', on)
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', on); document.body.style.overflow = '' }
+  }, [viewing, v])
 
   useEffect(() => {
     fetch(`/api/lu/${token}`).then(async r => {
@@ -48,7 +64,7 @@ export default function LandlordUpdatePage({ params }: { params: Promise<{ token
   )
   if (!v) return <PublicShell label="For the landlord"><section className={`${wrap} py-16`}><p className="pub-eyebrow m-0">Loading…</p></section></PublicShell>
 
-  const name = v.facts.find(f => f.label === 'Name')?.value
+  const name = v.facts.find(f => (f.label === 'Full name' || f.label === 'Name'))?.value
   const place = (v.subject ?? '').split(' — ').slice(1).join(' — ')
   return (
     <PublicShell label="For the landlord">
@@ -74,14 +90,15 @@ export default function LandlordUpdatePage({ params }: { params: Promise<{ token
           {v.docs.length > 0 && (
             <div>
               <h2 className="pub-serif m-0 text-[34px] leading-tight">Documents</h2>
-              <p className="m-0 mt-2 text-[14px]" style={{ color: '#6F6B64' }}>Open or save each one. This page works until {day(v.expires)}.</p>
-              <div className="mt-4" style={{ borderTop: '1px solid #111' }}>
-                {v.docs.map(d => (
-                  <a key={d.id} href={`/api/lu/${token}/file/${d.id}`} target="_blank" rel="noreferrer"
-                    className="flex items-center justify-between gap-4 py-4 no-underline" style={{ borderBottom: '1px solid #E4E0D8', color: '#111' }}>
+              <p className="m-0 mt-2 text-[14px]" style={{ color: '#6F6B64' }}>Tap one to look through them, or download everything as one PDF. This page works until {day(v.expires)}.</p>
+              <a href={`/api/lu/${token}/report`} className="pub-btn mt-5 no-underline" style={{ color: '#fff' }}>Download full report (PDF)</a>
+              <div className="mt-6" style={{ borderTop: '1px solid #111' }}>
+                {v.docs.map((d, i) => (
+                  <button key={d.id} type="button" onClick={() => setViewing(i)}
+                    className="flex w-full items-center justify-between gap-4 border-0 bg-transparent py-4 text-left" style={{ borderBottom: '1px solid #E4E0D8', color: '#111', font: 'inherit', cursor: 'pointer' }}>
                     <span className="min-w-0"><span className="block text-[16px] font-medium">{d.label}</span><span className="block truncate text-[13px]" style={{ color: '#6F6B64' }}>{d.fileName}</span></span>
-                    <span className="pub-btn-ghost shrink-0">Open</span>
-                  </a>
+                    <span className="pub-btn-ghost shrink-0">View</span>
+                  </button>
                 ))}
               </div>
               <p className="m-0 mt-4 text-[13px] leading-relaxed" style={{ color: '#4A4741', borderLeft: '1px solid #111', paddingLeft: 14 }}>
@@ -125,6 +142,39 @@ export default function LandlordUpdatePage({ params }: { params: Promise<{ token
       <section className={`${wrap} pb-16 pt-12`}>
         <p className="m-0 text-[15px]">Any questions? Email <a className="pub-link" href="mailto:management@capitalrooms.co.uk">management@capitalrooms.co.uk</a> or call 0207 112 9163.</p>
       </section>
+      {viewing != null && v.docs[viewing] && (() => {
+        const d = v.docs[viewing], src = `/api/lu/${token}/file/${d.id}`
+        return (
+          <div role="dialog" aria-modal="true" aria-label={d.label} className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(17,17,17,.94)' }}>
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8" style={{ color: '#F3F0EA' }}>
+              <div className="min-w-0 flex-1">
+                <p className="pub-eyebrow m-0" style={{ color: '#C9C4BA' }}>{viewing + 1} of {v.docs.length}</p>
+                <p className="m-0 truncate text-[16px] font-medium">{d.label} <span style={{ color: '#9A978F' }}>· {d.fileName}</span></p>
+              </div>
+              {v.docs.length > 1 && <>
+                <button type="button" onClick={() => setViewing((viewing - 1 + v.docs.length) % v.docs.length)} className="pub-btn-ghost" style={{ borderColor: '#F3F0EA', color: '#F3F0EA' }} aria-label="Previous document">←</button>
+                <button type="button" onClick={() => setViewing((viewing + 1) % v.docs.length)} className="pub-btn-ghost" style={{ borderColor: '#F3F0EA', color: '#F3F0EA' }} aria-label="Next document">→</button>
+              </>}
+              <a href={src} target="_blank" rel="noreferrer" className="pub-btn-ghost no-underline" style={{ borderColor: '#F3F0EA', color: '#F3F0EA' }}>Full screen</a>
+              <a href={`${src}?download=1`} className="pub-btn-ghost no-underline" style={{ borderColor: '#F3F0EA', color: '#F3F0EA' }}>Download</a>
+              <button type="button" onClick={() => setViewing(null)} className="pub-btn-ghost" style={{ background: '#F3F0EA', color: '#111', borderColor: '#F3F0EA' }}>Close</button>
+            </div>
+            <div className="flex min-h-0 flex-1 items-center justify-center px-2 pb-2 md:px-8 md:pb-6">
+              {d.kind === 'pdf' ? (
+                <iframe key={d.id} src={src} title={d.label} className="h-full w-full max-w-5xl border-0 bg-white" />
+              ) : d.kind === 'image' ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={d.id} src={src} alt={d.label} className="max-h-full max-w-full object-contain" />
+              ) : (
+                <div className="text-center" style={{ color: '#F3F0EA' }}>
+                  <p className="m-0 text-[16px]">This file can’t be shown here.</p>
+                  <a href={`${src}?download=1`} className="pub-btn mt-4 no-underline" style={{ background: '#F3F0EA', color: '#111' }}>Download it</a>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
     </PublicShell>
   )
 }

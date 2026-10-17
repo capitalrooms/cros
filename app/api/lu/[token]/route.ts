@@ -8,8 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { deliverEmail } from '@/lib/sendEmail'
 import { buildEmail, tableRow, PORTAL_URL } from '@/lib/emailWrapper'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
-import { DOC_LABEL, STAGE_LABEL, type UpdateStage } from '@/lib/landlordUpdates/updates'
-import { openUpdate } from '@/lib/landlordUpdates/open'
+import { STAGE_LABEL, type UpdateStage } from '@/lib/landlordUpdates/updates'
+import { openUpdate, sharedDocs } from '@/lib/landlordUpdates/open'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -22,12 +22,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if ('error' in o) return NextResponse.json({ error: o.error }, { status: o.status })
   const { s, u } = o
   if (!u.first_viewed_at) await s.from('landlord_updates').update({ first_viewed_at: new Date().toISOString() }).eq('id', u.id)
-  const { data: docs } = u.doc_ids?.length
-    ? await s.from('property_documents').select('id, document_type, file_name').in('id', u.doc_ids)
-    : { data: [] as any[] }
+  const docs = await sharedDocs(s, u.doc_ids ?? [])
   return NextResponse.json({
     stage: u.stage as UpdateStage, title: STAGE_LABEL[u.stage as UpdateStage], subject: u.subject, facts: u.facts ?? [],
-    docs: ((docs ?? []) as any[]).map(d => ({ id: d.id, label: DOC_LABEL[d.document_type] ?? 'Document', fileName: d.file_name })),
+    docs: docs.map(d => ({ id: d.id, label: d.label, fileName: d.fileName, kind: d.kind })),
     expires: u.share_expires_at, answer: u.answer, answerNote: u.answer_note, answeredAt: u.answered_at,
   })
 }
@@ -46,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   await s.from('landlord_updates').update({ answer, answer_note: note, answered_at: new Date().toISOString() }).eq('id', u.id)
 
   // tell the office straight away — whoever sent it, and the shared mailbox
-  const name = (u.facts ?? []).find((f: any) => f.label === 'Name')?.value ?? 'the applicant'
+  const name = (u.facts ?? []).find((f: any) => (f.label === 'Full name' || f.label === 'Name'))?.value ?? 'the applicant'
   const words = answer === 'approved' ? 'is happy for us to go ahead with' : 'would rather not go ahead with'
   const html = await buildEmail(`
     <p>The landlord ${words} the offer from <strong>${esc(name)}</strong>.</p>

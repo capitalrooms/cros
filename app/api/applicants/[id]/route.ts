@@ -66,6 +66,14 @@ export async function PATCH(req: NextRequest, { params: paramsPromise }: { param
   for (const key of allowed) {
     if (key in body) update[key] = body[key]
   }
+  // contact details typed wrong on the application can be put right (Harry, 17 Oct 2026: "I cannot edit an applicants
+  // email address so if it was wrong it cant be changed"); the offer keeps the same address so links still match
+  if ('email' in body) {
+    const email = String(body.email ?? '').trim().toLowerCase()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return NextResponse.json({ error: 'That doesn’t look like an email address' }, { status: 400 })
+    update.email = email
+  }
+  if ('phone' in body) update.phone = String(body.phone ?? '').trim().slice(0, 40) || null
   // archive (kept, with why) or restore — migration 213
   if (body.archive === true) {
     const reason = String(body.reason ?? '').trim().slice(0, 300)
@@ -76,5 +84,6 @@ export async function PATCH(req: NextRequest, { params: paramsPromise }: { param
 
   const { data, error } = await sb.from('applicants').update(update).eq('id', params.id).select().single()
   if (error) return NextResponse.json({ error: /archived/.test(error.message) ? 'Run migration 213 in Supabase first' : error.message }, { status: 500 })
+  if (update.email && (data as any)?.offer_id) await sb.from('offers').update({ applicant_email: update.email }).eq('id', (data as any).offer_id)
   return NextResponse.json(data)
 }

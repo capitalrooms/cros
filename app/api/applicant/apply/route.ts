@@ -94,6 +94,15 @@ export async function POST(request: Request) {
       delete (payload as any).submitted_at
     }
 
+    // employer and studies (17 Oct 2026 — university and course were asked but never saved). Kept under
+    // applicant_profile.application, alongside what the document scans put there (never overwriting those).
+    const application = {
+      ...(String(data.company ?? '').trim() ? { company: String(data.company).trim().slice(0, 160) } : {}),
+      ...(data.student && typeof data.student === 'object' ? { student: true, university: String(data.student.university ?? '').trim().slice(0, 160) || null, course: String(data.student.course ?? '').trim().slice(0, 160) || null, year: String(data.student.year ?? '').trim().slice(0, 40) || null } : {}),
+    }
+    const { data: prof } = existing ? await supabase.from('applicants').select('applicant_profile').eq('id', existing.id).maybeSingle() : { data: null }
+    ;(payload as any).applicant_profile = { ...(((prof as any)?.applicant_profile ?? {}) as object), application }
+
     let applicantId: string
     // before migration 202 the guarantor columns don't exist: save without them, keeping the details in the notes
     const withoutGuarantor = (p: Record<string, unknown>) => {

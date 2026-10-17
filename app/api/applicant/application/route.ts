@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 const UUID = /^[0-9a-f-]{36}$/i
 const EDITABLE_STAGES = ['invited', 'applied']
 
-const FIELDS = 'id, room_id, property_id, pipeline_stage, salutation, first_name, middle_name, last_name, email, phone, date_of_birth, current_address, profession, salary, linkedin_url, profession_description, preferred_start_date, preferred_term, bio, interests, sociability, house_preferences, communication_style, room_requirements, room_conditions, rent_offer_type, offered_rent, previous_addresses, guarantor_needed, guarantor_name, guarantor_email, guarantor_phone'
+const FIELDS = 'id, room_id, property_id, pipeline_stage, salutation, first_name, middle_name, last_name, email, phone, date_of_birth, current_address, profession, salary, linkedin_url, profession_description, preferred_start_date, preferred_term, bio, interests, sociability, house_preferences, communication_style, room_requirements, room_conditions, rent_offer_type, offered_rent, previous_addresses, guarantor_needed, guarantor_name, guarantor_email, guarantor_phone, applicant_profile'
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))

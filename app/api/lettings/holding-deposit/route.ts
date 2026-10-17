@@ -23,6 +23,8 @@ import { createClient } from '@supabase/supabase-js'
 import { requireStaff, STAFF_ROLES } from '@/lib/portalAuth'
 import { sendEmail } from '@/lib/sendEmail'
 import { messageHtml } from '@/lib/email/messageHtml'
+import { loadUpdateContext, draftFor } from '@/lib/landlordUpdates/updates'
+import { landlordUpdateBody } from '@/lib/landlordUpdates/email'
 import { insertNotifications, activeTenantIds, dispatchChannels, tryPush } from '@/lib/serverNotify'
 import { getCommsLive } from '@/lib/comms'
 import { loadDepositContext, writeBios, landlordMessage, housemateMessage, holdingAmount, type DepositContext } from '@/lib/lettings/holdingDeposit'
@@ -78,7 +80,15 @@ export async function POST(req: NextRequest) {
 
   if (b.action === 'draft') {
     const [bios, housemates, held] = await Promise.all([writeBios(ctx), housemateIds(s, ctx), holdingDepositsFor(s, ctx.applicant.id)])
-    const l = landlordMessage(ctx, bios.landlordBio)
+    // the landlord's email is the "Room reserved" update (lib/landlordUpdates): the full applicant sheet underneath,
+    // with the AI introduction after the opening line — one version of it everywhere (17 Oct 2026)
+    const uc = await loadUpdateContext(s, { applicantId: ctx.applicant.id }).catch(() => null)
+    const l = uc ? (() => {
+      const d = draftFor(uc, 'reserved')
+      const parts = d.message.split('\n\n')
+      if (bios.landlordBio?.trim()) parts.splice(3, 0, bios.landlordBio.trim())   // Dear · Re: · secured … · [intro]
+      return { subject: d.subject, message: parts.join('\n\n'), facts: d.facts.filter(f => f.on).map(f => ({ label: f.label, value: f.value })) }
+    })() : { ...landlordMessage(ctx, bios.landlordBio), facts: [] as { label: string; value: string }[] }
     const h = housemateMessage(ctx, bios.housemateBio)
     return NextResponse.json({
       applicant: { name: ctx.applicant.full_name, room: ctx.roomName, property: ctx.propertyName },
@@ -198,13 +208,14 @@ export async function POST(req: NextRequest) {
     if (!to.length || to.some((e: string) => !isEmail(e))) result.errors.push('Landlord email not sent: check the address')
     else if (!subject || !message) result.errors.push('Landlord email not sent: subject or message empty')
     else {
-      const { ok, error } = await sendEmail(to, subject, messageHtml(message), { req })
+      const facts = (Array.isArray(b.landlord.facts) ? b.landlord.facts : []).filter((f: any) => f && f.label && f.value).slice(0, 30).map((f: any) => ({ label: String(f.label).slice(0, 60), value: String(f.value).slice(0, 400) }))
+      const { ok, error } = await sendEmail(to, subject, facts.length ? landlordUpdateBody({ stage: 'reserved', message, facts, link: null, until: null }) : messageHtml(message), { req })
       if (ok) {
         result.landlord = to.join(', ')
         // counts as the "Room reserved" landlord update, so the letting file doesn't ask for it again (migration 228;
         // without the table yet, nothing changes)
         await s.from('landlord_updates').insert({ applicant_id: ctx.applicant.id, tenancy_id: result.tenancyId ?? null, landlord_id: ctx.landlord?.id ?? null,
-          stage: 'reserved', sent_to: to, subject, sent_by: caller.email }).then(() => {}, () => {})
+          stage: 'reserved', sent_to: to, subject, facts, sent_by: caller.email }).then(() => {}, () => {})
       }
       else result.errors.push(`Landlord email not sent: ${error ?? 'unknown error'}`)
     }
