@@ -211,6 +211,7 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
     feeLabel = `Let fee @ ${fracLabel}`
   }
 
+  // Harry, 17 Oct 2026: "all we take from Nigel is a fee off the rent, the holding deposit is part of the deposit".
   // The deposit and the rent are what the tenant paid us in full; the holding deposit was paid to us too and is part
   // of those (it comes off the tenant's balance, not the landlord's). So it's shown for information and never taken
   // off what we pay the landlord — it used to be, leaving the landlord a week's rent short (Harry, 17 Oct 2026: "we
@@ -254,7 +255,7 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
     finRow('DEDUCTIONS:', feeLabel, `-${fmtGBP(feeAmount)}`, ORANGE, ORANGE)
   }
   if (holdingPaid > 0) {
-    finRow('HOLDING DEPOSIT:', 'Paid to us — part of the above', fmtGBP(holdingPaid), GREY, GREY)
+    finRow('HOLDING DEPOSIT:', 'Part of the deposit above', fmtGBP(holdingPaid), GREY, GREY)
   }
 
   // separator line before total
