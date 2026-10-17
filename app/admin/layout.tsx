@@ -265,7 +265,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Main content — the footer closes every page on desktop */}
-        <main className="flex-1 overflow-y-auto min-w-0 md:pb-[env(safe-area-inset-bottom)]">
+        {/* the page fills the screen and the footer sits at the bottom of it — a short or still-loading page no longer
+            pulls the footer up under it with a blank strip below (17 Oct 2026) */}
+        <main className="flex flex-1 flex-col overflow-y-auto min-w-0 md:pb-[env(safe-area-inset-bottom)]">
+          <div className="flex flex-1 shrink-0 flex-col">
           {blocked ? (
             <div className="mx-auto max-w-xl px-lg py-3xl text-center">
               <h1 className="text-xl font-bold text-neutral-900">That isn’t part of your access</h1>
@@ -273,7 +276,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <Link href={homeFor(access!.areas)} className="mt-lg inline-block rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white">Go to my screens</Link>
             </div>
           ) : children}
-          <Footer embedded />
+          </div>
+          <div className="shrink-0"><Footer embedded /></div>
         </main>
 
         {/* Phone only: app-style bottom tabs */}
