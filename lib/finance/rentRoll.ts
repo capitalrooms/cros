@@ -4,6 +4,8 @@
 // imported from the previous agent, so history still shows (marked as collected by them).
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { importedRentFor } from '@/lib/finance/importedRent'
+import { statementMonth } from '@/lib/finance/statementMonth'
+const shiftDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 import { ledgerStart } from '@/lib/clientLedger'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
@@ -39,12 +41,15 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   const demo = await demoPropertyIds(s)
 
   const [props, rooms, tens, statements] = await Promise.all([
-    s.from('properties').select('id, name, property_code, landlord_id, letting_type').or('letting_type.is.null,letting_type.neq.let_only'),
+    s.from('properties').select('id, name, property_code, landlord_id, letting_type, property_type').or('letting_type.is.null,letting_type.neq.let_only'),
     s.from('rooms').select('id, name, property_id'),
     s.from('tenancies').select('id, room_id, property_id, start_date, end_date, payment_reference, people!person_id(salutation, first_name, last_name, full_name)')
       .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`).is('let_cancelled_at', null),
-    s.from('landlord_statements').select('*').gte('statement_date', start).lte('statement_date', end).order('statement_date'),
+    // a window either side: a statement belongs to its own month (lib/finance/statementMonth), which needn't be the month of its date
+    s.from('landlord_statements').select('*').gte('statement_date', shiftDays(start, -45)).lte('statement_date', shiftDays(end, 45)).order('statement_date'),
   ])
+  const whole = (p: any) => p.property_type === 'single_let'   // a single let is never "Room 1"
+  const monthStatements = ((statements.data ?? []) as any[]).filter(st => statementMonth(st) === month)
   const properties = sortPropertiesNumerically(((props.data ?? []) as any[]).filter(p => inScope(demo, !!opts.practice)(p.id)))
   const landlordIds = [...new Set(properties.map(p => p.landlord_id).filter(Boolean))]
   const { data: landlords } = landlordIds.length ? await s.from('people').select('id, salutation, first_name, last_name, full_name, company').in('id', landlordIds) : { data: [] as any[] }
@@ -52,7 +57,7 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   const roomName = new Map(((rooms.data ?? []) as any[]).map(r => [r.id, r.name as string]))
   const roomsOf = (pid: string) => ((rooms.data ?? []) as any[]).filter(r => r.property_id === pid)
   const tenancyFor = (roomId: string) => ((tens.data ?? []) as any[]).filter(t => t.room_id === roomId).sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0] ?? null
-  const stmtsFor = (pid: string) => ((statements.data ?? []) as any[]).filter(st => st.property_id === pid)
+  const stmtsFor = (pid: string) => monthStatements.filter(st => st.property_id === pid)
     .map(st => ({ id: st.id, reference: st.statement_reference, date: st.statement_date, net: Number(st.net_to_landlord || 0), state: stateOf(st), source: st.source ?? 'import' }))
 
   // ── Before CROS collected rent: what the previous agent's statements show ──
@@ -66,15 +71,15 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
       for (const r of (refs ?? []) as any[]) importedRefs.set(r.id, r.statement_reference)
     }
     for (const p of properties) {
-      const sts = ((statements.data ?? []) as any[]).filter(st => st.property_id === p.id)
+      const sts = monthStatements.filter(st => st.property_id === p.id)
       const lines = sts.flatMap(st => (Array.isArray(st.rooms) ? st.rooms : []).map((r: any) => ({ r, st })))
       const fromLines: RollRoom[] = imported.filter(l => l.propertyId === p.id).map((l): RollRoom => ({
-        roomId: null, room: l.room ? `Room ${l.room}` : 'Rent', tenant: l.tenant, tenancyId: null, reference: null, chargeId: null, chargeNo: null,
+        roomId: null, room: whole(p) ? 'Whole property' : l.room ? `Room ${l.room}` : 'Rent', tenant: l.tenant, tenancyId: null, reference: null, chargeId: null, chargeNo: null,
         due: null, received: l.amount, difference: null, status: 'collected_by_previous_agent' as RoomStatus, receipts: [] as Receipt[],
         paidOver: l.amount, statement: importedRefs.get(l.statementId) ?? '',
       }))
       const rollRooms: RollRoom[] = [...fromLines, ...lines.map(({ r, st }): RollRoom => ({
-        roomId: null, room: `Room ${r.room_number ?? ''}`.trim(), tenant: r.tenant_name || '', tenancyId: null, reference: null, chargeId: null, chargeNo: null,
+        roomId: null, room: whole(p) ? 'Whole property' : `Room ${r.room_number ?? ''}`.trim(), tenant: /^room\s*\d+$/i.test(String(r.tenant_name ?? '').trim()) ? '' : r.tenant_name || '', tenancyId: null, reference: null, chargeId: null, chargeNo: null,
         due: null, received: r2(Number(r.rent_income || 0)), difference: null, status: 'collected_by_previous_agent' as RoomStatus, receipts: [] as Receipt[],
         paidOver: r2(Number(r.rent_income || 0)), statement: st.statement_reference,
       }))].sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
