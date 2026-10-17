@@ -122,7 +122,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
           { label: prevAgent ? 'Rent collected' : 'Rent due', value: gbp(prevAgent ? roll.totals.received : roll.totals.due) },
           { label: 'Received', value: gbp(roll.totals.received), tone: 'good' },
           { label: 'Missing', value: gbp(roll.totals.missing), tone: roll.totals.missing > 0 ? 'bad' : undefined },
-          { label: 'Ready for statements', value: gbp(roll.totals.ready), tone: 'warn' },
+          { label: 'Ready to pay', value: gbp(roll.totals.ready), tone: 'warn' },
         ] : undefined}
         tabs={financeTabs('rent-roll', month)}
       />
@@ -132,7 +132,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
 
         <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
           <div className="inline-flex rounded-xl bg-white p-0.5 text-xs font-semibold">
-            {([['all', 'All properties'], ['attention', 'Needs attention'], ['ready', 'Ready for a statement']] as const).map(([k, l]) => (
+            {([['all', 'All properties'], ['attention', 'Needs attention'], ['ready', 'Ready to pay']] as const).map(([k, l]) => (
               <button key={k} onClick={() => setFilter(k)} className={`rounded-lg px-md py-xs ${filter === k ? 'bg-[#181614] text-white' : 'text-neutral-600'}`}>{l}</button>
             ))}
           </div>
