@@ -83,25 +83,37 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
   // SpareRoom → the listing (and its photos into the room)
   const [srUrl, setSrUrl] = useState('')
   const [ad, setAd] = useState<SpareRoomAd | null>(null)
+  // where the advert and CROS disagree; ticked = take SpareRoom's value (17 Oct 2026)
+  const [checks, setChecks] = useState<{ field: string; label: string; spareroom: string; cros: string; note?: string; warn?: boolean }[]>([])
+  const [takeSr, setTakeSr] = useState<Record<string, boolean>>({})
   const [srBusy, setSrBusy] = useState(false)
   async function readAd() {
     setSrBusy(true); setError('')
-    const r = await fetch('/api/lettings/spareroom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: srUrl.trim() }) })
+    const r = await fetch('/api/lettings/spareroom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: srUrl.trim(), roomId }) })
     const d = await r.json().catch(() => ({}))
     setSrBusy(false)
     if (!r.ok) { setError(d.error || 'Could not read the advert'); return }
-    setAd(d.ad)
+    setAd(d.ad); setChecks(d.checks ?? []); setTakeSr({})
   }
   async function importAd(withPhotos: boolean) {
     if (!ad || !data) return
     setSrBusy(true)
     if (withPhotos) await fetch('/api/lettings/spareroom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: srUrl.trim(), roomId, apply: { photos: ad.photos } }) })
+    // a field SpareRoom disagrees on is only taken when it was ticked; the rest fill the gaps
+    const differs = new Set(checks.map(c => c.field))
+    const take = (field: string) => !differs.has(field) || !!takeSr[field]
+    const monthly = ad.rent ? (ad.period === 'pw' ? Math.round(ad.rent * 52 / 12) : ad.rent) : null
+    const cap = monthly ? Math.floor(monthly * 12 / 52 * 5 * 100) / 100 : null
     const fields: L = {
       headline: ad.title || data.listing.headline, description: ad.description || data.listing.description,
-      rent: ad.rent ? (ad.period === 'pw' ? Math.round(ad.rent * 52 / 12) : ad.rent) : data.listing.rent,
-      deposit: ad.deposit ?? data.listing.deposit, available_from: ad.available ?? data.listing.available_from,
-      ensuite: ad.ensuite ?? data.listing.ensuite, living_room: ad.livingRoom ?? data.listing.living_room, bills_included: ad.billsIncluded ?? data.listing.bills_included,
-      furnished: ad.furnished == null ? data.listing.furnished : ad.furnished ? 'furnished' : 'unfurnished', min_term_months: ad.minTermMonths ?? data.listing.min_term_months,
+      rent: monthly && take('rent') ? monthly : data.listing.rent,
+      deposit: ad.deposit != null && take('deposit') ? (cap != null ? Math.min(ad.deposit, cap) : ad.deposit) : data.listing.deposit,
+      available_from: ad.available && take('available') ? ad.available : data.listing.available_from,
+      ensuite: ad.ensuite != null && take('ensuite') ? ad.ensuite : data.listing.ensuite,
+      living_room: ad.livingRoom != null && take('livingRoom') ? ad.livingRoom : data.listing.living_room,
+      bills_included: ad.billsIncluded != null && take('bills') ? ad.billsIncluded : data.listing.bills_included,
+      furnished: ad.furnished == null || !take('furnished') ? data.listing.furnished : ad.furnished ? 'furnished' : 'unfurnished',
+      min_term_months: ad.minTermMonths ?? data.listing.min_term_months,
     }
     await fetch('/api/lettings/listings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, fields }) })
     // newly copied photos join the end of the listing's photos
@@ -109,7 +121,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
     const order: string[] = d.listing.media_order ?? []
     const added = (d.photos as Photo[]).filter(p => p.ofRoom && !order.includes(p.id)).map(p => p.id)
     if (added.length) await fetch('/api/lettings/listings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, fields: { media_order: [...order, ...added] } }) })
-    setSrBusy(false); setAd(null); setSrUrl(''); setNotice('Imported from SpareRoom — check it over.'); load()
+    setSrBusy(false); setAd(null); setChecks([]); setSrUrl(''); setNotice('Imported from SpareRoom — check it over.'); load()
   }
 
   const shell = (body: React.ReactNode) => <div className="min-h-screen bg-[#EDF0F4] pb-3xl"><AppBar left={<BackButton href={back} />} title="Listing" />{body}</div>
@@ -196,6 +208,46 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
 
     <div className="mx-auto grid max-w-6xl gap-md px-lg py-md lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className={`space-y-md ${mobilePane === 'preview' ? 'hidden lg:block' : ''}`}>
+        <Section title="Already on SpareRoom? Paste the link" tag="Fills the listing for you">
+          <div className="flex gap-sm">
+            <input value={srUrl} onChange={e => setSrUrl(e.target.value)} placeholder="https://www.spareroom.co.uk/flatshare/…" className={field} />
+            <button type="button" onClick={readAd} disabled={srBusy || !srUrl.trim()} className="shrink-0 rounded-lg bg-neutral-900 px-md text-xs font-bold text-white disabled:opacity-40">{srBusy && !ad ? 'Reading…' : 'Read it'}</button>
+          </div>
+          {ad && (
+            <div className="space-y-sm rounded-lg border border-neutral-200 bg-neutral-50 p-sm text-xs">
+              <div>
+                <p className="font-bold">{ad.title}</p>
+                <p className="text-neutral-600">{[ad.rent ? `${gbp(ad.rent)} ${ad.period}` : '', ad.available ? `from ${day(ad.available)}` : '', ad.deposit ? `deposit ${gbp(ad.deposit)}` : '', ad.minTermMonths ? `min ${ad.minTermMonths} months` : '', `${ad.photos.length} photos`].filter(Boolean).join(' · ')}</p>
+              </div>
+              {checks.length > 0 ? (
+                <div>
+                  <p className="font-bold text-amber-900">Check these first — SpareRoom and CROS don’t agree</p>
+                  <ul className="mt-xs divide-y divide-amber-100 rounded-md border border-amber-200 bg-white">
+                    {checks.map(c => {
+                      const choosable = !['rooms', 'flatmates'].includes(c.field)
+                      return (
+                        <li key={c.field} className="flex items-start gap-sm px-sm py-xs">
+                          {choosable ? <input type="checkbox" checked={!!takeSr[c.field]} onChange={() => setTakeSr(t => ({ ...t, [c.field]: !t[c.field] }))} className="mt-0.5" /> : <span className="mt-0.5 w-3.5 text-center text-amber-700">!</span>}
+                          <span className="min-w-0 flex-1">
+                            <span className="font-semibold">{c.label}</span>: SpareRoom <strong>{c.spareroom}</strong> · CROS <strong>{c.cros}</strong>
+                            {choosable && <span className="text-neutral-500"> — {takeSr[c.field] ? 'using SpareRoom’s' : 'keeping CROS’s'}</span>}
+                            {c.note && <span className={`block ${c.warn ? 'text-amber-800' : 'text-neutral-500'}`}>{c.note}</span>}
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  <p className="mt-xs text-neutral-500">Tick to take SpareRoom’s value; otherwise CROS’s stays. Everything else from the advert fills the gaps.</p>
+                </div>
+              ) : <p className="text-green-800">Everything the advert says matches CROS.</p>}
+              <div className="flex gap-sm">
+                <button type="button" onClick={() => importAd(true)} disabled={srBusy} className="rounded-md bg-neutral-900 px-sm py-1 font-bold text-white disabled:opacity-40">{srBusy ? 'Importing…' : 'Use it, with photos'}</button>
+                <button type="button" onClick={() => importAd(false)} disabled={srBusy} className="rounded-md border border-neutral-300 px-sm py-1 font-semibold disabled:opacity-40">Text and details only</button>
+              </div>
+            </div>
+          )}
+        </Section>
+
         <Section title="Price & availability" tag="Material info · Part A">
           <div className="grid gap-sm sm:grid-cols-3">
             <label className={lbl}>Rent<input inputMode="decimal" className={field} value={l.rent ?? ''} onChange={e => set('rent', e.target.value)} /></label>
@@ -283,22 +335,6 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
           </div>
         </Section>
 
-        <Section title="Import from SpareRoom">
-          <div className="flex gap-sm">
-            <input value={srUrl} onChange={e => setSrUrl(e.target.value)} placeholder="https://www.spareroom.co.uk/flatshare/…" className={field} />
-            <button type="button" onClick={readAd} disabled={srBusy || !srUrl.trim()} className="shrink-0 rounded-lg bg-neutral-900 px-md text-xs font-bold text-white disabled:opacity-40">{srBusy && !ad ? 'Reading…' : 'Read it'}</button>
-          </div>
-          {ad && (
-            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-sm text-xs">
-              <p className="font-bold">{ad.title}</p>
-              <p className="text-neutral-600">{[ad.rent ? `${gbp(ad.rent)} ${ad.period}` : '', ad.available ? `from ${day(ad.available)}` : '', ad.deposit ? `deposit ${gbp(ad.deposit)}` : '', ad.minTermMonths ? `min ${ad.minTermMonths} months` : '', `${ad.photos.length} photos`].filter(Boolean).join(' · ')}</p>
-              <div className="mt-xs flex gap-sm">
-                <button type="button" onClick={() => importAd(true)} disabled={srBusy} className="rounded-md bg-neutral-900 px-sm py-1 font-bold text-white disabled:opacity-40">{srBusy ? 'Importing…' : 'Use it, with photos'}</button>
-                <button type="button" onClick={() => importAd(false)} disabled={srBusy} className="rounded-md border border-neutral-300 px-sm py-1 font-semibold disabled:opacity-40">Text and details only</button>
-              </div>
-            </div>
-          )}
-        </Section>
 
         <button type="button" onClick={() => act({ action: 'move', to: 'withdrawn' }, 'Withdrawn')} className="text-xs font-semibold text-red-700 underline">Withdraw this listing</button>
       </div>
