@@ -1,7 +1,11 @@
 'use client'
 
-// "Tell the landlord" — every update a landlord gets about their incoming tenant, in one panel (17 Oct 2026, migration
+// Landlord updates — every update a landlord gets about their incoming tenant, in one panel (17 Oct 2026, migration
 // 228; lib/landlordUpdates). Used on the letting file and on Applicants (an offer for the landlord to review first).
+// It follows the tenancy (Harry: "two years into the agreement are we still prioritising move-in emails?"):
+//   letting      — before move-in: every update
+//   settling     — the first two months after move-in: only the new-tenant report, for anything that was missed
+//   established  — after that: nothing to send, just what was sent (if anything)
 // Each update opens as a draft: change the wording, untick any line or document, then Send. Nothing goes by itself.
 // "Due" marks a step that's done but the landlord hasn't heard about yet. Data: /api/admin/landlord-updates.
 import { useCallback, useEffect, useState } from 'react'
@@ -20,7 +24,7 @@ const LABEL: Record<string, string> = { offer: 'Offer to review', reserved: 'Roo
 const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' }) : ''
 const input = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
 
-export default function LandlordUpdates({ applicantId, tenancyId, only, bare = false }: { applicantId?: string | null; tenancyId?: string | null; only?: string[]; bare?: boolean }) {
+export default function LandlordUpdates({ applicantId, tenancyId, only, bare = false, phase = 'letting' }: { applicantId?: string | null; tenancyId?: string | null; only?: string[]; bare?: boolean; phase?: 'letting' | 'settling' | 'established' }) {
   const [d, setD] = useState<Data | null>(null)
   const [error, setError] = useState('')
   const [open, setOpen] = useState<string | null>(null)
@@ -61,24 +65,31 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
   }
 
   const wrapCls = bare ? 'space-y-sm' : 'rounded-2xl border border-neutral-200 bg-white p-md space-y-sm'
-  if (d?.setupNeeded) return <section className={wrapCls}><h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Tell the landlord</h2><p className="text-xs text-amber-800">Needs migration 228 running in Supabase first.</p></section>
-  if (!d) return <section className={wrapCls}><h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Tell the landlord</h2><p className="text-xs text-neutral-500">{error || 'Loading…'}</p></section>
+  if (d?.setupNeeded) return <section className={wrapCls}><h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Landlord updates</h2><p className="text-xs text-amber-800">Needs migration 228 running in Supabase first.</p></section>
+  if (!d) return <section className={wrapCls}><h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Landlord updates</h2><p className="text-xs text-neutral-500">{error || 'Loading…'}</p></section>
 
-  const stages = d.stages.filter(s => !only || only.includes(s.stage))
+  const stages = d.stages.filter(s => (!only || only.includes(s.stage)) && (phase === 'letting' || (phase === 'settling' && s.stage === 'summary')))
+  // an established tenancy: nothing to send — only a note of what was sent, and nothing at all if nothing was
+  if (phase === 'established' && !d.sent.length) return null
   const answers = d.sent.filter(s => s.stage === 'offer')
   return (
     <section className={wrapCls}>
       <div className="flex items-baseline justify-between gap-sm">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Tell the landlord</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500">Landlord updates</h2>
         <span className="truncate text-xs text-neutral-500">{d.landlord ? d.landlord.name : 'No landlord on file'}{d.letOnly ? ' · let only' : ''}</span>
       </div>
       {d.landlord && !d.landlord.emails.length && <p className="text-xs text-amber-800">No email address for the landlord — add it on their profile, or type one in the draft.</p>}
       {d.landlord && (!d.landlord.commsOn || d.landlord.tenantUpdatesOff) && (
-        <p className="text-xs text-amber-800">{!d.landlord.commsOn ? 'Their automatic emails are switched off.' : 'They’ve turned off tenant updates.'} You can still send one yourself.</p>
+        <p className="text-xs text-neutral-500">{!d.landlord.commsOn ? 'Automatic emails to this landlord are paused' : 'This landlord has turned off automatic tenant updates'} — anything you send from here still goes.</p>
       )}
       {done && <p className="rounded-lg bg-green-50 px-sm py-xs text-xs font-semibold text-green-800">{done}</p>}
       {error && <p className="rounded-lg bg-red-50 px-sm py-xs text-xs text-red-800">{error}</p>}
 
+      {phase === 'established' && (
+        <ul className="space-y-0.5 text-xs text-neutral-600">
+          {d.sent.slice(0, 5).map(x => <li key={x.id}>{LABEL[x.stage] ?? x.stage} · sent {day(x.sent_at)}</li>)}
+        </ul>
+      )}
       <ul className="divide-y divide-neutral-100">
         {stages.map(s => (
           <li key={s.stage} className="flex items-center justify-between gap-sm py-xs">

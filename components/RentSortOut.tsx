@@ -47,7 +47,7 @@ export default function RentSortOut({ tenancyId, onClose, onChanged }: { tenancy
       <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
         <header className="flex items-start justify-between gap-md border-b border-neutral-100 px-lg py-md">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Sort out rent</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">Adjust rent account</p>
             <h2 className="text-lg font-bold text-neutral-900">{t ? `${t.tenant} · ${t.room}, ${t.property}` : 'Loading…'}</h2>
             {t && <p className="text-xs text-neutral-500">Rent {gbp(t.rent)} a month · pays with reference <span className="font-mono">{t.reference ?? '—'}</span></p>}
           </div>
