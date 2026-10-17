@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
         const body = render(tpl.template_text, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
         html    = /<html/i.test(body) ? body : await buildEmail(body.includes('<') ? body : body.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { req: request })
       } else if (isReserve && monthly && weekly) {
-        subject = `THE SEARCH IS OVER! — ${place}`
+        subject = `The search is over — ${place}`
         html    = await buildSearchIsOverEmail({   // the same email as Send Offer Letter
           applicantName: firstName, roomName: roomLabel, propertyAddress: propAddress, propertyCity: 'London',
           advertisedRent: Number(monthly), moveInDate: undefined, applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef, whole,

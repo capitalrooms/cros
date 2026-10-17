@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         subject   = render(tpl.subject_line, tokenVars, data.applicantName ? personFromText(data.applicantName) : null)
         emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars, data.applicantName ? personFromText(data.applicantName) : null), request)
       } else if (data.requestDeposit) {
-        subject = `THE SEARCH IS OVER! — ${roomName}${propAddress ? `, ${propAddress}` : ''}`
+        subject = `The search is over — ${roomName}${propAddress ? `, ${propAddress}` : ''}`
         emailHtml = await buildSearchIsOverEmail({
           applicantName: data.applicantName, roomName, propertyAddress: propAddress,
           propertyCity: 'London', advertisedRent: monthly, moveInDate: moveInDisplay,
@@ -146,12 +146,13 @@ export async function POST(request: Request) {
     const offerId = offer?.[0]?.id
     let applicantId: string | null = null
     let previousStage: string | null = null   // put back if the email fails, so they aren't stuck at "offer sent"
+    let offered: { term: string | null; moveIn: string | null } = { term: null, moveIn: null }   // what they put on their application
 
     // Upsert applicants row linked to this offer (best-effort, table may not be deployed yet)
     try {
       const { data: existing } = await supabase
         .from('applicants')
-        .select('id, pipeline_stage')
+        .select('id, pipeline_stage, preferred_term, preferred_start_date')
         .eq('email', data.applicantEmail)
         .eq('room_id', data.roomId)
         .maybeSingle()
@@ -160,6 +161,7 @@ export async function POST(request: Request) {
       if (existing) {
         applicantId = existing.id
         previousStage = existing.pipeline_stage ?? null
+        offered = { term: (existing as any).preferred_term ?? null, moveIn: (existing as any).preferred_start_date ?? null }
         await supabase.from('applicants').update({
           offer_id:       offerId,
           pipeline_stage: newStage,
@@ -206,7 +208,7 @@ export async function POST(request: Request) {
     const place          = placeLabel(whole, roomName, propAddress)
     const payRef         = holdingDepositRef(propertyData?.name || propertyData?.address, roomName)
     const firstName      = String(data.firstName || '').trim() || (data.applicantName ? data.applicantName.replace(/^(mr|mrs|ms|miss|mx|dr|prof|rev)\.?\s+/i, '').split(' ')[0] : 'there')
-    const moveInDisplay  = data.moveInDate || 'To be confirmed'
+    const moveInDisplay  = data.moveInDate || offered.moveIn || null   // the email leaves it out when nobody has said
 
     // Try DB template first; fall back to lib/emailTemplates.ts builders
     const templateSlug = (data.requestDeposit ? 'applicant-offer-deposit' : 'applicant-offer-letter') + (whole ? '-whole' : '')
@@ -230,7 +232,7 @@ export async function POST(request: Request) {
       subject   = render(tpl.subject_line, tokenVars, data.applicantName ? personFromText(data.applicantName) : null)
       emailHtml = await wrapTemplate(render(tpl.template_text, tokenVars, data.applicantName ? personFromText(data.applicantName) : null), request)
     } else if (data.requestDeposit) {
-      subject = `THE SEARCH IS OVER! — ${place}`
+      subject = `The search is over — ${place}`
       emailHtml = await buildSearchIsOverEmail({
         applicantName:   firstName === 'there' ? undefined : firstName,
         roomName,
@@ -238,6 +240,7 @@ export async function POST(request: Request) {
         propertyCity:    'London',
         advertisedRent:  monthly,
         moveInDate:      moveInDisplay,
+        term:            offered.term,
         applicationUrl,
         holdingDeposit:  weekly,
         holdingRef:      payRef,
@@ -252,6 +255,7 @@ export async function POST(request: Request) {
         propertyCity:    'London',
         advertisedRent:  monthly,
         moveInDate:      moveInDisplay,
+        term:            offered.term,
         applicationUrl,
         holdingDeposit:  weekly,
         holdingRef:      payRef,
