@@ -90,8 +90,12 @@ export default function LandlordUpdatePage({ params }: { params: Promise<{ token
           {v.docs.length > 0 && (
             <div>
               <h2 className="pub-serif m-0 text-[34px] leading-tight">Documents</h2>
-              <p className="m-0 mt-2 text-[14px]" style={{ color: '#6F6B64' }}>Tap one to look through them, or download everything as one PDF. This page works until {day(v.expires)}.</p>
-              <a href={`/api/lu/${token}/report`} className="pub-btn mt-5 no-underline" style={{ color: '#fff' }}>Download full report (PDF)</a>
+              <p className="m-0 mt-2 text-[14px]" style={{ color: '#6F6B64' }}>Tap one to look through them, or download them all. This page works until {day(v.expires)}.</p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <a href={`/api/lu/${token}/report`} className="pub-btn no-underline" style={{ color: '#fff' }}>Download full report (PDF)</a>
+                <a href={`/api/lu/${token}/zip`} className="pub-btn-ghost no-underline" style={{ minHeight: 54, color: '#111' }}>All files (zip)</a>
+              </div>
+              <p className="m-0 mt-2 text-[13px]" style={{ color: '#6F6B64' }}>The report is one PDF with a summary page first; the zip has each document as its own file.</p>
               <div className="mt-6" style={{ borderTop: '1px solid #111' }}>
                 {v.docs.map((d, i) => (
                   <button key={d.id} type="button" onClick={() => setViewing(i)}
