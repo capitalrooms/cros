@@ -137,6 +137,9 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
           )
         })()}
 
+        {/* the month's pack for the accountant (lib/finance/accountantPack) */}
+        {n && <AccountantPack month={month} label={monthLabel(month)} />}
+
         {/* to-do */}
         <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
           <h2 className="text-lg font-bold text-neutral-900">To do</h2>
@@ -171,6 +174,35 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** One button: the month's accounts pack for the accountant — a zip of the summary, the spreadsheets and every
+ *  landlord statement (17 Oct 2026). Built when pressed, so it always has the latest statements. */
+function AccountantPack({ month, label }: { month: string; label: string }) {
+  const [state, setState] = useState<'idle' | 'busy' | 'error'>('idle')
+  const [msg, setMsg] = useState('')
+  async function go() {
+    setState('busy'); setMsg('')
+    try {
+      const r = await adminFetch(`/api/admin/accountant-pack?month=${month}&link=1`)
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d.url) throw new Error(d.error || 'The pack couldn’t be made')
+      window.location.href = d.url
+      const miss = d.summary?.missing?.length ? ` · no statement yet for ${d.summary.missing.join(', ')}` : ''
+      setState('idle'); setMsg(`Downloaded: ${d.summary?.statements ?? 0} statements${miss}`)
+    } catch (e) { setState('error'); setMsg(e instanceof Error ? e.message : 'The pack couldn’t be made') }
+  }
+  return (
+    <div className="mb-lg flex flex-wrap items-center justify-between gap-sm rounded-xl border border-neutral-200 bg-white px-md py-sm">
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-neutral-900">Accounts pack for your accountant · {label}</p>
+        <p className={`text-xs ${state === 'error' ? 'text-red-700' : 'text-neutral-500'}`}>{msg || 'Summary PDF, landlord statements, payments, fees, expenses, deposits and the client account — one zip.'}</p>
+      </div>
+      <button type="button" onClick={go} disabled={state === 'busy'} className="shrink-0 rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50">
+        {state === 'busy' ? 'Putting it together…' : 'Download pack (zip)'}
+      </button>
     </div>
   )
 }
