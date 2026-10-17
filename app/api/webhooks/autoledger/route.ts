@@ -863,7 +863,10 @@ Respond with JSON only in this exact shape:
     }
 
     const resolvedSlots: ResolvedSlot[] = rentSlots.map(slot => {
-      let roomId:    string | null = slot.roomNum ? (roomByNumber.get(slot.roomNum) ?? null) : null
+      // a property with one unit (a single let: "Whole Property") — every rent line is that unit, whatever the agent's
+      // PDF calls it ("Room 1"); they used to be left unmatched and shown as "Room 1" (17 Oct 2026)
+      const onlyUnit = (propertyRooms || []).length === 1 ? propertyRooms![0].id : null
+      let roomId:    string | null = onlyUnit ?? (slot.roomNum ? (roomByNumber.get(slot.roomNum) ?? null) : null)
       let tenantId:  string | null = null
       let tenancyId: string | null = null
 
@@ -921,6 +924,12 @@ Respond with JSON only in this exact shape:
     // below are kept, unlinked; the rent roll reads them directly (lib/finance/importedRent).
     const chargeByRoom = new Map<string, { id: string; status: string }>()
 
+    const tenantNameFor = (tenancyId: string | null) => {
+      if (!tenancyId) return null
+      for (const list of tenanciesByRoom.values()) { const t = list.find(x => x.id === tenancyId); if (t) return [t.first_name, t.last_name].filter(Boolean).join(' ') || null }
+      return null
+    }
+
     // ── Insert LSR rows ────────────────────────────────────────────────────────
     const lsrInserts = resolvedSlots.map((slot, i) => {
       const charge = slot.roomId ? chargeByRoom.get(slot.roomId) : null
@@ -932,7 +941,8 @@ Respond with JSON only in this exact shape:
         tenant_id:      slot.tenantId,
         tenancy_id:     slot.tenancyId,
         room_number:    slot.roomNum ?? (i + 1),
-        tenant_name:    slot.tenantName ?? `Room ${slot.roomNum ?? i + 1}`,
+        // the agent's name for the tenant; else the matched tenant's own name; "Room N" only on a shared house
+        tenant_name:    slot.tenantName ?? tenantNameFor(slot.tenancyId) ?? ((propertyRooms || []).length === 1 ? '' : `Room ${slot.roomNum ?? i + 1}`),   // NOT NULL column: '' when nobody is named
         rent_income:    slot.rent,
         management_fee: slot.mgmtFee,
         letting_fee:    slot.lettingFee,

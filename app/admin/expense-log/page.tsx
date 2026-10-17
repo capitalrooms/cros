@@ -3,7 +3,7 @@
 /**
  * /admin/expense-log — Landlord expenses.
  *
- * "To come off statements": expenses logged but not yet on a landlord statement, with the statement each will
+ * "To deduct from landlord" (was "To come off statements", renamed 17 Oct 2026): expenses logged but not yet on a landlord statement, with the statement each will
  * come off (lib/expenses/period). "All expenses": every expense on record — logged here or imported from past
  * statements — filterable by property, tax year, when it was dated and which statement took it, with totals by
  * UK tax year and CSV/PDF export. Adding an expense checks for duplicates (lib/expenses/duplicates), numbers it
@@ -204,7 +204,7 @@ export default function ExpensesPage() {
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Expenses" />
       <PageHero title="Expenses" subtitle="Money spent on a property that comes off the landlord’s statement — each is numbered (EXP…) and never deleted; mistakes are voided"
-        stats={[{ label: 'To come off statements', value: pending.length, tone: pending.length ? 'warn' : undefined }]}
+        stats={[{ label: 'To deduct from landlord', value: pending.length, tone: pending.length ? 'warn' : undefined }]}
         actions={<><HeroButton href="/admin/ops-account">Operations account CSV</HeroButton><HeroButton href="/admin/reports/resold">Mark-ups</HeroButton><HeroButton primary onClick={() => { setShowForm(true); setDups(null); setFormError('') }}>+ Add expense</HeroButton></>}
         tabs={financeTabs('expenses')} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
@@ -219,7 +219,7 @@ export default function ExpensesPage() {
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
 
         <div className="mb-lg inline-flex rounded-xl bg-white p-1 text-sm font-semibold shadow-sm">
-          <button onClick={() => setTab('pending')} className={`rounded-lg px-lg py-sm ${tab === 'pending' ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>To come off statements ({pending.length})</button>
+          <button onClick={() => setTab('pending')} className={`rounded-lg px-lg py-sm ${tab === 'pending' ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>To deduct from landlord ({pending.length})</button>
           <button onClick={() => setTab('all')} className={`rounded-lg px-lg py-sm ${tab === 'all' ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}>All expenses</button>
         </div>
 
@@ -227,7 +227,7 @@ export default function ExpensesPage() {
           <>
             <div className="mb-md flex flex-wrap items-center justify-between gap-md">
               <p className="text-sm text-neutral-600">Waiting to go on a landlord statement: <strong>{gbp(pending.reduce((t, r) => t + r.amount, 0))}</strong></p>
-              <ExportButtons title="Expenses to come off statements" filename="expenses-to-come-off-statements" columns={exportColumns} rows={exportRows(pending)}
+              <ExportButtons title="Expenses to deduct from landlords" filename="expenses-to-deduct-from-landlords" columns={exportColumns} rows={exportRows(pending)}
                 totals={{ description: 'Total', amount: pending.reduce((t, r) => t + r.amount, 0) }} />
             </div>
             {pendingGroups.length === 0 ? (
@@ -283,7 +283,7 @@ export default function ExpensesPage() {
                 </select></label>
               <label><span className={label}>Dates are</span>
                 <select value={fBy} onChange={e => setFBy(e.target.value as 'dated' | 'deducted' | 'reimbursed')} className={input}>
-                  <option value="dated">When it was dated</option><option value="deducted">When it came off a statement</option><option value="reimbursed">When it was paid back to the office</option>
+                  <option value="dated">When it was dated</option><option value="deducted">When it was deducted from the landlord</option><option value="reimbursed">When it was paid back to the office</option>
                 </select></label>
               <label><span className={label}>From</span><input type="date" value={fFrom} onChange={e => setFFrom(e.target.value)} className={input} /></label>
               <label><span className={label}>To</span><input type="date" value={fTo} onChange={e => setFTo(e.target.value)} className={input} /></label>

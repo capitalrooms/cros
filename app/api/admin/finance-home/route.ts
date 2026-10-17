@@ -9,6 +9,7 @@ import { loadPaymentRun } from '@/lib/finance/paymentRun'
 import { clientAccountPosition } from '@/lib/finance/clientAccount'
 import { ledgerStart } from '@/lib/clientLedger'
 import { demoPropertyIds } from '@/lib/demoProperties'
+import { statementsInMonths } from '@/lib/finance/statementMonth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -50,6 +51,15 @@ export async function GET(req: NextRequest) {
     const gbp = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
     const prev = roll.source === 'previous_agent'
+    // a month before CROS collected rent: what was paid out, our fees and the expenses come from the agent's imported
+    // statements for that month (17 Oct 2026 — the tiles read £0.00 for every imported month)
+    let imported: { toLandlords: number; fees: number; expenses: number; statements: number } | null = null
+    if (prev) {
+      const ids = (await statementsInMonths(s, `${month}-01`, monthEnd)).filter(x => !demo.has(x.property_id)).map(x => x.id)
+      const { data: sts } = ids.length ? await s.from('landlord_statements').select('net_to_landlord, management_fees, letting_fees, property_charges').in('id', ids) : { data: [] as any[] }
+      const sum = (k: string) => r2(((sts ?? []) as any[]).reduce((t, x) => t + Number(x[k] || 0), 0))
+      imported = { toLandlords: sum('net_to_landlord'), fees: r2(sum('management_fees') + sum('letting_fees')), expenses: sum('property_charges'), statements: ids.length }
+    }
     const beforeRecords = monthEnd < start
     const steps = prev ? [
       { n: 1, label: 'Rent roll', href: `/admin/rent-roll?month=${month}`, status: 'Collected by previous agent', done: true },
@@ -83,7 +93,9 @@ export async function GET(req: NextRequest) {
       month, source: roll.source, steps, current, todos,
       numbers: {
         due: roll.source === 'previous_agent' ? roll.totals.received : roll.totals.due, received: roll.totals.received, missing: roll.totals.missing,
-        heldInClientAccount: position.cashbook.total, agrees: position.agrees, toLandlords: run.totals.toLandlords, fees: run.totals.fees,
+        heldInClientAccount: position.cashbook.total, agrees: position.agrees,
+        toLandlords: imported ? imported.toLandlords : run.totals.toLandlords, fees: imported ? imported.fees : run.totals.fees,
+        expenses: imported ? imported.expenses : null, statements: imported ? imported.statements : null,
       },
     })
   } catch (e) {

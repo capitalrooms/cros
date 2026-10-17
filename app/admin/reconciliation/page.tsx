@@ -146,7 +146,7 @@ export default function ReconciliationPage() {
       .from('landlord_statement_rooms')
       .select(`
         *,
-        statement:landlord_statements(id, statement_reference, statement_date, period_start, period_end, reference, properties(name, address)),
+        statement:landlord_statements(id, statement_reference, statement_date, period_start, period_end, reference, properties(name, address, property_type)),
         room:rooms(name),
         tenant:people!landlord_statement_rooms_tenant_id_fkey(salutation, first_name, last_name, full_name),
         rent_charge:rent_charges(id, amount_due, status)
@@ -440,10 +440,14 @@ export default function ReconciliationPage() {
                   </thead>
                   <tbody>
                     {stmtRows.map((row, i) => {
-                      const tenantName = row.tenant
+                      const rawName = row.tenant
                         ? [row.tenant.salutation, row.tenant.first_name, row.tenant.last_name].filter(Boolean).join(' ') || row.tenant.full_name || row.tenant_name
                         : row.tenant_name
-                      const roomName = row.room?.name || (row.room_number ? `Room ${row.room_number}` : 'Unknown room')
+                      const tenantName = !String(rawName ?? '').trim() || /^room\s*\d+$/i.test(String(rawName ?? '').trim()) ? '—' : rawName
+                      // a single let is never "Room 1" — it's the whole property (17 Oct 2026: "so I never see room 1 on a whole
+                      // property again"); the agent's "Room 1" placeholder isn't a tenant's name either
+                      const wholeLet = (row as any).statement?.properties?.property_type === 'single_let'
+                      const roomName = wholeLet ? 'Whole property' : row.room?.name || (row.room_number ? `Room ${row.room_number}` : 'Unknown room')
                       const noFee = !Number(row.management_fee) && Number(row.rent_income) > 0
                       return (
                         <tr key={row.id} className={`border-b border-[#EDF0F3] last:border-0 ${i % 2 ? 'bg-[#FAFBFC]' : 'bg-white'} hover:bg-[#F1F5FA]`}>
