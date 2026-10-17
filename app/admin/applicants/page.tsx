@@ -249,7 +249,7 @@ export default function ApplicantsPage() {
   }
 
   async function acceptOffer(applicant: Applicant) {
-    if (applicant.pipeline_stage === 'offer_sent' && !confirm(`Email ${applicant.full_name} the link to reserve (pay the holding deposit)?`)) return
+    if (applicant.pipeline_stage !== 'applied' && !confirm(`Email ${applicant.full_name} at ${applicant.email} the link to reserve (pay the holding deposit)?`)) return
     setAcceptingSending(applicant.id)
     try {
       let res = await fetch(`/api/applicants/${applicant.id}/accept-offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
@@ -845,7 +845,9 @@ export default function ApplicantsPage() {
                           </div>
                         )}
 
-                        {(applicant.pipeline_stage === 'applied' || applicant.pipeline_stage === 'offer_sent') && (
+                        {/* also on 'invited' — an invite sent to a mistyped email left no way to send the reserve email once the
+                            address was corrected (Hugh Elliot, 17 Oct 2026); it always goes to the email on file now */}
+                        {(applicant.pipeline_stage === 'invited' || applicant.pipeline_stage === 'applied' || applicant.pipeline_stage === 'offer_sent') && (
                           <button
                             onClick={() => acceptOffer(applicant)}
                             disabled={acceptingSending === applicant.id || acceptSentFor.has(applicant.id)}
@@ -856,6 +858,7 @@ export default function ApplicantsPage() {
                               : acceptSentFor.has(applicant.id)
                                 ? '✓ Reserve email sent'
                                 : applicant.pipeline_stage === 'offer_sent' ? 'Resend reserve email'
+                                  : applicant.pipeline_stage === 'invited' ? `Send reserve email to ${applicant.email}`
                                   : applicant.rent_offer_type === 'below_asking' && applicant.offered_rent ? `✓ Accept £${Number(applicant.offered_rent).toLocaleString()} offer & send reserve email` : '✓ Accept offer & send reserve email'}
                           </button>
                         )}
