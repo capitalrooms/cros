@@ -112,7 +112,8 @@ export default async function SharedListing({ params }: { params: Promise<{ room
 
   const priceBox = (
     <div className="rounded-2xl border border-[#E4E0D8] bg-white p-5 shadow-[0_8px_30px_rgba(17,17,17,0.06)]">
-      {l.rent != null && <p className="text-[30px] font-semibold leading-none tabular-nums">{gbp(l.rent)} <span className="text-[15px] font-normal text-neutral-500">{l.rentFrequency}</span></p>}
+      {l.rent != null ? <p className="text-[30px] font-semibold leading-none tabular-nums">{gbp(l.rent)} <span className="text-[15px] font-normal text-neutral-500">{l.rentFrequency}</span></p>
+        : <p className="text-[22px] font-semibold leading-tight">Rent on request</p>}
       {pw && l.rentFrequency === 'pcm' && <p className="mt-1 text-[13px] text-neutral-500">{gbp(pw)} a week{l.billsIncluded ? ' · bills included' : ''}</p>}
       <p className="mt-3 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[13px] font-semibold text-emerald-800">{when(l.available)}</p>
       <dl className="mt-4 space-y-1.5 text-[13px]">
