@@ -52,7 +52,7 @@ export default function MarketingBoard() {
 
   return (
     <div className="min-h-screen bg-[#EDF0F4] pb-3xl">
-      <AppBar left={<BackButton href="/lettings?tab=available" />} title="Marketing board" />
+      <AppBar left={<BackButton href="/lettings?tab=available" label="Availability" />} title="Marketing board" />
       <main className="mx-auto max-w-7xl px-lg py-md">
         <div className="mb-sm flex flex-wrap items-baseline justify-between gap-sm">
           <h1 className="text-lg font-extrabold text-neutral-900">Marketing board</h1>

@@ -1,3 +1,5 @@
+import { Suspense } from 'react'
+import NavTrail from '@/app/components/NavTrail'
 import type { Metadata, Viewport } from 'next'
 import { Baloo_2 } from 'next/font/google'
 import './globals.css'
@@ -49,6 +51,7 @@ export default function RootLayout({
     <html lang="en" className={baloo2.variable}>
       <body className="flex flex-col min-h-screen">
         <AuthFetchBridge />
+        <Suspense fallback={null}><NavTrail /></Suspense>
         <div className="flex-1">
           {children}
         </div>

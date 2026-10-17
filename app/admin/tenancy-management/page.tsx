@@ -242,7 +242,7 @@ export default function TenancyManagementPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         title="On Notice"
         subtitle="Tenants who are leaving, their move-out dates, rescind requests and check-out cleans"

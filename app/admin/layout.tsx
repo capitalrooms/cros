@@ -13,6 +13,7 @@ import { areasFor, canOpenPage, homeFor, isAdministrator, REQUIRE_TWO_STEP_FOR_A
 import MobileTabBar from './components/MobileTabBar'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 import Footer from '@/app/components/Footer'
+import BackButton from '@/app/components/BackButton'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -184,6 +185,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
   const railZone = onPropHub ? ZONES.find(z => z.id === 'portfolio') ?? null : activeZone
   const activeSub = railZone?.subnav.find(i => isActive(i.href)) ?? null
+  // where Back goes when this tab has no earlier screen: a property's pages → All Units; a page inside a section → that
+  // section's list; a section's own home (or a phone tab) → nowhere, so no button
+  const backFallback: { href: string; label: string } | null =
+    onPropHub ? { href: '/admin/active-rooms', label: 'All Units' }
+    : isPhoneTabRoot(pathname) ? null
+    : activeSub && activeSub.href.split('?')[0] !== pathname ? { href: activeSub.href, label: activeSub.label }
+    : railZone && !railZone.subnav.some(i => i.href.split('?')[0] === pathname) && railZone.subnav[0] ? { href: railZone.subnav[0].href, label: railZone.label }
+    : null
 
   return (
     <AdminContext.Provider value={true}>
@@ -225,19 +234,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {/* ── Top bar: logo in the centre ── */}
         <header className="flex-shrink-0 bg-[#181614] text-white z-40 border-b border-white/5" style={{ minHeight: 56, paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
           <div className="grid h-14 px-3 md:px-6" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
-            {/* Left: back on phones; where you are on desktop */}
+            {/* Left: back — to the screen you came from, by name; opened directly, to this screen's section (17 Oct 2026) */}
             <div className="flex items-center min-w-0">
-              {!isPhoneTabRoot(pathname) && (
-                <button type="button" onClick={() => router.back()} aria-label="Back"
-                  className="md:hidden -ml-1 mr-1 flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10">
-                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-                </button>
-              )}
-              {onPropHub ? (
-                <Link href="/admin/active-rooms" className="hidden md:flex text-xs text-white/45 hover:text-white/75 transition-colors items-center gap-1 whitespace-nowrap">
-                  ← All Units
-                </Link>
-              ) : null}
+              <BackButton optional={!backFallback} href={backFallback?.href} label={backFallback?.label} />
             </div>
 
             {/* Centre: logo — always perfectly centred */}

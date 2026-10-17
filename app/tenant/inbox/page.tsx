@@ -121,7 +121,7 @@ export default function InboxPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
 
       <main className="mx-auto max-w-xl px-lg pb-2xl pt-md">
 

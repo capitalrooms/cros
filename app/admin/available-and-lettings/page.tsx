@@ -240,7 +240,7 @@ export default function LettingsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         title="Available Rooms"
         subtitle="Rooms free now or coming up — send offers, book viewings and tell let-only contacts"

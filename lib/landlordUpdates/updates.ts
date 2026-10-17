@@ -12,7 +12,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { randomBytes } from 'crypto'
 import { dearName, displayName } from '@/lib/people'
-import { isWholeLet, oneLine, placeLabel } from '@/lib/lettings/letWording'
+import { isWholeLet, placeLabel } from '@/lib/lettings/letWording'
+import { fullAddressLine } from '@/lib/formatAddress'
 import { agreedRent } from '@/lib/lettings/holdingDeposit'
 
 export const STAGES = ['offer', 'reserved', 'referenced', 'signed_paid', 'summary'] as const
@@ -103,7 +104,10 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
   const prop = t?.properties ?? a?.properties ?? {}
   const roomName = t?.rooms?.name ?? a?.rooms?.name ?? ''
   const whole = isWholeLet(prop.property_type, roomName)
-  const address = oneLine([prop.address || prop.name, prop.postcode && !String(prop.address ?? '').includes(prop.postcode) ? prop.postcode : ''].filter(Boolean).join(', '))
+  // the full postal address (postcode once, spaced); some addresses on file leave out the street, which is then in the
+  // house's name ("12 Saltwell Street" + "Poplar, London, E14 0DX")
+  const base = fullAddressLine(prop)
+  const address = prop.name && /^\d/.test(prop.name) && !base.toLowerCase().includes(String(prop.name).toLowerCase()) ? `${prop.name}, ${base}` : base
 
   const [landlordQ, prefQ, holdQ, docsQ, appDocsQ, sentQ, offerQ] = await Promise.all([
     prop.landlord_id ? s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, joint_salutation, joint_first_name, joint_last_name, joint_email, landlord_comms_enabled').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),

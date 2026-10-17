@@ -442,7 +442,7 @@ export default function PlannerPage() {
   if (loading) {
     return (
       <div className="min-h-screen" style={{ background: '#faf9f7' }}>
-        <AppBar left={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
         <div className="flex items-center justify-center h-48">
           <p className="text-sm" style={{ color: '#a8a29e' }}>Loading planner…</p>
         </div>
@@ -455,7 +455,7 @@ export default function PlannerPage() {
 
   return (
     <div className="planner-root flex h-full flex-col" style={{ background: '#faf9f7', fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       {/* phones: 16px text boxes so iPhone doesn't zoom in when you tap to type */}
       <style>{`@media (max-width: 767px) { .planner-root input, .planner-root textarea, .planner-root select { font-size: 16px !important; } }`}</style>
 

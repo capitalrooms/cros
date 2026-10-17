@@ -316,7 +316,7 @@ export default function ContractorJobs() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {/* Top bar */}
       <AppBar
-        left={<BackButton href="/contractor" />}
+        left={<BackButton href="/contractor" label="My jobs" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg">

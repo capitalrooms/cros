@@ -137,7 +137,7 @@ export default function AdminEarlyMoveOutPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Lettings" title="Early Move-Out Requests" subtitle="Tenant requests to end tenancies early" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

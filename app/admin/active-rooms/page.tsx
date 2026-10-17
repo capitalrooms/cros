@@ -184,7 +184,7 @@ export default function AllUnitsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         title="All Units"
         subtitle={<>{real.length} house{real.length === 1 ? '' : 's'} · {rooms.length} rooms · every name opens its letting file{letOnlyCount > 0 && <> · <a href="/admin/let-only-properties" className="underline">{letOnlyCount} let-only house{letOnlyCount === 1 ? '' : 's'} →</a></>}</>}

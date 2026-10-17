@@ -37,7 +37,7 @@ export default function CleanerHouse({ params }: { params: Promise<{ propertyId:
     setBusy(''); load()
   }
 
-  const shell = (body: React.ReactNode) => <div className="min-h-screen bg-neutral-100 pb-3xl"><AppBar left={<BackButton href="/cleaner" />} title="House" /><main className="mx-auto max-w-2xl px-lg py-lg space-y-md">{body}</main></div>
+  const shell = (body: React.ReactNode) => <div className="min-h-screen bg-neutral-100 pb-3xl"><AppBar left={<BackButton href="/cleaner" label="My cleans" />} title="House" /><main className="mx-auto max-w-2xl px-lg py-lg space-y-md">{body}</main></div>
   if (error) return shell(<p className="text-sm text-red-700">{error}</p>)
   if (!d) return shell(<p className="text-sm text-neutral-500">Loading…</p>)
   const h = d.house, u = d.usual

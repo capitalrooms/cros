@@ -263,7 +263,7 @@ export default function AppointmentsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero title="Diary" subtitle={<>Drag appointments to reschedule. Click a time slot to book a new visit.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

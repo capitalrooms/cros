@@ -149,14 +149,14 @@ export default function RentHistoryPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <p className="p-xl text-sm text-neutral-400">Loading tenancies…</p>
     </div>
   )
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Lettings" title="Last rent change per tenant" subtitle="Set the date rent was last actually changed (informally, before the Section 13 system was built). The 52-week gap rule for new Section 13 notices counts from this date when no formal notice history exists. Leave blank to fall back to the tenancy start date." />
       <main className="mx-auto max-w-6xl px-lg py-xl">
 

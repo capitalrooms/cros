@@ -78,7 +78,7 @@ function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practic
 
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin" />} title="Payment run" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Payment run" />
       {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Nothing here is real money; every entry gets an X number (XRENT, XLS, XPAY…) and stays out of the real books.</div>}
       <PageHero eyebrow={practice ? 'PRACTICE · step 3 of 3 · monthly cycle' : 'Step 3 of 3 · monthly cycle'} title={<>Payment run {run ? <span className="font-mono text-lg text-[#F6F3EC]/55">{run.runNo}</span> : null}</>}
         subtitle="Pay landlords, then move our fees and the expenses we paid out to the office account"

@@ -287,7 +287,7 @@ export default function DocumentsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Compliance · Documents" title="Documents" subtitle="Upload, manage, and file documents — certificates, contracts, tenancy agreements, and more" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

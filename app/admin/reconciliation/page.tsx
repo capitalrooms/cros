@@ -322,7 +322,7 @@ export default function ReconciliationPage() {
   if (loading) {
     return (
       <>
-        <AppBar left={<BackButton href="/admin" />} title="Reconciliation" />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Reconciliation" />
         <div className="flex items-center justify-center min-h-screen">
           <div className="w-6 h-6 rounded-full border-2 border-neutral-200 border-t-neutral-600 animate-spin" />
         </div>
@@ -332,7 +332,7 @@ export default function ReconciliationPage() {
 
   return (
     <>
-      <AppBar left={<BackButton href="/admin" />} title="Reconciliation" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Reconciliation" />
       <PageHero title="Bank & matching" subtitle="Match money in to rent, and check the room lines read from the agent’s statements — confirming says the room and tenant are right"
         actions={<HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>}
         tabs={financeTabs('bank')} />

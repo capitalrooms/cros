@@ -419,7 +419,7 @@ export default function AdminStatementsPage() {
 
   return (
     <div className="min-h-screen fin pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Step 2 of 3 · monthly cycle" title="Landlord statements"
         subtitle="Room by room — rent, the fee at that property and any expenses. The totals roll up onto the landlord's page; upload a PDF to fill it in."
         tabs={financeTabs('statements')} />

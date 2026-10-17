@@ -310,7 +310,7 @@ export default function CleanDetailPage() {
   if (loading)
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/cleaner" />} />
+        <AppBar left={<BackButton href="/cleaner" label="My cleans" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )

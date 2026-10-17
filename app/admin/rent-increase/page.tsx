@@ -33,7 +33,7 @@ export default function RentReviewsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin" />} title="Rent Reviews" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Rent Reviews" />
       <PageHero
         title="Rent Reviews"
         subtitle="A Section 13 increase can take effect once a year — tenancies unchanged for 12 months or more are due"

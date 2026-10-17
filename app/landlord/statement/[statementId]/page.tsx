@@ -127,7 +127,7 @@ export default function StatementDetail() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar
-          left={<BackButton href="/landlord" />}
+          left={<BackButton href="/landlord" label="Home" />}
         />
         <main className="mx-auto max-w-6xl px-lg py-2xl">
           <div className="animate-pulse space-y-lg">
@@ -142,15 +142,13 @@ export default function StatementDetail() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
+        left={<BackButton href="/landlord" label="Statements" />}
         right={
           <SignOutButton onSignOut={handleSignOut} />
         }
       />
 
       <main className="mx-auto max-w-6xl px-lg py-2xl">
-        <Link href="/landlord" className="text-sm text-blue-600 hover:text-blue-700 mb-2xl inline-block">
-          ← Back to Statements
-        </Link>
 
         {statement ? (
           <>

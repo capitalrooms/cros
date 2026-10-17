@@ -314,7 +314,7 @@ export default function HouseMateConcernPage() {
   if (step === 'done') {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <div className="mx-auto max-w-lg px-lg py-3xl text-center">
           <p className="text-5xl mb-lg">✅</p>
           <h1 className="text-2xl font-bold text-neutral-900">Message sent to Capital Rooms</h1>
@@ -332,11 +332,11 @@ export default function HouseMateConcernPage() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {/* Step-aware back navigation */}
       <AppBar left={
-        step === 'category' ? <BackButton href="/tenant" /> :
+        step === 'category' ? <BackButton href="/tenant" label="Home" /> :
         step === 'tips'     ? <BackButton onClick={() => setStep('category')} /> :
         step === 'text'     ? <BackButton onClick={() => setStep('tips')} /> :
         step === 'routing'  ? <BackButton onClick={() => setStep('text')} /> :
-        <BackButton href="/tenant" />
+        <BackButton href="/tenant" label="Home" />
       } />
 
       <div className="mx-auto max-w-lg px-lg pt-xl">

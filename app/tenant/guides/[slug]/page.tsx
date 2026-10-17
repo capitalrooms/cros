@@ -281,7 +281,7 @@ export default function GuidePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <div className="flex items-center justify-center pt-[30vh]">
           <div className="w-6 h-6 rounded-full border-2 border-neutral-300 border-t-neutral-700 animate-spin" />
         </div>
@@ -292,7 +292,7 @@ export default function GuidePage() {
   if (error || !guide) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <div className="p-xl text-center text-neutral-500 text-sm">{error ?? 'Guide not found'}</div>
       </div>
     )
@@ -303,7 +303,7 @@ export default function GuidePage() {
 
       {/* AppBar floated over the hero with transparent/dark background */}
       <div className="fixed top-0 inset-x-0 z-50">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
       </div>
 
       {/* Hero cover — full viewport, like a book cover */}

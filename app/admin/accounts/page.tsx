@@ -540,7 +540,7 @@ export default function AccountsPage() {
   if (loading) {
     return (
       <div className="min-h-screen fin">
-        <AppBar left={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
         <div className="flex items-center justify-center py-3xl">
           <div className="text-sm text-neutral-500">Loading accounts…</div>
         </div>
@@ -551,7 +551,7 @@ export default function AccountsPage() {
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Finance" title="Agency Accounts" subtitle="Rent ledger · Landlord remittance · Management fee income · Arrears" />
 
       {/* Remittance modal */}

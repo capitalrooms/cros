@@ -391,7 +391,7 @@ export default function IncomeDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen fin">
-        <AppBar left={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
         <div className="p-xl text-sm text-neutral-400">Loading…</div>
       </div>
     )
@@ -399,7 +399,7 @@ export default function IncomeDashboard() {
 
   return (
     <div className="min-h-screen fin pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Finance" title="Agency Fee Income" />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

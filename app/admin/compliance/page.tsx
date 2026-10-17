@@ -890,7 +890,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero title="Compliance" subtitle={<>Certificates, safety checks, and compliance dashboard across all properties</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

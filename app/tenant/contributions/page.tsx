@@ -106,7 +106,7 @@ export default function ContributionsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <div className="flex items-center justify-center py-3xl">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900" />
         </div>
@@ -234,7 +234,7 @@ export default function ContributionsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
       <div className="mx-auto max-w-lg px-lg pt-xl">
         <div className="flex items-start justify-between mb-xl">
           <div>

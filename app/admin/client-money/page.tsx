@@ -73,7 +73,7 @@ export default function ClientMoneyPage() {
 
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin" />} title="Client money" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Client money" />
       <PageHero title="Client money" subtitle={<>What the client account (20-18-93 · 4016 2574) holds for each landlord{data ? `, from ${d(data.start)}` : ''} — no landlord’s balance should ever go below zero</>}
         tabs={financeTabs('client-money')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">

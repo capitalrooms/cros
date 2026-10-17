@@ -53,7 +53,7 @@ export default function WebsitePage({ searchParams }: { searchParams: PageSearch
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} title="Website" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Website" />
       <PageHero
         eyebrow="Website"
         title="capitalrooms.co.uk"

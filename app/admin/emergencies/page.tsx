@@ -86,7 +86,7 @@ function Emergencies({ initialId, initialTab }: { initialId: string | null; init
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} title="Emergencies" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Emergencies" />
       <PageHero
         eyebrow="Management"
         title="Emergencies"

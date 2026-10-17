@@ -58,7 +58,7 @@ export default function LettingsOverviewPage() {
   const c = data?.counts
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} title="Lettings" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Lettings" />
       <PageHero
         eyebrow="Lettings"
         title="From application to move-in"

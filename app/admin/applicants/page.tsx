@@ -367,7 +367,7 @@ export default function ApplicantsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
         <div className="flex items-center justify-center pt-3xl">
           <p className="text-sm text-neutral-500">Loading applicants…</p>
         </div>
@@ -378,7 +378,7 @@ export default function ApplicantsPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
         <div className="mx-auto max-w-6xl px-lg py-xl">
           <div className="rounded-xl bg-red-50 border border-red-200 p-lg text-sm text-red-700">{error}</div>
         </div>
@@ -388,7 +388,7 @@ export default function ApplicantsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         title="Applicants"
         subtitle="From application to let agreed — recording the holding deposit creates the tenancy and opens its letting file"

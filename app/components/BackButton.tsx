@@ -1,52 +1,48 @@
 'use client'
 
+// The back control for every screen and every role (17 Oct 2026 — Harry: "anywhere on the site if you go into a
+// screen you can always go back to the previous screen … the text is tiny and doesn't look very professional").
+// A clear pill on the dark top bar: ← and the name of the screen it goes back to.
+//   - came from another screen in this tab → goes back to it, exactly as you left it (its tab and filters are in its
+//     address), and shows its name (lib/navTrail). Tab clicks on the same screen don't count as screens, so one press
+//     always leaves the screen — browser back would step through every tab first.
+//   - opened directly (a link, a refresh) → goes to `href`, the screen's natural parent, named by `label`
+//   - neither → browser back
+// On a phone it shrinks to the arrow with a short name.
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { previousVisit, type TrailEntry } from '@/lib/navTrail'
 
-/**
- * Standard back control — top-right of the AppBar on every screen that
- * isn't a role's home dashboard.
- *
- * Renders as a chevron-in-circle icon only (no text label) so it reads
- * the same as a native iOS/Android back button and doesn't need to know
- * the destination name.
- *
- * Pass `href` for a stable destination (survives deep links and refreshes);
- * omit it to fall back to browser history (router.back()).
- */
-export default function BackButton({ href }: { href?: string }) {
-  const router = useRouter()
-  const className =
-    'shrink-0 transition-opacity hover:opacity-70 flex items-center justify-center'
-  const icon = (
-    <svg
-      width="34"
-      height="34"
-      viewBox="0 0 34 34"
-      fill="none"
-      aria-hidden="true"
-    >
-      <circle cx="17" cy="17" r="15" stroke="white" strokeWidth="1.2" opacity=".4" />
-      <path
-        d="M19.5 11.5l-5.5 5.5 5.5 5.5"
-        stroke="white"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+const pill = 'group inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] pl-2 pr-3.5 text-[13px] font-medium text-white/90 transition-colors hover:border-white/30 hover:bg-white/[0.12] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70'
+
+function Arrow() {
+  return (
+    <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true" className="shrink-0 transition-transform group-hover:-translate-x-0.5">
+      <path d="M12 4.5L6.5 10l5.5 5.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
+}
 
-  if (href) {
-    return (
-      <Link href={href} className={className} aria-label="Back">
-        {icon}
-      </Link>
-    )
-  }
-  return (
-    <button onClick={() => router.back()} className={className} aria-label="Back">
-      {icon}
-    </button>
+export default function BackButton({ href, label, optional = false }: { href?: string; label?: string; /** draw nothing when there's nowhere to go back to (a section's own home) */ optional?: boolean }) {
+  const router = useRouter()
+  const [prev, setPrev] = useState<TrailEntry | null>(null)
+  useEffect(() => {
+    const read = () => setPrev(previousVisit())
+    read()
+    window.addEventListener('cros-trail', read)
+    return () => window.removeEventListener('cros-trail', read)
+  }, [])
+
+  const name = prev?.label || label || 'Back'
+  const inner = (
+    <>
+      <Arrow />
+      <span className="min-w-0 truncate max-w-[6.5rem] sm:max-w-[16rem]">{name}</span>
+    </>
   )
+  if (prev) return <button type="button" onClick={() => router.push(prev.url)} className={pill} title={`Back to ${name}`} aria-label={`Back to ${name}`}>{inner}</button>
+  if (href) return <Link href={href} className={pill} title={label ? `Back to ${label}` : 'Back'} aria-label={label ? `Back to ${label}` : 'Back'}>{inner}</Link>
+  if (optional) return null
+  return <button type="button" onClick={() => router.back()} className={pill} aria-label="Back">{inner}</button>
 }

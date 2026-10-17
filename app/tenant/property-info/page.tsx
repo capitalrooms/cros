@@ -90,7 +90,7 @@ export default function PropertyInfoPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <p className="p-xl text-sm text-neutral-400">Loading…</p>
       </div>
     )
@@ -99,7 +99,7 @@ export default function PropertyInfoPage() {
   if (error || !property) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <main className="mx-auto max-w-2xl px-lg py-2xl">
           <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-lg">
             <p className="font-bold text-red-900">⚠️ {error || 'Could not load property information'}</p>
@@ -123,7 +123,7 @@ export default function PropertyInfoPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         {/* Property header */}

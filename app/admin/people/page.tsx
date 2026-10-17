@@ -442,7 +442,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
         <PageHero eyebrow="People" title="People" subtitle="Loading…" />
       </div>
     )
@@ -544,7 +544,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl" onClick={e => { if (menu && !(e.target as HTMLElement).closest('[data-row-menu]')) setMenu(null) }}>
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         eyebrow="People"
         title={LABEL[activeTab]}

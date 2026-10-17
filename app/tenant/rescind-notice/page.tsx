@@ -79,7 +79,7 @@ export default function RescindNoticePage() {
 
   if (!tenancy) return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
       <main className="mx-auto max-w-lg px-lg py-3xl text-center">
         <p className="text-neutral-500 text-sm">
           You don&apos;t have an active notice to rescind.{' '}
@@ -91,7 +91,7 @@ export default function RescindNoticePage() {
 
   if (done) return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
       <main className="mx-auto max-w-lg px-lg py-3xl text-center">
         <div className="text-5xl mb-lg">📬</div>
         <h1 className="text-2xl font-bold text-neutral-900 mb-sm">Request sent</h1>
@@ -109,7 +109,7 @@ export default function RescindNoticePage() {
   // Already has a pending rescind request
   if (tenancy.rescind_requested_at) return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
       <main className="mx-auto max-w-lg px-lg py-lg">
         <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Rescind notice</h1>
         <div className="bg-purple-50 border border-purple-200 rounded-2xl p-lg mt-lg">
@@ -134,7 +134,7 @@ export default function RescindNoticePage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
       <main className="mx-auto max-w-lg px-lg py-lg">
         <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Rescind notice</h1>
         <p className="text-sm text-neutral-500 mb-xl">

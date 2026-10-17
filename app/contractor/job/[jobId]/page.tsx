@@ -531,7 +531,7 @@ export default function JobDetailPage() {
   if (!job) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/contractor" />} />
+        <AppBar left={<BackButton href="/contractor" label="My jobs" />} />
         <p className="p-xl text-sm text-neutral-400">Job not found</p>
       </div>
     )
