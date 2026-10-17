@@ -254,6 +254,16 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       return
     }
 
+    // already on file? (Harry, 17 Oct 2026: re-registering Erin Pollard just said "Failed to add user" — one person per
+    // email, so say who it is and link to them instead)
+    const { data: existing } = await supabase.from('people').select('id, role, salutation, first_name, last_name, full_name')
+      .ilike('email', formData.email.trim()).limit(1).maybeSingle() as { data: any }
+    if (existing) {
+      const who = [existing.salutation, existing.first_name, existing.last_name].filter(Boolean).join(' ') || existing.full_name || formData.email
+      setError(`ALREADY:${existing.id}:${existing.role}:${who}`)
+      return
+    }
+
     try {
       const { error: err } = await supabase.from('people').insert([
         {
@@ -289,7 +299,9 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       const { data } = await supabase.from('people').select('*').order('created_at', { ascending: false })
       setPeople(data || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add user')
+      // Supabase errors aren't Error objects — show their message rather than a bare "Failed to add user"
+      const msg = (err as any)?.message ?? (err instanceof Error ? err.message : '')
+      setError(/duplicate|unique/i.test(msg) ? 'Someone with that email is already in CROS — search for them above.' : `Couldn’t add them: ${msg || 'unknown error'}`)
     }
   }
 
@@ -562,7 +574,16 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-md">
-        {error && <div className="rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-900">{error}</div>}
+        {error && (error.startsWith('ALREADY:') ? (() => {
+          const [, id, role, ...name] = error.split(':')
+          const href = role === 'tenant' ? `/admin/tenant/${id}` : role === 'landlord' ? `/admin/landlord/${id}` : role === 'contractor' ? `/admin/contractor/${id}` : null
+          return (
+            <div className="flex flex-wrap items-center justify-between gap-sm rounded-xl border border-amber-200 bg-amber-50 p-md text-sm text-amber-900">
+              <span><strong>{name.join(':')}</strong> is already in CROS ({role}) with this email — nothing was added.</span>
+              {href && <a href={href} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Open their profile</a>}
+            </div>
+          )
+        })() : <div className="rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-900">{error}</div>)}
         {success && <div className="rounded-xl border border-green-200 bg-green-50 p-md text-sm text-green-900">{success}</div>}
         {landlordSuccessMessage && <div className="rounded-xl border border-green-200 bg-green-50 p-md text-sm text-green-900">{landlordSuccessMessage}</div>}
 
