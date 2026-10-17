@@ -1,4 +1,5 @@
 import { dropDemo } from '@/lib/demoProperties'
+import { statementsInMonths } from '@/lib/finance/statementMonth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -54,18 +55,16 @@ export async function GET(req: NextRequest) {
 
   // Rent received from LSR (most accurate — from actual statements)
   // Two-step: find matching statement IDs first to avoid unreliable nested filter
-  const { data: matchingStmts } = await supabase
-    .from('landlord_statements')
-    .select('id')
-    .in('property_id', allPropIds)
-    .gte('period_end', from)
-    .lte('period_end', to)
-  const matchingStmtIds = (matchingStmts || []).map((s: any) => s.id)
+  // statements counted in their rent month (lib/finance/statementMonth) — not by the agent's period end date, which put
+  // a "1 Oct – 1 Nov" statement in November and an October one dated "1 Jun – 1 Jun" in June (17 Oct 2026)
+  const inRange = await statementsInMonths(supabase as any, from, to, allPropIds)
+  const monthOfStmt = new Map(inRange.map(x => [x.id, x.month]))
+  const matchingStmtIds = inRange.map(x => x.id)
 
   const { data: lsrRows } = matchingStmtIds.length > 0
     ? await supabase
         .from('landlord_statement_rooms')
-        .select('property_id, rent_income, management_fee, letting_fee, net_to_landlord, statement:landlord_statements(period_end)')
+        .select('statement_id, property_id, rent_income, management_fee, letting_fee, net_to_landlord')
         .in('statement_id', matchingStmtIds)
     : { data: [] }
 
@@ -90,7 +89,7 @@ export async function GET(req: NextRequest) {
     g.mgmt    += Number(r.management_fee || 0)
     g.letting += Number(r.letting_fee || 0)
     g.net     += Number(r.net_to_landlord || 0)
-    const month = (r.statement?.period_end || '').slice(0, 7)
+    const month = monthOfStmt.get(r.statement_id) ?? ''
     if (month) {
       if (!g.months.has(month)) g.months.set(month, { rent: 0, mgmt: 0, letting: 0, net: 0, expenses: 0 })
       const m = g.months.get(month)!
