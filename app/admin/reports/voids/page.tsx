@@ -44,7 +44,7 @@ export default function VoidsReport() {
   const totalWeeklyLoss = visible.reduce((s, r) => s + (r.monthly_rent ? r.monthly_rent / 4.33 : 0), 0)
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Voids" />
       <PageHero eyebrow="Finance · Reports" title="Voids" subtitle="Empty rooms and properties, days void, weekly income lost." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">

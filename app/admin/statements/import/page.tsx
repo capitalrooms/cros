@@ -180,7 +180,7 @@ export default function StatementImportPage() {
   if (!authOk) return null
 
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
+    <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/statements" />} />
       <PageHero eyebrow="Finance" title="Upload a month of statements" subtitle="Drop all of a month’s PDF statements at once — one per property. Each is read, matched to its property and checked; anything that doesn’t look right is held back for you to check before it’s saved." />
 

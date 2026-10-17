@@ -77,7 +77,7 @@ function Section({ title, items }: { title: string; items: ReportLink[] }) {
 
 export default function ReportsPage() {
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" />} title="Reports" />
       <PageHero title="Reports" subtitle="Financial, property and tenancy reports" tabs={financeTabs('reports')} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">

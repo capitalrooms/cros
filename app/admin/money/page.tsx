@@ -46,7 +46,7 @@ export default function AdminMoneyPage() {
   const top = m ? Math.max(1, ...m.months.map(x => Math.max(x.due, x.received))) : 1
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-4">
         <h1 className="text-[26px] leading-tight font-bold text-neutral-950">Money</h1>
 

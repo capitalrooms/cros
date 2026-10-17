@@ -58,7 +58,7 @@ export default function LandlordIncomeReport() {
   useEffect(() => { load() }, [])
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Landlord Income Analysis" />
       <PageHero eyebrow="Finance · Reports" title="Landlord Income Analysis" subtitle="Income and deductions per landlord over time." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">

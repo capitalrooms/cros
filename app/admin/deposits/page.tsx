@@ -79,7 +79,7 @@ export default function DepositsPage() {
   const counts = (rows ?? []).reduce((m, r) => ({ ...m, [r.status]: (m[r.status] || 0) + 1 }), {} as Record<string, number>)
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Deposits" />
       <PageHero title="Deposits" subtitle="Protected, with the prescribed information served, within 30 days of the tenancy starting — never more than 5 weeks’ rent"
         stats={rows ? [

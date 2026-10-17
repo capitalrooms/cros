@@ -34,7 +34,7 @@ export default function TenancyAnalysisReport() {
   const maxMoves = Math.max(...moves.map((m: any) => Math.max(m.starts, m.ends)), 1)
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Tenancy Analysis" />
       <PageHero eyebrow="Finance · Reports" title="Tenancy Analysis" subtitle="Active, on notice, void counts and monthly move chart." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">

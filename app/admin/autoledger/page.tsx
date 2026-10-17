@@ -62,7 +62,7 @@ export default function AutoLedgerPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/accounts" />} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="animate-pulse h-8 w-64 bg-neutral-300 rounded-lg" />
@@ -71,7 +71,7 @@ export default function AutoLedgerPage() {
   )
 
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
+    <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/accounts" />} />
       <PageHero eyebrow="Finance" title="AutoLedger" />
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">

@@ -42,7 +42,7 @@ export default function FinanceCheckPage() {
   const problems = (checks ?? []).filter(c => !c.ok).length
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Finance health check" />
       <PageHero eyebrow="Finance" title="Finance health check" />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">

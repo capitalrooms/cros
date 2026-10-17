@@ -96,7 +96,7 @@ export default function TaxYearReport() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Tax Year Summary" />
       <PageHero eyebrow="Finance · Reports" title="Tax Year Summary" subtitle="April–April (or custom) income and deductions per landlord." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">

@@ -105,7 +105,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
   const paidCount = (p: (typeof props)[number]) => p.rooms.filter(r => r.status === 'paid' || r.status === 'over' || r.status === 'collected_by_previous_agent').length
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" />} title="Rent roll" />
       {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Nothing here is real money; every entry gets an X number (XRENT, XLS, XPAY…) and stays out of the real books.</div>}
       <PageHero
@@ -143,59 +143,81 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
             rows={exportRows} totals={roll ? { property: 'Total', due: roll.totals.due, received: roll.totals.received } : undefined} />
         </div>
 
-        <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(0,1fr)_420px]">
-          {/* ── Properties ── */}
-          <section className="overflow-hidden rounded-2xl bg-white">
-            <div className="grid grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[minmax(0,1fr)_90px_110px_110px] gap-sm border-b border-neutral-200 px-md py-sm text-[11px] font-bold uppercase tracking-wide text-neutral-500">
-              <span>Property</span><span className="hidden sm:block">Rooms</span><span className="hidden sm:block text-right">{prevAgent ? '' : 'Due'}</span><span className="text-right">Received</span>
+        <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(0,1fr)_460px]">
+          {/* ── Properties — a ledger table (17 Oct 2026) ── */}
+          <section className="ledger-card h-fit">
+            <div className="overflow-x-auto">
+              <table>
+                <thead><tr>
+                  <th>Property</th><th className="hidden sm:table-cell">Rooms</th>
+                  {!prevAgent && <th className="text-right">Due</th>}<th className="text-right">Received</th>{!prevAgent && <th className="text-right">Missing</th>}
+                </tr></thead>
+                <tbody>
+                  {loading && <tr><td colSpan={5} className="text-center text-neutral-500">Loading…</td></tr>}
+                  {!loading && props.map(p => {
+                    const on = selected?.id === p.id
+                    return (
+                      <tr key={p.id} onClick={() => pick(p.id)} aria-selected={on} className={`cursor-pointer ${on ? '[&>td]:!bg-[#181614] [&>td]:!text-[#F6F3EC]' : ''}`}>
+                        <td className="max-w-[260px]">
+                          <span className="block truncate font-semibold">{p.name}</span>
+                          <span className={`block truncate text-[11px] ${on ? 'opacity-60' : 'text-neutral-500'}`}>{p.landlord}{p.readyForStatement > 0 && !prevAgent ? <span className={on ? 'text-[#E8B06B]' : 'text-amber-700'}> · ready {gbp(p.readyForStatement)}</span> : null}</span>
+                        </td>
+                        <td className="hidden sm:table-cell whitespace-nowrap">{paidCount(p)}/{p.rooms.length} paid</td>
+                        {!prevAgent && <td className="text-right">{gbp(p.due)}</td>}
+                        <td className="text-right font-semibold">{gbp(p.received)}</td>
+                        {!prevAgent && <td className={`text-right ${p.missing > 0 ? (on ? 'text-[#F28B82]' : 'text-red-700 font-semibold') : 'text-neutral-400'}`}>{p.missing > 0 ? gbp(p.missing) : '—'}</td>}
+                      </tr>
+                    )
+                  })}
+                  {!loading && roll && !props.length && <tr><td colSpan={5} className="text-center text-neutral-500">Nothing to show for {monthLabel(month)} with this filter.</td></tr>}
+                </tbody>
+                {!loading && props.length > 0 && (
+                  <tfoot><tr>
+                    <td>{props.length} propert{props.length === 1 ? 'y' : 'ies'}</td><td className="hidden sm:table-cell">{props.reduce((n, p) => n + paidCount(p), 0)}/{props.reduce((n, p) => n + p.rooms.length, 0)} paid</td>
+                    {!prevAgent && <td className="text-right">{gbp(props.reduce((n, p) => n + p.due, 0))}</td>}<td className="text-right">{gbp(props.reduce((n, p) => n + p.received, 0))}</td>
+                    {!prevAgent && <td className="text-right">{gbp(props.reduce((n, p) => n + p.missing, 0))}</td>}
+                  </tr></tfoot>
+                )}
+              </table>
             </div>
-            {loading && <p className="px-md py-xl text-center text-sm text-neutral-500">Loading…</p>}
-            {!loading && props.map(p => {
-              const on = selected?.id === p.id
-              return (
-                <button key={p.id} type="button" onClick={() => pick(p.id)} aria-pressed={on}
-                  className={`grid w-full grid-cols-[minmax(0,1fr)_110px] sm:grid-cols-[minmax(0,1fr)_90px_110px_110px] items-center gap-sm border-b border-neutral-100 px-md py-sm text-left text-sm ${on ? 'bg-[#181614] text-[#F6F3EC]' : 'hover:bg-neutral-50'}`}>
-                  <span className="min-w-0">
-                    <span className="block truncate font-semibold">{p.name}</span>
-                    <span className={`block truncate text-xs ${on ? 'text-[#F6F3EC]/55' : 'text-neutral-500'}`}>{p.landlord}{p.missing > 0 ? ' · ' : ''}{p.missing > 0 && <span className={on ? 'text-[#F28B82]' : 'text-red-700'}>{gbp(p.missing)} missing</span>}{p.readyForStatement > 0 && !prevAgent ? <span className={on ? 'text-[#E8B06B]' : 'text-amber-700'}> · ready {gbp(p.readyForStatement)}</span> : null}</span>
-                  </span>
-                  <span className={`hidden sm:block text-xs ${on ? 'text-[#F6F3EC]/70' : 'text-neutral-600'}`}>{paidCount(p)}/{p.rooms.length} paid</span>
-                  <span className="hidden sm:block text-right tabular-nums">{prevAgent ? '' : gbp(p.due)}</span>
-                  <span className="text-right tabular-nums">{gbp(p.received)}<span className={`block text-[11px] sm:hidden ${on ? 'text-[#F6F3EC]/55' : 'text-neutral-500'}`}>{prevAgent ? '' : `of ${gbp(p.due)} · `}{paidCount(p)}/{p.rooms.length} paid</span></span>
-                </button>
-              )
-            })}
-            {!loading && roll && !props.length && <p className="px-md py-xl text-center text-sm text-neutral-500">Nothing to show for {monthLabel(month)} with this filter.</p>}
           </section>
 
           {/* ── The selected property ── */}
-          <aside id="rr-detail" className="h-fit space-y-md rounded-2xl bg-white p-lg lg:sticky lg:top-md">
+          <aside id="rr-detail" className="h-fit space-y-md rounded-[10px] border border-[#D6DCE3] bg-white p-md lg:sticky lg:top-md">
             {!selected ? <p className="text-sm text-neutral-500">Choose a property.</p> : <>
               <div>
                 {selected.code && <p className="font-mono text-[11px] text-neutral-500">{selected.code}</p>}
                 <h2 className="text-xl font-extrabold text-neutral-900" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{selected.name}</h2>
                 <p className="text-sm text-neutral-600">{selected.landlord} · {selected.rooms.length} room{selected.rooms.length === 1 ? '' : 's'}{prevAgent ? '' : ` · ${gbp(selected.due)} due`} · {gbp(selected.received)} in</p>
               </div>
-              <ul className="divide-y divide-neutral-100 rounded-xl bg-neutral-50">
-                {selected.rooms.map((r, i) => (
-                  <li key={i} className="px-md py-sm text-sm">
-                    <div className="flex items-baseline justify-between gap-sm">
-                      <span className="min-w-0"><b>{r.room}</b> · {r.tenancyId ? <Link href={`/admin/lettings/${r.tenancyId}?tab=money&from=${encodeURIComponent(`/admin/rent-roll?month=${month}`)}`} className="text-blue-700 hover:underline">{r.tenant}</Link> : r.tenant}</span>
-                      <span className="shrink-0 tabular-nums">{gbp(r.received)}{!prevAgent && r.due != null ? <span className="text-neutral-400"> / {gbp(r.due)}</span> : null}</span>
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-sm gap-y-0.5 text-[11px] text-neutral-500">
-                      <span className={`rounded-full px-sm py-0.5 font-semibold ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span>
-                      {r.reference && <span className="font-mono">{r.reference}</span>}
-                      {r.chargeNo && <span className="font-mono">{r.chargeNo}</span>}
-                      {r.receipts.map((x, k) => <span key={k} className="font-mono">{[shortDate(x.date), x.number, x.file].filter(Boolean).join(' · ') || x.how}</span>)}
-                      {r.difference != null && Math.abs(r.difference) >= 0.01 && r.received > 0 && <span className={r.difference < 0 ? 'text-amber-700' : 'text-blue-700'}>{r.difference < 0 ? `${gbp(-r.difference)} short` : `${gbp(r.difference)} over`}</span>}
-                      {r.statement && <span>on {r.statement}</span>}
-                      {!prevAgent && r.tenancyId && <button type="button" onClick={() => setSortFor(r.tenancyId)} className="rounded-full border border-neutral-300 bg-white px-sm py-0.5 font-semibold text-neutral-800 hover:bg-neutral-100">Sort out…</button>}
-                      {practice && r.chargeId && r.due != null && r.received < r.due && <button type="button" disabled={!!busyPractice} onClick={() => recordPractice(r.chargeId!, r.due!, r.received)} className="rounded-full border border-amber-400 bg-amber-50 px-sm py-0.5 font-semibold text-amber-900">{busyPractice === r.chargeId ? 'Recording…' : 'Record practice payment'}</button>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="ledger-card overflow-x-auto">
+                <table>
+                  <thead><tr><th>Room</th><th>Tenant</th><th>Status</th>{!prevAgent && <th className="text-right">Due</th>}<th className="text-right">In</th></tr></thead>
+                  <tbody>
+                    {selected.rooms.map((r, i) => (
+                      <tr key={i}>
+                        <td className="whitespace-nowrap font-semibold">{r.room}</td>
+                        <td className="max-w-[150px]">
+                          <span className="block truncate">{r.tenancyId ? <Link href={`/admin/lettings/${r.tenancyId}?tab=money&from=${encodeURIComponent(`/admin/rent-roll?month=${month}`)}`} className="text-blue-700 hover:underline">{r.tenant}</Link> : r.tenant}</span>
+                          <span className="block text-[10.5px] text-neutral-500">
+                            {[r.reference, r.chargeNo, ...r.receipts.map(x => [shortDate(x.date), x.number].filter(Boolean).join(' ') || x.how), r.statement ? `on ${r.statement}` : ''].filter(Boolean).join(' · ')}
+                            {r.difference != null && Math.abs(r.difference) >= 0.01 && r.received > 0 && <span className={r.difference < 0 ? ' text-amber-700' : ' text-blue-700'}> · {r.difference < 0 ? `${gbp(-r.difference)} short` : `${gbp(r.difference)} over`}</span>}
+                          </span>
+                          {(!prevAgent && r.tenancyId) || (practice && r.chargeId && r.due != null && r.received < r.due) ? (
+                            <span className="mt-0.5 flex gap-1">
+                              {!prevAgent && r.tenancyId && <button type="button" onClick={() => setSortFor(r.tenancyId)} className="rounded border border-neutral-300 bg-white px-1.5 text-[10.5px] font-semibold text-neutral-800 hover:bg-neutral-100">Sort out…</button>}
+                              {practice && r.chargeId && r.due != null && r.received < r.due && <button type="button" disabled={!!busyPractice} onClick={() => recordPractice(r.chargeId!, r.due!, r.received)} className="rounded border border-amber-400 bg-amber-50 px-1.5 text-[10.5px] font-semibold text-amber-900">{busyPractice === r.chargeId ? 'Recording…' : 'Record practice payment'}</button>}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td><span className={`whitespace-nowrap rounded px-1.5 py-px text-[10.5px] font-semibold ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span></td>
+                        {!prevAgent && <td className="text-right">{r.due != null ? gbp(r.due) : '—'}</td>}
+                        <td className="text-right font-semibold">{gbp(r.received)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               {selected.statements.length > 0 && (
                 <p className="text-xs text-neutral-600">Statements: {selected.statements.map(st => `${st.reference} · ${st.state === 'paid' ? 'paid' : st.state}${st.source === 'import' ? ' (imported)' : ''}`).join(' · ')}</p>
               )}

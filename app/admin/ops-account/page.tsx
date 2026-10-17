@@ -101,7 +101,7 @@ export default function OpsAccountPage() {
   }))
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/expense-log" />} title="Operations account" />
       <PageHero title="Operations account" subtitle="Payments out of the business account, from the month’s bank CSV. File each once: a house, a split, a company expense, or not an expense — CROS remembers for next month." tabs={financeTabs('expenses')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">

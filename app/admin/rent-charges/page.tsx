@@ -237,7 +237,7 @@ export default function RentChargesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-neutral-100">
+      <div className="min-h-screen fin">
         <AppBar left={<BackButton href="/admin" />} title="Rent Charges" />
         <div className="flex items-center justify-center py-3xl">
           <p className="text-sm text-neutral-500">Loading rent charges…</p>
@@ -247,7 +247,7 @@ export default function RentChargesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" />} title="Rent Charges" />
       <PageHero eyebrow="Finance" title="Rent Charges" subtitle="Track, generate and mark rent payments by month" />
 

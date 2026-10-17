@@ -28,7 +28,7 @@ export default function CashbookReport() {
   useEffect(() => { load() }, [])
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Cashbook" />
       <PageHero eyebrow="Finance · Reports" title="Cashbook" subtitle="All money in and out for a selected period." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
