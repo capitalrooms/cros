@@ -600,8 +600,12 @@ Respond with JSON only in this exact shape:
       .single()
     if (stmtErr || !newStmt) {
       console.error('AutoLedger: statement insert failed', JSON.stringify(stmtErr))
-      await fail(`It couldn’t be saved (${stmtErr?.message ?? 'database error'}).`)
-      return { outcome: 'failed', detail: `It couldn’t be saved (${stmtErr?.message ?? 'database error'}).` }
+      // one statement per LS number (migration 230): a second copy with different figures is refused, not doubled
+      const why = (stmtErr as any)?.code === '23505'
+        ? `${agent.number ?? 'This statement number'} is already on file with different figures — CROS keeps one statement per number. If this copy is the right one, the one on file needs replacing.`
+        : `It couldn’t be saved (${stmtErr?.message ?? 'database error'}).`
+      await fail(why)
+      return { outcome: 'failed', detail: why }
     }
     stmtRow = newStmt
   }
