@@ -168,8 +168,9 @@ export interface Draft { subject: string; message: string; facts: { label: strin
 export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
   const n = c.tenant.name || 'the applicant'
   const unit = c.whole ? 'property' : 'room'
+  const at = c.whole ? `the property at ${c.place}` : c.place   // "Room 3, 12 Example Street" — never "the room at Room 3"
   const dear = `Dear ${c.landlord?.greeting ?? 'Sir or Madam'},`
-  const rentLine = c.rent ? `${gbp(c.rent)} pcm${c.offeredBelow && c.askingRent ? ` (asking ${gbp(c.askingRent)})` : ''}` : ''
+  const rentLine = c.rent ? `${gbp(c.rent)} pcm${stage === 'offer' && c.offeredBelow && c.askingRent ? ` (asking ${gbp(c.askingRent)})` : ''}` : ''
   const F = (label: string, value: string | null | undefined, on = true) => value ? [{ label, value, on }] : []
   const who = [
     ...F('Name', c.tenant.name),
@@ -189,7 +190,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
     case 'offer':
       subject = `Offer for your review — ${c.place}`
       body = [
-        `We have received an offer for the ${unit} at ${c.place} and, before accepting it, we would welcome your thoughts.`,
+        `We have received an offer for ${at} and, before accepting it, we would welcome your thoughts.`,
         `The applicant is ${n}${c.tenant.job ? `, who works as ${c.tenant.job}` : ''}.${c.rent ? ` They have offered ${rentLine}.` : ''}`,
         ...(c.tenant.bio?.trim() ? [`In their own words: “${c.tenant.bio.trim()}”`] : []),
         'You can let us know on the page below whether you are happy for us to go ahead — or simply reply to this email. We will not take a holding deposit until we have heard from you.',
@@ -199,7 +200,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
     case 'reserved':
       subject = `Applicant secured — ${c.place}`
       body = [
-        `We are delighted to let you know that we have secured an applicant for the ${unit} at ${c.place}, subject to satisfactory references.`,
+        `We are delighted to let you know that we have secured an applicant for ${at}, subject to satisfactory references.`,
         `${n} has paid a holding deposit${c.hold ? ` of ${gbp(c.hold.amount)} on ${long(c.hold.on)}` : ''}, so the ${unit} is now off the market while references are obtained.`,
       ]
       facts = [...who, ...terms, ...F('Holding deposit', c.hold ? `${gbp(c.hold.amount)} · received ${long(c.hold.on)}` : '')]
@@ -207,7 +208,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
     case 'referenced':
       subject = `References passed — ${c.place}`
       body = [
-        `Good news: ${n} has passed referencing for the ${unit} at ${c.place}.`,
+        `Good news: ${n} has passed referencing for ${at}.`,
         c.letOnly
           ? 'Their contact details are below, and their referencing report and identity documents are on the private page linked below. As the landlord on a let-only tenancy, please keep a copy of the Right to Rent documents for your records.'
           : 'Their contact details are below, and their referencing report is on the private page linked below. We have carried out the Right to Rent check and keep the identity documents on file.',
@@ -217,7 +218,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
     case 'signed_paid':
       subject = `Tenancy signed — ${c.place}`
       body = [
-        `${n} has signed the tenancy agreement for the ${unit} at ${c.place}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
+        `${n} has signed the tenancy agreement for ${at}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
         c.startDate ? `The tenancy starts on ${long(c.startDate)}.` : '',
         c.depositProtected ? `The deposit is protected with ${c.depositProtected.scheme ?? 'the scheme'}.` : c.deposit ? 'The deposit will be protected within 30 days, and we will confirm once it is.' : '',
         'A copy of the signed agreement is on the private page linked below.',
