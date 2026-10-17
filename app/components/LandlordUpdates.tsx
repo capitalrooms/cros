@@ -12,7 +12,7 @@ interface Sent { id: string; stage: string; sent_at: string; sent_to: string[]; 
 interface Data {
   setupNeeded?: boolean; error?: string
   landlord: { id: string; name: string; emails: string[]; commsOn: boolean; tenantUpdatesOff: boolean } | null
-  letOnly: boolean; place: string; tenant: string; stages: StageRow[]; sent: Sent[]
+  letOnly: boolean; place: string; tenant: string; stages: StageRow[]; sent: Sent[]; tenancyId: string | null
 }
 interface Draft { subject: string; message: string; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
 
@@ -26,6 +26,7 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
   const [open, setOpen] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [to, setTo] = useState('')
+  const [statement, setStatement] = useState(false)   // let-only: attach the lettings statement PDF
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState('')
   const q = tenancyId ? `tenancyId=${tenancyId}` : `applicantId=${applicantId}`
@@ -44,13 +45,14 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
     const j = await r.json().catch(() => ({}))
     if (!r.ok || !j.draft) { setError(j.error ?? 'Couldn’t draft that'); setOpen(null); return }
     setDraft(j.draft); setTo((j.landlord?.emails ?? []).join(', '))
+    setStatement(!!j.letOnly && !!j.tenancyId && (stage === 'signed_paid' || stage === 'summary'))
   }
   async function send() {
     if (!draft || !open) return
     setBusy(true); setError('')
     const r = await adminFetch('/api/admin/landlord-updates', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft.subject, message: draft.message, facts: draft.facts.filter(f => f.on), docIds: draft.docs.filter(x => x.on).map(x => x.id) }),
+      body: JSON.stringify({ applicantId, tenancyId, stage: open, to, subject: draft.subject, message: draft.message, facts: draft.facts.filter(f => f.on), docIds: draft.docs.filter(x => x.on).map(x => x.id), attachStatement: statement }),
     })
     const j = await r.json().catch(() => ({}))
     setBusy(false)
@@ -148,6 +150,13 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
                   </div>
                 ) : ['referenced', 'signed_paid', 'summary'].includes(open) && (
                   <p className="text-xs text-neutral-500">No documents filed on this tenancy yet — add them in the letting file’s steps to share them.</p>
+                )}
+                {d.letOnly && d.tenancyId && (open === 'signed_paid' || open === 'summary') && (
+                  <label className="flex items-start gap-sm rounded-lg border border-neutral-200 px-sm py-xs text-sm">
+                    <input type="checkbox" checked={statement} onChange={() => setStatement(v => !v)} className="mt-1" />
+                    <span><span className="font-semibold">Attach the lettings statement (PDF)</span> — rent and deposit received, our letting fee, the balance paid to them.{' '}
+                      <a href={`/api/lettings-statement/${d.tenancyId}`} target="_blank" rel="noreferrer" className="font-semibold text-blue-700 hover:underline">Preview</a></span>
+                  </label>
                 )}
                 {open === 'offer' && <p className="text-xs text-neutral-500">The landlord gets a private page with the details and two buttons: “Happy to go ahead” or “Not this one”. You’ll get an email as soon as they answer.</p>}
                 <div className="flex flex-wrap items-center gap-sm border-t border-neutral-100 pt-md">

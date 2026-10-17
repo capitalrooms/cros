@@ -58,8 +58,8 @@ export interface LettingsStatementData {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtGBP(n: number) {
-  return `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+function fmtGBP(n: number | null | undefined) {
+  return `£${Number(n ?? 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function fmtDate(iso?: string) {
@@ -136,7 +136,7 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
 
   // ── Property line ────────────────────────────────────────────────────────
   doc.font(fontReg).fontSize(11).fillColor(BLACK)
-  doc.text(`🏠  ${data.roomName}, ${data.propertyAddress}`, MARGIN, y)
+  doc.text(`${data.roomName}, ${data.propertyAddress}`, MARGIN, y)   // no emoji: the letter font has none (it drew an empty box)
   y += 24
 
   // ── Info table ───────────────────────────────────────────────────────────

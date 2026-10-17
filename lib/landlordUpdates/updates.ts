@@ -259,6 +259,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
         `${n} has signed the tenancy agreement for ${at}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
         c.startDate ? `The tenancy starts on ${long(c.startDate)}.` : '',
         c.depositProtected ? `The deposit is protected with ${c.depositProtected.scheme ?? 'the scheme'}.` : c.deposit ? 'The deposit will be protected within 30 days, and we will confirm once it is.' : '',
+        ...(c.letOnly ? ['Please find attached your lettings statement, showing the rent and deposit received, our letting fee and the balance paid to you.'] : []),
         'Everything we hold for the tenancy — the signed agreement, references and documents — is on the private page linked below, where you can view each one or download the lot as a single report.',
       ].filter(Boolean)
       facts = everything()
