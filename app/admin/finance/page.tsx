@@ -24,7 +24,7 @@ interface Step { n: number; label: string; href: string; status: string; done: b
 interface Todo { key: string; tone: 'red' | 'amber' | 'green' | 'grey'; title: string; detail?: string; href: string; action: string }
 interface Home {
   month: string; source: string; steps: Step[]; current: number; todos: Todo[]
-  numbers: { due: number; received: number; missing: number; heldInClientAccount: number; agrees: boolean; toLandlords: number; fees: number; mgmtFees?: number; lettingFees?: number; expenses?: number | null; statements?: number | null; importedStatements?: number | null }
+  numbers: { due: number; received: number; missing: number; heldInClientAccount: number; agrees: boolean; toLandlords: number; statementRent?: number; fees: number; mgmtFees?: number; lettingFees?: number; expenses?: number | null; statements?: number | null; importedStatements?: number | null }
 }
 
 const gbp = (n: number | null | undefined) => (n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
@@ -109,26 +109,33 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
           {loading && !data && [1, 2, 3, 4].map(i => <li key={i} className="h-24 animate-pulse rounded-xl bg-white" />)}
         </ol>
 
-        {/* numbers */}
-        {n && (
-          <div className={`mb-lg grid grid-cols-2 gap-sm md:grid-cols-3 lg:grid-cols-7`}>
-            {[
-              { label: prevAgent ? 'Rent collected' : 'Rent due', value: gbp(n.due), cls: 'text-neutral-900', href: `/admin/rent-roll?month=${month}` },
-              { label: 'Received', value: gbp(n.received), cls: 'text-green-700', href: `/admin/rent-roll?month=${month}` },
-              { label: 'Missing', value: gbp(n.missing), cls: n.missing > 0 ? 'text-red-700' : 'text-neutral-900', href: `/admin/rent-roll?month=${month}` },
-              // from the month's landlord statements (imported or made in CROS)
-              { label: 'Paid to landlords', value: gbp(n.toLandlords), cls: 'text-neutral-900', href: '/admin/statements' },
-              { label: n.lettingFees ? `Fees · ${gbp(n.mgmtFees ?? 0)} mgmt + ${gbp(n.lettingFees)} letting` : 'Management fees', value: gbp(n.fees), cls: 'text-green-700', href: '/admin/reports/fees' },
-              { label: `Expenses charged · ${n.statements ?? 0} statement${n.statements === 1 ? '' : 's'}`, value: gbp(n.expenses ?? 0), cls: 'text-neutral-900', href: '/admin/reports/expenses' },
-              { label: n.agrees ? 'Client account · agrees' : 'Client account · check', value: gbp(n.heldInClientAccount), cls: n.agrees ? 'text-neutral-900' : 'text-red-700', href: '/admin/client-money' },
-            ].map(c => (
-              <Link key={c.label} href={c.href} className="rounded-xl bg-white px-md py-sm hover:ring-1 hover:ring-neutral-900">
-                <p className="text-xs text-neutral-500">{c.label}</p>
-                <p className={`text-xl font-bold tabular-nums ${c.cls}`}>{c.value}</p>
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* the month in five figures (17 Oct 2026, Harry: "pills for agency income and expenses charged … letting fees …
+            useful in the header summary without making it too busy"). Each: one figure, one line under it. Paid to
+            landlords, agency income and expenses come from the month's landlord statements (imported or made in CROS). */}
+        {n && (() => {
+          const st = n.statements ?? 0
+          const onSt = `on ${st} statement${st === 1 ? '' : 's'}`
+          const tiles: { label: string; value: string; sub: string; cls: string; subCls?: string; href: string }[] = [
+            prevAgent
+              ? { label: 'Rent collected', value: gbp(n.statementRent ?? n.received), sub: onSt, cls: 'text-neutral-900', href: `/admin/rent-roll?month=${month}` }
+              : { label: 'Rent collected', value: gbp(n.received), sub: n.missing > 0 ? `of ${gbp(n.due)} due · ${gbp(n.missing)} missing` : `all ${gbp(n.due)} in`, cls: 'text-neutral-900', subCls: n.missing > 0 ? 'text-red-700' : 'text-green-700', href: `/admin/rent-roll?month=${month}` },
+            { label: 'Paid to landlords', value: gbp(n.toLandlords), sub: onSt, cls: 'text-neutral-900', href: '/admin/statements' },
+            { label: 'Agency income', value: gbp(n.fees), sub: `${gbp(n.mgmtFees ?? 0)} management · ${gbp(n.lettingFees ?? 0)} letting`, cls: 'text-green-700', href: '/admin/reports/fees' },
+            { label: 'Expenses charged', value: gbp(n.expenses ?? 0), sub: 'to landlords, ' + onSt, cls: 'text-neutral-900', href: '/admin/reports/expenses' },
+            { label: 'Client account today', value: gbp(n.heldInClientAccount), sub: n.agrees ? 'Ledgers agree' : 'Ledgers don’t agree — check', cls: 'text-neutral-900', subCls: n.agrees ? 'text-green-700' : 'text-red-700', href: '/admin/client-money' },
+          ]
+          return (
+            <div className="mb-lg grid grid-cols-2 gap-sm md:grid-cols-3 lg:grid-cols-5">
+              {tiles.map(c => (
+                <Link key={c.label} href={c.href} className="rounded-xl bg-white px-md py-sm hover:ring-1 hover:ring-neutral-900">
+                  <p className="text-xs font-medium text-neutral-500">{c.label}</p>
+                  <p className={`text-xl font-bold tabular-nums ${c.cls}`}>{c.value}</p>
+                  <p className={`mt-0.5 truncate text-[11px] ${c.subCls ?? 'text-neutral-500'}`} title={c.sub}>{c.sub}</p>
+                </Link>
+              ))}
+            </div>
+          )
+        })()}
 
         {/* to-do */}
         <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
