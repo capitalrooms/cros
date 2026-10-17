@@ -9,7 +9,13 @@ import { loadListing, listingToken } from '@/lib/listing/listing'
 
 export const dynamic = 'force-dynamic'
 
-const publicTitle = (name: string) => name.replace(/^(flat|apartment|unit)\s*\w+\s*,?\s*/i, '').replace(/^\d+[a-z]?\s*,?\s*/i, '').trim() || name
+// what can be said in public: no flat or house number, no full postcode — "Flat 4, 44 Claverton Street, London,
+// SW1V 3AU" → "Claverton Street"; a marketing name ("The Pimlico House") is left as it is
+const publicTitle = (name: string) => {
+  const parts = name.split(/\s*[,\n]\s*/).map(p => p.replace(/^(flat|apartment|unit|room)\s*\w+$/i, '').replace(/^\d+[a-z]?\s+/i, '').trim())
+    .filter(p => p && !/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(p) && !/^london$/i.test(p))
+  return parts[0] || 'Room to rent'
+}
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { maximumFractionDigits: 0 })}`
 const when = (d: string | null) => !d ? 'Ask us' : d <= new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'Available now' : `From ${new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
 
