@@ -73,20 +73,26 @@ export async function draftFromRoom(s: SupabaseClient, roomId: string | null, pr
   const { count } = await s.from('listings').select('id', { count: 'exact', head: true })
   return {
     property_id: propertyId, room_id: roomId, status: 'draft' as const, agent_ref: `CR-${String((count ?? 0) + 1).padStart(5, '0')}`,
-    headline: roomId ? `${room.has_ensuite ? 'En-suite double room' : 'Double room'} in ${displayAddressFrom(prop.address || prop.name, prop.postcode).split(',')[0] || 'London'}` : null,
+    headline: roomId ? `${room.has_ensuite ? 'En-suite double room' : 'Double room'} on ${displayAddressFrom([prop.name, prop.address].filter(Boolean).join(', '), prop.postcode).split(',')[0] || 'London'}` : null,
     description: String(room.marketing_description || room.description || prop.description || '').trim() || null,
     features: Array.isArray(room.features) ? room.features.filter((f: unknown) => typeof f === 'string').slice(0, 10) : [],
     rent, rent_frequency: 'pcm' as const,
-    deposit: rent ? Math.round(rent * 12 / 52 * 5 * 100) / 100 : null,          // 5 weeks' rent — the most allowed (Tenant Fees Act)
-    holding_deposit: rent ? Math.round(rent * 12 / 52 * 100) / 100 : null,      // 1 week's rent
+    ...(rent ? depositsFor(rent) : { deposit: null, holding_deposit: null }),   // 5 weeks' / 1 week's rent — the most allowed
     bills_included: prop.bills_included ?? null,
     council_tax_band: (ext as any)?.council_tax_band ?? null, council_tax_included: isHmo && roomId ? true : null,
     property_type: roomId ? (isHmo ? 'house_share' : 'flat_share') : null,
     room_size_sqm: room.room_size ?? null, ensuite: room.has_ensuite ?? null, living_room: room.has_lounge ?? null,
     broadband: (ext as any)?.broadband_max_download_mbps ? `Up to ${(ext as any).broadband_max_download_mbps} Mbps` : null,
     available_from: room.available_date ?? null, let_type: 'long', sharers_allowed: roomId ? true : null, tenant_type: 'Professionals',
-    display_address: displayAddressFrom(prop.address || prop.name, prop.postcode) || null,
+    // the house's name first ("12 Saltwell Street"), then its address — some addresses on file leave out the street
+    display_address: displayAddressFrom([prop.name, prop.address].filter(Boolean).join(', '), prop.postcode) || null,
     latitude: prop.lat ?? null, longitude: prop.lng ?? null,
     media_order: media, created_by: createdBy,
   }
+}
+
+/** deposit and holding deposit from the rent, the most the Tenant Fees Act allows: 5 weeks' and 1 week's rent */
+export function depositsFor(rent: number, frequency: 'pcm' | 'pw' = 'pcm') {
+  const weekly = frequency === 'pw' ? rent : rent * 12 / 52
+  return { deposit: Math.round(weekly * 5 * 100) / 100, holding_deposit: Math.round(weekly * 100) / 100 }
 }
