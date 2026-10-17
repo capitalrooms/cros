@@ -145,7 +145,7 @@ export default function LandlordUpdatePage({ params }: { params: Promise<{ token
       {viewing != null && v.docs[viewing] && (() => {
         const d = v.docs[viewing], src = `/api/lu/${token}/file/${d.id}`
         return (
-          <div role="dialog" aria-modal="true" aria-label={d.label} className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(17,17,17,.94)' }}>
+          <div role="dialog" aria-modal="true" aria-label={d.label} className="fixed inset-0 z-50 flex flex-col" style={{ background: '#141312' }}>
             <div className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8" style={{ color: '#F3F0EA' }}>
               <div className="min-w-0 flex-1">
                 <p className="pub-eyebrow m-0" style={{ color: '#C9C4BA' }}>{viewing + 1} of {v.docs.length}</p>

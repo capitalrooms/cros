@@ -16,7 +16,8 @@ const fallbackName = (path: string) => NAMES.find(([re]) => re.test(path))?.[1]
 
 function headingText(): string {
   const h = document.querySelector('main h1') ?? document.querySelector('h1')
-  const t = (h?.textContent ?? '').replace(/\s+/g, ' ').trim()
+  // innerText keeps the break between a heading's lines ("Your new / tenant."), textContent runs them together
+  const t = ((h as HTMLElement | null)?.innerText ?? h?.textContent ?? '').replace(/\s+/g, ' ').trim()
   return t.length > 1 && t.length < 80 && !/^(loading|opening)/i.test(t) ? t : ''
 }
 

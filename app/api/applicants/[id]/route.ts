@@ -74,6 +74,23 @@ export async function PATCH(req: NextRequest, { params: paramsPromise }: { param
     update.email = email
   }
   if ('phone' in body) update.phone = String(body.phone ?? '').trim().slice(0, 40) || null
+  // the rest of the application, typed or pasted in by the office (Edit details on Applicants, 17 Oct 2026)
+  const text = (k: string, max = 400) => { if (k in body) update[k] = String(body[k] ?? '').trim().slice(0, max) || null }
+  ;['current_address', 'profession', 'salary', 'preferred_term', 'linkedin_url', 'room_requirements'].forEach(k => text(k))
+  for (const k of ['date_of_birth', 'preferred_start_date']) {
+    if (!(k in body)) continue
+    const v = String(body[k] ?? '').trim()
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) return NextResponse.json({ error: 'Dates must be full dates' }, { status: 400 })
+    update[k] = v || null
+  }
+  if ('company' in body || 'study' in body) {
+    const { data: cur } = await sb.from('applicants').select('applicant_profile').eq('id', params.id).maybeSingle()
+    const prof = ((cur as any)?.applicant_profile ?? {}) as Record<string, any>
+    const app = { ...(prof.application ?? {}) }
+    if ('company' in body) app.company = String(body.company ?? '').trim().slice(0, 160) || undefined
+    if ('study' in body) { const st = String(body.study ?? '').trim().slice(0, 200); if (st) Object.assign(app, { student: true, university: st, course: null, year: null }); else { delete app.student; delete app.university; delete app.course; delete app.year } }
+    update.applicant_profile = { ...prof, application: app }
+  }
   // archive (kept, with why) or restore — migration 213
   if (body.archive === true) {
     const reason = String(body.reason ?? '').trim().slice(0, 300)
