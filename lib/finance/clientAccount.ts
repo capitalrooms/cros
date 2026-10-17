@@ -60,7 +60,7 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   const cashTotal = r2(rentIn + suspenseIn + holdingIn + adjustments - paidToLandlords - toOffice)
 
   // who it belongs to
-  const sts = real(statements.data as any[])
+  const sts = real(statements.data as any[]).filter(st => st.source !== 'import')   // the previous agent's statements never touched our account
   const officeEarned = r2(sts.reduce((t, st) => t + Number(st.management_fees || 0) + Number(st.letting_fees || 0) + Number(st.property_charges || 0), 0))
   const officeDue = r2(officeEarned - toOffice)
   const balances = await landlordBalances(s, ledger.entries)

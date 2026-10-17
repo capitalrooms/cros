@@ -75,6 +75,10 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
   }
   for (const st of (statements.data ?? []) as any[]) {
     if (!ok(st.property_id)) continue
+    // an imported statement is the previous agent's record of their own account — its fees, expenses and payouts never
+    // moved money in ours (17 Oct 2026 audit: 11 imported October statements were posted here, so two landlords
+    // showed as overdrawn and the client account counted fees it never held)
+    if (st.source === 'import') continue
     const where = propName.get(st.property_id) || ''
     const sd = String(st.statement_date || '').slice(0, 10)
     if (inRange(sd) && Number(st.management_fees)) entries.push({ date: sd, kind: 'fee', amount: -r2(Number(st.management_fees)), description: `Management fee · ${st.statement_reference} · ${where}`, landlordId: st.landlord_id, propertyId: st.property_id, reference: st.statement_reference, source: 'statement', sourceId: st.id })
