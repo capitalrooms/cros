@@ -1293,7 +1293,7 @@ function ViewingCard({ viewing }: { viewing: Viewing }) {
 // find): the full address and the rent, then the room, when it's free, and what's notable. Days empty are counted
 // from the available date (the stored days_on_market was never kept up to date — it read 0 everywhere).
 function AvailableRoomCard({ room }: { room: AvailableRoom }) {
-  const href = room.is_let_only ? `/admin/let-only-properties` : `/admin/properties/${room.property_id}`
+  const href = `/lettings/listing/${room.id}`   // the room's listing: photos, details, share link (17 Oct 2026)
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const from = room.available_date ? String(room.available_date).slice(0, 10) : null
   const empty = from && from <= today ? Math.round((Date.parse(today) - Date.parse(from)) / 86_400_000) : null

@@ -147,7 +147,7 @@ button:disabled {
    white screens … study really nice looking software and spreadsheets"). Any page wrapped in `.fin` gets a soft grey
    ground and spreadsheet tables: compact rows, banded lines, small uppercase headings, figures right-aligned in
    even-width digits, a tinted totals row. One place — every finance page follows. ───────────────────────────────── */
-.fin { background-color: #EDF0F4; }
+.fin { background-color: #E8ECF1; }
 .fin table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 .fin table thead th {
   background: #F6F8FA; color: #5B6470; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
