@@ -144,6 +144,10 @@ export default async function SharedListing({ params }: { params: Promise<{ room
             <p className="pub-eyebrow">{l.displayAddress || [where, l.area].filter(Boolean).join(' · ')}</p>
             <h1 className="mt-2 text-[34px] leading-[1.08] md:text-[46px]" style={{ fontFamily: 'var(--pub-serif), serif' }}>{title}</h1>
             <p className="mt-2 text-[15px] text-neutral-600">{l.wholeLet ? f.propertyType : f.propertyType}{f.council ? ` · ${f.council}` : ''}</p>
+            {/* the price, up top on a phone — on a computer it heads the box alongside */}
+            <p className="mt-3 text-[26px] font-semibold leading-none tabular-nums md:hidden">
+              {l.rent != null ? <>{gbp(l.rent)} <span className="text-[15px] font-normal text-neutral-500">{l.rentFrequency}{pw && l.rentFrequency === 'pcm' ? ` · ${gbp(pw)} a week` : ''}{l.billsIncluded ? ' · bills included' : ''}</span></> : <span className="text-[20px]">Rent on request</span>}
+            </p>
 
             {/* the facts at a glance */}
             {keyFacts.length > 0 && (
