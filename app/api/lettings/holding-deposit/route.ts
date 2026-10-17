@@ -199,7 +199,13 @@ export async function POST(req: NextRequest) {
     else if (!subject || !message) result.errors.push('Landlord email not sent: subject or message empty')
     else {
       const { ok, error } = await sendEmail(to, subject, messageHtml(message), { req })
-      if (ok) result.landlord = to.join(', ')
+      if (ok) {
+        result.landlord = to.join(', ')
+        // counts as the "Room reserved" landlord update, so the letting file doesn't ask for it again (migration 228;
+        // without the table yet, nothing changes)
+        await s.from('landlord_updates').insert({ applicant_id: ctx.applicant.id, tenancy_id: result.tenancyId ?? null, landlord_id: ctx.landlord?.id ?? null,
+          stage: 'reserved', sent_to: to, subject, sent_by: caller.email }).then(() => {}, () => {})
+      }
       else result.errors.push(`Landlord email not sent: ${error ?? 'unknown error'}`)
     }
   }

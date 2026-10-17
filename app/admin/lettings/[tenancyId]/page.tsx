@@ -15,6 +15,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
 import { TenantProfileView } from '@/app/admin/tenant/[personId]/TenantProfileView'
+import LandlordUpdates from '@/app/components/LandlordUpdates'
 import { ProgressTab, TermsTab, MoneyTab, DocumentsTab, LettersTab, NoticeTab, ActivityTab, activityItems, openPdf, gbp, day } from './parts'
 
 const TABS = [
@@ -148,6 +149,8 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
                 )}
               </ul>
             </section>
+            {/* reserved, referencing passed, signed & paid, the full report — each a draft to check, then Send (17 Oct 2026) */}
+            {file.stage !== 'fell_through' && <LandlordUpdates tenancyId={tenancyId} />}
             {activeTab !== 'letters' && (
               <section className="rounded-2xl border border-neutral-200 bg-white p-md">
                 <div className="mb-sm flex items-baseline justify-between gap-sm">
