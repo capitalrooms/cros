@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import NameInput, { emptyName, type NameValue } from '@/app/components/NameInput'
-import PageHero from '@/components/PageHero'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { ICEBREAKER_QUESTIONS } from '@/lib/icebreaker'
@@ -711,6 +711,7 @@ export default function RoomDashboardPage({
         eyebrow={<><Link href="/admin/active-rooms" className="hover:underline">All Units</Link> · <Link href={`/admin/properties/${propertyId}`} className="hover:underline">{String(property.name ?? '').split('\n')[0]}</Link></>}
         title={room.name}
         subtitle={property.address}
+        actions={<HeroButton href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} primary>🏷️ Listing &amp; share link</HeroButton>}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

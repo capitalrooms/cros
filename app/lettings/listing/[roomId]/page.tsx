@@ -21,6 +21,9 @@ export default function ListingPage({ params }: { params: Promise<{ roomId: stri
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [big, setBig] = useState<string | null>(null)
+  // back to where it was opened from (a property, All Units) — Lettings › Availability otherwise
+  const [back, setBack] = useState('/lettings?tab=available')
+  useEffect(() => { const f = new URLSearchParams(window.location.search).get('from'); if (f && f.startsWith('/')) setBack(f) }, [])
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/lettings/listing?roomId=${roomId}`)
@@ -60,14 +63,14 @@ export default function ListingPage({ params }: { params: Promise<{ roomId: stri
   }
   const shareText = l ? `${l.wholeLet ? l.displayName : `${l.roomName}, ${l.displayName}`}${l.rent ? ` — ${gbp(l.rent)} pcm` : ''}. Photos, video and details: ${shareUrl}` : ''
 
-  if (error) return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href="/lettings" />} title="Listing" /><p className="mx-auto max-w-4xl px-lg py-xl text-sm text-red-700">{error}</p></div>
-  if (!l) return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href="/lettings" />} title="Listing" /><p className="mx-auto max-w-4xl px-lg py-xl text-sm text-neutral-500">Loading…</p></div>
+  if (error) return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href={back} />} title="Listing" /><p className="mx-auto max-w-4xl px-lg py-xl text-sm text-red-700">{error}</p></div>
+  if (!l) return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href={back} />} title="Listing" /><p className="mx-auto max-w-4xl px-lg py-xl text-sm text-neutral-500">Loading…</p></div>
 
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const btn = 'rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-900 hover:bg-neutral-50'
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/lettings?tab=available" />} title="Listing" />
+      <AppBar left={<BackButton href={back} />} title="Listing" />
       <main className="mx-auto max-w-4xl px-lg py-lg space-y-md">
         <section className="rounded-2xl bg-white p-lg">
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{l.letOnly ? 'Let only · ' : ''}{l.area}</p>
