@@ -74,6 +74,9 @@ function matchProperty(address: string, properties: Property[]): Property | null
   return bestScore >= 3 ? best : null
 }
 
+/** £ with pence, for the statements grid; blank amounts read £0.00 */
+const gbp0 = (n: number | null | undefined) => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
 export default function AdminStatementsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -378,7 +381,10 @@ export default function AdminStatementsPage() {
 
   // Statements on file, house by month — so a missing month shows as a gap rather than having to be noticed
   const coverage = useMemo(() => {
-    const monthOf = (st: StatementRow) => String(st.period_start || st.statement_date || '').slice(0, 7)
+    // the statement's month by the one rule finance uses everywhere (lib/finance/statementMonth: the month on the
+    // reference, else the agent statement's date) — the grid used to go by the agent's period start, so an October
+    // statement dated "30 Sept – 31 Oct" sat in September and the real month showed a bare ✓ (17 Oct 2026)
+    const monthOf = (st: StatementRow) => statementMonth(st) ?? String(st.period_start || st.statement_date || '').slice(0, 7)
     const now = new Date().toISOString().slice(0, 7)
     // from the month your records start (Settings › Your records) to this month — not from the oldest statement on file
     const first = dates?.recordsStart.slice(0, 7) ?? statements.map(monthOf).filter(Boolean).sort()[0]
@@ -386,15 +392,17 @@ export default function AdminStatementsPage() {
     const months: string[] = []
     for (let [y, m] = first.split('-').map(Number); `${y}-${String(m).padStart(2, '0')}` <= now && months.length < 24; m === 12 ? (y++, m = 1) : m++) months.push(`${y}-${String(m).padStart(2, '0')}`)
     const houses = properties.filter((p) => !demoIds.has(p.id) && p.letting_type !== 'let_only')
-    // a statement counts for every month its period covers (e.g. one for March–April)
+    // a statement counts for its own month — and, only when it genuinely spans several months (a period of 45+ days,
+    // e.g. one for March–April), for those too
     const covers = (st: StatementRow, month: string) => {
-      const a = String(st.period_start || st.statement_date || '').slice(0, 7)
-      const pe = String(st.period_end || '')
-      // a period ending on the 1st ("1 April – 1 May") doesn't cover that last month
-      let b = pe.slice(0, 7) || a
-      if (pe.slice(8, 10) === '01' && b > a) { const [y, m] = b.split('-').map(Number); b = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
-      return !!a && month >= a && month <= b
+      if (monthOf(st) === month) return true
+      const a = String(st.period_start || ''), pe = String(st.period_end || '')
+      if (!a || !pe || (Date.parse(pe) - Date.parse(a)) / 86_400_000 < 45) return false
+      let b = pe.slice(0, 7)
+      if (pe.slice(8, 10) === '01' && b > a.slice(0, 7)) { const [y, m] = b.split('-').map(Number); b = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}` }
+      return month >= a.slice(0, 7) && month <= b
     }
+    const spanning = (pid: string, month: string) => statements.find((st) => st.property_id === pid && monthOf(st) !== month && covers(st, month)) ?? null
     const cell = (pid: string, month: string) => statements.filter((st) => st.property_id === pid && monthOf(st) === month)
     const covered = (pid: string, month: string) => statements.some((st) => st.property_id === pid && covers(st, month))
     const monthEnd = (m: string) => { const [y, mm] = m.split('-').map(Number); return new Date(Date.UTC(y, mm, 0)).toISOString().slice(0, 10) }
@@ -406,7 +414,7 @@ export default function AdminStatementsPage() {
       upload: months.filter((m) => due(m) === 'upload' && tenanted(h.id, m) && !covered(h.id, m)),
       prepare: months.filter((m) => due(m) === 'prepare' && tenanted(h.id, m) && !covered(h.id, m)),
     })).filter((t) => t.upload.length || t.prepare.length)
-    return { months, houses, cell, covered, tenanted, due, todo }
+    return { months, houses, cell, covered, spanning, tenanted, due, todo }
   }, [statements, properties, demoIds, lets, dates])
 
   if (loading) {
@@ -622,9 +630,16 @@ export default function AdminStatementsPage() {
                             {found.length ? found.map((st) => (
                               <button key={st.id} type="button" title={st.statement_reference}
                                 onClick={() => { setExpandedStatementId(st.id); setTimeout(() => document.getElementById(`st-${st.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50) }}
-                                className="block w-full text-right font-semibold text-green-800 hover:underline">£{Number(st.net_to_landlord).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</button>
+                                className="block w-full py-0.5 text-right hover:underline">
+                                {/* what the landlord was paid, then where the rent went (17 Oct 2026: "it doesn't show fees … what
+                                    landlords were paid … what expenses were charged") */}
+                                <span className="block font-semibold text-green-800">Paid {gbp0(st.net_to_landlord)}</span>
+                                <span className="block text-[10px] font-normal text-neutral-500">
+                                  Rent {gbp0(st.gross_rent)} · Fees {gbp0(Number(st.management_fees || 0) + Number(st.letting_fees || 0))}{Number(st.property_charges || 0) ? ` · Exp ${gbp0(st.property_charges)}` : ''}
+                                </span>
+                              </button>
                             )) : coverage.covered(h.id, m)
-                              ? <span className="text-green-800" title="Covered by a statement for more than one month">✓</span>
+                              ? <span className="text-[10px] text-neutral-500" title="This statement covers more than one month">in {coverage.spanning(h.id, m)?.statement_reference?.split(' ')[0] ?? 'another statement'}</span>
                               : !coverage.tenanted(h.id, m)
                               ? <span className="text-neutral-400" title="No tenants on record that month — no statement needed">no tenants</span>
                               : coverage.due(m) === 'current'

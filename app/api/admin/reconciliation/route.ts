@@ -60,6 +60,21 @@ export async function POST(req: NextRequest) {
   // action === 'confirm'
   const now = new Date().toISOString()
 
+  // a single let (one unit): an unmatched line can only be that unit — link it, and the tenancy running then
+  let link: Record<string, unknown> = {}
+  if (!lsr.room_id && lsr.property_id) {
+    const { data: units } = await supabase.from('rooms').select('id').eq('property_id', lsr.property_id)
+    if ((units ?? []).length === 1) {
+      const unit = (units as any[])[0].id
+      const st = (lsr as any).statement ?? {}
+      const end = st.period_end ?? st.statement_date ?? now.slice(0, 10), start = st.period_start ?? end
+      const { data: ten } = await supabase.from('tenancies').select('id, person_id').eq('room_id', unit).is('let_cancelled_at', null)
+        .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`).order('start_date', { ascending: false }).limit(1)
+      const t = (ten ?? [])[0] as any
+      link = { room_id: unit, needs_review: false, ...(t ? { tenancy_id: t.id, tenant_id: t.person_id } : {}) }
+    }
+  }
+
   // Confirming only confirms the match (room, tenant). It never raises or settles CROS's own rent charges: these lines
   // come from the previous agent's statements — they collected that rent (15 Oct 2026; it used to mark charges "paid"
   // with the statement's figure, including CROS's own). The rent roll reads the lines directly (lib/finance/importedRent).
@@ -74,6 +89,7 @@ export async function POST(req: NextRequest) {
       confirmed_by: person.id,
       rejected: false,
       rejection_note: null,
+      ...link,
       ...(rentChargeId ? { rent_charge_id: rentChargeId } : {}),
     })
     .eq('id', id)

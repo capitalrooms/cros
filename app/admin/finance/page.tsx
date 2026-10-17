@@ -24,7 +24,7 @@ interface Step { n: number; label: string; href: string; status: string; done: b
 interface Todo { key: string; tone: 'red' | 'amber' | 'green' | 'grey'; title: string; detail?: string; href: string; action: string }
 interface Home {
   month: string; source: string; steps: Step[]; current: number; todos: Todo[]
-  numbers: { due: number; received: number; missing: number; heldInClientAccount: number; agrees: boolean; toLandlords: number; fees: number }
+  numbers: { due: number; received: number; missing: number; heldInClientAccount: number; agrees: boolean; toLandlords: number; fees: number; expenses?: number | null; statements?: number | null }
 }
 
 const gbp = (n: number | null | undefined) => (n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
@@ -111,13 +111,15 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
 
         {/* numbers */}
         {n && (
-          <div className="mb-lg grid grid-cols-2 gap-sm md:grid-cols-3 lg:grid-cols-6">
+          <div className={`mb-lg grid grid-cols-2 gap-sm md:grid-cols-3 ${n.expenses != null ? 'lg:grid-cols-7' : 'lg:grid-cols-6'}`}>
             {[
               { label: prevAgent ? 'Rent collected' : 'Rent due', value: gbp(n.due), cls: 'text-neutral-900', href: `/admin/rent-roll?month=${month}` },
               { label: 'Received', value: gbp(n.received), cls: 'text-green-700', href: `/admin/rent-roll?month=${month}` },
               { label: 'Missing', value: gbp(n.missing), cls: n.missing > 0 ? 'text-red-700' : 'text-neutral-900', href: `/admin/rent-roll?month=${month}` },
               { label: 'To landlords', value: gbp(n.toLandlords), cls: 'text-neutral-900', href: `/admin/payment-run?month=${month}` },
               { label: 'Our fees', value: gbp(n.fees), cls: 'text-neutral-900', href: `/admin/payment-run?month=${month}` },
+              // months before CROS: from the agent's statements for the month (To landlords and Our fees too)
+              ...(n.expenses != null ? [{ label: `Expenses · ${n.statements ?? 0} statement${n.statements === 1 ? '' : 's'}`, value: gbp(n.expenses), cls: 'text-neutral-900', href: '/admin/statements' }] : []),
               { label: n.agrees ? 'Client account · agrees' : 'Client account · check', value: gbp(n.heldInClientAccount), cls: n.agrees ? 'text-neutral-900' : 'text-red-700', href: '/admin/client-money' },
             ].map(c => (
               <Link key={c.label} href={c.href} className="rounded-xl bg-white px-md py-sm hover:ring-1 hover:ring-neutral-900">
