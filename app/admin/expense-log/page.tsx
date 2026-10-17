@@ -31,7 +31,7 @@ interface Row {
   reference: string | null; statement: string | null; deduct_month: string | null; comes_off?: string; voided?: boolean; void_reason?: string | null
   room_label?: string | null
   paid_on?: string | null; paid_how?: string | null; paid_ref?: string | null
-  deducted_on?: string | null; reimbursed_on?: string | null
+  deducted_on?: string | null; reimbursed_on?: string | null; transfer_no?: string | null; transfer_ref?: string | null
 }
 interface Property { id: string; name: string; address: string; property_code?: string | null }
 interface Dup { level: string; reason: string; description: string; amount: number; date: string; where: string }
@@ -129,10 +129,10 @@ export default function ExpensesPage() {
   const exportColumns: ExportColumn[] = [
     { key: 'reference', label: 'No.' }, { key: 'date', label: 'Dated' }, { key: 'property', label: 'Property' },
     { key: 'description', label: 'What for' }, { key: 'category', label: 'Category' }, { key: 'supplier', label: 'Supplier' },
-    { key: 'invoice_number', label: 'Invoice no.' }, { key: 'paid', label: 'Supplier paid' }, { key: 'amount', label: 'Amount', money: true }, { key: 'statement', label: 'Statement' }, { key: 'reimbursed', label: 'Paid back to office' }, { key: 'status', label: 'Status' },
+    { key: 'invoice_number', label: 'Invoice no.' }, { key: 'paid', label: 'Supplier paid' }, { key: 'amount', label: 'Amount', money: true }, { key: 'statement', label: 'Statement' }, { key: 'reimbursed', label: 'Paid back to office' }, { key: 'transfer_no', label: 'Transfer no.' }, { key: 'transfer_ref', label: 'Bank reference' }, { key: 'status', label: 'Status' },
   ]
   const exportRows = (list: Row[]) => list.map(r => ({
-    ...r, date: ukDate(r.date), category: r.category ? categoryLabel(r.category) : '', reimbursed: r.reimbursed_on ? ukDate(r.reimbursed_on) : '', paid: r.paid_on ? `${ukDate(r.paid_on)}${r.paid_how ? ' ' + HOW[r.paid_how] : ''}${r.paid_ref ? ' ' + r.paid_ref : ''}` : '',
+    ...r, date: ukDate(r.date), category: r.category ? categoryLabel(r.category) : '', reimbursed: r.reimbursed_on ? ukDate(r.reimbursed_on) : r.kind === 'statement' && r.statement ? 'Before go-live (on the statement)' : '', transfer_no: r.transfer_no ?? '', transfer_ref: r.transfer_ref ?? '', paid: r.paid_on ? `${ukDate(r.paid_on)}${r.paid_how ? ' ' + HOW[r.paid_how] : ''}${r.paid_ref ? ' ' + r.paid_ref : ''}` : '',
     statement: r.statement ?? (r.comes_off ? `Due: ${monthName(r.comes_off)}` : ''),
     status: r.voided ? `Voided: ${r.void_reason ?? ''}` : r.kind === 'statement' ? 'On an imported statement' : r.statement ? 'Deducted' : 'Waiting for statement',
   }))
