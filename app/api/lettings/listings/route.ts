@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { draftFromRoom, missingForReady, EDITABLE, CHANNELS, CHANNEL_READY, CHANNEL_LABEL, type Channel, type ListingStatus } from '@/lib/listing/record'
+import { draftFromRoom, depositsFor, missingForReady, EDITABLE, CHANNELS, CHANNEL_READY, CHANNEL_LABEL, type Channel, type ListingStatus } from '@/lib/listing/record'
 import { listingPath } from '@/lib/listing/listing'
 
 export const dynamic = 'force-dynamic'
@@ -49,7 +49,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(await full(s, data[0]))
   }
   // the board
-  const { data: open, error } = await s.from('listings').select('*, properties(name, address), rooms(name)').in('status', OPEN).order('updated_at', { ascending: false })
+  const { data: openAll, error } = await s.from('listings').select('*, properties(name, address, is_demo), rooms(name)').in('status', OPEN).order('updated_at', { ascending: false })
+  const open = ((openAll ?? []) as any[]).filter(l => !l.properties?.is_demo)   // practice houses stay off the board
   if (notSetUp(error)) return setup()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const ids = ((open ?? []) as any[]).flatMap(l => (l.media_order ?? []).slice(0, 1))
@@ -138,6 +139,13 @@ export async function PATCH(req: NextRequest) {
   if (Array.isArray(patch.features)) patch.features = (patch.features as unknown[]).map(x => String(x).trim()).filter(Boolean).slice(0, 10)
   for (const k of ['rent', 'deposit', 'holding_deposit', 'room_size_sqm']) if (patch[k] != null) { const n = Number(patch[k]); if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: `${k.replace(/_/g, ' ')} must be a number` }, { status: 400 }); patch[k] = n }
   for (const k of ['bedrooms', 'bathrooms', 'min_term_months', 'max_term_months']) if (patch[k] != null) patch[k] = Math.max(0, Math.round(Number(patch[k]) || 0))
+  // rent added or changed: fill in the deposits if they're still blank (5 weeks' and 1 week's rent)
+  if (patch.rent != null) {
+    const { data: cur } = await s.from('listings').select('deposit, holding_deposit, rent_frequency').eq('id', String(b.id ?? '')).maybeSingle()
+    const d = depositsFor(Number(patch.rent), ((patch.rent_frequency as string) || cur?.rent_frequency || 'pcm') as 'pcm' | 'pw')
+    if (cur && cur.deposit == null && !('deposit' in patch)) patch.deposit = d.deposit
+    if (cur && cur.holding_deposit == null && !('holding_deposit' in patch)) patch.holding_deposit = d.holding_deposit
+  }
   const { data, error } = await s.from('listings').update(patch).eq('id', String(b.id ?? '')).select('*').single()
   if (notSetUp(error)) return setup()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
