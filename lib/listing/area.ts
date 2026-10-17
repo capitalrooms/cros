@@ -5,7 +5,12 @@ export interface Station { name: string; kinds: string[]; lines: string[]; dista
 
 const MODE: Record<string, string> = { tube: 'Underground', overground: 'Overground', dlr: 'DLR', 'elizabeth-line': 'Elizabeth line', 'national-rail': 'Rail', tram: 'Tram' }
 // "Pimlico Underground Station" → "Pimlico"; "London Victoria Rail Station" → "London Victoria"
-const tidy = (n: string) => n.replace(/\s+(Underground|Rail|DLR|Overground|Tram)\s+Station$/i, '').replace(/\s+Station$/i, '').replace(/\s+\(.*\)$/, '').trim()
+// (only the station-type suffix comes off: "Battersea Power Station Underground Station" stays "Battersea Power Station")
+const tidy = (n: string) => {
+  const t = n.replace(/\s+\(.*\)$/, '').trim()
+  const typed = t.replace(/\s+(Underground|Rail|DLR|Overground|Tram|Elizabeth line)\s+Station$/i, '')
+  return (typed !== t ? typed : t.replace(/\s+Station$/i, '')).trim()
+}
 
 export async function nearbyStations(lat: number | null | undefined, lng: number | null | undefined, max = 5): Promise<Station[]> {
   if (lat == null || lng == null || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return []
