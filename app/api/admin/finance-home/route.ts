@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
       { n: 1, label: 'Rent roll', href: `/admin/rent-roll?month=${month}`, status: 'Imported — collected before go-live', done: true },
       { n: 2, label: 'Statements', href: '/admin/statements', status: 'Imported statements', done: true },
       { n: 3, label: 'Payment run', href: `/admin/payment-run?month=${month}`, status: 'Paid before go-live', done: true },
-      { n: 4, label: 'Reconcile & close', href: '/admin/client-money', status: beforeRecords ? 'Before CROS records' : closed ? 'Month closed' : 'Not yet', done: beforeRecords || closed },
+      { n: 4, label: 'Reconcile & close', href: '/admin/client-money', status: beforeRecords ? 'Import period — nothing to close' : closed ? 'Month closed' : 'Not yet', done: beforeRecords || closed },
     ] : [
       { n: 1, label: 'Rent roll', href: `/admin/rent-roll?month=${month}`, status: `${paidRooms}/${rooms.length} rooms in`, done: rooms.length > 0 && paidRooms === rooms.length },
       { n: 2, label: 'Statements', href: `/admin/rent-roll?month=${month}`, status: ready.length ? `${ready.length} to prepare` : drafts.length ? `${drafts.length} to approve` : 'Up to date', done: !ready.length && !drafts.length },
