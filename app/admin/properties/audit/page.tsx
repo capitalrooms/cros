@@ -153,14 +153,14 @@ export default function PropertyAuditPage() {
   // ── Loading state ────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <p className="p-xl text-sm text-neutral-400">Loading properties…</p>
     </div>
   )
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Properties" title="Address & postcode audit" subtitle="Some imported addresses may have incorrect or missing postcodes. Work through each property — look up the postcode, correct the address if needed, then confirm. You can do this gradually; your progress is saved after each confirmation." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

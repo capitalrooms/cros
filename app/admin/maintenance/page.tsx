@@ -729,7 +729,7 @@ export default function MaintenanceDashboard() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
-        left={<BackButton href="/admin" />}
+        left={<BackButton href="/admin" label="Dashboard" />}
       />
       <PageHero title="Maintenance" subtitle={<>Approve, assign, and batch repairs across all properties</>} />
       {cancelFor && <CancelJobModal ticket={cancelFor} onClose={() => setCancelFor(null)} onDone={async () => { setCancelFor(null); await fetchTickets() }} />}

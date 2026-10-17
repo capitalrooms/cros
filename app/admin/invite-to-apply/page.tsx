@@ -127,7 +127,7 @@ export default function InviteToApplyPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero title="Invite to Apply" subtitle="Send a personalised application link by email or text after a viewing" />
       <div className="mx-auto max-w-6xl py-xl px-lg">
 

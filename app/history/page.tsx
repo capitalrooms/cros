@@ -125,11 +125,7 @@ export default function HistoryPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar
-        right={
-          <Link href={homeHref} className="min-w-0 truncate text-sm font-semibold text-white hover:text-white/80">
-            Dashboard
-          </Link>
-        }
+        left={<BackButton href={homeHref} label="Dashboard" />}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-lg">

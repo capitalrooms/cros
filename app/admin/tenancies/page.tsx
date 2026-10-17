@@ -291,7 +291,7 @@ export default function TenanciesManagementPage() {
           toast.type === 'error' ? 'bg-red-600 text-white' : 'bg-neutral-900 text-white'
         }`}>{toast.msg}</div>
       )}
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         eyebrow="Lettings"
         title="Tenancies"

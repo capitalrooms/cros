@@ -173,7 +173,7 @@ export default function InboxPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero title="Document inbox" subtitle={<>Documents forwarded by email land here. Review the AI&apos;s suggestion and file each one, or assign it yourself. Nothing is filed until you confirm.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

@@ -50,7 +50,7 @@ export default function NewBusinessPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero title="New Business" subtitle={<>Win landlords, send terms, and take them through AML to a signed agreement.</>} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <header className="mb-xl">

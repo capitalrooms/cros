@@ -172,7 +172,7 @@ export default function LetOnlyPropertiesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         title="Let-only properties"
         subtitle="Capital Rooms finds the tenant — the landlord manages from then on"

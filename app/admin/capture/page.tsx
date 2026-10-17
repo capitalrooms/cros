@@ -79,7 +79,7 @@ function Capture({ initialTab }: { initialTab: Tab }) {
   const items: any[] = data?.items ?? []
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} title="Capture" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Capture" />
       <PageHero
         eyebrow="Documents"
         title="Capture"

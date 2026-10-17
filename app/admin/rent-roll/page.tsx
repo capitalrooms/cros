@@ -106,7 +106,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
 
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin" />} title="Rent roll" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Rent roll" />
       {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Nothing here is real money; every entry gets an X number (XRENT, XLS, XPAY…) and stays out of the real books.</div>}
       <PageHero
         eyebrow={practice ? 'PRACTICE · step 1 of 3 · monthly cycle' : 'Step 1 of 3 · monthly cycle'}

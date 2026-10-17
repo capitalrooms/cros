@@ -112,7 +112,7 @@ export default function CleanerExtrasPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <div className="flex items-center justify-center py-3xl">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900" />
         </div>
@@ -123,7 +123,7 @@ export default function CleanerExtrasPage() {
   if (done) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/tenant" />} />
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <div className="mx-auto max-w-lg px-lg py-3xl text-center">
           <p className="text-5xl">🧹</p>
           <h1 className="mt-lg text-2xl font-bold text-neutral-900">Request sent!</h1>
@@ -158,7 +158,7 @@ export default function CleanerExtrasPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
 
       <div className="mx-auto max-w-lg px-lg pt-xl">
         <div className="mb-xl">

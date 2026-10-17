@@ -82,7 +82,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
 
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin" />} title="Finance" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Finance" />
       <PageHero eyebrow="Finance" title={monthLabel(month)} subtitle="The month at a glance: rent roll, statements, then the payment run"
         actions={<HeroMonthPicker month={month} onChange={go} />} tabs={financeTabs('home', month)} />
       <div className="mx-auto max-w-6xl px-lg py-xl">

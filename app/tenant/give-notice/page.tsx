@@ -94,7 +94,7 @@ export default function GiveNoticePage() {
   // ── No active tenancy ────────────────────────────────────────────────────
   if (!tenancy) return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
       <main className="mx-auto max-w-lg px-lg py-3xl text-center">
         <p className="text-neutral-500 text-sm">No active tenancy found. Please contact us if this looks wrong.</p>
       </main>
@@ -104,7 +104,7 @@ export default function GiveNoticePage() {
   // ── Submitted confirmation ───────────────────────────────────────────────
   if (done) return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
       <main className="mx-auto max-w-lg px-lg py-3xl text-center">
         <div className="text-5xl mb-lg">✅</div>
         <h1 className="text-2xl font-bold text-neutral-900 mb-sm">Notice received</h1>
@@ -130,7 +130,7 @@ export default function GiveNoticePage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
       <main className="mx-auto max-w-lg px-lg py-lg">
         <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Give notice to leave</h1>
         <p className="text-sm text-neutral-500 mb-xl">

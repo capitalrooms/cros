@@ -102,7 +102,7 @@ export default function AdminSettingsPage() {
       <AppBar />
       <PageHero eyebrow="Settings" title="System Settings" subtitle="Global controls for Capital Rooms. Changes take effect immediately — no redeploy needed." />
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <BackButton href="/admin" />
+        <BackButton href="/admin" label="Dashboard" />
 
         {banner && (
           <div className={`rounded-xl px-lg py-md mb-lg text-sm font-semibold border ${

@@ -626,7 +626,7 @@ export default function NoticesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
 
       <main className="mx-auto max-w-xl px-4 pb-24 pt-4">
 

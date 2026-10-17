@@ -136,7 +136,7 @@ export default function LandlordProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/landlord" />} />
+        <AppBar left={<BackButton href="/landlord" label="Home" />} />
         <div className="flex items-center justify-center py-3xl"><p className="text-sm text-neutral-400">Loading…</p></div>
       </div>
     )
@@ -144,7 +144,7 @@ export default function LandlordProfilePage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/landlord" />} />
+      <AppBar left={<BackButton href="/landlord" label="Home" />} />
 
       <main className="mx-auto max-w-md px-lg py-2xl">
         <div className="mb-2xl">

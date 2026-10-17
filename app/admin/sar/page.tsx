@@ -108,7 +108,7 @@ export default function SarPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero title="Suspected Activity Reports" subtitle={<>Internal SAR log — MLRO: Harry Buchanan · Confidential · Retained 5 years minimum</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

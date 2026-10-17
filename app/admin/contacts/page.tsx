@@ -159,7 +159,7 @@ export default function ContactsPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        left={<BackButton href="/admin" />}
+        left={<BackButton href="/admin" label="Dashboard" />}
       />
 
       <PageHero eyebrow="People" title="Contacts" subtitle="Contractors, cleaners, and landlords assigned to properties"

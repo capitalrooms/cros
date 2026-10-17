@@ -273,7 +273,7 @@ export default function ViewingsDiary() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        left={<BackButton href="/lettings" />}
+        left={<BackButton href="/lettings" label="Lettings" />}
       />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">

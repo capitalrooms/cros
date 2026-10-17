@@ -266,7 +266,7 @@ export default function AdminProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
         <div className="flex items-center justify-center pt-32 text-neutral-400 text-sm">Loading…</div>
       </div>
     )
@@ -274,7 +274,7 @@ export default function AdminProfilePage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Your profile" title={displayName || firstName || 'My Profile'} subtitle={`${roleLabel[role] || role} · ${email}`} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

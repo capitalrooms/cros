@@ -590,7 +590,7 @@ export default function MessageTemplatesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero title="Message Templates" subtitle={<>Every automated message the system sends — grouped by purpose. Templates marked <strong>✏️ Editable</strong> can be changed here; changes take effect on the next send without a code deploy.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

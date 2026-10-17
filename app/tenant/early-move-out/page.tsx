@@ -140,7 +140,7 @@ export default function EarlyMoveOutPage() {
   if (done) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <AppBar left={<BackButton href="/tenant" />} />  {/* done → go home, not back into form */}
+        <AppBar left={<BackButton href="/tenant" label="Home" />} />  {/* done → go home, not back into form */}
         <main className="mx-auto max-w-lg px-lg py-3xl text-center">
           <div className="text-5xl mb-lg">✅</div>
           <h1 className="text-2xl font-bold text-neutral-900 mb-sm">Request received</h1>

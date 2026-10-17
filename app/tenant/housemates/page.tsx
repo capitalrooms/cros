@@ -113,7 +113,7 @@ export default function HousematesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/tenant" />} />
+      <AppBar left={<BackButton href="/tenant" label="Home" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
         <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">

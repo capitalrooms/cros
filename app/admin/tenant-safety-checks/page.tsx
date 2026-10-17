@@ -91,7 +91,7 @@ export default function TenantSafetyChecksAdminPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Compliance" title="Tenant Safety Checks" subtitle="Monitor fire door and smoke alarm safety confirmations from tenants." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

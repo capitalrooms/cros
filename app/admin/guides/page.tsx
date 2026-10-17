@@ -153,7 +153,7 @@ export default function AdminGuidesPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar
-        left={<BackButton href="/admin" />}
+        left={<BackButton href="/admin" label="Dashboard" />}
         title="Tenant Guides"
       />
       <PageHero title="Tenant Guides" subtitle={<>Create and manage guides shown to tenants in the app.</>} />

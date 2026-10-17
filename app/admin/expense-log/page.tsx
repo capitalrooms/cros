@@ -195,14 +195,14 @@ export default function ExpensesPage() {
 
   if (loading) return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin" />} title="Expenses" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Expenses" />
       <div className="mx-auto max-w-6xl px-lg py-xl animate-pulse space-y-sm">{[1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-neutral-200" />)}</div>
     </div>
   )
 
   return (
     <div className="min-h-screen fin">
-      <AppBar left={<BackButton href="/admin" />} title="Expenses" />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Expenses" />
       <PageHero title="Expenses" subtitle="Money spent on a property that comes off the landlord’s statement — each is numbered (EXP…) and never deleted; mistakes are voided"
         stats={[{ label: 'To come off statements', value: pending.length, tone: pending.length ? 'warn' : undefined }]}
         actions={<><HeroButton href="/admin/ops-account">Operations account CSV</HeroButton><HeroButton href="/admin/reports/resold">Mark-ups</HeroButton><HeroButton primary onClick={() => { setShowForm(true); setDups(null); setFormError('') }}>+ Add expense</HeroButton></>}

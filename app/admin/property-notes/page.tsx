@@ -288,7 +288,7 @@ export default function PropertyNotesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero eyebrow="Properties" title="Property Notes" subtitle="Post updates to tenants, leave notes for the cleaner, or save internal admin observations." />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">

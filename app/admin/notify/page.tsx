@@ -61,7 +61,7 @@ export default function QuickNotifyPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/admin" />} />
+        <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
         <main className="mx-auto max-w-6xl px-lg py-xl">
           <p className="text-neutral-500">Loading properties…</p>
         </main>
@@ -71,7 +71,7 @@ export default function QuickNotifyPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar left={<BackButton href="/admin" />} />
+      <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero title="Quick Notify" subtitle={<>Select a property to send messages to tenants, cleaners, or contractors</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
