@@ -29,7 +29,7 @@ export default function AllLettingsReport() {
   function handleFilter(f: Filter) { setFilter(f); load(f, search) }
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="All Lettings" />
       <PageHero eyebrow="Finance · Reports" title="All Lettings" subtitle="Every tenancy with dates, rent, deposit and status." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">

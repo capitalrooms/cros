@@ -36,7 +36,7 @@ export default function ResoldReport() {
   const inp = 'rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm'
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Mark-ups" />
       <PageHero eyebrow="Finance · Reports" title="Mark-ups (goods resold)" subtitle="What each landlord expense cost us beside what the landlord was charged. The difference is profit on goods resold." />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">

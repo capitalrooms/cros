@@ -1,5 +1,6 @@
 'use client'
 
+import { statementMonth, monthPeriod, monthLabel } from '@/lib/finance/statementMonth'
 import { useEffect, useMemo, useState } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
@@ -30,6 +31,7 @@ interface StatementRow {
   gross_rent: number | null
   management_fees: number | null
   property_charges: number | null
+  letting_fees?: number | null
   net_to_landlord: number
   amount_paid: number | null
   paid_date: string | null
@@ -112,7 +114,7 @@ export default function AdminStatementsPage() {
 
   async function loadStatements() {
     const supabase = createClient()
-    const cols = 'id, statement_reference, statement_date, period_start, period_end, gross_rent, management_fees, property_charges, net_to_landlord, amount_paid, paid_date, management_fee_pct, rooms, expenses, property_id, landlord_id, properties(name, address)'
+    const cols = 'id, statement_reference, statement_date, period_start, period_end, gross_rent, management_fees, letting_fees, property_charges, net_to_landlord, amount_paid, paid_date, management_fee_pct, rooms, expenses, property_id, landlord_id, properties(name, address)'
     let { data, error: e } = await supabase.from('landlord_statements').select(cols + ', sent_at').order('statement_date', { ascending: false })
     if (e) ({ data, error: e } = await supabase.from('landlord_statements').select(cols).order('statement_date', { ascending: false }))  // before migration 185
     if (e) setError(`Could not load statements: ${e.message}`)
@@ -408,7 +410,7 @@ export default function AdminStatementsPage() {
   }, [statements, properties, demoIds, lets, dates])
 
   if (loading) {
-    return <div className="min-h-screen bg-neutral-100"><AppBar left={<BackButton href="/admin/accounts" />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
+    return <div className="min-h-screen fin"><AppBar left={<BackButton href="/admin/accounts" />} /><p className="p-xl text-sm text-neutral-400">Loading…</p></div>
   }
 
   const field = 'mt-xs w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900 focus:border-neutral-900 focus:outline-none'
@@ -416,7 +418,7 @@ export default function AdminStatementsPage() {
   const label = 'text-xs font-bold uppercase tracking-wide text-neutral-500'
 
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
+    <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin" />} />
       <PageHero eyebrow="Step 2 of 3 · monthly cycle" title="Landlord statements"
         subtitle="Room by room — rent, the fee at that property and any expenses. The totals roll up onto the landlord's page; upload a PDF to fill it in."
@@ -634,17 +636,21 @@ export default function AdminStatementsPage() {
             </div>
           </div>
         )}
-        <div className="mt-md space-y-lg">
+        <div className="mt-md space-y-md">
           {grouped.map(([pid, rowsFor]) => {
             const prop = rowsFor[0].properties
             return (
-              <div key={pid} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between gap-md px-md py-sm bg-neutral-50 border-b border-neutral-100">
-                  <p className="font-bold text-neutral-900">{prop?.name || prop?.address || 'Property'}</p>
+              <div key={pid} className="ledger-card">
+                <div className="ledger-band flex items-center justify-between gap-md">
+                  <p className="text-sm font-bold text-neutral-900">{String(prop?.name || prop?.address || 'Property').split('\n')[0]}</p>
                   <span className="text-xs font-semibold text-neutral-500">{rowsFor.length} statement{rowsFor.length === 1 ? '' : 's'}</span>
                 </div>
-                <div className="divide-y divide-neutral-100">
-                  {rowsFor.map((s) => {
+                {/* column headings — the same grid as each row below */}
+                <div className="hidden sm:grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_repeat(4,minmax(0,0.8fr))_20px] gap-sm border-b border-[#D6DCE3] bg-[#F6F8FA] px-md py-1.5 text-[10.5px] font-bold uppercase tracking-wide text-[#5B6470]">
+                  <span>Reference</span><span>Rent month</span><span className="text-right">Gross</span><span className="text-right">Fees</span><span className="text-right">Charges</span><span className="text-right">Net</span><span />
+                </div>
+                <div>
+                  {rowsFor.map((s, si) => {
                     const isExpanded = expandedStatementId === s.id
                     const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
                     const gbp = (n: number | null) => n != null ? `£${Number(n).toFixed(2)}` : '—'
@@ -653,18 +659,16 @@ export default function AdminStatementsPage() {
                       <div key={s.id} id={`st-${s.id}`}>
                         <button
                           onClick={() => setExpandedStatementId(isExpanded ? null : s.id)}
-                          className="w-full flex items-center justify-between gap-md px-md py-sm text-sm hover:bg-neutral-50 transition-colors text-left"
+                          className={`grid w-full grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_repeat(4,minmax(0,0.8fr))_20px] items-center gap-sm border-b border-[#EDF0F3] px-md py-1.5 text-left text-xs tabular-nums transition-colors hover:bg-[#F1F5FA] ${si % 2 ? 'bg-[#FAFBFC]' : 'bg-white'}`}
                         >
-                          <span className="font-semibold text-neutral-900">{s.statement_reference}</span>
-                          {s.period_start && s.period_end ? (
-                            <span className="text-neutral-500 text-xs">{fmt(s.period_start)} – {fmt(s.period_end)}</span>
-                          ) : (
-                            <span className="text-neutral-500">{new Date(s.statement_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
-                          )}
-                          <span className={`font-bold ${net < 0 ? 'text-amber-700' : 'text-green-700'}`}>
-                            {net < 0 ? `Shortfall ${gbp(Math.abs(net))}` : gbp(net)}
-                          </span>
-                          <span className="text-neutral-400 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                          <span className="truncate font-mono font-semibold text-neutral-900">{String(s.statement_reference).split(' ·')[0]}</span>
+                          {(() => { const m = statementMonth(s); const sp = m ? monthPeriod(m) : null
+                            return <span className="hidden sm:block truncate text-neutral-700">{m ? <>{monthLabel(m)} <span className="text-neutral-400">· {fmt(sp!.start)} – {fmt(sp!.end)}</span></> : '—'}</span> })()}
+                          <span className="hidden sm:block text-right">{gbp(s.gross_rent)}</span>
+                          <span className="hidden sm:block text-right text-neutral-600">{gbp(Number(s.management_fees || 0) + Number(s.letting_fees || 0))}</span>
+                          <span className="hidden sm:block text-right text-neutral-600">{gbp(s.property_charges)}</span>
+                          <span className={`text-right font-bold ${net < 0 ? 'text-amber-700' : 'text-neutral-900'}`}>{net < 0 ? `−${gbp(Math.abs(net))}` : gbp(net)}</span>
+                          <span className="hidden sm:block text-right text-[10px] text-neutral-400">{isExpanded ? '▲' : '▼'}</span>
                         </button>
 
                         {isExpanded && (

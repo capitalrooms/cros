@@ -31,7 +31,7 @@ export default function MtdReportPage() {
   const flat = rows.map(r => ({ landlord: r.landlord, quarter: `${r.quarter} (${ukDate(r.from)} – ${ukDate(r.to)})`, income: r.income, ...r.boxes, totalExpenses: r.totalExpenses, profit: r.profit, statements: r.statements.join(', ') }))
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Making Tax Digital" />
       <PageHero eyebrow="Finance · Reports" title="Making Tax Digital — quarterly figures" subtitle="Property income and expenses per landlord for each MTD quarter, in HMRC’s categories, from every landlord statement (cash basis). For the landlord or their accountant to submit — the categories are suggestions for them to confirm." />
       <div className="mx-auto max-w-6xl px-lg py-xl">

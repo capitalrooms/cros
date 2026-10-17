@@ -36,7 +36,7 @@ export default function UtilitiesReport() {
   function handleFilter(f: Filter) { setFilter(f); load(f, search) }
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Utility Expiry Dates" />
       <PageHero eyebrow="Finance · Reports" title="Utility Expiry Dates" subtitle="Gas, electrical, fire detection cert expiries." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">

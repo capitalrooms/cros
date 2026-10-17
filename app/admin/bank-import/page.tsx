@@ -159,7 +159,7 @@ export default function BankImportPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Bank Import" />
 
       {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Every line in this file gets a practice receipt number (XRCPT) and stays out of the real books.</div>}

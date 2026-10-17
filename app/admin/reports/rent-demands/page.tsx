@@ -64,7 +64,7 @@ export default function RentDemandsReport() {
   const total_outstanding = total_due - total_received
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Rent Demands" />
       <PageHero eyebrow="Finance · Reports" title="Rent Demands" subtitle="Rent due in a date range, with outstanding filter." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">

@@ -43,7 +43,7 @@ export default function MaintenanceReport() {
   useEffect(() => { load() }, [])
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Maintenance Jobs" />
       <PageHero eyebrow="Finance · Reports" title="Maintenance Jobs" subtitle="Job history with status, priority and contractor." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">

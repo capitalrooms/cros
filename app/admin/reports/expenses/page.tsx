@@ -30,7 +30,7 @@ export default function ExpensesReport() {
   useEffect(() => { load() }, [])
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Expenses Report" />
       <PageHero eyebrow="Finance · Reports" title="Expenses" subtitle="Expenses recorded by property and category." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">

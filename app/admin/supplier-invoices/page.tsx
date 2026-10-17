@@ -45,7 +45,7 @@ export default function SupplierInvoicesPage() {
   const open = invs.filter(i => i.status === 'sent')
   const shown = tab === 'open' ? open : invs
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
+    <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/finance" />} title="Contractor & cleaner invoices" />
       <PageHero
         eyebrow="Finance"

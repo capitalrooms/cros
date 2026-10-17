@@ -29,7 +29,7 @@ export default function DepositsReport() {
   function handleFilter(f: Filter) { setFilter(f); load(f, search) }
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Deposits" />
       <PageHero eyebrow="Finance · Reports" title="Deposits" subtitle="Deposits held, protection status and scheme references." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">

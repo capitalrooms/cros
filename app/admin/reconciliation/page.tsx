@@ -337,7 +337,7 @@ export default function ReconciliationPage() {
         actions={<HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>}
         tabs={financeTabs('bank')} />
       {/* a soft grey ground, not a white page (17 Oct 2026) */}
-      <div className="min-h-screen bg-[#EDF0F4]">
+      <div className="min-h-screen fin">
       <div className="max-w-6xl mx-auto px-lg py-lg space-y-md">
 
         {error && (

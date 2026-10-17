@@ -81,7 +81,7 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
   const prevAgent = data?.source === 'previous_agent'
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" />} title="Finance" />
       <PageHero eyebrow="Finance" title={monthLabel(month)} subtitle="The month at a glance: rent roll, statements, then the payment run"
         actions={<HeroMonthPicker month={month} onChange={go} />} tabs={financeTabs('home', month)} />

@@ -45,7 +45,7 @@ export default function TenantBalancesReport() {
   const inArrears    = (rows || []).filter(r => r.balance < 0).length
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Tenant Balances" />
       <PageHero eyebrow="Finance · Reports" title="Tenant Balances" subtitle="Live arrears and credit per active tenant." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">

@@ -72,7 +72,7 @@ export default function ClientMoneyPage() {
   const diff = data && rec.bankBalance.trim() && isFinite(bankNum) ? Math.round((bankNum - data.position.cashbook.total) * 100) / 100 : null
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin" />} title="Client money" />
       <PageHero title="Client money" subtitle={<>What the client account (20-18-93 · 4016 2574) holds for each landlord{data ? `, from ${d(data.start)}` : ''} — no landlord’s balance should ever go below zero</>}
         tabs={financeTabs('client-money')} />

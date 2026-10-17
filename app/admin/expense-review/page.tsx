@@ -137,7 +137,7 @@ export default function ExpenseReviewPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/accounts" />} />
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <div className="animate-pulse h-8 w-64 bg-neutral-300 rounded-lg" />
@@ -146,10 +146,10 @@ export default function ExpenseReviewPage() {
   )
 
   return (
-    <div className="min-h-screen bg-neutral-100 pb-3xl">
+    <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/accounts" />} />
       <PageHero eyebrow="Finance" title="Expense Review" subtitle="The lines read off statements you email to statements@ — check any the system wasn’t sure about. Changes are invisible to landlords." tabs={financeTabs('expense-review')} />
-      <main className="mx-auto max-w-6xl px-lg py-xl space-y-xl">
+      <main className="mx-auto max-w-6xl px-lg py-lg space-y-md">
         <div className="flex items-start justify-between gap-lg">
           <div>
           </div>
@@ -198,102 +198,44 @@ export default function ExpenseReviewPage() {
             <p className="text-neutral-500">Nothing to review here — all items in this filter are categorised ✓</p>
           </div>
         ) : (
-          <div className="space-y-sm">
-            {displayed.map(item => {
-              const propertyRooms = rooms.filter(r => r.property_id === item.property_id)
-              return (
-                <div key={item.id} className="rounded-2xl bg-white p-lg space-y-md">
-                  {/* Header row */}
-                  <div className="flex items-start justify-between gap-md">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-neutral-900">{item.description}</p>
-                      <p className="text-xs text-neutral-400 mt-xs">
-                        {new Date(item.statement_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        {' · '}{landlordName(item)}
-                        {' · '}{propertyName(item)}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold text-neutral-900">£{Number(item.amount).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</p>
-                      {item.ai_category && item.ai_category !== UNMATCHED_SLUG && (
-                        <p className="text-xs text-neutral-400 mt-xs">
-                          AI: {categoryLabel(item.ai_category)} ({Math.round((item.ai_confidence ?? 0) * 100)}%)
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Quick confirm AI suggestion */}
-                  {item.ai_category && item.ai_category !== UNMATCHED_SLUG && !item.admin_confirmed && (
-                    <button
-                      onClick={() => saveCategory(item.id, item.ai_category!)}
-                      disabled={saving === item.id}
-                      className="w-full rounded-xl border-2 border-emerald-200 bg-emerald-50 px-md py-sm text-sm font-medium text-emerald-800 text-left hover:bg-emerald-100 transition-colors disabled:opacity-50"
-                    >
-                      ✓ Confirm: {categoryLabel(item.ai_category)} ({Math.round((item.ai_confidence ?? 0) * 100)}% confident)
-                    </button>
-                  )}
-
-                  {/* Category picker */}
-                  <div>
-                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Assign category</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-xs">
-                      {PROPERTY_WIDE_CATEGORIES.map(cat => (
-                        <button
-                          key={cat.slug}
-                          onClick={() => saveCategory(item.id, cat.slug)}
-                          disabled={saving === item.id}
-                          className={`px-sm py-xs rounded-lg text-xs font-medium text-left transition-colors disabled:opacity-50 ${
-                            item.category === cat.slug
-                              ? 'bg-neutral-900 text-white'
-                              : 'bg-neutral-50 text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-                          }`}
-                        >
-                          {cat.emoji} {cat.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Room-specific */}
-                    {propertyRooms.length > 0 && (
-                      <div className="mt-sm">
-                        <p className="text-xs text-neutral-400 mb-xs">Room-specific:</p>
-                        <div className="flex flex-wrap gap-xs">
-                          {propertyRooms.map(room =>
-                            ROOM_SPECIFIC_CATEGORY_TYPES.slice(0, 2).map(rt => (
-                              <button
-                                key={`${room.id}-${rt.slug}`}
-                                onClick={() => saveCategory(item.id, rt.slug, room.id, room.name || `Room ${room.room_number}`)}
-                                disabled={saving === item.id}
-                                className={`px-sm py-xs rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                                  item.room_id === room.id && item.category === rt.slug
-                                    ? 'bg-neutral-900 text-white'
-                                    : 'bg-neutral-50 text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-                                }`}
-                              >
-                                {room.name || `Room ${room.room_number}`} – {rt.label}
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <button
-                      onClick={() => saveCategory(item.id, UNMATCHED_SLUG)}
-                      disabled={saving === item.id}
-                      className={`mt-xs px-sm py-xs rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-                        item.category === UNMATCHED_SLUG
-                          ? 'bg-neutral-900 text-white'
-                          : 'bg-neutral-50 text-neutral-400 hover:bg-neutral-100 border border-neutral-200'
-                      }`}
-                    >
-                      📦 Keep as Other / Not Matched
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
+          <div className="ledger-card overflow-x-auto">
+            {/* one row per line read off a statement (17 Oct 2026 — was a big card with every category as a button) */}
+            <table>
+              <thead><tr><th>Date</th><th>Property</th><th>Line on the statement</th><th className="text-right">Amount</th><th>Suggested</th><th>Category</th></tr></thead>
+              <tbody>
+                {displayed.map(item => {
+                  const propertyRooms = rooms.filter(r => r.property_id === item.property_id)
+                  const current = item.room_id ? `${item.category}|${item.room_id}` : item.category
+                  return (
+                    <tr key={item.id}>
+                      <td className="whitespace-nowrap text-neutral-600">{new Date(item.statement_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+                      <td className="max-w-[160px]"><span className="block truncate font-semibold">{propertyName(item)}</span><span className="block truncate text-[10.5px] text-neutral-500">{landlordName(item)}</span></td>
+                      <td className="max-w-[340px]"><span className="line-clamp-2" title={item.description}>{item.description}</span></td>
+                      <td className="text-right font-semibold whitespace-nowrap">£{Number(item.amount).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</td>
+                      <td className="whitespace-nowrap">
+                        {item.ai_category && item.ai_category !== UNMATCHED_SLUG && !item.admin_confirmed ? (
+                          <button onClick={() => saveCategory(item.id, item.ai_category!)} disabled={saving === item.id}
+                            className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">
+                            ✓ {categoryLabel(item.ai_category)} <span className="font-normal text-emerald-700">{Math.round((item.ai_confidence ?? 0) * 100)}%</span>
+                          </button>
+                        ) : <span className="text-[11px] text-neutral-400">{item.admin_confirmed ? 'Confirmed' : '—'}</span>}
+                      </td>
+                      <td>
+                        <select value={current} disabled={saving === item.id}
+                          onChange={e => { const [slug, roomId] = e.target.value.split('|'); const room = propertyRooms.find(r => r.id === roomId); saveCategory(item.id, slug, roomId || undefined, room ? (room.name || `Room ${room.room_number}`) : undefined) }}
+                          className="w-full min-w-[170px] rounded border border-neutral-300 bg-white px-1 py-0.5 text-xs">
+                          {PROPERTY_WIDE_CATEGORIES.map(cat => <option key={cat.slug} value={cat.slug}>{cat.emoji} {cat.label}</option>)}
+                          {propertyRooms.length > 0 && <optgroup label="A room">
+                            {propertyRooms.flatMap(room => ROOM_SPECIFIC_CATEGORY_TYPES.slice(0, 2).map(rt => <option key={`${rt.slug}|${room.id}`} value={`${rt.slug}|${room.id}`}>{room.name || `Room ${room.room_number}`} – {rt.label}</option>))}
+                          </optgroup>}
+                          <option value={UNMATCHED_SLUG}>📦 Other / not matched</option>
+                        </select>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </main>

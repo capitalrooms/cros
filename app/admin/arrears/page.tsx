@@ -67,7 +67,7 @@ export default function ArrearsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100">
+    <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/rent-charges" />} title="Arrears" />
       <PageHero title="Arrears" subtitle="Rent overdue or part paid, by tenancy — “in arrears since” is the due date of the oldest unpaid rent"
         stats={[
