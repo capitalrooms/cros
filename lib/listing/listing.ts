@@ -35,7 +35,7 @@ export const listingToken = (roomId: string) => crypto.createHmac('sha256', proc
 export const listingPath = (roomId: string) => `/l/${roomId}/${listingToken(roomId)}`
 
 export async function loadListing(s: SupabaseClient, roomId: string): Promise<Listing | null> {
-  const { data: room } = await s.from('rooms').select('id, property_id, name, description, marketing_description, current_asking_rent, available_date, has_ensuite, has_shared_bathroom, has_lounge, room_size, features, furnishings_description, is_let_only')
+  const { data: room } = await s.from('rooms').select('id, property_id, name, description, marketing_description, current_asking_rent, available_date, has_ensuite, has_shared_bathroom, has_lounge, room_size, room_type, features, furnishings_description, is_let_only')
     .eq('id', roomId).maybeSingle()
   if (!room) return null
   const r: any = room
