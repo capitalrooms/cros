@@ -74,7 +74,7 @@ function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practic
   const expenseRows = allStatements.flatMap(s => s.expenseLines.map(e => ({ statement: s.reference, property: s.property, landlord: s.landlord, number: e.number ?? '', description: e.description, amount: e.amount })))
   const feeRows = allStatements.filter(s => s.managementFee || s.lettingFee).map(s => ({ statement: s.reference, property: s.property, landlord: s.landlord, feeNo: s.feeNo ?? '', managementFee: s.managementFee, lettingFee: s.lettingFee, total: Math.round((s.managementFee + s.lettingFee) * 100) / 100 }))
   const payRows = (v?.payments ?? []).map(p => ({ landlord: p.landlord, statements: p.statements.map(s => s.reference).join(', '), properties: [...new Set(p.statements.map(s => s.property))].join(', '),
-    account: p.bank ? `${p.bank.name} · ${sort(p.bank.sortCode)} · ${p.bank.accountNo}` : 'No bank details', amount: p.amount, status: p.paid ? `Paid ${ukDate(p.paidDate)}` : 'To pay', payout: p.statements.map(s => s.payoutNo).filter(Boolean).join(', ') }))
+    account: p.bank ? `${p.bank.name} · ${sort(p.bank.sortCode)} · ${p.bank.accountNo}` : 'Saved payee in your bank', amount: p.amount, status: p.paid ? `Paid ${ukDate(p.paidDate)}` : 'To pay', payout: p.statements.map(s => s.payoutNo).filter(Boolean).join(', ') }))
 
   return (
     <div className="min-h-screen fin">
@@ -141,7 +141,7 @@ function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practic
                         {v.payments.map(p => [
                           <tr key={p.key} className="border-t border-neutral-200">
                             <td className="px-md py-sm"><button onClick={() => setOpen({ ...open, [p.key]: !open[p.key] })} className="font-semibold text-neutral-900">{open[p.key] ? '▾' : '▸'} {p.landlord}</button><span className="ml-sm text-xs text-neutral-500">{p.statements.length} statement{p.statements.length === 1 ? '' : 's'}</span></td>
-                            <td className="px-md py-sm font-mono text-xs">{p.bank ? `${p.bank.name} · ${sort(p.bank.sortCode)} · ${p.bank.accountNo}` : <span className="font-sans font-semibold text-red-700">No bank details</span>}</td>
+                            <td className="px-md py-sm font-mono text-xs">{p.bank ? `${p.bank.name} · ${sort(p.bank.sortCode)} · ${p.bank.accountNo}` : <span className="font-sans text-neutral-500" title="No account on file in CROS — pay the landlord's saved payee in your bank, with the PAY number as the reference">Saved payee in your bank</span>}</td>
                             <td className="px-md py-sm text-right tabular-nums text-neutral-500">{gbp(p.held)}</td>
                             <td className="px-md py-sm text-right font-semibold tabular-nums">{gbp(p.amount)}</td>
                             <td className="px-md py-sm text-right">{p.paid

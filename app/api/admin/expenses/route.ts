@@ -60,9 +60,11 @@ export async function GET(req: NextRequest) {
   // paid back to the office account: the expenses transfer of the payment run the statement was paid in
   const runIds = [...new Set(rows.map((r: any) => r.run_id).filter(Boolean))]
   if (runIds.length) {
-    const { data: tr } = await s.from('office_transfers').select('payment_run_id, transferred_on').eq('kind', 'expenses').is('voided_at', null).in('payment_run_id', runIds)
-    const on = new Map(((tr ?? []) as any[]).map(t => [t.payment_run_id, t.transferred_on]))
-    for (const r of rows as any[]) if (r.run_id) r.reimbursed_on = on.get(r.run_id) ?? null
+    // the transfer's own number (TRF…) and the reference it carries at the bank, so a year on every expense can be
+    // traced to the line on the operations account's bank statement (17 Oct 2026)
+    const { data: tr } = await s.from('office_transfers').select('payment_run_id, transferred_on, txn_no, reference').eq('kind', 'expenses').is('voided_at', null).in('payment_run_id', runIds)
+    const on = new Map(((tr ?? []) as any[]).map(t => [t.payment_run_id, t]))
+    for (const r of rows as any[]) if (r.run_id) { const t: any = on.get(r.run_id); r.reimbursed_on = t?.transferred_on ?? null; r.transfer_no = t?.txn_no ?? null; r.transfer_ref = t?.reference ?? null }
   }
 
   // for expenses not yet on a statement: which statement they'll come off
