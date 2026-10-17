@@ -7,12 +7,13 @@
 //   − expenses                 landlord_statements.property_charges (statement date) — paid out for the landlord
 //   − paid to landlord         landlord_statements.amount_paid (paid date)
 //   ± adjustments              client_ledger_adjustments (opening balances, corrections, deposits in/out…)
+//   + initial monies           initial_monies (let-only: holding deposit + balance in, tenant-find fee out, landlord paid)
 // A landlord's balance is what the client account holds for them. It must never go below zero — that would
 // mean another client's money had been used.
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 
-export type LedgerKind = 'rent_in' | 'fee' | 'expenses' | 'payout' | 'opening_balance' | 'correction' | 'rent_other' | 'expense_paid' | 'deposit_in' | 'deposit_out'
+export type LedgerKind = 'rent_in' | 'fee' | 'expenses' | 'payout' | 'opening_balance' | 'correction' | 'rent_other' | 'expense_paid' | 'deposit_in' | 'deposit_out' | 'initial_in'
 export interface LedgerEntry {
   date: string
   kind: LedgerKind
@@ -21,7 +22,7 @@ export interface LedgerEntry {
   landlordId: string | null
   propertyId: string | null
   reference: string | null
-  source: 'rent_charge' | 'statement' | 'adjustment'
+  source: 'rent_charge' | 'statement' | 'adjustment' | 'initial_monies'
   sourceId: string
 }
 export interface LandlordLedger { landlordId: string | null; name: string; in: number; out: number; balance: number; entries: number }
@@ -30,7 +31,7 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 export const KIND_LABEL: Record<LedgerKind, string> = {
   rent_in: 'Rent received', fee: 'Management fee', expenses: 'Expenses', payout: 'Paid to landlord',
   opening_balance: 'Opening balance', correction: 'Correction', rent_other: 'Other money in', expense_paid: 'Expense paid',
-  deposit_in: 'Deposit received', deposit_out: 'Deposit paid out',
+  deposit_in: 'Deposit received', deposit_out: 'Deposit paid out', initial_in: 'Initial monies received',
 }
 
 export async function ledgerStart(s: SupabaseClient): Promise<string> {
@@ -49,12 +50,13 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
   const start = await ledgerStart(s)
   const asAt = opts.asAt || new Date().toISOString().slice(0, 10)
   const from = opts.from && opts.from > start ? opts.from : start
-  const [demo, props, charges, statements, adjustments] = await Promise.all([
+  const [demo, props, charges, statements, adjustments, initial] = await Promise.all([
     demoPropertyIds(s),
     s.from('properties').select('id, name, landlord_id'),
     s.from('rent_charges').select('id, property_id, room_id, charge_month, amount_received, received_date, paid_at, reference, voided, rooms(name)').gt('amount_received', 0),
     s.from('landlord_statements').select('*'),   // '*': letting_fees exists from migration 193
     s.from('client_ledger_adjustments').select('id, landlord_id, property_id, entry_date, kind, description, amount, reference, voided_at'),
+    s.from('initial_monies').select('id, txn_no, payout_no, property_id, landlord_id, holding_amount, balance_amount, received_on, fee, amount_paid, paid_on, voided_at'),   // migration 231
   ])
   const adjustmentsReady = !adjustments.error
   const propLandlord = new Map((props.data ?? []).map((p: any) => [p.id, p.landlord_id as string | null]))
@@ -91,6 +93,18 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
   for (const a of (adjustments.data ?? []) as any[]) {
     if (a.voided_at || !inRange(a.entry_date) || (a.property_id && !ok(a.property_id))) continue
     entries.push({ date: a.entry_date, kind: a.kind, amount: r2(Number(a.amount)), description: a.description, landlordId: a.landlord_id, propertyId: a.property_id, reference: a.reference, source: 'adjustment', sourceId: a.id })
+  }
+  // let-only initial monies: the holding deposit (held for the applicant until now) and the balance arrive for the
+  // landlord; the tenant-find fee is ours; the rest is paid to the landlord — so their balance comes back to £0.00
+  for (const im of (initial.error ? [] : initial.data ?? []) as any[]) {
+    if (im.voided_at || (im.property_id && !ok(im.property_id))) continue
+    const where = propName.get(im.property_id) || ''
+    const ll = im.landlord_id ?? propLandlord.get(im.property_id) ?? null
+    if (inRange(im.received_on)) {
+      entries.push({ date: im.received_on, kind: 'initial_in', amount: r2(Number(im.holding_amount) + Number(im.balance_amount)), description: `Initial monies · ${im.txn_no} · ${where}`, landlordId: ll, propertyId: im.property_id, reference: im.txn_no, source: 'initial_monies', sourceId: im.id })
+      if (Number(im.fee)) entries.push({ date: im.received_on, kind: 'fee', amount: -r2(Number(im.fee)), description: `Tenant-find fee · ${im.txn_no} · ${where}`, landlordId: ll, propertyId: im.property_id, reference: im.txn_no, source: 'initial_monies', sourceId: im.id })
+    }
+    if (im.paid_on && inRange(im.paid_on) && Number(im.amount_paid)) entries.push({ date: im.paid_on, kind: 'payout', amount: -r2(Number(im.amount_paid)), description: `Paid to landlord · ${im.payout_no} · ${where}`, landlordId: ll, propertyId: im.property_id, reference: im.payout_no, source: 'initial_monies', sourceId: im.id })
   }
   entries.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount)
   return { start, from, asAt, entries, adjustmentsReady }

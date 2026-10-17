@@ -47,7 +47,7 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   // cash book, from the ledger entries plus what the ledger treats as already gone (fees/expenses) but is still
   // in the bank until the office transfer
   const sum = (k: string) => r2(ledger.entries.filter(e => e.kind === k).reduce((t, e) => t + e.amount, 0))
-  const rentIn = sum('rent_in')
+  const rentIn = r2(sum('rent_in') + sum('initial_in'))   // let-only initial monies are rent and deposit in too (migration 231)
   const paidToLandlords = -sum('payout')
   const adjustments = r2(ledger.entries.filter(e => e.source === 'adjustment').reduce((t, e) => t + e.amount, 0))
   // a holding deposit is held from the day it arrived until its outcome date (table missing before 198 → none)
@@ -61,7 +61,9 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
 
   // who it belongs to
   const sts = real(statements.data as any[]).filter(st => st.source !== 'import')   // the previous agent's statements never touched our account
-  const officeEarned = r2(sts.reduce((t, st) => t + Number(st.management_fees || 0) + Number(st.letting_fees || 0) + Number(st.property_charges || 0), 0))
+  // our fees and expenses: on statements, plus tenant-find fees taken from let-only initial monies (migration 231)
+  const initialFees = r2(ledger.entries.filter(e => e.source === 'initial_monies' && e.kind === 'fee').reduce((t, e) => t - e.amount, 0))
+  const officeEarned = r2(sts.reduce((t, st) => t + Number(st.management_fees || 0) + Number(st.letting_fees || 0) + Number(st.property_charges || 0), 0) + initialFees)
   const officeDue = r2(officeEarned - toOffice)
   const balances = await landlordBalances(s, ledger.entries)
   const per = new Map<string, { advance: number; awaitingPayment: number; float: number }>()
@@ -69,6 +71,10 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   for (const c of real(charges.data as any[])) {
     if (c.voided || String(c.received_date || '') > D) continue
     if (String(c.charge_month) > D) bucket(landlordOf.get(c.property_id) ?? null).advance += Number(c.amount_received || 0) - Number(c.remitted_amount || 0)
+  }
+  // let-only initial monies received but not yet paid to the landlord
+  for (const e of ledger.entries.filter(x => x.source === 'initial_monies')) {
+    if (e.kind === 'initial_in' || e.kind === 'fee' || e.kind === 'payout') bucket(e.landlordId).awaitingPayment += e.amount
   }
   for (const st of sts) {
     const b = bucket(st.landlord_id)
