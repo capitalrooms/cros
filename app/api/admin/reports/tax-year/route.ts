@@ -1,3 +1,4 @@
+import { statementsInMonths } from '@/lib/finance/statementMonth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -99,9 +100,7 @@ export async function GET(req: NextRequest) {
       id, property_id,
       rooms:landlord_statement_rooms ( management_fee, net_to_landlord, rent_income )
     `)
-    .in('property_id', propertyIds)
-    .gte('period_start', periodFrom)
-    .lte('period_end', periodTo)
+    .in('id', (await statementsInMonths(supabase as any, periodFrom, periodTo, propertyIds)).map(x => x.id).concat(['00000000-0000-0000-0000-000000000000']))   // by rent month
 
   // Aggregate per property
   const byProperty = new Map<string, { gross_rent: number; management_fees: number; expenses: number }>()

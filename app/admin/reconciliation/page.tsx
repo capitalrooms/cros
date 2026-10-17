@@ -22,6 +22,7 @@ import PageHero, { HeroButton } from '@/components/PageHero'
 import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import FinancialTrail from '@/app/components/FinancialTrail'
+import { statementMonth, monthPeriod, monthLabel } from '@/lib/finance/statementMonth'
 
 interface LSRRow {
   id: string
@@ -270,6 +271,40 @@ export default function ReconciliationPage() {
     }
   }
 
+  async function confirmMany(ids: string[]) {
+    setError('')
+    for (const id of ids) {
+      setBusy(b => ({ ...b, [id]: true }))
+      const res = await fetch('/api/admin/reconciliation', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action: 'confirm' }) }).catch(() => null)
+      if (!res?.ok) { const j = await res?.json().catch(() => ({})); setError(j?.error || 'Some rows could not be confirmed'); }
+      setBusy(b => ({ ...b, [id]: false }))
+    }
+    await load()
+  }
+
+  // the agent's PDF the lines were read from (/api/admin/statements/[id]/source — passed straight from statements@)
+  const [preview, setPreview] = useState<null | { title: string; url?: string; error?: string }>(null)
+  async function previewStatement(statementId: string, title: string) {
+    setPreview({ title })
+    const r = await fetch(`/api/admin/statements/${statementId}/source`).catch(() => null)
+    if (!r?.ok) { const j = await r?.json().catch(() => ({})); setPreview({ title, error: j?.error || 'The statement could not be opened.' }); return }
+    setPreview({ title, url: URL.createObjectURL(await r.blob()) })
+  }
+
+  // rooms showing no fee although their statement lists one (GET counts; POST matches them)
+  const [feeCheck, setFeeCheck] = useState<null | { rooms: number; lines: number }>(null)
+  const [feeBusy, setFeeBusy] = useState(false)
+  useEffect(() => { fetch('/api/admin/reconciliation/fees').then(r => r.ok ? r.json() : null).then(d => d && setFeeCheck(d)).catch(() => {}) }, [])
+  async function matchFees() {
+    setFeeBusy(true); setError('')
+    const r = await fetch('/api/admin/reconciliation/fees', { method: 'POST' }).catch(() => null)
+    const d = await r?.json().catch(() => ({}))
+    if (!r?.ok) setError(d?.error || 'Could not match the fees')
+    else setFeeCheck({ rooms: 0, lines: 0 })
+    setFeeBusy(false)
+    await load()
+  }
+
   const pending   = rows.filter(r => !r.confirmed && !r.rejected)
   const confirmed = rows.filter(r => r.confirmed)
   const rejected  = rows.filter(r => r.rejected)
@@ -298,10 +333,12 @@ export default function ReconciliationPage() {
   return (
     <>
       <AppBar left={<BackButton href="/admin" />} title="Reconciliation" />
-      <PageHero title="Bank & matching" subtitle="Match money in to rent, and check statement lines imported by AutoLedger — confirming one marks that rent as paid"
+      <PageHero title="Bank & matching" subtitle="Match money in to rent, and check the room lines read from the agent’s statements — confirming says the room and tenant are right"
         actions={<HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>}
         tabs={financeTabs('bank')} />
-      <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
+      {/* a soft grey ground, not a white page (17 Oct 2026) */}
+      <div className="min-h-screen bg-[#EDF0F4]">
+      <div className="max-w-6xl mx-auto px-lg py-lg space-y-md">
 
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-lg py-md text-sm text-red-700">{error}</div>
@@ -349,156 +386,132 @@ export default function ReconciliationPage() {
           </div>
         )}
 
-        {/* Grouped by statement */}
+        {/* Fee check — rooms whose fee is on the statement but wasn't matched (admin) */}
+        {tab === 'pending' && feeCheck && (feeCheck.rooms > 0 || feeCheck.lines > 0) && (
+          <div className="flex flex-wrap items-center justify-between gap-md rounded-lg border border-amber-300 bg-amber-50 px-lg py-sm text-sm text-amber-900">
+            <span><b>{feeCheck.rooms} room line{feeCheck.rooms === 1 ? '' : 's'}</b> show no fee although the statement lists one{feeCheck.lines ? ` (${feeCheck.lines} fee line${feeCheck.lines === 1 ? ' was' : 's were'} filed as an expense)` : ''}.</span>
+            <button type="button" onClick={matchFees} disabled={feeBusy} className="rounded-md bg-amber-900 px-md py-1 text-xs font-bold text-white disabled:opacity-50">{feeBusy ? 'Matching…' : 'Match fees from the statement lines'}</button>
+          </div>
+        )}
+
+        {/* Grouped by statement — a ledger table each: one row per room, figures in columns (17 Oct 2026) */}
         {Object.entries(grouped).map(([stmtId, stmtRows]) => {
           const stmt = stmtRows[0]?.statement
           const prop = stmt?.properties
-          const propName = prop?.name || prop?.address || 'Unknown property'
-          const period = stmt?.period_end ? fmtMonth(stmt.period_end) : fmtDate(stmt?.statement_date)
-          const stmtRef = stmt?.reference || stmt?.statement_reference || '—'
-          const needsReview = stmtRows.some(r => r.needs_review)
+          const propName = String(prop?.name || prop?.address || 'Unknown property').split('\n')[0]
+          const month = stmt ? statementMonth(stmt) : null
+          const span = month ? monthPeriod(month) : null
+          const stmtRef = String(stmt?.statement_reference || stmt?.reference || '—').split(' ·')[0]
+          const sum = (k: 'rent_income' | 'management_fee' | 'letting_fee' | 'other_deductions' | 'net_to_landlord') => stmtRows.reduce((t, r) => t + Number(r[k] || 0), 0)
+          const open = stmtRows.filter(r => !r.confirmed && !r.rejected)
+          const th = 'px-sm py-1.5 text-[10px] font-bold uppercase tracking-wide text-[#5B6470] whitespace-nowrap'
+          const td = 'px-sm py-1.5 whitespace-nowrap'
+          const money = 'text-right tabular-nums'
 
           return (
-            <div key={stmtId} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-              {/* Statement header */}
-              <div className="px-xl py-md border-b border-neutral-100 bg-neutral-50 flex items-center justify-between gap-md flex-wrap">
-                <div>
-                  <p className="text-sm font-bold text-neutral-900">{propName}</p>
-                  <p className="text-xs text-neutral-400 mt-xs">
-                    {period} · Ref: <span className="font-mono">{stmtRef}</span>
-                    {stmt?.period_start && stmt?.period_end && (
-                      <> · {fmtDate(stmt.period_start)} – {fmtDate(stmt.period_end)}</>
-                    )}
-                  </p>
-                </div>
-                {needsReview && (
-                  <span className="text-xs font-semibold px-sm py-xs rounded-full bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                    Needs review
-                  </span>
-                )}
+            <section key={stmtId} className="overflow-hidden rounded-lg border border-[#D6DCE3] bg-white shadow-sm">
+              {/* statement band */}
+              <div className="flex flex-wrap items-center gap-x-md gap-y-1 border-b border-[#D6DCE3] bg-[#EEF1F5] px-md py-sm">
+                <p className="text-sm font-bold text-neutral-900">{propName}</p>
+                <span className="text-xs font-semibold text-neutral-700">{month ? monthLabel(month) : '—'}</span>
+                {span && <span className="text-xs text-neutral-500">{fmtDate(span.start)} – {fmtDate(span.end)}</span>}
+                <span className="rounded bg-white px-1.5 py-px font-mono text-[11px] text-neutral-700 ring-1 ring-[#D6DCE3]">{stmtRef}</span>
+                {stmtRows.some(r => r.needs_review) && <span className="rounded bg-amber-100 px-1.5 py-px text-[10px] font-bold uppercase text-amber-800">Needs review</span>}
+                <span className="ml-auto flex items-center gap-sm">
+                  {/^LS\d/i.test(stmtRef) && <button type="button" onClick={() => previewStatement(stmtId, `${propName} · ${stmtRef}`)} className="rounded-md border border-[#C9D1DA] bg-white px-sm py-1 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">📄 View statement</button>}
+                  {tab === 'pending' && open.length > 1 && (
+                    <button type="button" onClick={() => confirmMany(open.map(r => r.id))} disabled={open.some(r => busy[r.id])} className="rounded-md bg-neutral-900 px-sm py-1 text-xs font-bold text-white disabled:opacity-50">Confirm all {open.length}</button>
+                  )}
+                </span>
               </div>
-
-              {/* Room lines */}
-              <div className="divide-y divide-neutral-100">
-                {stmtRows.map(row => {
-                  const tenantName = row.tenant
-                    ? [row.tenant.salutation, row.tenant.first_name, row.tenant.last_name].filter(Boolean).join(' ') || row.tenant.full_name || row.tenant_name
-                    : row.tenant_name
-                  const roomName = row.room?.name || (row.room_number ? `Room ${row.room_number}` : 'Unknown room')
-                  const charge = row.rent_charge
-                  const chargeStatus = charge?.status
-
-                  return (
-                    <div key={row.id} className="px-xl py-md flex items-start justify-between gap-md flex-wrap">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-sm flex-wrap">
-                          <p className="text-sm font-semibold text-neutral-900">{roomName}</p>
-                          {row.needs_review && !row.room_id && (
-                            <span className="text-xs px-sm py-xs rounded-full bg-amber-50 text-amber-700 border border-amber-200">Unmatched room</span>
-                          )}
-                          {row.rent_charge_id && (
-                            <span className="text-xs px-sm py-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">Charge linked</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-neutral-500 mt-xs">{tenantName}</p>
-                        <div className="mt-sm flex gap-lg text-xs text-neutral-600 flex-wrap">
-                          <span>Rent received: <FinancialTrail type="statement_room" id={row.id}><strong className="text-neutral-900">{gbp(row.rent_income)}</strong></FinancialTrail></span>
-                          <span>Mgmt fee: <FinancialTrail type="statement_room" id={row.id}><strong className="text-neutral-900">{gbp(row.management_fee)}</strong></FinancialTrail></span>
-                          {row.letting_fee > 0 && <span>Letting fee: <strong className="text-neutral-900">{gbp(row.letting_fee)}</strong></span>}
-                          {row.other_deductions > 0 && <span>Other deductions: <strong className="text-neutral-900">{gbp(row.other_deductions)}</strong></span>}
-                          <span>Net to landlord: <strong className="text-neutral-900">{gbp(row.net_to_landlord)}</strong></span>
-                          {charge && (
-                            <span>
-                              Charge due: <strong className="text-neutral-900">{gbp(charge.amount_due)}</strong>
-                              {' '}
-                              <span className={`font-semibold ${chargeStatus === 'paid' ? 'text-green-700' : 'text-amber-700'}`}>
-                                ({chargeStatus})
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-xs">
+                  <thead className="border-b border-[#D6DCE3] bg-[#F6F8FA]">
+                    <tr>
+                      <th className={`${th} text-left`}>Room</th>
+                      <th className={`${th} text-left`}>Tenant</th>
+                      <th className={`${th} text-right`}>Rent</th>
+                      <th className={`${th} text-right`}>Mgmt fee</th>
+                      <th className={`${th} text-right`}>Letting fee</th>
+                      <th className={`${th} text-right`}>Other</th>
+                      <th className={`${th} text-right`}>Net</th>
+                      <th className={`${th} text-right`}>{tab === 'pending' ? '' : 'Status'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stmtRows.map((row, i) => {
+                      const tenantName = row.tenant
+                        ? [row.tenant.salutation, row.tenant.first_name, row.tenant.last_name].filter(Boolean).join(' ') || row.tenant.full_name || row.tenant_name
+                        : row.tenant_name
+                      const roomName = row.room?.name || (row.room_number ? `Room ${row.room_number}` : 'Unknown room')
+                      const noFee = !Number(row.management_fee) && Number(row.rent_income) > 0
+                      return (
+                        <tr key={row.id} className={`border-b border-[#EDF0F3] last:border-0 ${i % 2 ? 'bg-[#FAFBFC]' : 'bg-white'} hover:bg-[#F1F5FA]`}>
+                          <td className={`${td} font-semibold text-neutral-900`}>
+                            {roomName}
+                            {row.needs_review && !row.room_id && <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-bold text-amber-800">unmatched</span>}
+                          </td>
+                          <td className={`${td} max-w-[220px] truncate text-neutral-700`}>
+                            {row.tenancy_id ? <Link href={`/admin/tenant/${row.tenant_id}`} className="hover:underline">{tenantName}</Link> : tenantName}
+                          </td>
+                          <td className={`${td} ${money} font-semibold text-neutral-900`}><FinancialTrail type="statement_room" id={row.id}>{gbp(row.rent_income)}</FinancialTrail></td>
+                          <td className={`${td} ${money} ${noFee ? 'text-amber-700' : 'text-neutral-700'}`} title={noFee ? 'No fee matched for this room' : undefined}>{gbp(row.management_fee)}</td>
+                          <td className={`${td} ${money} text-neutral-700`}>{Number(row.letting_fee) ? gbp(row.letting_fee) : '—'}</td>
+                          <td className={`${td} ${money} text-neutral-700`}>{Number(row.other_deductions) ? gbp(row.other_deductions) : '—'}</td>
+                          <td className={`${td} ${money} font-semibold text-neutral-900`}>{gbp(row.net_to_landlord)}</td>
+                          <td className={`${td} text-right`}>
+                            {tab === 'pending' && (rejectTarget === row.id ? (
+                              <span className="inline-flex items-center gap-1">
+                                <input type="text" placeholder="Reason (optional)" value={rejectNote} onChange={e => setRejectNote(e.target.value)} className="w-32 rounded border border-neutral-300 px-1 py-0.5 text-xs" />
+                                <button onClick={() => handleAction(row.id, 'reject', rejectNote)} disabled={busy[row.id]} className="rounded bg-red-600 px-sm py-0.5 text-xs font-semibold text-white disabled:opacity-50">Reject</button>
+                                <button onClick={() => { setRejectTarget(null); setRejectNote('') }} className="text-xs text-neutral-500">Cancel</button>
                               </span>
-                            </span>
-                          )}
-                        </div>
-                        {row.tenancy_id && (
-                          <Link
-                            href={`/admin/tenant/${row.tenant_id}`}
-                            className="text-xs text-indigo-600 hover:underline mt-xs inline-block"
-                          >
-                            View tenant →
-                          </Link>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-sm shrink-0">
-                        {tab === 'pending' && (
-                          <>
-                            {rejectTarget === row.id ? (
-                              <div className="flex items-center gap-sm">
-                                <input
-                                  type="text"
-                                  placeholder="Reason (optional)"
-                                  value={rejectNote}
-                                  onChange={e => setRejectNote(e.target.value)}
-                                  className="text-xs border border-neutral-300 rounded px-sm py-xs w-40 focus:outline-none focus:ring-2 focus:ring-neutral-400"
-                                />
-                                <button
-                                  onClick={() => handleAction(row.id, 'reject', rejectNote)}
-                                  disabled={busy[row.id]}
-                                  className="text-xs font-semibold px-md py-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                                >
-                                  Confirm reject
-                                </button>
-                                <button
-                                  onClick={() => { setRejectTarget(null); setRejectNote('') }}
-                                  className="text-xs text-neutral-400 hover:text-neutral-700"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
                             ) : (
-                              <>
-                                <button
-                                  onClick={() => setRejectTarget(row.id)}
-                                  disabled={busy[row.id]}
-                                  className="text-xs font-semibold px-md py-sm rounded-lg border border-neutral-300 text-neutral-700 hover:border-red-400 hover:text-red-700 disabled:opacity-50"
-                                >
-                                  Reject
-                                </button>
-                                <button
-                                  onClick={() => handleAction(row.id, 'confirm')}
-                                  disabled={busy[row.id]}
-                                  className="text-xs font-semibold px-md py-sm rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-50"
-                                >
-                                  {busy[row.id] ? 'Saving…' : 'Confirm'}
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
-
-                        {tab === 'confirmed' && (
-                          <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-md py-sm rounded-lg">
-                            ✓ Confirmed
-                          </span>
-                        )}
-
-                        {tab === 'rejected' && (
-                          <div className="text-right">
-                            <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-md py-sm rounded-lg">
-                              Rejected
-                            </span>
-                            {row.rejection_note && (
-                              <p className="text-xs text-neutral-400 mt-xs">{row.rejection_note}</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                              <span className="inline-flex items-center gap-1">
+                                <button onClick={() => setRejectTarget(row.id)} disabled={busy[row.id]} className="rounded border border-neutral-300 px-sm py-0.5 text-xs font-semibold text-neutral-600 hover:border-red-400 hover:text-red-700 disabled:opacity-50">Reject</button>
+                                <button onClick={() => handleAction(row.id, 'confirm')} disabled={busy[row.id]} className="rounded bg-neutral-900 px-sm py-0.5 text-xs font-semibold text-white disabled:opacity-50">{busy[row.id] ? '…' : 'Confirm'}</button>
+                              </span>
+                            ))}
+                            {tab === 'confirmed' && <span className="text-[11px] font-semibold text-green-700">✓ Confirmed</span>}
+                            {tab === 'rejected' && <span className="text-[11px] font-semibold text-red-700" title={row.rejection_note || undefined}>Rejected{row.rejection_note ? ' ·' : ''} {row.rejection_note}</span>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot className="border-t border-[#D6DCE3] bg-[#F6F8FA] font-semibold text-neutral-900">
+                    <tr>
+                      <td className={td} colSpan={2}>{stmtRows.length} room{stmtRows.length === 1 ? '' : 's'}</td>
+                      <td className={`${td} ${money}`}>{gbp(sum('rent_income'))}</td>
+                      <td className={`${td} ${money}`}>{gbp(sum('management_fee'))}</td>
+                      <td className={`${td} ${money}`}>{sum('letting_fee') ? gbp(sum('letting_fee')) : '—'}</td>
+                      <td className={`${td} ${money}`}>{sum('other_deductions') ? gbp(sum('other_deductions')) : '—'}</td>
+                      <td className={`${td} ${money}`}>{gbp(sum('net_to_landlord'))}</td>
+                      <td className={td} />
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
-            </div>
+            </section>
           )
         })}
+
+        {/* the agent's own statement, to check the lines against */}
+        {preview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md" onClick={() => setPreview(null)}>
+            <div className="flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-neutral-200 px-md py-sm">
+                <p className="text-sm font-bold text-neutral-900">{preview.title}</p>
+                <span className="flex items-center gap-sm">
+                  {preview.url && <a href={preview.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-700 underline">Open in a new tab</a>}
+                  <button type="button" onClick={() => setPreview(null)} className="text-xl leading-none text-neutral-400 hover:text-neutral-900">×</button>
+                </span>
+              </div>
+              {preview.url ? <iframe src={preview.url} title={preview.title} className="flex-1 bg-neutral-100" />
+                : <p className="p-lg text-sm text-neutral-600">{preview.error || 'Loading the statement…'}</p>}
+            </div>
+          </div>
+        )}
 
         {/* ── UNMATCHED BANK PAYMENTS TAB ─────────────────────────────────── */}
         {tab === 'unmatched' && (
@@ -714,6 +727,7 @@ export default function ReconciliationPage() {
           </details>
         )}
 
+      </div>
       </div>
     </>
   )

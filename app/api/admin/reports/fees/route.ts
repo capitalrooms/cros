@@ -1,4 +1,5 @@
 import { dropDemo } from '@/lib/demoProperties'
+import { statementsInMonths } from '@/lib/finance/statementMonth'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
@@ -18,12 +19,8 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search') || ''
 
   // Two-step: find matching statement IDs first, then fetch LSR rows
-  const { data: stmts, error: stmtErr } = await supabase
-    .from('landlord_statements')
-    .select('id, property_id')
-    .gte('period_end', from)
-    .lte('period_end', to)
-  if (stmtErr) return NextResponse.json({ error: stmtErr.message }, { status: 500 })
+  // counted in each statement's rent month (lib/finance/statementMonth), not the agent's period end date
+  const stmts = await statementsInMonths(supabase as any, from, to)
 
   const stmtIds = (await dropDemo(supabase as any, stmts as any[], (r: any) => r.property_id)).map((s: any) => s.id)
   if (stmtIds.length === 0) return NextResponse.json({ from, to, properties: [], totals: { management_fee: 0, letting_fee: 0 } })

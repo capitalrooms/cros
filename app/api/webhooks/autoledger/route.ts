@@ -464,6 +464,12 @@ Respond with JSON only in this exact shape:
   for (let i = 0; i < rawItems.length; i++) {
     if (rawItems[i].line_type === 'income') {
       categorised[i] = { category: 'rent_income', confidence: 1.0 }
+    } else if (/\bmanagement\s+fee\b/i.test(rawItems[i].description)) {
+      // the agent's own fee lines ("Room 1 Management Fee (10%) - Mr Joel Sutton") — never a guess (17 Oct 2026: 11
+      // were filed as room maintenance, so their rooms showed no fee and maintenance looked higher than it was)
+      categorised[i] = { category: 'management_fee', confidence: 1.0 }
+    } else if (/\bletting\s+fee\b/i.test(rawItems[i].description)) {
+      categorised[i] = { category: 'letting_fee', confidence: 1.0 }
     } else {
       expenseIdxs.push(i)
     }
