@@ -692,7 +692,7 @@ export default function LettingsPage() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                   <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: '#181614' }}>Availability <span style={{ fontSize: 13, color: '#78716c', fontWeight: 600 }}>· {availableRooms.length}</span></h2>
-                  <a href="/admin/let-only-properties" style={{ background: '#181614', color: 'white', textDecoration: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-block' }}>+ Let-only property</a>
+                  <span style={{ display: 'flex', gap: 8 }}><a href="/lettings/board" style={{ background: 'white', color: '#181614', border: '1px solid #D8D2C4', textDecoration: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, display: 'inline-block' }}>Marketing board</a><a href="/admin/let-only-properties" style={{ background: '#181614', color: 'white', textDecoration: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-block' }}>+ Let-only property</a></span>
                 </div>
                 {availableRooms.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center"><p className="text-sm text-neutral-400">No available rooms</p></div>
@@ -997,6 +997,7 @@ export default function LettingsPage() {
               <h2 className="text-base font-bold text-neutral-900">
                 Availability <span className="text-sm font-semibold text-neutral-500">· {availableRooms.length}</span>
               </h2>
+              <a href="/lettings/board" className="mr-xs rounded-xl border border-neutral-300 bg-white px-md py-xs text-xs font-bold text-neutral-900">Board</a>
               <a
                 href="/admin/let-only-properties"
                 className="rounded-full bg-neutral-900 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"

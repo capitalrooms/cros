@@ -36,17 +36,21 @@ export default async function SharedListing({ params }: { params: Promise<{ room
   const { roomId, token } = await params
   const l = await load(roomId, token)
   if (!l) notFound()
-  const title = l.wholeLet ? publicTitle(l.displayName) : `${l.roomName} — ${publicTitle(l.displayName)}`
+  const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
+  const title = l.headline || (l.wholeLet ? where : `${l.roomName} — ${where}`)
   const photos = l.media.filter(m => m.kind === 'photo'), videos = l.media.filter(m => m.kind === 'video')
   return (
     <PublicShell centred label="Room to rent">
       <article className="mx-auto max-w-3xl px-5 pb-16 pt-8 md:px-8">
-        <p className="pub-eyebrow">{l.area}</p>
+        {l.status === 'let_agreed' && <p className="mb-4 rounded-lg bg-neutral-900 px-4 py-2 text-[14px] font-semibold text-white">Let agreed — this {l.wholeLet ? 'home' : 'room'} has been taken. Call us for others like it.</p>}
+        <p className="pub-eyebrow">{l.displayAddress || l.area}</p>
         <h1 className="mt-2 text-[34px] leading-tight md:text-[44px]" style={{ fontFamily: 'var(--pub-serif), serif' }}>{title}</h1>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[15px]">
-          {l.rent != null && <span className="text-[22px] font-semibold">{gbp(l.rent)} <span className="text-[14px] font-normal text-neutral-500">pcm{l.billsIncluded ? ' · bills included' : ''}</span></span>}
+          {l.rent != null && <span className="text-[22px] font-semibold">{gbp(l.rent)} <span className="text-[14px] font-normal text-neutral-500">{l.rentFrequency}{l.billsIncluded ? ' · bills included' : ''}</span></span>}
           <span className="font-semibold text-emerald-700">{when(l.available)}</span>
         </div>
+        {/* material information Part A — on the listing itself: rent (above), deposit, council tax */}
+        <p className="mt-2 text-[13px] text-neutral-600">{[l.deposit != null ? `Deposit £${l.deposit.toLocaleString('en-GB')}` : '', l.holdingDeposit != null ? `holding deposit £${l.holdingDeposit.toLocaleString('en-GB')}` : '', l.councilTax ? `council tax: ${l.councilTax.toLowerCase()}` : '', l.minTermMonths ? `minimum ${l.minTermMonths} months` : ''].filter(Boolean).join(' · ')}</p>
 
         {photos.length > 0 && (
           <div className="mt-6 -mx-5 flex snap-x snap-mandatory gap-2 overflow-x-auto px-5 pb-2 md:-mx-8 md:px-8" style={{ scrollbarWidth: 'thin' }}>
