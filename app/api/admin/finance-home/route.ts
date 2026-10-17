@@ -51,20 +51,18 @@ export async function GET(req: NextRequest) {
     const gbp = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
     const prev = roll.source === 'previous_agent'
-    // a month before CROS collected rent: what was paid out, our fees and the expenses come from the agent's imported
-    // statements for that month (17 Oct 2026 — the tiles read £0.00 for every imported month)
-    let imported: { toLandlords: number; fees: number; expenses: number; statements: number } | null = null
-    if (prev) {
-      const ids = (await statementsInMonths(s, `${month}-01`, monthEnd)).filter(x => !demo.has(x.property_id)).map(x => x.id)
-      const { data: sts } = ids.length ? await s.from('landlord_statements').select('net_to_landlord, management_fees, letting_fees, property_charges').in('id', ids) : { data: [] as any[] }
-      const sum = (k: string) => r2(((sts ?? []) as any[]).reduce((t, x) => t + Number(x[k] || 0), 0))
-      imported = { toLandlords: sum('net_to_landlord'), fees: r2(sum('management_fees') + sum('letting_fees')), expenses: sum('property_charges'), statements: ids.length }
-    }
+    // the month's statements — imported ones (the import period: what the agency already did, replicated) and CROS's
+    // own — give what went to landlords, the fees we earned and the expenses charged that month (17 Oct 2026, Harry:
+    // "disappointing to have a dashboard that does not show what went out to landlords … expenses … management fees")
+    const monthIds = (await statementsInMonths(s, `${month}-01`, monthEnd)).filter(x => !demo.has(x.property_id)).map(x => x.id)
+    const { data: monthSts } = monthIds.length ? await s.from('landlord_statements').select('net_to_landlord, management_fees, letting_fees, property_charges, source').in('id', monthIds) : { data: [] as any[] }
+    const sumSt = (k: string) => r2(((monthSts ?? []) as any[]).reduce((t, x) => t + Number(x[k] || 0), 0))
+    const month$ = { toLandlords: sumSt('net_to_landlord'), mgmt: sumSt('management_fees'), letting: sumSt('letting_fees'), expenses: sumSt('property_charges'), statements: monthIds.length, imported: ((monthSts ?? []) as any[]).filter(x => x.source === 'import').length }
     const beforeRecords = monthEnd < start
     const steps = prev ? [
-      { n: 1, label: 'Rent roll', href: `/admin/rent-roll?month=${month}`, status: 'Collected by previous agent', done: true },
-      { n: 2, label: 'Statements', href: '/admin/statements', status: 'Issued by previous agent', done: true },
-      { n: 3, label: 'Payment run', href: `/admin/payment-run?month=${month}`, status: 'Paid by previous agent', done: true },
+      { n: 1, label: 'Rent roll', href: `/admin/rent-roll?month=${month}`, status: 'Imported — collected before go-live', done: true },
+      { n: 2, label: 'Statements', href: '/admin/statements', status: 'Imported statements', done: true },
+      { n: 3, label: 'Payment run', href: `/admin/payment-run?month=${month}`, status: 'Paid before go-live', done: true },
       { n: 4, label: 'Reconcile & close', href: '/admin/client-money', status: beforeRecords ? 'Before CROS records' : closed ? 'Month closed' : 'Not yet', done: beforeRecords || closed },
     ] : [
       { n: 1, label: 'Rent roll', href: `/admin/rent-roll?month=${month}`, status: `${paidRooms}/${rooms.length} rooms in`, done: rooms.length > 0 && paidRooms === rooms.length },
@@ -94,8 +92,8 @@ export async function GET(req: NextRequest) {
       numbers: {
         due: roll.source === 'previous_agent' ? roll.totals.received : roll.totals.due, received: roll.totals.received, missing: roll.totals.missing,
         heldInClientAccount: position.cashbook.total, agrees: position.agrees,
-        toLandlords: imported ? imported.toLandlords : run.totals.toLandlords, fees: imported ? imported.fees : run.totals.fees,
-        expenses: imported ? imported.expenses : null, statements: imported ? imported.statements : null,
+        toLandlords: month$.toLandlords, fees: r2(month$.mgmt + month$.letting), mgmtFees: month$.mgmt, lettingFees: month$.letting, expenses: month$.expenses,
+        statements: month$.statements, importedStatements: month$.imported,
       },
     })
   } catch (e) {
