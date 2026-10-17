@@ -70,6 +70,8 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
   const html = await buildSearchIsOverEmail({
     applicantName: firstName, roomName, propertyAddress: propAddress, propertyCity: 'London',
     advertisedRent: Number(monthly), applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef, whole,
+    // what they asked for on their offer — never a minimum term (Harry, 17 Oct 2026)
+    moveInDate: ctx?.startDate ?? null, term: ctx?.applicant?.preferred_term ?? null, billsIncluded: ctx?.billsIncluded ?? null,
   }, request)
 
   const subject = oneLine(`Your offer has been accepted — secure ${whole ? 'the property' : roomName} now`)

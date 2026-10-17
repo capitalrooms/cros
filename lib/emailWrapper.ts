@@ -153,6 +153,7 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 </head>
 <body style="margin:0;padding:0;background:#f5f4f2;-webkit-text-size-adjust:100%;">
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f5f4f2;padding:24px 0;">
