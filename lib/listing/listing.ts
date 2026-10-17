@@ -13,6 +13,9 @@ export interface Listing {
   wholeLet: boolean; letOnly: boolean
   features: string[]; description: string
   media: ListingMedia[]
+  // from the listing record (migration 227) when there is one
+  headline: string | null; displayAddress: string | null; deposit: number | null; holdingDeposit: number | null
+  councilTax: string | null; status: string | null; minTermMonths: number | null; rentFrequency: 'pcm' | 'pw'
 }
 
 const district = (pc: string | null | undefined) => String(pc ?? '').trim().toUpperCase().match(/^([A-Z]{1,2}\d[A-Z\d]?)/)?.[1] ?? ''
@@ -45,16 +48,28 @@ export async function loadListing(s: SupabaseClient, roomId: string): Promise<Li
   if (r.furnishings_description) features.push(String(r.furnishings_description))
 
   const wholeLet = !/hmo/i.test(String(p.property_type ?? 'hmo'))
+  // the listing record, when one is open for this room — it's what was written for the advert, so it wins
+  const { data: rec } = await s.from('listings').select('*').eq('room_id', roomId).in('status', ['draft', 'ready', 'live', 'let_agreed']).order('created_at', { ascending: false }).limit(1)
+  const L: any = rec?.[0] ?? null
+  if (L) {
+    const byId = new Map(media.map(m => [m.id, m]))
+    const ordered = ((L.media_order ?? []) as string[]).map(id => byId.get(id)).filter(Boolean) as ListingMedia[]
+    if (ordered.length) media.splice(0, media.length, ...ordered)
+  }
   return {
     roomId, propertyId: r.property_id, roomName: r.name ?? 'Room',
     displayName: String(p.name || 'Room to rent').split('\n')[0],
     fullAddress: String(p.address ?? '').replace(/\s*\n\s*/g, ', '),
     area: [district(p.postcode), 'London'].filter(Boolean).join(', '),
-    rent: r.current_asking_rent != null ? Number(r.current_asking_rent) : null,
-    available: r.available_date ?? null, billsIncluded: p.bills_included ?? null,
+    rent: L?.rent != null ? Number(L.rent) : r.current_asking_rent != null ? Number(r.current_asking_rent) : null,
+    available: L?.available_from ?? r.available_date ?? null, billsIncluded: L?.bills_included ?? p.bills_included ?? null,
     wholeLet, letOnly: !!r.is_let_only || p.letting_type === 'let_only',
-    features: [...new Set(features)],
-    description: String(r.marketing_description || r.description || p.description || '').trim(),
+    features: L?.features?.length ? L.features : [...new Set(features)],
+    description: String(L?.description || r.marketing_description || r.description || p.description || '').trim(),
     media,
+    headline: L?.headline ?? null, displayAddress: L?.display_address ?? null,
+    deposit: L?.deposit != null ? Number(L.deposit) : null, holdingDeposit: L?.holding_deposit != null ? Number(L.holding_deposit) : null,
+    councilTax: L ? (L.council_tax_included ? 'Included in the rent' : L.council_tax_band ? `Band ${L.council_tax_band}` : null) : null,
+    status: L?.status ?? null, minTermMonths: L?.min_term_months ?? null, rentFrequency: L?.rent_frequency === 'pw' ? 'pw' : 'pcm',
   }
 }
