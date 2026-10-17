@@ -55,9 +55,9 @@ export async function GET(req: NextRequest) {
     // own — give what went to landlords, the fees we earned and the expenses charged that month (17 Oct 2026, Harry:
     // "disappointing to have a dashboard that does not show what went out to landlords … expenses … management fees")
     const monthIds = (await statementsInMonths(s, `${month}-01`, monthEnd)).filter(x => !demo.has(x.property_id)).map(x => x.id)
-    const { data: monthSts } = monthIds.length ? await s.from('landlord_statements').select('net_to_landlord, management_fees, letting_fees, property_charges, source').in('id', monthIds) : { data: [] as any[] }
+    const { data: monthSts } = monthIds.length ? await s.from('landlord_statements').select('gross_rent, net_to_landlord, management_fees, letting_fees, property_charges, source').in('id', monthIds) : { data: [] as any[] }
     const sumSt = (k: string) => r2(((monthSts ?? []) as any[]).reduce((t, x) => t + Number(x[k] || 0), 0))
-    const month$ = { toLandlords: sumSt('net_to_landlord'), mgmt: sumSt('management_fees'), letting: sumSt('letting_fees'), expenses: sumSt('property_charges'), statements: monthIds.length, imported: ((monthSts ?? []) as any[]).filter(x => x.source === 'import').length }
+    const month$ = { rent: sumSt('gross_rent'), toLandlords: sumSt('net_to_landlord'), mgmt: sumSt('management_fees'), letting: sumSt('letting_fees'), expenses: sumSt('property_charges'), statements: monthIds.length, imported: ((monthSts ?? []) as any[]).filter(x => x.source === 'import').length }
     const beforeRecords = monthEnd < start
     const steps = prev ? [
       { n: 1, label: 'Rent roll', href: `/admin/rent-roll?month=${month}`, status: 'Imported — collected before go-live', done: true },
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       numbers: {
         due: roll.source === 'previous_agent' ? roll.totals.received : roll.totals.due, received: roll.totals.received, missing: roll.totals.missing,
         heldInClientAccount: position.cashbook.total, agrees: position.agrees,
-        toLandlords: month$.toLandlords, fees: r2(month$.mgmt + month$.letting), mgmtFees: month$.mgmt, lettingFees: month$.letting, expenses: month$.expenses,
+        statementRent: month$.rent, toLandlords: month$.toLandlords, fees: r2(month$.mgmt + month$.letting), mgmtFees: month$.mgmt, lettingFees: month$.letting, expenses: month$.expenses,
         statements: month$.statements, importedStatements: month$.imported,
       },
     })
