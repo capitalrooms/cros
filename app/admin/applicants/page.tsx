@@ -14,6 +14,7 @@ import HoldingDepositModal from '@/components/HoldingDepositModal'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import HouseSearch from '@/app/components/HouseSearch'
 import { displayName } from '@/lib/people'
+import LandlordUpdates from '@/app/components/LandlordUpdates'
 
 const STAGES = [
   { key: 'invited',            label: 'Invited',            color: 'bg-neutral-100 text-neutral-600',  dot: 'bg-neutral-400' },
@@ -77,6 +78,7 @@ interface Applicant {
 const stageInfo = (key: string) => STAGES.find(s => s.key === key) || STAGES[0]
 
 export default function ApplicantsPage() {
+  const [landlordFor, setLandlordFor] = useState<string | null>(null)   // "Tell the landlord" open for this applicant
   const router = useRouter()
   const [applicants, setApplicants] = useState<Applicant[]>([])
   const [properties, setProperties] = useState<any[]>([])
@@ -827,6 +829,19 @@ export default function ApplicantsPage() {
                             className="text-xs font-semibold border border-red-300 text-red-700 rounded-lg px-md py-sm hover:bg-red-50">
                             Decline £{Number(applicant.offered_rent).toLocaleString()} offer…
                           </button>
+                        )}
+
+                        {/* the landlord sees the offer first (Nigel likes to review) — and every later update (17 Oct 2026) */}
+                        {!applicant.archived_at && (
+                          <button type="button" onClick={() => setLandlordFor(landlordFor === applicant.id ? null : applicant.id)}
+                            className="text-xs font-semibold border border-neutral-300 text-neutral-800 rounded-lg px-md py-sm hover:bg-neutral-50">
+                            {['applied', 'offer_sent'].includes(applicant.pipeline_stage) ? 'Send to landlord to review…' : 'Tell the landlord…'}
+                          </button>
+                        )}
+                        {landlordFor === applicant.id && (
+                          <div className="basis-full rounded-xl border border-neutral-200 bg-neutral-50 p-md">
+                            <LandlordUpdates applicantId={applicant.id} bare />
+                          </div>
                         )}
 
                         {(applicant.pipeline_stage === 'applied' || applicant.pipeline_stage === 'offer_sent') && (
