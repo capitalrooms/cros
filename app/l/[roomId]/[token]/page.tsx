@@ -13,7 +13,6 @@ import { createServiceClient } from '@/lib/supabase'
 import { loadListing, listingToken, type Listing } from '@/lib/listing/listing'
 import { nearbyStations, type Station } from '@/lib/listing/area'
 import ListingGallery, { ShareButton } from './ListingGallery'
-import Doorstep from './Doorstep'
 
 export const dynamic = 'force-dynamic'
 
@@ -223,9 +222,6 @@ export default async function SharedListing({ params }: { params: Promise<{ room
                 )}
               </section>
             )}
-
-            {/* everyday places within a short walk — looked up from the visitor's browser (see Doorstep) */}
-            {l.approx && <Doorstep lat={l.approx.lat} lng={l.approx.lng} />}
 
             {costs.length > 0 && (
               <section className="mt-10">
