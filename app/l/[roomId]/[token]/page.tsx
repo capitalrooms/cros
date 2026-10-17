@@ -28,6 +28,20 @@ const gbp = (n: number) => `£${n.toLocaleString('en-GB', { maximumFractionDigit
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const when = (d: string | null) => !d ? 'Ask us' : d <= today() ? 'Available now' : `From ${new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
 
+/** The ad's title, as the portals write it: what it is, then where — "Medium double room on Willis Road, E15".
+ *  The room type is the one saved on the room ("Large Double Ensuite" → "Large double en-suite room"). */
+function adTitle(l: Listing) {
+  const f = l.facts
+  const where = l.displayAddress?.trim() || publicTitle(l.displayName)
+  if (l.wholeLet) return `${f.bedrooms ? `${f.bedrooms}-bedroom home` : 'Home'} on ${where}`
+  let kind = f.roomType && !/single let/i.test(f.roomType) ? f.roomType.toLowerCase().replace(/en-?suite/, 'en-suite').replace(/\s+room$/, '') : f.ensuite ? 'en-suite' : ''
+  if (f.ensuite && kind && !kind.includes('en-suite')) kind += ' en-suite'
+  const it = `${kind} room`.trim()
+  return `${it[0].toUpperCase()}${it.slice(1)} on ${where}`
+}
+// a written headline is kept as a line under the title — unless it only says the same again ("Double room on Willis Road")
+const extraHeadline = (l: Listing, where: string) => l.headline && !l.headline.toLowerCase().includes(where.toLowerCase()) ? l.headline : null
+
 async function load(roomId: string, token: string) {
   if (token !== listingToken(roomId)) return null
   return loadListing(createServiceClient() as any, roomId)
@@ -52,7 +66,7 @@ export async function generateMetadata({ params }: { params: Promise<{ roomId: s
   const l = await load(roomId, token)
   if (!l) return { title: 'Capital Rooms' }
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
-  const title = `${l.headline || (l.wholeLet ? where : `${l.roomName} · ${where}`)}${l.rent ? ` — ${gbp(l.rent)} pcm` : ''}`
+  const title = `${adTitle(l)}${l.rent ? ` — ${gbp(l.rent)} pcm` : ''}`
   const description = (l.description || `${l.wholeLet ? 'Home' : 'Room'} to rent on ${where}${l.billsIncluded ? ', bills included' : ''}. ${when(l.available)}.`).slice(0, 160)
   return { title, description, openGraph: { title, description, images: l.media.filter(m => m.kind === 'photo').slice(0, 1).map(m => m.url) }, robots: { index: false } }
 }
@@ -63,7 +77,7 @@ export default async function SharedListing({ params }: { params: Promise<{ room
   if (!l) notFound()
   const f = l.facts
   const where = l.displayAddress?.split(',')[0] || publicTitle(l.displayName)
-  const title = l.headline || (l.wholeLet ? where : `${l.roomName} — ${where}`)
+  const title = adTitle(l), headline = extraHeadline(l, where)
   const photos = l.media.filter(m => m.kind === 'photo'), videos = l.media.filter(m => m.kind === 'video')
   const stations = l.approx ? await nearbyStations(l.approx.lat, l.approx.lng) : []
   const description = l.description || autoDescription(l, where, stations)
@@ -141,8 +155,8 @@ export default async function SharedListing({ params }: { params: Promise<{ room
 
         <div className="mt-6 grid gap-10 md:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0">
-            <p className="pub-eyebrow">{l.displayAddress || [where, l.area].filter(Boolean).join(' · ')}</p>
-            <h1 className="mt-2 text-[34px] leading-[1.08] md:text-[46px]" style={{ fontFamily: 'var(--pub-serif), serif' }}>{title}</h1>
+            <h1 className="text-[34px] leading-[1.08] md:text-[46px]" style={{ fontFamily: 'var(--pub-serif), serif', textWrap: 'balance' }}>{title}</h1>
+            {headline && <p className="mt-2 text-[18px] text-neutral-700">{headline}</p>}
             <p className="mt-2 text-[15px] text-neutral-600">{l.wholeLet ? f.propertyType : f.propertyType}{f.council ? ` · ${f.council}` : ''}</p>
             {/* the price, up top on a phone — on a computer it heads the box alongside */}
             <p className="mt-3 text-[26px] font-semibold leading-none tabular-nums md:hidden">
