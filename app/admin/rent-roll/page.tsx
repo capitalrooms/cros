@@ -205,7 +205,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
                           </span>
                           {(!prevAgent && r.tenancyId) || (practice && r.chargeId && r.due != null && r.received < r.due) ? (
                             <span className="mt-0.5 flex gap-1">
-                              {!prevAgent && r.tenancyId && <button type="button" onClick={() => setSortFor(r.tenancyId)} className="rounded border border-neutral-300 bg-white px-1.5 text-[10.5px] font-semibold text-neutral-800 hover:bg-neutral-100">Sort out…</button>}
+                              {!prevAgent && r.tenancyId && <button type="button" onClick={() => setSortFor(r.tenancyId)} className="rounded border border-neutral-300 bg-white px-1.5 text-[10.5px] font-semibold text-neutral-800 hover:bg-neutral-100">Adjust account…</button>}
                               {practice && r.chargeId && r.due != null && r.received < r.due && <button type="button" disabled={!!busyPractice} onClick={() => recordPractice(r.chargeId!, r.due!, r.received)} className="rounded border border-amber-400 bg-amber-50 px-1.5 text-[10.5px] font-semibold text-amber-900">{busyPractice === r.chargeId ? 'Recording…' : 'Record practice payment'}</button>}
                             </span>
                           ) : null}

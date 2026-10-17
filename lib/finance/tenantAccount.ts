@@ -19,7 +19,18 @@ export async function tenantAccount(s: SupabaseClient, tenancyId: string): Promi
     .gte('charge_month', String(tt.start_date).slice(0, 7) + '-01').order('charge_month')
   if (tt.end_date) q = q.lte('charge_month', tt.end_date)
   const { data: charges } = await q
+  // A room charge with no tenancy (imported from an agent's statement before the tenant was in CROS) in the month this
+  // tenancy began belongs to whoever was in the room on the 1st — the outgoing tenant — not the one arriving mid-month.
+  // (Erin Pollard, 17 Oct 2026: moved in 20 Sept and was shown Isaac Hale's £950 September rent.)
+  const startMonth = String(tt.start_date).slice(0, 7)
+  let outgoingHadStartMonth = false
+  if (!String(tt.start_date).endsWith('-01')) {
+    const { data: before } = await s.from('tenancies').select('id').eq('room_id', tt.room_id).neq('id', tt.id).is('let_cancelled_at', null)
+      .lte('start_date', `${startMonth}-01`).or(`end_date.is.null,end_date.gte.${startMonth}-01`).limit(1)
+    outgoingHadStartMonth = !!(before ?? []).length
+  }
   const live = ((charges ?? []) as any[]).filter(c => !c.voided)
+    .filter(c => !(outgoingHadStartMonth && !c.tenancy_id && String(c.charge_month).slice(0, 7) === startMonth))
   const ids = live.map(c => c.id)
   const { data: audit } = ids.length
     ? await s.from('payment_audit_log').select('rent_charge_id, action, performed_at, new_value, bank_transaction_id').in('rent_charge_id', ids).in('action', ['csv_matched', 'manual_allocated', 'fuzzy_confirmed', 'manually_paid']).order('performed_at')

@@ -96,7 +96,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
           ...(file.account && file.stage !== 'let_agreed' ? [{ label: 'Rent account', value: file.account.balance > 0.004 ? `${gbp(file.account.balance)} owed` : file.account.balance < -0.004 ? `${gbp(-file.account.balance)} credit` : 'Clear', tone: (file.account.balance > 0.004 ? 'bad' : 'good') as 'bad' | 'good' }] : []),
           { label: 'Deposit', value: gbp(tn.deposit_amount) },
         ]}
-        tabs={TABS.map(([k, label]) => ({ key: k, label: k === 'letters' && file.documents.length ? `${label} · ${file.documents.length}` : label, active: activeTab === k, onClick: () => setTab(k) }))}
+        tabs={TABS.map(([k, label]) => ({ key: k, label: k === 'letters' && file.documents.length ? `${label} · ${file.documents.length}` : k === 'progress' && file.stage !== 'let_agreed' ? 'Move-in' : label, active: activeTab === k, onClick: () => setTab(k) }))}
       />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         {file.stage === 'fell_through' && (
@@ -149,8 +149,11 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
                 )}
               </ul>
             </section>
-            {/* reserved, referencing passed, signed & paid, the full report — each a draft to check, then Send (17 Oct 2026) */}
-            {file.stage !== 'fell_through' && <LandlordUpdates tenancyId={tenancyId} />}
+            {/* Landlord updates — before move-in every step; the first two months the full report; after that only what was sent */}
+            {file.stage !== 'fell_through' && <LandlordUpdates tenancyId={tenancyId} phase={
+              file.stage === 'let_agreed' ? 'letting'
+              : file.stage === 'live' && tn.start_date && (Date.parse(file.today) - Date.parse(tn.start_date)) / 86_400_000 <= 60 ? 'settling'
+              : 'established'} />}
             {activeTab !== 'letters' && (
               <section className="rounded-2xl border border-neutral-200 bg-white p-md">
                 <div className="mb-sm flex items-baseline justify-between gap-sm">

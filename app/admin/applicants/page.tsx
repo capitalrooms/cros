@@ -79,7 +79,7 @@ interface Applicant {
 const stageInfo = (key: string) => STAGES.find(s => s.key === key) || STAGES[0]
 
 export default function ApplicantsPage() {
-  const [landlordFor, setLandlordFor] = useState<string | null>(null)   // "Tell the landlord" open for this applicant
+  const [landlordFor, setLandlordFor] = useState<string | null>(null)   // Landlord updates open for this applicant
   const router = useRouter()
   const [applicants, setApplicants] = useState<Applicant[]>([])
   const [properties, setProperties] = useState<any[]>([])
@@ -836,7 +836,7 @@ export default function ApplicantsPage() {
                         {!applicant.archived_at && (
                           <button type="button" onClick={() => setLandlordFor(landlordFor === applicant.id ? null : applicant.id)}
                             className="text-xs font-semibold border border-neutral-300 text-neutral-800 rounded-lg px-md py-sm hover:bg-neutral-50">
-                            {['applied', 'offer_sent'].includes(applicant.pipeline_stage) ? 'Send to landlord to review…' : 'Tell the landlord…'}
+                            {['applied', 'offer_sent'].includes(applicant.pipeline_stage) ? 'Send to landlord to review…' : 'Landlord updates…'}
                           </button>
                         )}
                         {landlordFor === applicant.id && (

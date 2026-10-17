@@ -583,7 +583,7 @@ export function MoneyTab({ file }: { file: LettingFile }) {
         <div className="flex flex-wrap items-center justify-between gap-sm mb-sm">
           <h2 className="text-lg font-bold">Rent account</h2>
           <span className="flex flex-wrap gap-sm">
-            <button type="button" className={btn} onClick={() => setSorting(true)}>Sort out rent…</button>
+            <button type="button" className={btn} onClick={() => setSorting(true)}>Adjust account…</button>
             <button type="button" className={btn} onClick={() => openPdf(`/api/admin/tenancies/${t.id}/statement-of-account`)}>Statement of account (PDF)</button>
           </span>
         </div>
