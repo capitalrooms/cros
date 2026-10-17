@@ -2,11 +2,12 @@
 
 // The back control for every screen and every role (17 Oct 2026 — Harry: "anywhere on the site if you go into a
 // screen you can always go back to the previous screen … the text is tiny and doesn't look very professional").
-// A clear pill on the dark top bar: ← and the name of the screen it goes back to.
+// A clear pill on the dark top bar: ← Previous. (It named the screen it went back to, from that screen's heading —
+// Harry, 17 Oct 2026: "says random names, safer to just call it previous".)
 //   - came from another screen in this tab → goes back to it, exactly as you left it (its tab and filters are in its
 //     address), and shows its name (lib/navTrail). Tab clicks on the same screen don't count as screens, so one press
 //     always leaves the screen — browser back would step through every tab first.
-//   - opened directly (a link, a refresh) → goes to `href`, the screen's natural parent, named by `label`
+//   - opened directly (a link, a refresh) → goes to `href`, the screen's natural parent
 //   - neither → browser back
 // On a phone it shrinks to the arrow with a short name.
 import Link from 'next/link'
@@ -24,7 +25,7 @@ function Arrow() {
   )
 }
 
-export default function BackButton({ href, label, optional = false }: { href?: string; label?: string; /** draw nothing when there's nowhere to go back to (a section's own home) */ optional?: boolean }) {
+export default function BackButton({ href, optional = false }: { href?: string; /** kept so existing screens compile; the button always says Previous */ label?: string; /** draw nothing when there's nowhere to go back to (a section's own home) */ optional?: boolean }) {
   const router = useRouter()
   const [prev, setPrev] = useState<TrailEntry | null>(null)
   useEffect(() => {
@@ -34,15 +35,15 @@ export default function BackButton({ href, label, optional = false }: { href?: s
     return () => window.removeEventListener('cros-trail', read)
   }, [])
 
-  const name = prev?.label || label || 'Back'
+  const name = 'Previous'
   const inner = (
     <>
       <Arrow />
-      <span className="min-w-0 truncate max-w-[6.5rem] sm:max-w-[16rem]">{name}</span>
+      <span>{name}</span>
     </>
   )
-  if (prev) return <button type="button" onClick={() => router.push(prev.url)} className={pill} title={`Back to ${name}`} aria-label={`Back to ${name}`}>{inner}</button>
-  if (href) return <Link href={href} className={pill} title={label ? `Back to ${label}` : 'Back'} aria-label={label ? `Back to ${label}` : 'Back'}>{inner}</Link>
+  if (prev) return <button type="button" onClick={() => router.push(prev.url)} className={pill} title="Previous screen" aria-label="Previous screen">{inner}</button>
+  if (href) return <Link href={href} className={pill} title="Previous screen" aria-label="Previous screen">{inner}</Link>
   if (optional) return null
-  return <button type="button" onClick={() => router.back()} className={pill} aria-label="Back">{inner}</button>
+  return <button type="button" onClick={() => router.back()} className={pill} aria-label="Previous screen">{inner}</button>
 }
