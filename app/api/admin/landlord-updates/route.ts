@@ -4,6 +4,8 @@
  *   POST { applicantId?, tenancyId?, stage, to, subject, message, facts: [{label, value}], docIds: [] }
  *        → emails the landlord (our house email, the signed-in person signs it); when documents are shared, or it's an
  *          offer to review, a private page goes with it that stops working after 7 days. Logged on the letting file.
+ *          attachStatement: true (let-only tenancies) attaches the lettings statement PDF — rent and deposit received,
+ *          our letting fee, the balance to the landlord (lib/lettingsStatement/forTenancy).
  * Office and lettings staff only. Nothing is sent without someone pressing Send.
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -12,6 +14,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { deliverEmail } from '@/lib/sendEmail'
 import { PORTAL_URL } from '@/lib/emailWrapper'
 import { landlordUpdateHtml } from '@/lib/landlordUpdates/email'
+import { lettingsStatementFor } from '@/lib/lettingsStatement/forTenancy'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { loadUpdateContext, stageStatus, draftFor, newShareToken, STAGES, STAGE_LABEL, SHARE_DAYS, type UpdateStage } from '@/lib/landlordUpdates/updates'
 
@@ -72,12 +75,18 @@ export async function POST(req: NextRequest) {
   const link = token ? `${PORTAL_URL}/lu/${token}` : ''
   const html = await landlordUpdateHtml({ stage, message, facts, link: link || null, until: until ?? null, req })
 
-  const sent = await deliverEmail({ to, subject, html }, { req })
+  let attachments: { filename: string; content: string }[] | undefined
+  if (b.attachStatement && c.tenancyId) {
+    const st = await lettingsStatementFor(s as any, c.tenancyId)
+    if ('error' in st) { await s.from('landlord_updates').delete().eq('id', (row as any).id); return NextResponse.json({ error: `The statement couldn’t be made: ${st.error}` }, { status: 400 }) }
+    attachments = [{ filename: st.filename, content: st.buffer.toString('base64') }]
+  }
+  const sent = await deliverEmail({ to, subject, html, attachments }, { req })
   if (!sent.ok) {
     await s.from('landlord_updates').delete().eq('id', (row as any).id)   // nothing went out — no record of a send
     const e = await sent.json().catch(() => ({}))
     return NextResponse.json({ error: `The email didn’t send: ${(e as any)?.message ?? sent.statusText}` }, { status: 502 })
   }
-  if (c.tenancyId) await logTenancyEvent(s, c.tenancyId, 'landlord_update', `Landlord told: ${STAGE_LABEL[stage]} → ${to.join(', ')}${docIds.length ? ` · ${docIds.length} document${docIds.length === 1 ? '' : 's'} shared for ${SHARE_DAYS} days` : ''}`, who.email)
+  if (c.tenancyId) await logTenancyEvent(s, c.tenancyId, 'landlord_update', `Landlord told: ${STAGE_LABEL[stage]} → ${to.join(', ')}${docIds.length ? ` · ${docIds.length} document${docIds.length === 1 ? '' : 's'} shared for ${SHARE_DAYS} days` : ''}${attachments ? ' · lettings statement attached' : ''}`, who.email)
   return NextResponse.json({ ok: true, sentTo: to, link: link || null })
 }
