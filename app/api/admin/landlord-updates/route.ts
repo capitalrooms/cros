@@ -10,14 +10,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { deliverEmail } from '@/lib/sendEmail'
-import { buildEmail, tableRow, ctaButton, PORTAL_URL } from '@/lib/emailWrapper'
+import { PORTAL_URL } from '@/lib/emailWrapper'
+import { landlordUpdateHtml } from '@/lib/landlordUpdates/email'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { loadUpdateContext, stageStatus, draftFor, newShareToken, STAGES, STAGE_LABEL, SHARE_DAYS, type UpdateStage } from '@/lib/landlordUpdates/updates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 const setup = () => NextResponse.json({ setupNeeded: true, error: 'Landlord updates need migration 228 running in Supabase first.' }, { status: 503 })
 const missingTable = (e: any) => /landlord_updates/.test(String(e?.message ?? ''))
 
@@ -70,14 +70,7 @@ export async function POST(req: NextRequest) {
 
   const until = expires?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/London' })
   const link = token ? `${PORTAL_URL}/lu/${token}` : ''
-  const paras = esc(message).split(/\n{2,}/)
-  const signOff = paras.length > 1 && /^(kind regards|best wishes|regards|many thanks|yours)/i.test(paras[paras.length - 1]) ? paras.pop()! : ''
-  const html = await buildEmail(`
-    ${paras.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')}
-    ${facts.length ? `<table style="width:100%;border-collapse:collapse;margin:14px 0 18px;">${facts.map((f: any) => tableRow(esc(f.label), esc(f.value))).join('')}</table>` : ''}
-    ${link ? ctaButton(stage === 'offer' ? 'Review the offer' : 'View the tenant’s documents', link) : ''}
-    ${link ? `<p style="color:#78716c;font-size:12.5px;text-align:center;margin-top:-10px;">This private link works until ${until}.</p>` : ''}
-    ${signOff ? `<p>${signOff}</p>` : ''}`, { req })
+  const html = await landlordUpdateHtml({ stage, message, facts, link: link || null, until: until ?? null, req })
 
   const sent = await deliverEmail({ to, subject, html }, { req })
   if (!sent.ok) {
