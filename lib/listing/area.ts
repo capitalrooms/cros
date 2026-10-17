@@ -11,8 +11,8 @@ export async function nearbyStations(lat: number | null | undefined, lng: number
   if (lat == null || lng == null || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return []
   const url = `https://api.tfl.gov.uk/StopPoint?lat=${Number(lat).toFixed(5)}&lon=${Number(lng).toFixed(5)}&stopTypes=NaptanMetroStation,NaptanRailStation&radius=1600&modes=tube,overground,dlr,elizabeth-line,national-rail,tram`
   try {
-    const r = await fetch(url, { next: { revalidate: 60 * 60 * 24 * 30 }, signal: AbortSignal.timeout(6000) } as RequestInit)
-    if (!r.ok) return []
+    const r = await fetch(url, { headers: { 'User-Agent': 'CapitalRooms-CROS/1.0 (+https://www.capitalrooms.co.uk)', Accept: 'application/json' }, next: { revalidate: 60 * 60 * 24 * 30 }, signal: AbortSignal.timeout(10000) } as RequestInit)
+    if (!r.ok) { console.warn('[stations] TfL said', r.status, (await r.text().catch(() => '')).slice(0, 200)); return [] }
     const d: any = await r.json()
     const byName = new Map<string, Station>()
     for (const sp of (d.stopPoints ?? []) as any[]) {
@@ -28,5 +28,5 @@ export async function nearbyStations(lat: number | null | undefined, lng: number
     // walking: the straight line plus a third for streets, at an easy 80 m a minute
     return [...byName.values()].map(s => ({ ...s, walkMin: Math.max(1, Math.round((s.distanceM * 1.3) / 80)) }))
       .sort((a, b) => a.distanceM - b.distanceM).slice(0, max)
-  } catch { return [] }
+  } catch (e) { console.warn('[stations] TfL failed', e instanceof Error ? e.message : e); return [] }
 }
