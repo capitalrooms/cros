@@ -65,6 +65,16 @@ function AdminDashboard() {
         subtitle={error || new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
         stats={['Rooms let', 'On notice', 'Empty', 'Rent roll'].map(label => ({ label, value: <span className="inline-block h-6 w-10 animate-pulse rounded bg-white/10" /> }))}
       />
+      {/* the shape of the dashboard while it loads — not an empty white page with the footer under the header */}
+      {!error && (
+        <div className="mx-auto grid max-w-6xl gap-md px-lg py-lg sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+          {[0, 1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="h-[170px] animate-pulse rounded-2xl border border-[#E4E1DB] bg-white">
+              <div className="m-md h-3 w-1/3 rounded bg-[#EFEDE9]" /><div className="mx-md mt-lg h-16 rounded-lg bg-[#F5F3EF]" />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 
