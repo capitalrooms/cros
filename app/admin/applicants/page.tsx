@@ -15,6 +15,7 @@ import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import HouseSearch from '@/app/components/HouseSearch'
 import { displayName } from '@/lib/people'
 import LandlordUpdates from '@/app/components/LandlordUpdates'
+import { parseApplicantSheet } from '@/lib/applicants/parseSheet'
 
 const STAGES = [
   { key: 'invited',            label: 'Invited',            color: 'bg-neutral-100 text-neutral-600',  dot: 'bg-neutral-400' },
@@ -974,6 +975,7 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
   const [value, setValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const [fullEdit, setFullEdit] = useState(false)
   async function save() {
     setSaving(true); setErr('')
     const r = await fetch(`/api/applicants/${a.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editing === 'Email' ? { email: value } : { phone: value }) })
@@ -992,7 +994,11 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     ['Mobile', a.phone ?? ''],
     ['Date of birth', dob],
     ['Current address', a.current_address ?? ''],
-    ['Work', [a.profession, a.salary ? `salary ${a.salary}` : ''].filter(Boolean).join(' · ')],
+    ['Work', [a.profession, (a as any).applicant_profile?.application?.company, a.salary ? `salary ${a.salary}` : ''].filter(Boolean).join(' · ')],
+    ['Study', (() => { const st = (a as any).applicant_profile?.application; return st?.student ? [st.university, st.course, st.year].filter(Boolean).join(' · ') : '' })()],
+    ['Contract length', (a as any).preferred_term ?? ''],
+    ['LinkedIn', (a as any).linkedin_url ?? ''],
+    ['Requirements', a.room_requirements ?? ''],
     ['Room', [room?.name, prop?.address || prop?.name].filter(Boolean).join(', ')],
     ['Rent · start', [rent ? `£${Number(rent).toLocaleString('en-GB', { minimumFractionDigits: 2 })} pcm` : '', start ? `from ${start}` : ''].filter(Boolean).join(' · ')],
   ]
@@ -1003,8 +1009,12 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     <div className="rounded-xl bg-neutral-50 px-md py-sm">
       <div className="mb-xs flex items-center justify-between gap-sm">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Details to copy</p>
-        <CopyButton label="Copy all" value={all} />
+        <span className="flex items-center gap-sm">
+          <button type="button" onClick={() => setFullEdit(v => !v)} className="text-xs font-semibold text-blue-700 hover:underline">{fullEdit ? 'Close' : 'Edit details'}</button>
+          <CopyButton label="Copy all" value={all} />
+        </span>
       </div>
+      {fullEdit && <EditDetails a={a} onDone={() => { setFullEdit(false); onSaved?.() }} />}
       <dl className="divide-y divide-neutral-200/70 select-text">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-baseline gap-md py-1.5 text-sm">
@@ -1027,6 +1037,70 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
           </div>
         ))}
       </dl>
+    </div>
+  )
+}
+
+/** Every detail of the application in one form, plus a box to paste a sheet from an email ("Contact Number: …",
+ *  "Date of Birth: 25/09/2001") that fills the boxes (lib/applicants/parseSheet) — 17 Oct 2026, so a landlord's offer
+ *  review always has the full picture even when the applicant never used the online form. */
+function EditDetails({ a, onDone }: { a: Applicant; onDone: () => void }) {
+  const x = a as any
+  const app = x.applicant_profile?.application ?? {}
+  const [f, setF] = useState<Record<string, string>>({
+    email: a.email ?? '', phone: a.phone ?? '', date_of_birth: x.date_of_birth ?? '', current_address: x.current_address ?? '',
+    profession: a.profession ?? '', company: app.company ?? '', study: app.student ? [app.university, app.course, app.year].filter(Boolean).join(' · ') : '',
+    salary: a.salary ?? '', preferred_start_date: a.preferred_start_date ?? '', preferred_term: x.preferred_term ?? '', linkedin_url: x.linkedin_url ?? '',
+    room_requirements: a.room_requirements ?? '',
+  })
+  const [paste, setPaste] = useState('')
+  const [filled, setFilled] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  function fill() {
+    const p = parseApplicantSheet(paste) as Record<string, string>
+    const keys = Object.keys(p).filter(k => k in f)
+    setF(v => ({ ...v, ...Object.fromEntries(keys.map(k => [k, p[k]])) }))
+    setFilled(keys.length ? `Filled ${keys.length} box${keys.length === 1 ? '' : 'es'} — check them, then Save.` : 'Nothing recognised — each line needs “Label: value”.')
+  }
+  async function save() {
+    setSaving(true); setErr('')
+    const r = await fetch(`/api/applicants/${a.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(f) })
+    const d = await r.json().catch(() => ({}))
+    setSaving(false)
+    if (!r.ok) { setErr(d.error ?? 'Couldn’t save'); return }
+    onDone()
+  }
+  const box = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-1 text-sm text-neutral-900'
+  // a plain function, not a component: a component defined in here would be remade on every key press and lose focus
+  const L = ({ k, label, type = 'text' }: { k: string; label: string; type?: string }) => (
+    <label key={k} className="block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{label}
+      <input type={type} value={f[k]} onChange={e => setF(v => ({ ...v, [k]: e.target.value }))} className={`${box} mt-0.5 normal-case tracking-normal font-normal`} />
+    </label>
+  )
+  return (
+    <div className="mb-sm space-y-sm rounded-lg border border-neutral-200 bg-white p-sm">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Paste their details</p>
+        <textarea value={paste} onChange={e => setPaste(e.target.value)} rows={4} placeholder={'From an email or the landlord’s form, e.g.\nContact Number: 07…\nDate of Birth: 25/09/2001\nMove in date: 18.10.2026'} className={`${box} mt-0.5`} />
+        <div className="mt-1 flex items-center gap-sm">
+          <button type="button" onClick={fill} disabled={!paste.trim()} className="rounded-lg border border-neutral-300 px-sm py-0.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">Fill the boxes</button>
+          {filled && <span className="text-xs text-neutral-600">{filled}</span>}
+        </div>
+      </div>
+      <div className="grid gap-sm sm:grid-cols-2">
+        {L({ k: 'email', label: 'Email', type: 'email' })}{L({ k: 'phone', label: 'Mobile', type: 'tel' })}
+        {L({ k: 'date_of_birth', label: 'Date of birth', type: 'date' })}{L({ k: 'current_address', label: 'Current address' })}
+        {L({ k: 'profession', label: 'Profession' })}{L({ k: 'company', label: 'Company' })}
+        {L({ k: 'study', label: 'University & course (students)' })}{L({ k: 'salary', label: 'Salary' })}
+        {L({ k: 'preferred_start_date', label: 'Move-in date', type: 'date' })}{L({ k: 'preferred_term', label: 'Contract length' })}
+        {L({ k: 'linkedin_url', label: 'LinkedIn' })}{L({ k: 'room_requirements', label: 'Requirements in property' })}
+      </div>
+      {err && <p className="text-xs text-red-700">{err}</p>}
+      <div className="flex items-center gap-sm">
+        <button type="button" onClick={save} disabled={saving} className="rounded-lg bg-neutral-900 px-md py-1 text-sm font-bold text-white disabled:opacity-40">{saving ? 'Saving…' : 'Save details'}</button>
+        <button type="button" onClick={onDone} className="text-sm font-semibold text-neutral-600 underline">Cancel</button>
+      </div>
     </div>
   )
 }
