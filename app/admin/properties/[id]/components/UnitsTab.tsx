@@ -1123,6 +1123,11 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
 
                     {/* Section links */}
                     <div className="flex flex-wrap gap-xs pt-xs">
+                      {/* the room's listing — photos, details, share link, SpareRoom import (17 Oct 2026) */}
+                      <button onClick={() => router.push(`/lettings/listing/${selectedRoom.id}?from=${encodeURIComponent(`/admin/properties/${propertyId}?tab=units`)}`)}
+                        className="flex items-center gap-xs rounded-lg border border-neutral-900 bg-neutral-900 px-sm py-xs text-xs font-semibold text-white hover:bg-neutral-700 transition">
+                        <span>🏷️</span>Listing
+                      </button>
                       {[['Maintenance','🔧'],['Photos','📷'],['Compliance','✅'],['Notes','📝']].map(([label, icon]) => (
                         <button key={label}
                           onClick={() => router.push(`/admin/properties/${propertyId}/rooms/${selectedRoom.id}`)}

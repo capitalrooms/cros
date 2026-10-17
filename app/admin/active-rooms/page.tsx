@@ -240,7 +240,7 @@ export default function AllUnitsPage() {
                   <li key={r.id}>
                     <Link href={r.shown ? `/admin/lettings/${r.shown.tenancyId}?from=/admin/active-rooms` : `/admin/properties/${h.id}?tab=units&room=${r.id}`} className="block px-md py-sm active:bg-neutral-50">
                       <div className="flex items-center justify-between gap-sm">
-                        <span className="text-sm"><b className="text-neutral-900">{r.name}</b> <span role="link" tabIndex={0} onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(`/lettings/listing/${r.id}`) }} className="ml-xs rounded border border-neutral-300 px-1 py-px text-[10.5px] font-semibold text-neutral-600">Listing</span></span>
+                        <span className="text-sm"><b className="text-neutral-900">{r.name}</b> <span role="link" tabIndex={0} onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(`/lettings/listing/${r.id}?from=/admin/active-rooms`) }} className="ml-xs rounded border border-neutral-300 px-1 py-px text-[10.5px] font-semibold text-neutral-600">Listing</span></span>
                         <span className={`shrink-0 rounded-full px-sm py-0.5 text-[11px] font-semibold ${STATE[r.state].cls}`}>{STATE[r.state].label}</span>
                       </div>
                       <div className="mt-0.5 flex items-baseline justify-between gap-sm text-sm">
@@ -268,7 +268,7 @@ export default function AllUnitsPage() {
                       <tr key={r.id} onClick={() => router.push(`/admin/properties/${h.id}?tab=units&room=${r.id}`)} className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50">
                         <td className="whitespace-nowrap px-lg py-sm"><b className="text-neutral-900">{r.name}</b>
                           {/* the room's listing — photos, details, share link (17 Oct 2026) */}
-                          <Link href={`/lettings/listing/${r.id}`} onClick={e => e.stopPropagation()} className="ml-sm rounded border border-neutral-300 px-1 py-px text-[10.5px] font-semibold text-neutral-600 hover:bg-white">Listing</Link></td>
+                          <Link href={`/lettings/listing/${r.id}?from=/admin/active-rooms`} onClick={e => e.stopPropagation()} className="ml-sm rounded border border-neutral-300 px-1 py-px text-[10.5px] font-semibold text-neutral-600 hover:bg-white">Listing</Link></td>
                         <td className="px-sm py-sm">
                           {r.shown ? <>
                             <Link href={`/admin/lettings/${r.shown.tenancyId}?from=/admin/active-rooms`} onClick={e => e.stopPropagation()}
