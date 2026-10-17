@@ -28,7 +28,7 @@ interface Draft {
   email: string | null
   records: HoldRecord[]
   setupNeeded: boolean
-  landlord: { name: string; to: string[]; subject: string; message: string } | null
+  landlord: { name: string; to: string[]; subject: string; message: string; facts?: { label: string; value: string }[] } | null
   housemates: { count: number; title: string; message: string }
 }
 
@@ -48,7 +48,7 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
   const [loadError, setLoadError] = useState('')
   const [form, setForm] = useState({ amount: '', receivedOn: today(), method: 'bank_transfer', payerName: '', payerReference: '', applyTo: 'deposit', notes: '' })
   const [receipt, setReceipt] = useState({ send: false, to: '' })
-  const [landlord, setLandlord] = useState({ send: false, to: '', subject: '', message: '' })
+  const [landlord, setLandlord] = useState<{ send: boolean; to: string; subject: string; message: string; facts: { label: string; value: string }[] }>({ send: false, to: '', subject: '', message: '', facts: [] })
   const [housemates, setHousemates] = useState({ send: false, title: '', message: '' })
   const [outcome, setOutcome] = useState<{ status: string; outcomeOn: string; reason: string } | null>(null)
   const [sending, setSending] = useState(false)
@@ -71,7 +71,7 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
       if (!live || !d) return
       setForm(f => ({ ...f, amount: d.amount ? d.amount.toFixed(2) : '', payerName: d.applicant.name ?? '' }))
       setReceipt({ send: false, to: d.email ?? '' })
-      setLandlord({ send: false, to: (d.landlord?.to ?? []).join(', '), subject: d.landlord?.subject ?? '', message: d.landlord?.message ?? '' })
+      setLandlord({ send: false, to: (d.landlord?.to ?? []).join(', '), subject: d.landlord?.subject ?? '', message: d.landlord?.message ?? '', facts: d.landlord?.facts ?? [] })
       setHousemates({ send: false, title: d.housemates.title, message: d.housemates.message })
     })
     return () => { live = false }
@@ -229,6 +229,20 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
                   <div><label className={lbl}>To</label><input className={field} value={landlord.to} onChange={e => setLandlord(l => ({ ...l, to: e.target.value }))} /></div>
                   <div><label className={lbl}>Subject</label><input className={field} value={landlord.subject} onChange={e => setLandlord(l => ({ ...l, subject: e.target.value }))} /></div>
                   <div><label className={lbl}>Letter</label><textarea rows={14} className={field} value={landlord.message} onChange={e => setLandlord(l => ({ ...l, message: e.target.value }))} /></div>
+                  {landlord.facts.length > 0 && (
+                    <div>
+                      <label className={lbl}>The applicant’s details, under the letter</label>
+                      <ul className="mt-1 divide-y divide-neutral-100 rounded-lg border border-neutral-200 text-sm">
+                        {landlord.facts.map((f, i) => (
+                          <li key={f.label} className="flex items-start gap-2 px-2 py-1">
+                            <span className="w-36 shrink-0 text-neutral-500">{f.label}</span>
+                            <span className="min-w-0 flex-1 break-words text-neutral-900">{f.value}</span>
+                            <button type="button" onClick={() => setLandlord(l => ({ ...l, facts: l.facts.filter((_, j) => j !== i) }))} className="shrink-0 text-xs font-semibold text-neutral-500 underline">Leave out</button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <p className="text-[11px] text-neutral-500">Sent from you, with your email signature added underneath.</p>
                 </>
               )}

@@ -21,18 +21,35 @@ export const STAGE_LABEL: Record<UpdateStage, string> = {
   offer: 'Offer to review', reserved: 'Room reserved', referenced: 'Referencing passed', signed_paid: 'Signed & paid', summary: 'New tenant report',
 }
 /** documents that may go with each stage; ID ones only for let-only by default */
+const ALL_DOCS = ['tenancy_agreement', 'reference_report', 'employment_letter', 'payslip', 'bank_statement', 'guarantor', 'student', 'right_to_rent', 'id_proof', 'deposit_certificate', 'other']
 const STAGE_DOCS: Record<UpdateStage, string[]> = {
-  offer: [], reserved: [],
-  referenced: ['reference_report', 'employment_letter', 'right_to_rent', 'id_proof'],
-  signed_paid: ['tenancy_agreement', 'deposit_certificate'],
-  summary: ['reference_report', 'employment_letter', 'right_to_rent', 'id_proof', 'tenancy_agreement', 'deposit_certificate'],
+  // an offer can carry what they've sent us so far — offered, never ticked by default
+  offer: ALL_DOCS, reserved: ALL_DOCS,
+  referenced: ['reference_report', 'employment_letter', 'payslip', 'bank_statement', 'guarantor', 'student', 'right_to_rent', 'id_proof'],
+  // signed & paid is the full pack — everything on file (Harry, 17 Oct 2026: "containing everything")
+  signed_paid: ALL_DOCS,
+  summary: ALL_DOCS,
 }
 const ID_DOCS = ['id_proof', 'right_to_rent']
 export const DOC_LABEL: Record<string, string> = {
   reference_report: 'Referencing report', employment_letter: 'Employment / income letter', id_proof: 'Passport or ID',
   right_to_rent: 'Right to Rent check', tenancy_agreement: 'Signed tenancy agreement', deposit_certificate: 'Deposit protection certificate',
+  payslip: 'Payslip', bank_statement: 'Bank statement', guarantor: 'Guarantor document', student: 'Student enrolment',
 }
 export const SHARE_DAYS = 7
+/** what the document scan called it (lib/ai-classify) → our document types */
+export function applicantDocType(t: string | null | undefined): string {
+  const x = String(t ?? '').toLowerCase()
+  if (/passport|id_doc|identity|driving|brp|visa/.test(x)) return 'id_proof'
+  if (/right_to_rent|share_code/.test(x)) return 'right_to_rent'
+  if (/reference|homeppl/.test(x)) return 'reference_report'
+  if (/employ|contract|offer_letter/.test(x)) return 'employment_letter'
+  if (/payslip|pay_slip/.test(x)) return 'payslip'
+  if (/bank/.test(x)) return 'bank_statement'
+  if (/guarant/.test(x)) return 'guarantor'
+  if (/student|enrol|university/.test(x)) return 'student'
+  return 'other'
+}
 
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`
 const long = (iso?: string | null) => iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -44,7 +61,7 @@ export interface UpdateContext {
   whole: boolean
   place: string
   landlord: { id: string; name: string; greeting: string; emails: string[]; commsOn: boolean; tenantUpdatesOff: boolean } | null
-  tenant: { name: string; email: string | null; phone: string | null; job: string | null; salary: string | null; nationality: string | null; currentAddress: string | null; bio: string | null; guarantor: string | null }
+  tenant: { name: string; email: string | null; phone: string | null; job: string | null; company: string | null; study: string | null; salary: string | null; dob: string | null; nationality: string | null; currentAddress: string | null; linkedin: string | null; requirements: string | null; bio: string | null; guarantor: string | null }
   rent: number | null
   askingRent: number | null
   offeredBelow: boolean
@@ -57,7 +74,8 @@ export interface UpdateContext {
   rightToRent: { checked: string | null; until: string | null }
   agreementSigned: string | null
   moniesIn: string | null
-  docs: { id: string; type: string; label: string; fileName: string }[]
+  /** the tenant's documents: filed on the tenancy, or uploaded against the application during referencing */
+  docs: { id: string; type: string; label: string; fileName: string; source: 'tenancy' | 'applicant' }[]
   sent: { id: string; stage: UpdateStage; sent_at: string; sent_to: string[]; answer: string | null; answer_note: string | null; first_viewed_at: string | null }[]
 }
 
@@ -87,11 +105,12 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
   const whole = isWholeLet(prop.property_type, roomName)
   const address = oneLine([prop.address || prop.name, prop.postcode && !String(prop.address ?? '').includes(prop.postcode) ? prop.postcode : ''].filter(Boolean).join(', '))
 
-  const [landlordQ, prefQ, holdQ, docsQ, sentQ, offerQ] = await Promise.all([
+  const [landlordQ, prefQ, holdQ, docsQ, appDocsQ, sentQ, offerQ] = await Promise.all([
     prop.landlord_id ? s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, joint_salutation, joint_first_name, joint_last_name, joint_email, landlord_comms_enabled').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     prop.landlord_id ? s.from('landlord_notification_prefs').select('enabled').eq('person_id', prop.landlord_id).eq('category', 'tenant_changes').maybeSingle() : Promise.resolve({ data: null }),
     s.from('holding_deposits').select('amount, received_on, status').or([t ? `tenancy_id.eq.${t.id}` : '', applicantId ? `applicant_id.eq.${applicantId}` : ''].filter(Boolean).join(',')).in('status', ['held', 'applied']).order('recorded_at').limit(1).maybeSingle(),
     t ? s.from('property_documents').select('id, document_type, file_name').eq('tenancy_id', t.id).order('uploaded_at', { ascending: false }) : Promise.resolve({ data: [] }),
+    applicantId ? s.from('applicant_documents').select('id, doc_type, file_name, ai_summary').eq('applicant_id', applicantId).order('created_at') : Promise.resolve({ data: [] }),
     s.from('landlord_updates').select('id, stage, sent_at, sent_to, answer, answer_note, first_viewed_at').or([t ? `tenancy_id.eq.${t.id}` : '', applicantId ? `applicant_id.eq.${applicantId}` : ''].filter(Boolean).join(',')).order('sent_at', { ascending: false }),
     a?.offer_id ? s.from('offers').select('id, advertised_rent, move_in_date').eq('id', a.offer_id).maybeSingle() : Promise.resolve({ data: null }),
   ])
@@ -118,8 +137,13 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
       name: person ? displayName(person) : a ? displayName(a) : '',
       email: person?.email ?? a?.email ?? null,
       phone: person?.phone ?? a?.phone ?? null,
-      job: person?.job_title || person?.occupation || a?.profession || null,
+      job: a?.profession || person?.job_title || person?.occupation || null,
+      company: a?.applicant_profile?.application?.company ?? null,
+      study: (() => { const st = a?.applicant_profile?.application; return st?.student ? [st.university, st.course, st.year].filter(Boolean).join(' · ') || 'Student' : null })(),
       salary: a?.salary ? String(a.salary) : null,
+      dob: a?.date_of_birth ?? null,
+      linkedin: a?.linkedin_url ?? null,
+      requirements: [a?.room_requirements, a?.room_conditions].map(x => String(x ?? '').trim()).filter(Boolean).join('\n') || null,
       nationality: person?.nationality ?? null,
       currentAddress: a?.current_address ?? null,
       bio: a?.bio ?? null,
@@ -137,7 +161,10 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
     rightToRent: { checked: t?.right_to_rent_checked_at ?? null, until: person?.right_to_rent_until ?? null },
     agreementSigned: t?.agreement_signed_at ?? null,
     moniesIn: t?.move_in_monies_received_at ?? null,
-    docs: (((docsQ as any).data ?? []) as any[]).filter(d => DOC_LABEL[d.document_type]).map(d => ({ id: d.id, type: d.document_type, label: DOC_LABEL[d.document_type], fileName: d.file_name ?? '' })),
+    docs: [
+      ...(((docsQ as any).data ?? []) as any[]).filter(d => DOC_LABEL[d.document_type]).map(d => ({ id: d.id, type: d.document_type, label: DOC_LABEL[d.document_type], fileName: d.file_name ?? '', source: 'tenancy' as const })),
+      ...(((appDocsQ as any).data ?? []) as any[]).map(d => { const type = applicantDocType(d.doc_type); return { id: d.id, type, label: DOC_LABEL[type] ?? (d.ai_summary ? String(d.ai_summary).slice(0, 60) : 'Document'), fileName: d.file_name ?? '', source: 'applicant' as const } }),
+    ],
     sent: ((sentQ as any).data ?? []) as UpdateContext['sent'],
   }
 }
@@ -172,18 +199,24 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
   const dear = `Dear ${c.landlord?.greeting ?? 'Sir or Madam'},`
   const rentLine = c.rent ? `${gbp(c.rent)} pcm${stage === 'offer' && c.offeredBelow && c.askingRent ? ` (asking ${gbp(c.askingRent)})` : ''}` : ''
   const F = (label: string, value: string | null | undefined, on = true) => value ? [{ label, value, on }] : []
-  const who = [
-    ...F('Name', c.tenant.name),
-    ...F('Work', c.tenant.job),
+  const t = c.tenant
+  const work = [t.job, t.company].filter(Boolean).join(' at ')
+  // the applicant sheet, in the order landlords ask for it (Nigel's list, 17 Oct 2026)
+  const profile = [
+    ...F('Full name', t.name), ...F('Contact number', t.phone), ...F('Email address', t.email), ...F('Date of birth', long(t.dob)),
+    ...F('Current address', t.currentAddress), ...F('Profession & company', work), ...F('University & course', t.study), ...F('Salary', t.salary),
+    ...F(stage === 'offer' ? 'Move-in date (requested)' : 'Move-in date', long(c.startDate)), ...F('Contract length', c.term),
+    ...F('LinkedIn', t.linkedin), ...F('Requirements in property', t.requirements),
   ]
-  const contact = [...F('Mobile', c.tenant.phone), ...F('Email', c.tenant.email)]
-  const terms = [
-    ...F(stage === 'offer' ? 'Rent offered' : 'Rent', rentLine),
-    ...F(stage === 'offer' ? 'Would like to move in' : 'Move-in date', long(c.startDate)),
-    ...F(stage === 'offer' ? 'Would like to stay' : 'Length of stay', c.term),
-  ]
+  const rentF = F(stage === 'offer' ? 'Rent offered' : 'Rent', rentLine)
   const rtr = c.rightToRent.checked ? `Checked ${long(c.rightToRent.checked)}${c.rightToRent.until ? ` · valid until ${long(c.rightToRent.until)}` : ' · no time limit'}` : ''
   const protectedLine = c.depositProtected ? `${c.depositProtected.scheme ?? 'Protected'}${c.depositProtected.ref ? ` · ${c.depositProtected.ref}` : ''} · ${long(c.depositProtected.on)}` : ''
+
+  const everything = () => [...profile, ...rentF,
+    ...F('Holding deposit', c.hold ? `${gbp(c.hold.amount)} · received ${long(c.hold.on)}` : ''),
+    ...F('References', c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : ''), ...F('Right to Rent', rtr), ...F('Guarantor', t.guarantor),
+    ...F('Agreement signed', long(c.agreementSigned)), ...F('Move-in money', c.moniesIn ? `Received ${long(c.moniesIn)}` : ''),
+    ...F('Deposit', c.deposit ? gbp(c.deposit) : ''), ...F('Deposit protection', protectedLine)]
 
   let subject = '', body: string[] = [], facts: Draft['facts'] = []
   switch (stage) {
@@ -191,19 +224,20 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
       subject = `Offer for your review — ${c.place}`
       body = [
         `We have received an offer for ${at} and, before accepting it, we would welcome your thoughts.`,
-        `The applicant is ${n}${c.tenant.job ? `, who works as ${c.tenant.job}` : ''}.${c.rent ? ` They have offered ${rentLine}.` : ''}`,
+        `The applicant is ${n}${c.tenant.job ? `, who works as ${work}` : ''}.${c.rent ? ` They have offered ${rentLine}.` : ''}`,
         ...(c.tenant.bio?.trim() ? [`In their own words: “${c.tenant.bio.trim()}”`] : []),
         'You can let us know on the page below whether you are happy for us to go ahead — or simply reply to this email. We will not take a holding deposit until we have heard from you.',
       ]
-      facts = [...who, ...F('Salary', c.tenant.salary), ...terms, ...F('Guarantor', c.tenant.guarantor)]
+      facts = [...profile, ...rentF, ...F('Guarantor', t.guarantor)]
       break
     case 'reserved':
       subject = `Applicant secured — ${c.place}`
       body = [
-        `We are delighted to let you know that we have secured an applicant for ${at}, subject to satisfactory references.`,
+        `We are delighted to let you know that we have secured an applicant for ${at}, subject to satisfactory references${c.letOnly ? ' and your approval' : ''}.`,
         `${n} has paid a holding deposit${c.hold ? ` of ${gbp(c.hold.amount)} on ${long(c.hold.on)}` : ''}, so the ${unit} is now off the market while references are obtained.`,
+        `Their full application details are below${c.letOnly ? ' — please let us know if you have any questions or concerns before referencing begins' : ''}.`,
       ]
-      facts = [...who, ...terms, ...F('Holding deposit', c.hold ? `${gbp(c.hold.amount)} · received ${long(c.hold.on)}` : '')]
+      facts = [...profile, ...rentF, ...F('Holding deposit', c.hold ? `${gbp(c.hold.amount)} · received ${long(c.hold.on)}` : ''), ...F('Guarantor', t.guarantor)]
       break
     case 'referenced':
       subject = `References passed — ${c.place}`
@@ -213,7 +247,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
           ? 'Their contact details are below, and their referencing report and identity documents are on the private page linked below. As the landlord on a let-only tenancy, please keep a copy of the Right to Rent documents for your records.'
           : 'Their contact details are below, and their referencing report is on the private page linked below. We have carried out the Right to Rent check and keep the identity documents on file.',
       ]
-      facts = [...who, ...contact, ...terms, ...F('References', c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : ''), ...F('Right to Rent', rtr), ...F('Guarantor', c.tenant.guarantor), ...F('Nationality', c.tenant.nationality, false)]
+      facts = [...profile, ...rentF, ...F('References', c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : ''), ...F('Right to Rent', rtr), ...F('Guarantor', t.guarantor), ...F('Nationality', t.nationality, false)]
       break
     case 'signed_paid':
       subject = `Tenancy signed — ${c.place}`
@@ -221,25 +255,21 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
         `${n} has signed the tenancy agreement for ${at}${c.moniesIn ? ' and paid everything due before moving in' : ''}.`,
         c.startDate ? `The tenancy starts on ${long(c.startDate)}.` : '',
         c.depositProtected ? `The deposit is protected with ${c.depositProtected.scheme ?? 'the scheme'}.` : c.deposit ? 'The deposit will be protected within 30 days, and we will confirm once it is.' : '',
-        'A copy of the signed agreement is on the private page linked below.',
+        'Everything we hold for the tenancy — the signed agreement, references and documents — is on the private page linked below, where you can view each one or download the lot as a single report.',
       ].filter(Boolean)
-      facts = [...who, ...contact, ...terms, ...F('Agreement signed', long(c.agreementSigned)), ...F('Move-in money', c.moniesIn ? `Received ${long(c.moniesIn)}` : ''), ...F('Deposit', c.deposit ? gbp(c.deposit) : ''), ...F('Deposit protection', protectedLine)]
+      facts = everything()
       break
     case 'summary':
       subject = `Your new tenant — ${c.place}`
       body = [
         `Please find below a summary of your new tenant at ${c.place}, with everything we have on file so far.`,
-        c.letOnly ? 'Their documents, including the Right to Rent documents for your records, are on the private page linked below.' : 'Their documents are on the private page linked below. We have carried out the Right to Rent check and keep the identity documents on file.',
+        c.letOnly ? 'Their documents, including the Right to Rent documents for your records, are on the private page linked below, where you can view each one or download the lot as a single report.' : 'Their documents are on the private page linked below, where you can view each one or download the lot as a single report. We have carried out the Right to Rent check and keep the identity documents on file.',
       ]
-      facts = [...who, ...contact, ...terms,
-        ...F('Holding deposit', c.hold ? `${gbp(c.hold.amount)} · received ${long(c.hold.on)}` : ''),
-        ...F('References', c.referencingPassed ? `Passed ${long(c.referencingPassed)}` : ''), ...F('Right to Rent', rtr), ...F('Guarantor', c.tenant.guarantor),
-        ...F('Agreement signed', long(c.agreementSigned)), ...F('Move-in money', c.moniesIn ? `Received ${long(c.moniesIn)}` : ''),
-        ...F('Deposit', c.deposit ? gbp(c.deposit) : ''), ...F('Deposit protection', protectedLine)]
+      facts = everything()
       break
   }
   const docs = c.docs.filter(d => STAGE_DOCS[stage].includes(d.type))
-    .map(d => ({ id: d.id, label: d.label, fileName: d.fileName, idDoc: ID_DOCS.includes(d.type), on: ID_DOCS.includes(d.type) ? c.letOnly : true }))
+    .map(d => ({ id: d.id, label: d.label, fileName: d.fileName, idDoc: ID_DOCS.includes(d.type), on: stage === 'offer' || stage === 'reserved' ? false : ID_DOCS.includes(d.type) ? c.letOnly : true }))
   const message = [dear, `Re: ${c.place}`, ...body, 'Should you need anything further, please do not hesitate to contact us.', 'Kind regards,'].join('\n\n')
   return { subject, message, facts, docs }
 }

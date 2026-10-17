@@ -606,7 +606,7 @@ export default function ApplicantsPage() {
                         </div>
                       )}
 
-                      <DetailsToCopy a={applicant} />
+                      <DetailsToCopy a={applicant} onSaved={loadAll} />
                       {/* Pipeline progress bar */}
                       <div>
                         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Pipeline</p>
@@ -968,7 +968,20 @@ function CopyButton({ label, value }: { label: string; value: string }) {
 
 // Everything the office needs to copy out — into Homeppl, an email or a call — with a Copy on each line and one for
 // all of it. (The row above is a button, and browsers don't let you select text inside a button.)
-function DetailsToCopy({ a }: { a: Applicant }) {
+function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
+  // email and mobile can be corrected here (17 Oct 2026) — a typo on the application otherwise blocked every email
+  const [editing, setEditing] = useState<'Email' | 'Mobile' | null>(null)
+  const [value, setValue] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  async function save() {
+    setSaving(true); setErr('')
+    const r = await fetch(`/api/applicants/${a.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editing === 'Email' ? { email: value } : { phone: value }) })
+    const d = await r.json().catch(() => ({}))
+    setSaving(false)
+    if (!r.ok) { setErr(d.error ?? 'Couldn’t save that'); return }
+    setEditing(null); onSaved?.()
+  }
   const room = (a.rooms as any), prop = (a.properties as any)
   const rent = a.rent_offer_type === 'below_asking' && a.offered_rent ? a.offered_rent : a.advertised_rent ?? room?.current_asking_rent ?? null
   const dob = a.date_of_birth ? new Date(a.date_of_birth + 'T12:00:00').toLocaleDateString('en-GB') : ''
@@ -996,8 +1009,21 @@ function DetailsToCopy({ a }: { a: Applicant }) {
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-baseline gap-md py-1.5 text-sm">
             <dt className="w-32 shrink-0 text-xs text-neutral-500">{k}</dt>
-            <dd className="min-w-0 flex-1 break-words text-neutral-900">{v || <span className="text-neutral-400">—</span>}</dd>
-            {v ? <CopyLink value={v} /> : null}
+            {editing === k ? (
+              <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-xs">
+                <input autoFocus value={value} onChange={e => setValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(null) }}
+                  type={k === 'Email' ? 'email' : 'tel'} className="min-w-0 flex-1 rounded border border-neutral-300 bg-white px-xs py-0.5 text-sm text-neutral-900" />
+                <button type="button" onClick={save} disabled={saving || !value.trim()} className="rounded bg-neutral-900 px-sm py-0.5 text-xs font-bold text-white disabled:opacity-40">{saving ? 'Saving…' : 'Save'}</button>
+                <button type="button" onClick={() => setEditing(null)} className="text-xs font-semibold text-neutral-500 underline">Cancel</button>
+                {err && <span className="basis-full text-xs text-red-700">{err}</span>}
+              </dd>
+            ) : (
+              <dd className="min-w-0 flex-1 break-words text-neutral-900">{v || <span className="text-neutral-400">—</span>}</dd>
+            )}
+            {(k === 'Email' || k === 'Mobile') && editing !== k && (
+              <button type="button" onClick={e => { e.stopPropagation(); setEditing(k as 'Email' | 'Mobile'); setValue(v); setErr('') }} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Edit</button>
+            )}
+            {v && editing !== k ? <CopyLink value={v} /> : null}
           </div>
         ))}
       </dl>
