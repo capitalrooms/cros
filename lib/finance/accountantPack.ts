@@ -42,6 +42,7 @@ export interface PackSummary {
   rent: number; toLandlords: number; mgmt: number; letting: number; expenses: number
   depositsHeld: { count: number; total: number }; depositsReceived: { count: number; total: number }
   holding: { count: number; total: number }; missing: string[]; pdfsMissing: string[]
+  initial: { count: number; received: number; fees: number; paid: number }
 }
 
 /** Every imported statement PDF in the statements@ inbox, by LS number — found once for the whole pack. */
@@ -84,6 +85,9 @@ export async function buildAccountantPack(s: SupabaseClient, month: string): Pro
     s.from('tenancies').select('id, property_id, room_id, start_date, end_date, deposit_amount, deposit_scheme, deposit_scheme_ref, deposit_protected_at, deposit_protection_assumed, prescribed_info_served_at, let_cancelled_at, rooms(name), people!person_id(salutation, first_name, last_name, full_name)'),
     s.from('holding_deposits').select('hold_no, amount, received_on, status, payer_name, property_id, room_id').gte('received_on', start).lte('received_on', end),
   ])
+  // let-only lets: initial monies received or paid out this month (migration 231)
+  const { data: imRaw, error: imErr } = await s.from('initial_monies').select('*, tenancies(people!person_id(salutation, first_name, last_name, full_name))').is('voided_at', null)
+  const { data: imTr } = await s.from('office_transfers').select('initial_monies_id, txn_no, transferred_on').not('initial_monies_id', 'is', null).is('voided_at', null)
   const demo = new Set(((demoRows ?? []) as any[]).map(r => r.id))
   const prop = new Map(((props ?? []) as any[]).map(p => [p.id, p]))
   const house = (pid: string) => first(prop.get(pid)?.name || prop.get(pid)?.address)
@@ -117,6 +121,11 @@ export async function buildAccountantPack(s: SupabaseClient, month: string): Pro
   const tenantName = (t: any) => [t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || ''
   const received = held.filter(t => String(t.start_date) >= start)
   const holding = ((holds ?? []) as any[]).filter(h => !demo.has(h.property_id))
+  const within = (d: string | null) => !!d && d >= start && d <= end
+  const initial = ((imErr ? [] : imRaw ?? []) as any[]).filter(x => !demo.has(x.property_id) && (within(x.received_on) || within(x.paid_on)))
+    .sort((a, b) => String(a.received_on).localeCompare(String(b.received_on)))
+  const feeTr = new Map(((imTr ?? []) as any[]).map(t => [t.initial_monies_id, t]))
+  const imTenant = (x: any) => tenantName(x.tenancies ?? {})
 
   // houses with tenants that month and no statement — a statement still to import (or prepare)
   const withStatement = new Set(sts.map(st => st.property_id))
@@ -131,11 +140,16 @@ export async function buildAccountantPack(s: SupabaseClient, month: string): Pro
   const byLandlord = new Map<string, { name: string; amount: number; refs: string[] }>()
   for (const st of sts) { const k = landlordOf(st) || '—'; const v = byLandlord.get(k) ?? { name: k, amount: 0, refs: [] as string[] }; v.amount = r2(v.amount + Number(st.net_to_landlord || 0)); v.refs.push(String(st.statement_reference).split(' ')[0]); byLandlord.set(k, v) }
   zip.file('02 Landlord payments.csv', csv(['Landlord', 'Paid', 'Statements'], [...byLandlord.values()].sort((a, b) => a.name.localeCompare(b.name)).map(v => [v.name, money(v.amount), v.refs.join(' ')])))
-  zip.file('03 Agency fees.csv', csv(['Statement', 'House', 'Landlord', 'Management fee', 'Letting fee', 'Total'],
-    sts.filter(st => Number(st.management_fees) || Number(st.letting_fees)).map(st => [String(st.statement_reference).split(' ')[0], house(st.property_id), landlordOf(st), money(st.management_fees), money(st.letting_fees), money(Number(st.management_fees || 0) + Number(st.letting_fees || 0))])))
+  zip.file('03 Agency fees.csv', csv(['Statement', 'House', 'Landlord', 'Management fee', 'Letting fee', 'Total'], [
+    ...sts.filter(st => Number(st.management_fees) || Number(st.letting_fees)).map(st => [String(st.statement_reference).split(' ')[0], house(st.property_id), landlordOf(st), money(st.management_fees), money(st.letting_fees), money(Number(st.management_fees || 0) + Number(st.letting_fees || 0))]),
+    // let-only tenant-find fees, taken from initial monies (numbered INIT, not on a landlord statement)
+    ...initial.filter(x => within(x.received_on) && Number(x.fee)).map(x => [x.txn_no, house(x.property_id), landlordOf(x), money(0), money(x.fee), money(x.fee)]),
+  ]))
   zip.file('04 Expenses charged.csv', csv(['Date', 'House', 'Landlord', 'Category', 'Description', 'Amount', 'Statement'], expenseRows))
   zip.file('05 Deposits.csv', csv(['Tenant', 'House', 'Room', 'Tenancy start', 'Deposit', 'Received this month', 'Scheme', 'Scheme reference', 'Protected on', 'Prescribed information served'],
     held.sort((a, b) => house(a.property_id).localeCompare(house(b.property_id))).map(t => [tenantName(t), house(t.property_id), t.rooms?.name ?? '', ukDate(t.start_date), money(t.deposit_amount), String(t.start_date) >= start ? 'Yes' : '', t.deposit_scheme ?? '', t.deposit_scheme_ref ?? '', ukDate(t.deposit_protected_at) || (t.deposit_protection_assumed ? 'Assumed (before CROS)' : 'NOT RECORDED'), ukDate(t.prescribed_info_served_at) || 'NOT RECORDED'])))
+  zip.file('08 Let-only initial monies.csv', csv(['Number', 'Received', 'Tenant', 'House', 'Landlord', 'Holding deposit', 'Balance received', 'Total received', 'First rent', 'Deposit', 'Tenant-find fee', 'Fee to operations', 'Paid to landlord', 'Paid on', 'Payment', 'Payment reference'],
+    initial.map(x => { const tr = feeTr.get(x.id); return [x.txn_no, ukDate(x.received_on), imTenant(x), house(x.property_id), landlordOf(x), money(x.holding_amount), money(x.balance_amount), money(Number(x.holding_amount) + Number(x.balance_amount)), money(x.first_rent), money(x.deposit), money(x.fee), tr ? `${tr.txn_no} ${ukDate(tr.transferred_on)}` : (Number(x.fee) ? 'NOT YET' : ''), money(x.to_landlord), ukDate(x.paid_on) || 'NOT YET', x.payout_no ?? '', x.paid_reference ?? ''] })))
   zip.file('06 Holding deposits.csv', csv(['Number', 'Received', 'From', 'House', 'Amount', 'Status'], holding.map(h => [h.hold_no, ukDate(h.received_on), h.payer_name ?? '', house(h.property_id), money(h.amount), h.status])))
 
   let client: { total: number; agrees: boolean; lines: [string, number][] } | null = null
@@ -170,6 +184,7 @@ export async function buildAccountantPack(s: SupabaseClient, month: string): Pro
     depositsReceived: { count: received.length, total: r2(received.reduce((t, x) => t + Number(x.deposit_amount), 0)) },
     holding: { count: holding.length, total: r2(holding.reduce((t, x) => t + Number(x.amount || 0), 0)) },
     missing, pdfsMissing,
+    initial: { count: initial.length, received: r2(initial.filter(x => within(x.received_on)).reduce((t, x) => t + Number(x.holding_amount) + Number(x.balance_amount), 0)), fees: r2(initial.filter(x => within(x.received_on)).reduce((t, x) => t + Number(x.fee || 0), 0)), paid: r2(initial.filter(x => within(x.paid_on)).reduce((t, x) => t + Number(x.amount_paid || 0), 0)) },
   }
   zip.file('00 Summary.pdf', await summaryPdf(summary, sts.map(st => ({ ref: String(st.statement_reference).split(' ')[0], house: house(st.property_id), landlord: landlordOf(st), rent: +st.gross_rent || 0, fees: (+st.management_fees || 0) + (+st.letting_fees || 0), expenses: +st.property_charges || 0, paid: +st.net_to_landlord || 0 })), client))
   return { zip: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } }), fileName: `Capital Rooms accounts pack - ${monthLabel(month)}.zip`, summary }
@@ -220,6 +235,14 @@ async function summaryPdf(sm: PackSummary, rows: { ref: string; house: string; l
     doc.save().strokeColor('#E4E0D8').lineWidth(0.4).moveTo(MARGIN, y - 3).lineTo(PAGE_W - MARGIN, y - 3).stroke().restore()
   }
 
+  if (sm.initial.count) {
+    h2('Let-only lets (initial monies)')
+    kv('Received from tenants (holding deposit + balance)', gbp(sm.initial.received))
+    kv('Tenant-find fees (agency income)', gbp(sm.initial.fees))
+    kv('Paid to landlords', gbp(sm.initial.paid))
+    need(14); doc.font(fontReg).fontSize(8).fillColor(GREY).text('First rent and deposit for let-only lets, less our fee, are paid straight to the landlord. Each let is in 08 Let-only initial monies.csv.', MARGIN, y, { width: COL_W }); y = doc.y + 4
+  }
+
   h2('Deposits we hold and protect (managed houses)')
   kv(`Held at ${sm.label} month end`, `${sm.depositsHeld.count} · ${gbp(sm.depositsHeld.total)}`)
   kv('Received this month (new tenancies)', `${sm.depositsReceived.count} · ${gbp(sm.depositsReceived.total)}`)
@@ -242,7 +265,7 @@ async function summaryPdf(sm: PackSummary, rows: { ref: string; house: string; l
   }
 
   h2('In this pack')
-  for (const t of ['01 Landlord statements.csv', '02 Landlord payments.csv', '03 Agency fees.csv', '04 Expenses charged.csv', '05 Deposits.csv', '06 Holding deposits.csv', '07 Client account.csv', 'Statements/ — each landlord statement as a PDF']) { need(13); doc.font(fontReg).fontSize(9).fillColor(BLACK).text(t, MARGIN, y); y += 13 }
+  for (const t of ['01 Landlord statements.csv', '02 Landlord payments.csv', '03 Agency fees.csv', '04 Expenses charged.csv', '05 Deposits.csv', '06 Holding deposits.csv', '07 Client account.csv', '08 Let-only initial monies.csv', 'Statements/ — each landlord statement as a PDF']) { need(13); doc.font(fontReg).fontSize(9).fillColor(BLACK).text(t, MARGIN, y); y += 13 }
 
   const range = (doc as any).bufferedPageRange?.() || { start: 0, count: 1 }
   for (let i = range.start; i < range.start + range.count; i++) { doc.switchToPage(i); drawPDFFooter(doc, footerImg, biz, fontReg) }
