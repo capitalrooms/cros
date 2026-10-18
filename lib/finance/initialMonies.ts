@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPackContext, moneySummary } from '@/lib/movein/pack'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
+import { demoPropertyIds } from '@/lib/demoProperties'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
@@ -51,9 +52,12 @@ export async function bankMatches(s: SupabaseClient, e: InitialExpected) {
   const shift = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
   const { data } = await s.from('bank_transactions').select('id, txn_no, transaction_date, amount, description, extracted_ref, status, is_practice')
     .in('status', ['unmatched', 'possible_duplicate']).gte('transaction_date', shift(around, -42)).lte('transaction_date', shift(around, 42)).gt('amount', 0)
+  // a practice (demo) house's let only ever sees practice bank lines, and a real let only real ones
+  const practice = (await demoPropertyIds(s)).has(e.propertyId ?? '')
+  const rows = ((data ?? []) as any[]).filter(b => !!b.is_practice === practice)
   const surname = e.tenantName.split(' ').pop()?.toLowerCase() ?? ''
   const ref = (e.paymentRef ?? '').toLowerCase().replace(/\s/g, '')
-  return ((data ?? []) as any[]).map(b => {
+  return rows.map(b => {
     const text = `${b.description ?? ''} ${b.extracted_ref ?? ''}`.toLowerCase()
     const exact = Math.abs(Number(b.amount) - e.balanceDue) < 0.005
     const near = !exact && Math.abs(Number(b.amount) - e.balanceDue) <= 1
@@ -84,8 +88,9 @@ export async function receive(s: SupabaseClient, tenancyId: string, b: any, by: 
   if (toLandlord < 0) return { error: 'The fee is more than the money received', status: 400 }
   let bankId: string | null = null
   if (b.bankTransactionId) {
-    const { data: bt } = await s.from('bank_transactions').select('id, status, amount').eq('id', b.bankTransactionId).maybeSingle() as { data: any }
+    const { data: bt } = await s.from('bank_transactions').select('id, status, amount, is_practice').eq('id', b.bankTransactionId).maybeSingle() as { data: any }
     if (!bt || !['unmatched', 'possible_duplicate'].includes(bt.status)) return { error: 'That bank line is already matched to something else', status: 409 }
+    if (!!bt.is_practice !== (await demoPropertyIds(s)).has(e.propertyId ?? '')) return { error: bt.is_practice ? 'That’s a practice bank line — it can’t pay a real let' : 'That’s a real bank line — it can’t pay a practice let', status: 400 }
     bankId = bt.id
   }
   const { data: rec, error } = await s.from('initial_monies').insert({

@@ -57,7 +57,14 @@ export async function GET(req: NextRequest) {
     const monthIds = (await statementsInMonths(s, `${month}-01`, monthEnd)).filter(x => !demo.has(x.property_id)).map(x => x.id)
     const { data: monthSts } = monthIds.length ? await s.from('landlord_statements').select('gross_rent, net_to_landlord, management_fees, letting_fees, property_charges, source').in('id', monthIds) : { data: [] as any[] }
     const sumSt = (k: string) => r2(((monthSts ?? []) as any[]).reduce((t, x) => t + Number(x[k] || 0), 0))
-    const month$ = { rent: sumSt('gross_rent'), toLandlords: sumSt('net_to_landlord'), mgmt: sumSt('management_fees'), letting: sumSt('letting_fees'), expenses: sumSt('property_charges'), statements: monthIds.length, imported: ((monthSts ?? []) as any[]).filter(x => x.source === 'import').length }
+    // let-only lets (initial monies, migration 231): the tenant-find fee is letting income in the month it was taken,
+    // and the rest is paid to the landlord in the month it went
+    const { data: inits, error: initErr } = await s.from('initial_monies').select('property_id, fee, received_on, amount_paid, paid_on, voided_at')
+    const im = ((initErr ? [] : inits ?? []) as any[]).filter(x => !x.voided_at && !demo.has(x.property_id))
+    const inMonth = (d: string | null) => !!d && d >= `${month}-01` && d <= monthEnd
+    const initFees = r2(im.filter(x => inMonth(x.received_on)).reduce((t, x) => t + Number(x.fee || 0), 0))
+    const initPaid = r2(im.filter(x => inMonth(x.paid_on)).reduce((t, x) => t + Number(x.amount_paid || 0), 0))
+    const month$ = { rent: sumSt('gross_rent'), toLandlords: r2(sumSt('net_to_landlord') + initPaid), mgmt: sumSt('management_fees'), letting: r2(sumSt('letting_fees') + initFees), expenses: sumSt('property_charges'), statements: monthIds.length, imported: ((monthSts ?? []) as any[]).filter(x => x.source === 'import').length }
     const beforeRecords = monthEnd < start
     const steps = prev ? [
       { n: 1, label: 'Rent roll', href: `/admin/rent-roll?month=${month}`, status: 'Imported — collected before go-live', done: true },
