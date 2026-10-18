@@ -49,6 +49,7 @@ export interface LettingsStatementData {
   bankSortCode?: string
   bankAccountNumber?: string
   paymentReference?: string
+  paidOn?: string            // ISO — the landlord has been paid (initial monies, migration 231)
 
   // Statement date
   statementDate?: string    // ISO, defaults to today
@@ -277,7 +278,9 @@ export async function generateLettingsStatementPDF(data: LettingsStatementData):
   const transferLine = `The balance owed to you of `
   doc.text(transferLine, MARGIN, y, { continued: true })
   doc.font(fontBold).text(fmtGBP(dueToLandlord), { continued: true })
-  doc.font(fontReg).text(' will be transferred to the following account:')
+  doc.font(fontReg).text(data.paidOn
+    ? ` was transferred on ${new Date(`${data.paidOn}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} to the following account:`
+    : ' will be transferred to the following account:')
   y += 24
 
   // ── Bank details box ─────────────────────────────────────────────────────

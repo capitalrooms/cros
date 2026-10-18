@@ -42,7 +42,13 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
   }
 
   // The person: linked by email if they're already on file, otherwise created from the application
-  const { data: existing } = await sb.from('people').select('id').ilike('email', applicant.email).limit(1).maybeSingle()
+  const { data: existing } = await sb.from('people').select('id, role, first_name, last_name, full_name').ilike('email', applicant.email).limit(1).maybeSingle() as { data: any }
+  // never turn a landlord's or a staff member's record into the tenant (18 Oct 2026: an applicant given the landlord's
+  // email became "the tenant" on the letting file, statement and landlord updates)
+  if (existing && existing.role && !['tenant', 'inactive'].includes(existing.role)) {   // a past tenant coming back is fine
+    const who = [existing.first_name, existing.last_name].filter(Boolean).join(' ') || existing.full_name || 'someone else'
+    return { error: `${applicant.email} already belongs to ${who} (${String(existing.role).replace(/_/g, ' ')}) — give the applicant their own email (Edit details), then set up the tenancy`, status: 409 }
+  }
   let personId: string
   if (existing) {
     // an existing person: fill in any name parts we didn't have, never overwrite ones the office set
