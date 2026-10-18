@@ -125,6 +125,11 @@ export async function transferFee(s: SupabaseClient, tenancyId: string, b: any, 
   if (!(Number(rec.fee) > 0)) return { error: 'There’s no fee to transfer', status: 400 }
   if (rec.feeTransfer) return { error: 'The fee transfer is already recorded', status: 409 }
   if (!isDate(b.transferredOn)) return { error: 'Enter the date of the transfer', status: 400 }
+  // a practice let's transfer must take a practice number (XTRF) — migration 232 teaches the numbering that
+  if ((await demoPropertyIds(s)).has(rec.property_id ?? '')) {
+    const { data: ready } = await s.rpc('cros_is_practice', { j: { initial_monies_id: rec.id } })
+    if (ready !== true) return { error: 'Run migration 232 in Supabase first — until then this practice transfer would take a real TRF number', status: 400 }
+  }
   const { data, error } = await s.from('office_transfers').insert({ initial_monies_id: rec.id, kind: 'fees', amount: Number(rec.fee), transferred_on: b.transferredOn, reference: String(b.reference ?? '').slice(0, 120) || null, created_by: by.personId }).select('txn_no').single()
   if (error) return { error: error.message, status: 400 }
   await logTenancyEvent(s, tenancyId, 'initial_monies_fee', `Tenant-find fee £${Number(rec.fee).toFixed(2)} moved to the operations account on ${b.transferredOn} · ${(data as any).txn_no}${b.reference ? ` · ref ${b.reference}` : ''}`, by.email)
