@@ -47,7 +47,13 @@ export async function rentGraceDays(s: SupabaseClient): Promise<number> {
 }
 
 export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?: string; practice?: boolean } = {}) {
-  const start = await ledgerStart(s)
+  let start = await ledgerStart(s)
+  // practice (demo houses) can be rehearsed before go-live, so the practice ledger runs from the records start
+  // (18 Oct 2026: with go-live moved to 1 Nov, October's practice run and a practice let-only let had dropped out)
+  if (opts.practice) {
+    const { data: rs } = await s.from('system_settings').select('value').eq('key', 'records_start').maybeSingle()
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(rs?.value)) && String(rs!.value) < start) start = String(rs!.value)
+  }
   const asAt = opts.asAt || new Date().toISOString().slice(0, 10)
   const from = opts.from && opts.from > start ? opts.from : start
   const [demo, props, charges, statements, adjustments, initial] = await Promise.all([

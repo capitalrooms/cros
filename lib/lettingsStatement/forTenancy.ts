@@ -46,7 +46,7 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
   if (!property) return { error: 'Property not found' }
   // a statement with a blank rent or deposit would show the landlord £0 — say what's missing instead (it used to crash)
   // once initial monies are recorded (migration 231), the statement shows exactly what came in and the fee taken
-  const { data: im } = await supabase.from('initial_monies').select('first_rent, deposit, fee, holding_amount').eq('tenancy_id', tenancyId).is('voided_at', null).maybeSingle()
+  const { data: im } = await supabase.from('initial_monies').select('first_rent, deposit, fee, holding_amount, paid_on, paid_reference').eq('tenancy_id', tenancyId).is('voided_at', null).maybeSingle()
   if (im) {
     ;(tenancy as any).rent_amount = Number((im as any).first_rent)
     ;(tenancy as any).deposit_amount = Number((im as any).deposit)
@@ -108,6 +108,7 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
     bankSortCode:     property.bank_sort_code,
     bankAccountNumber: property.bank_account_number,
     paymentReference: paymentRef,
+    paidOn: (im as any)?.paid_on ?? undefined,   // once the landlord's payment is recorded the statement says it went
     statementDate: new Date().toISOString(),
     bizSettings,
   })
