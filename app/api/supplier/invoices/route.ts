@@ -38,6 +38,13 @@ export async function GET(req: NextRequest) {
   const c = await who(req)
   if (!c) return NextResponse.json({ error: 'Please sign in again' }, { status: 401 })
   const s = createServiceClient()
+  // the logo on file, for the preview on their profile / My details (a 10-minute private link)
+  if (req.nextUrl.searchParams.get('logo')) {
+    const { data: p } = await s.from('supplier_profiles').select('logo_path').eq('person_id', c.personId).maybeSingle() as { data: any }
+    if (!p?.logo_path) return NextResponse.json({ url: null })
+    const { data: link } = await s.storage.from(BUCKET).createSignedUrl(p.logo_path, 600)
+    return NextResponse.json({ url: link?.signedUrl ?? null })
+  }
   const pdfId = req.nextUrl.searchParams.get('pdf')
   if (pdfId) {
     const { data: inv } = await s.from('supplier_invoices').select('pdf_path, number, supplier_id').eq('id', pdfId).maybeSingle() as { data: any }

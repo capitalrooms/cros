@@ -5,6 +5,7 @@
 // under their own name and logo; sent to the client with a copy to them. Data: /api/supplier/invoices.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import SupplierLogo from '@/components/SupplierLogo'
 import NameInput, { emptyName, toFullName, type NameValue } from '@/app/components/NameInput'
 import AddressField from '@/app/components/AddressField'
 
@@ -68,7 +69,7 @@ export default function SupplierInvoices({ viewAs, jobId }: { viewAs?: string | 
       {!data.gate.enabled && <p className="rounded-2xl bg-amber-50 p-4 text-sm text-amber-900">{data.gate.why}</p>}
       {tab === 'new' && data.gate.enabled && (data.role === 'cleaner' ? <CleanerNew data={data} post={post} done={() => { load(); setTab('list') }} /> : <ContractorNew jobId={jobId} data={data} post={post} done={() => { load(); setTab('list') }} />)}
       {tab === 'list' && <List data={data} headers={headers} post={post} reload={load} />}
-      {tab === 'details' && <Details data={data} post={post} saved={() => { load(); setTab('new') }} />}
+      {tab === 'details' && <Details data={data} post={post} saved={() => { load(); setTab('new') }} viewAs={viewAs} />}
     </div>
   )
 }
@@ -281,7 +282,7 @@ function List({ data, headers, post, reload }: { data: any; headers: Record<stri
   )
 }
 
-function Details({ data, post, saved }: { data: any; post: (b: Record<string, unknown>) => Promise<any>; saved: () => void }) {
+function Details({ data, post, saved, viewAs }: { data: any; post: (b: Record<string, unknown>) => Promise<any>; saved: () => void; viewAs?: string | null }) {
   const p = data.profile
   const [v, setV] = useState({ tradingName: p.tradingName ?? '', address: p.address ?? '', phone: p.phone ?? '', email: p.email ?? '', bankName: p.bankName ?? '', sortCode: p.sortCode ?? '', accountNo: p.accountNo ?? '', vatRegistered: !!p.vatRegistered, vatNumber: p.vatNumber ?? '', paymentDays: String(p.paymentDays ?? 14) })
   const [busy, setBusy] = useState(false)
@@ -293,18 +294,11 @@ function Details({ data, post, saved }: { data: any; post: (b: Record<string, un
     setBusy(true); setMsg('')
     try { await post({ action: 'profile', ...v }); saved() } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not save') } finally { setBusy(false) }
   }
-  async function logo(file: File | undefined) {
-    if (!file) return
-    try { await post({ action: 'logo', dataUrl: await toDataUrl(file, 600) }); setMsg('Logo saved') } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not save the logo') }
-  }
   const initials = String(v.tradingName || '?').replace(/\b(ltd|limited)\b/gi, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
   return (
     <div className="space-y-3 rounded-2xl bg-white p-4 ring-1 ring-neutral-200">
       <p className="text-sm text-neutral-600">These go on your invoices. Your bank details are only shown on your own invoices.</p>
-      <div className="flex items-center gap-3">
-        {p.logoPath ? <span className="text-sm">Your logo is set.</span> : <span className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold text-white" style={{ background: p.colour }}>{initials}</span>}
-        <label className="text-xs text-neutral-600">{p.logoPath ? 'Change logo' : 'Using a generated logo — upload your own (optional)'}<input type="file" accept="image/png,image/jpeg" className="mt-1 block text-xs" onChange={e => logo(e.target.files?.[0])} /></label>
-      </div>
+      <SupplierLogo compact viewAs={viewAs} />
       {f('tradingName', 'Business name')}
       <label className="block"><span className={label}>Business address</span><AddressField multiline rows={2} className={input} value={v.address ?? ''} onChange={a => setV({ ...v, address: a })} /></label>
       <div className="grid grid-cols-2 gap-2">{f('phone', 'Phone')}{f('email', 'Email (you get a copy here)', { type: 'email' })}</div>
@@ -313,7 +307,7 @@ function Details({ data, post, saved }: { data: any; post: (b: Record<string, un
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={v.vatRegistered} onChange={e => setV({ ...v, vatRegistered: e.target.checked })} /> I’m VAT registered (adds 20%)</label>
       {v.vatRegistered && f('vatNumber', 'VAT number')}
       {f('paymentDays', 'Payment due after (days)', { inputMode: 'numeric' })}
-      {msg && <p className={`text-sm ${msg === 'Logo saved' ? 'text-green-700' : 'text-red-700'}`}>{msg}</p>}
+      {msg && <p className="text-sm text-red-700">{msg}</p>}
       <button type="button" className={`${btnDark} w-full`} disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save my details'}</button>
     </div>
   )
