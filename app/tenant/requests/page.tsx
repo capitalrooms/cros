@@ -8,6 +8,7 @@ import Link from 'next/link';
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
+import { repairTarget, canReopen, REOPEN_REASONS, REOPEN_DAYS, type ReopenReason } from '@/lib/repairs/targets';
 
 interface Request {
   id: string;
@@ -59,6 +60,31 @@ export default function TenantRequests() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'completed'>('all');
+  // reopening a finished repair (21 Oct 2026)
+  const [reopenId, setReopenId] = useState<string | null>(null);
+  const [reopenReason, setReopenReason] = useState<ReopenReason | ''>('');
+  const [reopenNote, setReopenNote] = useState('');
+  const [reopenBusy, setReopenBusy] = useState(false);
+  const [reopenMsg, setReopenMsg] = useState<Record<string, string>>({});
+
+  async function sendReopen(id: string) {
+    if (!reopenReason) return;
+    setReopenBusy(true);
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/tenant/reopen-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ ticketId: id, reason: reopenReason, note: reopenNote }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) { setReopenMsg(m => ({ ...m, [id]: j.error || 'That didn’t go through — please try again' })); return; }
+      setRequests(rs => rs.map(r => r.id === id ? { ...r, status: j.backToContractor ? 'assigned' : 'reported', completed_at: null, booked_date: null, reopened_at: new Date().toISOString(), reopen_reason: reopenReason } as any : r));
+      setReopenMsg(m => ({ ...m, [id]: j.backToContractor ? 'Reopened — it’s gone straight back to the contractor, who’ll be in touch to arrange a time.' : 'Reopened — we’ll arrange someone and let you know.' }));
+      setReopenId(null); setReopenReason(''); setReopenNote('');
+    } finally { setReopenBusy(false); }
+  }
 
   useEffect(() => {
     async function init() {
@@ -202,11 +228,46 @@ export default function TenantRequests() {
                         </div>
                       )}
 
-                      {/* Completed Info */}
+                      {/* how long we've said it can take (lib/repairs/targets) */}
+                      {request.status !== 'completed' && request.status !== 'cancelled' && (() => {
+                        const target = repairTarget(request as any);
+                        return target.tier !== 'emergency' && (
+                          <p className="mt-md text-xs text-neutral-600"><span className="font-semibold text-neutral-800">{target.label} repair</span> · we aim to have it fixed by {target.byText}</p>
+                        );
+                      })()}
+                      {(request as any).reopened_at && request.status !== 'completed' && (
+                        <p className="mt-sm inline-block rounded-full bg-amber-100 px-md py-xs text-xs font-semibold text-amber-800">Reopened — back with the contractor</p>
+                      )}
+                      {reopenMsg[request.id] && <p className="mt-sm text-sm font-semibold text-neutral-800">{reopenMsg[request.id]}</p>}
+
+                      {/* Completed Info — and reopen it if it isn't sorted */}
                       {request.completed_at && (
                         <div className="mt-md rounded-xl bg-green-50 p-md border border-green-200">
                           <p className="text-xs font-semibold uppercase text-green-700 mb-xs">Completed</p>
                           <p className="text-base font-bold text-green-900">{formatDate(request.completed_at)}</p>
+                          {canReopen(request as any) && reopenId !== request.id && (
+                            <button type="button" onClick={() => { setReopenId(request.id); setReopenReason(''); setReopenNote('') }}
+                              className="mt-sm text-sm font-semibold text-green-900 underline">Not sorted? Reopen it</button>
+                          )}
+                          {reopenId === request.id && (
+                            <div className="mt-md space-y-sm rounded-xl bg-white p-md">
+                              <p className="text-sm font-bold text-neutral-900">Why does it need looking at again?</p>
+                              {(Object.entries(REOPEN_REASONS) as [ReopenReason, string][]).map(([k, label]) => (
+                                <label key={k} className={`flex cursor-pointer items-center gap-sm rounded-lg border px-md py-sm text-sm ${reopenReason === k ? 'border-neutral-900 bg-neutral-50 font-semibold' : 'border-neutral-200'}`}>
+                                  <input type="radio" name={`reopen-${request.id}`} checked={reopenReason === k} onChange={() => setReopenReason(k)} className="accent-neutral-900" /> {label}
+                                </label>
+                              ))}
+                              <textarea rows={2} value={reopenNote} onChange={e => setReopenNote(e.target.value)}
+                                placeholder={reopenReason === 'more_needed' ? 'What else needs doing?' : 'Anything that helps the contractor (optional)'}
+                                className="w-full resize-none rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                              <div className="flex gap-sm">
+                                <button type="button" disabled={!reopenReason || reopenBusy || (reopenReason === 'more_needed' && !reopenNote.trim())} onClick={() => sendReopen(request.id)}
+                                  className="rounded-lg bg-neutral-900 px-md py-sm text-sm font-bold text-white disabled:opacity-40">{reopenBusy ? 'Sending…' : 'Reopen and send back'}</button>
+                                <button type="button" onClick={() => setReopenId(null)} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-700">Cancel</button>
+                              </div>
+                              <p className="text-xs text-neutral-500">It goes straight back to the contractor who did it, and we&apos;re told too. You can reopen a repair for {REOPEN_DAYS} days after it&apos;s finished.</p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -612,6 +612,15 @@ export default function JobDetailPage() {
         )}
 
         {/* Admin "before you go" note */}
+        {/* reopened by the tenant (migration 236): why, and what they said */}
+        {(job as any).reopened_at && job.status !== 'completed' && (
+          <div className="rounded-2xl border-2 border-red-300 bg-red-50 p-lg">
+            <p className="text-xs font-bold uppercase tracking-wider text-red-800">Reopened by the tenant{Number((job as any).reopen_count) > 1 ? ` · ${(job as any).reopen_count} times` : ''}</p>
+            <p className="mt-xs text-sm font-semibold text-red-900">{({ not_done: 'They say it was never done.', broke_again: 'They say it has gone wrong again.', more_needed: 'They need something else doing too.' } as Record<string, string>)[(job as any).reopen_reason] ?? 'It needs looking at again.'}</p>
+            {(job as any).reopen_note && <p className="mt-xs text-sm text-red-900">“{(job as any).reopen_note}”</p>}
+            <p className="mt-sm text-xs text-red-800">Please book a time to go back below.</p>
+          </div>
+        )}
         {!!officeNote(job.admin_note) && (
           <div className="mb-lg rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-lg">
             <p className="text-xs font-bold uppercase tracking-wide text-yellow-800">

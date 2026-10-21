@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { deliverEmail } from '@/lib/sendEmail'
+import { REOPEN_DAYS } from '@/lib/repairs/targets'
 import { hiName } from '@/lib/people'
 import { requireSignedIn, canWorkOnTicket, canActAtProperty, requireStaff, isStaff } from '@/lib/portalAuth'
 import { expandJoint } from '@/lib/serverNotify'
@@ -116,7 +117,11 @@ export async function POST(request: NextRequest) {
 
           <p style="margin:0 0 20px;line-height:1.6">Hi ${tenantName},</p>
           <p style="margin:0 0 20px;line-height:1.6">
-            The repair in your room has been completed. If you notice any issues, please let us know.
+            The contractor has marked this repair as done, so we've closed it.
+          </p>
+          <p style="margin:0 0 20px;line-height:1.6">
+            <strong>Not sorted?</strong> If it wasn't done, it's gone wrong again, or something else needs doing too, reopen it
+            from <a href="${PORTAL_URL}/tenant/requests">My requests</a> within ${REOPEN_DAYS} days — it goes straight back to the contractor.
           </p>
 
           <div style="background:#f3f1ef;padding:16px;border-radius:8px;margin:20px 0">
