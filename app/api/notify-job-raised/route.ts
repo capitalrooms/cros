@@ -10,6 +10,7 @@ import { tellContractor } from '@/lib/contractorContact'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendServerPush } from '@/lib/serverPush'
+import { getCommsLive } from '@/lib/comms'
 
 
 
@@ -110,8 +111,9 @@ export async function POST(request: NextRequest) {
     portal_url: PORTAL_URL,
   }
 
-  // Tenant — confirmation that we received their request
-  if (reporter?.email) {
+  // Tenant — confirmation that we received their request (an automatic tenant message: paused while tenant
+  // messages are off — the office and contractor alerts below still go; 21 Oct 2026 audit)
+  if (reporter?.email && (reporter.role !== 'tenant' || await getCommsLive())) {
     const subject = tplTenant ? render(tplTenant.subject_line, vars) : `Request received — ${heading}`
     const body = tplTenant ? render(tplTenant.template_text, vars) : `
         <h2 style="margin:0 0 18px;font-size:22px">We received your request</h2>

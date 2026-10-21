@@ -134,50 +134,20 @@ export default function VisitDetailPage() {
     if (!ticket || !personId) return
     setRespondingAccess(true)
     try {
-      if (approved) {
-        await supabase
-          .from('maintenance_tickets')
-          .update({
-            short_notice_tenant_approved_at: new Date().toISOString(),
-            short_notice_tenant_approved_by: personId,
-          })
-          .eq('id', ticket.id)
-        setTicket(prev => prev ? {
-          ...prev,
-          short_notice_tenant_approved_at: new Date().toISOString(),
-        } : prev)
-      } else {
-        // Decline: clear the short-notice booking date (move to fallback if available)
-        if (ticket.short_notice_pending && ticket.fallback_date) {
-          await supabase
-            .from('maintenance_tickets')
-            .update({
-              booked_date: ticket.fallback_date,
-              booked_slot: ticket.fallback_slot,
-              short_notice_pending: false,
-              short_notice: false,
-            })
-            .eq('id', ticket.id)
-          setTicket(prev => prev ? {
-            ...prev,
-            booked_date: ticket.fallback_date,
-            booked_slot: ticket.fallback_slot,
-            short_notice_pending: false,
-            short_notice: false,
-          } : prev)
-        } else {
-          await supabase
-            .from('maintenance_tickets')
-            .update({ booked_date: null, booked_slot: null, short_notice: false })
-            .eq('id', ticket.id)
-          setTicket(prev => prev ? {
-            ...prev,
-            booked_date: null,
-            booked_slot: null,
-            short_notice: false,
-          } : prev)
-        }
-      }
+      // through the server, which tells the contractor and the office (21 Oct 2026 — a decline used to vanish silently)
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/book-with-24h-check', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+        body: JSON.stringify({ ticketId: ticket.id, decision: approved ? 'approve' : 'decline' }),
+      }).catch(() => null)
+      if (!res?.ok) { const j = await res?.json().catch(() => ({})); alert(j?.error || 'Your answer didn’t save — please try again'); return }
+      const now = new Date().toISOString()
+      setTicket(prev => !prev ? prev : approved
+        ? { ...prev, short_notice_tenant_approved_at: now, short_notice_pending: false }
+        : prev.short_notice_pending && prev.fallback_date
+          ? { ...prev, booked_date: prev.fallback_date, booked_slot: prev.fallback_slot, short_notice_pending: false, short_notice: false }
+          : { ...prev, booked_date: null, booked_slot: null, short_notice: false, short_notice_pending: false })
     } finally {
       setRespondingAccess(false)
     }
