@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireSignedIn, isStaff } from '@/lib/portalAuth'
 import { insertNotifications, activeTenantIds, dispatchChannels, type NotifyChannels } from '@/lib/serverNotify'
+import { getElectedCommsLive } from '@/lib/comms'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
     if (!property_id || !subject || !message) {
       return Response.json({ error: 'Missing required fields: property_id, subject, message' }, { status: 400 })
     }
+    // a message the cleaner chooses to send: follows Settings › "Messages you send yourself" (21 Oct 2026 audit)
+    if (!await getElectedCommsLive()) return Response.json({ error: 'Messages to tenants are switched off in Settings at the moment — nothing was sent' }, { status: 409 })
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceKey) return Response.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' }, { status: 500 })

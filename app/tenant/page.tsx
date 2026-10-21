@@ -509,21 +509,15 @@ export default function TenantDashboard() {
   }
 
   async function respondToAccess(ticketId: string, approved: boolean) {
+    // through the server, which tells the contractor and the office (21 Oct 2026 — a decline used to vanish silently)
     const supabase = createClient()
-    if (approved) {
-      await supabase
-        .from('maintenance_tickets')
-        .update({
-          short_notice_tenant_approved_at: new Date().toISOString(),
-          short_notice_tenant_approved_by: personId,
-        })
-        .eq('id', ticketId)
-    } else {
-      await supabase
-        .from('maintenance_tickets')
-        .update({ booked_date: null, booked_slot: null, short_notice: false })
-        .eq('id', ticketId)
-    }
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/book-with-24h-check', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
+      body: JSON.stringify({ ticketId, decision: approved ? 'approve' : 'decline' }),
+    }).catch(() => null)
+    if (!res?.ok) { const j = await res?.json().catch(() => ({})); alert(j?.error || 'Your answer didn’t save — please try again'); return }
     setAccessRequests((prev) => prev.filter((r) => r.id !== ticketId))
   }
 

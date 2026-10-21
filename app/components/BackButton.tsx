@@ -25,7 +25,7 @@ function Arrow() {
   )
 }
 
-export default function BackButton({ href, optional = false }: { href?: string; /** kept so existing screens compile; the button always says Previous */ label?: string; /** draw nothing when there's nowhere to go back to (a section's own home) */ optional?: boolean }) {
+export default function BackButton({ href, optional = false, onClick }: { href?: string; /** kept so existing screens compile; the button always says Previous */ label?: string; /** draw nothing when there's nowhere to go back to (a section's own home) */ optional?: boolean; /** a step back inside a multi-step form (21 Oct 2026: tenant report-a-repair, housemate concern, contributions passed this and it was ignored — back left the form) */ onClick?: () => void }) {
   const router = useRouter()
   const [prev, setPrev] = useState<TrailEntry | null>(null)
   useEffect(() => {
@@ -42,6 +42,7 @@ export default function BackButton({ href, optional = false }: { href?: string; 
       <span>{name}</span>
     </>
   )
+  if (onClick) return <button type="button" onClick={onClick} className={pill} aria-label="Previous step">{inner}</button>
   if (prev) return <button type="button" onClick={() => router.push(prev.url)} className={pill} title="Previous screen" aria-label="Previous screen">{inner}</button>
   if (href) return <Link href={href} className={pill} title="Previous screen" aria-label="Previous screen">{inner}</Link>
   if (optional) return null

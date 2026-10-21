@@ -24,7 +24,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { requireSignedIn, canWorkOnTicket } from '@/lib/portalAuth'
+import { requireSignedIn, canWorkOnTicket, canActAtProperty } from '@/lib/portalAuth'
+import { tellContractor } from '@/lib/contractorContact'
+import { PORTAL_URL } from '@/lib/emailTemplate'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getCommsLive } from '@/lib/comms'
 import { activeTenantIds, insertNotifications } from '@/lib/serverNotify'
@@ -173,15 +175,19 @@ export async function POST(req: NextRequest) {
 
 /**
  * PATCH /api/book-with-24h-check
- * Tenant approve/decline of a short-notice request
+ * The tenant's answer to a short-notice visit (also the office / the job's contractor on their behalf).
  * Body: { ticketId, decision: 'approve' | 'decline' }
+ * 21 Oct 2026 audit: tenants — the people asked — were refused here, so their screens wrote to the job directly and
+ * a decline quietly moved or removed the booking with nobody told. Now the answer is saved here, only these fields
+ * change, and the contractor and the office are told either way.
  */
 export async function PATCH(req: NextRequest) {
-  const { ticketId, decision } = await req.json()
+  const { ticketId, decision } = await req.json().catch(() => ({}))
   if (!ticketId || !['approve', 'decline'].includes(decision)) {
     return NextResponse.json({ error: 'ticketId and decision (approve|decline) required' }, { status: 400 })
   }
-  if (!(await canWorkOnTicket(await requireSignedIn(req), ticketId))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const caller = await requireSignedIn(req)
+  if (!caller) return NextResponse.json({ error: 'Please sign in again' }, { status: 401 })
 
   const service = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -190,31 +196,49 @@ export async function PATCH(req: NextRequest) {
 
   const { data: ticket } = await service
     .from('maintenance_tickets')
-    .select('id, fallback_date, fallback_slot, booked_date, booked_slot')
+    .select('id, title, category, property_id, contractor_id, fallback_date, fallback_slot, booked_date, booked_slot, short_notice_pending, properties(name)')
     .eq('id', ticketId)
-    .single()
-
+    .maybeSingle() as { data: any }
   if (!ticket) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  if (decision === 'approve') {
-    // Keep the originally requested (short-notice) slot
-    await service
-      .from('maintenance_tickets')
-      .update({ status: 'booked', short_notice_pending: false })
-      .eq('id', ticketId)
-    return NextResponse.json({ outcome: 'confirmed_short_notice' })
-  } else {
-    // Revert to fallback slot
-    const { data: fb } = ticket as any
-    await service
-      .from('maintenance_tickets')
-      .update({
-        booked_date:          (ticket as any).fallback_date,
-        booked_slot:          (ticket as any).fallback_slot,
-        status:               'booked',
-        short_notice_pending: false,
+  const allowed = await canWorkOnTicket(caller, ticketId, service)
+    || (caller.role === 'tenant' && !!ticket.property_id && await canActAtProperty(caller, ticket.property_id, service))
+  if (!allowed) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const now = new Date().toISOString()
+  const update = decision === 'approve'
+    ? { status: 'booked', short_notice_pending: false, short_notice_tenant_approved_at: now, short_notice_tenant_approved_by: caller.personId }
+    : ticket.fallback_date
+      ? { booked_date: ticket.fallback_date, booked_slot: ticket.fallback_slot, status: 'booked', short_notice_pending: false, short_notice: false }
+      : { booked_date: null, booked_slot: null, status: 'assigned', short_notice_pending: false, short_notice: false }
+  const { error } = await service.from('maintenance_tickets').update(update).eq('id', ticketId)
+  if (error) return NextResponse.json({ error: `Couldn’t save your answer: ${error.message}` }, { status: 500 })
+
+  // tell the contractor and the office (staff-facing messages — not affected by the tenant messages switch)
+  const house = String(ticket.properties?.name || 'the property').split('\n')[0]
+  const what = ticket.title || ticket.category || 'the job'
+  const when = (d: string | null, slot: string | null) => d ? `${new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${slot ? ` (${slot})` : ''}` : ''
+  const line = decision === 'approve'
+    ? `The tenant agreed to the short-notice visit for ${what} at ${house} — ${when(ticket.booked_date, ticket.booked_slot)}.`
+    : ticket.fallback_date
+      ? `The tenant declined the short-notice visit for ${what} at ${house}. It's now booked for the back-up time, ${when(ticket.fallback_date, ticket.fallback_slot)}.`
+      : `The tenant declined the short-notice visit for ${what} at ${house}. The booking has been taken off — please book another time.`
+  const told: string[] = []
+  if (ticket.contractor_id && ticket.contractor_id !== caller.personId) {
+    const { data: c } = await service.from('people').select('*').eq('id', ticket.contractor_id).maybeSingle()
+    if (c) {
+      const out = await tellContractor(c, c.id, {
+        text: `CAPITAL ROOMS: ${line} ${PORTAL_URL}/contractor/job/${ticketId}`,
+        title: decision === 'approve' ? '✅ Short-notice visit agreed' : '↩︎ Short-notice visit declined', body: line.slice(0, 160),
+        url: `/contractor/job/${ticketId}`, link: `${PORTAL_URL}/contractor/job/${ticketId}`, tag: `job-${ticketId}`,
       })
-      .eq('id', ticketId)
-    return NextResponse.json({ outcome: 'reverted_to_fallback' })
+      told.push(out.via.length ? `contractor (${out.via.join(', ')})` : `contractor not reached: ${out.error}`)
+    }
   }
+  const { data: office } = await service.from('people').select('id').in('role', ['administrator', 'admin', 'lettings'])
+  if (office?.length) {
+    await insertNotifications(service, office.map((o: any) => o.id), { title: decision === 'approve' ? 'Short-notice visit agreed' : 'Short-notice visit declined', body: line, type: 'maintenance', link: `/admin/maintenance` })
+    told.push('office')
+  }
+  return NextResponse.json({ outcome: decision === 'approve' ? 'confirmed_short_notice' : ticket.fallback_date ? 'reverted_to_fallback' : 'booking_removed', told })
 }
