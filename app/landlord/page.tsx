@@ -9,6 +9,7 @@ import ViewAsBanner from '@/app/components/ViewAsBanner'
 import PropertyFinancialSummary from '@/app/components/PropertyFinancialSummary'
 import LandlordPlanner from '@/components/LandlordPlanner'
 import PublicShell from '@/components/public/PublicShell'
+import LandlordDocuments from './LandlordDocuments'
 import { hiName } from '@/lib/people'
 import { landlordSections, type LandlordSection } from '@/lib/access/landlordSections'
 
@@ -293,8 +294,8 @@ export default function LandlordDashboard() {
           : (
             <div className="rounded-2xl bg-white border border-neutral-200 px-lg py-3xl text-center mb-3xl">
               <p className="text-3xl mb-md">💷</p>
-              <p className="text-sm font-semibold text-neutral-600">No statements yet</p>
-              <p className="text-xs text-neutral-400 mt-xs">Check back soon for your financial statements.</p>
+              <p className="text-sm font-semibold text-neutral-600">No monthly statements</p>
+              <p className="text-xs text-neutral-400 mt-xs">Monthly statements appear here for houses we manage. Lettings statements for tenants we've found you are under Your documents below.</p>
             </div>
           )
         }
@@ -348,6 +349,9 @@ export default function LandlordDashboard() {
           </div>
         )}
       </section>
+
+      {/* statements, agreements, invoices and certificates from us — let-only landlords too (21 Oct 2026) */}
+      <LandlordDocuments asId={viewingAs?.id ?? null} />
 
       {/* account */}
       <section className={`${wrap} flex flex-wrap items-center gap-6 pb-16 pt-16`}>
