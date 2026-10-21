@@ -9,6 +9,7 @@ import ViewAsBanner from '@/app/components/ViewAsBanner'
 import PropertyFinancialSummary from '@/app/components/PropertyFinancialSummary'
 import LandlordPlanner from '@/components/LandlordPlanner'
 import PublicShell from '@/components/public/PublicShell'
+import { hiName } from '@/lib/people'
 import { landlordSections, type LandlordSection } from '@/lib/access/landlordSections'
 
 // Notification categories the landlord can self-manage
@@ -87,7 +88,9 @@ export default function LandlordDashboard() {
         return
       } else {
         setUser(data.user)
-        setName((data.assignment as any).name || data.user?.email?.split('@')[0] || '')
+        // their name as people know it (the record has no "name" column — it fell back to the email: "Hello, test-onboard")
+        { const { data: me } = await createClient().from('people').select('salutation, first_name, last_name, full_name, company').eq('id', (data.assignment as any)?.id).maybeSingle()
+          setName(hiName(me as any) !== 'there' ? hiName(me as any) : '') }
         pid = (data.assignment as any)?.id ?? null
         setPersonId(pid)
       }
@@ -180,13 +183,13 @@ export default function LandlordDashboard() {
   const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   if (loading) {
-    return <PublicShell centred><p className="pub-muted mx-auto max-w-6xl px-6 py-24 text-[16px] md:px-14">Loading…</p></PublicShell>
+    return <PublicShell centred signedIn><p className="pub-muted mx-auto max-w-6xl px-6 py-24 text-[16px] md:px-14">Loading…</p></PublicShell>
   }
 
   // the landlord-onboarding look (components/public) — 14 Oct 2026, Harry: "do it in the onboarding landlord style"
   const wrap = 'mx-auto max-w-6xl px-6 md:px-14'
   return (
-    <PublicShell centred label={viewingAs ? `Viewing as ${name}` : 'Your account'}>
+    <PublicShell centred signedIn label={viewingAs ? `Viewing as ${name}` : 'Your account'}>
       {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
 
       <section className={`${wrap} pt-10 md:pt-14`}>

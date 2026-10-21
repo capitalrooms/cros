@@ -201,8 +201,26 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
     )
   }
 
+  // a statement CROS made itself keeps its rooms and expenses on the statement, not as imported line items — show
+  // those, so the landlord sees each room's rent, the fees and what every expense was for (21 Oct 2026)
+  function itemsFromStatement(stmt: any): LineItem[] {
+    const out: LineItem[] = []
+    const date = stmt.statement_date
+    for (const r of (Array.isArray(stmt.rooms) ? stmt.rooms : []) as any[]) {
+      const who = r.room_number ? `Room ${r.room_number}${r.tenant_name ? ` — ${r.tenant_name}` : ''}` : (r.tenant_name || 'Rent')
+      if (num(r.rent_income)) out.push({ id: `${stmt.id}-rent-${r.room_number}`, description: `Rent · ${who}`, amount: num(r.rent_income), statement_date: date, category: 'rent_income', room_label: r.room_number ? `Room ${r.room_number}` : null } as any)
+      if (num(r.management_fee)) out.push({ id: `${stmt.id}-mgmt-${r.room_number}`, description: `Management fee · ${who}`, amount: num(r.management_fee), statement_date: date, category: 'management_fee', room_label: r.room_number ? `Room ${r.room_number}` : null } as any)
+      if (num(r.letting_fee)) out.push({ id: `${stmt.id}-let-${r.room_number}`, description: `Letting fee · ${who}`, amount: num(r.letting_fee), statement_date: date, category: 'letting_fee', room_label: r.room_number ? `Room ${r.room_number}` : null } as any)
+    }
+    for (const e of (Array.isArray(stmt.expenses) ? stmt.expenses : []) as any[]) {
+      out.push({ id: `${stmt.id}-exp-${e.id ?? e.number ?? out.length}`, description: [e.description, e.supplier].filter(Boolean).join(' · ') || 'Expense', amount: num(e.amount), statement_date: e.date || date, category: e.category || 'other', room_label: null } as any)
+    }
+    return out
+  }
+
   function renderStatementDetail(stmt: Statement) {
-    const items = lineItemsByStatement[stmt.id] || []
+    const loaded = lineItemsByStatement[stmt.id] || []
+    const items = loaded.length ? loaded : itemsFromStatement(stmt)
     const AGENT_SLUGS = ['management_fee', 'letting_fee']
     const INCOME_SLUG = 'rent_income'
 

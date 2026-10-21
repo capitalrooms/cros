@@ -4,19 +4,22 @@
 // https://claude.ai/artifact/SkenhjQXxEC1qEzbJiNCz9
 import './public.css'
 import { PublicFooter } from './PublicFooter'
+import TopBar from '@/app/components/TopBar'
 
 const FONTS = 'https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap'
 
 // the footer every page uses (components/public/PublicFooter) — re-exported for the pages that import it from here
 export { PublicFooter }
 
-export default function PublicShell({ label, children, centred = false }: { label?: string; children: React.ReactNode; centred?: boolean }) {
+export default function PublicShell({ label, children, centred = false, signedIn = false }: { label?: string; children: React.ReactNode; centred?: boolean; /** a signed-in user's screen (the landlord app): the one top bar every user has, not the public header (21 Oct 2026) */ signedIn?: boolean }) {
   return (
     <div className="pub flex min-h-screen flex-col">
       {/* React hoists this into <head> */}
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link rel="stylesheet" href={FONTS} precedence="default" />
-      {centred ? (
+      {signedIn ? (
+        <TopBar position="sticky" />
+      ) : centred ? (
         // logo in the centre (Harry, 17 Oct 2026 — the landlord app); the page label on the right where there's room
         <header className="sticky top-0 z-40 grid items-center gap-4 px-6 py-4 md:px-14"
           style={{ gridTemplateColumns: '1fr auto 1fr', background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(8px)', borderBottom: '1px solid #E4E0D8', paddingTop: 'max(16px, env(safe-area-inset-top))' }}>
