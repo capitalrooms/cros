@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
 import AppBar from '@/components/AppBar';
+import { repairTarget } from '@/lib/repairs/targets';
 import BackButton from '@/app/components/BackButton';
 import { KINDS, kindFrom } from '@/lib/emergencies/guide';
 
@@ -317,6 +318,7 @@ function ReportWizardContent() {
   const catDef = CATEGORY_QUESTIONS[categoryId];
 
   const [step, setStep] = useState<Step>('form');
+  const [promise, setPromise] = useState<string | null>(null);   // how long we've said it can take (lib/repairs/targets)
   // each step starts at the top (it used to open scrolled to wherever the last one ended — 21 Oct 2026)
   useEffect(() => { window.scrollTo({ top: 0 }) }, [step]);
   const [description, setDescription] = useState('');
@@ -487,6 +489,8 @@ function ReportWizardContent() {
 
       if (ticketErr) throw ticketErr;
       const ticketId = ticketData?.[0]?.id;
+      const target = repairTarget({ priority, category: categoryLabel, title, description: fullDescription });
+      setPromise(target.tier === 'emergency' ? null : target.message);
 
       // Upload photos
       const allPhotos = [...(labelPhoto ? [labelPhoto] : []), ...photos];
@@ -994,7 +998,7 @@ function ReportWizardContent() {
                 : emStatus === 'morning' ? 'Thanks for making it safe. We’ll arrange someone first thing in the morning. If it gets worse, report it again as “still happening”.'
                 : emStatus === 'call_999' ? `${emInfo?.callServices ?? 'Please call the emergency services.'} We’ve told the office.`
                 : emStatus === 'failed' ? 'Your report is in, but we couldn’t start the emergency call-out automatically — the office has your report. If it’s not safe, call us.'
-                : 'We\'ll review it and be in touch to arrange a visit. You\'ll get a notification when a contractor is booked.'}
+                : `We’ve got it. ${promise ?? ''} We’ll check it, book a contractor and let you know the day — you can follow it in My requests.`}
             </p>
             <button style={{ ...nextBtn, maxWidth: 240, margin: '0 auto' }} onClick={() => router.push('/tenant')}>
               Back to dashboard

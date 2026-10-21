@@ -11,6 +11,7 @@ import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendServerPush } from '@/lib/serverPush'
 import { getCommsLive } from '@/lib/comms'
+import { repairTarget } from '@/lib/repairs/targets'
 
 
 
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
   ])
 
   const vars = {
+    repair_promise: (() => { const t = repairTarget(ticket as any); return t.tier === 'emergency' ? '' : t.message })(),   // {repair_promise} for saved templates
     heading,
     ticket_title: ticket.title,
     where: `${where}${room?.name ? ` — ${room.name}` : ''}`,
@@ -130,6 +132,7 @@ export async function POST(request: NextRequest) {
         </table>
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
           Your request has been submitted and is now waiting for our team to review and schedule.
+          ${(() => { const t = repairTarget(ticket as any); return t.tier === 'emergency' ? '' : t.message })()}
           You'll get an email as soon as a time is arranged.
         </p>`
     const success = await send(reporter.email, subject, await emailHtml(body, { req: request }))
