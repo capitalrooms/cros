@@ -6,6 +6,8 @@
 // (/api/emergencies/start → lib/emergencies/engine): the emergency contractors who cover this house are contacted the
 // way each has asked, the soonest is confirmed, and the house is kept told.
 
+import BackButton from '@/app/components/BackButton'
+import AppBar from '@/components/AppBar'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -81,10 +83,10 @@ export default function TenantEmergencyPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <header className="bg-[#7F1D1D] px-lg pb-lg pt-xl text-white">
+      <AppBar left={<BackButton href="/tenant" />} />
+      <header className="bg-[#7F1D1D] px-lg pb-lg pt-lg text-white">
         <div className="mx-auto max-w-xl">
-          <Link href="/tenant" className="text-sm text-white/70">← Back</Link>
-          <h1 className="mt-sm text-2xl font-bold">Report an emergency</h1>
+          <h1 className="text-2xl font-bold">Report an emergency</h1>
           <p className="mt-xs text-sm text-white/80">Something that can’t wait — water pouring, no power or heating, a door that won’t lock. For anything else, use Report an issue.</p>
         </div>
       </header>
