@@ -40,17 +40,27 @@ export async function renderSupplierInvoice(d: SupplierInvoicePdf): Promise<Buff
 
   // ── header: logo + supplier | INVOICE + number/dates ──
   let y = M
+  // their own logo: up to 150 wide × 60 high, so a wide logo isn't squashed into a small square (21 Oct 2026)
+  let logoW = 0
   if (d.supplier.logo?.length) {
-    try { doc.image(d.supplier.logo, M, y, { fit: [64, 64] }) } catch { /* unreadable logo: fall back below */ }
-  } else {
+    try {
+      const img = (doc as any).openImage(d.supplier.logo)
+      const k = Math.min(150 / img.width, 60 / img.height)
+      logoW = Math.round(img.width * k)
+      doc.image(img, M, y, { width: logoW, height: Math.round(img.height * k) })
+    } catch { logoW = 0 /* unreadable logo: the monogram instead */ }
+  }
+  if (!logoW) {
     doc.save().circle(M + 28, y + 28, 28).fill(ACCENT).restore()
     doc.font(BOLD).fontSize(20).fillColor('#ffffff').text(initials(d.supplier.name), M, y + 16, { width: 56, align: 'center' })
+    logoW = 56
   }
-  const sx = M + 78
-  doc.font(BOLD).fontSize(15).fillColor(INK).text(d.supplier.name, sx, y + 4, { width: 250 })
+  const sx = M + logoW + 14
+  const sw = Math.max(140, (W - M - 205) - sx)   // the business name and details stop before the invoice number column
+  doc.font(BOLD).fontSize(15).fillColor(INK).text(d.supplier.name, sx, y + 4, { width: sw })
   doc.font(REG).fontSize(9).fillColor(MUTED)
   const sLines = [String(d.supplier.address ?? '').replace(/\n/g, ', '), [d.supplier.phone, d.supplier.email].filter(Boolean).join('  ·  '), d.supplier.vatNumber ? `VAT no. ${d.supplier.vatNumber}` : ''].filter(Boolean)
-  doc.text(sLines.join('\n'), sx, doc.y + 2, { width: 250, lineGap: 1.5 })
+  doc.text(sLines.join('\n'), sx, doc.y + 2, { width: sw, lineGap: 1.5 })
 
   doc.font(BOLD).fontSize(26).fillColor(ACCENT).text('INVOICE', M, y, { width: CW, align: 'right' })
   doc.font(REG).fontSize(9.5).fillColor(INK)

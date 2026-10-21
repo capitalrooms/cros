@@ -29,9 +29,10 @@ interface Props {
   allowedRoles: string[]   // roles allowed to view this page
   backHref: string         // where the back button goes
   roleName: string         // display name e.g. "Contractor"
+  extra?: React.ReactNode  // a card shown after their details (contractors and cleaners: their invoice logo)
 }
 
-export default function UserProfilePage({ allowedRoles, backHref, roleName }: Props) {
+export default function UserProfilePage({ allowedRoles, backHref, roleName, extra }: Props) {
   const router = useRouter()
   const [person, setPerson]   = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
@@ -306,6 +307,8 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName }: Pr
               letterName={[form.first_name, form.last_name].filter(Boolean).join(' ')} jobTitle={form.job_title} phone={form.direct_phone} />
           </div>
         )}
+
+        {extra && <div className="mt-lg">{extra}</div>}
 
         {/* ── Password & sign-in (shared My account page) ── */}
         <PasswordLink className="mt-lg" />
