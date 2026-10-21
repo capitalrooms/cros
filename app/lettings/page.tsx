@@ -795,18 +795,7 @@ export default function LettingsPage() {
       <DarkHeroHeader
         eyebrow="Lettings"
         heading="Diary & Leads"
-        topRight={
-          <div className="flex items-center gap-xs">
-          <StaffNotificationBell />
-          <button
-            onClick={async () => { await signOut(); router.push('/login') }}
-            className="flex items-center gap-xs text-sm font-medium text-white/60 hover:text-white transition-colors px-sm py-xs rounded-lg hover:bg-white/10"
-          >
-            <svg width="14" height="14" viewBox="0 0 15 15" fill="none" aria-hidden="true"><path d="M3 1.5h5.5a.5.5 0 0 1 .5.5v2h1V2A1.5 1.5 0 0 0 8.5.5H3A1.5 1.5 0 0 0 1.5 2v11A1.5 1.5 0 0 0 3 14.5h5.5A1.5 1.5 0 0 0 10 13v-2H9v2a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V2A.5.5 0 0 1 3 1.5z" fill="currentColor"/><path d="M6 7.5a.5.5 0 0 1 .5-.5H13a.5.5 0 0 1 0 1H6.5A.5.5 0 0 1 6 7.5zm5.146-2.646a.5.5 0 0 1 .708.708L9.707 7.5l2.147 2.146a.5.5 0 0 1-.708.708l-2.5-2.5a.5.5 0 0 1 0-.708l2.5-2.5z" fill="currentColor"/></svg>
-            Log out
-          </button>
-          </div>
-        }
+        
       >
         <div className="grid grid-cols-3 gap-sm">
           <StatTile value={thisWeekCount} label="This week" />

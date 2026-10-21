@@ -6,7 +6,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
-export interface PhoneTab { key: string; label: string; icon: ReactNode; href?: string; onClick?: () => void; active: boolean }
+export interface PhoneTab { key: string; label: string; icon: ReactNode; href?: string; onClick?: () => void; active: boolean; /** a count shown as a small badge on the icon (never in the label) */ badge?: number }
 
 export const ICONS = {
   home: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
@@ -19,16 +19,22 @@ export const ICONS = {
   check: <><rect x="3.5" y="3.5" width="17" height="17" rx="3" /><path d="M8 12.5l2.7 2.7L16.5 9" /></>,
   notes: <><path d="M6 3h9l4 4v14H6z" /><path d="M14 3v5h5M9 13h7M9 17h5" /></>,
   invoice: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></>,
-  wrench: <path d="M14.5 5.5a4 4 0 0 0 5 5L12 18a2.1 2.1 0 0 1-3-3l7.5-7.5a4 4 0 0 1-2-2zM6 18l-2 2" />,
+  wrench: <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" />,
   me: <><circle cx="12" cy="8" r="4" /><path d="M4 21c1-4 4-6 8-6s7 2 8 6" /></>,
   more: null,
 }
 
 export default function PhoneTabBar({ tabs, label = 'Sections', fixed = false, className = 'md:hidden' }: { tabs: PhoneTab[]; label?: string; fixed?: boolean; className?: string }) {
   const item = (active: boolean) => `flex flex-1 flex-col items-center gap-0.5 pt-2 pb-1 text-[10px] font-bold ${active ? 'text-neutral-950' : 'text-neutral-400'}`
-  const svg = (t: PhoneTab) => t.icon === null
+  const glyph = (t: PhoneTab) => t.icon === null
     ? <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
     : <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth={t.active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
+  const svg = (t: PhoneTab) => (
+    <span className="relative">
+      {glyph(t)}
+      {!!t.badge && <span className="absolute -right-2.5 -top-1.5 min-w-[17px] rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-[17px] text-white">{t.badge > 99 ? '99+' : t.badge}</span>}
+    </span>
+  )
   return (
     <nav aria-label={label}
       className={`${className} flex justify-around border-t border-neutral-200 bg-white/95 backdrop-blur ${fixed ? 'fixed inset-x-0 bottom-0 z-40' : 'flex-shrink-0'}`}

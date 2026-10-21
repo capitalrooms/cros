@@ -1,6 +1,7 @@
 'use client'
 
 import { StoredImg, StoredLink } from '@/components/StoredImg'
+import { RoleTabBar, type ContractorTab } from '@/app/components/RoleTabBar'
 import { useEffect, useRef, useState } from 'react'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
@@ -547,7 +548,7 @@ export default function JobDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/contractor" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Jobs</Link>} />
+      <AppBar left={<BackButton href="/contractor" />} />
 
       <main className="mx-auto max-w-4xl px-lg py-lg">
         {/* Hero */}
@@ -1286,6 +1287,7 @@ export default function JobDetailPage() {
           />
         )}
       </main>
+      <RoleTabBar<ContractorTab> role="contractor" active={'jobs'} />
     </div>
   )
 }

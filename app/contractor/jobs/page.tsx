@@ -1,6 +1,7 @@
 'use client';
 
 import { StoredImg, StoredLink } from '@/components/StoredImg'
+import { RoleTabBar, type ContractorTab } from '@/app/components/RoleTabBar'
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
@@ -1009,6 +1010,7 @@ export default function ContractorJobs() {
           </div>
         </div>
       )}
+      <RoleTabBar<ContractorTab> role="contractor" active={'jobs'} />
     </div>
   );
 }

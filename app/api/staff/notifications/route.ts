@@ -8,14 +8,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { requireStaff } from '@/lib/portalAuth'
+import { requireSignedIn } from '@/lib/portalAuth'
 
 export const dynamic = 'force-dynamic'
 
 const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 
 export async function GET(req: NextRequest) {
-  const caller = await requireStaff(req)
+  const caller = await requireSignedIn(req)   // anyone signed in — only ever their own notifications
   if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = svc()
   const [{ data }, { count }] = await Promise.all([
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const caller = await requireStaff(req)
+  const caller = await requireSignedIn(req)   // anyone signed in — only ever their own notifications
   if (!caller) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   let q = svc().from('notifications').update({ read: true }).eq('user_id', caller.personId).eq('read', false)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { RoleTabBar, type CleanerTab } from '@/app/components/RoleTabBar'
 import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -317,7 +318,7 @@ export default function CleanDetailPage() {
   if (!clean)
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar right={<Link href="/cleaner" className="font-semibold text-white">Cleans</Link>} />
+        <AppBar left={<BackButton href="/cleaner" />} />
         <p className="p-xl text-sm text-neutral-400">Clean not found</p>
       </div>
     )
@@ -328,7 +329,7 @@ export default function CleanDetailPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
-      <AppBar right={<Link href="/cleaner" className="min-w-0 truncate font-semibold text-white hover:text-white/80">Cleans</Link>} />
+      <AppBar left={<BackButton href="/cleaner" />} />
 
       <main className="mx-auto max-w-3xl px-lg py-lg space-y-lg">
         {/* Hero */}
@@ -617,6 +618,7 @@ export default function CleanDetailPage() {
           }}
         />
       )}
+      <RoleTabBar<CleanerTab> role="cleaner" active={'today'} />
     </div>
   )
 }

@@ -9,7 +9,7 @@ import DarkHeroHeader from '@/app/components/DarkHeroHeader'
 import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
-import PhoneTabBar, { ICONS } from '@/app/components/PhoneTabBar'
+import { RoleTabBar, type CleanerTab } from '@/app/components/RoleTabBar'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
 import MultiDayDiaryGrid, { DiaryJob } from '@/app/components/MultiDayDiaryGrid'
 import DesktopRightRail from '@/app/components/DesktopRightRail'
@@ -158,6 +158,11 @@ export default function CleanerDashboard() {
 
   // UI
   const [activeTab, setActiveTab] = useState<Tab>('today')
+  // a tab asked for in the address (the bottom bar on another screen links to /cleaner?tab=upcoming)
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab') as Tab | null
+    if (t && ['today', 'upcoming', 'done', 'compliance'].includes(t)) setActiveTab(t)
+  }, [])
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [selectedDay, setSelectedDay] = useState(todayISO())
   const [weekOffset, setWeekOffset] = useState(0)
@@ -373,7 +378,7 @@ export default function CleanerDashboard() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <div className="bg-neutral-950 pb-xl">
-          <div style={{ height: 'calc(env(safe-area-inset-top) + 52px)' }} />
+          <div style={{ height: 'calc(env(safe-area-inset-top) + 56px)' }} />
           <div className="px-lg pt-lg">
             <div className="h-2.5 w-14 rounded-full bg-white/20 mb-sm" />
             <div className="h-7 w-44 rounded-xl bg-white/20 mb-xl" />
@@ -616,33 +621,15 @@ export default function CleanerDashboard() {
       {/* ── MOBILE (< lg) ─────────────────────────────────────────────────── */}
       <div className="lg:hidden min-h-screen bg-neutral-100">
       {/* phone: the same bottom tab bar as the admin app (17 Oct 2026) — replaces the pill strip at the top */}
-      <PhoneTabBar fixed className="lg:hidden" label="Cleaner sections" tabs={[
-        ...TABS.map(t => ({ key: t.key, label: t.label.replace(/\s*\(\d+\)$/, ''), icon: t.key === 'today' ? ICONS.home : t.key === 'upcoming' ? ICONS.calendar : t.key === 'done' ? ICONS.check : ICONS.notes,
-          onClick: () => { setActiveTab(t.key); window.scrollTo({ top: 0 }) }, active: activeTab === t.key })),
-        { key: 'me', label: 'Me', icon: ICONS.me, href: '/cleaner/profile', active: false },
-      ]} />
+      <RoleTabBar<CleanerTab> role="cleaner" inPage={['today', 'upcoming', 'done', 'compliance']}
+        active={activeTab} onPick={k => setActiveTab(k as Tab)}
+        badges={{ today: todayCleans.length + overdueCleans.length }} />
 
       {/* ── Dark hero ──────────────────────────────────────────────────────── */}
       <DarkHeroHeader
         eyebrow="Cleaner"
         heading={`Hi ${firstName} 👋`}
-        topRight={
-          <div className="flex items-center gap-md">
-            <a
-              href="/cleaner/profile"
-              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 transition-colors"
-              title="Profile"
-            >
-              <span className="text-lg leading-none">⚙️</span>
-            </a>
-            <button
-              onClick={async () => { await signOut(); router.push('/login') }}
-              className="hover:text-white/70 transition-colors"
-            >
-              Sign out
-            </button>
-          </div>
-        }
+        
       >
         <div className="grid grid-cols-3 gap-sm mb-lg">
           <StatTile
