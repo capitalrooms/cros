@@ -131,6 +131,7 @@ export default function ReconciliationPage() {
 
   // Unmatched transactions state
   const [unmatchedTxns, setUnmatchedTxns] = useState<UnmatchedTxn[]>([])
+  const [initialHints, setInitialHints] = useState<Record<string, { tenancy_id: string; name: string; house: string; balance_due: number; why: string }>>({})
   const [tenancyOptions, setTenancyOptions] = useState<TenancyOption[]>([])
   const [unmatchedLoading, setUnmatchedLoading] = useState(false)
   const [suggestions, setSuggestions] = useState<Record<string, { suggestion: FuzzySuggestion | null; confidence: string; reason: string; loading: boolean }>>({})
@@ -165,6 +166,7 @@ export default function ReconciliationPage() {
       // suggest a tenant for each line straight away (payer's saved bank name, name likeness, rent amount) — never allocates
       for (const t of ((json.transactions || []) as UnmatchedTxn[]).slice(0, 30)) getFuzzySuggestion(t.id)
       setTenancyOptions(json.tenancy_options || [])
+      setInitialHints(json.initial_monies_hints || {})
       setSetAside(json.set_aside || [])
     } finally {
       setUnmatchedLoading(false)
@@ -571,6 +573,14 @@ export default function ReconciliationPage() {
                   </div>
 
                   <div className="px-xl py-lg space-y-md">
+                    {/* a let-only tenant's balance before move-in: recorded as initial monies on their letting file, not rent */}
+                    {initialHints[txn.id] && (
+                      <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-md">
+                        <p className="text-sm font-semibold text-emerald-900">Looks like initial monies for {initialHints[txn.id].name} — {initialHints[txn.id].house}</p>
+                        <p className="mt-xs text-xs text-emerald-800">Balance due £{initialHints[txn.id].balance_due.toLocaleString('en-GB', { minimumFractionDigits: 2 })} · {initialHints[txn.id].why}. A let-only balance isn&apos;t rent — record it on their letting file, where this bank line is offered to match.</p>
+                        <a href={`/admin/lettings/${initialHints[txn.id].tenancy_id}`} className="mt-sm inline-block rounded-lg bg-emerald-700 px-md py-xs text-xs font-bold text-white hover:bg-emerald-800">Record initial monies →</a>
+                      </div>
+                    )}
                     {/* AI suggestion */}
                     {!suggestion && (
                       <button
