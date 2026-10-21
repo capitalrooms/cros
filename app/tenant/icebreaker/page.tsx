@@ -144,7 +144,7 @@ export default function IcebreakerPage() {
           />
           <span className="text-sm text-neutral-700">
             <span className="font-bold text-neutral-900">Show my answers to my housemates.</span>{' '}
-            Turn this off to keep your profile private — your landlord may still see it.
+            Turn this off to keep your profile private — Capital Rooms can still see it.
           </span>
         </label>
 

@@ -55,11 +55,12 @@ export default function GiveNoticePage() {
     init()
   }, [router])
 
-  const noticePeriodMonths = tenancy?.properties?.notice_period_months ?? 2
-  const today = new Date()
-  const minMoveOut = new Date(today)
+  // every tenancy is periodic (Renters' Rights Act): two months' notice, any time — no fixed term or contract length
+  const noticePeriodMonths = 2
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const minMoveOut = new Date(`${todayStr}T12:00:00`)
   minMoveOut.setMonth(minMoveOut.getMonth() + noticePeriodMonths)
-  const minDateStr = minMoveOut.toISOString().split('T')[0]
+  const minDateStr = minMoveOut.toLocaleDateString('en-CA')
 
   async function handleSubmit() {
     if (!tenancy || !personId || !moveOutDate) return
@@ -142,7 +143,7 @@ export default function GiveNoticePage() {
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg mb-xl">
           <p className="text-xs font-bold uppercase tracking-wide text-neutral-400 mb-xs">Your tenancy</p>
           <p className="font-semibold text-neutral-900">
-            {tenancy.rooms?.name}, {tenancy.properties?.address}
+            {[tenancy.rooms?.name, String(tenancy.properties?.name || tenancy.properties?.address || '').split('\n')[0]].filter(Boolean).join(', ')}
           </p>
           <p className="text-sm text-neutral-500 mt-xs">
             Started {new Date(tenancy.start_date).toLocaleDateString('en-GB', {
@@ -164,8 +165,8 @@ export default function GiveNoticePage() {
             className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm text-neutral-900"
           />
           <p className="text-xs text-neutral-400 mt-xs">
-            Earliest possible date: {minMoveOut.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-            {' '}({noticePeriodMonths} month{noticePeriodMonths !== 1 ? 's' : ''} notice required)
+            Earliest possible date: {new Date(`${minDateStr}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {' '}(2 months’ notice)
           </p>
         </div>
 

@@ -209,7 +209,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
   const profile = [
     ...F('Full name', t.name), ...F('Contact number', t.phone), ...F('Email address', t.email), ...F('Date of birth', long(t.dob)),
     ...F('Current address', t.currentAddress), ...F('Profession & company', work), ...F('University & course', t.study), ...F('Salary', t.salary),
-    ...F(stage === 'offer' ? 'Move-in date (requested)' : 'Move-in date', long(c.startDate)), ...F('Contract length', c.term),
+    ...F(stage === 'offer' ? 'Move-in date (requested)' : 'Move-in date', long(c.startDate)), ...F('Planned stay', c.term),
     ...F('LinkedIn', t.linkedin), ...F('Requirements in property', t.requirements),
   ]
   const rentF = F(stage === 'offer' ? 'Rent offered' : 'Rent', rentLine)

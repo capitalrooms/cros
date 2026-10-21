@@ -236,7 +236,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <div className="grid h-14 px-3 md:px-6" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
             {/* Left: back — to the screen you came from, by name; opened directly, to this screen's section (17 Oct 2026) */}
             <div className="flex items-center min-w-0">
-              <BackButton optional={!backFallback} href={backFallback?.href} label={backFallback?.label} />
+              {/* the dashboard is where you land — nothing to go back to (21 Oct 2026, Harry: "it says previous as you arrive") */}
+              {pathname !== '/admin' && <BackButton optional={!backFallback} href={backFallback?.href} label={backFallback?.label} />}
             </div>
 
             {/* Centre: logo — always perfectly centred */}

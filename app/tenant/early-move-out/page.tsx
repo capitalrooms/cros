@@ -267,16 +267,15 @@ export default function EarlyMoveOutPage() {
       <main className="mx-auto max-w-lg px-lg py-lg">
         <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Early move-out</h1>
         <p className="text-sm text-neutral-500 mb-xl">
-          If you need to leave before your contract ends, let us know. We&apos;ll look at your situation and come back to you within 2 business days.
+          Your notice is 2 months. If you need to leave sooner, ask here — we&apos;ll see whether we can agree an earlier date, usually once someone new is moving into your room. We&apos;ll come back to you within 2 business days.
         </p>
 
         {/* Current tenancy summary */}
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg mb-xl">
           <p className="text-xs font-bold uppercase tracking-wide text-neutral-400 mb-xs">Your tenancy</p>
-          <p className="font-semibold text-neutral-900">{tenancy.rooms?.name}, {tenancy.properties?.address}</p>
+          <p className="font-semibold text-neutral-900">{[tenancy.rooms?.name, String((tenancy.properties as any)?.name || tenancy.properties?.address || '').split('\n')[0]].filter(Boolean).join(', ')}</p>
           <p className="text-sm text-neutral-500 mt-xs">
             Started {new Date(tenancy.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-            {tenancy.end_date && ` · ends ${new Date(tenancy.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`}
           </p>
         </div>
 
@@ -287,15 +286,15 @@ export default function EarlyMoveOutPage() {
             <label className={`flex gap-md p-lg rounded-xl border-2 cursor-pointer transition-colors ${track === 'standard' ? 'border-neutral-900 bg-white' : 'border-neutral-200 bg-white hover:border-neutral-400'}`}>
               <input type="radio" name="track" value="standard" checked={track === 'standard'} onChange={() => setTrack('standard')} className="mt-0.5 accent-neutral-900 shrink-0" />
               <div>
-                <p className="font-semibold text-neutral-900 text-sm">Standard early exit</p>
-                <p className="text-xs text-neutral-500 mt-xs">We look at your situation, agree any costs, and find a new tenant ourselves. Simplest option.</p>
+                <p className="font-semibold text-neutral-900 text-sm">Ask for an earlier date</p>
+                <p className="text-xs text-neutral-500 mt-xs">We look at your situation and try to find someone for your room sooner. Simplest option.</p>
               </div>
             </label>
             <label className={`flex gap-md p-lg rounded-xl border-2 cursor-pointer transition-colors ${track === 'find_replacement' ? 'border-neutral-900 bg-white' : 'border-neutral-200 bg-white hover:border-neutral-400'}`}>
               <input type="radio" name="track" value="find_replacement" checked={track === 'find_replacement'} onChange={() => setTrack('find_replacement')} className="mt-0.5 accent-neutral-900 shrink-0" />
               <div>
                 <p className="font-semibold text-neutral-900 text-sm">I&apos;ll find my own replacement</p>
-                <p className="text-xs text-neutral-500 mt-xs">You bring a suitable replacement tenant. Often means lower or zero exit costs and a faster release.</p>
+                <p className="text-xs text-neutral-500 mt-xs">You introduce someone suitable to take your room — often the quickest way to an earlier date.</p>
               </div>
             </label>
           </div>
@@ -332,7 +331,7 @@ export default function EarlyMoveOutPage() {
           <ul className="text-xs text-amber-700 space-y-xs list-disc list-inside">
             <li>We&apos;ll review your request within 2 business days</li>
             <li>We&apos;ll contact you about any outstanding rent and costs</li>
-            <li>You&apos;ll need to keep paying rent until a replacement moves in or the contract end date, whichever comes first</li>
+            <li>Your rent carries on until someone new moves in or your 2 months&apos; notice ends, whichever comes first</li>
             <li>Refunds are paid within 4 business days of an agreed handover</li>
           </ul>
         </div>

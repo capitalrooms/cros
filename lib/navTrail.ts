@@ -37,5 +37,8 @@ export function nameVisit(url: string, label: string) {
 /** the screen before this one in this tab, if there is one */
 export function previousVisit(): TrailEntry | null {
   const t = readTrail()
-  return t.length > 1 ? t[t.length - 2] : null
+  const prev = t.length > 1 ? t[t.length - 2] : null
+  // signing in isn't a screen to go back to (21 Oct 2026: the dashboard offered "Previous" straight after sign-in)
+  if (!prev || /^\/(login|auth|signin|sign-in|logout|home)(\/|\?|$)/.test(prev.url) || prev.url === '/') return null
+  return prev
 }

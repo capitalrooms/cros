@@ -57,7 +57,7 @@ export const FACT_LABELS: Record<string, string> = {
   property_address: 'Address', expiry_date: 'Expires', issue_date: 'Issued', rating: 'Rating',
   certificate_number: 'Certificate no.', licence_number: 'Licence no.', supplier: 'Supplier', account_number: 'Account no.',
   meter_number: 'Meter no.', mpan: 'MPAN', mprn: 'MPRN', amount: 'Amount', period: 'Period', policy_number: 'Policy no.',
-  insurer: 'Insurer', tenant_names: 'Tenants', rent: 'Rent', start_date: 'Start', end_date: 'End', lease_end: 'Lease ends',
+  insurer: 'Insurer', tenant_names: 'Tenants', rent: 'Rent', start_date: 'Start', end_date: 'End', lease_end: 'End date',
   title_number: 'Title no.', council: 'Council', council_tax_band: 'Band', engineer: 'Engineer / company', notes: 'Notes',
 }
 

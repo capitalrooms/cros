@@ -93,7 +93,6 @@ export default async function SharedListing({ params }: { params: Promise<{ room
     ['Bathrooms', f.ensuite && !l.wholeLet ? `En-suite${f.bathrooms ? ` + ${f.bathrooms} shared` : ''}` : f.bathrooms ? String(f.bathrooms) : null],
     ['Furnished', f.furnished],
     ['Bills', l.billsIncluded == null ? null : l.billsIncluded ? 'Included' : 'Not included'],
-    ['Minimum term', l.minTermMonths ? `${l.minTermMonths} months` : null],
   ] as [string, string | null][]).filter((x): x is [string, string] => !!x[1])
 
   const features = [...new Set([

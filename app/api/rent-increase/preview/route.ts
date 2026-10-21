@@ -85,42 +85,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Tenancy is missing person, room, or property data' }, { status: 422 })
   }
 
-  // ── Fixed-term block (Rule 0) ─────────────────────────────────────────────
-  // s.13 notices can only be served on assured PERIODIC tenancies.
-  //
-  // Three-tier check:
-  //   1. is_fixed_term = FALSE → admin confirmed periodic, never block
-  //   2. is_fixed_term = TRUE  → admin confirmed fixed-term, always block
-  //   3. is_fixed_term = NULL  → use heuristic:
-  //        end_date NOT NULL, in the future, no notice_received_date,
-  //        AND the gap from start_date to end_date is ≤ 18 months (548 days).
-  //      The 18-month filter prevents misclassifying CSV-imported "contract
-  //      renewal dates" on long-standing periodic tenants as fixed-term blocks.
+  // (Rule 0, the fixed-term block, removed 21 Oct 2026: since the Renters' Rights Act every tenancy is periodic —
+  //  no fixed term, so a Section 13 notice is never blocked by one. Harry: "there is no contract length anymore".)
   const today = new Date().toISOString().slice(0, 10)
-  const tenancyEndDate     = (tenancy as any).end_date     as string | null
-  const noticeReceivedDate = (tenancy as any).notice_received_date as string | null
-  const isFixedTermField   = (tenancy as any).is_fixed_term as boolean | null
-
-  const msDuration = tenancyEndDate
-    ? new Date(tenancyEndDate + 'T00:00:00').getTime() - new Date(tenancy.start_date + 'T00:00:00').getTime()
-    : 0
-  const daysStartToEnd = Math.round(msDuration / (24 * 60 * 60 * 1000))
-
-  const isFixedTerm =
-    isFixedTermField === true ? true
-    : isFixedTermField === false ? false
-    : (tenancyEndDate && !noticeReceivedDate && tenancyEndDate > today && daysStartToEnd <= 548)
-
-  if (isFixedTerm) {
-    const fmtFixed = new Date(tenancyEndDate! + 'T12:00:00').toLocaleDateString('en-GB', {
-      day: 'numeric', month: 'long', year: 'numeric',
-    })
-    return NextResponse.json({
-      error:           'fixed_term_block',
-      fixedTermError:  `Section 13 notices cannot be served during the fixed term of an Assured Periodic Tenancy. This tenancy's fixed term does not expire until ${fmtFixed}. Once it becomes a periodic tenancy after that date, a Section 13 notice may be served.`,
-      fixedTermEndDate: tenancyEndDate,
-    }, { status: 422 })
-  }
 
   // ── Last Section 13 effective date ────────────────────────────────────────
   const { data: lastNotice } = await sb

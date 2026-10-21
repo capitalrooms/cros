@@ -376,7 +376,7 @@ const TERM_FIELDS: { key: string; label: string; kind: 'date' | 'money' | 'int' 
   { key: 'permitted_occupiers', label: 'Permitted occupiers', kind: 'text', beforeMoveIn: false },
   { key: 'office_notes', label: 'Office notes (not shown to the tenant)', kind: 'long', beforeMoveIn: false },
 ]
-const AGREEMENT_TYPES: [string, string][] = [['assured_periodic', 'Assured periodic'], ['fixed_term', 'Fixed term'], ['company_let', 'Company let'], ['licence', 'Licence'], ['room_licence', 'Room licence']]
+const AGREEMENT_TYPES: [string, string][] = [['assured_periodic', 'Assured periodic'], ['company_let', 'Company let'], ['licence', 'Licence'], ['room_licence', 'Room licence']]
 
 export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
   const t = file.tenancy
@@ -765,7 +765,7 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
   return (
     <div className="space-y-md">
       <section className={`${card} space-y-sm`}>
-        <h2 className="text-lg font-bold">Notice &amp; Renewal</h2>
+        <h2 className="text-lg font-bold">Notice &amp; Rent</h2>
         <dl className="grid grid-cols-2 gap-sm text-sm sm:grid-cols-3">
           <div><dt className={label}>Notice received</dt><dd>{day(t.notice_received_date)}</dd></div>
           <div><dt className={label}>Moves out</dt><dd>{day(t.end_date)}</dd></div>

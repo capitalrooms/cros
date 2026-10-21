@@ -42,7 +42,6 @@ interface PersonHit { id: string; full_name: string; first_name: string; last_na
 
 const AGREEMENT_TYPES = [
   { value: 'assured_periodic', label: 'Assured Periodic Tenancy' },
-  { value: 'fixed_term',       label: 'Fixed Term Assured Shorthold' },
   { value: 'company_let',      label: 'Company Let' },
   { value: 'licence',          label: 'Licence Agreement' },
   { value: 'room_licence',     label: 'Room Licence' },
