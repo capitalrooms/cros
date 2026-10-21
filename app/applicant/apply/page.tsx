@@ -621,8 +621,12 @@ export default function ApplicantForm() {
             </div>
             {rentOfferType === 'below_asking' && (
               <label className="pub-label max-w-xs">Your offer amount (£/month)
-                <input className="pub-input" type="number" value={offeredRent || ''} onChange={e => setOfferedRent(e.target.value ? parseFloat(e.target.value) : null)} placeholder="e.g., 800" />
+                <input className="pub-input" type="number" max={advertiserRent ? advertiserRent - 1 : undefined} value={offeredRent || ''} onChange={e => setOfferedRent(e.target.value ? parseFloat(e.target.value) : null)} placeholder="e.g., 800" />
               </label>
+            )}
+            {/* Renters' Rights Act: no rental bidding — we can't accept more than the advertised rent */}
+            {rentOfferType === 'below_asking' && !!offeredRent && !!advertiserRent && offeredRent >= advertiserRent && (
+              <p className="pub-note m-0" style={{ borderLeft: '2px solid #A86A12' }}>An offer needs to be below £{advertiserRent.toFixed(0)}. We can’t accept more than the advertised rent — if you’re happy at £{advertiserRent.toFixed(0)}, choose the first option.</p>
             )}
             {(aff.status === 'pass' || aff.status === 'borderline' || aff.status === 'fail') && (
               <div className="pub-note flex flex-col gap-2" style={{ borderLeft: `2px solid ${aff.status === 'pass' ? '#2F6B45' : aff.status === 'borderline' ? '#A86A12' : '#9B2C1F'}` }}>
