@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
 import { ledgerStart } from '@/lib/clientLedger'
+import { expectedFor } from '@/lib/finance/initialMonies'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,8 +92,35 @@ export async function GET(req: NextRequest) {
   // practice (?practice=1): practice lines and demo houses' tenants only; the real list never shows either
   const practice = req.nextUrl.searchParams.get('practice') === '1'
   const ok = inScope(await demoPropertyIds(supabase as any), practice)
+  const shownTxns = ((transactions || []) as any[]).filter(t => !!t.is_practice === practice && (t.property_id ? ok(t.property_id) : true))
+
+  // let-only lets waiting for their initial monies (migration 231): a line that looks like a tenant's balance is
+  // flagged, so it's recorded on the letting file — never matched to rent here by mistake (21 Oct 2026 audit)
+  const initialHints: Record<string, { tenancy_id: string; name: string; house: string; balance_due: number; why: string }> = {}
+  const { data: waiting } = await supabase.from('tenancies')
+    .select('id, property_id, start_date, properties!inner(letting_type, name)')
+    .eq('properties.letting_type', 'let_only').is('let_cancelled_at', null).is('move_in_monies_received_at', null)
+    .gte('start_date', shift(-42)).lte('start_date', shift(90))
+  const { data: done } = await supabase.from('initial_monies').select('tenancy_id').is('voided_at', null)
+  const recorded = new Set(((done ?? []) as any[]).map(d => d.tenancy_id))
+  for (const t of ((waiting ?? []) as any[]).filter(t => ok(t.property_id) && !recorded.has(t.id))) {
+    const e = await expectedFor(supabase as any, t.id)
+    if ('error' in e || !e.balanceDue) continue
+    const surname = e.tenantName.split(' ').pop()?.toLowerCase() ?? ''
+    for (const b of shownTxns) {
+      if (initialHints[b.id] || Number(b.amount) <= 0) continue
+      const exact = Math.abs(Number(b.amount) - e.balanceDue) < 0.005, near = !exact && Math.abs(Number(b.amount) - e.balanceDue) <= 1
+      const named = surname.length > 2 && String(`${b.description ?? ''} ${b.extracted_ref ?? ''}`).toLowerCase().includes(surname)
+      if (exact || (near && named) || (named && Number(b.amount) >= e.balanceDue * 0.5)) {
+        initialHints[b.id] = { tenancy_id: t.id, name: e.tenantName, house: String(t.properties?.name ?? '').split('\n')[0], balance_due: e.balanceDue,
+          why: [exact ? 'exactly the balance due' : near ? 'within £1 of the balance due' : '', named ? 'their name is on the payment' : ''].filter(Boolean).join(' · ') }
+      }
+    }
+  }
+
   return NextResponse.json({
-    transactions: ((transactions || []) as any[]).filter(t => !!t.is_practice === practice && (t.property_id ? ok(t.property_id) : true)),
+    transactions: shownTxns,
+    initial_monies_hints: initialHints,
     tenancy_options: tenancyOptions.filter((t: any) => ok(t.property_id)),
     set_aside: ((setAside || []) as any[]).filter(t => !!t.is_practice === practice && (t.property_id ? ok(t.property_id) : true)),
   })
