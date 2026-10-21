@@ -7,7 +7,7 @@ import { adminFetch } from '@/lib/adminFetch'
 
 interface Money {
   month: string
-  months: { month: string; due: number; received: number }[]
+  months: { month: string; due: number; received: number; imported?: boolean; statements?: number }[]
   arrears: { total: number; count: number; oldest: string | null }
   rooms: { total: number; occupied: number; empty: number; noTenancy: number }
   jobs: { open: number; toApprove: number }
@@ -59,7 +59,7 @@ export default function AdminMoneyPage() {
               <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/60">Rent · {new Date(m.month + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' })}</p>
               <p className="mt-1 text-[30px] font-bold tabular-nums leading-none">{gbp(cur.received)}<span className="text-base font-medium text-white/60"> of {gbp(cur.due)}</span></p>
               <div className="mt-3 h-2 rounded-full bg-white/15 overflow-hidden"><div className="h-full rounded-full bg-white" style={{ width: `${pct}%` }} /></div>
-              <p className="mt-1.5 text-[12px] text-white/70">{cur.due ? `${pct}% collected · ${gbp(Math.max(0, cur.due - cur.received))} to come` : 'No charges raised for this month yet'}</p>
+              <p className="mt-1.5 text-[12px] text-white/70">{(cur as any).imported ? `Imported — collected before go-live, on ${(cur as any).statements} statements` : cur.due ? `${pct}% collected · ${gbp(Math.max(0, cur.due - cur.received))} to come` : 'No charges raised for this month yet'}</p>
             </Link>
 
             {/* the bank statement upload — matches payments to rent by reference */}
