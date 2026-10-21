@@ -21,7 +21,7 @@ const MAINTENANCE_CATEGORIES = [
   { id: 'safety', title: 'Safety' },
   { id: 'locks-keys', title: 'Locks & Keys' },
   { id: 'other', title: 'Other' },
-];
+].sort((a, b) => (a.id === 'other' ? 1 : 0) - (b.id === 'other' ? 1 : 0) || a.title.localeCompare(b.title));   // alphabetical, Other last
 
 interface Property {
   id: string;

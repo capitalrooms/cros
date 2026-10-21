@@ -201,7 +201,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
   }
 
   const initials = (form.first_name?.[0] || person?.email?.[0] || '?').toUpperCase()
-  const displayName = [form.first_name, form.last_name].filter(Boolean).join(' ') || person?.email || '—'
+  const displayName = [form.salutation, form.first_name, form.last_name].filter(Boolean).join(' ') || person?.email || '—'   // names always with their title
 
   if (loading) {
     return (

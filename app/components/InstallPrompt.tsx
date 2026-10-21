@@ -27,7 +27,11 @@ export default function InstallPrompt() {
     // Only show once per device, and never if already installed
     try {
       const dismissed = localStorage.getItem(STORAGE_KEY)
-      if (!dismissed && !isInstalled) {
+      // "Maybe later" rests it for a week (it used to come straight back on the next screen — 21 Oct 2026); never
+      // while the office is only viewing as someone
+      const snoozed = Number(localStorage.getItem(`${STORAGE_KEY}-later`) || 0) > Date.now()
+      const viewingAs = !!sessionStorage.getItem('cros-view-as')
+      if (!dismissed && !snoozed && !viewingAs && !isInstalled) {
         // Small delay so the dashboard loads first
         const t = setTimeout(() => setVisible(true), 1800)
         return () => clearTimeout(t)
@@ -42,9 +46,10 @@ export default function InstallPrompt() {
 
   function dismiss(permanently = true) {
     setVisible(false)
-    if (permanently) {
-      try { localStorage.setItem(STORAGE_KEY, '1') } catch {}
-    }
+    try {
+      if (permanently) localStorage.setItem(STORAGE_KEY, '1')
+      else localStorage.setItem(`${STORAGE_KEY}-later`, String(Date.now() + 7 * 86_400_000))
+    } catch {}
   }
 
   if (!visible) return null

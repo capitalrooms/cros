@@ -739,7 +739,9 @@ export default function CleanerDashboard() {
                             <p className="font-bold text-neutral-900 truncate">
                               {job.properties?.name}{job.rooms?.name ? ` · ${job.rooms.name}` : ''}
                             </p>
-                            {job.notes && <p className="text-sm text-neutral-600 mt-xs">{job.notes}</p>}
+                            {/* dates as people write them ("2026-11-28" → "28 November 2026") */}
+                            {job.notes && <p className="text-sm text-neutral-600 mt-xs">{String(job.notes).replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (_: string, y: string, m: string, d: string) => new Date(`${y}-${m}-${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }))}</p>}
+                            {job.due_date && job.due_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) && <p className="text-xs font-semibold text-red-700 mt-xs">The move-out date has passed — please book this in or let the office know</p>}
                             <p className="text-xs text-amber-700 font-semibold mt-xs">
                               {job.task_type === 'asap' ? '🚨 ASAP' : job.task_type === 'urgent' ? '⚠️ Urgent' : '📌 Normal'}
                             </p>

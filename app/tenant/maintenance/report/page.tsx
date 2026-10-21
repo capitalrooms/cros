@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, Suspense } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { getCurrentUser } from '@/lib/auth';
@@ -317,6 +317,8 @@ function ReportWizardContent() {
   const catDef = CATEGORY_QUESTIONS[categoryId];
 
   const [step, setStep] = useState<Step>('form');
+  // each step starts at the top (it used to open scrolled to wherever the last one ended — 21 Oct 2026)
+  useEffect(() => { window.scrollTo({ top: 0 }) }, [step]);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('My Room / Bedroom');
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -592,8 +594,10 @@ function ReportWizardContent() {
             setStep(prev[step] || 'form');
           } : undefined}
         />}
-        center={<span style={{ fontSize: 13, fontWeight: 600, color: '#fff', opacity: 0.75 }}>{categoryLabel}</span>}
       />
+
+      {/* what they're reporting — the top bar has no room for it */}
+      {step !== 'done' && <p style={{ margin: 0, padding: '14px 20px 0', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6B7280' }}>Report an issue · {categoryLabel}</p>}
 
       {/* Progress bar */}
       {step !== 'done' && (
