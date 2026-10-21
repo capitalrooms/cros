@@ -96,8 +96,9 @@ export default function MaintenanceChoosePath() {
         {/* Info footer */}
         <div className="mt-3xl rounded-2xl border-2 border-blue-200 bg-blue-50 p-lg">
           <p className="text-sm text-blue-900">
-            <strong>💬 How it works:</strong> We're testing two approaches to see which helps you best.
-            Both paths create a ticket if you need professional help. You can always report directly if you prefer.
+            <strong>💬 Which should I pick?</strong> If you know what needs fixing, report it straight away. If you&apos;re not
+            sure, Smart Troubleshooting asks a few questions and may help you fix it yourself — either way, a repair is
+            raised if you need one.
           </p>
         </div>
       </main>

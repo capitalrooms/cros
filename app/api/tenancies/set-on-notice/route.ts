@@ -174,15 +174,22 @@ export async function POST(request: Request) {
         ? Math.ceil((new Date(moveOutDate + 'T12:00:00').getTime() - Date.now()) / 86400000)
         : 99
       const taskType = daysUntilMoveOut <= 3 ? 'asap' : daysUntilMoveOut <= 7 ? 'urgent' : 'normal'
-      const { error: jobError } = await supabase.from('assigned_jobs').insert({
+      // one move-out clean per room and move-out — marking on notice again (or changing the date) updates it
+      // rather than adding a second (21 Oct 2026: 208 Rotherhithe Street Room 5 had two)
+      const ukMoveOut = moveOutDate ? new Date(`${moveOutDate}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'TBC'
+      const job = {
         cleaner_id: cleanerId || null,   // null = unassigned; admin can pick from cleaner-jobs page
         property_id: propertyId,
         room_id: roomId,
         task_type: taskType,
         status: 'pending',
         due_date: moveOutDate || null,
-        notes: `Move-out clean — ${roomName || 'room'} — tenant moves out ${moveOutDate || 'TBC'}.`,
-      })
+        notes: `Move-out clean — ${roomName || 'room'} — tenant moves out ${ukMoveOut}.`,
+      }
+      const { data: open } = await supabase.from('assigned_jobs').select('id').eq('room_id', roomId).eq('status', 'pending').ilike('notes', 'Move-out clean%').limit(1).maybeSingle()
+      const { error: jobError } = open
+        ? await supabase.from('assigned_jobs').update(job).eq('id', (open as any).id)
+        : await supabase.from('assigned_jobs').insert(job)
       if (jobError) console.error('Error creating assigned job:', jobError) // non-blocking
     }
 

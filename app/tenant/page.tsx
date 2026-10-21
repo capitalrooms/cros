@@ -597,7 +597,7 @@ export default function TenantDashboard() {
               <Stat
                 label="Started"
                 value={tenancy.start_date ? new Date(tenancy.start_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '—'}
-                sub="contract"
+                sub="rolling · 2 months’ notice"
               />
             </div>
           )}
@@ -1077,7 +1077,7 @@ function PropertyNoteCard({ note, isForMyRoom }: { note: PropertyNote; isForMyRo
       <p className="mt-xs text-sm font-bold text-neutral-900">{note.title}</p>
       <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{note.content}</p>
       <p className="mt-sm text-xs text-neutral-400">
-        {(note.people as any)?.name || 'Unknown'} · {new Date(note.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+        {note.note_type === 'admin' ? 'Capital Rooms' : (note.people as any)?.first_name || 'Capital Rooms'} · {new Date(note.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
       </p>
     </div>
   )

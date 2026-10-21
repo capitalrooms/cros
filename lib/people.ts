@@ -20,6 +20,7 @@ export interface PersonLike {
   full_name?: string | null
   name?: string | null   // keep for TS compat with any stale types
   company?: string | null
+  email?: string | null
   joint_salutation?: string | null
   joint_first_name?: string | null
   joint_last_name?: string | null
@@ -29,10 +30,18 @@ export interface PersonLike {
  *  Falls back to full_name. For a greeting use first_name; for matching bank payee names use nameNoTitle. */
 export function displayName(person: PersonLike | null | undefined): string {
   if (!person) return '—'
-  if (person.first_name) {
-    return [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')
-  }
-  return person.full_name || person.name || person.company || '—'
+  const name = person.first_name
+    ? [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ')
+    : person.full_name || person.name || person.company || '—'
+  // a made-up account says so wherever it's listed (21 Oct 2026: real move-out cleans and repairs were given to the
+  // test cleaner and test contractor, who looked like anyone else in the pickers)
+  return isTestEmail(person.email) ? `${name} (test account)` : name
+}
+
+/** A made-up account for testing — example.com, "+test" and the test-onboard@ inbox. */
+export function isTestEmail(email: string | null | undefined): boolean {
+  const e = String(email ?? '').toLowerCase().trim()
+  return !!e && (/@example\.(com|org|net|co\.uk)$/.test(e) || /\+test@/.test(e) || e.startsWith('test-onboard@'))
 }
 
 /** A landlord onboarding record's name with the title from their form — "Mr John Smith". */

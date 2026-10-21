@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-export const MAINTENANCE_CATEGORIES = [
+const CATEGORY_LIST = [
   {
     id: 'appliances',
     title: 'Appliances',
@@ -34,28 +34,28 @@ export const MAINTENANCE_CATEGORIES = [
   {
     id: 'heating-cooling',
     title: 'Heating & Cooling',
-    description: 'Boiler, radiators, thermostat, AC, temperature control',
+    description: 'Boiler, radiators, thermostat, air conditioning',
     icon: '🌡️',
     color: 'from-red-500 to-red-600',
   },
   {
     id: 'structure',
     title: 'Structure & Building',
-    description: 'Cracks, damp, mold, roof leaks, windows, doors',
+    description: 'Cracks, damp, mould, roof leaks, windows, doors',
     icon: '🏗️',
     color: 'from-gray-600 to-gray-700',
   },
   {
     id: 'safety',
     title: 'Safety & Security',
-    description: 'Broken locks, loose railings, hazards, emergency issues',
+    description: 'Broken locks, loose railings, trip hazards — for an emergency, use Report an emergency',
     icon: '🔒',
     color: 'from-red-600 to-red-700',
   },
   {
     id: 'cleanliness',
     title: 'Cleanliness & Pests',
-    description: 'Pest infestation, unclean areas, odors, vermin',
+    description: 'Pests, mice or rats, unclean areas, bad smells',
     icon: '🪲',
     color: 'from-green-600 to-green-700',
   },
@@ -67,6 +67,8 @@ export const MAINTENANCE_CATEGORIES = [
     color: 'from-purple-500 to-purple-600',
   },
 ];
+// alphabetical, like every list in CROS (Harry's rule)
+export const MAINTENANCE_CATEGORIES = [...CATEGORY_LIST].sort((a, b) => a.title.localeCompare(b.title));
 
 export default function CategorySelection() {
   return (

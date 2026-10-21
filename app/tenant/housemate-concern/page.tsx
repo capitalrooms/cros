@@ -347,7 +347,8 @@ export default function HouseMateConcernPage() {
             <h1 className="text-2xl font-bold text-neutral-900 mb-xs">Trouble with a housemate?</h1>
             <p className="text-sm text-neutral-500 mb-xl">Pick the closest match — we'll offer some guidance before anything else.</p>
             <div className="space-y-xs">
-              {Object.entries(HM_TIPS).map(([key, cat]) => (
+              {/* alphabetical, with "Something else" kept last */}
+              {Object.entries(HM_TIPS).sort(([ka, a], [kb, b]) => (ka === 'other' ? 1 : 0) - (kb === 'other' ? 1 : 0) || a.label.localeCompare(b.label)).map(([key, cat]) => (
                 <button
                   key={key}
                   onClick={() => { setCategoryKey(key); setStep('tips') }}

@@ -79,7 +79,7 @@ export default function CleanerHouse({ params }: { params: Promise<{ propertyId:
       <ul className="mt-sm divide-y divide-neutral-100">
         {d.cleans.map((c: any) => (
           <li key={c.id} className="py-sm text-sm">
-            <Link href={`/cleaner/clean/${c.id}`} className="flex justify-between gap-md"><span className="font-semibold text-neutral-900">{day(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}</span><span className={`text-xs font-semibold ${c.status === 'completed' ? 'text-emerald-700' : 'text-neutral-500'}`}>{c.status === 'completed' ? 'Done' : 'Booked'}</span></Link>
+            <Link href={`/cleaner/clean/${c.id}`} className="flex justify-between gap-md"><span className="font-semibold text-neutral-900">{day(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}</span><span className={`text-xs font-semibold ${c.status === 'completed' ? 'text-emerald-700' : c.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'text-amber-700' : 'text-neutral-500'}`}>{c.status === 'completed' ? 'Done' : c.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'Not marked done' : 'Booked'}</span></Link>
             {[c.admin_note && `Office: ${c.admin_note}`, c.cleaner_note && `You: ${c.cleaner_note}`, c.notes].filter(Boolean).map((t: string, i: number) => <p key={i} className="mt-0.5 text-xs text-neutral-600">{t}</p>)}
           </li>
         ))}

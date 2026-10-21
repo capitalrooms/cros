@@ -21,6 +21,7 @@ const CATEGORIES = [
 export default function SmartTroubleshootingPage() {
   const router = useRouter();
   const [step, setStep]               = useState<DiagStep>('category');
+  useEffect(() => { window.scrollTo({ top: 0 }) }, [step]);   // each step starts at the top
   const [loading, setLoading]         = useState(true);
   const [personId, setPersonId]       = useState('');
   const [tenancyId, setTenancyId]     = useState('');
@@ -162,12 +163,11 @@ export default function SmartTroubleshootingPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {/* AppBar handles safe area — no custom header */}
-      <AppBar
-        left={<BackButton onClick={goBack} />}
-        center={<span className="text-sm font-semibold text-white opacity-75">{STEP_TITLES[step]}</span>}
-      />
+      <AppBar left={<BackButton onClick={goBack} />} />
 
       <main className="mx-auto max-w-2xl px-lg py-lg">
+        {/* the step's name — the top bar has no room for it (21 Oct 2026) */}
+        <p className="mb-md text-[13px] font-bold uppercase tracking-wider text-neutral-500">{STEP_TITLES[step]}</p>
         {error && (
           <div className="mb-lg rounded-xl border border-red-200 bg-red-50 px-md py-sm">
             <p className="text-sm text-red-900">{error}</p>

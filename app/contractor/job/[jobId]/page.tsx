@@ -14,6 +14,10 @@ import BackButton from '@/app/components/BackButton'
 import JobCompletion from '@/app/components/JobCompletion'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
 import Link from 'next/link'
+// the office's note for the contractor — without the office's own chase stamps ("[02/10/2026] Update requested from …
+// by harry@… (app)"), which are records for the office, not messages (21 Oct 2026)
+const officeNote = (n?: string | null) => String(n ?? '').split('\n').filter(l => !/^\[\d{1,2}\/\d{1,2}\/\d{4}\] Update requested from /.test(l.trim())).join('\n').trim()
+
 interface Job {
   id: string
   title: string
@@ -375,8 +379,8 @@ export default function JobDetailPage() {
       alert('Add either an after photo OR notes to complete this job.')
       return
     }
-    if (job.admin_note) {
-      if (!window.confirm(`Before you finish — did you sort this?\n\n"${job.admin_note}"`)) return
+    if (officeNote(job.admin_note)) {
+      if (!window.confirm(`Before you finish — did you sort this?\n\n"${officeNote(job.admin_note)}"`)) return
     }
     setBusy('complete')
     try {
@@ -608,12 +612,12 @@ export default function JobDetailPage() {
         )}
 
         {/* Admin "before you go" note */}
-        {job.admin_note && (
+        {!!officeNote(job.admin_note) && (
           <div className="mb-lg rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-lg">
             <p className="text-xs font-bold uppercase tracking-wide text-yellow-800">
               Note from the office — before you go
             </p>
-            <p className="mt-xs text-sm font-semibold text-yellow-900">{job.admin_note}</p>
+            <p className="mt-xs whitespace-pre-line text-sm font-semibold text-yellow-900">{officeNote(job.admin_note)}</p>
           </div>
         )}
 

@@ -155,6 +155,8 @@ export default function TenantRequests() {
                 request.booked_date &&
                 request.booked_date >= todayISO() &&
                 (request.status === 'assigned' || request.status === 'in_progress');
+              // a visit date that has gone by without the job being finished isn't "scheduled" any more
+              const visitPassed = !!request.booked_date && request.booked_date < todayISO() && !request.completed_at && ['assigned', 'in_progress', 'booked'].includes(request.status);
 
               return (
                 <div
@@ -169,8 +171,8 @@ export default function TenantRequests() {
                     <div className="flex-1">
                       <div className="flex items-center gap-md">
                         <h3 className="text-lg font-bold text-neutral-900">{request.title}</h3>
-                        <span className={`text-xs font-semibold px-md py-xs rounded-full ${statusStyle.badge}`}>
-                          {statusStyle.label}
+                        <span className={`text-xs font-semibold px-md py-xs rounded-full ${visitPassed ? 'bg-amber-100 text-amber-800' : statusStyle.badge}`}>
+                          {visitPassed ? 'Visit date passed' : statusStyle.label}
                         </span>
                       </div>
 
@@ -181,7 +183,7 @@ export default function TenantRequests() {
                           <span className="font-semibold">Category:</span> {String(request.category).replace(/-/g, ' ')}
                         </p>
                         <p>
-                          <span className="font-semibold">Location:</span> {request.rooms?.name || request.location || '—'}
+                          <span className="font-semibold">Location:</span> {/* where the problem is — the kitchen, a bathroom — not always their own room (21 Oct 2026) */}{request.location && !/my room|bedroom/i.test(request.location) ? request.location : request.rooms?.name || request.location || '—'}
                         </p>
                         <p>
                           <span className="font-semibold">Reported:</span> {formatDate(request.created_at)}
@@ -191,11 +193,12 @@ export default function TenantRequests() {
                       {/* Booking Info */}
                       {request.booked_date && (
                         <div className="mt-md rounded-xl bg-neutral-50 p-md border border-neutral-200">
-                          <p className="text-xs font-semibold uppercase text-neutral-500 mb-xs">Scheduled for</p>
+                          <p className="text-xs font-semibold uppercase text-neutral-500 mb-xs">{visitPassed ? 'Was booked for' : 'Scheduled for'}</p>
                           <p className="text-base font-bold text-neutral-900">
                             {formatDate(request.booked_date)}
                             {request.booked_slot && ` · ${formatTime(request.booked_slot)}`}
                           </p>
+                          {visitPassed && <p className="mt-xs text-xs text-neutral-500">We&apos;re checking whether the visit went ahead and will let you know what happens next.</p>}
                         </div>
                       )}
 
