@@ -285,7 +285,6 @@ export default function CreateTenancyPage() {
             <div className="grid grid-cols-2 gap-sm">
               {([
                 ['assured_periodic', 'Assured Periodic Tenancy'],
-                ['fixed_term',       'Fixed-term (initial period)'],
                 ['company_let',      'Company Let'],
                 ['licence',          'Licence Agreement'],
               ] as const).map(([val, label]) => (
@@ -380,9 +379,8 @@ export default function CreateTenancyPage() {
                 <label className="block text-xs text-neutral-500 mb-xs">Rent in advance</label>
                 <select value={rentInAdvance} onChange={e => setRentInAdvance(e.target.value)}
                   className="w-full px-sm py-sm border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
-                  {[1,2,3,6].map(n => (
-                    <option key={n} value={n}>{n} month{n>1?'s':''}{n===1?' (standard)':''}</option>
-                  ))}
+                  {/* Renters' Rights Act: never more than one month's rent in advance */}
+                  <option value={1}>1 month (the most allowed)</option>
                 </select>
               </div>
             </div>

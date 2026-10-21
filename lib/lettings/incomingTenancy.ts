@@ -110,7 +110,7 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
         rent_amount: rentAmount,
         rent_due_day: body.rent_due_day || 1,
         rent_frequency: body.rent_frequency || 'monthly',
-        rent_in_advance: body.rent_in_advance || 1,
+        rent_in_advance: 1,   // Renters' Rights Act: never more than one month's rent in advance
         deposit_amount: body.deposit_amount ?? (rentAmount ? fiveWeeksDeposit(Number(rentAmount)) : null),
         deposit_held_by: body.deposit_held_by || 'agent',
         deposit_scheme_ref: body.deposit_scheme_ref || null,

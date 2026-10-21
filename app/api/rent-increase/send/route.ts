@@ -104,27 +104,8 @@ export async function POST(req: NextRequest) {
     ? (lastS13DateOverride || null)
     : (lastNotice?.effective_date || null)
 
-  // ── Fixed-term block (Rule 0) — server-side re-check (same logic as preview) ─
-  const tenancyEndDate     = (tenancy as any).end_date     as string | null
-  const noticeReceivedDate = (tenancy as any).notice_received_date as string | null
-  const isFixedTermField   = (tenancy as any).is_fixed_term as boolean | null
-  const msDuration = tenancyEndDate
-    ? new Date(tenancyEndDate + 'T00:00:00').getTime() - new Date(tenancy.start_date + 'T00:00:00').getTime()
-    : 0
-  const daysStartToEnd = Math.round(msDuration / (24 * 60 * 60 * 1000))
-  const isFixedTerm =
-    isFixedTermField === true ? true
-    : isFixedTermField === false ? false
-    : (tenancyEndDate && !noticeReceivedDate && tenancyEndDate > today && daysStartToEnd <= 548)
-
-  if (isFixedTerm) {
-    const fmtFixed = new Date(tenancyEndDate! + 'T12:00:00').toLocaleDateString('en-GB', {
-      day: 'numeric', month: 'long', year: 'numeric',
-    })
-    return NextResponse.json({
-      error: `Section 13 notices cannot be served during the fixed term of an Assured Periodic Tenancy. Fixed term ends ${fmtFixed}.`,
-    }, { status: 422 })
-  }
+  // (Rule 0, the fixed-term block, removed 21 Oct 2026: since the Renters' Rights Act every tenancy is periodic —
+  //  no fixed term, so a Section 13 notice is never blocked by one. Harry: "there is no contract length anymore".)
 
   // ── Validate (re-validate server-side even if preview already checked) ────
   const lastRentChangeDate = (tenancy as any).last_rent_change_date as string | null

@@ -257,18 +257,6 @@ export default function RentIncreasePage() {
           )}
         </div>
 
-        {/* Fixed-term block */}
-        {fixedTermError && (
-          <div className="bg-red-50 border border-red-300 rounded-xl p-lg mb-xl">
-            <p className="text-sm font-bold text-red-900 mb-xs">⛔ Section 13 notice cannot be served</p>
-            <p className="text-sm text-red-800">{fixedTermError}</p>
-            {fixedTermEndDate && (
-              <p className="text-xs text-red-600 mt-sm font-semibold">
-                Fixed term ends: {fmtDate(fixedTermEndDate)}. Return to this screen after that date to serve notice.
-              </p>
-            )}
-          </div>
-        )}
 
         {/* Legal notice */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-md mb-xl">

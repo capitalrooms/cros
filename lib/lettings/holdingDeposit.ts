@@ -43,7 +43,10 @@ export async function agreedRent(svc: SupabaseClient, a: { id: string; offered_r
   // in order: the lower offer we accepted · the rent on our offer · the rent they applied at · their tenancy ·
   // the room's asking rent when they applied AT the asking rent (15 Oct 2026: applicants who applied at the asking
   // rent had nothing saved, so the reserve email refused and the only way on was re-sending the application form)
-  if (a.rent_offer_type === 'below_asking' && Number(a.offered_rent) > 0) return Number(a.offered_rent)
+  // an offer only counts when it is BELOW the asking rent — Renters' Rights Act: no rental bidding, so a figure at or
+  // above the advertised rent is never the agreed rent (21 Oct 2026: 2 of 3 "below asking" offers on file weren't)
+  const asking = Number(offer?.advertised_rent) > 0 ? Number(offer!.advertised_rent) : Number(a.advertised_rent) > 0 ? Number(a.advertised_rent) : null
+  if (a.rent_offer_type === 'below_asking' && Number(a.offered_rent) > 0 && (asking == null || Number(a.offered_rent) < asking)) return Number(a.offered_rent)
   if (Number(offer?.advertised_rent) > 0) return Number(offer!.advertised_rent)
   if (Number(a.advertised_rent) > 0) return Number(a.advertised_rent)
   const { data: t } = await svc.from('tenancies').select('rent_amount').eq('applicant_id', a.id).is('let_cancelled_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle()

@@ -47,7 +47,7 @@ export default function TenancyAnalysisReport() {
             { label: 'Void rooms', value: counts.void_rooms || 0,       colour: 'text-red-700',   bg: 'bg-red-50 border-red-200' },
             { label: 'Total rooms',value: counts.total_rooms || 0,      colour: 'text-neutral-700',bg: 'bg-white border-neutral-200' },
             { label: 'Ended',      value: counts.ended || 0,            colour: 'text-neutral-600',bg: 'bg-white border-neutral-200' },
-            { label: 'Up for renewal', value: counts.upcoming_renewals || 0, colour: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200' },
+            { label: 'End date, no notice', value: counts.upcoming_renewals || 0, colour: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200' },
           ].map(t => (
             <div key={t.label} className={`rounded-xl border px-md py-md text-center ${t.bg}`}>
               <p className="text-xs text-neutral-400 mb-xs">{t.label}</p>
@@ -86,7 +86,7 @@ export default function TenancyAnalysisReport() {
         {(data?.upcoming_renewals || []).length > 0 && (
           <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
             <div className="px-xl py-md border-b border-neutral-100">
-              <p className="text-sm font-bold text-neutral-900">Upcoming renewals (next 90 days)</p>
+              <p className="text-sm font-bold text-neutral-900">End dates with no notice (next 90 days) — check them in Health Check</p>
             </div>
             <div className="divide-y divide-neutral-100">
               {(data.upcoming_renewals || []).map((r: any) => (

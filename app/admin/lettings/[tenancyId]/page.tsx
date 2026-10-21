@@ -20,7 +20,7 @@ import { ProgressTab, TermsTab, MoneyTab, DocumentsTab, LettersTab, NoticeTab, A
 
 const TABS = [
   ['progress', 'Progress'], ['person', 'Person'], ['terms', 'Terms'], ['money', 'Money'], ['documents', 'Documents'],
-  ['letters', 'Letters & Invoices'], ['notice', 'Notice & Renewal'], ['activity', 'Activity'],
+  ['letters', 'Letters & Invoices'], ['notice', 'Notice & Rent'], ['activity', 'Activity'],
 ] as const
 type Tab = typeof TABS[number][0]
 

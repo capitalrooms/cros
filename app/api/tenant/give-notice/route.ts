@@ -54,20 +54,24 @@ export async function POST(req: NextRequest) {
   }
 
   // Enforce minimum notice period
-  const noticePeriodMonths = (tenancy.properties as any)?.notice_period_months ?? 2
+  // whole days in UK time (21 Oct 2026 audit: the earliest date the screen offered was refused — it was compared with
+  // "two months from this minute"). Every tenancy is periodic (Renters' Rights Act): two months' notice, any time.
+  const noticePeriodMonths = 2
   const today = new Date()
-  const minMoveOut = new Date(today)
-  minMoveOut.setMonth(minMoveOut.getMonth() + noticePeriodMonths)
-  const proposed = new Date(intendedMoveOutDate)
-
-  if (proposed < minMoveOut) {
+  const ukToday = today.toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const m = new Date(`${ukToday}T12:00:00Z`); m.setUTCMonth(m.getUTCMonth() + noticePeriodMonths)
+  const earliest = m.toISOString().slice(0, 10)
+  const proposedDay = String(intendedMoveOutDate).slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(proposedDay)) return NextResponse.json({ error: 'Choose a move-out date' }, { status: 400 })
+  if (proposedDay < earliest) {
+    const nice = new Date(`${earliest}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     return NextResponse.json({
-      error: `Move-out date must be at least ${noticePeriodMonths} month${noticePeriodMonths !== 1 ? 's' : ''} from today (earliest: ${minMoveOut.toISOString().split('T')[0]})`,
+      error: `Please give at least 2 months’ notice — the earliest move-out date is ${nice}`,
     }, { status: 422 })
   }
 
   // Record notice on tenancy
-  const todayStr = today.toISOString().split('T')[0]
+  const todayStr = ukToday
   const { error: updateErr } = await supabase
     .from('tenancies')
     .update({

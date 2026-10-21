@@ -96,7 +96,7 @@ export default function ApplicantForm() {
 
   // Rental preferences
   const [preferredStartDate, setPreferredStartDate] = useState('')
-  const [preferredTerm, setPreferredTerm] = useState('12 months')
+  const [preferredTerm, setPreferredTerm] = useState('')
 
   // Tell Us About Yourself
   const [bio, setBio] = useState('')
@@ -174,7 +174,7 @@ export default function ApplicantForm() {
       setEmail(a.email ?? ''); setPhone(a.phone ?? ''); setDateOfBirth(a.date_of_birth ?? ''); setCurrentAddress(a.current_address ?? '')
       setProfession(a.profession ?? ''); setSalary(a.salary ?? ''); setLinkedinUrl(a.linkedin_url ?? ''); setProfessionDescription(a.profession_description ?? '')
       { const pr = a.applicant_profile?.application ?? {}; setCompany(pr.company ?? ''); if (pr.student) { setIsStudent(true); setUniversity(pr.university ?? ''); setCourseStudied(pr.course ?? ''); setStudyYear(pr.year ?? '') } }
-      setPreferredStartDate(a.preferred_start_date ?? ''); setPreferredTerm(a.preferred_term ?? '12 months')
+      setPreferredStartDate(a.preferred_start_date ?? ''); setPreferredTerm(a.preferred_term ?? '')
       setBio(a.bio ?? ''); setInterests(a.interests ?? ''); setSociability(a.sociability ?? 'flexible')
       setHousePreferences(a.house_preferences ?? ''); setCommunicationStyle(a.communication_style ?? '')
       setRoomRequirements(a.room_requirements ?? ''); setRoomConditions(a.room_conditions ?? '')
@@ -678,11 +678,13 @@ export default function ApplicantForm() {
               <label className="pub-label">Preferred start date
                 <input className="pub-input" type="date" value={preferredStartDate} onChange={e => setPreferredStartDate(e.target.value)} />
               </label>
-              <label className="pub-label">Preferred term
+              {/* every tenancy is periodic (Renters' Rights Act) — no term to choose; this is only so we know their plans */}
+              <label className="pub-label">How long do you plan to stay?
                 <select className="pub-input" value={preferredTerm} onChange={e => setPreferredTerm(e.target.value)}>
-                  <option value="6 months">6 months</option>
-                  <option value="12 months">12 months</option>
-                  <option value="flexible">Flexible</option>
+                  <option value="">Not sure yet</option>
+                  <option value="Under 6 months">Under 6 months</option>
+                  <option value="6 to 12 months">6 to 12 months</option>
+                  <option value="Over a year">Over a year</option>
                 </select>
               </label>
             </div>

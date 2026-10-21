@@ -999,7 +999,7 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     ['Current address', a.current_address ?? ''],
     ['Work', [a.profession, (a as any).applicant_profile?.application?.company, a.salary ? `salary ${a.salary}` : ''].filter(Boolean).join(' · ')],
     ['Study', (() => { const st = (a as any).applicant_profile?.application; return st?.student ? [st.university, st.course, st.year].filter(Boolean).join(' · ') : '' })()],
-    ['Contract length', (a as any).preferred_term ?? ''],
+    ['Planned stay', (a as any).preferred_term ?? ''],
     ['LinkedIn', (a as any).linkedin_url ?? ''],
     ['Requirements', a.room_requirements ?? ''],
     ['Room', [room?.name, prop?.address || prop?.name].filter(Boolean).join(', ')],
@@ -1096,7 +1096,7 @@ function EditDetails({ a, onDone }: { a: Applicant; onDone: () => void }) {
         {L({ k: 'date_of_birth', label: 'Date of birth', type: 'date' })}{L({ k: 'current_address', label: 'Current address' })}
         {L({ k: 'profession', label: 'Profession' })}{L({ k: 'company', label: 'Company' })}
         {L({ k: 'study', label: 'University & course (students)' })}{L({ k: 'salary', label: 'Salary' })}
-        {L({ k: 'preferred_start_date', label: 'Move-in date', type: 'date' })}{L({ k: 'preferred_term', label: 'Contract length' })}
+        {L({ k: 'preferred_start_date', label: 'Move-in date', type: 'date' })}{L({ k: 'preferred_term', label: 'Planned stay' })}
         {L({ k: 'linkedin_url', label: 'LinkedIn' })}{L({ k: 'room_requirements', label: 'Requirements in property' })}
       </div>
       {err && <p className="text-xs text-red-700">{err}</p>}

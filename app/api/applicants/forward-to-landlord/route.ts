@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         ${applicant.salary        ? tableRow('Salary',       applicant.salary)        : ''}
         ${applicant.current_address ? tableRow('Current address', applicant.current_address) : ''}
         ${applicant.preferred_start_date ? tableRow('Move-in',  new Date(applicant.preferred_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) : ''}
-        ${applicant.preferred_term ? tableRow('Term',       applicant.preferred_term) : ''}
+        ${applicant.preferred_term ? tableRow('Planned stay', applicant.preferred_term) : ''}
         ${applicant.sociability   ? tableRow('Personality', applicant.sociability.replace('-',' ')) : ''}
         ${applicant.linkedin_url  ? tableRow('LinkedIn',    applicant.linkedin_url)   : ''}
       </table>

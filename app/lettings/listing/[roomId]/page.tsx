@@ -113,7 +113,6 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
       living_room: ad.livingRoom != null && take('livingRoom') ? ad.livingRoom : data.listing.living_room,
       bills_included: ad.billsIncluded != null && take('bills') ? ad.billsIncluded : data.listing.bills_included,
       furnished: ad.furnished == null || !take('furnished') ? data.listing.furnished : ad.furnished ? 'furnished' : 'unfurnished',
-      min_term_months: ad.minTermMonths ?? data.listing.min_term_months,
     }
     await fetch('/api/lettings/listings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: data.listing.id, fields }) })
     // newly copied photos join the end of the listing's photos
@@ -258,7 +257,6 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
             <label className={lbl}>Available from<input type="date" className={field} value={l.available_from ?? ''} onChange={e => set('available_from', e.target.value)} /></label>
             <label className={lbl}>Council tax band<select className={field} value={l.council_tax_band ?? ''} onChange={e => set('council_tax_band', e.target.value)}><option value="">—</option>{'ABCDEFGH'.split('').map(b => <option key={b} value={b}>{b}</option>)}</select></label>
             <label className={lbl}>Council tax in rent{yn('council_tax_included')}</label>
-            <label className={lbl}>Min. term (months)<input inputMode="numeric" className={field} value={l.min_term_months ?? ''} onChange={e => set('min_term_months', e.target.value)} /></label>
           </div>
         </Section>
 
@@ -321,9 +319,9 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
           <div className="grid gap-sm sm:grid-cols-4">
             <label className={lbl}>Let type<select className={field} value={l.let_type ?? ''} onChange={e => set('let_type', e.target.value)}><option value="">—</option><option value="long">Long term</option><option value="short">Short term</option><option value="student">Student</option></select></label>
             <label className={lbl}>Sharers{yn('sharers_allowed')}</label>
-            <label className={lbl}>Pets{yn('pets_allowed')}</label>
+            <label className={lbl}>Pets welcome{yn('pets_allowed')}</label>
             <label className={lbl}>Smokers{yn('smokers_allowed')}</label>
-            <label className={`${lbl} sm:col-span-2`}>Ideal for<input className={field} value={l.tenant_type ?? ''} onChange={e => set('tenant_type', e.target.value)} placeholder="Professionals" /></label>
+            <label className={`${lbl} sm:col-span-2`}>Ideal for<input className={field} value={l.tenant_type ?? ''} onChange={e => set('tenant_type', e.target.value)} placeholder="e.g. someone who likes a calm, tidy house" /></label>
           </div>
         </Section>
 

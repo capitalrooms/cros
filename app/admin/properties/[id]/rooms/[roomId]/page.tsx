@@ -596,7 +596,7 @@ export default function RoomDashboardPage({
         room_id: roomId,
         property_id: propertyId,
         start_date: newTenancyStartDate,
-        end_date: newTenancyEndDate || null,
+        end_date: null,   // periodic (Renters' Rights Act): an end date only comes from notice
         rent_amount: newTenancyRent ? parseFloat(newTenancyRent) : null,
         rent_due_day: newTenancyRentDueDay ? parseInt(newTenancyRentDueDay) : 1,
         deposit_amount: newTenancyDeposit ? parseFloat(newTenancyDeposit) : null,
@@ -1035,12 +1035,6 @@ export default function RoomDashboardPage({
                           <div>
                             <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Tenancy start date *</label>
                             <input value={newTenancyStartDate} onChange={e => setNewTenancyStartDate(e.target.value)}
-                              type="date"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Contract end date</label>
-                            <input value={newTenancyEndDate} onChange={e => setNewTenancyEndDate(e.target.value)}
                               type="date"
                               className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                           </div>

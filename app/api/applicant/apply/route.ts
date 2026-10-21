@@ -51,8 +51,10 @@ export async function POST(request: Request) {
       room_requirements:    data.roomRequirements     || null,
       room_conditions:      data.roomConditions       || null,
       advertised_rent:      appliedRent,
-      rent_offer_type:      data.rentOfferType        || 'asking',
-      offered_rent:         data.offeredRent          || null,
+      // Renters' Rights Act: no rental bidding — an offer is only kept when it's below the asking rent
+      ...(data.rentOfferType === 'below_asking' && Number(data.offeredRent) > 0 && (!appliedRent || Number(data.offeredRent) < Number(appliedRent))
+        ? { rent_offer_type: 'below_asking', offered_rent: Number(data.offeredRent) }
+        : { rent_offer_type: 'asking', offered_rent: null }),
       previous_addresses:   data.previousAddresses    || [],
       // guarantor (migration 202) — only sent when the applicant answered
       ...(data.guarantorNeeded ? {

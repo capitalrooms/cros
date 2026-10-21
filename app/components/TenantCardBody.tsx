@@ -110,7 +110,7 @@ export default function TenantCardBody({
         )}
         {endDate && !isOnNotice && (
           <span className="px-sm py-xs bg-neutral-100 text-neutral-600 rounded">
-            Fixed term to {formatDate(endDate)}
+            End date on file {formatDate(endDate)} · no notice
           </span>
         )}
 

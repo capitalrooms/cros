@@ -492,7 +492,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
         }),
         rent_review_date: newTenancyRentReviewDate || null,
         notice_period_months: newTenancyNoticePeriodMonths ? Number(newTenancyNoticePeriodMonths) : null,
-        break_clause_months: newTenancyBreakClauseMonths ? Number(newTenancyBreakClauseMonths) : null,
+        break_clause_months: null,   // no break clauses: every tenancy is periodic
         termination_date: newTenancyTerminationDate || null,
         special_clauses: newTenancySpecialClauses || null,
         permitted_occupiers: newTenancyPermittedOccupiers || null,
@@ -1308,7 +1308,6 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                 <div className="grid grid-cols-2 gap-sm">
                   {([
                     ['assured_periodic',  'Assured Periodic Tenancy'],
-                    ['fixed_term',        'Fixed-term (initial period)'],
                     ['company_let',       'Company Let'],
                     ['licence',           'Licence Agreement'],
                   ] as const).map(([val, label]) => (
@@ -1324,9 +1323,6 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                     </button>
                   ))}
                 </div>
-                {newTenancyAgreementType === 'fixed_term' && (
-                  <p className="text-[11px] text-neutral-400 mt-xs">Set an end date below — tenancy becomes periodic once the initial term expires.</p>
-                )}
               </div>
 
               {/* Letting fee */}
@@ -1414,7 +1410,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                       className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                   </div>
                   <div>
-                    <label className="block text-xs text-neutral-500 mb-xs">{newTenancyAgreementType === 'assured_periodic' ? 'Expected stay (months) — optional, for the letting fee' : 'Term (months) — auto-fills end date'}</label>
+                    <label className="block text-xs text-neutral-500 mb-xs">{newTenancyAgreementType === 'assured_periodic' ? 'Expected stay (months) — optional, for the letting fee' : 'Length (months) — fills the end date'}</label>
                     <input type="number" min="1" max="60" value={newTenancyTermMonths}
                       onChange={e => {
                         setNewTenancyTermMonths(e.target.value)
@@ -1485,7 +1481,8 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                   <label className="block text-xs text-neutral-500 mb-xs">Rent in advance (months)</label>
                   <select value={newTenancyRentInAdvance} onChange={e => setNewTenancyRentInAdvance(e.target.value)}
                     className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
-                    {[1,2,3,6].map(n => <option key={n} value={n}>{n} month{n>1?'s':''} {n===1?'(standard)':n===2?'(two months upfront)':'('+n+' months upfront)'}</option>)}
+                    {/* Renters' Rights Act: never more than one month's rent in advance */}
+                    {[1].map(n => <option key={n} value={n}>1 month (the most allowed)</option>)}
                   </select>
                   {/* First payment — pro rata to the rent day, or a full month: the same rule as the letting file, the
                       check-in balance and the agreement (lib/tenancy/firstRent) — 15 Oct 2026 */}
@@ -1642,7 +1639,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                   className="flex items-center gap-sm text-sm font-semibold text-blue-600 hover:text-blue-800 transition">
                   <span className={`transition-transform text-xs ${showTenancyExtended ? 'rotate-90' : ''}`}>▶</span>
                   {showTenancyExtended ? 'Hide extended details' : 'Add extended details'}
-                  <span className="text-xs font-normal text-neutral-400 ml-xs">— notice, break clause, review date, clauses, notes</span>
+                  <span className="text-xs font-normal text-neutral-400 ml-xs">— review date, clauses, notes</span>
                 </button>
 
                 {showTenancyExtended && (
@@ -1656,12 +1653,6 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                           <label className="block text-xs text-neutral-500 mb-xs">Notice period (months)</label>
                           <input type="number" min="0" value={newTenancyNoticePeriodMonths} onChange={e => setNewTenancyNoticePeriodMonths(e.target.value)}
                             placeholder="2"
-                            className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-neutral-500 mb-xs">Break clause (months from start)</label>
-                          <input type="number" min="0" value={newTenancyBreakClauseMonths} onChange={e => setNewTenancyBreakClauseMonths(e.target.value)}
-                            placeholder="e.g. 6"
                             className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                         </div>
                       </div>
