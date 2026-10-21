@@ -31,17 +31,23 @@ interface Props {
 const hhmm = (slot: string | null) => (slot ? slot.slice(0, 5) : '')
 const niceDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
-/** Emails the contacts on an active let-only listing for this room, if there is one. Best-effort. */
+/** Emails whoever lives in this let-only room (the landlord's room list, let_only_occupants) about the viewing.
+ *  Best-effort. 21 Oct 2026: it looked the room up on the old let-only listings, which have no room link, so it never
+ *  sent. A booking the agent chose to tell them about follows "Messages you send yourself"; a reschedule stays automatic. */
 export async function notifyLetOnlyContacts(roomId: string | null, event: 'booked' | 'rescheduled', date: string, time: string, roomName: string, senderName: string): Promise<boolean> {
   if (!roomId) return false
-  const { data } = await createClient().from('let_only_rooms').select('let_only_listings(id, is_active)').eq('room_id', roomId).maybeSingle()
-  const listing = (data as any)?.let_only_listings
-  if (!listing?.is_active) return false
+  const sb = createClient()
+  const { data: room } = await sb.from('rooms').select('property_id, properties(letting_type)').eq('id', roomId).maybeSingle()
+  if ((room as any)?.properties?.letting_type !== 'let_only') return false
+  const { data: occ } = await sb.from('let_only_occupants').select('name, email').eq('room_id', roomId).is('ended_at', null).not('email', 'is', null)
+  const contacts = ((occ ?? []) as any[]).filter(o => String(o.email ?? '').includes('@')).map(o => ({ full_name: o.name || '', email: String(o.email).trim() }))
+  if (!contacts.length) return false
   const res = await fetch('/api/let-only/notify-contacts', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ listing_id: listing.id, event, viewing_date: date, viewing_time: time || '09:00', room_name: roomName, sender_name: senderName }),
+    body: JSON.stringify({ property_id: (room as any).property_id, contacts, elected: event === 'booked', event, viewing_date: date, viewing_time: time || '09:00', room_name: roomName, sender_name: senderName }),
   }).catch(() => null)
-  return !!res?.ok
+  const j = res?.ok ? await res.json().catch(() => ({})) : null
+  return !!j && Number(j.sent ?? 0) > 0
 }
 
 export default function ViewingSheet({ viewing, senderName, onClose, onChanged, onQuickNotify }: Props) {
