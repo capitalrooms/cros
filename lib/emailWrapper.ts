@@ -127,13 +127,30 @@ export const PORTAL_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma
 
 const BODY_FONT = "Lato,'Helvetica Neue',Arial,sans-serif"
 
-/** Footer for emails with no person behind them (kept for completeness — buildEmail always has a sender). */
+/** The footer for automated emails (no person signing them) — the same as the website's footer (components/public/
+ *  PublicFooter, 21 Oct 2026, Harry: "would be good for them to have a footer like the new bottom bar on the website"):
+ *  the Capital Rooms mark, the credentials (The Property Ombudsman, ClientMoney Protect, the DPS, Google reviews), then
+ *  the address, phone and email — each a link in the footer's own grey, so mail apps don't turn them blue. */
 function companyFooter(biz: BusinessSettings): string {
+  const A = SIGNATURE_ASSET_BASE
   const addr = [biz.address_line1, biz.address_line2, `${biz.city} ${biz.postcode}`.trim()].filter(x => x && x.trim()).join(', ')
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d0d0d" style="width:100%;background:#0d0d0d;border-collapse:collapse;">
-    <tr><td align="center" style="padding:28px 22px 12px;"><img src="${SIGNATURE_ASSET_BASE}/brand/disc-footer.png" width="96" alt="${biz.company_name}" style="display:block;margin:0 auto;border:0;width:96px;max-width:100%;height:auto;"></td></tr>
-    <tr><td align="center" style="padding:0 22px 24px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;line-height:1.8;color:#57554f;">
-      <a href="https://www.capitalrooms.co.uk" style="color:#9a978f;text-decoration:none;">www.capitalrooms.co.uk</a><br>${addr}
+  const grey = 'color:#A19E97;text-decoration:none;'
+  const badge = (file: string, w: number, h: number, alt: string) =>
+    `<td style="padding:6px 11px;vertical-align:middle;"><img src="${A}/brand/${file}" width="${w}" height="${h}" alt="${alt}" style="display:block;border:0;width:${w}px;height:${h}px;"></td>`
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#161616" style="width:100%;background:#161616;border-collapse:collapse;">
+    <tr><td align="center" style="padding:36px 22px 18px;"><img src="${A}/brand/mark-white.png" width="89" height="46" alt="${biz.company_name}" style="display:block;margin:0 auto;border:0;width:89px;height:46px;"></td></tr>
+    <tr><td align="center" style="padding:0 16px 18px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 auto;"><tr>
+        ${badge('tpo-white.png', 80, 28, 'Member of The Property Ombudsman')}
+        ${badge('cmp-white.png', 96, 20, 'ClientMoney Protect')}
+        ${badge('dps-white.png', 28, 30, 'Deposits protected with the DPS')}
+        ${badge('google-white.png', 108, 36, 'Google reviews, rated 4.9 out of 5')}
+      </tr></table>
+    </td></tr>
+    <tr><td align="center" style="padding:0 22px 32px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;line-height:1.9;color:#A19E97;">
+      <a href="https://maps.google.com/?q=${encodeURIComponent(addr)}" style="${grey}">${addr}</a><br>
+      <a href="tel:${biz.phone.replace(/\s/g, '')}" style="${grey}">${biz.phone}</a> &middot; <a href="mailto:${biz.email}" style="${grey}">${biz.email}</a><br>
+      <a href="https://www.capitalrooms.co.uk" style="${grey}">www.capitalrooms.co.uk</a>
     </td></tr></table>`
 }
 
