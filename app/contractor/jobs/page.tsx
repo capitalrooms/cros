@@ -284,7 +284,8 @@ export default function ContractorJobs() {
   const done = jobs
     .filter((j) => j.status === 'completed')
     .sort((a, b) => (b.completed_at || '').localeCompare(a.completed_at || ''));
-  const nextJob = booked.find((j) => j.booked_date! >= todayISO()) ?? booked[0];
+  // the next visit is today or later — never one that has already passed (21 Oct 2026 audit)
+  const nextJob = booked.find((j) => j.booked_date! >= todayISO()) ?? null;
   const todayCount = booked.filter((j) => j.booked_date === todayISO()).length;
 
   // Week strip — which of the next 7 days have work on them.
@@ -336,7 +337,7 @@ export default function ContractorJobs() {
                 ? 'Nothing today'
                 : 'No jobs booked yet'}
           </p>
-          {todayCount === 0 && booked.length > 0 && (
+          {todayCount === 0 && !!nextJob && (
             <p className="text-xl font-bold leading-tight text-white/40">Next job below</p>
           )}
 
