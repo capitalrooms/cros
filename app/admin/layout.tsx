@@ -132,7 +132,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* ── Top bar — the one top bar every user has (app/components/TopBar) ── */}
         <TopBar homeHref="/admin"
-          left={pathname !== '/admin' && <BackButton optional={!backFallback} href={backFallback?.href} label={backFallback?.label} />}
+          left={!isPhoneTabRoot(pathname) && <BackButton optional={!backFallback} href={backFallback?.href} label={backFallback?.label} />}
           right={allowed('/admin/notify') && (
             <Link href="/admin/notify" className="flex items-center gap-1 rounded-md bg-amber-600 px-2 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-500">
               <span>⚡</span><span className="hidden sm:inline">Quick Notify</span>

@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { ledgerStart } from '@/lib/clientLedger'
+import { statementsInMonths } from '@/lib/finance/statementMonth'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,12 +40,27 @@ export async function GET(req: NextRequest) {
   const real = <T extends { property_id?: string | null }>(rows: T[] | null) => (rows ?? []).filter(r => !demo.has(r.property_id ?? ''))
 
   // Last six months, oldest first
-  const months: { month: string; due: number; received: number }[] = []
+  const months: { month: string; due: number; received: number; imported?: boolean; statements?: number }[] = []
   for (let i = 5; i >= 0; i--) months.push({ month: monthStart(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))), due: 0, received: 0 })
   for (const c of real(charges.data as any[])) {
     if (c.voided) continue
     const m = months.find(x => x.month === String(c.charge_month).slice(0, 10))
     if (m) { m.due += Number(c.amount_due || 0); m.received += Number(c.amount_received || 0) }
+  }
+  // months before CROS collects rent itself (the import period): the old system collected the rent, so the month is
+  // what its imported landlord statements say — the same figures as Finance home (21 Oct 2026: October read "50%
+  // collected" from part-made charges while it was fully collected and imported)
+  const importMonths = months.filter(m => m.month < start)
+  if (importMonths.length) {
+    const lastDay = (m: string) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).toISOString().slice(0, 10)
+    const sts = (await statementsInMonths(s as any, importMonths[0].month, lastDay(importMonths[importMonths.length - 1].month))).filter(x => !demo.has(x.property_id))
+    const { data: rows } = sts.length ? await s.from('landlord_statements').select('id, gross_rent').in('id', sts.map(x => x.id)) : { data: [] as any[] }
+    const rent = new Map(((rows ?? []) as any[]).map(r => [r.id, Number(r.gross_rent || 0)]))
+    for (const m of importMonths) {
+      const mine = sts.filter(x => x.month === m.month.slice(0, 7))
+      const total = Math.round(mine.reduce((t, x) => t + (rent.get(x.id) ?? 0), 0) * 100) / 100
+      Object.assign(m, { due: total, received: total, imported: true, statements: mine.length })
+    }
   }
 
   const owed = real(arrears.data as any[]).filter((c: any) => !c.voided)
