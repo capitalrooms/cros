@@ -2,6 +2,7 @@
 
 // Contractors make their invoices in CROS — see components/SupplierInvoices.tsx.
 import { use } from 'react'
+import { RoleTabBar, type ContractorTab } from '@/app/components/RoleTabBar'
 import Logo from '@/components/Logo'
 import BackButton from '@/app/components/BackButton'
 import SupplierInvoices from '@/components/SupplierInvoices'
@@ -25,6 +26,7 @@ export default function InvoicesPage({ searchParams }: { searchParams: PageSearc
         <p className="mb-4 text-sm text-neutral-600">A professional invoice in a minute — for our jobs, and for your other clients once all our jobs are booked.</p>
         <SupplierInvoices viewAs={as} jobId={job} />
       </main>
+      <RoleTabBar<ContractorTab> role="contractor" active={'invoices'} />
     </div>
   )
 }

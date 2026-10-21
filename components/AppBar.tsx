@@ -1,15 +1,14 @@
 'use client'
 
-import Link from 'next/link'
-import Logo from './Logo'
+import TopBar from '@/app/components/TopBar'
 import { useIsAdmin } from '@/lib/admin-context'
 
 /**
  * The single top bar for every page, whatever the user's role.
  *
- * Grid: [left] [logo] [right]
+ * Now drawn by app/components/TopBar — the same bar as admin (back · logo · bell and account).
  *  left  — back button (BackButton component) — always on the left per convention
- *  right — role-specific actions: sign out, Quick Notify, etc.
+ *  right — anything extra the screen needs (the account menu with sign out is always there)
  *
  * When rendered inside the admin layout (AdminContext = true), returns null —
  * the admin layout provides its own header and this would create a triple bar.
@@ -26,43 +25,6 @@ export default function AppBar({
 }) {
   const isAdmin = useIsAdmin()
   if (isAdmin) return null
-
-  return (
-    <nav
-      className="bg-neutral-900 text-white border-b border-neutral-800 sticky top-0 z-50"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
-    >
-      <div
-        className="mx-auto max-w-6xl py-md grid items-center gap-md"
-        style={{
-          gridTemplateColumns: '1fr auto 1fr',
-          minHeight: 52,
-          paddingLeft: 'max(16px, env(safe-area-inset-left))',
-          paddingRight: 'max(16px, env(safe-area-inset-right))',
-        }}
-      >
-        {/* Left — back button */}
-        <div className="justify-self-start min-w-0 flex items-center">
-          {left ?? (title && (
-            <p className="truncate text-sm font-medium text-white/70">{title}</p>
-          ))}
-        </div>
-
-        {/* Centre — logo, links to home */}
-        <div className="justify-self-center">
-          <Link href="/home" aria-label="Home" className="block hover:opacity-80 transition-opacity">
-            <Logo variant="emblem" height={30} invert priority />
-          </Link>
-        </div>
-
-        {/* Right — sign out, quick notify, etc. */}
-        <div
-          className="min-w-0 flex items-center gap-md text-sm font-semibold text-white overflow-x-auto"
-          style={{ justifyContent: 'flex-end' }}
-        >
-          {right}
-        </div>
-      </div>
-    </nav>
-  )
+  // the one top bar for every user (app/components/TopBar, 21 Oct 2026) — the admin bar's look, bell and account menu
+  return <TopBar position="sticky" right={right} left={left ?? (title && <p className="truncate text-sm font-medium text-white/70">{title}</p>)} />
 }

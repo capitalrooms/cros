@@ -2,6 +2,7 @@
 
 // Cleaners make their invoices in CROS — see components/SupplierInvoices.tsx.
 import { use } from 'react'
+import { RoleTabBar, type CleanerTab } from '@/app/components/RoleTabBar'
 import Logo from '@/components/Logo'
 import BackButton from '@/app/components/BackButton'
 import SupplierInvoices from '@/components/SupplierInvoices'
@@ -23,6 +24,7 @@ export default function InvoicesPage({ searchParams }: { searchParams: PageSearc
         <p className="mb-4 text-sm text-neutral-600">One invoice for your cleans over a period, sent to Capital Rooms.</p>
         <SupplierInvoices viewAs={as} />
       </main>
+      <RoleTabBar<CleanerTab> role="cleaner" active={null} />
     </div>
   )
 }

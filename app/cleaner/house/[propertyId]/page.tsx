@@ -4,6 +4,7 @@
 // office (add one, tick one off), and past cleans with what was noted. Opened from a clean. The office sees and adds
 // the same notes on Property notes. Data: /api/cleaner/house.
 import { use, useCallback, useEffect, useState } from 'react'
+import { RoleTabBar, type CleanerTab } from '@/app/components/RoleTabBar'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
@@ -84,5 +85,6 @@ export default function CleanerHouse({ params }: { params: Promise<{ propertyId:
         ))}
       </ul>
     </section>
+      <RoleTabBar<CleanerTab> role="cleaner" active={null} />
   </>)
 }

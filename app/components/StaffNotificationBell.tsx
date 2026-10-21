@@ -1,6 +1,6 @@
 'use client'
 
-// Notification bell for office and lettings staff: new offers, new reservations ("I've paid"), deposits recorded.
+// Notification bell in the top bar for everyone signed in (21 Oct 2026 — it was office only): your own notifications.
 // Reads /api/staff/notifications; checks again every minute and whenever the window regains focus.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -21,6 +21,7 @@ export default function StaffNotificationBell({ className = '' }: { className?: 
   const router = useRouter()
   const [notes, setNotes] = useState<Note[]>([])
   const [unread, setUnread] = useState(0)
+  const [ready, setReady] = useState(false)   // only shown once your notifications load (not on public pages)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -32,7 +33,7 @@ export default function StaffNotificationBell({ className = '' }: { className?: 
     const res = await fetch('/api/staff/notifications').catch(() => null)
     if (!res?.ok) return
     const d = await res.json().catch(() => null)
-    if (d) { setNotes(d.notifications); setUnread(d.unread) }
+    if (d) { setNotes(d.notifications); setUnread(d.unread); setReady(true) }
   }, [])
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function StaffNotificationBell({ className = '' }: { className?: 
     await markRead({ all: true })
   }
 
+  if (!ready) return null
   return (
     <div ref={ref} className={`relative ${className}`}>
       <button

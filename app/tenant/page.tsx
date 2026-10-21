@@ -8,7 +8,6 @@ import { getActiveTenancy } from '@/lib/tenancy'
 import { formatBooking, slotLabel } from '@/lib/booking'
 import { displayName } from '@/lib/people'
 import AppBar from '@/components/AppBar'
-import SignOutButton from '@/app/components/SignOutButton'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import InstallPrompt from '@/app/components/InstallPrompt'
 import { TenantDashboardSkeleton } from '@/app/components/SkeletonLoading'
@@ -551,9 +550,7 @@ export default function TenantDashboard() {
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
       <InstallPrompt />
-      <AppBar
-        right={<SignOutButton onSignOut={handleSignOut} />}
-      />
+      <AppBar />
 
       <main className="mx-auto max-w-lg px-lg pb-2xl">
 

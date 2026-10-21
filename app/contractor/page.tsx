@@ -10,7 +10,7 @@ import DarkHeroHeader from '@/app/components/DarkHeroHeader'
 import StatTile from '@/app/components/StatTile'
 import EnableNotifications from '@/app/components/EnableNotifications'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
-import PhoneTabBar, { ICONS } from '@/app/components/PhoneTabBar'
+import { RoleTabBar, type ContractorTab } from '@/app/components/RoleTabBar'
 import Link from 'next/link'
 import { getTodayGMT, isDatePast, isDateToday, formatDateUK } from '@/lib/dateUtils'
 import MultiDayDiaryGrid, { type DiaryJob } from '@/app/components/MultiDayDiaryGrid'
@@ -185,6 +185,12 @@ export default function ContractorDashboard() {
   const [schedulePhase, setSchedulePhase]       = useState<'pick'|'fallback'|'submitting'|'done'>('pick')
   const [scheduleMsg, setScheduleMsg]           = useState('')
 
+  // a tab asked for in the address (the bottom bar on another screen links to /contractor?tab=quotes)
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab') as Tab | null
+    if (t && ['today', 'quotes', 'ongoing', 'waiting', 'booked', 'done'].includes(t)) setActiveTab(t)
+  }, [])
+
   function goToTab(tab: Tab) {
     setActiveTab(tab)
     setTimeout(() => tabStripRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
@@ -268,7 +274,7 @@ export default function ContractorDashboard() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <div className="bg-neutral-950 pb-xl">
-          <div style={{ height: 'calc(env(safe-area-inset-top) + 52px)' }} />
+          <div style={{ height: 'calc(env(safe-area-inset-top) + 56px)' }} />
           <div className="px-lg pt-lg">
             <div className="h-2.5 w-14 rounded-full bg-white/20 mb-sm" />
             <div className="h-7 w-44 rounded-xl bg-white/20 mb-xl" />
@@ -732,27 +738,15 @@ export default function ContractorDashboard() {
       ════════════════════════════════════════════════════════════════════ */}
       <div className="lg:hidden">
         {/* phone: the same bottom tab bar as the admin app (17 Oct 2026) */}
-        <PhoneTabBar fixed className="lg:hidden" label="Contractor sections" tabs={[
-          { key: 'jobs', label: needsAttention > 0 ? `Jobs (${needsAttention})` : 'Jobs', icon: ICONS.wrench, onClick: () => { setActiveTab('today'); window.scrollTo({ top: 0 }) }, active: JOB_TABS.includes(activeTab) },
-          { key: 'quotes', label: pendingQuotes.length ? `Quotes (${pendingQuotes.length})` : 'Quotes', icon: ICONS.notes, onClick: () => { setActiveTab('quotes'); window.scrollTo({ top: 0 }) }, active: activeTab === 'quotes' },
-          { key: 'done', label: 'Done', icon: ICONS.check, onClick: () => { setActiveTab('done'); window.scrollTo({ top: 0 }) }, active: activeTab === 'done' },
-          { key: 'invoices', label: 'Invoices', icon: ICONS.invoice, href: `/contractor/invoices${asId ? `?as=${asId}` : ''}`, active: false },
-          { key: 'me', label: 'Me', icon: ICONS.me, href: '/contractor/profile', active: false },
-        ]} />
+        <RoleTabBar<ContractorTab> role="contractor" inPage={['jobs', 'quotes', 'done']}
+          active={JOB_TABS.includes(activeTab) ? 'jobs' : activeTab === 'quotes' ? 'quotes' : activeTab === 'done' ? 'done' : null}
+          onPick={k => setActiveTab(k === 'jobs' ? 'today' : k as Tab)}
+          badges={{ jobs: needsAttention, quotes: pendingQuotes.length }} />
 
         <DarkHeroHeader
           eyebrow="Contractor"
           heading={`Hi ${firstName} 👋`}
-          topRight={
-            <div className="flex items-center gap-md">
-              <a href="/contractor/profile" className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-white/10 transition-colors" title="Profile">
-                <span className="text-lg leading-none">⚙️</span>
-              </a>
-              <button onClick={async () => { await signOut(); router.push('/login') }} className="hover:text-white/70 transition-colors">
-                Sign out
-              </button>
-            </div>
-          }
+          
         >
           <div className="max-w-2xl mx-auto w-full">
             <div className="grid grid-cols-2 gap-sm mb-xl">
@@ -821,7 +815,7 @@ export default function ContractorDashboard() {
         {JOB_TABS.includes(activeTab) && <div
           ref={tabStripRef}
           className="bg-white border-b border-neutral-200 sticky z-40 px-lg pt-md pb-0"
-          style={{ top: 'calc(env(safe-area-inset-top) + 52px)' }}
+          style={{ top: 'calc(env(safe-area-inset-top) + 56px)' }}
         >
           <div className="flex gap-xs overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
             {/* phone: just the job views here — Quotes, Done, Invoices and Me are on the bottom tab bar */}
