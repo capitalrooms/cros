@@ -690,7 +690,7 @@ export default function JobDetailPage() {
                     <input
                       type="date"
                       value={quoteVisitDate}
-                      min={new Date().toISOString().slice(0, 10)}
+                      min={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}
                       onChange={e => setQuoteVisitDate(e.target.value)}
                       className="w-full rounded-xl border border-blue-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -964,7 +964,7 @@ export default function JobDetailPage() {
                           <input
                             type="date"
                             value={bookDate}
-                            min={reReason === 'Running late — same day' ? new Date().toISOString().split('T')[0] : earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
+                            min={reReason === 'Running late — same day' ? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
                             onChange={(e) => setBookDate(e.target.value)}
                             className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
                           />

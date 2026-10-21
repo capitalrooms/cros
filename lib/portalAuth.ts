@@ -58,7 +58,7 @@ export async function canActAtProperty(c: Caller | null, propertyId: string, s: 
     const { count } = await s.from('maintenance_tickets').select('id', { count: 'exact', head: true }).eq('property_id', propertyId).eq('contractor_id', c.personId)
     return (count ?? 0) > 0
   }
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { count } = await s.from('tenancies').select('id', { count: 'exact', head: true }).eq('property_id', propertyId)
     .or(`person_id.eq.${c.personId},co_tenant_id.eq.${c.personId}`).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
   return (count ?? 0) > 0

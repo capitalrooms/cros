@@ -263,7 +263,7 @@ export default function CleanDetailPage() {
       })
       // Pencil in the next clean at the house's usual gap (its cleaning frequency; two weeks if none is set), at the same
       // time and length as this one — unless one is already booked. Nothing is sent to tenants for a pencilled clean.
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       const { data: ahead } = await supabase.from('cleans').select('id').eq('property_id', clean.property_id)
         .gt('clean_date', today).neq('status', 'cancelled').limit(1)
       if (!ahead?.length) {
