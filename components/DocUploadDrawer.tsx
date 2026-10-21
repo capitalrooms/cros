@@ -62,8 +62,11 @@ const DOC_TYPES = [
   { value: 'insurance_policy',         label: 'Insurance Policy' },
   { value: 'hmo_licence',              label: 'HMO Licence' },
   { value: 'management_agreement',     label: 'Management Agreement' },
+  // filed for the landlord app's "Your documents" (21 Oct 2026) — e.g. statements and invoices from before CROS
+  { value: 'lettings_statement',       label: 'Lettings Statement (past)' },
+  { value: 'landlord_invoice',         label: 'Invoice to the Landlord' },
   { value: 'other',                    label: 'Other' },
-]
+].sort((a, b) => (a.value === 'other' ? 1 : 0) - (b.value === 'other' ? 1 : 0) || a.label.localeCompare(b.label))   // alphabetical, Other last
 
 export default function DocUploadDrawer({
   title,
