@@ -738,7 +738,7 @@ export default function ContractorDashboard() {
       ════════════════════════════════════════════════════════════════════ */}
       <div className="lg:hidden">
         {/* phone: the same bottom tab bar as the admin app (17 Oct 2026) */}
-        <RoleTabBar<ContractorTab> role="contractor" inPage={['jobs', 'quotes', 'done']}
+        <RoleTabBar<ContractorTab> role="contractor" spacer={false} inPage={['jobs', 'quotes', 'done']}
           active={JOB_TABS.includes(activeTab) ? 'jobs' : activeTab === 'quotes' ? 'quotes' : activeTab === 'done' ? 'done' : null}
           onPick={k => setActiveTab(k === 'jobs' ? 'today' : k as Tab)}
           badges={{ jobs: needsAttention, quotes: pendingQuotes.length }} />

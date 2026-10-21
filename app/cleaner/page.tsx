@@ -621,7 +621,7 @@ export default function CleanerDashboard() {
       {/* ── MOBILE (< lg) ─────────────────────────────────────────────────── */}
       <div className="lg:hidden min-h-screen bg-neutral-100">
       {/* phone: the same bottom tab bar as the admin app (17 Oct 2026) — replaces the pill strip at the top */}
-      <RoleTabBar<CleanerTab> role="cleaner" inPage={['today', 'upcoming', 'done', 'compliance']}
+      <RoleTabBar<CleanerTab> role="cleaner" spacer={false} inPage={['today', 'upcoming', 'done', 'compliance']}
         active={activeTab} onPick={k => setActiveTab(k as Tab)}
         badges={{ today: todayCleans.length + overdueCleans.length }} />
 

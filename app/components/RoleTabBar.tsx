@@ -24,19 +24,21 @@ const CLEANER: { key: CleanerTab; label: string; icon: PhoneTab['icon']; href: s
   { key: 'me', label: 'Me', icon: ICONS.me, href: '/cleaner/profile' },
 ]
 
-export function RoleTabBar<T extends string>({ role, active, onPick, badges = {}, inPage = [] }: {
+export function RoleTabBar<T extends string>({ role, active, onPick, badges = {}, inPage = [], spacer = true }: {
   role: 'contractor' | 'cleaner'
   active: T | null
   /** home screen only: switch these tabs in place instead of following the link */
   onPick?: (key: T) => void
   inPage?: T[]
   badges?: Partial<Record<T, number>>
+  /** room at the foot of the page for the bar — off where the bar is drawn before the page (the home screens) */
+  spacer?: boolean
 }) {
   const list = (role === 'contractor' ? CONTRACTOR : CLEANER) as { key: T; label: string; icon: PhoneTab['icon']; href: string }[]
   return (
     <>
       {/* room for the bar so the last thing on the screen isn't hidden behind it */}
-      <div className="h-20 lg:hidden" aria-hidden="true" />
+      {spacer && <div className="h-20 lg:hidden" aria-hidden="true" />}
       <PhoneTabBar fixed className="lg:hidden" label={role === 'contractor' ? 'Contractor sections' : 'Cleaner sections'} tabs={list.map(t => ({
         key: t.key, label: t.label, icon: t.icon, active: active === t.key, badge: badges[t.key],
         ...(onPick && inPage.includes(t.key) ? { onClick: () => { onPick(t.key); window.scrollTo({ top: 0 }) } } : { href: t.href }),
