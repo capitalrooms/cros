@@ -48,7 +48,7 @@ const PRIORITY_STYLES: Record<string, string> = {
   high: 'bg-neutral-900 text-white',
 };
 
-const todayISO = () => new Date().toISOString().split('T')[0];
+const todayISO = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
 
 function dayLabel(iso: string) {
   const d = new Date(iso);

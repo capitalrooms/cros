@@ -48,7 +48,7 @@ interface VisitRequest {
 
 function fmtDate(iso: string) {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   if (iso === today) return 'Today'
   if (iso === tomorrow) return 'Tomorrow'
   return new Date(iso).toLocaleDateString('en-GB', {

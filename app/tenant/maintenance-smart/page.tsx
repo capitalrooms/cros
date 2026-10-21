@@ -44,7 +44,7 @@ export default function SmartTroubleshootingPage() {
         .from('tenancies').select('id, property_id, room_id')
         .or(`person_id.eq.${data.assignment?.id},co_tenant_id.eq.${data.assignment?.id}`)   // joint tenants too
         .not('end_date', 'is', null)
-        .or('end_date.gte.' + new Date().toISOString().split('T')[0])
+        .or('end_date.gte.' + new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
         .single();
       if (tenancy) {
         setTenancyId(tenancy.id);

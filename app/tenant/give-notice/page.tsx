@@ -46,7 +46,7 @@ export default function GiveNoticePage() {
         .select('id, person_id, start_date, end_date, notice_received_date, rent_amount, rescind_requested_at, rooms(name), properties(name, address, notice_period_months)')
         .or(`person_id.eq.${pid},co_tenant_id.eq.${pid}`)   // joint tenants too
         .is('notice_received_date', null)
-        .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
+        .or(`end_date.is.null,end_date.gte.${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}`)
         .maybeSingle()
 
       setTenancy(t as Tenancy | null)

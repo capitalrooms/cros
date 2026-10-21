@@ -37,7 +37,7 @@ interface PropertyNote {
   people: { name: string; email: string } | null
 }
 
-const todayISO = () => new Date().toISOString().split('T')[0]
+const todayISO = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
 function dayLabel(iso: string) {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]

@@ -134,7 +134,7 @@ export default function EarlyMoveOutPage() {
 
   const minDate = tenancy?.start_date
     ? new Date(new Date(tenancy.start_date).getTime() + 28 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    : new Date().toISOString().split('T')[0]
+    : new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   // ── Submitted confirmation ────────────────────────────────────────────
   if (done) {

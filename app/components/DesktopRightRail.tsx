@@ -54,7 +54,7 @@ function buildMonthDays(year: number, month: number): (number | null)[] {
 }
 
 function todayISOFn() {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 }
 
 export default function DesktopRightRail({

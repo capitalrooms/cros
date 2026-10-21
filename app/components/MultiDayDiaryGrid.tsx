@@ -46,7 +46,7 @@ function formatHour(h: number) {
 }
 
 function todayISOFn() {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 }
 
 function buildDays(dayOffset = 0): string[] {

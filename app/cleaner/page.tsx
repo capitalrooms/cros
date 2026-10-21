@@ -37,7 +37,7 @@ const sixMonthsAgo = () => {
 }
 
 function todayISO() {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 }
 
 const DAY_LABELS  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -121,7 +121,7 @@ export default function CleanerDashboard() {
 
   // booking form state (used by modal)
   const [propertyId, setPropertyId]   = useState('')
-  const [cleanDate, setCleanDate]     = useState(new Date().toISOString().split('T')[0])
+  const [cleanDate, setCleanDate]     = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [cleanTime, setCleanTime]     = useState('10:00')
   const [booking, setBooking]         = useState(false)
   const [bookedNotice, setBookedNotice] = useState('')
@@ -129,12 +129,12 @@ export default function CleanerDashboard() {
   // compliance modal
   const [showAddComplianceModal, setShowAddComplianceModal] = useState(false)
   const [savingCompliance, setSavingCompliance]             = useState(false)
-  const [complianceForm, setComplianceForm] = useState({ check_type: 'fire_door' as const, date: new Date().toISOString().split('T')[0], notes: '' })
+  const [complianceForm, setComplianceForm] = useState({ check_type: 'fire_door' as const, date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
   const [compliancePropertyId, setCompliancePropertyId]    = useState('')
 
   // log past clean modal
   const [showLogPastCleanModal, setShowLogPastCleanModal] = useState(false)
-  const [pastCleanForm, setPastCleanForm] = useState({ propertyId: '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
+  const [pastCleanForm, setPastCleanForm] = useState({ propertyId: '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
   const [savingPastClean, setSavingPastClean] = useState(false)
 
   // book clean modal
@@ -143,7 +143,7 @@ export default function CleanerDashboard() {
   // assigned jobs
   const [assignedJobs, setAssignedJobs]           = useState<any[]>([])
   const [showAcceptJobModal, setShowAcceptJobModal] = useState<string | null>(null)
-  const [acceptJobForm, setAcceptJobForm] = useState({ cleanDate: new Date().toISOString().split('T')[0], cleanTime: '10:00' })
+  const [acceptJobForm, setAcceptJobForm] = useState({ cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), cleanTime: '10:00' })
   const [acceptingJob, setAcceptingJob] = useState(false)
   const [decliningJob, setDecliningJob] = useState<string | null>(null)
   const [showDeclineModal, setShowDeclineModal] = useState<string | null>(null)
@@ -294,7 +294,7 @@ export default function CleanerDashboard() {
         notes: pastCleanForm.notes || null,
       })
       if (err) throw err
-      setPastCleanForm({ propertyId: '', cleanDate: new Date().toISOString().split('T')[0], notes: '' })
+      setPastCleanForm({ propertyId: '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
       setShowLogPastCleanModal(false)
       await loadCleans(personId, cleansDisplayLimit)
     } catch (err) {
@@ -359,7 +359,7 @@ export default function CleanerDashboard() {
         notes: complianceForm.notes || null,
       })
       if (error) throw error
-      setComplianceForm({ check_type: 'fire_door', date: new Date().toISOString().split('T')[0], notes: '' })
+      setComplianceForm({ check_type: 'fire_door', date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
       setShowAddComplianceModal(false)
       await loadComplianceLogs(compliancePropertyId)
       alert('✅ Check logged')
@@ -759,7 +759,7 @@ export default function CleanerDashboard() {
                           </div>
                           <div className="flex flex-col gap-xs shrink-0">
                             <button
-                              onClick={() => { setAcceptJobForm({ cleanDate: new Date().toISOString().split('T')[0], cleanTime: '10:00' }); setShowAcceptJobModal(job.id) }}
+                              onClick={() => { setAcceptJobForm({ cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), cleanTime: '10:00' }); setShowAcceptJobModal(job.id) }}
                               className="rounded-full bg-neutral-950 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
                             >
                               Accept
@@ -970,7 +970,7 @@ export default function CleanerDashboard() {
               🧹 Book a clean
             </button>
             <button
-              onClick={() => { setShowFabMenu(false); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toISOString().split('T')[0], notes: '' }); setShowLogPastCleanModal(true) }}
+              onClick={() => { setShowFabMenu(false); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' }); setShowLogPastCleanModal(true) }}
               className="rounded-full bg-neutral-950 text-white px-lg py-sm text-sm font-bold shadow-lg whitespace-nowrap hover:bg-neutral-700 transition-colors"
             >
               📝 Log past clean

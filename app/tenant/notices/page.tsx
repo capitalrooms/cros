@@ -361,7 +361,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
                 <input
                   type="date"
                   value={deadline}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}
                   onChange={e => setDeadline(e.target.value)}
                   className="rounded-xl border border-neutral-200 px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:border-neutral-900"
                 />
