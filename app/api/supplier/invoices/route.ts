@@ -63,10 +63,18 @@ export async function GET(req: NextRequest) {
       .eq('cleaner_id', c.personId).eq('status', 'completed').is('supplier_invoice_id', null).order('clean_date', { ascending: true }).limit(200)
     cleans = ((data ?? []) as any[]).map(x => ({ id: x.id, date: x.clean_date, propertyId: x.property_id, property: firstLine(x.properties?.name), price: profile.cleanPrices[x.property_id] ?? null, extra: x.extra_charge, extraNote: x.extra_charge_note, products: x.products_cost, note: x.cleaner_note }))
   }
+  // a contractor invoices us only for houses they've had our jobs at (21 Oct 2026 audit: they were offered every house
+  // we manage, including demo houses); cleaners work across the portfolio, so they keep the full list
+  let houseList = (props ?? []) as any[]
+  if (c.role === 'contractor') {
+    const { data: mine } = await s.from('maintenance_tickets').select('property_id').eq('contractor_id', c.personId).not('property_id', 'is', null)
+    const ids = new Set(((mine ?? []) as any[]).map(t => t.property_id))
+    houseList = houseList.filter(p => ids.has(p.id))
+  }
   return NextResponse.json({
     role: c.role, gate: g, profile, jobs, cleans,
     invoices: ((invoices ?? []) as any[]).map(i => ({ id: i.id, number: i.number, client: i.client_name, total: i.total, date: i.issue_date, status: i.status, emailed: !!i.sent_at, ours: i.to_capital_rooms, property: firstLine(i.properties?.name) })),
-    properties: sortPropertiesNumerically((props ?? []) as any[]).map((p: any) => ({ id: p.id, name: /^(flat|room|unit|apartment)\s*\w+$/i.test(firstLine(p.name)) ? String(p.name).split('\n').slice(0, 2).join(', ') : firstLine(p.name) })),
+    properties: sortPropertiesNumerically(houseList).map((p: any) => ({ id: p.id, name: /^(flat|room|unit|apartment)\s*\w+$/i.test(firstLine(p.name)) ? String(p.name).split('\n').slice(0, 2).join(', ') : firstLine(p.name) })),
   })
 }
 
