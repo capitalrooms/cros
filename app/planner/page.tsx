@@ -3,6 +3,7 @@
 // Shared planner — the person's side (cleaner, contractor, lettings, or a project landlord): their board with the
 // office. Opened from their app and from planner notifications.
 
+import AppBar from '@/components/AppBar'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
@@ -25,11 +26,9 @@ export default function MemberPlannerPage() {
   if (!home) return <div className="min-h-screen bg-neutral-100" />
   return (
     <div className="min-h-screen bg-neutral-100">
-      <header className="sticky top-0 z-40 flex items-center gap-md bg-neutral-950 px-lg py-md text-white" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}>
-        <BackButton href={home} />
-        <h1 className="text-lg font-bold">With Capital Rooms</h1>
-      </header>
+      <AppBar left={<BackButton href={home} />} />
       <main className="mx-auto max-w-2xl px-lg py-lg">
+        <h1 className="mb-md text-2xl font-bold text-neutral-900">With Capital Rooms</h1>
         <SharedPlanner mode="member" />
       </main>
     </div>

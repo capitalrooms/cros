@@ -2,13 +2,14 @@
 // My account — for everyone who signs in (office, lettings, tenants, landlords, contractors, cleaners). 12 Oct 2026.
 // Change password, two-step sign-in (authenticator app), sign out. Nobody can look a password up — not the office, not
 // Supabase — so the page offers to let the browser/phone save it instead. ?setup=1 = arrived from an invite email.
+import BackButton from '@/app/components/BackButton'
+import AppBar from '@/components/AppBar'
 import { use, useEffect, useState } from 'react'
 import { REQUIRE_TWO_STEP_FOR_ADMINS } from '@/lib/access/areas'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import TwoStepCode, { needsTwoStep } from '@/components/TwoStepCode'
-import Logo from '@/components/Logo'
 
 const HOME: Record<string, string> = { administrator: '/admin', admin: '/admin', lettings: typeof window !== 'undefined' && window.innerWidth >= 768 ? '/admin' : '/lettings', tenant: '/tenant', landlord: '/landlord', contractor: '/contractor', cleaner: '/cleaner', agent: '/agent' }
 const ROLE: Record<string, string> = { administrator: 'Administrator', admin: 'Administrator', lettings: 'Lettings', tenant: 'Tenant', landlord: 'Landlord', contractor: 'Contractor', cleaner: 'Cleaner', agent: 'Agent' }
@@ -39,10 +40,8 @@ export default function AccountPage({ searchParams }: { searchParams: PageSearch
   const card = 'rounded-2xl border border-neutral-200 bg-white p-lg'
   return (
     <div className="min-h-screen bg-neutral-100">
-      <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-lg py-md">
-        <Logo />
-        {me && HOME[me.role] && <Link href={HOME[me.role]} className="text-sm font-semibold text-neutral-700 hover:text-neutral-900">Back to the app →</Link>}
-      </header>
+      {/* the one top bar every user has (21 Oct 2026 — this page had its own white header) */}
+      <AppBar left={<BackButton href={(me && HOME[me.role]) || '/home'} />} />
       <main className="mx-auto max-w-xl space-y-md px-lg py-xl">
         {state === 'loading' && <p className="text-sm text-neutral-500">Loading…</p>}
         {state === 'code' && <div className={card}><TwoStepCode sb={sb} onDone={() => { setState('loading'); load() }} onCancel={signOut} /></div>}
