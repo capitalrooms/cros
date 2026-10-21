@@ -279,7 +279,7 @@ export default function LettingsPage() {
     setViewings((viewingsData as Viewing[]) || [])
     const { data: visitData } = await supabase
       .from('property_appointments')
-      .select('id, appointment_type, appointment_date, appointment_time, visitor_name, notes, property_id, properties(name), rooms(name)')
+      .select('id, appointment_type, appointment_date, appointment_time, visitor_name, notes, property_id, properties(name)')   // appointments are for a house, not a room (the rooms(name) join made the whole query fail — 21 Oct 2026)
       .in('appointment_type', ['photos', 'other'])
       .gte('appointment_date', todayISO())
       .order('appointment_date', { ascending: true })
