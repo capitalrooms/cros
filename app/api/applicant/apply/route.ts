@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { insertNotifications, tryPush } from '@/lib/serverNotify'
 import { STAFF_ROLES } from '@/lib/portalAuth'
+import { findApplicant, moveToRoom } from '@/lib/lettings/applicantRecord'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
       first_name:           typeof data.firstName === 'string' ? data.firstName.slice(0, 80) || null : null,
       middle_name:          typeof data.middleName === 'string' ? data.middleName.slice(0, 120) || null : null,
       last_name:            typeof data.lastName === 'string' ? data.lastName.slice(0, 80) || null : null,
-      email:                data.email,
+      email:                String(data.email ?? "").trim().toLowerCase(),
       phone:                data.phone                || null,
       date_of_birth:        data.dateOfBirth          || null,
       current_address:      data.currentAddress       || null,
@@ -82,12 +83,9 @@ export async function POST(request: Request) {
       }
       existing = { id: r.id, pipeline_stage: r.pipeline_stage }
     } else {
-      const { data: row } = await supabase
-        .from('applicants')
-        .select('id, pipeline_stage')
-        .eq('email', data.email)
-        .eq('room_id', data.roomId)
-        .maybeSingle()
+      // one applicant per email (lib/lettings/applicantRecord) — applying for another room moves their one record to it
+      const row = await findApplicant(supabase, data.email)
+      if (row) await moveToRoom(supabase, row, data.roomId, data.propertyId)
       existing = row as any
     }
     // never move an application backwards: once it's past "applied" (offer sent, referencing…), keep its stage

@@ -28,7 +28,7 @@ export const AREAS: Area[] = [
     pages: ['/admin/lettings', '/admin/available-and-lettings', '/admin/applicants', '/admin/invite-to-apply', '/admin/let-only', '/admin/let-only-properties', '/admin/tenant',
       '/admin/landlord', '/admin/document-generator',
       '/admin/bulk-tenancy-generator', '/admin/tenancies', '/admin/move-in', '/admin/tenancy-management', '/admin/rent-increase', '/admin/early-move-out', '/admin/rent-history', '/admin/voids'],
-    api: ['/api/admin/lettings', '/api/admin/let-only', '/api/admin/bulk-tenancy-generator', '/api/admin/move-in', '/api/admin/tenancies', '/api/admin/rent-reviews', '/api/admin/voids',
+    api: ['/api/admin/lettings', '/api/admin/applicants', '/api/admin/let-only', '/api/admin/bulk-tenancy-generator', '/api/admin/move-in', '/api/admin/tenancies', '/api/admin/rent-reviews', '/api/admin/voids',
       '/api/admin/landlord-invoice', '/api/admin/upload-applicant-document', '/api/admin/quick-notify-lettings', '/api/emails/checkout-preview',
       // what lettings work reaches into (12 Oct 2026 check): holding deposit receipts, landlords' bank details on agreements, letters
       '/api/admin/documents/generated', '/api/admin/document-generator'],

@@ -6,6 +6,7 @@ import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
+import { findApplicant, moveToRoom, normEmail } from '@/lib/lettings/applicantRecord'
 
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { buildSearchIsOverEmail } from '@/lib/emailTemplates'
@@ -179,12 +180,9 @@ export async function POST(request: NextRequest) {
   if (roomId && propertyId && visitorEmail) {
     try {
       const stage = isReserve ? 'offer_sent' : 'invited'
-      const { data: existing } = await supabase
-        .from('applicants')
-        .select('id, pipeline_stage')
-        .eq('email', visitorEmail)
-        .eq('room_id', roomId)
-        .maybeSingle()
+      // one applicant per email (lib/lettings/applicantRecord) — the same person invited to another room keeps one record
+      const existing = await findApplicant(supabase, visitorEmail)
+      if (existing) await moveToRoom(supabase, existing, roomId, propertyId)
 
       if (existing) {
         // Only advance the stage, never go backwards
@@ -204,7 +202,7 @@ export async function POST(request: NextRequest) {
             viewing_id:     viewingRow?.id || null,
             full_name:      visitorName,
             ...(manual?.first_name ? { salutation: String(manual.salutation || '').slice(0, 10) || null, first_name: String(manual.first_name).slice(0, 80), last_name: String(manual.last_name || '').slice(0, 80) || null } : {}),
-            email:          visitorEmail,
+            email:          normEmail(visitorEmail),
             phone:          visitorPhone || null,
             pipeline_stage: stage,
           })
