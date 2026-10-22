@@ -274,6 +274,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
                   ))}
                 </div>
                 {purpose === 'hmo' && <p className="mt-sm text-xs text-neutral-500">The formal reg 7(5) notice letter is on the house’s Compliance tab → HMO licence → Application notice.</p>}
+                {purpose === 'feedback' && <p className="mt-sm text-xs text-neutral-500">Answers come into <a href={`/admin/feedback?property=${propertyId}`} className="font-semibold text-blue-700 underline">Tenant feedback</a>, where AI sums up what would improve the house most.</p>}
                 {purpose === 'viewings' && <p className="mt-sm text-xs text-neutral-500">Telling one viewer you’re late, or moving a viewing, is in Lettings → Quick Notify.</p>}
               </section>
             )}
