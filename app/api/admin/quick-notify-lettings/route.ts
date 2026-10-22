@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     }, { propertyId: property_id, roomId: viewingData?.room_id || null })
     if (error) return NextResponse.json({ error: `Failed to send notification: ${error}` }, { status: 500 })
 
-    const { pushCount, emailCount, smsCount, smsFailed } = await dispatchChannels(service, recipientIds, { title: finalSubject, body: finalMessage, link: '/tenant' }, channels as NotifyChannels, request)
+    const { pushCount, emailCount, smsCount, smsFailed } = await dispatchChannels(service, recipientIds, { title: finalSubject, body: finalMessage, link: '/tenant' }, channels as NotifyChannels, request, { elected: true })
 
     return NextResponse.json({ success: true, message: `Notification sent to ${count} tenant(s)`, pushCount, emailCount, smsCount, smsFailed, recipientCount: count })
   } catch (error) {

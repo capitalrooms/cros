@@ -1,8 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
+// Quick Notify — message the people at one house (rebuilt 22 Oct 2026, Harry: show who it's going to, show what
+// they'll actually get, only tenant messages, pick what it's about first, re-send guides, say why a send failed).
+// Ready-made messages: lib/notify/tenantMessages. Recipients, guides and licence details: GET /api/admin/quick-notify.
+import { useEffect, useMemo, useState } from 'react'
+import { adminFetch } from '@/lib/adminFetch'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
+import { PURPOSES, TENANT_MESSAGES, SLOTS, fillMessage, unfilled, type Purpose, type TenantMessage } from '@/lib/notify/tenantMessages'
 
 interface QuickNotifyModalProps {
   propertyId: string
@@ -10,891 +14,407 @@ interface QuickNotifyModalProps {
   onSuccess?: () => void
 }
 
-interface Template {
-  id: string
-  name: string
-  template_text: string
-  subject_line: string
-  category: string
+interface Tenant { personId: string; name: string; dear: string; room: string; roomId: string; hasApp: boolean; hasEmail: boolean; hasMobile: boolean; test: boolean }
+interface HouseData {
+  property: { id: string; name: string; address: string }
+  rooms: { id: string; name: string }[]
+  tenants: Tenant[]
+  cleaners: number
+  guides: { slug: string; title: string; emoji: string; sections: number }[]
+  hmo: Record<string, string>
+  sendingOn: boolean
 }
+type Who = 'everyone' | 'room' | 'people' | 'cleaners'
+type Channels = 'push_email' | 'push_only' | 'push_email_sms'
+type Receipt = { at: string; names: string[]; recipientCount: number; pushCount: number; emailCount: number; smsCount: number; smsFailed: string[]; pinned: boolean; others: string }
 
-interface Room {
-  id: string
-  name: string
+const CHANNELS: { value: Channels; label: string; hint: string }[] = [
+  { value: 'push_email', label: 'App + email', hint: 'In their app (and a phone notification if they have the app), plus an email' },
+  { value: 'push_only', label: 'App only', hint: 'In their app, and a phone notification if they have the app — no email' },
+  { value: 'push_email_sms', label: 'App, email + text', hint: 'Everything, plus a text to everyone with a mobile' },
+]
+
+const errorText = async (r: Response, fallback: string) => {
+  const d = await r.json().catch(() => ({}))
+  if (r.status === 401) return d.error || 'We couldn’t confirm it’s you — please sign out and sign in again.'
+  return d.error || d.message || `${fallback} (error ${r.status})`
 }
-
-interface Viewing {
-  id: string
-  room_id: string
-  room_name: string
-  viewing_date: string
-  viewing_slot: string
-  visitor_name: string
-  visitor_email: string
-}
-
-type RecipientType = 'all_tenants' | 'room' | 'individual' | 'cleaners' | 'contractors'
-type NotificationCategory = 'general' | 'lettings' | 'maintenance' | 'compliance' | 'noticeboard'
-type ViewingSelector = 'single' | 'running_late' | 'time_shift' | 'period_notice' | 'multiple_batch'
 
 export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: QuickNotifyModalProps) {
-  const [activeTab, setActiveTab] = useState<'templates' | 'custom' | 'ai'>('templates')
-  const [notificationCategory, setNotificationCategory] = useState<NotificationCategory>('general')
-  const [templates, setTemplates] = useState<Template[]>([])
-  const [viewings, setViewings] = useState<Viewing[]>([])
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [loading, setLoading] = useState(false)
-  const [sending, setSending] = useState(false)
-  // people at the house who aren't on CROS (or aren't recorded as tenants) — the same picker as lettings (17 Oct 2026)
-  const [alsoTell, setAlsoTell] = useState<Recipient[]>([])
-  const tellOthers = async (subject: string, message: string) => {
-    if (!alsoTell.length) return ''
-    const r = await fetch('/api/notify/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipients: alsoTell.map(x => ({ name: x.name, email: x.email, phone: x.phone })), subject, message }) })
-    const d = await r.json().catch(() => ({}))
-    return (d.failed ?? []).length ? ` — not sent to: ${(d.failed as any[]).map(f => f.who).join(', ')}` : ''
-  }
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [house, setHouse] = useState<HouseData | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Form state
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
-  const [customSubject, setCustomSubject] = useState('')
-  const [customMessage, setCustomMessage] = useState('')
-  const [aiPrompt, setAiPrompt] = useState('')
-  const [aiDraftMessage, setAiDraftMessage] = useState('')
-  const [recipientType, setRecipientType] = useState<RecipientType>('all_tenants')
+  const [who, setWho] = useState<Who>('everyone')
   const [roomId, setRoomId] = useState('')
-  const [personId, setPersonId] = useState('')
+  const [picked, setPicked] = useState<Set<string>>(new Set())
 
-  // Channel + schedule state
-  const [channels, setChannels] = useState<'push_email' | 'push_only' | 'email_only'>('push_email')
-  const [scheduleMode, setScheduleMode] = useState<'now' | 'later'>('now')
-  const [scheduledAt, setScheduledAt] = useState('')
-  const [sentReceipt, setSentReceipt] = useState<{ recipientCount: number; pushCount: number; emailCount: number; channels: string; sentAt: string } | null>(null)
+  const [purpose, setPurpose] = useState<Purpose | null>(null)
+  const [msg, setMsg] = useState<TenantMessage | null>(null)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [rawSubject, setRawSubject] = useState('')
+  const [rawBody, setRawBody] = useState('')
+  const [link, setLink] = useState('/tenant/inbox')
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [drafting, setDrafting] = useState(false)
 
-  // Recipient preview count
-  const [recipientCount, setRecipientCount] = useState<number | null>(null)
-  const [countLoading, setCountLoading] = useState(false)
+  const [channels, setChannels] = useState<Channels>('push_email')
+  const [pin, setPin] = useState(false)
+  const [alsoTell, setAlsoTell] = useState<Recipient[]>([])
+  const [previewAs, setPreviewAs] = useState<'phone' | 'email'>('phone')
 
-  // Lettings-specific state
-  const [viewingSelector, setViewingSelector] = useState<ViewingSelector>('single')
-  const [selectedViewing, setSelectedViewing] = useState<Viewing | null>(null)
-  const [newArrivalTime, setNewArrivalTime] = useState('')
-  const [timeShiftMinutes, setTimeShiftMinutes] = useState(15)
-  const [viewingPeriodStart, setViewingPeriodStart] = useState('')
-  const [viewingPeriodEnd, setViewingPeriodEnd] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [receipt, setReceipt] = useState<Receipt | null>(null)
 
-  const supabase = createClient()
-
-  // Load templates and viewings on mount
   useEffect(() => {
-    loadTemplates()
-    if (notificationCategory === 'lettings') {
-      loadViewings()
-    }
-  }, [notificationCategory])
-
-  // Load rooms once for the Specific Unit picker
-  useEffect(() => {
-    async function loadRooms() {
-      const { data } = await supabase
-        .from('rooms')
-        .select('id, name')
-        .eq('property_id', propertyId)
-        .order('name')
-      if (data) setRooms(data)
-    }
-    loadRooms()
+    let off = false
+    adminFetch(`/api/admin/quick-notify?property_id=${encodeURIComponent(propertyId)}`).then(async r => {
+      if (off) return
+      if (!r.ok) { setLoadError(await errorText(r, 'Couldn’t load this house')); return }
+      const d: HouseData = await r.json()
+      setHouse(d)
+      setPicked(new Set(d.tenants.map(t => t.personId)))
+    }).catch(() => !off && setLoadError('Couldn’t reach CROS — check your connection and try again.'))
+    return () => { off = true }
   }, [propertyId])
 
-  // Fetch recipient count whenever recipient selection changes
-  useEffect(() => {
-    async function fetchCount() {
-      setCountLoading(true)
-      try {
-        if (recipientType === 'all_tenants') {
-          const { data } = await supabase
-            .from('rooms')
-            .select('id')
-            .eq('property_id', propertyId)
-          const roomIds = (data || []).map((r: any) => r.id)
-          if (roomIds.length === 0) { setRecipientCount(0); return }
-          const today = new Date().toISOString().split('T')[0]
-          const { data: tenancies } = await supabase
-            .from('tenancies')
-            .select('person_id')
-            .in('room_id', roomIds)
-            .lte('start_date', today)   // not tenants who haven't moved in yet
-            .or(`end_date.is.null,end_date.gte.${today}`)
-          setRecipientCount(new Set((tenancies || []).map((t: any) => t.person_id)).size)
-        } else if (recipientType === 'room' && roomId) {
-          const today = new Date().toISOString().split('T')[0]
-          const { data } = await supabase
-            .from('tenancies')
-            .select('person_id')
-            .eq('room_id', roomId)
-            .lte('start_date', today)   // not tenants who haven't moved in yet
-            .or(`end_date.is.null,end_date.gte.${today}`)
-          setRecipientCount(new Set((data || []).map((t: any) => t.person_id)).size)
-        } else if (recipientType === 'cleaners') {
-          const { data } = await supabase.from('people').select('id', { count: 'exact', head: true }).eq('role', 'cleaner')
-          setRecipientCount((data as any)?.length ?? null)
-        } else {
-          setRecipientCount(null)
-        }
-      } finally {
-        setCountLoading(false)
-      }
-    }
-    fetchCount()
-  }, [recipientType, roomId, propertyId])
+  // the people it goes to, as they'll be sent
+  const recipients: Tenant[] = useMemo(() => {
+    if (!house) return []
+    if (who === 'cleaners') return []
+    if (who === 'room') return house.tenants.filter(t => t.roomId === roomId)
+    if (who === 'people') return house.tenants.filter(t => picked.has(t.personId))
+    return house.tenants
+  }, [house, who, roomId, picked])
+  const count = who === 'cleaners' ? house?.cleaners ?? 0 : recipients.length
+  const withApp = recipients.filter(t => t.hasApp).length
 
-  // Load templates on mount
-  const loadTemplates = async () => {
-    setLoading(true)
-    const { data, error: err } = await supabase
-      .from('notification_templates')
-      .select('*')
-      .order('category')
+  const houseFill = { name: house?.property.name ?? '', address: house?.property.address ?? '' }
+  const subject = fillMessage(rawSubject, msg, values, houseFill)
+  const body = fillMessage(rawBody, msg, values, houseFill)
+  const missing = unfilled(`${subject} ${body}`)
 
-    if (!err && data) {
-      setTemplates(data)
-    }
-    setLoading(false)
+  const chooseMessage = (m: TenantMessage) => {
+    setMsg(m); setRawSubject(m.subject); setRawBody(m.body); setLink(m.link ?? '/tenant/inbox'); setError(null)
+    const v: Record<string, string> = {}
+    for (const f of m.fields) v[f.key] = (house?.hmo[f.key] ?? '') || f.default || ''
+    setValues(v)
+  }
+  const chooseGuide = (g: HouseData['guides'][number]) => {
+    setMsg(null); setValues({}); setError(null)
+    setRawSubject(`Our guide: ${g.title}`)
+    setRawBody(`Here’s our guide to ${g.title.toLowerCase()} again – it only takes a couple of minutes to read and it’s worth a look.\n\nYou’ll find it, and the other house guides, in the app under Guides.`)
+    setLink(`/tenant/guides/${g.slug}`)
+  }
+  const choosePurpose = (p: Purpose) => {
+    setPurpose(p); setMsg(null); setValues({}); setRawSubject(''); setRawBody(''); setLink('/tenant/inbox'); setError(null)
   }
 
-  // Load viewings for this property
-  const loadViewings = async () => {
-    const { data, error: err } = await supabase
-      .from('viewings')
-      .select('id, room_id, viewing_date, viewing_slot, visitor_name, visitor_email, rooms(name)')
-      .eq('property_id', propertyId)
-      .gte('viewing_date', new Date().toISOString().split('T')[0])
-      .order('viewing_date', { ascending: true })
-
-    if (!err && data) {
-      setViewings(data.map(v => ({
-        id: v.id,
-        room_id: v.room_id,
-        room_name: (v.rooms as any)?.name || 'Unknown Room',
-        viewing_date: v.viewing_date,
-        viewing_slot: v.viewing_slot,
-        visitor_name: v.visitor_name,
-        visitor_email: v.visitor_email
-      })))
-    }
-  }
-
-  // Generate AI message
-  const generateAIMessage = async () => {
-    if (!aiPrompt.trim()) {
-      setError('Please describe what you want to communicate')
-      return
-    }
-
-    setSending(true)
-    setError(null)
-
+  const draftWithAi = async () => {
+    if (!aiPrompt.trim()) { setError('Say in a few words what the message is about.'); return }
+    setDrafting(true); setError(null)
     try {
-      const response = await fetch('/api/ai/compose-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const r = await adminFetch('/api/ai/compose-notification', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: aiPrompt, property_id: propertyId, recipient_type: 'all_tenants' }) })
+      if (!r.ok) { setError(await errorText(r, 'The AI draft didn’t work')); return }
+      const d = await r.json()
+      setMsg(null); setRawSubject(d.subject ?? ''); setRawBody(d.message ?? '')
+    } finally { setDrafting(false) }
+  }
+
+  const send = async () => {
+    if (!house) return
+    if (!subject.trim() || !body.trim()) { setError('Add a subject and a message first.'); return }
+    if (missing.length) { setError(`Fill in ${missing.map(k => msg?.fields.find(f => f.key === k)?.label.toLowerCase() ?? k).join(', ')} first.`); return }
+    if (who === 'room' && !roomId) { setError('Pick the room.'); return }
+    if (count === 0) { setError('No one is picked to send to.'); return }
+    setSending(true); setError(null)
+    try {
+      const r = await adminFetch('/api/admin/quick-notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: aiPrompt,
-          property_id: propertyId,
-          recipient_type: recipientType
-        })
+          property_id: propertyId, subject, message: body, channels, link,
+          recipient_type: who === 'everyone' ? 'all_tenants' : who,
+          room_id: who === 'room' ? roomId : null,
+          person_ids: who === 'people' ? [...picked] : undefined,
+        }),
       })
+      if (!r.ok) { setError(await errorText(r, 'The message didn’t send')); return }
+      const d = await r.json()
 
-      if (!response.ok) {
-        throw new Error('Failed to generate message')
+      let pinned = false
+      if (pin && who !== 'cleaners') {
+        const n = await adminFetch('/api/tenant/notices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ property_id: propertyId, notice_type: 'info', subtype: 'General update', raw_text: `${subject}\n\n${body}`, ai_text: null }) })
+        pinned = n.ok
       }
-
-      const { subject, message } = await response.json()
-      setCustomSubject(subject)
-      setAiDraftMessage(message)
-      setSuccess('Message generated! Review and edit if needed, then send.')
-    } catch (err) {
-      setError('Failed to generate message. Please try again.')
-      console.error(err)
+      let others = ''
+      if (alsoTell.length) {
+        const o = await adminFetch('/api/notify/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipients: alsoTell.map(x => ({ name: x.name, email: x.email, phone: x.phone })), subject, message: body }) })
+        const od = await o.json().catch(() => ({}))
+        const failed = (od.failed ?? []) as any[]
+        others = failed.length ? `Not sent to: ${failed.map(f => f.who).join(', ')}` : `Also sent to ${alsoTell.length} other${alsoTell.length === 1 ? '' : 's'}`
+      }
+      setReceipt({
+        at: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' }),
+        names: who === 'cleaners' ? ['the cleaners'] : recipients.map(t => t.name),
+        recipientCount: d.recipientCount ?? 0, pushCount: d.pushCount ?? 0, emailCount: d.emailCount ?? 0,
+        smsCount: d.smsCount ?? 0, smsFailed: d.smsFailed ?? [], pinned, others,
+      })
+      onSuccess?.()
+    } catch {
+      setError('Couldn’t reach CROS — check your connection and try again.')
     } finally {
       setSending(false)
     }
   }
 
-  // Send notification
-  const sendNotification = async () => {
-    const subject = activeTab === 'templates' && selectedTemplate ? selectedTemplate.subject_line : customSubject
-    const message = activeTab === 'ai' ? aiDraftMessage : customMessage
+  const sendAnother = () => { setReceipt(null); setPurpose(null); setMsg(null); setRawSubject(''); setRawBody(''); setValues({}); setAlsoTell([]); setPin(false) }
 
-    if (notificationCategory === 'noticeboard') {
-      if (!message) { setError('Please write a notice'); return }
-    } else if (!subject || !message) {
-      setError('Please fill in subject and message')
-      return
-    }
-
-    // Recipient validation
-    if (recipientType === 'room' && !roomId) {
-      setError('Please select a unit to notify')
-      return
-    }
-
-    // Lettings-specific validation
-    if (notificationCategory === 'lettings') {
-      if (viewingSelector === 'single' && !selectedViewing) {
-        setError('Please select a viewing')
-        return
-      }
-      if (viewingSelector === 'running_late' && (!selectedViewing || !newArrivalTime)) {
-        setError('Please select a viewing and new arrival time')
-        return
-      }
-      if (viewingSelector === 'period_notice' && (!viewingPeriodStart || !viewingPeriodEnd)) {
-        setError('Please specify the viewing period (from/to times)')
-        return
-      }
-    }
-
-    setSending(true)
-    setError(null)
-
-    try {
-      // Handle lettings-specific workflows
-      if (notificationCategory === 'lettings') {
-        // Time shift: update viewing times in DB before sending
-        if (viewingSelector === 'time_shift') {
-          const shiftResponse = await fetch('/api/viewings/time-shift', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              property_id: propertyId,
-              shift_minutes: timeShiftMinutes
-            })
-          })
-          if (!shiftResponse.ok) {
-            throw new Error('Failed to shift viewing times')
-          }
-        }
-
-        // Send via lettings API
-        const response = await fetch('/api/admin/quick-notify-lettings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            property_id: propertyId,
-            subject,
-            message,
-            selector_type: viewingSelector,
-            viewing_id: selectedViewing?.id || null,
-            viewing_period_start: viewingPeriodStart || null,
-            viewing_period_end: viewingPeriodEnd || null,
-            new_arrival_time: newArrivalTime || null
-          })
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to send lettings notification')
-        }
-      } else if (notificationCategory === 'noticeboard') {
-        // Post to communal notice board — appears directly on /tenant/notices for all tenants at the property
-        const response = await fetch('/api/tenant/notices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            property_id: propertyId,
-            notice_type: 'info',
-            subtype: 'General update',
-            raw_text: message,
-            ai_text: null,
-          })
-        })
-        if (!response.ok) {
-          const json = await response.json().catch(() => ({}))
-          throw new Error(json.error || 'Failed to post notice')
-        }
-      } else {
-        // Standard notification send
-        const response = await fetch('/api/admin/quick-notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            property_id: propertyId,
-            subject,
-            message,
-            recipient_type: recipientType,
-            room_id: recipientType === 'room' ? roomId : null,
-            person_id: recipientType === 'individual' ? personId : null,
-            channels,
-          })
-        })
-
-        if (!response.ok) throw new Error('Failed to send notification')
-        const result = await response.json()
-        const othersNote = await tellOthers(subject, message)
-        if (othersNote) setError(`Sent to the tenants${othersNote}`)
-        const channelLabel = channels === 'push_email' ? 'push + email' : channels === 'push_only' ? 'push notification' : 'email'
-        setSentReceipt({
-          recipientCount: result.recipientCount ?? 0,
-          pushCount: result.pushCount ?? 0,
-          emailCount: result.emailCount ?? 0,
-          channels: channelLabel,
-          sentAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        })
-        onSuccess?.()
-        return
-      }
-
-      const othersNote = notificationCategory === 'noticeboard' ? '' : await tellOthers(subject, message)
-      setSuccess(`Notification sent successfully!${alsoTell.length ? ` Also sent to ${alsoTell.length} other${alsoTell.length === 1 ? '' : 's'}.` : ''}${othersNote}`)
-      setTimeout(() => {
-        onSuccess?.()
-        onClose()
-      }, 2000)
-    } catch (err) {
-      setError((err as Error).message || 'Failed to send notification. Please try again.')
-      console.error(err)
-    } finally {
-      setSending(false)
-    }
-  }
-
-  // Handle template selection
-  const handleTemplateSelect = (template: Template) => {
-    setSelectedTemplate(template)
-    setCustomSubject(template.subject_line)
-    setCustomMessage(template.template_text)
-  }
+  const firstName = recipients[0]?.dear ?? 'Ms Smith'
+  const chip = (on: boolean) => `rounded-lg border px-md py-sm text-sm font-semibold transition ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'}`
+  const label = 'mb-sm block text-xs font-bold uppercase tracking-wide text-neutral-500'
+  const input = 'w-full rounded-lg border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900 focus:border-neutral-500 focus:outline-none'
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] p-lg">
-      <div className="bg-neutral-900 rounded-xl shadow-lg p-lg max-w-2xl w-full border border-neutral-700 max-h-[90vh] overflow-y-auto z-[1001]">
-        <div className="flex items-start justify-between mb-lg">
-          <h3 className="text-lg font-semibold text-white">Quick Notify</h3>
-          <button
-            onClick={onClose}
-            className="text-2xl text-neutral-400 hover:text-white"
-          >
-            ×
-          </button>
+    <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 md:items-center md:p-lg" role="dialog" aria-modal="true" aria-label="Quick Notify">
+      <div className="flex w-full flex-col overflow-hidden bg-neutral-50 shadow-2xl md:max-h-[92vh] md:max-w-3xl md:rounded-2xl">
+        {/* header: the house it's going to */}
+        <div className="flex items-start justify-between gap-md bg-[#181614] px-lg py-md text-white">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Quick Notify</p>
+            <p className="truncate text-lg font-bold">{house?.property.name ?? 'Loading…'}</p>
+            {house && <p className="truncate text-xs text-neutral-400">{house.property.address}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Close" className="rounded-lg px-sm text-2xl leading-none text-neutral-400 hover:text-white">×</button>
         </div>
 
-        {/* Error/Success Messages */}
-        {error && (
-          <div className="p-lg rounded-lg bg-red-950 border border-red-800 mb-lg">
-            <p className="text-sm font-semibold text-red-400">{error}</p>
-          </div>
-        )}
-        {success && (
-          <div className="p-lg rounded-lg bg-green-950 border border-green-800 mb-lg">
-            <p className="text-sm font-semibold text-green-400">✓ {success}</p>
-          </div>
-        )}
+        <div className="flex-1 space-y-lg overflow-y-auto px-lg py-lg">
+          {loadError && <p className="rounded-xl border border-red-200 bg-red-50 p-md text-sm font-semibold text-red-800">{loadError}</p>}
+          {!house && !loadError && <p className="text-sm text-neutral-400">Loading the house…</p>}
 
-        {/* Notification Category */}
-        <div className="mb-lg pb-lg border-b border-neutral-700">
-          <label className="text-sm font-semibold text-white mb-md block">Notification Type:</label>
-          <div className="grid grid-cols-2 gap-md">
-            {[
-              { value: 'general' as NotificationCategory, label: 'General' },
-              { value: 'lettings' as NotificationCategory, label: '📅 Lettings' },
-              { value: 'maintenance' as NotificationCategory, label: '🔧 Maintenance' },
-              { value: 'compliance' as NotificationCategory, label: '✓ Compliance' },
-              { value: 'noticeboard' as NotificationCategory, label: '📋 Notice Board' },
-            ].map(option => (
-              <button
-                key={option.value}
-                onClick={() => {
-                  setNotificationCategory(option.value)
-                  if (option.value === 'lettings') {
-                    loadViewings()
-                  }
-                }}
-                className={`px-md py-sm rounded-lg font-semibold text-sm transition ${
-                  notificationCategory === option.value
-                    ? 'bg-blue-600 text-white'
-                    : 'border border-neutral-700 text-neutral-300 hover:text-white'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
+          {house && receipt && (
+            <div className="space-y-sm rounded-xl border border-green-200 bg-green-50 p-lg text-sm text-green-900">
+              <p className="text-base font-bold">✓ Sent at {receipt.at}</p>
+              <p>To {receipt.names.join(', ')}.</p>
+              <ul className="space-y-xs text-xs">
+                <li>In their app: {receipt.recipientCount}</li>
+                <li>Phone notifications: {receipt.pushCount} {receipt.pushCount === 1 ? 'device' : 'devices'}{receipt.pushCount === 0 && channels !== 'push_email_sms' ? ' — no one picked has the app on their phone yet' : ''}</li>
+                {channels !== 'push_only' && <li>Emails: {receipt.emailCount}</li>}
+                {channels === 'push_email_sms' && <li>Texts: {receipt.smsCount}{receipt.smsFailed.length ? ` — not texted: ${receipt.smsFailed.join(', ')}` : ''}</li>}
+                {receipt.pinned && <li>Pinned to the house notice board</li>}
+                {receipt.others && <li>{receipt.others}</li>}
+              </ul>
+              <div className="flex gap-sm pt-sm">
+                <button onClick={sendAnother} className="rounded-lg bg-green-800 px-md py-sm text-sm font-bold text-white hover:bg-green-700">Send another</button>
+                <button onClick={onClose} className="rounded-lg border border-green-300 bg-white px-md py-sm text-sm font-bold text-green-900">Close</button>
+              </div>
+            </div>
+          )}
 
-        {/* Lettings-Specific Options */}
-        {notificationCategory === 'lettings' && (
-          <div className="mb-lg pb-lg border-b border-neutral-700 space-y-md">
-            <div>
-              <label className="text-sm font-semibold text-white mb-md block">What do you want to do?</label>
-              <div className="grid grid-cols-1 gap-sm">
-                {[
-                  { value: 'single' as ViewingSelector, label: '📍 Single Viewing', desc: 'Notify about one viewing' },
-                  { value: 'running_late' as ViewingSelector, label: '⏰ Running Late', desc: 'Tell tenants you\'re delayed' },
-                  { value: 'time_shift' as ViewingSelector, label: '↻ Time Shift All', desc: 'Push all viewings back' },
-                  { value: 'period_notice' as ViewingSelector, label: '📋 Viewing Period', desc: 'Non-specific time window' },
-                  { value: 'multiple_batch' as ViewingSelector, label: '📊 Multiple Viewings', desc: 'Batch notification' }
-                ].map(option => (
-                  <button
-                    key={option.value}
-                    onClick={() => setViewingSelector(option.value)}
-                    className={`px-md py-sm rounded-lg text-left font-semibold text-sm transition border ${
-                      viewingSelector === option.value
-                        ? 'bg-blue-900 border-blue-600'
-                        : 'border-neutral-700 text-neutral-300 hover:text-white'
-                    }`}
-                  >
-                    <div className="font-semibold">{option.label}</div>
-                    <div className="text-xs text-neutral-400">{option.desc}</div>
+          {house && !receipt && (<>
+            {!house.sendingOn && <p className="rounded-xl border border-amber-200 bg-amber-50 p-md text-sm text-amber-900">“Messages you send yourself” is switched off in Settings, so nothing will go until it’s switched back on.</p>}
+
+            {/* 1 — who */}
+            <section>
+              <p className={label}>Who it’s going to</p>
+              <div className="flex flex-wrap gap-sm">
+                <button onClick={() => setWho('everyone')} className={chip(who === 'everyone')}>Everyone at the house ({house.tenants.length})</button>
+                <button onClick={() => setWho('room')} className={chip(who === 'room')}>One room</button>
+                <button onClick={() => setWho('people')} className={chip(who === 'people')}>Pick people</button>
+                <button onClick={() => setWho('cleaners')} className={chip(who === 'cleaners')}>Cleaners ({house.cleaners})</button>
+              </div>
+              {who === 'room' && (
+                <select value={roomId} onChange={e => setRoomId(e.target.value)} className={`${input} mt-sm`}>
+                  <option value="">Choose the room…</option>
+                  {house.rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              )}
+              {who !== 'cleaners' && (
+                house.tenants.length === 0
+                  ? <p className="mt-sm text-sm text-neutral-500">No one lives at this house at the moment.</p>
+                  : <ul className="mt-sm divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                      {house.tenants.filter(t => who !== 'room' || t.roomId === roomId).map(t => {
+                        const on = who === 'people' ? picked.has(t.personId) : true
+                        return (
+                          <li key={t.personId} className={`flex items-center gap-md px-md py-sm text-sm ${on ? '' : 'opacity-50'}`}>
+                            {who === 'people' && (
+                              <input type="checkbox" checked={on} aria-label={`Send to ${t.name}`} className="h-4 w-4"
+                                onChange={() => setPicked(prev => { const n = new Set(prev); n.has(t.personId) ? n.delete(t.personId) : n.add(t.personId); return n })} />
+                            )}
+                            <span className="min-w-0 flex-1 truncate font-semibold text-neutral-900">{t.name}</span>
+                            <span className="text-xs text-neutral-500">{t.room}</span>
+                            <span className={`rounded-full px-sm py-[2px] text-[11px] font-bold ${t.hasApp ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-500'}`}>{t.hasApp ? 'App on phone' : t.hasEmail ? 'Email' : 'No email'}</span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+              )}
+            </section>
+
+            {/* 2 — what it's about */}
+            <section>
+              <p className={label}>What it’s about</p>
+              <div className="grid grid-cols-2 gap-sm sm:grid-cols-4">
+                {PURPOSES.map(p => (
+                  <button key={p.key} onClick={() => choosePurpose(p.key)} title={p.hint}
+                    className={`rounded-xl border p-sm text-left transition ${purpose === p.key ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400'}`}>
+                    <span className="block text-sm font-bold">{p.label}</span>
+                    <span className={`block text-[11px] leading-snug ${purpose === p.key ? 'text-neutral-300' : 'text-neutral-500'}`}>{p.hint}</span>
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
 
-            {/* Single Viewing Selector */}
-            {viewingSelector === 'single' && (
-              <div>
-                <label className="text-sm font-semibold text-white mb-sm block">Select Viewing:</label>
-                <select
-                  value={selectedViewing?.id || ''}
-                  onChange={(e) => {
-                    const v = viewings.find(v => v.id === e.target.value)
-                    setSelectedViewing(v || null)
-                  }}
-                  className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Choose a viewing...</option>
-                  {viewings.map(v => (
-                    <option key={v.id} value={v.id}>
-                      {v.room_name} • {v.viewing_date} @ {v.viewing_slot} • {v.visitor_name}
-                    </option>
+            {/* 3 — the message */}
+            {purpose && purpose !== 'guides' && purpose !== 'other' && (
+              <section>
+                <p className={label}>Pick a message</p>
+                <div className="grid gap-sm sm:grid-cols-2">
+                  {TENANT_MESSAGES.filter(m => m.purpose === purpose).map(m => (
+                    <button key={m.id} onClick={() => chooseMessage(m)} className={`rounded-lg border px-md py-sm text-left text-sm font-semibold transition ${msg?.id === m.id ? 'border-blue-600 bg-blue-50 text-blue-900' : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400'}`}>{m.name}</button>
                   ))}
-                </select>
-              </div>
-            )}
-
-            {/* Running Late */}
-            {viewingSelector === 'running_late' && (
-              <div className="space-y-md">
-                <div>
-                  <label className="text-sm font-semibold text-white mb-sm block">Which viewing are you late for?</label>
-                  <select
-                    value={selectedViewing?.id || ''}
-                    onChange={(e) => {
-                      const v = viewings.find(v => v.id === e.target.value)
-                      setSelectedViewing(v || null)
-                    }}
-                    className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Choose a viewing...</option>
-                    {viewings.map(v => (
-                      <option key={v.id} value={v.id}>
-                        {v.room_name} • {v.viewing_date} @ {v.viewing_slot}
-                      </option>
-                    ))}
-                  </select>
                 </div>
-                <div>
-                  <label className="text-sm font-semibold text-white mb-sm block">New arrival time:</label>
-                  <input
-                    type="time"
-                    value={newArrivalTime}
-                    onChange={(e) => setNewArrivalTime(e.target.value)}
-                    className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
+                {purpose === 'hmo' && <p className="mt-sm text-xs text-neutral-500">The formal reg 7(5) notice letter is on the house’s Compliance tab → HMO licence → Application notice.</p>}
+                {purpose === 'viewings' && <p className="mt-sm text-xs text-neutral-500">Telling one viewer you’re late, or moving a viewing, is in Lettings → Quick Notify.</p>}
+              </section>
             )}
-
-            {/* Time Shift All */}
-            {viewingSelector === 'time_shift' && (
-              <div>
-                <label className="text-sm font-semibold text-white mb-sm block">Shift all viewings by:</label>
-                <div className="grid grid-cols-4 gap-sm">
-                  {[15, 30, 60].map(mins => (
-                    <button
-                      key={mins}
-                      onClick={() => setTimeShiftMinutes(mins)}
-                      className={`px-md py-sm rounded-lg font-semibold text-sm transition border ${
-                        timeShiftMinutes === mins
-                          ? 'bg-blue-600 border-blue-600'
-                          : 'border-neutral-700 text-neutral-300 hover:text-white'
-                      }`}
-                    >
-                      +{mins}m
+            {purpose === 'guides' && (
+              <section>
+                <p className={label}>Which guide</p>
+                <div className="grid gap-sm sm:grid-cols-2">
+                  {house.guides.map(g => (
+                    <button key={g.slug} onClick={() => g.sections && chooseGuide(g)} disabled={!g.sections}
+                      className={`rounded-lg border px-md py-sm text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${link === `/tenant/guides/${g.slug}` ? 'border-blue-600 bg-blue-50 text-blue-900' : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400'}`}>
+                      <span className="font-semibold">{g.emoji} {g.title}</span>
+                      {!g.sections && <span className="block text-[11px] text-neutral-500">No pages written yet — can’t be sent</span>}
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-neutral-400 mt-sm">All viewing times will be updated in the database</p>
-              </div>
+              </section>
+            )}
+            {purpose === 'other' && (
+              <section>
+                <p className={label}>Ask AI to draft it <span className="font-normal normal-case text-neutral-400">(or just write it below)</span></p>
+                <div className="flex gap-sm">
+                  <input value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} placeholder="e.g. the boiler is being replaced next Tuesday morning" className={input} />
+                  <button onClick={draftWithAi} disabled={drafting} className="shrink-0 rounded-lg bg-neutral-900 px-md py-sm text-sm font-bold text-white disabled:opacity-50">{drafting ? 'Drafting…' : 'Draft'}</button>
+                </div>
+              </section>
             )}
 
-            {/* Viewing Period */}
-            {viewingSelector === 'period_notice' && (
-              <div className="space-y-md">
-                <div className="grid grid-cols-2 gap-md">
-                  <div>
-                    <label className="text-sm font-semibold text-white mb-sm block">From:</label>
-                    <input
-                      type="time"
-                      value={viewingPeriodStart}
-                      onChange={(e) => setViewingPeriodStart(e.target.value)}
-                      className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold text-white mb-sm block">To:</label>
-                    <input
-                      type="time"
-                      value={viewingPeriodEnd}
-                      onChange={(e) => setViewingPeriodEnd(e.target.value)}
-                      className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+            {msg && msg.fields.length > 0 && (
+              <section>
+                <p className={label}>Fill in the details</p>
+                <div className="grid gap-sm sm:grid-cols-2">
+                  {msg.fields.map(f => (
+                    <label key={f.key} className={`block text-xs font-semibold text-neutral-700 ${f.type === 'longtext' ? 'sm:col-span-2' : ''}`}>
+                      {f.label}
+                      {f.type === 'slot' ? (
+                        <select value={values[f.key] ?? ''} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))} className={`${input} mt-xs`}>
+                          {SLOTS.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      ) : f.type === 'longtext' ? (
+                        <textarea rows={2} value={values[f.key] ?? ''} onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))} className={`${input} mt-xs`} />
+                      ) : (
+                        <input type={f.type === 'date' ? 'date' : f.type === 'time' ? 'time' : 'text'} value={values[f.key] ?? ''} placeholder={f.placeholder}
+                          onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))} className={`${input} mt-xs`} />
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {purpose && (
+              <section className="space-y-sm">
+                <p className={label}>The message <span className="font-normal normal-case text-neutral-400">(change anything you like)</span></p>
+                <input value={subject} onChange={e => setRawSubject(e.target.value)} placeholder="Subject" className={`${input} font-semibold`} />
+                <textarea value={body} onChange={e => setRawBody(e.target.value)} rows={7} placeholder="Write your message…" className={input} />
+                {missing.length > 0 && <p className="text-xs font-semibold text-amber-700">Still to fill in: {missing.map(k => msg?.fields.find(f => f.key === k)?.label ?? k).join(', ')}</p>}
+              </section>
+            )}
+
+            {/* 4 — what they'll see */}
+            {purpose && subject && body && (
+              <section>
+                <div className="mb-sm flex items-center justify-between">
+                  <p className={`${label} mb-0`}>What {firstName} will see</p>
+                  <div className="flex gap-xs">
+                    <button onClick={() => setPreviewAs('phone')} className={chip(previewAs === 'phone')}>Phone</button>
+                    {channels !== 'push_only' && <button onClick={() => setPreviewAs('email')} className={chip(previewAs === 'email')}>Email</button>}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Multiple Batch */}
-            {viewingSelector === 'multiple_batch' && (
-              <div>
-                <p className="text-sm text-neutral-300 mb-md">
-                  Will send "Multiple Viewings - Time Frame" template to all tenants for this property.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Notice Board mode — simplified compose, no recipient/template/AI tabs needed */}
-        {notificationCategory === 'noticeboard' && (
-          <div className="mb-lg pb-lg border-b border-neutral-700">
-            <p className="text-sm text-neutral-300 mb-md">
-              This will appear on the <strong className="text-white">Notice Board</strong> for all tenants at this property — visible as a house-wide info notice.
-            </p>
-            <label className="text-sm font-semibold text-white mb-sm block">Notice</label>
-            <textarea
-              value={customMessage}
-              onChange={e => setCustomMessage(e.target.value)}
-              placeholder="e.g. Reminder to keep the kitchen clean — the cleaners come Friday."
-              rows={5}
-              className="w-full px-md py-sm border border-neutral-700 bg-neutral-800 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <p className="text-xs text-neutral-500 mt-sm">Tenants can see who posted this (your name).</p>
-          </div>
-        )}
-
-        {/* Recipient Selection (Non-Lettings, Non-Noticeboard) */}
-        {notificationCategory !== 'lettings' && notificationCategory !== 'noticeboard' && (
-          <div className="mb-lg pb-lg border-b border-neutral-700">
-            <label className="text-sm font-semibold text-white mb-md block">Send to:</label>
-            <div className="grid grid-cols-2 gap-md mb-md">
-              {[
-                { value: 'all_tenants' as RecipientType, label: 'All Tenants' },
-                { value: 'room' as RecipientType, label: 'Specific Unit' },
-                { value: 'cleaners' as RecipientType, label: 'Cleaners' }
-              ].map(option => (
-                <button
-                  key={option.value}
-                  onClick={() => {
-                    setRecipientType(option.value)
-                    if (option.value !== 'room') setRoomId('')
-                  }}
-                  className={`px-md py-sm rounded-lg font-semibold text-sm transition ${
-                    recipientType === option.value
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-neutral-700 text-neutral-300 hover:text-white'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Room picker — only shown when Specific Unit is selected */}
-            {recipientType === 'room' && (
-              <div>
-                <label className="text-sm font-semibold text-white mb-sm block">Which unit?</label>
-                {rooms.length === 0 ? (
-                  <p className="text-xs text-neutral-400">No rooms found for this property.</p>
+                {previewAs === 'phone' || channels === 'push_only' ? (
+                  <div className="mx-auto max-w-sm space-y-sm rounded-[28px] bg-neutral-800 p-md">
+                    <div className="rounded-2xl bg-white/90 p-sm shadow">
+                      <div className="flex items-center gap-sm text-[11px] text-neutral-500"><span className="grid h-5 w-5 place-items-center rounded bg-[#181614] text-[9px] font-bold text-white">CR</span>Capital Rooms · now</div>
+                      <p className="mt-xs text-sm font-bold text-neutral-900">{subject}</p>
+                      <p className="line-clamp-2 text-xs text-neutral-700">{body}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white p-md">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-neutral-400">In the app · Messages</p>
+                      <p className="mt-xs text-sm font-bold text-neutral-900">{subject}</p>
+                      <p className="whitespace-pre-line text-xs leading-relaxed text-neutral-700">{body}</p>
+                      {link !== '/tenant/inbox' && <p className="mt-sm inline-block rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Open</p>}
+                    </div>
+                  </div>
                 ) : (
-                  <select
-                    value={roomId}
-                    onChange={e => setRoomId(e.target.value)}
-                    className="w-full px-md py-sm border border-neutral-700 bg-neutral-800 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">— Choose a unit —</option>
-                    {rooms.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
+                  <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm text-neutral-800">
+                    <div className="border-b border-neutral-100 px-md py-sm text-xs text-neutral-500">Subject: <strong className="text-neutral-900">{subject}</strong></div>
+                    <div className="space-y-sm px-md py-md">
+                      <p>Dear {firstName},</p>
+                      <p className="font-bold">{subject}</p>
+                      {body.split(/\n{2,}/).map((p, i) => <p key={i} className="whitespace-pre-line">{p}</p>)}
+                      <p className="inline-block rounded-lg bg-[#181614] px-md py-xs text-xs font-bold text-white">View details</p>
+                      <p className="text-xs text-neutral-500">— signed with your email signature, with the Capital Rooms footer</p>
+                    </div>
+                  </div>
                 )}
-              </div>
+              </section>
             )}
-          </div>
-        )}
 
-        {/* Tab Navigation — hidden for notice board mode */}
-        <div className={`flex gap-md mb-lg border-b border-neutral-700 ${notificationCategory === 'noticeboard' ? 'hidden' : ''}`}>
-          {[
-            { id: 'templates' as const, label: '📋 Templates' },
-            { id: 'custom' as const, label: '✏️ Compose' },
-            { id: 'ai' as const, label: '🤖 AI Draft' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-lg py-md font-semibold text-sm transition ${
-                activeTab === tab.id
-                  ? 'text-white border-b-2 border-blue-600'
-                  : 'text-neutral-400 hover:text-white'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+            {/* 5 — how */}
+            {purpose && (
+              <section>
+                <p className={label}>How to send it</p>
+                <div className="grid gap-sm sm:grid-cols-3">
+                  {CHANNELS.map(c => (
+                    <button key={c.value} onClick={() => setChannels(c.value)} className={`rounded-xl border p-sm text-left transition ${channels === c.value ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400'}`}>
+                      <span className="block text-sm font-bold">{c.label}</span>
+                      <span className={`block text-[11px] leading-snug ${channels === c.value ? 'text-neutral-300' : 'text-neutral-500'}`}>{c.hint}</span>
+                    </button>
+                  ))}
+                </div>
+                {who !== 'cleaners' && (
+                  <label className="mt-sm flex items-center gap-sm text-sm text-neutral-700">
+                    <input type="checkbox" checked={pin} onChange={e => setPin(e.target.checked)} className="h-4 w-4" />
+                    Also pin it to the house notice board
+                  </label>
+                )}
+                <div className="mt-md rounded-xl border border-neutral-200 bg-white p-md">
+                  <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-500">Also tell <span className="font-normal normal-case text-neutral-400">(people there who aren’t on CROS — optional)</span></p>
+                  <PeoplePicker value={alsoTell} onChange={setAlsoTell} compact />
+                </div>
+              </section>
+            )}
+
+            {error && <p className="rounded-xl border border-red-200 bg-red-50 p-md text-sm font-semibold text-red-800">{error}</p>}
+          </>)}
         </div>
 
-        {/* Tab Content — hidden for notice board mode (uses its own compose above) */}
-        <div className={`space-y-lg ${notificationCategory === 'noticeboard' ? 'hidden' : ''}`}>
-          {/* Templates Tab */}
-          {activeTab === 'templates' && (
-            <div className="space-y-md">
-              {loading ? (
-                <p className="text-sm text-neutral-400">Loading templates...</p>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 gap-md max-h-[300px] overflow-y-auto">
-                    {templates
-                      .filter(t => {
-                        if (notificationCategory === 'lettings') {
-                          return t.category === 'lettings'
-                        }
-                        return t.category !== 'lettings'
-                      })
-                      .map(template => (
-                        <button
-                          key={template.id}
-                          onClick={() => handleTemplateSelect(template)}
-                          className={`p-md rounded-lg text-left transition border ${
-                            selectedTemplate?.id === template.id
-                              ? 'bg-blue-900 border-blue-600'
-                              : 'bg-neutral-900 border-neutral-700 hover:border-neutral-600'
-                          }`}
-                        >
-                          <p className="font-semibold text-white text-sm">{template.name}</p>
-                          <p className="text-xs text-neutral-400 mt-xs">{template.category}</p>
-                        </button>
-                      ))}
-                  </div>
-                  {selectedTemplate && (
-                    <div className="bg-neutral-900 p-lg rounded-lg border border-neutral-700">
-                      <p className="text-sm font-semibold text-white mb-md">Preview:</p>
-                      <p className="text-xs text-neutral-400">{selectedTemplate.template_text}</p>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Custom Compose Tab */}
-          {activeTab === 'custom' && (
-            <div className="space-y-md">
-              <div>
-                <label className="text-sm font-semibold text-white mb-sm block">Subject</label>
-                <input
-                  type="text"
-                  value={customSubject}
-                  onChange={(e) => setCustomSubject(e.target.value)}
-                  placeholder="Subject line"
-                  className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-white mb-sm block">Message</label>
-                <textarea
-                  value={customMessage}
-                  onChange={(e) => setCustomMessage(e.target.value)}
-                  placeholder="Write your message..."
-                  rows={6}
-                  className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* AI Draft Tab */}
-          {activeTab === 'ai' && (
-            <div className="space-y-md">
-              <div>
-                <label className="text-sm font-semibold text-white mb-sm block">Describe what to communicate</label>
-                <textarea
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  placeholder="E.g., 'Tell tenants about gas safety inspection next Friday at 2pm'"
-                  rows={3}
-                  className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={generateAIMessage}
-                  disabled={sending}
-                  className="mt-md w-full px-lg py-md bg-purple-600 text-white rounded-lg font-semibold text-sm hover:bg-purple-700 disabled:opacity-50 transition"
-                >
-                  {sending ? 'Generating...' : '✨ Generate Message'}
-                </button>
-              </div>
-              {aiDraftMessage && (
-                <div className="bg-neutral-900 p-lg rounded-lg border border-neutral-700">
-                  <p className="text-sm font-semibold text-white mb-md">Generated Message:</p>
-                  <div className="space-y-md">
-                    <div>
-                      <p className="text-xs text-neutral-400 mb-sm">Subject:</p>
-                      <p className="text-sm text-white">{customSubject}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-neutral-400 mb-sm">Message:</p>
-                      <textarea
-                        value={aiDraftMessage}
-                        onChange={(e) => setAiDraftMessage(e.target.value)}
-                        className="w-full px-md py-sm border border-neutral-700 bg-neutral-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-neutral-500"
-                        rows={4}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* ── Sent receipt ── */}
-        {sentReceipt && (
-          <div className="mt-lg p-lg rounded-xl bg-green-950 border border-green-700 space-y-sm">
-            <p className="text-sm font-bold text-green-400">✓ Notification sent at {sentReceipt.sentAt}</p>
-            <p className="text-sm text-green-300">
-              Reached <strong>{sentReceipt.recipientCount}</strong> {sentReceipt.recipientCount === 1 ? 'person' : 'people'} via <strong>{sentReceipt.channels}</strong>
+        {/* footer: the summary and the button */}
+        {house && !receipt && (
+          <div className="flex flex-wrap items-center justify-between gap-sm border-t border-neutral-200 bg-white px-lg py-md">
+            <p className="text-xs text-neutral-600">
+              {who === 'cleaners' ? `${count} cleaner${count === 1 ? '' : 's'}` : `${count} ${count === 1 ? 'person' : 'people'} at ${house.property.name}`}
+              {who !== 'cleaners' && count > 0 && <> · {withApp} with the app on their phone</>}
             </p>
-            {sentReceipt.pushCount > 0 && <p className="text-xs text-green-500">📲 Push dispatched to {sentReceipt.pushCount}</p>}
-            {sentReceipt.emailCount > 0 && <p className="text-xs text-green-500">✉️ Email sent to {sentReceipt.emailCount}</p>}
-            <button onClick={onClose} className="mt-sm w-full px-md py-sm bg-green-800 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition">Close</button>
-          </div>
-        )}
-
-        {/* ── Delivery channel + schedule (hidden once sent) ── */}
-        {!sentReceipt && notificationCategory !== 'noticeboard' && (
-          <div className="mt-lg pt-lg border-t border-neutral-700 space-y-md">
-
-            {/* Channel picker */}
-            <div>
-              <label className="text-sm font-semibold text-white mb-sm block">How to deliver:</label>
-              <div className="grid grid-cols-3 gap-sm">
-                {([
-                  { value: 'push_email', label: '📲 Push + Email' },
-                  { value: 'push_only', label: '📲 Push only' },
-                  { value: 'email_only', label: '✉️ Email only' },
-                ] as const).map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setChannels(opt.value)}
-                    className={`px-sm py-sm rounded-lg font-semibold text-xs transition border ${
-                      channels === opt.value
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'border-neutral-700 text-neutral-300 hover:text-white'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-neutral-500 mt-xs">
-                {channels === 'push_email' && 'Push notification to app + email to all recipients'}
-                {channels === 'push_only' && 'Push notification in-app only — no email sent'}
-                {channels === 'email_only' && 'Email only — no in-app notification'}
-              </p>
+            <div className="flex gap-sm">
+              <button onClick={onClose} className="rounded-lg border border-neutral-200 px-md py-sm text-sm font-semibold text-neutral-700">Cancel</button>
+              <button onClick={send} disabled={sending || !purpose || !house.sendingOn || count === 0}
+                className="rounded-lg bg-blue-600 px-lg py-sm text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                {sending ? 'Sending…' : `Send to ${count} ${count === 1 ? 'person' : 'people'}`}
+              </button>
             </div>
-
-            {/* Schedule toggle */}
-            <div>
-              <label className="text-sm font-semibold text-white mb-sm block">When to send:</label>
-              <div className="flex gap-sm mb-sm">
-                {(['now', 'later'] as const).map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setScheduleMode(m)}
-                    className={`flex-1 px-md py-sm rounded-lg font-semibold text-sm transition border ${
-                      scheduleMode === m
-                        ? 'bg-blue-600 border-blue-600 text-white'
-                        : 'border-neutral-700 text-neutral-300 hover:text-white'
-                    }`}
-                  >
-                    {m === 'now' ? '⚡ Send now' : '🕐 Schedule'}
-                  </button>
-                ))}
-              </div>
-              {scheduleMode === 'later' && (
-                <div>
-                  <input
-                    type="datetime-local"
-                    value={scheduledAt}
-                    onChange={e => setScheduledAt(e.target.value)}
-                    min={new Date().toISOString().slice(0, 16)}
-                    className="w-full px-md py-sm border border-neutral-700 bg-neutral-800 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <p className="text-xs text-neutral-500 mt-xs">⚠️ Scheduled sends are queued — ensure the server is running at that time.</p>
-                </div>
-              )}
-            </div>
-
-            {/* Pre-send summary */}
-            <div className="rounded-lg bg-neutral-800 border border-neutral-700 px-md py-sm flex items-center justify-between">
-              <div className="text-sm text-neutral-300">
-                {countLoading ? (
-                  <span className="text-neutral-500">Counting recipients…</span>
-                ) : recipientCount !== null ? (
-                  <span>Will reach <strong className="text-white">{recipientCount}</strong> {recipientCount === 1 ? 'person' : 'people'} via <strong className="text-white">{channels === 'push_email' ? 'push + email' : channels === 'push_only' ? 'push' : 'email'}</strong></span>
-                ) : (
-                  <span className="text-neutral-500">Select recipients to see count</span>
-                )}
-              </div>
-              {scheduleMode === 'later' && scheduledAt && (
-                <span className="text-xs text-blue-400 ml-md">Scheduled {new Date(scheduledAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* People who aren't on CROS */}
-        {!sentReceipt && notificationCategory !== 'noticeboard' && (
-          <div className="mt-md rounded-lg bg-white p-md text-neutral-900">
-            <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-600">Also tell <span className="font-normal normal-case text-neutral-400">(people there who aren’t on CROS — optional)</span></p>
-            <PeoplePicker value={alsoTell} onChange={setAlsoTell} compact />
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        {!sentReceipt && (
-          <div className="flex gap-md mt-md">
-            <button
-              onClick={onClose}
-              className="flex-1 px-lg py-md border border-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-900 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={sendNotification}
-              disabled={sending || (scheduleMode === 'later' && !scheduledAt)}
-              className="flex-1 px-lg py-md bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition"
-            >
-              {sending
-                ? 'Sending…'
-                : notificationCategory === 'noticeboard'
-                  ? '📋 Post to Notice Board'
-                  : scheduleMode === 'later'
-                    ? '🕐 Schedule notification'
-                    : '📤 Send now'}
-            </button>
           </div>
         )}
       </div>

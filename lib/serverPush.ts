@@ -7,7 +7,7 @@
  * staff devices always do. Server code must use this, not fetch('/api/push/send') — that route needs a
  * signed-in user, so server-to-server calls to it were always refused.
  */
-import { getCommsLive } from '@/lib/comms'
+import { getCommsLive, getElectedCommsLive } from '@/lib/comms'
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 
@@ -40,6 +40,9 @@ interface PushOptions {
   url?: string
   tag?: string
   requireInteraction?: boolean
+  /** a message the office chose to send (Quick Notify, a visit notice) — follows the 'messages you send' switch,
+   *  not the automatic-messages pause */
+  elected?: boolean
 }
 
 /**
@@ -80,7 +83,7 @@ export async function sendServerPush(opts: PushOptions): Promise<number> {
     }
     if (!subs || subs.length === 0) return sent
     // kill-switch: while tenant comms are paused only staff devices (subscriptions with a staff role) get pushes
-    const live = await getCommsLive()
+    const live = opts.elected ? await getElectedCommsLive() : await getCommsLive()
     const targets = live ? subs : subs.filter((x: any) => x.role && x.role !== 'tenant' && x.role !== 'applicant')
 
     const payload = JSON.stringify({

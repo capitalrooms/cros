@@ -47,7 +47,7 @@ export async function POST(request: Request) {
       return Response.json({ error: `Failed to send notifications: ${error}` }, { status: 500 })
     }
 
-    const { pushCount, emailCount } = await dispatchChannels(service, recipientIds, { title: subject, body: message, link: '/tenant' }, channels as NotifyChannels, request)
+    const { pushCount, emailCount } = await dispatchChannels(service, recipientIds, { title: subject, body: message, link: '/tenant' }, channels as NotifyChannels, request, { elected: true })
 
     return Response.json({ success: true, message: `Notification sent to ${count} tenant(s)`, tenant_count: count, pushCount, emailCount, recipientCount: count })
   } catch (error) {
