@@ -12,6 +12,8 @@ export interface DocInvoice {
   invoiceDate: string               // YYYY-MM-DD
   title: string
   items: { description: string; detail?: string; qty: number; unitPrice: number | null }[]
+  kind?: 'general' | 'management' | 'setup'
+  period?: string
 }
 
 export function invoiceFromBody(v: unknown, biz: PDFBizSettings): { input?: LandlordInvoiceInput; error?: string } {
@@ -29,6 +31,7 @@ export function invoiceFromBody(v: unknown, biz: PDFBizSettings): { input?: Land
     invoiceDate: b.invoiceDate || new Date().toISOString().slice(0, 10),
     title: String(b.title ?? '').trim() || undefined,
     items: items.map(i => ({ description: String(i.description).trim(), detail: String(i.detail ?? '').trim() || undefined, qty: Number(i.qty) || 1, unitPrice: Number(i.unitPrice) })),
+    kind: b.kind, period: b.period,
   }, biz)
 }
 

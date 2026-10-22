@@ -20,6 +20,8 @@ export function invoiceInputFromBody(b: any, biz: PDFBizSettings): { input?: Lan
       title: b.title ? String(b.title) : undefined,
       items,
       biz,
+      kind: ['general', 'management', 'setup'].includes(b?.kind) ? b.kind : undefined,
+      period: b?.period ? String(b.period).slice(0, 80) : undefined,
     },
   }
 }
