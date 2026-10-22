@@ -1,10 +1,8 @@
 'use client'
 
 import { useState, useEffect, use, useMemo } from 'react'
-import { isOfficeRole } from '@/lib/access/areas'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
@@ -781,7 +779,6 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
  *  the letting file's Person tab (embedded) — there without its own header, and without the tabs the letting file
  *  already has (Tenancy → Terms, Documents, Payments → Money). */
 export function TenantProfileView({ personId, embedded = false }: { personId: string; embedded?: boolean }) {
-  const router    = useRouter()
 
   const [tenant, setTenant]                     = useState<TenantCardTenant | null>(null)
   const [tenancies, setTenancies]               = useState<TenancyRow[]>([])
@@ -835,11 +832,8 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
   /* ── Data loading ── */
   useEffect(() => {
     async function init() {
-      const user = await getCurrentUser()
-      if (!user || !isOfficeRole(user.assignment?.role)) {
-        router.push('/login')
-        return
-      }
+      // no sign-in check here: the admin area already checks who you are, and the row rules guard the data (22 Oct
+      // 2026 — a second check here sent Harry to the sign-in screen when opening Alice from People)
 
       const { data: tenantData } = await supabase.from('people').select('*').eq('id', personId).single()
       setTenant(tenantData)
@@ -916,7 +910,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
       setLoading(false)
     }
     init()
-  }, [personId, router])
+  }, [personId])
 
   /* ── Invite ── */
   async function handleInvite() {

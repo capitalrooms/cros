@@ -122,9 +122,9 @@ export async function createVisit(s: SupabaseClient, c: Caller, v: VisitInput, r
   } : null
 
   await insertNotifications(s, houseTenants, houseNote)
-  const house = houseTenants.length ? await dispatchChannels(s, houseTenants, houseNote, 'push_email', req) : { emailCount: 0 }
+  const house = houseTenants.length ? await dispatchChannels(s, houseTenants, houseNote, 'push_email', req, { elected: true }) : { emailCount: 0 }
   let roomSent = { emailCount: 0 }
-  if (roomNote && roomTenants.length) { await insertNotifications(s, roomTenants, roomNote); roomSent = await dispatchChannels(s, roomTenants, roomNote, 'push_email', req) }
+  if (roomNote && roomTenants.length) { await insertNotifications(s, roomTenants, roomNote); roomSent = await dispatchChannels(s, roomTenants, roomNote, 'push_email', req, { elected: true }) }
   const told = houseTenants.length + roomTenants.length
 
   const keySafe = await readKeySafe(s, prop.id)

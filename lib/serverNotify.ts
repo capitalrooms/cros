@@ -128,6 +128,8 @@ export async function dispatchChannels(
   channels: NotifyChannels = 'push_email',
   /** the request behind a staff mail-out, so it's sent from and signed by that person */
   req?: Request | null,
+  /** the office chose to send this (see sendServerPush elected) */
+  opts: { elected?: boolean } = {},
 ): Promise<{ pushCount: number; emailCount: number; smsCount?: number; smsFailed?: string[] }> {
   const ids = [...new Set(recipientPersonIds.filter(Boolean))]
   if (ids.length === 0) return { pushCount: 0, emailCount: 0 }
@@ -137,8 +139,7 @@ export async function dispatchChannels(
   let sms: { smsCount: number; smsFailed: string[] } | null = null
 
   if (channels === 'push_email' || channels === 'push_only' || channels === 'push_email_sms') {
-    await tryPush(ids, content.title, content.body, content.link)
-    pushCount = ids.length // best-effort — we don't get individual receipts from push
+    pushCount = await tryPush(ids, content.title, content.body, content.link, !!opts.elected) // devices reached
   }
 
   if (channels === 'push_email' || channels === 'email_only' || channels === 'push_email_sms') {
@@ -211,14 +212,15 @@ async function sendEmailToAll(
 }
 
 /** Fire-and-forget push to opted-in recipients; never throws. */
-export async function tryPush(recipientPersonIds: string[], title: string, body: string, link?: string) {
+export async function tryPush(recipientPersonIds: string[], title: string, body: string, link?: string, elected = false): Promise<number> {
   const ids = [...new Set(recipientPersonIds.filter(Boolean))]
-  if (ids.length === 0) return
+  if (ids.length === 0) return 0
   try {
     const { sendServerPush } = await import('@/lib/serverPush')
-    await sendServerPush({ personIds: ids, title, body, url: link })
+    return await sendServerPush({ personIds: ids, title, body, url: link, elected })
   } catch {
     // Push is best-effort — the in-app notification is the source of truth.
+    return 0
   }
 }
 

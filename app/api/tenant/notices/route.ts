@@ -93,6 +93,9 @@ export async function POST(req: NextRequest) {
   if (!property_id || !notice_type || !raw_text?.trim() || !VALID_TYPES.includes(notice_type)) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
+  // only the office, cleaners (portfolio-wide) and the house's own tenants post on its board
+  if (!['administrator', 'admin', 'lettings', 'cleaner'].includes(String(person.role)) && person.propertyId !== property_id)
+    return NextResponse.json({ error: 'You can only post on your own house’s notice board.' }, { status: 403 })
 
   const insertData: any = {
     property_id,

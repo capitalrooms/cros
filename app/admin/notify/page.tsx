@@ -107,9 +107,6 @@ export default function QuickNotifyPage() {
         <QuickNotifyModal
           propertyId={selectedPropertyId}
           onClose={handleModalClose}
-          onSuccess={() => {
-            setTimeout(() => router.push('/admin'), 2000)
-          }}
         />
       )}
     </div>
