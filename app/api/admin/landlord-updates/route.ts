@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { deliverEmail } from '@/lib/sendEmail'
+import { landlordCopyTo } from '@/lib/landlord/correspondence'
 import { PORTAL_URL } from '@/lib/emailWrapper'
 import { landlordUpdateHtml } from '@/lib/landlordUpdates/email'
 import { lettingsStatementFor } from '@/lib/lettingsStatement/forTenancy'
@@ -81,7 +82,9 @@ export async function POST(req: NextRequest) {
     if ('error' in st) { await s.from('landlord_updates').delete().eq('id', (row as any).id); return NextResponse.json({ error: `The statement couldn’t be made: ${st.error}` }, { status: 400 }) }
     attachments = [{ filename: st.filename, content: st.buffer.toString('base64') }]
   }
-  const sent = await deliverEmail({ to, subject, html, attachments }, { req })
+  // the landlord's copy-in list (an accountant …) gets it too (migration 239)
+  const copy = c.landlord?.id ? (await landlordCopyTo(s as any, c.landlord.id)).cc.filter(e => !to.map((x: string) => x.toLowerCase()).includes(e)) : []
+  const sent = await deliverEmail({ to, ...(copy.length ? { cc: copy } : {}), subject, html, attachments }, { req })
   if (!sent.ok) {
     await s.from('landlord_updates').delete().eq('id', (row as any).id)   // nothing went out — no record of a send
     const e = await sent.json().catch(() => ({}))

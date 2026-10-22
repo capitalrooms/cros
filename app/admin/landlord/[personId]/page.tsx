@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
+import { adminFetch } from '@/lib/adminFetch'
+import LandlordCorrespondence from './LandlordCorrespondence'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromPeople, LandlordCardData, LandlordProperty } from '@/app/components/LandlordCard'
@@ -101,6 +103,7 @@ function inputCls(extra = '') {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+
 export default function LandlordProfilePage({ params }: { params: Promise<{ personId: string }> }) {
   const router       = useRouter()
   const { personId } = use(params)
@@ -113,7 +116,8 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
   const [notifPrefs, setNotifPrefs]     = useState<Record<string, boolean>>({})
   const [bankAccounts, setBankAccounts] = useState<any[]>([])
   const [loading, setLoading]           = useState(true)
-  const [activeTab, setActiveTab]       = useState<'overview' | 'contact' | 'bank' | 'agreement' | 'properties' | 'aml' | 'statements' | 'notifications'>('overview')
+  const [activeTab, setActiveTab]       = useState<'overview' | 'contact' | 'bank' | 'agreement' | 'properties' | 'aml' | 'statements' | 'notifications' | 'correspondence'>('overview')
+  const [amlRequest, setAmlRequest]     = useState<{ busy?: boolean; ok?: boolean; text?: string } | null>(null)
 
   // AML tab state
   const [expandedAml, setExpandedAml]   = useState<string | null>(null)
@@ -457,6 +461,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
     { id: 'aml'           as const, label: `AML & Compliance (${amlRecords.length})` },
     { id: 'statements'    as const, label: `Statements (${statements.length})` },
     { id: 'notifications' as const, label: 'Notifications' },
+    { id: 'correspondence' as const, label: 'Correspondence' },
   ]
 
   const landlordName = [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') || person.full_name || person.company || person.email || 'Landlord'
@@ -1053,13 +1058,27 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                 <p className="text-xs text-neutral-500 mt-xs">Each entry is a complete due-diligence event. Expand to see the full report.</p>
               </div>
               {!showNewAml && (
-                <button onClick={() => setShowNewAml(true)}
-                  className="text-sm font-semibold bg-neutral-900 text-white px-lg py-sm rounded-xl hover:bg-neutral-700 transition">
-                  + New AML check
-                </button>
+                <div className="flex flex-wrap gap-sm">
+                  <button disabled={amlRequest?.busy || !person.email} title={person.email ? undefined : 'Add their email first'}
+                    onClick={async () => {
+                      if (!confirm(`Email ${landlordName} (${person.email}) a link to update their AML details? Their form opens filled in with what they told us last time; photo ID still in date carries over, and they upload a new proof of address.`)) return
+                      setAmlRequest({ busy: true })
+                      const r = await adminFetch('/api/landlord-aml-refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ landlordId: personId, reason: 'periodic_review' }) })
+                      const d = await r.json().catch(() => ({}))
+                      setAmlRequest(r.ok ? { ok: !!d.emailSent, text: d.emailSent ? `Sent to ${person.email}. Their answers come back to New business → Onboarding, where you accept the update.` : `The form was made but the email didn’t send: ${d.emailError ?? 'unknown error'}` } : { ok: false, text: d.error ?? 'Not sent' })
+                    }}
+                    className="text-sm font-semibold border border-neutral-300 bg-white text-neutral-900 px-lg py-sm rounded-xl hover:bg-neutral-50 transition disabled:opacity-40">
+                    {amlRequest?.busy ? 'Sending…' : '✉️ Request an AML update'}
+                  </button>
+                  <button onClick={() => setShowNewAml(true)}
+                    className="text-sm font-semibold bg-neutral-900 text-white px-lg py-sm rounded-xl hover:bg-neutral-700 transition">
+                    + New AML check
+                  </button>
+                </div>
               )}
             </div>
 
+            {amlRequest?.text && <p className={`rounded-lg px-md py-sm text-sm ${amlRequest.ok ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-800'}`}>{amlRequest.text}</p>}
             {showNewAml && (
               <div className="rounded-xl border-2 border-neutral-900 bg-white overflow-hidden">
                 <div className="px-xl py-lg border-b border-neutral-100 flex items-center justify-between">
@@ -1301,6 +1320,8 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
         )}
 
         {/* ══ NOTIFICATIONS ══ */}
+        {activeTab === 'correspondence' && <LandlordCorrespondence personId={personId} />}
+
         {activeTab === 'notifications' && (
           <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
             <div className="px-xl py-lg border-b border-neutral-100">

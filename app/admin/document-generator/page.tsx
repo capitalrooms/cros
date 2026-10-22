@@ -264,6 +264,9 @@ export default function DocumentGenerator() {
       const rest = String(prop?.address ?? '').trim()
       address = [room?.name, street && !rest.toLowerCase().includes(street.toLowerCase()) ? street : '', rest].filter(Boolean).join('\n')
     }
+    // a landlord's copy-in list (accountant …) joins the CC line (migration 239)
+    const copy = p.role === 'landlord' && Array.isArray((p as any).correspondence_cc) ? ((p as any).correspondence_cc as { email?: string }[]).map(c => String(c.email ?? '').trim()).filter(Boolean) : []
+    if (copy.length) setCc(c => [...new Set([...c.split(/[,;\s]+/).filter(Boolean), ...copy])].join(', '))
     setRecipient({
       personId: p.id, name, role: p.role ?? '',
       address: address.split(/\n|,\s*/).map(s => s.trim()).filter(Boolean).join('\n'),
