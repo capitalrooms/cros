@@ -49,7 +49,7 @@ export const AREAS: Area[] = [
       '/admin/arrears', '/admin/client-money', '/admin/deposits', '/admin/finance-check', '/admin/payouts', '/admin/reports'],
     api: ['/api/admin/finance', '/api/admin/money', '/api/admin/supplier-invoices', '/api/admin/rent-roll', '/api/admin/payment-run', '/api/admin/expenses', '/api/admin/expense',
       '/api/admin/ops-account', '/api/admin/statements', '/api/admin/statement-line-items', '/api/admin/reconciliation', '/api/admin/bank-import', '/api/admin/rent-charges',
-      '/api/admin/arrears', '/api/admin/client-money', '/api/admin/deposits', '/api/admin/deposit-returns', '/api/admin/payouts', '/api/admin/reports', '/api/admin/landlord-statement',
+      '/api/admin/arrears', '/api/admin/rent-reminders', '/api/admin/client-money', '/api/admin/deposits', '/api/admin/deposit-returns', '/api/admin/payouts', '/api/admin/reports', '/api/admin/landlord-statement',
       '/api/admin/landlord-bank-accounts', '/api/admin/payment-audit-log', '/api/admin/financial-trail', '/api/admin/categorise-expense', '/api/admin/finance-check',
       '/api/admin/finance-home', '/api/admin/rent-resolve', '/api/admin/expense-statement-pdf', '/api/admin/send-expense-report', '/api/admin/arrears-letter', '/api/accounts', '/api/statements', '/api/ai/extract-statement'] },
   { key: 'people', label: 'People', hint: 'Tenants, landlords, contractors and cleaners (not office accounts)',
