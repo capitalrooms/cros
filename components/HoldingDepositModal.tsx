@@ -191,13 +191,21 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
 
             {!current && !draft.setupNeeded && (
               <section className="space-y-md">
+                {/* who it's for is fixed — the record and its receipt belong to this application (22 Oct 2026: a free-typed
+                    "Received from" made it look as though a misspelt name could lose the receipt) */}
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-md py-sm text-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Recording for</p>
+                  <p className="font-bold text-neutral-900">{draft.applicant.name}</p>
+                  <p className="text-xs text-neutral-600">{[draft.applicant.room, draft.applicant.property].filter(Boolean).join(', ')} — saved on their application, with its receipt, and moved to their letting file. It can’t be filed against anyone else.</p>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
                   <div><label className={lbl}>Amount received (£)</label><input inputMode="decimal" className={field} value={form.amount} onChange={set('amount')} /></div>
                   <div><label className={lbl}>Date it reached us</label><input type="date" className={field} value={form.receivedOn} max={today()} onChange={set('receivedOn')} /></div>
                   <div><label className={lbl}>Paid by</label>
                     <select className={field} value={form.method} onChange={set('method')}>{METHODS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
                   <div><label className={lbl}>Payment reference</label><input className={field} value={form.payerReference} onChange={set('payerReference')} placeholder="As shown on the bank statement" /></div>
-                  <div><label className={lbl}>Received from</label><input className={field} value={form.payerName} onChange={set('payerName')} /></div>
+                  <div><label className={lbl}>Name on the payment</label><input className={field} value={form.payerName} onChange={set('payerName')} />
+                    <p className="mt-xs text-[11px] text-neutral-500">Change only if someone else paid (a parent, a company) — it’s printed on the receipt, nothing more.</p></div>
                   <div><label className={lbl}>Put it towards</label>
                     <select className={field} value={form.applyTo} onChange={set('applyTo')}>
                       <option value="deposit">The tenancy deposit</option>

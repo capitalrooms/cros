@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
+import DuplicateApplicants from './DuplicateApplicants'
 import { adminFetch } from '@/lib/adminFetch'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -339,6 +340,10 @@ export default function ApplicantsPage() {
     setAddError('')
     try {
       const sb = createClient()
+      // one applicant per email: someone already applying is opened, not added again (22 Oct 2026)
+      const email = addForm.email.trim().toLowerCase()
+      const { data: already } = await sb.from('applicants').select('id, full_name, pipeline_stage').ilike('email', email.replace(/[\\%_]/g, c => `\\${c}`)).is('archived_at', null).or('pipeline_stage.is.null,pipeline_stage.neq.converted').limit(1)
+      if (already?.length) { setAddError(`${(already[0] as any).full_name} is already an applicant with this email — find them in the list (search the email) instead of adding them again.`); return }
       const { data, error: err } = await sb
         .from('applicants')
         .insert({
@@ -403,6 +408,7 @@ export default function ApplicantsPage() {
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
+        <DuplicateApplicants onMerged={() => loadAll()} />
         {/* Add form */}
         {showAdd && (
           <div className="mb-xl rounded-2xl border-2 border-neutral-900 bg-white p-lg">

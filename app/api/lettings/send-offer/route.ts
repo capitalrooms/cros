@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/serverAuth'
 import { buildOfferLetterEmail, buildSearchIsOverEmail } from '@/lib/emailTemplates'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { randomBytes } from 'crypto'
+import { findApplicant, moveToRoom, normEmail, STAGE_ORDER } from '@/lib/lettings/applicantRecord'
 
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
@@ -150,12 +151,9 @@ export async function POST(request: Request) {
 
     // Upsert applicants row linked to this offer (best-effort, table may not be deployed yet)
     try {
-      const { data: existing } = await supabase
-        .from('applicants')
-        .select('id, pipeline_stage, preferred_term, preferred_start_date')
-        .eq('email', data.applicantEmail)
-        .eq('room_id', data.roomId)
-        .maybeSingle()
+      // one applicant per email (lib/lettings/applicantRecord) — an offer on another room moves their one record to it
+      const existing = await findApplicant(supabase, data.applicantEmail)
+      if (existing) await moveToRoom(supabase, existing, data.roomId, data.propertyId)
 
       const newStage = data.requestDeposit ? 'offer_sent' : 'offer_sent'
       if (existing) {
@@ -164,7 +162,8 @@ export async function POST(request: Request) {
         offered = { term: (existing as any).preferred_term ?? null, moveIn: (existing as any).preferred_start_date ?? null }
         await supabase.from('applicants').update({
           offer_id:       offerId,
-          pipeline_stage: newStage,
+          // never backwards: someone already in referencing stays there
+          pipeline_stage: STAGE_ORDER.indexOf(existing.pipeline_stage) > STAGE_ORDER.indexOf(newStage) ? existing.pipeline_stage : newStage,
           updated_at:     new Date().toISOString(),
         }).eq('id', existing.id)
         // Link offer back to applicant
@@ -177,7 +176,7 @@ export async function POST(request: Request) {
             property_id:    data.propertyId,
             full_name:      data.applicantName || data.applicantEmail,
             ...(data.firstName ? { salutation: String(data.salutation || '').slice(0, 10) || null, first_name: String(data.firstName).slice(0, 80), last_name: String(data.lastName || '').slice(0, 80) || null } : {}),
-            email:          data.applicantEmail,
+            email:          normEmail(data.applicantEmail),
             pipeline_stage: newStage,
             offer_id:       offerId,
           })
