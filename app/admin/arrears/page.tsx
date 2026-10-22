@@ -3,6 +3,7 @@
 // Arrears tracker — who owes rent, how much, since when, and whether it has reached the 3-month threshold.
 import { Fragment, useEffect, useState } from 'react'
 import RentSortOut from '@/components/RentSortOut'
+import RentTimingPanel from './RentTimingPanel'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
@@ -78,6 +79,7 @@ export default function ArrearsPage() {
         ]}
         tabs={financeTabs('arrears')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
+        <RentTimingPanel />
         {totals.legal > 0 && (
           <p className="rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-900">
             {totals.legal} tenanc{totals.legal === 1 ? 'y owes' : 'ies owe'} at least three months’ rent — the level at which Ground 8 possession can be sought.
