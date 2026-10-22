@@ -5,12 +5,14 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod/v4'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
+import { FEES } from '@/lib/invoices/fees'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export const InvoiceDraftSchema = z.object({
   title: z.string().describe('Short line under "Invoice", e.g. "Rent collection services — October 2026" or "Lettings fee"'),
   property_address: z.string().describe('The property the work relates to, if the instruction names one; otherwise ""'),
+  period: z.string().describe('The period the charges cover, if given, e.g. "October 2026" or "1 Sept – 31 Oct 2026"; otherwise ""'),
   items: z.array(z.object({
     description: z.string().describe('What is being charged, e.g. "Tenant find fee"'),
     detail: z.string().describe('Optional extra detail, e.g. "Room 3 — Jane Smith"; "" if none'),
@@ -32,12 +34,18 @@ Rules
 - Write descriptions in plain British English, in sentence case, e.g. "Rent collection and client account administration".
 - Today is ${today}.`
 
+const KIND_RULES: Record<string, string> = {
+  management: `This is a MANAGEMENT INVOICE: our management fees for a period. Put the period in "period". Use one line per property (or per room, if the instruction lists rooms), e.g. description "Management fee — 12 Saltwell Street", detail "12% of £4,500 rent collected"; work out a percentage fee only when both the rate and the rent are given, otherwise leave the price null.`,
+  setup: `This is a TENANCY SET-UP INVOICE: the work of setting up a new tenancy. Our standard charges, to use when the instruction names the item without a price: ${Object.values(FEES).map(f => `${f.label} £${f.amount}`).join('; ')}. Put the room and tenant in the detail, e.g. "Room 3 — Mr John Smith".`,
+}
+
 export async function draftInvoice(input: {
   instructions: string
   recipient: { name?: string; role?: string }
   company: string
   current?: { title: string; items: { description: string; detail?: string; qty: number; unitPrice: number | null }[] } | null
   changes?: string
+  kind?: 'general' | 'management' | 'setup'
 }): Promise<{ draft: InvoiceDraft } | { failed: 'refusal' | 'max_tokens' | 'unparsed' }> {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
   const request = [
@@ -55,7 +63,7 @@ export async function draftInvoice(input: {
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
     output_config: { effort: 'low', format: betaZodOutputFormat(InvoiceDraftSchema) },
-    system: SYSTEM(input.company, today),
+    system: SYSTEM(input.company, today) + (input.kind && KIND_RULES[input.kind] ? `\n\n${KIND_RULES[input.kind]}` : ''),
     messages: [{ role: 'user', content: request }],
   })
   if (res.stop_reason === 'refusal') return { failed: 'refusal' }

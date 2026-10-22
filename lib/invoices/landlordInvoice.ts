@@ -13,6 +13,16 @@ export interface LandlordInvoiceInput {
   title?: string
   items: InvoiceItem[]
   biz: PDFBizSettings
+  /** management = our fees for a period; setup = setting up a tenancy (agreement, referencing …) */
+  kind?: InvoiceKind
+  /** management invoices: the period covered, e.g. "October 2026" */
+  period?: string
+}
+export type InvoiceKind = 'general' | 'management' | 'setup'
+export const INVOICE_KINDS: Record<InvoiceKind, { label: string; title: string }> = {
+  general: { label: 'Invoice', title: 'Tenancy services' },
+  management: { label: 'Management invoice', title: 'Management fees' },
+  setup: { label: 'Tenancy set-up invoice', title: 'Tenancy set-up' },
 }
 
 const longDate = (d: Date) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -24,7 +34,8 @@ export async function generateLandlordInvoice(input: LandlordInvoiceInput): Prom
   return renderInvoiceStyleDocument({
     pdfTitle: `Invoice ${input.invoiceNumber}`,
     docTitle: 'Invoice',
-    subtitle: input.title ?? 'Tenancy services',
+    subtitle: input.title ?? INVOICE_KINDS[input.kind ?? 'general'].title,
+    chips: [input.kind && input.kind !== 'general' ? INVOICE_KINDS[input.kind].label : '', input.period ? `Period ${input.period}` : '', `${input.items.length} item${input.items.length === 1 ? '' : 's'}`].filter(Boolean),
     recipientName: input.landlordName,
     addressLines: input.addressLines,
     propertyLine: input.propertyAddress,

@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
         instructions, company: biz.company_name,
         recipient: { name: b.recipient?.name, role: b.recipient?.role },
         current: b.current ?? null, changes: String(b.changes ?? '').trim(),
+        kind: ['management', 'setup'].includes(b.kind) ? b.kind : 'general',
       })
       if ('failed' in out) return NextResponse.json({ error: FAILED[out.failed] }, { status: 422 })
       const d = out.draft
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
         invoice: {
           title: d.title,
           propertyAddress: d.property_address,
+          period: d.period,
           items: d.items.map(i => ({ description: i.description, detail: i.detail, qty: i.qty > 0 ? i.qty : 1, unitPrice: i.unit_price })),
         },
         missing: d.missing,

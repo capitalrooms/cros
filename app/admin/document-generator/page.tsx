@@ -167,6 +167,9 @@ export default function DocumentGenerator() {
   const [docType, setDocType] = useState<DocType>(() =>
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'invoice' ? 'invoice' : 'letter')
   const [invoice, setInvoice] = useState<DocInvoice | null>(null)
+  // what kind of invoice (22 Oct 2026): our standard, management fees for a period, or setting up a tenancy
+  const [invoiceKind, setInvoiceKind] = useState<'general' | 'management' | 'setup'>(() =>
+    typeof window !== 'undefined' && ['management', 'setup'].includes(new URLSearchParams(window.location.search).get('kind') ?? '') ? new URLSearchParams(window.location.search).get('kind') as 'management' | 'setup' : 'general')
   const [properties, setProperties] = useState<PropertyOption[]>([])
   const [numberAuto, setNumberAuto] = useState(true)      // number follows date + property until edited by hand
   const [savedId, setSavedId] = useState<string | null>(null)
@@ -380,7 +383,7 @@ export default function DocumentGenerator() {
       const res = await adminFetch('/api/admin/document-generator/invoice', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'draft', instructions,
+          action: 'draft', instructions, kind: invoiceKind,
           recipient: { name: recipient.name, role: ROLE_LABEL[recipient.role]?.toLowerCase() ?? '' },
           ...(redraft && invoice ? { current: { title: invoice.title, items: invoice.items }, changes } : {}),
         }),
@@ -401,6 +404,8 @@ export default function DocumentGenerator() {
         invoiceDate: prev && redraft ? prev.invoiceDate : today,
         title: d.invoice.title,
         items: d.invoice.items,
+        kind: invoiceKind,
+        period: d.invoice.period || (redraft ? prev?.period : '') || '',
       }))
       setMissing(d.missing ?? [])
       if (!redraft) { setTo(recipient.email); setEmailSubject(`Invoice ${number} from Capital Rooms`) }
@@ -657,6 +662,15 @@ export default function DocumentGenerator() {
               </div>
               {docType === 'invoice' ? (
                 <>
+                  <div className="mb-md grid gap-xs sm:grid-cols-3">
+                    {([['general', 'Invoice', 'Anything we charge for'], ['management', 'Management invoice', 'Our fees for a period, house by house'], ['setup', 'Tenancy set-up invoice', 'Agreement, referencing, guarantor — our standard fees']] as const).map(([k, l, h]) => (
+                      <button key={k} type="button" onClick={() => setInvoiceKind(k)}
+                        className={`rounded-xl border p-sm text-left ${invoiceKind === k ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400'}`}>
+                        <span className="block text-sm font-bold">{l}</span>
+                        <span className={`block text-[11px] ${invoiceKind === k ? 'text-neutral-300' : 'text-neutral-500'}`}>{h}</span>
+                      </button>
+                    ))}
+                  </div>
                   <h2 className="font-semibold text-neutral-900 mb-sm">What is the invoice for?</h2>
                   <p className="text-sm text-neutral-500 mb-md">
                     Say what to charge in your own words — the items, amounts and quantities, and the property if it relates to one.
@@ -665,7 +679,11 @@ export default function DocumentGenerator() {
                   </p>
                   <textarea
                     className="w-full h-44 rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm text-sm text-neutral-900 resize-y focus:outline-none focus:ring-2 focus:ring-neutral-400"
-                    placeholder={'e.g. Rent collection for October at 4 Willis Road, 12 St David\'s and 34 Bow Road — £450 for all three.\nPlus an extra property visit on 12 October, £50.'}
+                    placeholder={invoiceKind === 'management'
+                      ? 'e.g. Management for October 2026 — 12% of rent collected:\n4 Willis Road £4,500, 12 St David\'s £3,900, 34 Bow Road £2,750'
+                      : invoiceKind === 'setup'
+                        ? 'e.g. New tenancy at 12 Saltwell Street, Room 3 — Mr John Smith: agreement, referencing, and his guarantor added and referenced'
+                        : 'e.g. Rent collection for October at 4 Willis Road, 12 St David\'s and 34 Bow Road — £450 for all three.\nPlus an extra property visit on 12 October, £50.'}
                     value={instructions} onChange={e => setInstructions(e.target.value)} />
                   <div className="flex items-center justify-between mt-md gap-md">
                     <p className="text-xs text-neutral-400">{recipient.name ? `To ${recipient.name}` : 'Choose who it is to above (you can also add them later).'}</p>
@@ -751,6 +769,10 @@ export default function DocumentGenerator() {
                   <div>
                     <label className={label}>Title</label>
                     <input className={input} value={invoice.title} onChange={e => updateInvoice({ title: e.target.value })} />
+                    {invoice.kind === 'management' && <>
+                      <label className={`${label} mt-md`}>Period covered</label>
+                      <input className={input} value={invoice.period ?? ''} placeholder="e.g. October 2026" onChange={e => updateInvoice({ period: e.target.value })} />
+                    </>}
                   </div>
                   <div>
                     <label className={label}>Property (optional)</label>

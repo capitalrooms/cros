@@ -1,9 +1,9 @@
-// The Capital Rooms money-document layout (the standard, agreed Sep 2026): letterhead with logo top right
-// and black accreditation footer; recipient top left; big title with a reference/date panel; black-header
-// table with zebra rows; black total box; grey "How to pay" box. Used by the landlord invoice and the
-// check-in balance demand — every money document should render through here so they all match.
+// The Capital Rooms money-document layout — invoices, the check-in balance, the annual summary. 22 Oct 2026: redrawn in
+// the landlord statement's look (lib/statements/modernPdf; Harry: "the statement style invoice we use for landlord …
+// would look the best"): letterhead, a small label line, the subject big, chips, one big dark figure, a clean table,
+// a "How to pay" tile. Every money document renders through here so they all match.
 import {
-  loadPDFLetterheadAssets, drawPDFFooter, PAGE_W, PAGE_H, MARGIN, FOOTER_BAND_H, LOGO_W, LOGO_H, BLACK, GREY,
+  loadPDFLetterheadAssets, drawPDFFooter, PAGE_W, PAGE_H, MARGIN, FOOTER_BAND_H, LOGO_W, LOGO_H,
   type PDFBizSettings,
 } from '@/lib/pdfLetterhead'
 
@@ -35,15 +35,20 @@ export interface InvoiceStyleDocument {
   pay: { title?: string; rows: [string, string][]; note?: string }
   continuedRef: string                // shown on continuation pages
   biz: PDFBizSettings
+  /** small rounded labels under the heading, e.g. "Period October 2026" */
+  chips?: string[]
+  /** one line beside the big figure, e.g. "Pay by 5 November 2026" */
+  heroNote?: string[]
 }
 
+const INK = '#141414', MUTED = '#6B6B6B', LINE = '#E4E2DE', TILE = '#F4F3F0'
 const COL_W = PAGE_W - MARGIN * 2
-const BOTTOM = PAGE_H - FOOTER_BAND_H - 16
+const BOTTOM = PAGE_H - FOOTER_BAND_H - 36
 export const money = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export async function renderInvoiceStyleDocument(d: InvoiceStyleDocument): Promise<Buffer> {
   const assets = loadPDFLetterheadAssets()
-  const doc = new PDFDocument({ size: 'A4', margins: { top: MARGIN, bottom: 0, left: MARGIN, right: MARGIN }, info: { Title: d.pdfTitle, Author: d.biz.company_name } })
+  const doc = new PDFDocument({ size: 'A4', bufferPages: true, margins: { top: MARGIN, bottom: 0, left: MARGIN, right: MARGIN }, info: { Title: d.pdfTitle, Author: d.biz.company_name } })
   const chunks: Buffer[] = []
   doc.on('data', (c: Buffer) => chunks.push(c))
   const done = new Promise<Buffer>((res, rej) => { doc.on('end', () => res(Buffer.concat(chunks))); doc.on('error', rej) })
@@ -54,102 +59,121 @@ export async function renderInvoiceStyleDocument(d: InvoiceStyleDocument): Promi
     if (logo) doc.image(logo as never, PAGE_W - MARGIN - LOGO_W, MARGIN, { width: LOGO_W, height: LOGO_H })
     drawPDFFooter(doc, footer, d.biz, R)
   }
+  const newPage = () => { doc.addPage(); decorate(); y = MARGIN + LOGO_H + 20 }
   decorate()
 
-  // ── Recipient (parallel to the logo) ─────────────────────────────────
-  let y = MARGIN + 2
-  doc.font(B).fontSize(9.5).fillColor(BLACK).text(d.recipientName, MARGIN, y, { width: COL_W - LOGO_W - 20 })
-  y = doc.y + 1
-  for (const line of d.addressLines.filter(Boolean)) {
-    doc.font(R).fontSize(9).fillColor(BLACK).text(line, MARGIN, y, { width: COL_W - LOGO_W - 20 })
-    y = doc.y
+  // ── Heading: what it is, what it's about ─────────────────────────────
+  const headW = COL_W - LOGO_W - 30
+  let y = MARGIN + 4
+  const ref = d.meta.find(([k]) => /number|reference/i.test(k))?.[1]
+  doc.font(B).fontSize(8.5).fillColor(MUTED).text(`${d.docTitle.toUpperCase()}${ref ? `  ·  ${ref}` : ''}`, MARGIN, y, { characterSpacing: 1.2, width: headW })
+  y = doc.y + 6
+  // a short subtitle ("Management fees — October 2026") is the heading; a long one sits under the document's name
+  const big = d.subtitle && d.subtitle.length <= 48 ? d.subtitle : d.docTitle
+  doc.font(B).fontSize(22).fillColor(INK).text(big, MARGIN, y, { width: headW })
+  y = doc.y + 2
+  for (const line of [big === d.subtitle ? '' : d.subtitle, d.propertyLine].filter(Boolean) as string[]) {
+    doc.font(R).fontSize(11).fillColor(INK).text(line, MARGIN, y, { width: headW }); y = doc.y + 2
   }
-  y = Math.max(y + 24, MARGIN + LOGO_H + 24)
+  y += 6
+  let cx = MARGIN
+  for (const c of d.chips ?? []) {
+    doc.font(B).fontSize(8)
+    const w = doc.widthOfString(c) + 14
+    if (cx + w > MARGIN + headW) { cx = MARGIN; y += 22 }
+    doc.save().roundedRect(cx, y, w, 16, 8).fill(TILE).restore()
+    doc.font(B).fontSize(8).fillColor(INK).text(c, cx + 7, y + 4.5, { lineBreak: false })
+    cx += w + 6
+  }
+  if (d.chips?.length) y += 24
+  y += 4
+  // who it's to
+  doc.font(B).fontSize(9).fillColor(INK).text(d.recipientName, MARGIN, y, { width: 260 })
+  doc.font(R).fontSize(9).fillColor(MUTED).text(d.addressLines.filter(Boolean).join('\n'), MARGIN, doc.y + 1, { width: 260, lineGap: 1 })
+  y = doc.y
+  // meta, right, under the logo
+  const metaX = PAGE_W - MARGIN - 200
+  let my = MARGIN + LOGO_H + 16
+  for (const [k, v] of d.meta) {
+    doc.font(R).fontSize(8.5).fillColor(MUTED).text(k, metaX, my, { width: 90 })
+    doc.font(B).fontSize(8.5).fillColor(INK).text(v, metaX + 90, my, { width: 110, align: 'right' })
+    my += 13
+  }
+  y = Math.max(y, my) + 16
 
-  // ── Title + meta ──────────────────────────────────────────────────────
-  doc.font(B).fontSize(20).fillColor(BLACK).text(d.docTitle, MARGIN, y, { width: COL_W * 0.55 })
-  let ty = doc.y + 2
-  if (d.subtitle) { doc.font(R).fontSize(9.5).fillColor(GREY).text(d.subtitle, MARGIN, ty, { width: COL_W * 0.55 }); ty = doc.y + 2 }
-  if (d.propertyLine) { doc.font(B).fontSize(9.5).fillColor(BLACK).text(d.propertyLine, MARGIN, ty, { width: COL_W * 0.55 }); ty = doc.y }
-
-  const metaX = MARGIN + COL_W * 0.6, metaW = COL_W * 0.4
-  d.meta.forEach(([k, v], i) => {
-    doc.font(R).fontSize(8.5).fillColor(GREY).text(k, metaX, y + 4 + i * 16, { width: metaW * 0.45 })
-    doc.font(B).fontSize(8.5).fillColor(BLACK).text(v, metaX + metaW * 0.45, y + 4 + i * 16, { width: metaW * 0.55, align: 'right' })
-  })
-  y = Math.max(ty, y + 4 + d.meta.length * 16) + 18
+  // ── Hero: the one figure ─────────────────────────────────────────────
+  const heroH = 74
+  doc.save().roundedRect(MARGIN, y, COL_W, heroH, 10).fill(INK).restore()
+  doc.font(R).fontSize(9.5).fillColor('#BDBDBD').text(d.totalLabel, MARGIN + 20, y + 15)
+  doc.font(B).fontSize(28).fillColor('#FFFFFF').text(money(d.total), MARGIN + 20, y + 29)
+  const due = d.meta.find(([k]) => /due|pay by/i.test(k))?.[1]
+  const note = d.heroNote ?? [due ? `Pay by ${due}` : '', ref ? `Reference ${ref}` : ''].filter(Boolean)
+  doc.font(R).fontSize(9).fillColor('#E6E6E6').text(note.join('\n'), MARGIN + COL_W - 240, y + 22, { width: 220, align: 'right', lineGap: 3 })
+  y += heroH + 22
 
   // ── Table ─────────────────────────────────────────────────────────────
   const qtyCols = d.columns === 'qty'
-  const descW = qtyCols ? COL_W * 0.58 : COL_W * 0.7
-  const cQty = MARGIN + COL_W * 0.62, cUnit = MARGIN + COL_W * 0.72, cAmt = MARGIN + COL_W * 0.86
-  const wQty = COL_W * 0.1, wUnit = COL_W * 0.14, wAmt = COL_W * 0.14
-  const tableHeader = () => {
-    doc.save().rect(MARGIN, y, COL_W, 22).fill('#1a1a1a').restore()
-    doc.font(B).fontSize(8.5).fillColor('#ffffff')
-    doc.text('DESCRIPTION', MARGIN + 10, y + 7, { characterSpacing: 0.4 })
-    if (qtyCols) {
-      doc.text('QTY', cQty, y + 7, { width: wQty, align: 'center', characterSpacing: 0.4 })
-      doc.text('UNIT PRICE', cUnit, y + 7, { width: wUnit, align: 'right', characterSpacing: 0.4 })
-    }
-    doc.text('AMOUNT', cAmt, y + 7, { width: wAmt - 10, align: 'right', characterSpacing: 0.4 })
-    y += 22
+  const cols: { label: string; w: number; align: 'left' | 'right' }[] = qtyCols
+    ? [{ label: 'Description', w: COL_W - 220, align: 'left' }, { label: 'Qty', w: 50, align: 'right' }, { label: 'Unit price', w: 82, align: 'right' }, { label: 'Amount', w: 88, align: 'right' }]
+    : [{ label: 'Description', w: COL_W - 110, align: 'left' }, { label: 'Amount', w: 110, align: 'right' }]
+  const xs = cols.map((_, i) => MARGIN + cols.slice(0, i).reduce((t, c) => t + c.w, 0))
+  const head = () => {
+    cols.forEach((c, i) => doc.font(B).fontSize(8).fillColor(MUTED).text(c.label.toUpperCase(), xs[i] + 6, y, { width: c.w - 12, align: c.align, characterSpacing: 0.6 }))
+    y += 14; doc.save().moveTo(MARGIN, y).lineTo(MARGIN + COL_W, y).lineWidth(0.8).strokeColor(INK).stroke().restore(); y += 6
   }
-  const newPage = () => { doc.addPage(); decorate(); y = MARGIN + LOGO_H + 20 }
-  tableHeader()
-
-  const payH = Math.max(d.pay.rows.length * 14 + 44, 100)
-  let zebra = 0
+  head()
+  const payH = Math.max(d.pay.rows.length * 14 + 44, 96)
   d.lines.forEach((it, i) => {
     const sub = it.kind === 'subtotal', less = it.kind === 'less'
-    doc.font(B).fontSize(9)
-    const hDesc = doc.heightOfString(it.description, { width: descW })
+    doc.font(B).fontSize(9.5)
+    const hDesc = doc.heightOfString(it.description, { width: cols[0].w - 12 })
     doc.font(R).fontSize(8.5)
-    const hDetail = it.detail ? doc.heightOfString(it.detail, { width: descW }) + 2 : 0
-    const h = Math.max(hDesc + hDetail, 12) + 14
-    // the last line carries the total + payment box with it, so they never sit alone on a page
-    const need = i === d.lines.length - 1 ? h + 64 + payH : h
+    const hDetail = it.detail ? doc.heightOfString(it.detail, { width: cols[0].w - 12 }) + 2 : 0
+    const h = hDesc + hDetail + 10
+    // the last line carries the total and the payment tile with it, so they never sit alone on a page
+    const need = i === d.lines.length - 1 ? h + 40 + payH : h
     if (y + need > BOTTOM) {
       newPage()
-      doc.font(R).fontSize(8.5).fillColor(GREY).text(`${d.docTitle} ${d.continuedRef} — continued`, MARGIN, y - 14)
-      tableHeader()
+      doc.font(R).fontSize(8.5).fillColor(MUTED).text(`${d.docTitle} ${d.continuedRef} — continued`, MARGIN, y - 14)
+      head()
     }
-    if (sub) doc.save().strokeColor('#1a1a1a').lineWidth(0.8).moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).stroke().restore()
-    else if (zebra++ % 2 === 1) doc.save().rect(MARGIN, y, COL_W, h).fill('#f6f6f6').restore()
-    doc.font(sub ? B : less ? R : B).fontSize(9).fillColor(less ? GREY : BLACK).text(it.description, MARGIN + 10, y + 7, { width: descW })
-    if (it.detail) doc.font(R).fontSize(8.5).fillColor(GREY).text(it.detail, MARGIN + 10, y + 7 + hDesc + 2, { width: descW })
-    doc.font(sub ? B : R).fontSize(9).fillColor(less ? GREY : BLACK)
+    if (sub) doc.save().moveTo(MARGIN, y).lineTo(MARGIN + COL_W, y).lineWidth(0.8).strokeColor(INK).stroke().restore()
+    doc.font(sub ? B : R).fontSize(9.5).fillColor(less ? MUTED : INK).text(it.description, xs[0] + 6, y + 4, { width: cols[0].w - 12 })
+    if (it.detail) doc.font(R).fontSize(8.5).fillColor(MUTED).text(it.detail, xs[0] + 6, y + 4 + hDesc + 2, { width: cols[0].w - 12 })
+    doc.font(sub ? B : R).fontSize(9.5).fillColor(less ? MUTED : INK)
+    const last = cols.length - 1
     if (qtyCols && !sub && !less) {
-      doc.text(String(it.qty ?? 1), cQty, y + 7, { width: wQty, align: 'center' })
-      doc.text(money(it.unitPrice ?? it.amount), cUnit, y + 7, { width: wUnit, align: 'right' })
+      doc.text(String(it.qty ?? 1), xs[1] + 6, y + 4, { width: cols[1].w - 12, align: 'right' })
+      doc.text(money(it.unitPrice ?? it.amount), xs[2] + 6, y + 4, { width: cols[2].w - 12, align: 'right' })
     }
-    doc.text(less ? `(${money(Math.abs(it.amount))})` : money(it.amount), cAmt, y + 7, { width: wAmt - 10, align: 'right' })
+    doc.text(less ? `(${money(Math.abs(it.amount))})` : money(it.amount), xs[last] + 6, y + 4, { width: cols[last].w - 12, align: 'right' })
     y += h
+    doc.save().moveTo(MARGIN, y).lineTo(MARGIN + COL_W, y).lineWidth(0.5).strokeColor(LINE).stroke().restore()
   })
-  doc.save().strokeColor('#d0d0d0').lineWidth(0.5).moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y).stroke().restore()
-
-  // ── Total ─────────────────────────────────────────────────────────────
-  if (y + 12 + 30 > BOTTOM) newPage()
-  y += 12
-  const totW = COL_W * 0.42, totX = PAGE_W - MARGIN - totW
-  doc.save().rect(totX, y, totW, 30).fill('#1a1a1a').restore()
-  doc.font(B).fontSize(10).fillColor('#ffffff').text(d.totalLabel, totX + 12, y + 10)
-  doc.font(B).fontSize(12).fillColor('#ffffff').text(money(d.total), totX, y + 8.5, { width: totW - 12, align: 'right' })
-  y += 52
+  // total row
+  if (y + 30 > BOTTOM) newPage()
+  doc.font(B).fontSize(10.5).fillColor(INK).text(d.totalLabel, xs[0] + 6, y + 8, { width: cols[0].w - 12 })
+  doc.font(B).fontSize(10.5).fillColor(INK).text(money(d.total), MARGIN, y + 8, { width: COL_W - 6, align: 'right' })
+  y += 28
+  doc.save().moveTo(MARGIN, y).lineTo(MARGIN + COL_W, y).lineWidth(0.8).strokeColor(INK).stroke().restore()
+  y += 18
 
   // ── How to pay ────────────────────────────────────────────────────────
   if (y + payH > BOTTOM) newPage()
-  doc.save().roundedRect(MARGIN, y, COL_W, payH, 4).fill('#f3f3f3').restore()
-  doc.font(B).fontSize(9.5).fillColor(BLACK).text(d.pay.title ?? 'How to pay', MARGIN + 14, y + 12)
+  doc.save().roundedRect(MARGIN, y, COL_W, payH, 8).fill(TILE).restore()
+  doc.font(B).fontSize(11).fillColor(INK).text(d.pay.title ?? 'How to pay', MARGIN + 16, y + 13)
   d.pay.rows.forEach(([k, v], i) => {
-    doc.font(R).fontSize(9).fillColor(GREY).text(k, MARGIN + 14, y + 32 + i * 14, { width: 110 })
-    // wide enough for an IBAN on one line (it used to wrap onto the SWIFT row)
-    doc.font(B).fontSize(9).fillColor(BLACK).text(v, MARGIN + 124, y + 32 + i * 14, { width: COL_W * 0.58 - 124, lineBreak: false })
+    doc.font(R).fontSize(9).fillColor(MUTED).text(k, MARGIN + 16, y + 34 + i * 14, { width: 110 })
+    // wide enough for an IBAN on one line
+    doc.font(B).fontSize(9).fillColor(INK).text(v, MARGIN + 126, y + 34 + i * 14, { width: COL_W * 0.58 - 126, lineBreak: false })
   })
-  if (d.pay.note) {
-    doc.font(R).fontSize(8.5).fillColor(GREY).text(d.pay.note, MARGIN + COL_W * 0.6, y + 32, { width: COL_W * 0.37, lineGap: 2 })
-  }
+  if (d.pay.note) doc.font(R).fontSize(8.5).fillColor(MUTED).text(d.pay.note, MARGIN + COL_W * 0.6, y + 34, { width: COL_W * 0.37, lineGap: 2 })
 
+  const range = doc.bufferedPageRange()
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(range.start + i)
+    doc.font(R).fontSize(7.5).fillColor(MUTED).text(`${d.docTitle}${d.continuedRef ? ` ${d.continuedRef}` : ''} · page ${i + 1} of ${range.count}`, MARGIN, PAGE_H - FOOTER_BAND_H - 16, { width: COL_W, align: 'right', lineBreak: false })
+  }
   doc.end()
   return done
 }
