@@ -14,6 +14,7 @@ import type { FormalLetter } from '@/lib/letters/formalLetter'
 import { invoiceNumberFor, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
 import SavedDocuments from './SavedDocuments'
 import AddressField from '@/app/components/AddressField'
+import { READY_LETTERS, fillLetter, type LetterFacts } from '@/lib/letters/readyLetters'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,62 @@ function GapFill({ gap, onFill }: { gap: string; onFill: (v: string) => void }) 
   )
 }
 
+// ─── Ready-made letters ───────────────────────────────────────────────────────
+
+function ReadyLetterPicker({ query, setQuery, saved, setupNeeded, forTenancy, onUse, onRemove }: {
+  query: string; setQuery: (v: string) => void
+  saved: { id: string; name: string; audience: string; subject: string; body: string; closing: string }[]; setupNeeded: boolean; forTenancy: boolean
+  onUse: (t: { subject: string; body: string; closing: string }) => void; onRemove: (id: string, name: string) => void
+}) {
+  const [open, setOpen] = useState(forTenancy)
+  const q = query.trim().toLowerCase()
+  const hit = (name: string, subject: string) => !q || name.toLowerCase().includes(q) || subject.toLowerCase().includes(q)
+  const groups = [...new Set(READY_LETTERS.map(l => l.group))]
+  const mine = saved.filter(t => hit(t.name, t.subject)).sort((a, b) => a.name.localeCompare(b.name))
+  const AUD: Record<string, string> = { tenant: 'Tenant', landlord: 'Landlord', contractor: 'Contractor', anyone: 'Anyone' }
+  return (
+    <div className="mb-lg rounded-xl border border-neutral-200 bg-neutral-50 p-md">
+      <button type="button" onClick={() => setOpen(o => !o)} className="flex w-full items-center justify-between text-left">
+        <span><span className="font-semibold text-neutral-900">Start from a ready letter</span> <span className="text-xs text-neutral-500">— {READY_LETTERS.length} common letters{saved.length ? ` and ${saved.length} of yours` : ''}{forTenancy ? ', filled in from this tenancy' : ''}</span></span>
+        <span className="text-sm text-neutral-500">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="mt-md space-y-md">
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search letters…" className={input} />
+          {(mine.length > 0 || setupNeeded) && (
+            <div>
+              <p className={label}>Your templates</p>
+              {setupNeeded ? <p className="text-xs text-amber-800">Saving your own templates needs migration 238 running in Supabase.</p> : (
+                <div className="grid gap-xs sm:grid-cols-2">
+                  {mine.map(t => (
+                    <div key={t.id} className="flex items-center gap-xs rounded-lg border border-neutral-200 bg-white px-sm py-xs">
+                      <button type="button" onClick={() => onUse(t)} className="min-w-0 flex-1 text-left text-sm"><span className="font-semibold text-neutral-900">{t.name}</span> <span className="text-xs text-neutral-400">{AUD[t.audience] ?? t.audience}</span></button>
+                      <button type="button" onClick={() => onRemove(t.id, t.name)} aria-label={`Remove ${t.name}`} className="px-xs text-neutral-400 hover:text-red-700">×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {groups.map(g => {
+            const items = READY_LETTERS.filter(l => l.group === g && hit(l.name, l.subject))
+            return items.length ? (
+              <div key={g}>
+                <p className={label}>{g}</p>
+                <div className="grid gap-xs sm:grid-cols-2">
+                  {items.map(l => (
+                    <button key={l.id} type="button" onClick={() => onUse(l)} className="rounded-lg border border-neutral-200 bg-white px-sm py-xs text-left text-sm font-semibold text-neutral-900 hover:border-neutral-400">{l.name}</button>
+                  ))}
+                </div>
+              </div>
+            ) : null
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DocumentGenerator() {
@@ -123,6 +180,12 @@ export default function DocumentGenerator() {
     return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null
   })
   const [forTenancy, setForTenancy] = useState('')
+  const [facts, setFacts] = useState<LetterFacts>({})
+  // ready-made letters and the ones you've saved as templates (migration 238)
+  const [saved, setSaved] = useState<{ id: string; name: string; audience: string; subject: string; body: string; closing: string }[]>([])
+  const [templatesSetup, setTemplatesSetup] = useState(false)
+  const [templateQuery, setTemplateQuery] = useState('')
+  const [templating, setTemplating] = useState(false)
 
   // Step 1
   const [recipient, setRecipient] = useState<Recipient>(EMPTY_RECIPIENT)
@@ -157,12 +220,24 @@ export default function DocumentGenerator() {
       .then(({ data }) => {
         setPeople((data as Person[]) || [])
         if (!tenancyId) return
-        supabase.from('tenancies').select('person_id, rooms(name), properties(name)').eq('id', tenancyId).maybeSingle().then(({ data: t }) => {
-          const p = ((data as Person[]) || []).find(x => x.id === (t as any)?.person_id)
+        supabase.from('tenancies').select('person_id, start_date, end_date, rent_amount, rent_due_day, payment_reference, rooms(name), properties(name, address, postcode)').eq('id', tenancyId).maybeSingle().then(({ data: t }) => {
+          const tt = t as any
+          const p = ((data as Person[]) || []).find(x => x.id === tt?.person_id)
           if (p) pickPerson(p)
-          setForTenancy([(t as any)?.rooms?.name, (t as any)?.properties?.name].filter(Boolean).join(', '))
+          setForTenancy([tt?.rooms?.name, tt?.properties?.name].filter(Boolean).join(', '))
+          const day = (iso?: string | null) => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : undefined
+          const n = Number(tt?.rent_due_day) || 1
+          setFacts({
+            tenant: p ? formalName(p as any) : undefined, room: tt?.rooms?.name || undefined,
+            house: String(tt?.properties?.name ?? '').split('\n')[0] || undefined,
+            address: [String(tt?.properties?.name ?? '').split('\n')[0], tt?.properties?.address, tt?.properties?.postcode].filter(Boolean).join(', ').replace(/\n/g, ', ') || undefined,
+            rent: tt?.rent_amount ? money(Number(tt.rent_amount)) : undefined, payment_ref: tt?.payment_reference || undefined,
+            start_date: day(tt?.start_date), end_date: day(tt?.end_date),
+            due_day: `${n}${[11, 12, 13].includes(n) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`,
+          })
         })
       })
+    loadTemplates()
     supabase.from('properties').select('id, name, address, property_code').order('name')
       .then(({ data }) => setProperties((data as PropertyOption[]) || []))
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -191,6 +266,51 @@ export default function DocumentGenerator() {
       address: address.split(/\n|,\s*/).map(s => s.trim()).filter(Boolean).join('\n'),
       email: [p.email, p.joint_email].filter(Boolean).join(', '),
     })
+  }
+
+  // ── Ready-made letters and saved templates ───────────────────────────────
+
+  async function loadTemplates() {
+    const r = await adminFetch('/api/admin/letter-templates').catch(() => null)
+    const d = r ? await r.json().catch(() => ({})) : {}
+    setSaved(d.templates ?? []); setTemplatesSetup(!!d.setupNeeded)
+  }
+  // a ready letter goes straight to the check screen: the tenancy's facts filled in, anything else left in [brackets]
+  function useTemplate(t: { subject: string; body: string; closing: string }) {
+    if ((letter || invoice) && !window.confirm('Start from this letter? The draft you have open now will be replaced.')) return
+    const f: LetterFacts = { ...facts, tenant: facts.tenant || recipient.name || undefined }
+    const l: FormalLetter = {
+      recipientName: recipient.name, recipientAddress: recipient.address, date: new Date().toISOString().slice(0, 10),
+      subject: fillLetter(t.subject, f), salutation: recipient.name ? `Dear ${dearFromText(recipient.name)}` : 'Dear [name]',
+      body: fillLetter(t.body, f), closing: t.closing,
+    }
+    setDocType('letter'); setInvoice(null); setLetter(l); setSavedId(null); setSaveNote(''); setMissing([]); setChanges(''); setSendResult(null)
+    setTo(recipient.email); setEmailSubject(l.subject)
+    setEmailMessage(`${l.salutation},\n\nPlease find attached our letter, “${l.subject}”.\n\nKind regards,`)
+    setStep('check')
+    for (const el of [document.querySelector('main'), window] as const) el?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  async function saveAsTemplate() {
+    if (!letter) return
+    setTemplating(true)
+    try {
+      const r = await adminFetch('/api/admin/letter-templates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ letter, documentId: savedId }) })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) { alert(d.error ?? 'Could not save it as a template'); return }
+      setSaveNote(`Saved as a template: “${d.template.name}”. It’s under Start from a ready letter.`); loadTemplates()
+    } finally { setTemplating(false) }
+  }
+  async function removeTemplate(id: string, name: string) {
+    if (!window.confirm(`Remove the template “${name}”?`)) return
+    await adminFetch(`/api/admin/letter-templates?id=${id}`, { method: 'DELETE' })
+    loadTemplates()
+  }
+  async function saveDraft() {
+    const r = await saveDoc('json')
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) { alert(d.error ?? 'Could not save the draft'); return }
+    if (d.doc?.id) setSavedId(d.doc.id)
+    setSaveNote('Draft saved — it’s in Your letters & invoices below (Not emailed). Press Edit there to carry on.'); setRefreshKey(k => k + 1)
   }
 
   // ── Drafting ──────────────────────────────────────────────────────────────
@@ -564,7 +684,9 @@ export default function DocumentGenerator() {
                   </button>
                 ))}
               </div>
-              <h2 className="font-semibold text-neutral-900 mb-sm">What do you want to say?</h2>
+              <ReadyLetterPicker query={templateQuery} setQuery={setTemplateQuery} saved={saved} setupNeeded={templatesSetup}
+                forTenancy={!!tenancyId} onUse={useTemplate} onRemove={removeTemplate} />
+              <h2 className="font-semibold text-neutral-900 mb-sm">Or say what you want in your own words</h2>
               <p className="text-sm text-neutral-500 mb-md">
                 Write it in your own words — notes, bullet points or a pasted email are fine. Include the facts that matter
                 (amounts, dates, what you need from them). The assistant writes it up as a formal letter on our letterhead, signed by you.
@@ -760,10 +882,14 @@ export default function DocumentGenerator() {
               <div className="bg-white rounded-xl border border-neutral-200 p-md flex flex-col">
                 <div className="flex items-center justify-between mb-sm">
                   <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Preview {previewing && <span className="font-normal normal-case text-neutral-400">· updating…</span>}</p>
-                  <button type="button" onClick={downloadPdf} disabled={downloading}
-                    className="rounded-lg bg-neutral-900 text-white px-md py-xs text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40">
-                    {downloading ? 'Creating…' : 'Download PDF'}
-                  </button>
+                  <span className="flex flex-wrap gap-xs">
+                    <button type="button" onClick={saveDraft} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50">Save draft</button>
+                    {docType === 'letter' && <button type="button" onClick={saveAsTemplate} disabled={templating} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40">{templating ? 'Saving…' : 'Save as a template'}</button>}
+                    <button type="button" onClick={downloadPdf} disabled={downloading}
+                      className="rounded-lg bg-neutral-900 text-white px-md py-xs text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40">
+                      {downloading ? 'Creating…' : 'Download PDF'}
+                    </button>
+                  </span>
                 </div>
                 {saveNote && <p className="text-xs text-green-700 mb-sm">{saveNote}</p>}
                 {previewErr && <p className="text-sm text-red-700 mb-sm">{previewErr}</p>}
