@@ -11,6 +11,7 @@ export type Purpose = 'compliance' | 'feedback' | 'guides' | 'hmo' | 'house' | '
 // alphabetical, "Something else" last
 export const PURPOSES: { key: Purpose; label: string; hint: string }[] = [
   { key: 'compliance', label: 'Compliance & safety', hint: 'Gas, electrics, fire alarms, inspections' },
+  { key: 'feedback', label: 'Feedback', hint: 'Ask how we’re doing' },
   { key: 'guides', label: 'Guides', hint: 'Send a guide again' },
   { key: 'hmo', label: 'HMO licence', hint: 'Applications, council visits, licence granted' },
   { key: 'house', label: 'House standards', hint: 'Shared spaces, bins, noise, cleaning' },
@@ -54,10 +55,15 @@ export const TENANT_MESSAGES: TenantMessage[] = [
     body: 'We’ll visit {house} on {date} {slot} for a routine check of the house. It helps us spot repairs early and keep the house in good order. This is your written notice of the visit (the law asks for at least 24 hours).\n\nYou don’t need to be in. If there’s anything you’d like us to look at, report it in the app before then.',
     fields: [date(), slot()] },
 
+  // ── feedback ──
+  { id: 'feedback', purpose: 'feedback', name: 'How are we doing?', subject: 'How are we doing at {house}?', link: '/tenant/feedback',
+    body: 'We’d love to know how living at {house} is going. It takes two minutes: score each part of the house from 1 to 5 – your room, the kitchen, bathroom, cleaning, repairs, how we keep in touch – and tell us how it could be better.\n\nTap Open to fill it in. Your answers go to the office only, never to your housemates or the landlord.',
+    fields: [] },
+
   // ── HMO licence ──
   { id: 'hmo-application', purpose: 'hmo', name: 'HMO licence application', subject: 'HMO licence application for {house}',
-    body: 'We’re applying to {council_name} for an HMO licence for {house}, on or before {submit_by}. The proposed licence holder is {holder_name}.\n\nYou don’t need to do anything. If you’d like to know more, ask us – or contact the council: {council_contact}.\n\nThe council may arrange to inspect the house as part of the application. We’ll always tell you beforehand.',
-    fields: [{ key: 'council_name', label: 'Council', type: 'text' }, date('submit_by', 'Applying on or before'), { key: 'holder_name', label: 'Proposed licence holder', type: 'text' }, { key: 'council_contact', label: 'Council’s contact details', type: 'longtext' }] },
+    body: 'We’re applying to {council_name} for an HMO licence for {house}, on or before {submit_by}. The landlord, {holder_name}, will hold the licence and Capital Rooms will carry on managing the house for them.\n\nYou don’t need to do anything. If you’d like to know more, ask us – or contact the council: {council_contact}.\n\nThe council may arrange to inspect the house as part of the application. We’ll always tell you beforehand.',
+    fields: [{ key: 'council_name', label: 'Council', type: 'text' }, date('submit_by', 'Applying on or before'), { key: 'holder_name', label: 'Landlord (licence holder)', type: 'text' }, { key: 'council_contact', label: 'Council’s contact details', type: 'longtext' }] },
   { id: 'council-inspection', purpose: 'hmo', name: 'Council inspection', subject: 'Council visit to {house} – {date}',
     body: 'An officer from {council_name} will visit {house} on {date} {slot} as part of the HMO licence. We’ll be there with them.\n\nThey may ask to see each room, including bedrooms, to check room sizes and fire safety. Please make sure the hallways and fire doors are clear. This is your written notice of the visit.',
     fields: [{ key: 'council_name', label: 'Council', type: 'text' }, date(), slot()] },
@@ -120,6 +126,9 @@ export const TENANT_MESSAGES: TenantMessage[] = [
     fields: [date(), slot()] },
 
   // ── viewings ──
+  { id: 'viewings-start', purpose: 'viewings', name: 'Viewings starting soon – how the house should look', subject: 'Viewings at {house} start {date}',
+    body: 'We’ll start showing {room} at {house} to people looking for a home from {date}. The people who view are choosing who they’ll live with – a clean, tidy house attracts clean, tidy housemates.\n\nHow we’d like each shared area to look:\n• Kitchen – worktops and hob wiped, sink empty, no dishes or food left out, bins not overflowing\n• Bathroom – wiped down, no toiletries or towels left on the floor, toilet clean\n• Hallway and stairs – clear of shoes, bags, bikes and post\n• Living room – tidy, nothing personal left behind\n\nPlease follow our leave-no-trace rule: once you’ve used a shared space, leave it as you found it. We’ll be asking everyone to confirm they’re keeping to this. Thank you!',
+    fields: [{ key: 'room', label: 'Which room', type: 'text', placeholder: 'Room 3' }, date('date', 'Viewings start')] },
   { id: 'viewings-soon', purpose: 'viewings', name: 'Viewings coming up', subject: 'Viewings at {house} – {date}',
     body: 'We’ll be showing {room} at {house} to people looking for a home on {date} {slot}. One of us will be with them the whole time.\n\nA tidy kitchen and hallway really help – thank you.',
     fields: [{ key: 'room', label: 'Which room', type: 'text', placeholder: 'Room 3' }, date(), slot()] },
