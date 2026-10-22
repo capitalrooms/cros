@@ -2,6 +2,7 @@
 // in the house style: which certificates were done, when each is next due, a link to each, sent to every
 // current tenant individually (so nobody sees anyone else's email address).
 import { signedLinkFor } from '@/lib/files/server'
+import { stableDocLink } from '@/lib/files/stableLink'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { tableRow } from '@/lib/emailWrapper'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
@@ -39,16 +40,16 @@ export async function loadHouse(s: SupabaseClient, propertyId: string) {
   const { data: prop } = await s.from('properties').select('*').eq('id', propertyId).maybeSingle()
   if (!prop) return null
   const [{ data: docs }, { data: lets }] = await Promise.all([
-    s.from('property_documents').select('document_type, storage_url, uploaded_at').eq('property_id', propertyId).order('uploaded_at', { ascending: false }),
+    s.from('property_documents').select('id, document_type, storage_url, uploaded_at').eq('property_id', propertyId).order('uploaded_at', { ascending: false }),
     s.from('tenancies').select('id, person_id, co_tenant_id, rooms(name), people!person_id(id, salutation, first_name, last_name, full_name, email), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name, email)')
       .eq('property_id', propertyId).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
   ])
   const sixtyDaysAgo = iso(new Date(Date.now() - 60 * 86_400_000))
-  // the folder is private: emailed certificate links are signed and last a year (a tenant may open them months later)
+  // the folder is private: emailed certificate links never expire — each click gets a fresh private link (lib/files/stableLink)
   const documents: HouseDoc[] = await Promise.all(HOUSE_DOCS.map(async d => {
     const doc = (docs ?? []).find((x: any) => d.types.includes(String(x.document_type)))
     return {
-      key: d.key, label: d.label, url: await signedLinkFor(doc?.storage_url, 365 * 86_400), uploadedAt: doc?.uploaded_at ?? null,
+      key: d.key, label: d.label, url: doc?.id && doc?.storage_url ? stableDocLink(doc.id) : await signedLinkFor(doc?.storage_url, 365 * 86_400), uploadedAt: doc?.uploaded_at ?? null,
       nextDue: nextDue(prop, d),
       recent: !!doc?.uploaded_at && String(doc.uploaded_at).slice(0, 10) >= sixtyDaysAgo,   // pre-ticked
     }

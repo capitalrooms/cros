@@ -923,6 +923,13 @@ export default function TenantDashboard() {
                 onToggle={() => toggleAcc('property')}
               >
                 <div className="space-y-sm">
+                  <Link href="/tenant/documents" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
+                    <div className="flex items-center gap-sm">
+                      <span className="text-xl">🗂️</span>
+                      <p className="text-sm font-bold text-neutral-900">Your documents</p>
+                    </div>
+                    <span className="text-neutral-400 text-base">›</span>
+                  </Link>
                   <Link href="/tenant/property-info" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
                       <span className="text-xl">📄</span>
