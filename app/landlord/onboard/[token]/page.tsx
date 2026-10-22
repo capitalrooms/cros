@@ -494,6 +494,8 @@ export default function LandlordOnboardPage() {
   const [reopenError, setReopenError] = useState('')
   const [landlordName, setLandlordName]       = useState('')
   const [agreementType, setAgreementType]     = useState<string | null>(null)
+  // updating an existing landlord's details: what we already hold (lib/landlordOnboarding/refresh)
+  const [previous, setPrevious] = useState<{ sentOn: string | null; documents: { type: string; label: string; files: number; read: string | null; status: 'confirm' | 'new_needed'; why: string }[] } | null>(null)
   const [agreementVersion, setAgreementVersion] = useState<string | null>(null)
   const [form, setForm]                       = useState<FormData>(blank())
   const [activeSection, setActiveSection]     = useState<SectionKey | null>(null)
@@ -542,6 +544,7 @@ export default function LandlordOnboardPage() {
         const nameParts = rawName.replace(SALUTATIONS, '').trim().split(/\s+/)
         setLandlordName(nameParts[0] || rawName)
         setAgreementType(d.row.agreement_type ?? null)
+        setPrevious(d.row.previous ?? null)
         setAgreementVersion(d.row.agreement_version ?? null)
         if (d.row.stage >= 3) { setAlreadySubmitted(true); setCanReopen(!!d.row.can_reopen); return }
 
@@ -829,7 +832,7 @@ export default function LandlordOnboardPage() {
         {/* Greeting — design "C": both lines on the left */}
         <section className="mx-auto max-w-6xl px-6 pt-10 md:px-14 md:pt-14">
           <h1 className="pub-serif pub-display pub-enter m-0">
-            <span className="pub-drift-l block">{saved.length > 0 ? 'Welcome back,' : 'Welcome,'}</span>
+            <span className="pub-drift-l block">{previous || saved.length > 0 ? 'Welcome back,' : 'Welcome,'}</span>
             <span className="pub-drift-r block italic">{properCase(firstName)}</span>
           </h1>
         </section>
@@ -842,7 +845,25 @@ export default function LandlordOnboardPage() {
           </div>
           <div className="flex flex-col gap-5 pb-2">
             {/* only when an agreement was actually sent with the form (Send welcome with agreement); the plain welcome pack has none */}
-            {agreementType ? (<>
+            {previous ? (<>
+              <p className="pub-eyebrow m-0">Updating your details</p>
+              <p className="pub-serif m-0 text-[26px] leading-snug md:text-[32px]">
+                Every so often we must check the details we hold for you are still right.
+              </p>
+              <p className="m-0 text-[15px] leading-relaxed" style={{ color: '#4A4741' }}>
+                We’ve filled in the form with what you told us{previous.sentOn ? ` on ${new Date(previous.sentOn).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ' last time'}. Go through each section, change anything that’s different — your home address especially, as it goes on your statements — and press save.
+              </p>
+              {previous.documents.length > 0 && (
+                <ul className="m-0 list-none space-y-2 p-0 text-[14px]" style={{ color: '#2B2925' }}>
+                  {previous.documents.map(d => (
+                    <li key={d.type} className="rounded-lg px-4 py-3" style={{ background: d.status === 'confirm' ? '#EEF3EC' : '#FBF1E4' }}>
+                      <strong>{d.status === 'confirm' ? '✓ ' : '↻ '}{d.label}</strong>{d.read ? ` — ${d.read}` : ''}<br />
+                      <span style={{ color: '#4A4741' }}>{d.why}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>) : agreementType ? (<>
               <p className="pub-eyebrow m-0">{agreementName}</p>
               <p className="pub-serif m-0 text-[26px] leading-snug md:text-[32px]">
                 Your {agreementType === 'rent_collection' ? (agreementVersion === 'letting' ? 'letting and rent collection' : 'rent collection') : 'management'} agreement has been sent to you by email as a PDF. Please review it before completing the sections below.

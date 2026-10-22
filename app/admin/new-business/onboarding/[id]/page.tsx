@@ -126,6 +126,15 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
     }), 'Confirmation and final agreement sent')
   }
 
+  async function acceptUpdate() {
+    const high = row?.form_data?.__decision?.risk_level === 'high'
+    if (high && !confirm('This client is HIGH risk. Confirm enhanced due diligence is complete and senior approval has been given.')) return
+    if (!confirm(`Accept this update? ${row.full_name}’s landlord record takes the details they confirmed (home address — used on their statements — and phone), and they get a short thank-you email.`)) return
+    await act('approve', () => adminFetch(`/api/landlord-onboarding/${id}/accept-update`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm_high: high }),
+    }), 'Update accepted — their record and statements now use these details')
+  }
+
   const card = 'bg-white rounded-2xl border border-neutral-200 p-lg'
   const h2 = 'text-sm font-bold text-neutral-900 mb-md'
   const lbl = 'block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs'
@@ -351,7 +360,17 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
                   ))}
                 </div>
               ) : <p className="text-sm text-green-700 mb-md">The landlord’s details match the agreement you sent.</p>)}
-              {hasSnapshot && (
+              {row.is_refresh && row.landlord_people_id && (
+                <div className="space-y-sm">
+                  <p className="text-sm text-neutral-700">This is an update from an existing landlord, so there’s no new agreement to send.</p>
+                  <button onClick={acceptUpdate} disabled={!!busy || !decision || row.stage < 3} className="w-full rounded-xl bg-green-700 text-white py-sm text-sm font-semibold hover:bg-green-800 disabled:opacity-40 disabled:cursor-not-allowed">
+                    {busy === 'approve' ? 'Saving…' : row.onboarded_at ? 'Accepted — accept again' : 'Accept the update'}
+                  </button>
+                  {!decision && <p className="text-xs text-neutral-400">Save your decision first.</p>}
+                  {row.onboarded_at && <p className="text-xs text-green-700">Accepted {fmt(row.onboarded_at)}.</p>}
+                </div>
+              )}
+              {hasSnapshot && !row.is_refresh && (
                 <div className="space-y-sm">
                   <button onClick={() => downloadPdf(`/api/landlord-onboarding/${id}/agreement?pdf=1`, 'Management-Agreement-preview.pdf')} className="w-full rounded-xl border border-neutral-300 py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Preview final agreement</button>
                   <button onClick={approve} disabled={!!busy || !decision} className="w-full rounded-xl bg-green-700 text-white py-sm text-sm font-semibold hover:bg-green-800 disabled:opacity-40 disabled:cursor-not-allowed">

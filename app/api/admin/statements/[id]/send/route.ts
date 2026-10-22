@@ -6,6 +6,7 @@ import { dearLine } from '@/lib/people'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
 import { sendEmail } from '@/lib/sendEmail'
+import { landlordCopyTo, CONTACT_PREF_LABEL } from '@/lib/landlord/correspondence'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFor } from '@/lib/email/sender'
 import { loadStatementForPdf, renderStatementPdf } from '@/lib/statements/pdf'
@@ -41,12 +42,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (body.preview) {
     const to = [landlord?.email, landlord?.joint_email].filter(Boolean).join(', ')
+    const copy = await landlordCopyTo(s, landlord?.id, st.property_id)
     const message = String(body.message ?? suggestedMessage)
     return NextResponse.json({
       to, subject: suggestedSubject, message: suggestedMessage, from: sender.from,
       html: await buildEmail(bodyHtml(message), { sender }),
       alreadySent: st.sent_at ? { at: st.sent_at, to: st.sent_to } : null,
       invoices: invoiceNames,
+      cc: copy.cc, contactPref: copy.pref, contactPrefLabel: CONTACT_PREF_LABEL[copy.pref],
     })
   }
 

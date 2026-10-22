@@ -24,6 +24,7 @@ export default function StatementSend({ statementId, label, sentAt, onSent }: { 
   const [done, setDone] = useState('')
   const [prior, setPrior] = useState<{ at: string; to: string } | null>(null)
   const [invoices, setInvoices] = useState<string[]>([])
+  const [prefNote, setPrefNote] = useState('')
   const [withInvoices, setWithInvoices] = useState(true)
   const url = useRef('')
   useEffect(() => () => { if (url.current) URL.revokeObjectURL(url.current) }, [])
@@ -42,6 +43,9 @@ export default function StatementSend({ statementId, label, sentAt, onSent }: { 
       url.current = URL.createObjectURL(await pdfRes.blob())
       setPdfUrl(url.current)
       setTo(prev.to || ''); setSubject(prev.subject); setMessage(prev.message); setHtml(prev.html); setFrom(prev.from); setPrior(prev.alreadySent); setInvoices(prev.invoices ?? [])
+      // the landlord's copy-in list (accountant …) joins the CC line; their preferred channel is shown (migration 239)
+      if (prev.cc?.length) setCc(c => [...new Set([...c.split(/[,;\s]+/).filter(Boolean), ...prev.cc])].join(', '))
+      setPrefNote(prev.contactPref && prev.contactPref !== 'app_and_email' ? `They prefer: ${prev.contactPrefLabel}` : '')
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not prepare the email') }
     finally { setLoading(false) }
   }
@@ -92,6 +96,7 @@ export default function StatementSend({ statementId, label, sentAt, onSent }: { 
                   {prior && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-800">Already sent {new Date(prior.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} to {prior.to}.</p>}
                   <label className="block text-xs font-semibold text-neutral-700">To<input className={input} value={to} onChange={e => setTo(e.target.value)} placeholder="landlord@example.com" /></label>
                   <label className="block text-xs font-semibold text-neutral-700">CC<input className={input} value={cc} onChange={e => setCc(e.target.value)} /></label>
+                  {prefNote && <p className="rounded-lg bg-amber-50 px-sm py-xs text-xs text-amber-900">{prefNote}</p>}
                   <label className="block text-xs font-semibold text-neutral-700">Subject<input className={input} value={subject} onChange={e => setSubject(e.target.value)} /></label>
                   <label className="block text-xs font-semibold text-neutral-700">Message<textarea className={input} rows={9} value={message} onChange={e => setMessage(e.target.value)} onBlur={refreshEmail} /></label>
                   <div className="rounded-lg bg-neutral-50 px-md py-sm text-xs text-neutral-700">

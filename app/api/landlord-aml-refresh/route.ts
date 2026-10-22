@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
+import { carryOver } from '@/lib/landlordOnboarding/refresh'
 
 
 const svc = () =>
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
   }
   const landlordName: string | null = [landlord.salutation, landlord.first_name, landlord.last_name].filter(Boolean).join(' ') || landlord.full_name || null
 
+  // what they told us last time (22 Oct 2026): their answers and the documents that stay valid go into the new form
+  const { data: last } = await svc().from('landlord_onboarding').select('id, docs_received_at, created_at, form_data, stage')
+    .eq('landlord_people_id', landlord.id).gte('stage', 3).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const carried = last ? carryOver(last as any) : null
+
   // Create a fresh onboarding row for this re-verification
   const { data: row, error: insertErr } = await svc()
     .from('landlord_onboarding')
@@ -50,6 +56,7 @@ export async function POST(req: NextRequest) {
       is_refresh: true,
       refresh_reason: reason ?? 'periodic_review',
       stage: 1,
+      ...(carried ? { form_data: carried.formData } : {}),
     })
     .select()
     .single()

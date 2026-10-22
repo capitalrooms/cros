@@ -53,7 +53,7 @@ export const AREAS: Area[] = [
       '/api/admin/landlord-bank-accounts', '/api/admin/payment-audit-log', '/api/admin/financial-trail', '/api/admin/categorise-expense', '/api/admin/finance-check',
       '/api/admin/finance-home', '/api/admin/rent-resolve', '/api/admin/expense-statement-pdf', '/api/admin/send-expense-report', '/api/admin/arrears-letter', '/api/accounts', '/api/statements', '/api/ai/extract-statement'] },
   { key: 'people', label: 'People', hint: 'Tenants, landlords, contractors and cleaners (not office accounts)',
-    pages: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord'], api: ['/api/admin/people'] },
+    pages: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord'], api: ['/api/admin/people', '/api/admin/landlords'] },
   { key: 'comms', label: 'Comms', hint: 'Messages, letters & invoices, quick notify, templates',
     pages: ['/admin/communications', '/admin/document-generator', '/admin/notify', '/admin/message-templates', '/admin/acknowledgment-notes', '/admin/feedback'],
     api: ['/api/admin/notify', '/api/admin/message-templates', '/api/admin/communications', '/api/admin/document-generator', '/api/admin/letters', '/api/admin/quick-notify',
