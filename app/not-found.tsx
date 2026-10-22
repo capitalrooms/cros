@@ -1,46 +1,25 @@
 'use client'
 
+// The "page not found" screen. 22 Oct 2026: it used to list "your session expired (please log in again)" among the
+// reasons, so a broken link looked like a sign-in problem (Harry, opening Alice from People). It now says only that
+// the page doesn't exist, shows the address that failed, and offers Back and Home.
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export default function NotFound() {
+  const path = usePathname()
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 px-lg">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl p-lg md:p-2xl shadow-2xl">
-          <div className="text-center mb-lg">
-            <p className="text-6xl mb-md font-bold text-neutral-900">404</p>
-            <h2 className="text-2xl font-bold text-neutral-900">Page not found</h2>
-          </div>
-
-          <p className="text-sm text-neutral-600 mb-2xl text-center">
-            The page you're looking for doesn't exist. This might happen if:
-          </p>
-
-          <ul className="text-sm text-neutral-600 mb-2xl space-y-sm ml-lg list-disc">
-            <li>You're not logged in (try the login page)</li>
-            <li>Your session expired (please log in again)</li>
-            <li>The URL is incorrect</li>
-            <li>You don't have access to this page</li>
-          </ul>
-
-          <div className="space-y-md">
-            <Link href="/login">
-              <button className="w-full rounded-xl bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 transition-colors">
-                Go to login
-              </button>
-            </Link>
-
-            <Link href="/">
-              <button className="w-full rounded-xl border-2 border-neutral-300 text-neutral-900 font-bold py-md hover:bg-neutral-50 transition-colors">
-                Go home
-              </button>
-            </Link>
-          </div>
-
-          <p className="text-xs text-neutral-500 text-center mt-lg">
-            If you think this is a mistake, please contact support.
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-neutral-100 px-lg">
+      <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-lg md:p-2xl">
+        <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Page not found</p>
+        <h1 className="mt-xs text-2xl font-bold text-neutral-900">This page doesn’t exist</h1>
+        <p className="mt-sm text-sm text-neutral-600">The link may be out of date, or the page has moved. You’re still signed in.</p>
+        {path && <p className="mt-md break-all rounded-lg bg-neutral-50 px-md py-sm font-mono text-xs text-neutral-500">{path}</p>}
+        <div className="mt-lg flex gap-sm">
+          <button type="button" onClick={() => history.length > 1 ? history.back() : (location.href = '/')} className="flex-1 rounded-xl border border-neutral-300 py-md text-sm font-bold text-neutral-900 hover:bg-neutral-50">Go back</button>
+          <Link href="/" className="flex-1 rounded-xl bg-neutral-900 py-md text-center text-sm font-bold text-white hover:bg-neutral-800">Home</Link>
         </div>
+        <p className="mt-lg text-xs text-neutral-500">If a link in CROS brought you here, tell us which one and we’ll fix it.</p>
       </div>
     </div>
   )
