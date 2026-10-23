@@ -4,6 +4,7 @@ import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/compone
 import { useState, useEffect, useRef } from 'react'
 import HoldingDepositModal from '@/components/HoldingDepositModal'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
+import InviteApplicant from '@/components/InviteApplicant'
 
 interface RecentOffer {
   id: string
@@ -42,6 +43,7 @@ export default function SendOfferForm() {
   const [addingLetOnly,   setAddingLetOnly]   = useState(false)
   const [applicantEmail,  setApplicantEmail]  = useState('')
   const [applicantName,   setApplicantName]   = useState('')
+  const [applicantPhone,  setApplicantPhone]  = useState('')
   const [applicantNm,     setApplicantNm]     = useState<NameValue>(emptyName())
   const [advertisedRent,  setAdvertisedRent]  = useState('')
   const [moveInDate,      setMoveInDate]      = useState('')
@@ -181,7 +183,7 @@ export default function SendOfferForm() {
       {error   && <div className="mb-lg p-md rounded-lg bg-red-100  border border-red-300  text-red-900  text-sm">{error}</div>}
       {success && <div className="mb-lg p-md rounded-lg bg-green-100 border border-green-300 text-green-900 text-sm">{success}</div>}
 
-      <form onSubmit={handleSend} className="space-y-md">
+      <form onSubmit={e => e.preventDefault()} className="space-y-md">
 
         {/* ── Property / Room search ── */}
         <div>
@@ -277,51 +279,22 @@ export default function SendOfferForm() {
           </div>
         </div>
 
-        {/* Rent + move-in */}
-        <div className="grid grid-cols-2 gap-sm">
-          <div>
-            <label className="block text-sm font-medium text-white mb-xs">Rent (pcm) <span className="text-red-400">*</span></label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">£</span>
-              <input
-                type="number"
-                value={advertisedRent}
-                onChange={e => setAdvertisedRent(e.target.value)}
-                placeholder="850"
-                required
-                className="w-full pl-6 pr-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-white mb-xs">Available from</label>
-            <input
-              type="date"
-              value={moveInDate}
-              onChange={e => setMoveInDate(e.target.value)}
-              className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-white mb-xs">Mobile <span className="text-neutral-400 font-normal">(to text them too)</span></label>
+          <input type="tel" value={applicantPhone} onChange={e => setApplicantPhone(e.target.value)} placeholder="07…"
+            className="w-full px-md py-sm rounded-xl border border-neutral-600 bg-neutral-800 text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
         </div>
 
-        {/* Holding deposit toggle */}
-        <label className="flex items-center gap-sm cursor-pointer">
-          <input
-            type="checkbox"
-            checked={requestDeposit}
-            onChange={e => setRequestDeposit(e.target.checked)}
-            className="w-4 h-4 accent-blue-500"
-          />
-          <span className="text-sm text-white/80">Request holding deposit ("Search is over" email)</span>
-        </label>
-
-        <button
-          type="submit"
-          disabled={sending || !selectedRoom || !applicantEmail || !advertisedRent}
-          className="w-full rounded-xl bg-blue-600 py-sm text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
-        >
-          {sending ? 'Sending…' : '📧 Send offer letter'}
-        </button>
+        {/* What to send, the rent and the exact email — the one panel Invite to apply and Applicants use (23 Oct 2026:
+            this form sent its own "search is over" email whose button opened the application form, so people paid by
+            transfer and never reached the "I've paid" button) */}
+        <div className="rounded-xl bg-white p-md text-neutral-900">
+          {selectedRoom && applicantEmail.includes('@') && applicantNm.first_name.trim()
+            ? <InviteApplicant key={`${selectedRoom.id}|${applicantEmail}|${applicantPhone}|${applicantNm.first_name}|${applicantNm.last_name}`}
+                target={{ manual: { name: applicantName, salutation: applicantNm.salutation, first_name: applicantNm.first_name.trim(), last_name: applicantNm.last_name.trim(), email: applicantEmail.trim(), phone: applicantPhone.trim(), room_id: selectedRoom.id, property_id: selectedRoom.property_id } }}
+                onSent={() => loadRecent()} />
+            : <p className="text-sm text-neutral-500">Pick the room and enter their name and email to choose what to send and see the email.</p>}
+        </div>
       </form>
 
       {/* Recent offers and where each has got to */}
