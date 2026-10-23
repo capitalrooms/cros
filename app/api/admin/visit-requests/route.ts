@@ -18,6 +18,7 @@
  *   Returns all pending add-on requests (for the admin maintenance panel)
  */
 
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -87,7 +88,7 @@ export async function PATCH(req: NextRequest) {
     .select('id, role')
     .eq('email', authData.user.email)
     .single()
-  if (!['administrator', 'admin'].includes(adminPerson?.role || '')) {
+  if (!(await hasArea('maintenance', req.headers))) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 403 })
   }
   const adminPersonId = adminPerson?.id

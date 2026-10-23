@@ -12,6 +12,7 @@
  * A reason (note) is required.
  */
 
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
 
   const { data: person } = await supabase
     .from('people').select('id, role').eq('email', session.user.email).single()
-  if (!person || !['administrator', 'admin'].includes(person.role))
+  if (!person || !(await hasArea('finance', req.headers)))
     return NextResponse.json({ error: 'Only administrators can void payments' }, { status: 403 })
 
   const { note } = await req.json()

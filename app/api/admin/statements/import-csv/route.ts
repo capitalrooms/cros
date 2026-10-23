@@ -7,6 +7,7 @@
 //
 // Returns: { inserted, duplicates, errors }
 
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
@@ -89,7 +90,7 @@ Respond with a JSON array only, one entry per item, in order:
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
-  if (!user || !['administrator', 'admin'].includes(user.assignment?.role ?? '')) {
+  if (!user || !(await hasArea('finance', req.headers))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

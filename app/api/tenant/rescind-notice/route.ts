@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { deliverEmail } from '@/lib/sendEmail'
 import { createServiceClient, createServerClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
+import { hasArea } from '@/lib/access/server'
 import { buildEmail } from '@/lib/emailWrapper'
 
 import { oneLine } from '@/lib/lettings/letWording'
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   const role = (user.assignment as any)?.role || ''
   const me = (user.assignment as any)?.id as string | undefined   // the signed-in person — never an id sent in the request
   const mine = !!me && (tenancy.person_id === me || (tenancy as any).co_tenant_id === me)
-  const isAdmin = ['administrator', 'admin'].includes(role)
+  const isAdmin = ['administrator', 'admin'].includes(role) || await hasArea('lettings', req.headers)
   if (!isAdmin && !mine) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -88,9 +89,9 @@ export async function PATCH(req: NextRequest) {
   const user = await getCurrentUser(serverClient2)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const role = (user.assignment as any)?.role || ''
-  if (!['administrator', 'admin'].includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  // ticked Lettings area (lib/access/server hasArea), not administrators only — 23 Oct 2026
+  if (!(await hasArea('lettings', req.headers))) {
+    return NextResponse.json({ error: 'That isn’t part of your access — ask an administrator.' }, { status: 403 })
   }
 
   const { tenancyId, action } = await req.json()

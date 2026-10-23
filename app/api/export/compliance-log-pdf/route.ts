@@ -1,3 +1,4 @@
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
-  if (!user || !['administrator', 'admin'].includes(user.assignment?.role)) {
+  if (!user || !(await hasArea('compliance', req.headers))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

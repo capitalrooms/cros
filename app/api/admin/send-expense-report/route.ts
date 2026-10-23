@@ -1,3 +1,4 @@
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { deliverEmail } from '@/lib/sendEmail'
 import { createClient } from '@supabase/supabase-js'
@@ -19,7 +20,7 @@ function db() {
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser()
-  if (!user || !['administrator', 'admin'].includes(user.assignment?.role || '')) {
+  if (!user || !(await hasArea('finance', request.headers))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

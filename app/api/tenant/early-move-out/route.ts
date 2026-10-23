@@ -1,3 +1,4 @@
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient, createServerClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
   const role = (user.assignment as any)?.role || ''
   const me = (user.assignment as any)?.id as string | undefined   // the signed-in person — never an id sent in the request
   const mine = !!me && (tenancy.person_id === me || (tenancy as any).co_tenant_id === me)
-  if (!['administrator', 'admin'].includes(role) && !mine) {
+  if (!(['administrator', 'admin'].includes(role) || await hasArea('lettings', req.headers)) && !mine) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -166,7 +167,7 @@ export async function PATCH(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const supabaseServer = await createServerClient()
   const user = await getCurrentUser(supabaseServer)
-  if (!user || !['administrator', 'admin'].includes((user.assignment as any)?.role || '')) {
+  if (!user || !(await hasArea('lettings', req.headers))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -7,6 +7,7 @@
 // Used after expense category changes to re-match existing items.
 // Admin-only.
 
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
@@ -64,7 +65,7 @@ Respond JSON only: {"category":"<slug>","confidence":<0-1>,"reasoning":"<one sen
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
-  if (!user || !['administrator', 'admin'].includes(user.assignment?.role ?? '')) {
+  if (!user || !(await hasArea('finance', req.headers))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

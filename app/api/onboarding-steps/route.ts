@@ -1,3 +1,4 @@
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
@@ -38,7 +39,7 @@ export async function PATCH(req: NextRequest) {
   const { data: ud, error: ue } = await svc.auth.getUser(token)
   if (ue || !ud.user?.email) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   const { data: person } = await svc.from('people').select('role').eq('email', ud.user.email).single()
-  if (!['administrator', 'admin'].includes(person?.role ?? '')) {
+  if (!(await hasArea('settings', req.headers))) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 

@@ -6,12 +6,12 @@
 // Re-reading is done one email at a time by the screen (POST /api/webhooks/autoledger, header x-cros-reread).
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { requireAdministrator } from '@/lib/adminAuth'
+import { requireAdmin } from '@/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  if (!(await requireAdministrator(req))) return NextResponse.json({ error: 'Only an administrator can see statement emails.' }, { status: 403 })
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'That isn’t part of your access — ask an administrator.' }, { status: 403 })
   const all: any[] = []
   let after: string | null = null
   for (let page = 0; page < 10; page++) {
