@@ -69,6 +69,33 @@ export async function POST(req: NextRequest) {
     await s.from('audit_logs').insert({ user_id: admin.personId, action: 'access_set', details: `${p.email}: ${areas === null ? 'role preset' : areas.join(', ') || 'nothing'}`, ip_address: getClientIp(req.headers) })
     return NextResponse.json({ ok: true, areas: areasFor(p.role, areas) })
   }
+  // change someone's email (23 Oct 2026 audit: it couldn't be changed in CROS at all, and changing only the CROS record
+  // would lock out anyone who already signs in — their sign-in is moved to the new address in the same step)
+  if (action === 'change_email') {
+    const s = createServiceClient()
+    const email = String(b.email ?? '').trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'That isn’t an email address.' }, { status: 400 })
+    const { data: p } = await s.from('people').select('id, email, role').eq('id', String(b.personId ?? '')).maybeSingle()
+    if (!p) return NextResponse.json({ error: 'Person not found' }, { status: 404 })
+    const old = String(p.email ?? '').trim().toLowerCase()
+    if (old === email) return NextResponse.json({ ok: true, email })
+    const { data: clash } = await s.from('people').select('id, first_name, last_name, role').ilike('email', email.replace(/[\\%_]/g, c => `\\${c}`)).neq('id', p.id).limit(1)
+    if (clash?.length) return NextResponse.json({ error: `${[(clash[0] as any).first_name, (clash[0] as any).last_name].filter(Boolean).join(' ') || 'Someone else'} (${(clash[0] as any).role}) already uses that email in CROS.` }, { status: 409 })
+    const users = await authUsersByEmail(s)
+    if (users.get(email)) return NextResponse.json({ error: 'A sign-in already exists for that email. Use a different one, or ask Claude to merge the two.' }, { status: 409 })
+    const login = old ? users.get(old) : null
+    if (login) {
+      const { error: authErr } = await s.auth.admin.updateUserById(login.id, { email, email_confirm: true })
+      if (authErr) return NextResponse.json({ error: `Their sign-in couldn’t be moved: ${authErr.message}` }, { status: 500 })
+    }
+    const { error } = await s.from('people').update({ email }).eq('id', p.id)
+    if (error) {
+      if (login) await s.auth.admin.updateUserById(login.id, { email: old, email_confirm: true })   // put the sign-in back
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    await s.from('audit_logs').insert({ user_id: admin.personId, action: 'email_changed', details: `${old} → ${email}${login ? ' (sign-in moved too)' : ''}`, ip_address: getClientIp(req.headers) })
+    return NextResponse.json({ ok: true, email, signInMoved: !!login })
+  }
   if (!['send', 'off', 'on', 'clear_two_step'].includes(action)) return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   const ids: string[] = (Array.isArray(b.personIds) ? b.personIds : []).filter((x: unknown) => typeof x === 'string').slice(0, 25)
   if (!ids.length) return NextResponse.json({ error: 'Nobody chosen' }, { status: 400 })
