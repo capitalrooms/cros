@@ -1017,7 +1017,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                 <p className="text-neutral-400 text-sm">No properties linked to this landlord.</p>
               </div>
             ) : (
-              <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+              <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wider text-neutral-400 border-b border-neutral-100">

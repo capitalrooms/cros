@@ -3,6 +3,7 @@
 import { StoredImg, StoredLink } from '@/components/StoredImg'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { displayName } from '@/lib/people'
 
 interface Job {
   id: string
@@ -85,7 +86,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
       setJobs(
         tickets.map((t) => ({
           ...t,
-          contractor: t.contractor_id ? { name: peopleById.get(t.contractor_id).name ?? null } : null,
+          contractor: t.contractor_id ? { name: (peopleById.get(t.contractor_id) && displayName(peopleById.get(t.contractor_id))) || null } : null,
           room: t.room_id ? { name: roomsById.get(t.room_id)?.name ?? null } : null,
         }))
       )

@@ -114,7 +114,7 @@ export default function AppointmentsPage() {
 
       const { data: appts } = await supabase
         .from('property_appointments')
-        .select('*, properties(name, address)')
+        .select('*, property:properties(name, address)')
         .gte('appointment_date', weekStart.toISOString().split('T')[0])
         .lt('appointment_date', weekEnd.toISOString().split('T')[0])
         .order('appointment_date', { ascending: true })
@@ -195,7 +195,7 @@ export default function AppointmentsPage() {
             notify_tenants: notifyTenants,
           },
         ])
-        .select('*, properties(name, address)')
+        .select('*, property:properties(name, address)')
         .single()
 
       if (err) throw err

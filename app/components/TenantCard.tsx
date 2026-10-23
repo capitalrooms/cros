@@ -179,7 +179,7 @@ export default function TenantCard({
             <div className="flex flex-wrap gap-x-xl gap-y-xs text-sm">
               <span>
                 <span className="text-neutral-400 text-xs uppercase tracking-wide mr-xs">Email</span>
-                <span className="text-neutral-700 font-medium">{tenant.email}</span>
+                <span className="break-all text-neutral-700 font-medium">{tenant.email}</span>
               </span>
               {tenant.phone && (
                 <span>

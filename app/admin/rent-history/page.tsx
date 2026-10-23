@@ -198,7 +198,7 @@ export default function RentHistoryPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-neutral-200 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-neutral-50 border-b border-neutral-200">
               <tr>

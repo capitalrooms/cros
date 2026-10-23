@@ -541,12 +541,12 @@ export default function AdminStatementsPage() {
             </div>
             <div className="mt-sm space-y-sm">
               {rooms.map((r, i) => (
-                <div key={i} className="grid grid-cols-[3rem_1fr_5rem_5rem_5rem_1.5rem] items-center gap-sm">
+                <div key={i} className="grid grid-cols-6 items-center gap-sm sm:grid-cols-[3rem_1fr_5rem_5rem_5rem_1.5rem]">
                   <input inputMode="numeric" value={r.room_number} onChange={(e) => updateRoom(i, { room_number: e.target.value })} className={cell + ' text-center'} placeholder="#" />
-                  <input value={r.tenant_name} onChange={(e) => updateRoom(i, { tenant_name: e.target.value })} className={cell} placeholder="Tenant name" />
-                  <input inputMode="decimal" value={r.rent} onChange={(e) => updateRoom(i, { rent: e.target.value })} className={cell} placeholder="0.00" />
-                  <input inputMode="decimal" value={r.fee} onChange={(e) => updateRoom(i, { fee: e.target.value })} className={cell + ' text-red-600'} placeholder="0.00" />
-                  <input value={r.net === '' ? '' : `£${num(r.net).toFixed(2)}`} readOnly className={cell + ' bg-neutral-50 text-green-700'} tabIndex={-1} />
+                  <input value={r.tenant_name} onChange={(e) => updateRoom(i, { tenant_name: e.target.value })} className={cell + ' col-span-4 sm:col-span-1'} placeholder="Tenant name" />
+                  <input inputMode="decimal" value={r.rent} onChange={(e) => updateRoom(i, { rent: e.target.value })} className={cell + ' order-last col-span-2 sm:order-none sm:col-span-1'} placeholder="Rent £" />
+                  <input inputMode="decimal" value={r.fee} onChange={(e) => updateRoom(i, { fee: e.target.value })} className={cell + ' order-last col-span-2 text-red-600 sm:order-none sm:col-span-1'} placeholder="Fee £" />
+                  <input value={r.net === '' ? '' : `£${num(r.net).toFixed(2)}`} readOnly className={cell + ' order-last col-span-2 bg-neutral-50 text-green-700 sm:order-none sm:col-span-1'} tabIndex={-1} placeholder="Net £" />
                   <button type="button" onClick={() => setRooms((rs) => rs.length > 1 ? rs.filter((_, idx) => idx !== i) : rs)} className="text-neutral-400 hover:text-neutral-900" aria-label="Remove room">✕</button>
                 </div>
               ))}
@@ -705,7 +705,7 @@ export default function AdminStatementsPage() {
                             {s.rooms && s.rooms.length > 0 ? (
                               <div className="mt-sm">
                                 <p className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-xs">Room rents</p>
-                                <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
+                                <div className="rounded-lg border border-neutral-200 bg-white overflow-x-auto">
                                   <table className="w-full text-xs">
                                     <thead className="bg-neutral-100 text-neutral-500 font-semibold">
                                       <tr>
@@ -742,7 +742,7 @@ export default function AdminStatementsPage() {
                             {s.expenses && s.expenses.length > 0 && (
                               <div className="mt-sm">
                                 <p className="text-xs font-bold text-neutral-500 uppercase tracking-wide mb-xs">Expenses charged</p>
-                                <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
+                                <div className="rounded-lg border border-neutral-200 bg-white overflow-x-auto">
                                   <table className="w-full text-xs">
                                     <tbody className="divide-y divide-neutral-100">
                                       {s.expenses.map((e: any, i: number) => (

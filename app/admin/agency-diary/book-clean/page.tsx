@@ -16,7 +16,7 @@ interface CleanJob {
   cleaner_id?: string
   status: string
   property: { name: string; address: string }
-  cleaner?: { name: string }
+  cleaner?: { full_name?: string; first_name?: string; last_name?: string }
 }
 
 export default function BookCleanPage() {
@@ -42,7 +42,7 @@ export default function BookCleanPage() {
       try {
         const { data: jobsData } = await supabase
           .from('cleans')
-          .select('*, properties(name, address), cleaner:cleaner_id(full_name)')
+          .select('*, property:properties(name, address), cleaner:cleaner_id(full_name, first_name, last_name)')
           .is('clean_date', null)
           .order('created_at', { ascending: true })
 
@@ -158,8 +158,8 @@ export default function BookCleanPage() {
 
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-neutral-900">Cleaning Service</div>
-                        <div className="text-sm text-slate-600 mt-xs">📍 {job.property.name}</div>
-                        {job.cleaner && <div className="text-sm text-slate-600">👤 Assigned to: {job.cleaner.name}</div>}
+                        <div className="text-sm text-slate-600 mt-xs">📍 {job.property?.name}</div>
+                        {job.cleaner && <div className="text-sm text-slate-600">👤 Assigned to: {[job.cleaner.first_name, job.cleaner.last_name].filter(Boolean).join(' ') || job.cleaner.full_name}</div>}
                       </div>
                     </label>
                   ))}

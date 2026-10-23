@@ -21,7 +21,7 @@ interface MaintenanceJob {
   priority: string
   property: { name: string; address: string }
   room?: { name: string }
-  contractor?: { name: string }
+  contractor?: { name: string; salutation?: string; first_name?: string; last_name?: string; full_name?: string }
 }
 
 const PRIORITY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -68,7 +68,10 @@ export default function BookMaintenancePage() {
           .is('booked_date', null)
           .order('priority', { ascending: false }).order('created_at', { ascending: true })
 
-        setJobs((await withContractors(supabase as any, jobsData as any)) as any)
+        // the query names them properties/rooms; the screen reads property/room (crashed whenever a job was waiting)
+        const withPeople = await withContractors(supabase as any, jobsData as any)
+        setJobs(withPeople.map((j: any) => ({ ...j, property: j.properties ?? { name: '—', address: '' }, room: j.rooms ?? undefined,
+          contractor: j.contractor ? { ...j.contractor, name: [j.contractor.first_name, j.contractor.last_name].filter(Boolean).join(' ') || j.contractor.full_name || 'Contractor' } : undefined })))
         setLoading(false)
       } catch (err) {
         console.error('Error loading jobs:', err)
@@ -210,7 +213,7 @@ export default function BookMaintenancePage() {
                         <div className="font-semibold text-neutral-900">{job.title}</div>
 
                         <div className="text-sm text-neutral-600 mt-xs space-y-xs">
-                          <div>📍 {job.property.name}</div>
+                          <div>📍 {job.property?.name}</div>
                           {job.room && <div>🚪 Room: {job.room.name}</div>}
                           {job.contractor && <div>👤 Assigned to: {job.contractor.name}</div>}
                         </div>
@@ -278,7 +281,7 @@ export default function BookMaintenancePage() {
                           <div className="text-neutral-700 ml-md space-y-xs mt-xs">
                             {contractorJobs.map((job) => (
                               <div key={job.id} className="text-xs">
-                                • {job.title} ({job.property.name})
+                                • {job.title} ({job.property?.name})
                               </div>
                             ))}
                           </div>

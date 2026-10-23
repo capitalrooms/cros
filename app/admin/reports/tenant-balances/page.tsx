@@ -84,7 +84,7 @@ export default function TenantBalancesReport() {
         ) : visible.length === 0 ? (
           <div className="bg-white rounded-2xl border border-neutral-200 px-xl py-2xl text-center text-sm text-neutral-400">No balances found</div>
         ) : (
-          <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-neutral-200 overflow-x-auto">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-neutral-50 border-b border-neutral-100">
