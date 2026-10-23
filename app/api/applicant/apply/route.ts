@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { insertNotifications, tryPush } from '@/lib/serverNotify'
 import { STAFF_ROLES } from '@/lib/portalAuth'
 import { findApplicant, moveToRoom } from '@/lib/lettings/applicantRecord'
+import { sendEmail } from '@/lib/sendEmail'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -157,6 +158,27 @@ export async function POST(request: Request) {
       const body = `${data.fullName} has ${existing ? 'updated their application' : 'applied'} for ${[room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'}${below}.`
       await insertNotifications(supabase, ids, { title, body, type: 'lettings', link: '/admin/applicants' }, { propertyId: data.propertyId ?? null, roomId: data.roomId })
       await tryPush(ids, title, body, '/admin/applicants')
+
+      // …and an email, so it never disappears inside CROS (Harry, 23 Oct 2026: "I need to get an email saying they have
+      // either completed the offer or completed the offer and reserved the room too"). Reserving sends its own
+      // "Holding deposit paid" email (confirm-deposit). Office addresses only — never a test account.
+      const { data: office } = await supabase.from('people').select('email').in('role', ['administrator', 'lettings']).ilike('email', '%@capitalrooms.co.uk').not('email', 'ilike', '%+%')
+      const to = [...new Set(((office ?? []) as any[]).map(p => String(p.email).toLowerCase()))]
+      if (to.length) {
+        const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+        const where = [room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'
+        const app = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
+        const fast = data.fastTrack === true
+        const row = (k: string, v: unknown) => v ? `<tr><td style="padding:4px 0;color:#78716c;width:160px;">${k}</td><td style="padding:4px 0;">${esc(v)}</td></tr>` : ''
+        await sendEmail(to, `${existing ? '✏️ Offer updated' : '📝 New offer'} — ${data.fullName}, ${where}${fast ? ' (fast-track: reserving next)' : ''}`, `
+          <p>Hello,</p>
+          <p><strong>${esc(data.fullName)}</strong> has ${existing ? 'updated their offer' : 'sent their offer'} for <strong>${esc(where)}</strong>${below ? esc(below) : ''}.</p>
+          ${fast ? '<p>This was a <strong>fast-track</strong> invite, so they’re now being taken to pay the holding deposit. You’ll get a second email, “Holding deposit paid”, if they press I’ve paid.</p>' : '<p>Review it in Applicants, then send the reserve email if you accept.</p>'}
+          <table style="width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:14px;">
+            ${row('Email', data.email)}${row('Phone', data.phone)}${row('Move in', data.preferredStartDate)}${row('Plans to stay', data.preferredTerm)}${row('Job', data.profession)}
+          </table>
+          <p><a href="${app}/admin/applicants" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:700;">Open Applicants</a></p>`)
+      }
     } catch (e) {
       console.error('apply: staff notification failed', e)
     }
