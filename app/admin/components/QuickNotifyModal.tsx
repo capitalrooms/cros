@@ -4,6 +4,7 @@
 // they'll actually get, only tenant messages, pick what it's about first, re-send guides, say why a send failed).
 // Ready-made messages: lib/notify/tenantMessages. Recipients, guides and licence details: GET /api/admin/quick-notify.
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { adminFetch } from '@/lib/adminFetch'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 import { PURPOSES, TENANT_MESSAGES, SLOTS, fillMessage, unfilled, type Purpose, type TenantMessage } from '@/lib/notify/tenantMessages'
@@ -174,7 +175,17 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
   const label = 'mb-sm block text-xs font-bold uppercase tracking-wide text-neutral-500'
   const input = 'w-full rounded-lg border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900 focus:border-neutral-500 focus:outline-none'
 
-  return (
+  // drawn on <body>, above the top bar and the menu (23 Oct 2026: inside the page's scrolling area the top bar and rail
+  // sat over its backdrop and the page showed through — "proportions all wrong, bleeding everywhere")
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+  if (!mounted) return null
+  return createPortal(
     <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 md:items-center md:p-lg" role="dialog" aria-modal="true" aria-label="Quick Notify">
       <div className="flex w-full flex-col overflow-hidden bg-neutral-50 shadow-2xl md:max-h-[92vh] md:max-w-3xl md:rounded-2xl">
         {/* header: the house it's going to */}
@@ -411,7 +422,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
             </p>
             <div className="flex gap-sm">
               <button onClick={onClose} className="rounded-lg border border-neutral-200 px-md py-sm text-sm font-semibold text-neutral-700">Cancel</button>
-              <button onClick={send} disabled={sending || !purpose || !house.sendingOn || count === 0}
+              <button onClick={send} disabled={sending || !purpose || !house.sendingOn || count === 0 || !subject.trim() || !body.trim()}
                 className="rounded-lg bg-blue-600 px-lg py-sm text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
                 {sending ? 'Sending…' : `Send to ${count} ${count === 1 ? 'person' : 'people'}`}
               </button>
@@ -419,6 +430,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

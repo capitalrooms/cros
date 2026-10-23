@@ -5,6 +5,7 @@
 // tick it: the receipt to the applicant, the landlord email and the housemate intro are all off to start with.
 // Drafts and records come from /api/lettings/holding-deposit.
 
+import BodyPortal from '@/components/BodyPortal'
 import { useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -128,8 +129,8 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
   const lbl = 'block text-xs font-bold uppercase tracking-wide text-neutral-600 mb-xs'
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(f => ({ ...f, [k]: e.target.value }))
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !sending && onClose()}>
+  return (<BodyPortal>
+    <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !sending && onClose()}>
       <div className="w-full max-w-2xl rounded-2xl bg-white p-lg shadow-2xl max-h-[92vh] overflow-y-auto text-neutral-900" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-md mb-md">
           <div>
@@ -284,5 +285,5 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
         )}
       </div>
     </div>
-  )
+  </BodyPortal>)
 }
