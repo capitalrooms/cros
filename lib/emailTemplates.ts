@@ -39,6 +39,8 @@ interface OfferEmailContext {
   whole?: boolean
   /** false when the bills aren't in the rent (a whole let usually); rooms default to bills included */
   billsIncluded?: boolean | null
+  /** a re-send with different figures: shown at the top so it plainly replaces the earlier email (23 Oct 2026) */
+  correction?: string | null
 }
 
 // ── The look (components/public/public.css, in email-safe inline styles) ─────────────────────────────────────────
@@ -181,6 +183,7 @@ export async function buildSearchIsOverEmail(context: OfferEmailContext, req?: R
       line2: 'the search is over.',
       lead: `We’re delighted to confirm ${unitName === 'The property' ? 'the property' : unitName} is yours. To hold it for you, all we need is a holding deposit of one week’s rent.`,
     })}
+    ${context.correction ? `<p style="margin:22px 0 0;padding:14px 16px;border-radius:10px;background:#FBF1E4;font-family:${SANS};font-size:15px;line-height:1.6;color:${INK};"><strong>Updated:</strong> ${esc(context.correction)}</p>` : ''}
     ${rows(offerRows(context, w))}
 
     <div style="margin:30px 0 0;">
