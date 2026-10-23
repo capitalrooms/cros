@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import DuplicateApplicants from './DuplicateApplicants'
+import ReserveSend from './ReserveSend'
 import { adminFetch } from '@/lib/adminFetch'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -249,26 +250,9 @@ export default function ApplicantsPage() {
     }
   }
 
-  async function acceptOffer(applicant: Applicant) {
-    if (applicant.pipeline_stage !== 'applied' && !confirm(`Email ${applicant.full_name} at ${applicant.email} the link to reserve (pay the holding deposit)?`)) return
-    setAcceptingSending(applicant.id)
-    try {
-      let res = await fetch(`/api/applicants/${applicant.id}/accept-offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-      let data = await res.json()
-      if (!res.ok && data.needRent) {
-        // no rent on file for this applicant — ask, rather than sending them back to the application form
-        const typed = window.prompt(`No agreed rent is saved for ${applicant.full_name}. What monthly rent (£) has been agreed? The holding deposit is one week of this.`)
-        if (!typed || !(Number(typed.replace(/[£,\s]/g, '')) > 0)) return
-        res = await fetch(`/api/applicants/${applicant.id}/accept-offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rent: Number(typed.replace(/[£,\s]/g, '')) }) })
-        data = await res.json()
-      }
-      if (!res.ok) { alert(data.error || 'Failed to send'); return }
-      setAcceptSentFor(prev => new Set([...prev, applicant.id]))
-      setApplicants(prev => prev.map(a => a.id === applicant.id ? { ...a, pipeline_stage: 'offer_sent' } : a))
-    } finally {
-      setAcceptingSending(null)
-    }
-  }
+  // the reserve email: previewed, with the rent to confirm, before anything is sent (ReserveSend, 23 Oct 2026)
+  const [reserveFor, setReserveFor] = useState<Applicant | null>(null)
+  function acceptOffer(applicant: Applicant) { setReserveFor(applicant) }
 
   async function convertToTenant(applicant: Applicant) {
     if (!confirm(`Convert ${applicant.full_name} to a tenant? This will create (or link to) their tenant record.`)) return
@@ -409,6 +393,8 @@ export default function ApplicantsPage() {
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <DuplicateApplicants onMerged={() => loadAll()} />
+        {reserveFor && <ReserveSend applicant={reserveFor} onClose={() => setReserveFor(null)}
+          onSent={() => { const a = reserveFor; setReserveFor(null); setAcceptSentFor(prev => new Set([...prev, a.id])); setApplicants(prev => prev.map(x => x.id === a.id ? { ...x, pipeline_stage: 'offer_sent' } : x)) }} />}
         {/* Add form */}
         {showAdd && (
           <div className="mb-xl rounded-2xl border-2 border-neutral-900 bg-white p-lg">

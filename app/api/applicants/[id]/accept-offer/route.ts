@@ -56,8 +56,19 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
   // you for it — never a dead end that sends them back to the application form (15 Oct 2026)
   const body = await request.json().catch(() => ({}))
   const typed = Number(body?.rent) > 0 && Number(body.rent) < 100000 ? Math.round(Number(body.rent) * 100) / 100 : null
-  const monthly = ctx?.rent ?? typed ?? 0
-  if (!monthly) return NextResponse.json({ error: 'What monthly rent has been agreed?', needRent: true }, { status: 409 })
+  // 23 Oct 2026 (Harry sent two reserve emails at £950 when £925 was agreed, with no way to see or change it): the screen
+  // now previews first and always sends the rent you confirmed, which re-pins the offer. Without a typed rent: as before.
+  const pinned = ctx?.rent ?? null
+  const asking = Number(room?.current_asking_rent) || null
+  const monthly = typed ?? pinned ?? 0
+  if (!monthly && !body?.preview) return NextResponse.json({ error: 'What monthly rent has been agreed?', needRent: true }, { status: 409 })
+  // an earlier reserve email quoted a different rent: say plainly that this one replaces it
+  const { data: earlier } = ctx?.offerId ? await supabase.from('offers').select('sent_at, advertised_rent').eq('id', ctx.offerId).maybeSingle() : { data: null }
+  const earlierRent = earlier?.sent_at && Number(earlier.advertised_rent) > 0 ? Number(earlier.advertised_rent) : null
+  const gbpx = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const correction = earlierRent && monthly && Math.abs(earlierRent - monthly) > 0.004
+    ? `this replaces our earlier email${earlier?.sent_at ? ` of ${new Date(earlier.sent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' })}` : ''}. The rent is ${gbpx(monthly)} a month, so your holding deposit is ${gbpx(oneWeekRent(monthly))} — please use these figures.`
+    : null
   const weekly = oneWeekRent(monthly)
   const payRef = holdingDepositRef(property?.name || property?.address || null, room?.name || null)
   const firstName = hiName((applicant as any).first_name ? applicant as any : personFromText(applicant.full_name))   // lib/people
@@ -72,9 +83,16 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
     advertisedRent: Number(monthly), applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef, whole,
     // what they asked for on their offer — never a minimum term (Harry, 17 Oct 2026)
     moveInDate: ctx?.startDate ?? null, term: ctx?.applicant?.preferred_term ?? null, billsIncluded: ctx?.billsIncluded ?? null,
+    correction,
   }, request)
 
-  const subject = oneLine(`Your offer has been accepted — secure ${whole ? 'the property' : roomName} now`)
+  const subject = oneLine(correction ? `Updated: secure ${whole ? 'the property' : roomName} — corrected rent and holding deposit` : `Your offer has been accepted — secure ${whole ? 'the property' : roomName} now`)
+
+  // preview: exactly what would go, nothing sent
+  if (body?.preview) return NextResponse.json({
+    to: applicant.email, subject, html, rent: monthly || null, deposit: monthly ? weekly : null,
+    pinned, asking, earlier: earlier?.sent_at ? { at: earlier.sent_at, rent: earlierRent } : null,
+  })
 
   // Send email
   const apiKey = process.env.RESEND_API_KEY
@@ -101,8 +119,11 @@ export async function POST(request: NextRequest, { params: paramsPromise }: { pa
       applicant_id: applicant.id, status: 'sent', sent_at: new Date().toISOString(),
     }).select('id').single()
     offerId = (o as any)?.id ?? null
-  } else if (!(ctx?.rent) && typed) {
-    await supabase.from('offers').update({ advertised_rent: typed }).eq('id', offerId)
+  } else if (typed && typed !== pinned) {
+    // the rent you confirmed is the one the reserve page and the holding deposit now use
+    await supabase.from('offers').update({ advertised_rent: typed, sent_at: new Date().toISOString() }).eq('id', offerId)
+  } else if (offerId) {
+    await supabase.from('offers').update({ sent_at: new Date().toISOString() }).eq('id', offerId)
   }
 
   // Advance pipeline stage to offer_sent
