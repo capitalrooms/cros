@@ -282,8 +282,14 @@ export async function POST(request: NextRequest) {
   }
   subject = oneLine(subject)
 
+  // colleagues who can be copied in (office staff on a capitalrooms.co.uk address) — 23 Oct 2026
+  const { data: officeRows } = await supabase.from('people').select('first_name, last_name, email, role').in('role', ['administrator', 'admin', 'lettings']).ilike('email', '%@capitalrooms.co.uk').not('email', 'ilike', '%+%')
+  const office = ((officeRows ?? []) as any[]).map(o => ({ name: [o.first_name, o.last_name].filter(Boolean).join(' ') || o.email.split('@')[0], email: String(o.email).toLowerCase() }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const cc = (Array.isArray(reqBody.cc) ? reqBody.cc : []).map((e: unknown) => String(e).trim().toLowerCase()).filter((e: string) => office.some(o => o.email === e) && e !== String(visitorEmail ?? '').toLowerCase())
+
   if (preview) {
-    return NextResponse.json({ preview: true, to: visitorEmail, phone: visitorPhone, subject, html, sms: smsBody, rent: monthly, deposit: weekly, asking: askingRent, pinned: result.pinned ?? null, earlier: result.earlier ?? null, existingApplicant: !!result.applicantId })
+    return NextResponse.json({ preview: true, office, to: visitorEmail, phone: visitorPhone, subject, html, sms: smsBody, rent: monthly, deposit: weekly, asking: askingRent, pinned: result.pinned ?? null, earlier: result.earlier ?? null, existingApplicant: !!result.applicantId })
   }
   if (isReserve && !monthly) return NextResponse.json({ ...result, error: 'Enter the monthly rent that’s been agreed — the holding deposit is one week of it.' }, { status: 400 })
 
@@ -292,8 +298,8 @@ export async function POST(request: NextRequest) {
     if (!process.env.RESEND_API_KEY) result.emailError = 'RESEND_API_KEY not configured'
     else if (!visitorEmail) result.emailError = 'No email address recorded'
     else {
-      const emailRes = await deliverEmail({ to: [visitorEmail], subject, html }, { req: request })
-      if (emailRes.ok) result.emailSent = true
+      const emailRes = await deliverEmail({ to: [visitorEmail], ...(cc.length ? { cc } : {}), subject, html }, { req: request })
+      if (emailRes.ok) { result.emailSent = true; result.cc = cc }
       else { const err = await emailRes.json().catch(() => ({})); result.emailError = (err as any)?.message || 'Failed to send email' }
     }
   }

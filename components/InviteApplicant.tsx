@@ -10,7 +10,7 @@ import { adminFetch } from '@/lib/adminFetch'
 export type InviteTarget = { viewingId: string } | { applicantId: string } | { manual: Record<string, unknown> }
 export type InviteMode = 'apply' | 'fasttrack' | 'reserve'
 type Method = 'email' | 'sms' | 'both'
-type Preview = { to: string | null; phone: string | null; subject: string; html: string; sms: string; rent: number | null; deposit: number | null; asking: number | null; pinned: number | null; earlier: { at: string; rent: number | null } | null; existingApplicant: boolean }
+type Preview = { office?: { name: string; email: string }[]; to: string | null; phone: string | null; subject: string; html: string; sms: string; rent: number | null; deposit: number | null; asking: number | null; pinned: number | null; earlier: { at: string; rent: number | null } | null; existingApplicant: boolean }
 
 export const INVITE_MODES: { key: InviteMode; title: string; hint: string }[] = [
   { key: 'apply', title: 'Make an offer', hint: 'The application form. You review it, then decide whether to accept.' },
@@ -29,6 +29,11 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [copied, setCopied] = useState(false)
+  // colleagues copied in — remembered on this device (23 Oct 2026, Harry: "cc other staff on all these emails")
+  const [cc, setCc] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('cros.invite.cc') || '[]') } catch { return [] } })
+  const toggleCc = (e: string) => setCc(list => { const next = list.includes(e) ? list.filter(x => x !== e) : [...list, e]; try { localStorage.setItem('cros.invite.cc', JSON.stringify(next)) } catch {} ; return next })
+  // once it's gone, Send locks until you choose to send again — no accidental second email
+  const [sentOnce, setSentOnce] = useState(false)
   const seeded = useRef(false)
   const key = JSON.stringify(target)
   const n = Number(rent.replace(/[£,\s]/g, ''))
@@ -36,12 +41,12 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
 
   const post = (extra: Record<string, unknown>) => adminFetch('/api/lettings/invite-to-apply', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...target, method, mode, ...(needsRent && n > 0 ? { rent: n } : {}), ...extra }),
+    body: JSON.stringify({ ...target, method, mode, cc, ...(needsRent && n > 0 ? { rent: n } : {}), ...extra }),
   })
 
   // the preview follows every change (debounced); the first one fills the rent from the offer, else the asking rent
   useEffect(() => {
-    setResult(null)
+    setResult(null); setSentOnce(false)
     const t = setTimeout(async () => {
       const r = await post({ preview: true }).catch(() => null)
       const d = r ? await r.json().catch(() => ({})) : {}
@@ -59,7 +64,7 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
       const r = await post({})
       const d = await r.json().catch(() => ({}))
       setResult(d)
-      if (r.ok && (d.emailSent || d.smsSent)) onSent?.(d)
+      if (r.ok && (d.emailSent || d.smsSent)) { setSentOnce(true); onSent?.(d) }
       else if (!r.ok) setError(d.error ?? 'Not sent')
     } catch { setError('Couldn’t reach CROS — check your connection.') }
     finally { setSending(false) }
@@ -106,6 +111,16 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
             <button key={v} type="button" onClick={() => setMethod(v)} className={`rounded-lg border-2 px-md py-sm text-sm font-semibold ${method === v ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 text-neutral-700'}`}>{l}</button>
           ))}
         </div>
+        {method !== 'sms' && (p?.office?.length ?? 0) > 0 && (
+          <div className="mt-sm flex flex-wrap items-center gap-xs text-xs">
+            <span className="font-semibold text-neutral-600">Copy in:</span>
+            {p!.office!.map(o => (
+              <label key={o.email} className={`flex cursor-pointer items-center gap-xs rounded-full border px-sm py-[3px] ${cc.includes(o.email) ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700'}`}>
+                <input type="checkbox" className="sr-only" checked={cc.includes(o.email)} onChange={() => toggleCc(o.email)} />{o.name}
+              </label>
+            ))}
+          </div>
+        )}
         <p className="mt-xs text-xs text-neutral-500">To {[method !== 'sms' ? (p?.to || 'no email recorded') : null, method !== 'email' ? (p?.phone || 'no mobile recorded') : null].filter(Boolean).join(' · ')}{p?.existingApplicant ? ' · already an applicant — their one record is used' : ''}</p>
       </section>
 
@@ -123,7 +138,7 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
       {error && <p className="rounded-lg bg-red-50 px-md py-sm text-sm font-semibold text-red-800">{error}</p>}
       {result && (result.emailSent || result.smsSent || result.emailError || result.smsError) && (
         <div className="space-y-xs rounded-lg border border-neutral-200 bg-neutral-50 p-md text-sm">
-          {result.emailSent && <p className="font-semibold text-green-700">✓ Email sent to {p?.to}</p>}
+          {result.emailSent && <p className="font-semibold text-green-700">✓ Email sent to {p?.to}{result.cc?.length ? ` (copy to ${result.cc.join(', ')})` : ''}</p>}
           {result.emailError && <p className="font-medium text-amber-700">⚠ Email: {result.emailError}</p>}
           {result.smsSent && <p className="font-semibold text-green-700">✓ Text sent to {p?.phone}</p>}
           {result.smsError && <p className="font-medium text-amber-700">⚠ Text: {result.smsError}</p>}
@@ -136,9 +151,10 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
         </div>
       )}
 
-      <button type="button" onClick={send} disabled={sending || !p || (needsRent && !(n > 0))}
+      {sentOnce && <button type="button" onClick={() => { if (confirm('Send it again? They’ll get a second copy.')) setSentOnce(false) }} className="w-full text-center text-xs font-semibold text-neutral-500 underline">Send again…</button>}
+      <button type="button" onClick={send} disabled={sending || sentOnce || !p || (needsRent && !(n > 0))}
         className="w-full rounded-lg bg-neutral-900 py-md text-sm font-bold text-white hover:bg-neutral-800 disabled:opacity-40">
-        {sending ? 'Sending…' : `Send — ${INVITE_MODES.find(m => m.key === mode)!.title}${needsRent && n > 0 ? ` · ${gbp(n)} a month` : ''}`}
+        {sending ? 'Sending…' : sentOnce ? '✓ Sent' : `Send — ${INVITE_MODES.find(m => m.key === mode)!.title}${needsRent && n > 0 ? ` · ${gbp(n)} a month` : ''}`}
       </button>
     </div>
   )
