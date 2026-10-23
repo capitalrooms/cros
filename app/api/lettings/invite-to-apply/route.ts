@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { buildEmail } from '@/lib/emailWrapper'
 import { findApplicant, moveToRoom, normEmail } from '@/lib/lettings/applicantRecord'
+import { draftReserve, pinReserve, cleanRent } from '@/lib/lettings/reserveEmail'
 
 import { holdingDepositRef } from '@/lib/offers/holdingRef'
 import { buildSearchIsOverEmail } from '@/lib/emailTemplates'
@@ -67,7 +68,19 @@ export async function POST(request: NextRequest) {
   // could send invites by email and text from CROS)
   if (!(await requireStaff(request))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
 
-  const { viewingId, manual, method, mode = 'apply' } = await request.json()
+  const reqBody = await request.json()
+  const { viewingId, method, mode = 'apply' } = reqBody
+  let { manual } = reqBody
+  // 23 Oct 2026: one panel sends from Invite to apply AND from an applicant's own record (components/InviteApplicant),
+  // with a preview first and the rent you confirm. applicantId = start from their record.
+  const preview = reqBody.preview === true
+  const typedRent = cleanRent(reqBody.rent)
+  if (reqBody.applicantId) {
+    const { data: ap } = await createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      .from('applicants').select('full_name, salutation, first_name, last_name, email, phone, room_id, property_id').eq('id', reqBody.applicantId).maybeSingle()
+    if (!ap) return NextResponse.json({ error: 'Applicant not found' }, { status: 404 })
+    manual = { name: (ap as any).full_name, salutation: (ap as any).salutation, first_name: (ap as any).first_name, last_name: (ap as any).last_name, email: (ap as any).email, phone: (ap as any).phone, room_id: (ap as any).room_id, property_id: (ap as any).property_id }
+  }
   if (!viewingId && !manual) return NextResponse.json({ error: 'viewingId or manual details required' }, { status: 400 })
 
   const supabase = createClient(
@@ -157,6 +170,10 @@ export async function POST(request: NextRequest) {
     propertyId   = viewing.property_id
   }
 
+  // the rent you confirmed on the screen beats the advert (the asking rent is only the starting suggestion)
+  const askingRent = monthly
+  if (typedRent) { monthly = typedRent; weekly = weeklyRent(typedRent) }
+
   // the application page needs the room and property — never send a link it can't open
   if (!roomId || !propertyId) {
     return NextResponse.json({ error: manual ? 'Pick the room for this invite.' : 'This viewing has no room recorded — set the room on the viewing (or use “Other” and pick it), then send.' }, { status: 400 })
@@ -177,7 +194,11 @@ export async function POST(request: NextRequest) {
 
   // ── Create / update applicants row (upsert on email + room_id) ─────────────
   // This is best-effort — don't fail the invite if it errors (table may not exist yet)
-  if (roomId && propertyId && visitorEmail) {
+  if (preview) {
+    // nothing is saved for a preview — just whether they already have a record
+    const ex = visitorEmail ? await findApplicant(supabase, visitorEmail) : null
+    if (ex) result.applicantId = ex.id
+  } else if (roomId && propertyId && visitorEmail) {
     try {
       const stage = isReserve ? 'offer_sent' : 'invited'
       // one applicant per email (lib/lettings/applicantRecord) — the same person invited to another room keeps one record
@@ -223,83 +244,76 @@ export async function POST(request: NextRequest) {
     result.link = sendUrl
   }
 
+  // ── The email and the text: built the same way for a preview and for sending ─────────────
+  const place = placeLabel(whole, roomLabel, propAddress)
+  let subject = '', html = '', smsBody = ''
+  // Reserve only: the one reserve email (lib/lettings/reserveEmail) — the same one Applicants → Reserve sends
+  const reserveDraft = isReserve && result.applicantId ? await draftReserve(supabase, result.applicantId, typedRent ?? monthly, request) : null
+  if (reserveDraft && !('error' in reserveDraft)) {
+    subject = reserveDraft.subject; html = reserveDraft.html; smsBody = reserveDraft.sms
+    monthly = reserveDraft.rent; weekly = reserveDraft.deposit
+    result.pinned = reserveDraft.pinned; result.earlier = reserveDraft.earlier
+  } else if (isReserve) {
+    if (monthly && weekly) {
+      subject = `Your offer has been accepted — secure ${whole ? 'the property' : roomLabel || 'the room'} now`
+      html = await buildSearchIsOverEmail({
+        applicantName: firstName, roomName: roomLabel, propertyAddress: propAddress, propertyCity: 'London',
+        advertisedRent: Number(monthly), applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef, whole,
+      }, request)
+    }
+    smsBody = `Hi ${firstName}, ${whole ? `${propAddress || 'the property'} is` : `your room at ${propAddress || roomLabel} is`} ready to reserve — pay the holding deposit (£${weekly ?? '?'}) to secure it: ${reserveUrl} — Capital Rooms`
+  } else {
+    // Make an offer / Fast-track: the application form (a saved template wins when there is one)
+    const tpl = await getTemplate('applicant-offer-letter' + (whole ? '-whole' : ''))
+    const tokenVars = {
+      first_name: firstName, room_name: roomLabel, property_address: propAddress, property_address_with_at: propAddress ? ` at ${propAddress}` : '',
+      monthly_rent: monthly ? String(Number(monthly).toLocaleString()) : '', weekly_rent: weekly ? String(weekly.toLocaleString()) : '',
+      payment_ref: payRef, apply_url: isFastTrack ? fastUrl : applyUrl, reserve_url: reserveUrl,
+    }
+    if (tpl) {
+      subject = render(tpl.subject_line, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
+      const b = render(tpl.template_text, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
+      html = /<html/i.test(b) ? b : await buildEmail(b.includes('<') ? b : b.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { req: request })
+    } else {
+      subject = whole ? `Your application for ${place}` : `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
+      html = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl: isFastTrack ? fastUrl : applyUrl, whole }, request)
+    }
+    smsBody = `Hi ${firstName}, thanks for viewing ${place || 'the property'}. Apply in under 5 mins: ${isFastTrack ? fastUrl : applyUrl} — Capital Rooms`
+  }
+  subject = oneLine(subject)
+
+  if (preview) {
+    return NextResponse.json({ preview: true, to: visitorEmail, phone: visitorPhone, subject, html, sms: smsBody, rent: monthly, deposit: weekly, asking: askingRent, pinned: result.pinned ?? null, earlier: result.earlier ?? null, existingApplicant: !!result.applicantId })
+  }
+  if (isReserve && !monthly) return NextResponse.json({ ...result, error: 'Enter the monthly rent that’s been agreed — the holding deposit is one week of it.' }, { status: 400 })
+
   // ── Email ──────────────────────────────────────────────────────────────────
   if (method === 'email' || method === 'both') {
-    const apiKey = process.env.RESEND_API_KEY
-    if (!apiKey) {
-      result.emailError = 'RESEND_API_KEY not configured'
-    } else if (!visitorEmail) {
-      result.emailError = 'No email address on this viewing'
-    } else {
-      // Try DB template first, fall back to inline builders
-      // a whole house or flat never gets the room wording: its own saved template ("…-whole") if there is one,
-      // otherwise the built-in emails with property words (lib/lettings/letWording)
-      const templateSlug = (isReserve ? 'applicant-offer-deposit' : 'applicant-offer-letter') + (whole ? '-whole' : '')
-      const tpl = await getTemplate(templateSlug)
-      const place = placeLabel(whole, roomLabel, propAddress)
-
-      let subject: string
-      let html: string
-
-      const tokenVars = {
-        first_name:               firstName,
-        room_name:                roomLabel,
-        property_address:         propAddress,
-        property_address_with_at: propAddress ? ` at ${propAddress}` : '',
-        monthly_rent:             monthly ? String(Number(monthly).toLocaleString()) : '',
-        weekly_rent:              weekly  ? String(weekly.toLocaleString()) : '',
-        payment_ref:              payRef,
-        apply_url:                applyUrl,
-        reserve_url:              reserveUrl,
-      }
-
-      if (tpl) {
-        subject = render(tpl.subject_line, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
-        // saved templates hold the body only; an old full-page template is sent as it is
-        const body = render(tpl.template_text, tokenVars, visitorName !== 'there' ? personFromText(visitorName) : null)
-        html    = /<html/i.test(body) ? body : await buildEmail(body.includes('<') ? body : body.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join(''), { req: request })
-      } else if (isReserve && monthly && weekly) {
-        subject = `The search is over — ${place}`
-        html    = await buildSearchIsOverEmail({   // the same email as Send Offer Letter
-          applicantName: firstName, roomName: roomLabel, propertyAddress: propAddress, propertyCity: 'London',
-          advertisedRent: Number(monthly), moveInDate: undefined, applicationUrl: reserveUrl, holdingDeposit: oneWeekRent(Number(monthly)), holdingRef: payRef, whole,
-        }, request)
-      } else if (isFastTrack) {
-        subject = whole ? `Your application for ${place}` : `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
-        html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl: fastUrl, whole }, request)
-      } else {
-        subject = whole ? `Your application for ${place}` : `Your application for ${roomLabel}${propAddress ? ` at ${propAddress}` : ''}`
-        html    = await applyEmailHtml({ firstName, roomName: roomLabel, propAddress, applyUrl, whole }, request)
-      }
-
-      const emailRes = await deliverEmail({ to: [visitorEmail], subject: oneLine(subject), html }, { req: request })
-      if (emailRes.ok) {
-        result.emailSent = true
-      } else {
-        const err = await emailRes.json().catch(() => ({}))
-        result.emailError = (err as any)?.message || 'Failed to send email'
-      }
+    if (!process.env.RESEND_API_KEY) result.emailError = 'RESEND_API_KEY not configured'
+    else if (!visitorEmail) result.emailError = 'No email address recorded'
+    else {
+      const emailRes = await deliverEmail({ to: [visitorEmail], subject, html }, { req: request })
+      if (emailRes.ok) result.emailSent = true
+      else { const err = await emailRes.json().catch(() => ({})); result.emailError = (err as any)?.message || 'Failed to send email' }
     }
   }
 
-  // ── SMS (Twilio) ────────────────────────────────────────────────────────────
+  // ── SMS (Twilio) ── lib/sms: the right sender number, +44 numbers, the office told if it fails
   if (method === 'sms' || method === 'both') {
-    // lib/sms — the right sender number (this used TWILIO_PHONE_NUMBER, which the text service rejects), +44 numbers,
-    // and the office is told if it fails
-    if (!smsConfigured()) {
-      result.smsError = 'SMS not yet configured — use the copy link instead'
-    } else if (!visitorPhone) {
-      result.smsError = 'No phone number on this viewing'
-    } else {
-      const body = isReserve
-        ? `Hi ${firstName}, ${whole ? `${propAddress || 'the property'} is` : `your room at ${propAddress || roomLabel} is`} ready to reserve — pay the holding deposit (£${weekly ?? '?'}) to secure it: ${reserveUrl} — Capital Rooms`
-        : `Hi ${firstName}, thanks for viewing ${placeLabel(whole, roomLabel, propAddress) || 'the property'}. Apply in under 5 mins: ${isFastTrack ? fastUrl : applyUrl} — Capital Rooms`
-
-      const sent = await sendSms(visitorPhone, body)
+    if (!smsConfigured()) result.smsError = 'SMS not yet configured — use the copy link instead'
+    else if (!visitorPhone) result.smsError = 'No phone number recorded'
+    else {
+      const sent = await sendSms(visitorPhone, smsBody)
       if (sent.ok) result.smsSent = true
       else result.smsError = `The text didn’t send: ${sent.error}`
     }
   }
+
+  // reserve: the rent quoted is pinned on their offer (the reserve page and the holding deposit use it)
+  if (isReserve && result.applicantId && monthly && (result.emailSent || result.smsSent)) await pinReserve(supabase, result.applicantId, Number(monthly))
+  // fast-track with a rent you changed: pinned too, so the deposit step after their form uses it (stage unchanged)
+  else if (isFastTrack && typedRent && typedRent !== askingRent && result.applicantId && (result.emailSent || result.smsSent)) await pinReserve(supabase, result.applicantId, typedRent, { stage: false })
+  result.rent = monthly
 
   return NextResponse.json(result)
 }

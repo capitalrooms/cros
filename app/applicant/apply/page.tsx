@@ -307,6 +307,7 @@ export default function ApplicantForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          fastTrack,
           fullName: [firstName, middleName, lastName].map(x => x.trim()).filter(Boolean).join(' '),
           salutation, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
           email,

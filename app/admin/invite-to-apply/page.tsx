@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
+import InviteApplicant from '@/components/InviteApplicant'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
@@ -283,127 +284,16 @@ export default function InviteToApplyPage() {
           )}
         </div>
 
-        {/* Step 2 — Choose what to send */}
+        {/* Step 2 — what to send, the rent, and the exact email: the one panel Applicants uses too (components/InviteApplicant) */}
         {(selected || manualMode) && (
           <div className="bg-white rounded-xl border border-neutral-200 p-lg mb-lg">
-            <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-md">
-              2 · What to send
-            </h2>
-            <div className="grid grid-cols-1 gap-md mb-lg sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => setMode('apply')}
-                className={`p-md rounded-xl border-2 text-left transition-all ${mode === 'apply' ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}
-              >
-                <div className="text-lg mb-xs">📋</div>
-                <p className="text-sm font-semibold text-neutral-900">Make an offer</p>
-                <p className="text-xs text-neutral-500 mt-xs">Send the application form. You review it, then decide whether to accept.</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('fasttrack')}
-                className={`p-md rounded-xl border-2 text-left transition-all ${mode === 'fasttrack' ? 'border-amber-500 bg-amber-50' : 'border-neutral-200 hover:border-neutral-300'}`}
-              >
-                <div className="text-lg mb-xs">⚡</div>
-                <p className="text-sm font-semibold text-neutral-900">Fast-track</p>
-                <p className="text-xs text-neutral-500 mt-xs">They fill in their details then go straight to paying the holding deposit — no review step.</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('reserve')}
-                className={`p-md rounded-xl border-2 text-left transition-all ${mode === 'reserve' ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}
-              >
-                <div className="text-lg mb-xs">🎉</div>
-                <p className="text-sm font-semibold text-neutral-900">Reserve only</p>
-                <p className="text-xs text-neutral-500 mt-xs">Send holding deposit details directly. Use after you&apos;ve already accepted an offer.</p>
-              </button>
-            </div>
-            <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-md">
-              3 · Send via
-            </h2>
-            <div className="grid grid-cols-3 gap-md">
-              {(['email', 'sms', 'both'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMethod(m)}
-                  className={`p-md rounded-lg border-2 text-sm font-medium transition-all capitalize ${
-                    method === m
-                      ? 'border-neutral-900 bg-neutral-900 text-white'
-                      : 'border-neutral-200 text-neutral-700 hover:border-neutral-400'
-                  }`}
-                >
-                  {m === 'email' ? '✉ Email' : m === 'sms' ? '📱 SMS' : '✉ + 📱 Both'}
-                </button>
-              ))}
-            </div>
-
-            {/* Contact preview */}
-            <div className="mt-md p-md bg-neutral-50 rounded-lg border border-neutral-200 text-sm space-y-xs">
-              <div className="flex gap-md">
-                <span className="text-neutral-500 w-16 shrink-0">Email</span>
-                <span className="text-neutral-900 font-medium">
-                  {contactEmail || <span className="text-neutral-400 italic">not recorded</span>}
-                </span>
-              </div>
-              <div className="flex gap-md">
-                <span className="text-neutral-500 w-16 shrink-0">Phone</span>
-                <span className="text-neutral-900 font-medium">
-                  {contactPhone || <span className="text-neutral-400 italic">not recorded</span>}
-                </span>
-              </div>
-            </div>
-
-            <button
-              onClick={send}
-              disabled={sending || !canSend}
-              className="mt-md w-full bg-neutral-900 text-white py-sm rounded-lg font-semibold text-sm hover:bg-neutral-800 disabled:opacity-50 transition-colors"
-            >
-              {sending ? 'Sending…' : 'Send Invitation'}
-            </button>
-
-            {/* Result — inline, right under the button */}
-            {result && (
-              <div ref={resultRef} className="mt-md rounded-lg border border-neutral-200 bg-neutral-50 p-md space-y-sm">
-                {result.emailSent && (
-                  <div className="flex items-center gap-sm text-green-700 text-sm font-semibold">
-                    <span>✓</span> Email sent to {contactEmail}
-                  </div>
-                )}
-                {result.emailError && (
-                  <div className="text-amber-700 text-sm font-medium">⚠ Email: {result.emailError}</div>
-                )}
-                {result.smsSent && (
-                  <div className="flex items-center gap-sm text-green-700 text-sm font-semibold">
-                    <span>✓</span> SMS sent to {contactPhone}
-                  </div>
-                )}
-                {result.smsError && (
-                  <div className="text-amber-700 text-sm font-medium">⚠ SMS: {result.smsError}</div>
-                )}
-                {!result.emailSent && !result.emailError && !result.smsSent && !result.smsError && !result.link && (
-                  <div className="text-red-700 text-sm font-medium bg-red-50 border border-red-200 rounded-lg px-md py-sm">
-                    {result.error ? `Error: ${result.error}` : `Unexpected response: ${JSON.stringify(result)}`}
-                  </div>
-                )}
-                {result.link && (
-                  <div className="pt-xs border-t border-neutral-200">
-                    <p className="text-xs text-neutral-500 mb-xs">Application link (copy to share manually):</p>
-                    <div className="flex items-center gap-sm">
-                      <p className="text-xs text-neutral-600 bg-white px-sm py-xs rounded border border-neutral-200 flex-1 break-all">
-                        {result.link}
-                      </p>
-                      <button
-                        onClick={copyLink}
-                        className="shrink-0 text-xs font-medium bg-neutral-900 text-white px-sm py-xs rounded hover:bg-neutral-800 transition-colors"
-                      >
-                        {copied ? 'Copied!' : 'Copy'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <h2 className="text-sm font-semibold text-neutral-700 uppercase tracking-wide mb-md">2 · What to send</h2>
+            {canSend
+              ? <InviteApplicant key={selected?.id ?? `${manual.room_id}|${manual.email}|${manual.phone}|${manualNm.first_name}|${manualNm.last_name}`}
+                  target={manualMode
+                    ? { manual: { name: manual.name, salutation: manualNm.salutation, first_name: manualNm.first_name.trim(), last_name: manualNm.last_name.trim(), email: manual.email, phone: manual.phone, room_id: manual.room_id, property_id: manual.property_id } }
+                    : { viewingId: selected.id }} />
+              : <p className="text-sm text-neutral-500">Fill in their title, name, the room and an email or mobile above to see what they’ll get.</p>}
           </div>
         )}
       </div>

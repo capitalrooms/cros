@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import DuplicateApplicants from './DuplicateApplicants'
-import ReserveSend from './ReserveSend'
+import InviteApplicant, { type InviteMode } from '@/components/InviteApplicant'
 import { adminFetch } from '@/lib/adminFetch'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -251,8 +251,9 @@ export default function ApplicantsPage() {
   }
 
   // the reserve email: previewed, with the rent to confirm, before anything is sent (ReserveSend, 23 Oct 2026)
-  const [reserveFor, setReserveFor] = useState<Applicant | null>(null)
-  function acceptOffer(applicant: Applicant) { setReserveFor(applicant) }
+  // one panel with Invite to apply (components/InviteApplicant): the same choices, the rent, the exact email first
+  const [inviteFor, setInviteFor] = useState<{ a: Applicant; mode: InviteMode } | null>(null)
+  function acceptOffer(applicant: Applicant) { setInviteFor({ a: applicant, mode: 'reserve' }) }
 
   async function convertToTenant(applicant: Applicant) {
     if (!confirm(`Convert ${applicant.full_name} to a tenant? This will create (or link to) their tenant record.`)) return
@@ -340,7 +341,9 @@ export default function ApplicantsPage() {
           phone:          addForm.phone.trim() || null,
           room_id:        addForm.room_id,
           property_id:    addForm.property_id,
-          pipeline_stage: 'applied',
+          // they haven't filled anything in yet — "invited", and the email panel opens next (23 Oct 2026: it assumed
+          // they'd applied, which left only the reserve email)
+          pipeline_stage: 'invited',
         })
         .select('*, rooms(name), properties(name, address)')
         .single()
@@ -349,6 +352,7 @@ export default function ApplicantsPage() {
       setNotes(prev => ({ ...prev, [data.id]: '' }))
       setAddForm({ full_name: '', name: emptyName(), email: '', phone: '', property_id: '', room_id: '' })
       setShowAdd(false)
+      setInviteFor({ a: data as Applicant, mode: 'fasttrack' })
     } finally {
       setAddSaving(false)
     }
@@ -393,8 +397,20 @@ export default function ApplicantsPage() {
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <DuplicateApplicants onMerged={() => loadAll()} />
-        {reserveFor && <ReserveSend applicant={reserveFor} onClose={() => setReserveFor(null)}
-          onSent={() => { const a = reserveFor; setReserveFor(null); setAcceptSentFor(prev => new Set([...prev, a.id])); setApplicants(prev => prev.map(x => x.id === a.id ? { ...x, pipeline_stage: 'offer_sent' } : x)) }} />}
+        {inviteFor && (
+          <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 md:items-center md:p-lg" role="dialog" aria-modal="true" aria-label={`Email ${inviteFor.a.full_name}`}>
+            <div className="flex w-full flex-col overflow-hidden bg-white md:max-h-[92vh] md:max-w-3xl md:rounded-2xl">
+              <div className="flex items-start justify-between gap-md border-b border-neutral-200 px-lg py-md">
+                <div><p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Email {inviteFor.a.full_name}</p><p className="text-xs text-neutral-500">{[inviteFor.a.email, inviteFor.a.phone].filter(Boolean).join(' · ')}</p></div>
+                <button onClick={() => { setInviteFor(null); loadAll() }} aria-label="Close" className="text-2xl leading-none text-neutral-400 hover:text-neutral-900">×</button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-lg py-md">
+                <InviteApplicant target={{ applicantId: inviteFor.a.id }} initialMode={inviteFor.mode}
+                  onSent={r => { const a = inviteFor.a; if (r?.rent && inviteFor.mode === 'reserve') setAcceptSentFor(prev => new Set([...prev, a.id])) }} />
+              </div>
+            </div>
+          </div>
+        )}
         {/* Add form */}
         {showAdd && (
           <div className="mb-xl rounded-2xl border-2 border-neutral-900 bg-white p-lg">
@@ -839,6 +855,12 @@ export default function ApplicantsPage() {
 
                         {/* also on 'invited' — an invite sent to a mistyped email left no way to send the reserve email once the
                             address was corrected (Hugh Elliot, 17 Oct 2026); it always goes to the email on file now */}
+                        {!isConverted && (
+                          <button type="button" onClick={() => setInviteFor({ a: applicant, mode: applicant.pipeline_stage === 'invited' ? 'fasttrack' : applicant.pipeline_stage === 'applied' ? 'reserve' : 'apply' })}
+                            className="text-xs font-semibold border border-neutral-300 bg-white text-neutral-800 rounded-lg px-md py-sm hover:bg-neutral-50">
+                            ✉️ Email / invite…
+                          </button>
+                        )}
                         {(applicant.pipeline_stage === 'invited' || applicant.pipeline_stage === 'applied' || applicant.pipeline_stage === 'offer_sent') && (
                           <button
                             onClick={() => acceptOffer(applicant)}
