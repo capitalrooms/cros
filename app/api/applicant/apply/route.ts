@@ -168,7 +168,7 @@ export async function POST(request: Request) {
         const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
         const where = [room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'
         const app = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
-        const fast = data.fastTrack === true
+        const fast = data.fastTrack === true || (typeof data.offerToken === 'string' && !!(await supabase.from('offers').select('request_deposit').eq('application_token', data.offerToken).maybeSingle()).data?.request_deposit)
         const row = (k: string, v: unknown) => v ? `<tr><td style="padding:4px 0;color:#78716c;width:160px;">${k}</td><td style="padding:4px 0;">${esc(v)}</td></tr>` : ''
         await sendEmail(to, `${existing ? '✏️ Offer updated' : '📝 New offer'} — ${data.fullName}, ${where}${fast ? ' (fast-track: reserving next)' : ''}`, `
           <p>Hello,</p>
@@ -183,7 +183,15 @@ export async function POST(request: Request) {
       console.error('apply: staff notification failed', e)
     }
 
-    return Response.json({ success: true, applicantId, message: 'Application submitted successfully' }, { status: 201 })
+    // their link came from an offer that asked for the holding deposit ("the search is over"): the form takes them on
+    // to the reserve page, where "I've paid" tells us (23 Oct 2026 — they were left on the review page, paid by
+    // transfer, and CROS never knew)
+    let reserveNext = false
+    if (typeof data.offerToken === 'string' && /^[0-9a-f]{20,128}$/i.test(data.offerToken)) {
+      const { data: o } = await supabase.from('offers').select('request_deposit').eq('application_token', data.offerToken).maybeSingle()
+      reserveNext = !!(o as any)?.request_deposit
+    }
+    return Response.json({ success: true, applicantId, reserveNext, message: 'Application submitted successfully' }, { status: 201 })
   } catch (err) {
     console.error('Error:', err)
     return Response.json({ error: 'Internal server error' }, { status: 500 })

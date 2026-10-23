@@ -308,6 +308,7 @@ export default function ApplicantForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fastTrack,
+          offerToken: searchParams.get('token') || undefined,
           fullName: [firstName, middleName, lastName].map(x => x.trim()).filter(Boolean).join(' '),
           salutation, firstName: firstName.trim(), middleName: middleName.trim(), lastName: lastName.trim(),
           email,
@@ -360,7 +361,8 @@ export default function ApplicantForm() {
 
       // Fast-track: go straight to reserve page. Standard: show review first.
       setTimeout(() => {
-        if (fastTrack && roomId && propertyId) {
+        // fast-track, or an offer that asked for the holding deposit: straight on to reserve (and its "I've paid" button)
+        if ((fastTrack || result.reserveNext) && roomId && propertyId) {
           // &a= lets the reserve page's "I've paid" button say who it is
           router.push(`/applicant/reserve?roomId=${roomId}&propertyId=${propertyId}${result.applicantId ? `&a=${result.applicantId}` : ''}`)
         } else {
