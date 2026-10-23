@@ -112,7 +112,7 @@ function Capture({ initialTab }: { initialTab: Tab }) {
           <section className={card}>
             <h3 className="border-b border-neutral-100 px-lg py-sm text-xs font-bold uppercase tracking-wider text-neutral-500">Recently filed</h3>
             <ul className="divide-y divide-neutral-100 text-sm">
-              {data.recent.map((r: any) => <li key={r.id} className="flex justify-between gap-sm px-lg py-xs"><span className="truncate">{r.name} <span className="text-neutral-500">· {r.kind}{r.property ? ` · ${r.property}` : ''}</span></span><span className="shrink-0 text-xs text-neutral-400">{new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span></li>)}
+              {data.recent.map((r: any) => <li key={r.id} className="flex justify-between gap-sm px-lg py-xs"><span className="min-w-0 truncate">{r.name} <span className="text-neutral-500">· {r.kind}{r.property ? ` · ${r.property}` : ''}</span></span><span className="shrink-0 text-xs text-neutral-400">{new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span></li>)}
             </ul>
           </section>
         )}

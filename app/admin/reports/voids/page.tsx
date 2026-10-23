@@ -78,7 +78,7 @@ export default function VoidsReport() {
             <p className="text-xs text-neutral-400 mt-xs">All rooms are currently occupied</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+          <div className="bg-white rounded-2xl border border-neutral-200 overflow-x-auto">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-neutral-50 border-b border-neutral-100">

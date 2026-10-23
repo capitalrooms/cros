@@ -706,7 +706,7 @@ function CertificatesTab({
           <span className="text-neutral-400">· click a cell to upload</span>
         </div>
       </div>
-      <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+      <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -935,7 +935,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
             <div className="flex flex-wrap items-center gap-sm justify-between">
               <div className="flex flex-wrap gap-sm">
                 <select value={checksPropertyFilter} onChange={(e) => setChecksPropertyFilter(e.target.value)}
-                  className="rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
+                  className="w-full min-w-0 sm:w-auto sm:max-w-xs rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900 bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
                   <option value="all">All properties</option>
                   {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>

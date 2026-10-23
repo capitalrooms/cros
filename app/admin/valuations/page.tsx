@@ -579,7 +579,7 @@ export default function ValuationsPage() {
               <p className="text-sm text-neutral-400">No valuations generated yet. They'll appear here once you create your first letter.</p>
             </div>
           ) : (
-            <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+            <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-neutral-100 bg-neutral-50">

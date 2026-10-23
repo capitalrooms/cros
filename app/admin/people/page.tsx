@@ -979,7 +979,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
         {activeTab === 'tenants' && (tenantGroups.length ? tenantGroups.map(g => (
           <section key={g.id} className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
             <header className="flex items-baseline justify-between gap-md border-b border-neutral-100 bg-neutral-50 px-lg py-sm">
-              <span className="min-w-0"><span className="font-bold text-neutral-900">{g.name}</span><span className="ml-sm truncate text-xs text-neutral-500">{g.address}</span></span>
+              <span className="min-w-0 flex-1"><span className="font-bold text-neutral-900">{g.name}</span><span className="block truncate text-xs text-neutral-500 sm:ml-sm sm:inline">{g.address}</span></span>
               <span className="shrink-0 text-xs text-neutral-500">{g.rows.length} tenant{g.rows.length === 1 ? '' : 's'}</span>
             </header>
             <ul className="divide-y divide-neutral-100">

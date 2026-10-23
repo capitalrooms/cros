@@ -866,7 +866,7 @@ export default function RoomDashboardPage({
                 <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">
                   Lettings history ({(currentTenancy ? 1 : 0) + previousTenancies.length})
                 </h2>
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       <thead>
@@ -1146,7 +1146,7 @@ export default function RoomDashboardPage({
                 <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">
                   Lettings history ({(currentTenancy ? 1 : 0) + previousTenancies.length})
                 </h2>
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+                <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       <thead>
@@ -1305,7 +1305,7 @@ export default function RoomDashboardPage({
                     + Add letting
                   </Link>
                 </div>
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
+                <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto shadow-sm">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
                       <thead>

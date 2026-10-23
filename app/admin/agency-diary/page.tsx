@@ -78,6 +78,9 @@ const APPOINTMENT_TYPE_ICONS: Record<string, string> = {
   other: '📍',
 }
 
+// contractor/cleaner rows carry first/last (and older full_name) — never .name
+const whoName = (p: any) => ([p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Unassigned')
+
 export default function AgencyDiaryPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -124,7 +127,7 @@ export default function AgencyDiaryPage() {
         // Load maintenance jobs (booked in this week)
         const { data: maint } = await supabase
           .from('maintenance_tickets')
-          .select('*, properties(name, address), rooms(name)')
+          .select('*, property:properties(name, address), room:rooms(name)')
           .gte('booked_date', weekStart.toISOString().split('T')[0])
           .lt('booked_date', weekEnd.toISOString().split('T')[0])
           .order('booked_date', { ascending: true })
@@ -134,7 +137,7 @@ export default function AgencyDiaryPage() {
         // Load clean jobs
         const { data: cleans } = await supabase
           .from('cleans')
-          .select('*, properties(name, address), cleaner:cleaner_id(full_name)')
+          .select('*, property:properties(name, address), cleaner:cleaner_id(full_name, salutation, first_name, last_name)')
           .gte('clean_date', weekStart.toISOString().split('T')[0])
           .lt('clean_date', weekEnd.toISOString().split('T')[0])
           .order('clean_date', { ascending: true })
@@ -144,7 +147,7 @@ export default function AgencyDiaryPage() {
         // Load appointments
         const { data: appts } = await supabase
           .from('property_appointments')
-          .select('*, properties(name, address)')
+          .select('*, property:properties(name, address)')
           .gte('appointment_date', weekStart.toISOString().split('T')[0])
           .lt('appointment_date', weekEnd.toISOString().split('T')[0])
           .order('appointment_date', { ascending: true })
@@ -185,7 +188,7 @@ export default function AgencyDiaryPage() {
         // Load outstanding jobs (approved but not booked)
         const { data: outstanding } = await supabase
           .from('maintenance_tickets')
-          .select('*, properties(name, address), rooms(name)')
+          .select('*, property:properties(name, address), room:rooms(name)')
           .eq('status', 'assigned')
           .is('booked_date', null)
           .order('created_at', { ascending: true })
@@ -370,7 +373,7 @@ export default function AgencyDiaryPage() {
                     </div>
                     {job.contractor && (
                       <div className="text-xs text-neutral-600">
-                        Assigned to: {job.contractor.name}
+                        Assigned to: {whoName(job.contractor)}
                       </div>
                     )}
                   </div>
@@ -464,8 +467,8 @@ export default function AgencyDiaryPage() {
                         }`}
                       >
                         <div className="font-semibold truncate">
-                          {event.type === 'maintenance' && `🔧 ${(event as MaintenanceJob).contractor.name || 'Unassigned'}`}
-                          {event.type === 'clean' && `🧹 ${(event as CleanJob).cleaner.name || 'Unassigned'}`}
+                          {event.type === 'maintenance' && `🔧 ${whoName((event as any).contractor)}`}
+                          {event.type === 'clean' && `🧹 ${whoName((event as any).cleaner)}`}
                           {event.type === 'appointment' && `${APPOINTMENT_TYPE_ICONS[(event as Appointment).appointment_type] || '📋'} ${(event as Appointment).visitor_name}`}
                         </div>
                         <div className="text-xs opacity-80 truncate mt-xs">

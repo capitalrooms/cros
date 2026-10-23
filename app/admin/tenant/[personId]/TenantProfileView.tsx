@@ -576,7 +576,7 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
           <div className="flex items-center justify-between mb-md">
             <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400">Rent charges</h2>
           </div>
-          <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+          <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 <thead>
@@ -674,7 +674,7 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
             <p className="text-sm text-neutral-400">No statement records for this tenancy. Records are created when landlord statements are imported — only statements processed since the payment pipeline was set up will appear here.</p>
           </div>
         ) : (
-          <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+          <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 <thead>
