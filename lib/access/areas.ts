@@ -7,13 +7,13 @@
 //   app/admin/layout   — the rail shows only their areas; any other page shows "not part of your access"
 // Safe to import in the browser (no server code).
 
-export type AreaKey = 'dashboard' | 'properties' | 'lettings' | 'diary' | 'maintenance' | 'compliance' | 'finance' | 'people' | 'comms' | 'newbusiness' | 'website'
+export type AreaKey = 'dashboard' | 'properties' | 'lettings' | 'diary' | 'maintenance' | 'compliance' | 'finance' | 'people' | 'comms' | 'newbusiness' | 'website' | 'settings'
 
 export interface Area { key: AreaKey; label: string; hint: string; pages: string[]; api: string[]; apiRead?: string[] }
 
 // pages: /admin route prefixes; api: route prefixes (mostly /api/admin; a few office routes live elsewhere). A path belongs to the longest matching prefix.
-// Not in any area (administrators only): Settings, accounts & access, view-as, export, business settings, brand logo,
-// seeding — and anything added later until it's put in an area here.
+// Not in any area (administrators only): staff accounts & access, View as — and anything added later until it's put
+// in an area here.
 export const AREAS: Area[] = [
   { key: 'dashboard', label: 'Dashboard', hint: 'The home screen figures and today’s list',
     pages: ['/admin/today', '/admin/search'], api: ['/api/admin/dashboard', '/api/admin/today', '/api/admin/search'],
@@ -79,6 +79,12 @@ export const AREAS: Area[] = [
   { key: 'newbusiness', label: 'New business', hint: 'Agreements, introductions, onboarding & AML, valuations',
     pages: ['/admin/new-business', '/admin/valuations'],
     api: ['/api/admin/new-business', '/api/admin/valuations', '/api/admin/management-agreements', '/api/admin/generate-management-agreement', '/api/landlord-onboarding', '/api/aml-report', '/api/landlord-aml-refresh', '/api/landlord-acquisition'] },
+  // 23 Oct 2026 (Harry: "all parts of the admin screen should be tickable"): what used to be administrators only.
+  // Still administrators only, whatever is ticked: staff accounts and access (or anyone could tick themselves more) and
+  // View as (seeing the apps as a real tenant, landlord or contractor).
+  { key: 'settings', label: 'Settings', hint: 'Company details and logo, message switches, finance dates, removing a property',
+    pages: ['/admin/settings'],
+    api: ['/api/admin/settings', '/api/admin/business-settings', '/api/admin/upload-brand-logo', '/api/admin/finance-dates', '/api/admin/property-remove', '/api/admin/seed-statements'] },
 ]
 
 export const ALL_AREAS = AREAS.map(a => a.key)

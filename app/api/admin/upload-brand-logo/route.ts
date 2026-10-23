@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/adminAuth'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { invalidateBusinessSettingsCache } from '@/lib/emailWrapper'
@@ -27,7 +28,7 @@ function serviceClient() {
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser()
-  if (!user || !['administrator', 'admin'].includes(user.assignment?.role ?? '')) {
+  if (!user || !(await requireAdmin(req))) {   // the Settings area (lib/access/areas)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

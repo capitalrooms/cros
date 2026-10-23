@@ -6,7 +6,7 @@
 //                                              they have no login yet, otherwise a reset link. Lands in their app.
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { requireAdministrator } from '@/lib/adminAuth'
+import { requireAdmin } from '@/lib/adminAuth'
 import { getClientIp } from '@/lib/auditLog'
 import { getElectedCommsLive } from '@/lib/comms'
 import { authUsersByEmail, statusOf, sendAccountEmail } from '@/lib/auth/accounts'
@@ -22,7 +22,7 @@ async function load(s: ReturnType<typeof createServiceClient>, personId: string)
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await requireAdministrator(req))) return NextResponse.json({ error: 'Only an administrator can change what a landlord sees.' }, { status: 403 })
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'That isn’t part of your access — ask an administrator.' }, { status: 403 })
   const s = createServiceClient()
   const x = await load(s, String(req.nextUrl.searchParams.get('personId') ?? ''))
   if (!x) return NextResponse.json({ error: 'Landlord not found' }, { status: 404 })
@@ -37,8 +37,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdministrator(req)
-  if (!admin) return NextResponse.json({ error: 'Only an administrator can change what a landlord sees.' }, { status: 403 })
+  const admin = await requireAdmin(req)
+  if (!admin) return NextResponse.json({ error: 'That isn’t part of your access — ask an administrator.' }, { status: 403 })
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient()
   const x = await load(s, String(b.personId ?? ''))

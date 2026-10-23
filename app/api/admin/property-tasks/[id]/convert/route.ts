@@ -11,6 +11,7 @@
  * task or its resulting ticket later.
  */
 
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -29,7 +30,7 @@ export async function POST(
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const role = user.assignment?.role
-  if (role !== 'administrator' && role !== 'admin') {
+  if (!(await hasArea('properties'))) {   // ticked area (lib/access/server hasArea), not administrators only — 23 Oct 2026
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

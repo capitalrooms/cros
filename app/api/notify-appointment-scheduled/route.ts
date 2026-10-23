@@ -1,3 +1,4 @@
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { deliverEmail } from '@/lib/sendEmail'
 import { hiName } from '@/lib/people'
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
   }
 
-  if (!['administrator', 'admin'].includes(user.assignment?.role)) {
+  if (!(await hasArea('diary', request.headers))) {
     await logAudit({
       userId: user.id,
       action: 'security_forbidden_access',

@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { needsTwoStep } from '@/components/TwoStepCode'
 import { isAdministrator, REQUIRE_TWO_STEP_FOR_ADMINS } from '@/lib/access/areas'
+import { useAdminAccess, useIsAdmin } from '@/lib/admin-context'
 
 const OFFICE = ['administrator', 'admin', 'lettings']
 const PROFILE: Record<string, string> = {
@@ -17,6 +18,8 @@ const PROFILE: Record<string, string> = {
 }
 
 export default function AccountMenu() {
+  // Settings for administrators, and for anyone the Settings area is ticked for (inside the office app)
+  const allowed = useAdminAccess(), inOffice = useIsAdmin()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -76,7 +79,7 @@ export default function AccountMenu() {
         <div className="absolute right-0 top-10 z-50 w-52 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
           <Link href={profile} onClick={() => setOpen(false)} className={item}>👤 My profile</Link>
           <Link href="/account" onClick={() => setOpen(false)} className={item}>🔑 Password &amp; sign-in</Link>
-          {isAdministrator(role) && <Link href="/admin/settings" onClick={() => setOpen(false)} className={`${item} border-t border-neutral-100`}>⚙️ Settings</Link>}
+          {(isAdministrator(role) || (OFFICE.includes(role) && inOffice && allowed('/admin/settings'))) && <Link href="/admin/settings" onClick={() => setOpen(false)} className={`${item} border-t border-neutral-100`}>⚙️ Settings</Link>}
           {OFFICE.includes(role) && <Link href="/admin/settings/signatures" onClick={() => setOpen(false)} className={item}>✍️ Email signatures</Link>}
           <button onClick={handleSignOut} className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50">🚪 Sign out</button>
         </div>

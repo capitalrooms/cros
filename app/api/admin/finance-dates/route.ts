@@ -4,7 +4,7 @@
 //        CROS starts collecting rent. Logged.
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
-import { requireAdmin, requireAdministrator } from '@/lib/adminAuth'
+import { requireAdmin } from '@/lib/adminAuth'
 import { getClientIp } from '@/lib/auditLog'
 import { financeDates, isMonthStart } from '@/lib/finance/dates'
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdministrator(req)
+  const admin = await requireAdmin(req)
   if (!admin) return NextResponse.json({ error: 'Only an administrator can change these dates.' }, { status: 403 })
   const b = await req.json().catch(() => ({}))
   const s = createServiceClient()

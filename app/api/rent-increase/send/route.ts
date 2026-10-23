@@ -3,6 +3,7 @@
 // and emails them to the tenant. Admin-only.
 // Does NOT update tenancies.rent_amount — that happens separately when rent takes effect.
 
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { deliverEmail } from '@/lib/sendEmail'
 import { createClient } from '@supabase/supabase-js'
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
   const role = (callerPerson as any)?.role as string | undefined
   // Only administrators can send legally binding Section 13 notices
-  if (!role || !['administrator', 'admin'].includes(role)) {
+  if (!role || !(await hasArea('lettings', req.headers))) {
     return NextResponse.json({ error: 'Forbidden: only administrators can send rent increase notices' }, { status: 403 })
   }
 

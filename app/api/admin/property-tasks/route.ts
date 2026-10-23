@@ -8,6 +8,7 @@
  * POST /api/admin/property-tasks   — create task
  */
 
+import { hasArea } from '@/lib/access/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
@@ -23,7 +24,7 @@ async function requireAdmin() {
   const user = await getCurrentUser()
   if (!user) return null
   const role = user.assignment?.role
-  if (role !== 'administrator' && role !== 'admin') return null
+  if (!(await hasArea('properties'))) return null   // ticked area (lib/access/server hasArea), not administrators only — 23 Oct 2026
   return user
 }
 

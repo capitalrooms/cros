@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
 
@@ -6,11 +7,9 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /** GET /api/admin/settings — return all system settings */
-export async function GET() {
-  const user = await getCurrentUser()
-  if (!user || !['administrator', 'admin'].includes(user.assignment?.role || '')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export async function GET(req: NextRequest) {
+  // the Settings area (lib/access/areas) — administrators, or anyone it's ticked for
+  if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('system_settings')
@@ -22,11 +21,9 @@ export async function GET() {
 
 /** POST /api/admin/settings — update a setting key */
 export async function POST(req: NextRequest) {
-  // Auth check — admin only
+  // the Settings area (lib/access/areas) — administrators, or anyone it's ticked for
   const user = await getCurrentUser()
-  if (!user || !['administrator', 'admin'].includes(user.assignment?.role || '')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!user || !(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { key, value } = await req.json()
   if (!key || value === undefined) {

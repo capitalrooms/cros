@@ -28,3 +28,12 @@ export async function officeCaller(token: string | null | undefined): Promise<Of
 }
 
 export const bearer = (h: Headers) => h.get('authorization')?.replace(/^Bearer\s+/i, '').trim() || null
+
+/** Does the caller have this area ticked (administrators always)? For office actions whose route isn't under
+ *  /api/admin (so the proxy can't tell their area), or which used to say "administrators only" in their own code —
+ *  23 Oct 2026: "all parts of the admin screen should be tickable". Without `h`, the current request's headers. */
+export async function hasArea(area: AreaKey, h?: Headers): Promise<boolean> {
+  const hdrs = h ?? await (await import('next/headers')).headers()
+  const who = await officeCaller(bearer(hdrs))
+  return !!who && (who.role === 'administrator' || who.role === 'admin' || who.areas.includes(area))
+}

@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin as requireAreaAdmin } from '@/lib/adminAuth'
 import { createClient } from '@supabase/supabase-js'
 import { getCurrentUser } from '@/lib/serverAuth'
 import { invalidateBusinessSettingsCache, BUSINESS_DEFAULTS } from '@/lib/emailWrapper'
@@ -22,14 +23,11 @@ function serviceClient() {
   )
 }
 
-async function requireAdmin() {
-  const user = await getCurrentUser()
-  if (!user || !['administrator', 'admin'].includes(user.assignment?.role ?? '')) return null
-  return user
-}
+// the Settings area (lib/access/areas) — administrators, or anyone it's ticked for
+async function allowed(req: NextRequest) { return !!(await requireAreaAdmin(req)) }
 
-export async function GET() {
-  if (!await requireAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+export async function GET(req: NextRequest) {
+  if (!await allowed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supa = serviceClient()
   const { data, error } = await supa
@@ -45,7 +43,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await requireAdmin()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await allowed(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
 
