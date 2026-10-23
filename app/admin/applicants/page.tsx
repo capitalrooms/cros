@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import DuplicateApplicants from './DuplicateApplicants'
+import BodyPortal from '@/components/BodyPortal'
 import InviteApplicant, { type InviteMode } from '@/components/InviteApplicant'
 import { adminFetch } from '@/lib/adminFetch'
 import { useRouter } from 'next/navigation'
@@ -397,7 +398,7 @@ export default function ApplicantsPage() {
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <DuplicateApplicants onMerged={() => loadAll()} />
-        {inviteFor && (
+        {inviteFor && (<BodyPortal>
           <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 md:items-center md:p-lg" role="dialog" aria-modal="true" aria-label={`Email ${inviteFor.a.full_name}`}>
             <div className="flex w-full flex-col overflow-hidden bg-white md:max-h-[92vh] md:max-w-3xl md:rounded-2xl">
               <div className="flex items-start justify-between gap-md border-b border-neutral-200 px-lg py-md">
@@ -410,7 +411,7 @@ export default function ApplicantsPage() {
               </div>
             </div>
           </div>
-        )}
+        </BodyPortal>)}
         {/* Add form */}
         {showAdd && (
           <div className="mb-xl rounded-2xl border-2 border-neutral-900 bg-white p-lg">
