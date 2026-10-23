@@ -267,7 +267,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     try {
       const { error: err } = await supabase.from('people').insert([
         {
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),   // a stray space or capital stopped people signing in
           ...nameFields(formData.first_name, formData.last_name, formData.role === 'tenant' ? formData.middle_name : undefined),
           salutation: formData.salutation || null,
           phone: formData.phone || null,

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
+import { adminFetch } from '@/lib/adminFetch'
 import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -23,6 +24,9 @@ interface Person {
   phone: string | null
   role: string
   company: string | null
+  job_title?: string | null
+  direct_phone?: string | null
+  salutation?: string | null
   using_app: boolean | null
   created_at: string
 }
@@ -93,6 +97,11 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
   const [editLast, setEditLast]   = useState('')
   const [editPhone, setEditPhone] = useState('')
   const [editCompany, setEditCompany] = useState('')
+  // office staff (23 Oct 2026 audit): their email (moved with their sign-in), title, job title and signature mobile
+  const [editEmail, setEditEmail] = useState('')
+  const [editJob, setEditJob] = useState('')
+  const [editDirect, setEditDirect] = useState('')
+  const [editTitle, setEditTitle] = useState('')
   const [saveBanner, setSaveBanner]   = useState<string | null>(null)
 
   useEffect(() => {
@@ -105,7 +114,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
 
       const { data: p } = await supabase
         .from('people')
-        .select('id, salutation, first_name, last_name, full_name, email, phone, role, company, using_app, created_at')
+        .select('id, salutation, first_name, last_name, full_name, email, phone, role, company, using_app, created_at, job_title, direct_phone')
         .eq('id', personId)
         .maybeSingle()
 
@@ -131,6 +140,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
       setEditLast(p.last_name || '')
       setEditPhone(p.phone || '')
       setEditCompany(p.company || '')
+      setEditEmail(p.email || ''); setEditJob(p.job_title || ''); setEditDirect(p.direct_phone || ''); setEditTitle(p.salutation || '')
 
       // Role-specific data
       if (p.role === 'contractor') {
@@ -174,33 +184,34 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
     init()
   }, [personId, router])
 
+  const office = ['administrator', 'admin', 'lettings'].includes(person?.role ?? '')
   async function handleSave() {
     if (!person) return
     setSaving(true)
     setSaveBanner(null)
-    const { error } = await supabase.from('people').update({
-      first_name: editFirst.trim() || null,
-      last_name: editLast.trim() || null,
-      phone: editPhone.trim() || null,
-      company: editCompany.trim() || null,
-    }).eq('id', personId)
-
-    if (error) {
-      setSaveBanner('Error: ' + error.message)
-    } else {
-      const updated = {
-        ...person,
+    try {
+      // a changed email goes through the accounts route, which moves their sign-in with it
+      let email = person.email
+      if (editEmail.trim().toLowerCase() !== String(person.email ?? '').trim().toLowerCase()) {
+        const r = await adminFetch('/api/admin/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'change_email', personId, email: editEmail }) })
+        const d = await r.json().catch(() => ({}))
+        if (!r.ok) { setSaveBanner('Error: ' + (d.error ?? 'the email wasn’t changed')); return }
+        email = d.email
+      }
+      const fields: Record<string, unknown> = {
         first_name: editFirst.trim() || null,
         last_name: editLast.trim() || null,
         phone: editPhone.trim() || null,
         company: editCompany.trim() || null,
+        ...(office ? { salutation: editTitle.trim() || null, job_title: editJob.trim() || null, direct_phone: editDirect.trim() || null } : {}),
       }
-      setPerson(updated)
+      const { error } = await supabase.from('people').update(fields).eq('id', personId)
+      if (error) { setSaveBanner('Error: ' + error.message); return }
+      setPerson({ ...person, ...(fields as any), email })
       setEditing(false)
-      setSaveBanner('Saved')
-      setTimeout(() => setSaveBanner(null), 3000)
-    }
-    setSaving(false)
+      setSaveBanner(email !== person.email ? `Saved — they now sign in with ${email}` : 'Saved')
+      setTimeout(() => setSaveBanner(null), 4000)
+    } finally { setSaving(false) }
   }
 
   if (loading) {
@@ -306,6 +317,25 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
                     <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs block">Phone</label>
                     <input value={editPhone} onChange={e => setEditPhone(e.target.value)} type="tel" className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
                   </div>
+                  <div>
+                    <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs block">Email</label>
+                    <input value={editEmail} onChange={e => setEditEmail(e.target.value)} type="email" className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                    <p className="mt-xs text-[11px] text-neutral-500">Changing it moves their sign-in too — they then sign in with the new address.</p>
+                  </div>
+                  {office && <>
+                    <div>
+                      <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs block">Title</label>
+                      <input value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Mr, Ms, Mx…" className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs block">Job title</label>
+                      <input value={editJob} onChange={e => setEditJob(e.target.value)} placeholder="Lettings Negotiator" className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs block">Mobile for their signature</label>
+                      <input value={editDirect} onChange={e => setEditDirect(e.target.value)} type="tel" placeholder="+44 7…" className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
+                    </div>
+                  </>}
                   {person.role === 'landlord' && (
                     <div>
                       <label className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs block">Company</label>
