@@ -13,6 +13,10 @@ interface QuickNotifyModalProps {
   propertyId: string
   onClose: () => void
   onSuccess?: () => void
+  /** open already addressed to these people (a tenant's own screens — the room page, the tenant profile) */
+  initialPeople?: string[]
+  /** …or to everyone in this room */
+  initialRoomId?: string
 }
 
 interface Tenant { personId: string; name: string; dear: string; room: string; roomId: string; hasApp: boolean; hasEmail: boolean; hasMobile: boolean; test: boolean }
@@ -41,12 +45,12 @@ const errorText = async (r: Response, fallback: string) => {
   return d.error || d.message || `${fallback} (error ${r.status})`
 }
 
-export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: QuickNotifyModalProps) {
+export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initialPeople, initialRoomId }: QuickNotifyModalProps) {
   const [house, setHouse] = useState<HouseData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [who, setWho] = useState<Who>('everyone')
-  const [roomId, setRoomId] = useState('')
+  const [who, setWho] = useState<Who>(initialPeople?.length ? 'people' : initialRoomId ? 'room' : 'everyone')
+  const [roomId, setRoomId] = useState(initialRoomId ?? '')
   const [picked, setPicked] = useState<Set<string>>(new Set())
 
   const [purpose, setPurpose] = useState<Purpose | null>(null)
@@ -74,7 +78,10 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess }: Qui
       if (!r.ok) { setLoadError(await errorText(r, 'Couldn’t load this house')); return }
       const d: HouseData = await r.json()
       setHouse(d)
-      setPicked(new Set(d.tenants.map(t => t.personId)))
+      const only = (initialPeople ?? []).filter(id => d.tenants.some(t => t.personId === id))
+      // opened for particular people: never fall back to the whole house if they aren't current tenants here
+      if (initialPeople?.length && !only.length) { setLoadError('Quick Notify reaches the current tenants of this house, and this person isn’t one yet (or any more). Email them from their letting file instead.'); return }
+      setPicked(new Set(initialPeople?.length ? only : d.tenants.map(t => t.personId)))
     }).catch(() => !off && setLoadError('Couldn’t reach CROS — check your connection and try again.'))
     return () => { off = true }
   }, [propertyId])

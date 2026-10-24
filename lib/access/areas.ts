@@ -69,10 +69,10 @@ export const AREAS: Area[] = [
   { key: 'people', label: 'People', hint: 'Tenants, landlords, contractors and cleaners (not office accounts)',
     pages: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord'], api: ['/api/admin/people', '/api/admin/landlords', '/api/admin/landlord-access'],
     // tenant profiles show the rent account; the People list shows who's on emergency call-outs
-    apiRead: ['/api/admin/emergencies', '/api/admin/rent-charges', '/api/admin/payment-audit-log', '/api/admin/tenancies', '/api/admin/deposit-returns'] },
+    apiRead: ['/api/admin/emergencies', '/api/admin/rent-charges', '/api/admin/payment-audit-log', '/api/admin/tenancies', '/api/admin/deposit-returns', '/api/admin/messages'] },
   { key: 'comms', label: 'Comms', hint: 'Messages, letters & invoices, quick notify, templates',
     pages: ['/admin/communications', '/admin/document-generator', '/admin/notify', '/admin/message-templates', '/admin/acknowledgment-notes', '/admin/feedback'],
-    api: ['/api/admin/notify', '/api/admin/message-templates', '/api/admin/communications', '/api/admin/document-generator', '/api/admin/letters', '/api/admin/quick-notify',
+    api: ['/api/admin/notify', '/api/admin/messages', '/api/admin/message-templates', '/api/admin/communications', '/api/admin/document-generator', '/api/admin/letters', '/api/admin/quick-notify',
       '/api/admin/notices', '/api/admin/feedback', '/api/admin/letter-templates', '/api/admin/documents/generated'] },
   { key: 'website', label: 'Website', hint: 'Advice posts, which rooms the website shows, footer documents',
     pages: ['/admin/website'], api: ['/api/admin/website'] },

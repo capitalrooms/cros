@@ -5,7 +5,6 @@ import { initials as avatarInitials } from '@/lib/people'
 import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
 import FloorPlanMap from './FloorPlanMap'
-import HouseInfoEditor from './HouseInfoEditor'
 import PostcodeLookupWidget, { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
 import { postcodesIn } from '@/lib/councils/london'
 
@@ -807,7 +806,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
             {/* Manifest rows — Property section */}
             <div className="border-l-2 border-neutral-200 pl-3 mb-5">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-2">Property</p>
-              {[
+              {([
                 ['Type', (() => {
                   const t = displayed.property_type
                   return t === 'hmo' ? 'HMO' : t === 'single' || t === 'single_let' ? 'Single Let' : t ? t.charAt(0).toUpperCase() + t.slice(1) : '—'
@@ -820,7 +819,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 ['Bills included', displayed.bills_included ? 'Yes' : 'No'],
                 ['Gas supply', (displayed as any).has_gas === false ? 'No gas' : 'Yes'],
                 ['Council tax band', displayed.council_tax_band ? `Band ${displayed.council_tax_band}` : '—'],
-              ].map(([k, v]) => (
+              ] as [string, string][]).filter(([, v]) => v !== '—').map(([k, v]) => (
                 <div key={k as string} className="grid grid-cols-2 border-b border-neutral-100 py-1.5">
                   <span className="text-xs text-neutral-400">{k}</span>
                   <span className="text-xs font-medium text-neutral-900">{v as string}</span>
@@ -828,21 +827,25 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               ))}
             </div>
 
+            {(() => {
+              const gaps = [!displayed.bedrooms && 'bedrooms', !displayed.bathrooms && 'bathrooms', !displayed.total_area && 'total area', !displayed.council_tax_band && 'council tax band'].filter(Boolean)
+              return gaps.length ? <p className="-mt-sm mb-5 pl-3 text-xs text-neutral-400">Not recorded: {gaps.join(', ')} · <button type="button" onClick={() => setIsEditing(true)} className="font-semibold text-neutral-600 underline">add</button></p> : null
+            })()}
+
             {/* Licence section */}
             <div className="border-l-2 border-neutral-200 pl-3 mb-5">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-2">Licence &amp; management</p>
               {[
-                ['HMO licence issued', displayed.license_date ? new Date(displayed.license_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'],
+                ['HMO licence issued', displayed.license_date ? new Date(displayed.license_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'],
                 ['HMO licence expiry', (() => {
-                  if (!displayed.license_expiry) return '—'
+                  if (!displayed.license_expiry) return displayed.property_type === 'hmo' ? 'Not recorded — an HMO needs its licence on file' : '—'
                   const expiry = new Date(displayed.license_expiry)
                   const daysLeft = Math.ceil((expiry.getTime() - Date.now()) / 86400000)
-                  const dateStr = expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                  const dateStr = expiry.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                   if (daysLeft < 0) return `${dateStr} · EXPIRED`
-                  if (daysLeft < 90) return `${dateStr} · ${daysLeft}d left`
+                  if (daysLeft < 90) return `${dateStr} · ${daysLeft} days left`
                   return dateStr
                 })()],
-                ['Key safe code', displayed.key_safe_code || '—'],
                 ['Letting type', displayed.letting_type === 'let_only' ? 'Let only' : 'Fully managed'],
                 [displayed.letting_type === 'let_only' ? 'Letting fee' : 'Management fee',
                   displayed.letting_type === 'let_only'
@@ -852,10 +855,10 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                         : (displayed.management_fee_pct != null ? `${displayed.management_fee_pct}% of rent ${displayed.management_fee_type === 'pct_charged' ? 'charged' : 'received'}` : 'Not set'))],
                 ...(displayed.letting_type !== 'let_only' && Number(displayed.float_target) > 0 ? [['Float', `£${Number(displayed.float_target).toFixed(2)} kept back`]] : []),
                 ...(displayed.letting_type === 'let_only' ? [['Rent due', displayed.rent_due_preference === 'move_in_date' ? 'Move-in date each month' : 'Fixed day of month']] : []),
-              ].map(([k, v]) => (
+              ].filter(([, v]) => v !== '—').map(([k, v]) => (
                 <div key={k as string} className="grid grid-cols-2 border-b border-neutral-100 py-1.5">
                   <span className="text-xs text-neutral-400">{k}</span>
-                  <span className={`text-xs font-medium ${(v as string).includes('EXPIRED') ? 'text-red-600' : (v as string).includes('left') ? 'text-amber-600' : 'text-neutral-900'}`}>{v as string}</span>
+                  <span className={`text-xs font-medium ${(v as string).includes('EXPIRED') ? 'text-red-600' : (v as string).includes('left') || (v as string).startsWith('Not recorded') ? 'text-amber-700' : 'text-neutral-900'}`}>{v as string}</span>
                 </div>
               ))}
             </div>
@@ -892,9 +895,9 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
 
       {/* Floor Plans & Photos - Upload Ready */}
       <div>
-        <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
-          Floor Plans
-        </h3>
+        <div className="mb-md pb-sm border-b border-neutral-100">
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Floor plan</h3>
+        </div>
         <input
           id="floorplan-input"
           type="file"
@@ -914,135 +917,28 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
           onClick={() => document.getElementById('floorplan-input')?.click()}
           onDragOver={(e) => {
             e.preventDefault()
-            e.currentTarget.classList.add('border-blue-400', 'bg-neutral-800')
+            e.currentTarget.classList.add('border-neutral-900', 'bg-neutral-100')
           }}
           onDragLeave={(e) => {
-            e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
+            e.currentTarget.classList.remove('border-neutral-900', 'bg-neutral-100')
           }}
           onDrop={(e) => {
             e.preventDefault()
-            e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
+            e.currentTarget.classList.remove('border-neutral-900', 'bg-neutral-100')
             const files = Array.from(e.dataTransfer.files)
             files.forEach(f => handlePhotoUpload(f))
             if (files[0]) scanFloorPlan(files[0])
           }}
-          className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-2xl text-center transition hover:border-neutral-500 hover:bg-neutral-800 cursor-pointer"
+          className="rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 p-xl text-center transition hover:border-neutral-500 hover:bg-neutral-100 cursor-pointer"
         >
-          <div className="text-3xl mb-md opacity-60">📄</div>
-          <p className="text-sm font-semibold text-white mb-xs">Drop floor plan here or click to upload</p>
-          <p className="text-xs text-neutral-400">PDF or JPEG • Max 10MB • AI reads room sizes on upload</p>
-          {uploadingFloorPlan && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
-          {scanningPlan && <p className="text-xs text-blue-400 mt-md">🔎 Scanning floor plan for room sizes…</p>}
+          <p className="text-sm font-semibold text-neutral-900 mb-xs">Drop the floor plan here, or click to choose it</p>
+          <p className="text-xs text-neutral-500">PDF or image, up to 10 MB. The room sizes are read from it and offered to you to confirm.</p>
+          {uploadingFloorPlan && <p className="text-xs text-neutral-600 mt-md">Uploading…</p>}
+          {scanningPlan && <p className="text-xs text-neutral-600 mt-md">Reading the room sizes…</p>}
         </div>
       </div>
 
-      {/* Property Photos */}
-      <div>
-        <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
-          Property Photos (Communal & Exterior)
-        </h3>
-        <input
-          id="photo-input"
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={(e) => {
-            const files = Array.from(e.currentTarget.files || [])
-            files.forEach(f => handlePhotoUpload(f))
-            e.currentTarget.value = ''
-          }}
-          className="hidden"
-        />
-        <div
-          onClick={() => document.getElementById('photo-input')?.click()}
-          onDragOver={(e) => {
-            e.preventDefault()
-            e.currentTarget.classList.add('border-blue-400', 'bg-neutral-800')
-          }}
-          onDragLeave={(e) => {
-            e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
-          }}
-          onDrop={(e) => {
-            e.preventDefault()
-            e.currentTarget.classList.remove('border-blue-400', 'bg-neutral-800')
-            const files = Array.from(e.dataTransfer.files)
-            files.forEach(f => handlePhotoUpload(f))
-          }}
-          className="rounded-lg border-2 border-dashed border-neutral-700 bg-neutral-900 p-xl text-center transition hover:border-neutral-500 hover:bg-neutral-800 cursor-pointer"
-        >
-          <div className="text-3xl mb-md opacity-60">📷</div>
-          <p className="text-sm font-semibold text-white mb-xs">Drop photos here or click to upload</p>
-          <p className="text-xs text-neutral-400">PNG, JPG, WebP • Max 10MB each</p>
-          {uploadingPhoto && <p className="text-xs text-blue-400 mt-md">Uploading...</p>}
-        </div>
-
-        {/* Photo Gallery */}
-        {loadingPhotos ? (
-          <p className="text-sm text-neutral-400 mt-lg">Loading photos...</p>
-        ) : photos.length > 0 ? (
-          <div className="mt-lg">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Uploaded Photos</h4>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-md">
-              {photos.map((photo) => (
-                <div
-                  key={photo.id}
-                  className="relative rounded-lg border-2 border-neutral-200 overflow-hidden group bg-neutral-50"
-                >
-                  {/* Image display */}
-                  <div className="aspect-square bg-neutral-100 flex items-center justify-center text-2xl overflow-hidden">
-                    <img
-                      src={photo.file_url || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${photo.file_path?.startsWith('property-photos/') ? photo.file_path : `property-photos/${photo.file_path}`}`}
-                      alt={photo.file_name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                      }}
-                    />
-                  </div>
-
-                  {/* File name */}
-                  <p className="text-xs font-semibold p-sm text-neutral-700 truncate">{photo.file_name}</p>
-
-                  {/* Featured checkbox and delete button */}
-                  <div className="p-sm border-t border-neutral-200 flex items-center justify-between">
-                    <div className="flex items-center gap-sm">
-                      <input
-                        type="checkbox"
-                        checked={photo.is_featured}
-                        onChange={() => handleSetFeatured(photo.id)}
-                        disabled={savingFeatured === photo.id}
-                        className="w-4 h-4 cursor-pointer disabled:opacity-50 transition"
-                        title="Set as featured photo"
-                      />
-                      <label className={`text-xs font-semibold transition ${
-                        savingFeatured === photo.id
-                          ? 'text-blue-600 animate-pulse'
-                          : photo.is_featured
-                          ? 'text-green-600 font-bold'
-                          : 'text-neutral-600 hover:text-blue-600 cursor-pointer'
-                      }`}>
-                        {savingFeatured === photo.id ? '⏳ Saving...' : photo.is_featured ? '✓ Featured' : 'Featured'}
-                      </label>
-                    </div>
-                    <button
-                      onClick={() => handleDeletePhoto(photo.id)}
-                      className="text-xs text-red-600 hover:text-red-700 font-semibold"
-                      title="Delete photo"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-neutral-400 mt-lg">No photos uploaded yet</p>
-        )}
-      </div>
-
-      {/* ── House Info editor ──────────────────────────────────── */}
-      <HouseInfoEditor propertyId={property.id} initialItems={property.house_info?.items || []} />
+      {/* Photos are on Documents › Photos, and the tenants' house information on the Tenant App tab (24 Oct 2026) */}
 
       {floorPlanResult && (
         <FloorPlanMap
