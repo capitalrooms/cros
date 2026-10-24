@@ -10,7 +10,7 @@ import { tenantAccount } from '@/lib/finance/tenantAccount'
 
 export type LetStage = 'let_agreed' | 'live' | 'on_notice' | 'ended' | 'fell_through'
 export const STAGE_LABEL: Record<LetStage, string> = {
-  let_agreed: 'Let agreed', live: 'Live', on_notice: 'On notice', ended: 'Ended', fell_through: 'Fell through',
+  let_agreed: 'Let agreed', live: 'Current tenancy', on_notice: 'Notice received', ended: 'Expired tenancy', fell_through: 'Fell through',
 }
 
 export type StepId = 'offer' | 'holding' | 'referencing' | 'right_to_rent' | 'agreement' | 'monies' | 'deposit' | 'keys' | 'move_in'

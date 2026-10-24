@@ -25,7 +25,7 @@ const TABS = [
 ] as const
 type Tab = typeof TABS[number][0]
 
-const STAGE_LABEL: Record<string, string> = { let_agreed: 'Let agreed', live: 'Live', on_notice: 'On notice', ended: 'Ended', fell_through: 'Fell through' }
+const STAGE_LABEL: Record<string, string> = { let_agreed: 'Let agreed', live: 'Current tenancy', on_notice: 'Notice received', ended: 'Expired tenancy', fell_through: 'Fell through' }
 
 
 // Back goes where you came from — only to our own admin or lettings pages
@@ -92,9 +92,9 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
       <PageHero
         eyebrow={<>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''} · {STAGE_LABEL[file.stage]} · {file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</>}
         title={[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ') || where}   // both joint tenants
-        subtitle={<>{file.tenant.name ? `${where} · ` : ''}{file.stage === 'let_agreed' ? 'from' : 'since'} {day(tn.start_date)} · {gbp(tn.rent_amount)} pcm{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}</>}
+        subtitle={<>{file.tenant.name ? `${where} · ` : ''}tenancy start date {day(tn.start_date)}{tn.end_date ? ` · tenancy end date ${day(tn.end_date)}` : ''} · {gbp(tn.rent_amount)} per month{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}</>}
         stats={[
-          ...(file.liveHold ? [{ label: `Holding deposit · ${file.liveHold.status === 'applied' ? 'applied' : 'received'} ${day(file.liveHold.received_on)}`, value: gbp(file.liveHold.amount) }] : []),
+          ...(file.liveHold ? [{ label: file.liveHold.status === 'applied' ? `Holding deposit · applied ${day(file.liveHold.outcome_on ?? file.liveHold.received_on)}` : `Holding deposit · received ${day(file.liveHold.received_on)}`, value: gbp(file.liveHold.amount) }] : []),
           ...(balanceDue != null && file.stage === 'let_agreed' ? [{ label: `Balance due by ${day(tn.start_date)}`, value: gbp(balanceDue), tone: 'warn' as const }] : []),
           ...(file.account && file.stage !== 'let_agreed' ? [{ label: 'Rent account', value: file.account.balance > 0.004 ? `${gbp(file.account.balance)} owed` : file.account.balance < -0.004 ? `${gbp(-file.account.balance)} credit` : 'Clear', tone: (file.account.balance > 0.004 ? 'bad' : 'good') as 'bad' | 'good' }] : []),
           { label: 'Deposit', value: gbp(tn.deposit_amount) },
@@ -131,7 +131,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
               <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-sm">People</h2>
               <ul className="space-y-sm text-sm">
                 <li className="flex items-baseline justify-between gap-sm">
-                  <span className="min-w-0"><span className="font-semibold text-neutral-900">{file.tenant.name}</span><span className="block text-xs text-neutral-500">{file.stage === 'let_agreed' ? 'Incoming' : file.stage === 'on_notice' ? 'Tenant · on notice' : 'Tenant'}{file.tenant.occupation ? ` · ${file.tenant.occupation}` : ''}</span></span>
+                  <span className="min-w-0"><span className="font-semibold text-neutral-900">{file.tenant.name}</span><span className="block text-xs text-neutral-500">{file.stage === 'let_agreed' ? 'Incoming' : file.stage === 'on_notice' ? 'Tenant · notice received' : 'Tenant'}{file.tenant.occupation ? ` · ${file.tenant.occupation}` : ''}</span></span>
                   <button type="button" onClick={() => setTab('person')} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Profile</button>
                 </li>
                 {file.landlord && (

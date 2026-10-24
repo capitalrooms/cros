@@ -124,7 +124,8 @@ function amlBadge(r: string | null | undefined) {
 
 function fmt(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
+  // dates in full (24 Oct 2026)
+  return new Date(`${String(d).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
 }
 
 /** Returns an object URL for the first image file in the array, or null. */
@@ -425,7 +426,7 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
               className={`text-xs font-semibold px-md py-xs rounded-full border transition ${
                 selectedId === t.id ? 'bg-neutral-900 text-white border-neutral-900' : 'text-neutral-600 border-neutral-200 hover:border-neutral-400'
               }`}>
-              {t.property?.address || '—'} · {t.room?.name || '—'} ({t.start_date ? new Date(t.start_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '?'})
+              {t.property?.address || '—'} · {t.room?.name || '—'} (from {t.start_date ? fmt(t.start_date) : '?'})
             </button>
           ))}
         </div>
@@ -440,7 +441,7 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
               <div key={r.id} className="px-lg py-md flex items-center justify-between gap-md">
                 <div>
                   <p className="text-sm font-semibold text-neutral-900">
-                    £{Number(r.old_rent).toLocaleString()} → £{Number(r.negotiated_rent || r.proposed_rent).toLocaleString()} pcm
+                    £{Number(r.old_rent).toLocaleString()} → £{Number(r.negotiated_rent || r.proposed_rent).toLocaleString()} per month
                   </p>
                   <p className="text-xs text-neutral-400 mt-xs">Effective {fmt(r.effective_date)}</p>
                 </div>
@@ -455,125 +456,15 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
         </div>
       )}
 
-      {/* Rent schedule */}
-      {tenancy && (() => {
-        const rentAmt = Number((tenancy as any).rent_amount || (tenancy as any).rent_monthly || 0)
-        if (!rentAmt) return null
-        const dueDay: number = (tenancy as any).rent_due_day || 1
-        const startDate = new Date(tenancy.start_date + 'T00:00:00')
-        const endBound = tenancy.end_date ? new Date(tenancy.end_date + 'T00:00:00') : new Date()
-
-        type Period = { ref: string; rangeStart: Date; rangeEnd: Date; dueDate: Date; rentDue: number; partial: boolean }
-        const periods: Period[] = []
-        let periodStart = new Date(startDate)
-        let idx = 1
-
-        while (periodStart <= endBound && periods.length < 60) {
-          const monthEnd = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 0)
-          const rangeEnd = monthEnd < endBound ? monthEnd : endBound
-          const daysInMonth = monthEnd.getDate()
-          const daysActive = Math.round((rangeEnd.getTime() - periodStart.getTime()) / 86400000) + 1
-          const isPartial = daysActive < daysInMonth
-          const rentDue = isPartial ? Math.round((rentAmt / daysInMonth) * daysActive * 100) / 100 : rentAmt
-
-          // Due date: rent_due_day of this month, capped to month end
-          const dueDayInMonth = Math.min(dueDay, daysInMonth)
-          const dueDate = new Date(periodStart.getFullYear(), periodStart.getMonth(), dueDayInMonth)
-
-          periods.push({
-            ref: `#${String(idx).padStart(5, '0')}`,
-            rangeStart: new Date(periodStart),
-            rangeEnd,
-            dueDate,
-            rentDue,
-            partial: isPartial,
-          })
-          idx++
-          periodStart = new Date(periodStart.getFullYear(), periodStart.getMonth() + 1, 1)
-        }
-
-        const fmtD = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-        const totalDue = periods.reduce((s, p) => s + p.rentDue, 0)
-        const totalRec = stmtRows.reduce((s: number, p: any) => s + Number(p.rent_income || 0), 0)
-        const totalNet = stmtRows.reduce((s: number, p: any) => s + Number(p.net_to_landlord || 0), 0)
-
-        return (
-          <div>
-            <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden mb-sm">
-              <div className="px-xl py-md border-b border-neutral-100 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Rent definition</p>
-                </div>
-              </div>
-              <div className="px-xl py-md grid grid-cols-2 md:grid-cols-4 gap-md text-sm">
-                <div><p className="text-xs text-neutral-400 mb-xs">Contractual rent</p><p className="font-semibold text-neutral-900">£{rentAmt.toLocaleString()} pcm</p></div>
-                <div><p className="text-xs text-neutral-400 mb-xs">Due day</p><p className="font-semibold text-neutral-900">{dueDay}{dueDay===1?'st':dueDay===2?'nd':dueDay===3?'rd':'th'} of month</p></div>
-                <div><p className="text-xs text-neutral-400 mb-xs">Payment reference</p><p className="font-semibold text-neutral-900">{(tenancy as any).payment_reference || 'None'}</p></div>
-                <div><p className="text-xs text-neutral-400 mb-xs">Periods</p><p className="font-semibold text-neutral-900">{periods.length}</p></div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-              <div className="px-xl py-md border-b border-neutral-100">
-                <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Rent schedule</p>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                  <thead>
-                    <tr className="bg-neutral-50 border-b border-neutral-200 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                      <th className="px-md py-sm text-left">Rent period</th>
-                      <th className="px-md py-sm text-left">Ref</th>
-                      <th className="px-md py-sm text-left">Due date</th>
-                      <th className="px-md py-sm text-right">Rent due</th>
-                      <th className="px-md py-sm text-right">Received</th>
-                      <th className="px-md py-sm text-right">Outstanding</th>
-                      <th className="px-md py-sm text-right">Paid to L/L</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {[...periods].reverse().map((p, i) => {
-                      const matched = stmtRows.find((r: any) => {
-                        const d = new Date((r.statement?.period_start || r.statement?.statement_date || '') + 'T00:00:00')
-                        return d.getFullYear() === p.rangeStart.getFullYear() && d.getMonth() === p.rangeStart.getMonth()
-                      })
-                      const received = matched ? Number(matched.rent_income || 0) : null
-                      const paidLL   = matched ? Number(matched.net_to_landlord || 0) : null
-                      const outstanding = received !== null ? Math.round((p.rentDue - received) * 100) / 100 : null
-                      return (
-                        <tr key={i} className={outstanding !== null && outstanding > 0 ? 'bg-amber-50/20' : ''}>
-                          <td className="px-md py-sm text-neutral-900 whitespace-nowrap">
-                            {fmtD(p.rangeStart)} – {fmtD(p.rangeEnd)}
-                            {p.partial && <span className="ml-xs text-xs text-neutral-400">(pro-rata)</span>}
-                          </td>
-                          <td className="px-md py-sm text-neutral-400 text-xs">{p.ref}</td>
-                          <td className="px-md py-sm text-neutral-600 whitespace-nowrap">{fmtD(p.dueDate)}</td>
-                          <td className="px-md py-sm text-right font-semibold text-neutral-900">£{p.rentDue.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td className="px-md py-sm text-right">{received !== null ? <span className="text-neutral-900">£{received.toLocaleString('en-GB', {minimumFractionDigits:2})}</span> : <span className="text-neutral-300">£0.00</span>}</td>
-                          <td className="px-md py-sm text-right">
-                            {outstanding !== null
-                              ? <span className={outstanding > 0 ? 'font-semibold text-amber-700' : 'text-green-700'}>{outstanding > 0 ? `£${outstanding.toLocaleString('en-GB',{minimumFractionDigits:2})}` : '£0.00'}</span>
-                              : <span className="text-neutral-300">£{p.rentDue.toLocaleString('en-GB',{minimumFractionDigits:2})}</span>}
-                          </td>
-                          <td className="px-md py-sm text-right">{paidLL !== null ? <span className="text-neutral-900">£{paidLL.toLocaleString('en-GB',{minimumFractionDigits:2})}</span> : <span className="text-neutral-300">£0.00</span>}</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-neutral-50 border-t-2 border-neutral-300 font-semibold text-sm">
-                      <td className="px-md py-sm text-neutral-700" colSpan={3}>Total</td>
-                      <td className="px-md py-sm text-right text-neutral-900">£{totalDue.toLocaleString('en-GB',{minimumFractionDigits:2})}</td>
-                      <td className="px-md py-sm text-right text-neutral-900">£{totalRec.toLocaleString('en-GB',{minimumFractionDigits:2})}</td>
-                      <td className="px-md py-sm text-right text-amber-700">£{(totalDue - totalRec).toLocaleString('en-GB',{minimumFractionDigits:2})}</td>
-                      <td className="px-md py-sm text-right text-neutral-900">£{totalNet.toLocaleString('en-GB',{minimumFractionDigits:2})}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
+      {/* The rent account is the letting file's (lib/finance/tenantAccount) — this tab used to work out its own periods
+          with a different pro-rata (£805.65 against the £821.10 charged, 24 Oct 2026) */}
+      {tenancy && (
+        <div className="flex flex-wrap items-center gap-sm rounded-xl border border-neutral-200 bg-white px-lg py-md text-sm">
+          <span className="flex-1 text-neutral-600">The rent account — every charge and payment with a running balance — is on the letting file.</span>
+          <a href={`/admin/lettings/${tenancy.id}?tab=money`} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Open rent account</a>
+          <button type="button" onClick={() => downloadPdf(`/api/admin/tenancies/${tenancy.id}/statement-of-account`, 'Statement of account.pdf').catch(e => alert(e.message))} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-bold">Statement of account (PDF)</button>
+        </div>
+      )}
 
       {/* Rent charges — manual payment tracking */}
       {tenancyCharges.length > 0 && (
@@ -749,7 +640,7 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
               const performer = entry.performed_by_person
                 ? `${[entry.performed_by_person.salutation, entry.performed_by_person.first_name, entry.performed_by_person.last_name].filter(Boolean).join(' ')}`.trim()
                 : 'System'
-              const when = new Date(entry.performed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+              const when = new Date(entry.performed_at).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
               return (
                 <div key={entry.id} className="px-lg py-md flex items-start gap-md">
                   <div className="flex-1 min-w-0">
@@ -987,7 +878,8 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
   async function handleApply() {
     if (!extractedData) return
     setApplying(true); setImportError(null)
-    const currentTenancy = tenancies.find(t => !(t as any).notice_received_date)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    const currentTenancy = tenancies.find(t => !(t as any).let_cancelled_at && t.start_date <= today && (!t.end_date || t.end_date >= today)) ?? tenancies[0]
     const appliedFields  = Object.entries(mergeSelections).filter(([, v]) => v).map(([k]) => k)
     const res  = await fetch('/api/reference-import/apply', {
       method: 'POST',
@@ -1036,9 +928,11 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
   }
 
   /* ── Derived ── */
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const currentTenancy    = tenancies.find(t => !(t as any).notice_received_date && (!t.end_date || t.end_date >= todayStr)) ?? null
-  const previousTenancies = tenancies.filter(t => t.id !== currentTenancy?.id)
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  // the tenancy running today, whether or not notice has been given (24 Oct 2026: a tenancy on notice showed as
+  // "No active tenancy" and was listed under previous tenancies)
+  const currentTenancy    = tenancies.find(t => !(t as any).let_cancelled_at && t.start_date <= todayStr && (!t.end_date || t.end_date >= todayStr)) ?? null
+  const previousTenancies = tenancies.filter(t => t.id !== currentTenancy?.id && !!t.end_date && t.end_date < todayStr)
   const latestRef         = referenceHistory[0]
 
   /* ── Loading / not found ── */
@@ -1081,10 +975,11 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
       {!embedded && <PageHero
         eyebrow="People · Tenant"
         title={tenantName}
-        subtitle={fileTenancy ? [fileTenancy.room?.name, String(fileTenancy.property?.name || fileTenancy.property?.address || '').split('\n')[0], fileTenancy.end_date && fileTenancy.end_date < todayStr ? `ended ${fmt(fileTenancy.end_date)}` : fileTenancy.start_date > todayStr ? `moving in ${fmt(fileTenancy.start_date)}` : `since ${fmt(fileTenancy.start_date)}`].filter(Boolean).join(' · ') : 'No tenancy yet'}
-        actions={fileTenancy ? <HeroButton primary href={`/admin/lettings/${fileTenancy.id}?from=${encodeURIComponent(`/admin/tenant/${tenant.id}`)}`}>Letting file →</HeroButton> : undefined}
+        subtitle={fileTenancy ? [fileTenancy.room?.name, String(fileTenancy.property?.name || fileTenancy.property?.address || '').split('\n')[0], fileTenancy.end_date && fileTenancy.end_date < todayStr ? `expired tenancy · ended ${fmt(fileTenancy.end_date)}` : fileTenancy.start_date > todayStr ? `incoming tenancy · tenancy start date ${fmt(fileTenancy.start_date)}` : `current tenancy · ${fmt(fileTenancy.start_date)} – ${fileTenancy.end_date ? fmt(fileTenancy.end_date) : 'periodic'}`].filter(Boolean).join(' · ') : 'No tenancy yet'}
+        actions={fileTenancy ? <>{currentTenancy && <HeroButton primary onClick={() => setNotifyOpen(true)}>Message {tenantName}</HeroButton>}<HeroButton primary={!currentTenancy} href={`/admin/lettings/${fileTenancy.id}?from=${encodeURIComponent(`/admin/tenant/${tenant.id}`)}`}>Letting file</HeroButton>{currentTenancy?.room_id && <HeroButton href={`/admin/properties/${currentTenancy.property_id}/rooms/${currentTenancy.room_id}`}>Room page</HeroButton>}</> : undefined}
         tabs={tabList.map(tab => ({ key: tab.id, label: tab.label, active: activeTab === tab.id, onClick: () => setActiveTab(tab.id) }))}
       />}
+      {notifyOpen && currentTenancy && <QuickNotifyModal propertyId={currentTenancy.property_id} initialPeople={[personId]} onClose={() => setNotifyOpen(false)} />}
       {embedded && (
         <div className="mb-lg flex flex-wrap items-center justify-between gap-sm">
           <div className="flex flex-wrap gap-xs" role="tablist" aria-label="About this person">
@@ -1117,7 +1012,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
         {previousTenancies.length > 0 && (
           <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden mb-xl">
             <div className="px-xl py-lg border-b border-neutral-100">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Previous tenancies ({previousTenancies.length})</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Expired tenancies ({previousTenancies.length})</p>
             </div>
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -1296,7 +1191,6 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                       className="px-lg py-sm rounded-lg bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700 transition">
                       Message {tenantDisplayName(tenant)}
                     </button>
-                    {notifyOpen && <QuickNotifyModal propertyId={currentTenancy.property_id} initialPeople={[personId]} onClose={() => setNotifyOpen(false)} />}
                     {/* notice is recorded in the letting file — its notice period rules and the email to the tenant (was a 30-day prompt) */}
                     <a href={`/admin/lettings/${currentTenancy.id}?tab=notice${currentTenancy.notice_received_date ? '' : '&mark=1'}`}
                       className="px-lg py-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition">
@@ -1363,7 +1257,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                                 <p className="text-sm text-neutral-700">{r.label}</p>
                                 <div className="text-right">
                                   <p className={`text-sm font-semibold ${expired ? 'text-red-700' : warning ? 'text-amber-700' : 'text-neutral-900'}`}>
-                                    {r.date ? new Date(r.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                                    {r.date ? fmt(r.date) : '—'}
                                   </p>
                                   {expired && <p className="text-xs text-red-600">Expired {Math.abs(daysLeft!)} days ago</p>}
                                   {warning && !expired && <p className="text-xs text-amber-600">Expires in {daysLeft} days</p>}
@@ -1380,7 +1274,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                   {previousTenancies.length > 0 && (
                     <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
                       <div className="px-xl py-lg border-b border-neutral-100">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Previous tenancies ({previousTenancies.length})</p>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Expired tenancies ({previousTenancies.length})</p>
                       </div>
                       <div className="divide-y divide-neutral-100">
                         {previousTenancies.map((pt: any) => {

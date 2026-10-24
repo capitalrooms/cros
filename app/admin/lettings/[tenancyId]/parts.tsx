@@ -21,7 +21,7 @@ import { firstRentPayment } from '@/lib/tenancy/firstRent'
 type Patch = (body: Record<string, unknown>) => Promise<void>
 
 export const gbp = (n: number | null | undefined) => n == null || n === ('' as any) ? '—' : `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-export const day = (iso: string | null | undefined) => iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—'
+export const day = (iso: string | null | undefined) => iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '—'   // dates in full (24 Oct 2026)
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const ordinal = (n: number) => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th')
 const daysBetween = (a: string, b: string) => Math.round((new Date(`${b}T12:00:00Z`).getTime() - new Date(`${a}T12:00:00Z`).getTime()) / 86400000)
@@ -365,8 +365,8 @@ function DepositStep({ file, patch, disabled, reload }: { file: LettingFile; pat
 // ── Terms ───────────────────────────────────────────────────────────────────
 
 const TERM_FIELDS: { key: string; label: string; kind: 'date' | 'money' | 'int' | 'text' | 'long' | 'agreement'; beforeMoveIn: boolean }[] = [
-  { key: 'start_date', label: 'Start date', kind: 'date', beforeMoveIn: true },
-  { key: 'rent_amount', label: 'Rent (pcm)', kind: 'money', beforeMoveIn: true },
+  { key: 'start_date', label: 'Tenancy start date', kind: 'date', beforeMoveIn: true },
+  { key: 'rent_amount', label: 'Rent per month', kind: 'money', beforeMoveIn: true },
   { key: 'rent_due_day', label: 'Rent due day', kind: 'int', beforeMoveIn: true },
   { key: 'deposit_amount', label: 'Deposit', kind: 'money', beforeMoveIn: true },
   { key: 'payment_reference', label: 'Payment reference', kind: 'text', beforeMoveIn: true },
@@ -403,7 +403,7 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
     return String(v)
   }
   const fixed: [string, string][] = [
-    ['End date', t.end_date ? day(t.end_date) : t.is_periodic ? 'Periodic — no end date' : '—'],
+    ['Tenancy end date', t.end_date ? day(t.end_date) : 'Periodic — no end date'],
     ['Letting fee', t.letting_fee_charged == null ? 'Property’s usual fee' : Number(t.letting_fee_charged) === 0 ? 'No fee' : gbp(t.letting_fee_charged)],
     ['Management fee', t.management_fee_type ? `${t.management_fee_type === 'fixed' ? gbp(t.management_fee_fixed) : `${t.management_fee_pct}%`} (this tenancy)` : 'Property’s usual fee'],
     ['Deposit number', t.deposit_no ?? '—'],
@@ -752,7 +752,7 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
       }),
     })
     const res = await r.json().catch(() => ({}))
-    if (!r.ok) throw new Error(res.error ?? 'Could not mark on notice')
+    if (!r.ok) throw new Error(res.error ?? 'Could not record the notice')
     setMarking(false)
     setDone(`On notice — moving out ${day(d.moveOutDate)}.${res.emailsSent?.tenant ? ' Checkout email sent to the tenant.' : ' No email went to the tenant.'}${res.emailsSent?.cleaner ? ' Cleaner told.' : ''} The lettings team has been alerted.`)
     await reload()
@@ -777,13 +777,13 @@ export function NoticeTab({ file, patch, reload, startMarking }: { file: Letting
         {err && file.stage !== 'let_agreed' && <p className="text-sm text-red-700">{err}</p>}
         {(file.stage === 'live' || file.stage === 'on_notice') && (
           <div className="flex flex-wrap gap-sm pt-sm">
-            {file.stage === 'live' && <button type="button" onClick={openMarking} className={btnDark}>Mark on notice</button>}
+            {file.stage === 'live' && <button type="button" onClick={openMarking} className={btnDark}>Record notice</button>}
             <Link href={`/admin/rent-increase/${t.id}`} className={btn}>Rent review</Link>
             {file.stage === 'on_notice' && <Link href="/admin/deposits" className={btn}>Deposit return</Link>}
             {file.stage === 'on_notice' && <button type="button" disabled={busy} onClick={cancelNotice} className={btn}>Cancel notice</button>}
           </div>
         )}
-        {file.stage === 'live' && <p className="text-xs text-neutral-500">Mark on notice records the dates, works out the final rent, and lets you preview the checkout email before choosing whether to send it.</p>}
+        {file.stage === 'live' && <p className="text-xs text-neutral-500">Record notice records the dates, works out the final rent, and lets you preview the checkout email before choosing whether to send it.</p>}
       </section>
 
       {marking && (
