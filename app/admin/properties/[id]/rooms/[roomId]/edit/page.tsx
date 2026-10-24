@@ -796,10 +796,11 @@ export default function RoomDashboardPage({
                     { label: 'Location', value: room.location_in_house },
                     { label: 'Features', value: room.features },
                     { label: 'Asking rent', value: room.current_asking_rent != null ? `£${Number(room.current_asking_rent).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per month` : null },
-                  ].filter(r => r.value).map(row => (
+                  ].map(row => (
+                    // every detail shows, recorded or not — an empty card looked broken (24 Oct 2026)
                     <div key={row.label} className="rounded-lg border border-neutral-100 bg-neutral-50 p-md">
                       <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">{row.label}</p>
-                      <p className="text-sm font-semibold text-neutral-900">{row.value}</p>
+                      <p className={`text-sm font-semibold ${row.value ? 'text-neutral-900' : 'text-neutral-400'}`}>{row.value || 'Not recorded'}</p>
                     </div>
                   ))}
                 </div>

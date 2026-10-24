@@ -6,6 +6,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { adminFetch } from '@/lib/adminFetch'
+import { useAdminAccess } from '@/lib/admin-context'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 import { PURPOSES, TENANT_MESSAGES, SLOTS, fillMessage, unfilled, type Purpose, type TenantMessage } from '@/lib/notify/tenantMessages'
 
@@ -48,6 +49,8 @@ const errorText = async (r: Response, fallback: string) => {
 export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initialPeople, initialRoomId }: QuickNotifyModalProps) {
   const [house, setHouse] = useState<HouseData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  // sending is part of Comms (lib/access/areas): someone without it (lettings staff) is told before writing, not after
+  const canSend = useAdminAccess()('/admin/notify')
 
   const [who, setWho] = useState<Who>(initialPeople?.length ? 'people' : initialRoomId ? 'room' : 'everyone')
   const [roomId, setRoomId] = useState(initialRoomId ?? '')
@@ -207,6 +210,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
         </div>
 
         <div className="flex-1 space-y-lg overflow-y-auto px-lg py-lg">
+          {!canSend && <p className="rounded-xl border border-amber-200 bg-amber-50 p-md text-sm font-semibold text-amber-900">Sending messages is part of Comms, which isn’t in your access — you can look, but Send won’t go. Ask an administrator if you need it.</p>}
           {loadError && <p className="rounded-xl border border-red-200 bg-red-50 p-md text-sm font-semibold text-red-800">{loadError}</p>}
           {!house && !loadError && <p className="text-sm text-neutral-400">Loading the house…</p>}
 
@@ -430,7 +434,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
             </p>
             <div className="flex gap-sm">
               <button onClick={onClose} className="rounded-lg border border-neutral-200 px-md py-sm text-sm font-semibold text-neutral-700">Cancel</button>
-              <button onClick={send} disabled={sending || !purpose || !house.sendingOn || count === 0 || !subject.trim() || !body.trim()}
+              <button onClick={send} disabled={!canSend || sending || !purpose || !house.sendingOn || count === 0 || !subject.trim() || !body.trim()}
                 className="rounded-lg bg-blue-600 px-lg py-sm text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
                 {sending ? 'Sending…' : `Send to ${count} ${count === 1 ? 'person' : 'people'}`}
               </button>

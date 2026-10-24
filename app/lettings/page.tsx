@@ -120,8 +120,8 @@ function formatDayHeading(iso: string) {
   const d = isoToDate(iso)
   const today = todayISO()
   const tomorrow = addDays(today, 1)
-  if (iso === today) return `Today · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}`
-  if (iso === tomorrow) return `Tomorrow · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}`
+  if (iso === today) return `Today · ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`
+  if (iso === tomorrow) return `Tomorrow · ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
@@ -677,7 +677,7 @@ export default function LettingsPage() {
                 {banner && !addingViewing && (
                   <div className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">{banner}</div>
                 )}
-                <p style={{ fontSize: 12, color: '#59544C', margin: '0 0 10px' }}>Click an empty slot to book a viewing, or a viewing to move it or message people.</p>
+                <p style={{ fontSize: 12, color: '#59544C', margin: '0 0 10px' }}>Choose an empty slot to book a viewing, or a viewing to move it or message people.</p>
                 <MultiDayDiaryGrid
                   jobs={lettingsDiaryJobs}
                   startHour={9}
@@ -755,7 +755,7 @@ export default function LettingsPage() {
                     Coming Up
                   </h3>
                   {upcomingViewings.slice(0, 5).map((v: any) => {
-                    const viewDate = new Date(v.viewing_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })
+                    const viewDate = new Date(v.viewing_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
                     return (
                       <div key={v.id} style={{ background: '#FFFFFF', border: '1px solid #E7E1D4', borderRadius: 12, padding: '10px 12px', marginBottom: 7 }}>
                         <div style={{ fontWeight: 700, fontSize: 12, color: '#181614', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
