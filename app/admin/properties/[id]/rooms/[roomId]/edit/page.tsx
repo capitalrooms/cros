@@ -122,6 +122,11 @@ export default function RoomDashboardPage({
 
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>('overview')
+  // editing the room's details (the editor used to only show them — 24 Oct 2026)
+  const [editDetails, setEditDetails] = useState(false)
+  const [detailsDraft, setDetailsDraft] = useState({ room_type: '', room_size: '', has_ensuite: '', location_in_house: '', features: '', furnishings_description: '', current_asking_rent: '' })
+  const [savingDetails, setSavingDetails] = useState(false)
+  const [detailsError, setDetailsError] = useState('')
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all')
 
   // Data
@@ -363,6 +368,27 @@ export default function RoomDashboardPage({
     } finally {
       setGeneratingAdvert(null)
     }
+  }
+
+  async function saveDetails() {
+    setDetailsError('')
+    const num = (v: string) => { const t = v.replace(/[£,\s]/g, ''); if (!t) return null; const n = Number(t); return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN }
+    const size = num(detailsDraft.room_size), rent = num(detailsDraft.current_asking_rent)
+    if (Number.isNaN(size)) { setDetailsError('Size: enter a number of square metres'); return }
+    if (Number.isNaN(rent)) { setDetailsError('Asking rent: enter an amount'); return }
+    const update = {
+      room_type: detailsDraft.room_type || null, room_size: size,
+      has_ensuite: detailsDraft.has_ensuite === 'yes' ? true : detailsDraft.has_ensuite === 'no' ? false : null,
+      has_shared_bathroom: detailsDraft.has_ensuite === 'no' ? true : detailsDraft.has_ensuite === 'yes' ? false : null,
+      location_in_house: detailsDraft.location_in_house.trim() || null, features: detailsDraft.features.trim() || null,
+      furnishings_description: detailsDraft.furnishings_description.trim() || null, current_asking_rent: rent,
+    }
+    setSavingDetails(true)
+    const { error } = await supabase.from('rooms').update(update as any).eq('id', roomId)
+    setSavingDetails(false)
+    if (error) { setDetailsError(`Not saved: ${error.message}`); return }
+    setRoom(prev => prev ? { ...prev, ...update } as any : prev)
+    setEditDetails(false)
   }
 
   async function saveAdvert() {
@@ -723,7 +749,45 @@ export default function RoomDashboardPage({
           {activeTab === 'overview' && (
             <div className="space-y-lg">
               <div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Room details</h2>
+                <div className="mb-md flex items-center justify-between gap-sm">
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400">Room details</h2>
+                  {!editDetails && <button type="button" onClick={() => { setDetailsDraft({ room_type: room.room_type ?? '', room_size: room.room_size != null ? String(room.room_size) : '', has_ensuite: room.has_ensuite === true ? 'yes' : room.has_ensuite === false ? 'no' : '', location_in_house: room.location_in_house ?? '', features: room.features ?? '', furnishings_description: room.furnishings_description ?? '', current_asking_rent: room.current_asking_rent != null ? String(room.current_asking_rent) : '' }); setEditDetails(true) }} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-bold text-neutral-900 hover:bg-neutral-50">Edit details</button>}
+                </div>
+                {editDetails && (
+                  <form onSubmit={e => { e.preventDefault(); saveDetails() }} className="mb-lg grid gap-md rounded-xl border border-neutral-200 bg-neutral-50 p-md sm:grid-cols-2">
+                    <label className="text-xs font-semibold text-neutral-600">Type
+                      <select value={detailsDraft.room_type} onChange={e => setDetailsDraft(d => ({ ...d, room_type: e.target.value }))} className="mt-xs block w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900">
+                        <option value="">—</option>
+                        {['Single Room', 'Small Double Room', 'Small Double Ensuite', 'Medium Double Room', 'Medium Double Ensuite', 'Large Double Room', 'Large Double Ensuite', 'Studio', ...(detailsDraft.room_type && !['Single Room', 'Small Double Room', 'Small Double Ensuite', 'Medium Double Room', 'Medium Double Ensuite', 'Large Double Room', 'Large Double Ensuite', 'Studio'].includes(detailsDraft.room_type) ? [detailsDraft.room_type] : [])].map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </label>
+                    <label className="text-xs font-semibold text-neutral-600">Size (m²)
+                      <input inputMode="decimal" value={detailsDraft.room_size} onChange={e => setDetailsDraft(d => ({ ...d, room_size: e.target.value }))} placeholder="e.g. 11.5" className="mt-xs block w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900" />
+                    </label>
+                    <label className="text-xs font-semibold text-neutral-600">En suite
+                      <select value={detailsDraft.has_ensuite} onChange={e => setDetailsDraft(d => ({ ...d, has_ensuite: e.target.value }))} className="mt-xs block w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900">
+                        <option value="">Not recorded</option><option value="yes">Yes — its own bathroom</option><option value="no">No — shared bathroom</option>
+                      </select>
+                    </label>
+                    <label className="text-xs font-semibold text-neutral-600">Asking rent per month (£)
+                      <input inputMode="decimal" value={detailsDraft.current_asking_rent} onChange={e => setDetailsDraft(d => ({ ...d, current_asking_rent: e.target.value }))} className="mt-xs block w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900" />
+                    </label>
+                    <label className="text-xs font-semibold text-neutral-600 sm:col-span-2">Where it is in the house
+                      <input value={detailsDraft.location_in_house} onChange={e => setDetailsDraft(d => ({ ...d, location_in_house: e.target.value }))} placeholder="e.g. First floor, front" className="mt-xs block w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900" />
+                    </label>
+                    <label className="text-xs font-semibold text-neutral-600 sm:col-span-2">Features
+                      <input value={detailsDraft.features} onChange={e => setDetailsDraft(d => ({ ...d, features: e.target.value }))} placeholder="e.g. Bay window, built-in wardrobe" className="mt-xs block w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900" />
+                    </label>
+                    <label className="text-xs font-semibold text-neutral-600 sm:col-span-2">Furnishings
+                      <textarea rows={2} value={detailsDraft.furnishings_description} onChange={e => setDetailsDraft(d => ({ ...d, furnishings_description: e.target.value }))} placeholder="e.g. Double bed, wardrobe, desk and chair" className="mt-xs block w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900" />
+                    </label>
+                    {detailsError && <p className="text-sm font-semibold text-red-700 sm:col-span-2">{detailsError}</p>}
+                    <div className="flex gap-sm sm:col-span-2">
+                      <button type="submit" disabled={savingDetails} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white disabled:opacity-40">{savingDetails ? 'Saving…' : 'Save details'}</button>
+                      <button type="button" onClick={() => { setEditDetails(false); setDetailsError('') }} className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-bold">Cancel</button>
+                    </div>
+                  </form>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-md">
                   {[
                     { label: 'Type', value: room.room_type },
@@ -731,7 +795,7 @@ export default function RoomDashboardPage({
                     { label: 'En-suite', value: room.has_ensuite === true ? 'Yes' : room.has_ensuite === false ? 'No' : null },
                     { label: 'Location', value: room.location_in_house },
                     { label: 'Features', value: room.features },
-                    { label: 'Status', value: statusLabel },
+                    { label: 'Asking rent', value: room.current_asking_rent != null ? `£${Number(room.current_asking_rent).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per month` : null },
                   ].filter(r => r.value).map(row => (
                     <div key={row.label} className="rounded-lg border border-neutral-100 bg-neutral-50 p-md">
                       <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">{row.label}</p>
@@ -760,67 +824,6 @@ export default function RoomDashboardPage({
                 </div>
               )}
 
-              {/* Lettings history — all tenancies for this room */}
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">
-                  Lettings history ({(currentTenancy ? 1 : 0) + previousTenancies.length})
-                </h2>
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-neutral-200">
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Tenant</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Start</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">End</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Rent</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Deposit</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Scheme ref</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100">
-                        {currentTenancy && (
-                          <tr className="bg-green-50/40">
-                            <td className="px-lg py-md">
-                              <Link href={`/admin/tenant/${currentTenancy.person?.id}`} className="font-semibold text-neutral-900 hover:underline">
-                                {displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}
-                              </Link>
-                              <p className="text-xs text-neutral-400 mt-xs">{currentTenancy.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md text-neutral-700">{fmtShort(currentTenancy.start_date)}</td>
-                            <td className="px-lg py-md text-neutral-400">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : '—'}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{currentTenancy.rent_amount ? `£${Number(currentTenancy.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right text-neutral-700">{currentTenancy.deposit_amount ? `£${Number(currentTenancy.deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-xs text-neutral-500">{(currentTenancy as any).deposit_scheme_ref || '—'}</td>
-                            <td className="px-lg py-md"><span className="text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-sm py-0.5 rounded-full">Current</span></td>
-                          </tr>
-                        )}
-                        {previousTenancies.map((t: any) => (
-                          <tr key={t.id}>
-                            <td className="px-lg py-md">
-                              {t.person?.id
-                                ? <Link href={`/admin/tenant/${t.person.id}`} className="font-semibold text-neutral-900 hover:underline">{displayName(t.person) || t.person?.email || 'Unknown'}</Link>
-                                : <span className="font-semibold text-neutral-900">{displayName(t.person) || t.person?.email || 'Unknown'}</span>
-                              }
-                              <p className="text-xs text-neutral-400 mt-xs">{t.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md text-neutral-700">{fmtShort(t.start_date)}</td>
-                            <td className="px-lg py-md text-neutral-500">{fmtShort(t.end_date)}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{t.rent_amount ? `£${Number(t.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right text-neutral-700">{t.deposit_amount ? `£${Number(t.deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-xs text-neutral-500">{t.deposit_scheme_ref || '—'}</td>
-                            <td className="px-lg py-md"><span className="text-xs text-neutral-400 bg-neutral-100 border border-neutral-200 px-sm py-0.5 rounded-full">Ended</span></td>
-                          </tr>
-                        ))}
-                        {!currentTenancy && previousTenancies.length === 0 && (
-                          <tr><td colSpan={7} className="px-lg py-lg text-sm text-neutral-400 text-center">No tenancy history for this room</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
 
             </div>
           )}
