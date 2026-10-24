@@ -54,10 +54,10 @@ const personShort = (p: any) => p?.salutation && p?.last_name ? `${p.salutation}
 const firstLine = (v: unknown) => String(v ?? '').split('\n')[0]
 
 const STATE: Record<RoomState, { label: string; cls: string }> = {
-  let:        { label: 'Let',        cls: 'bg-neutral-100 text-neutral-700' },
-  leaving:    { label: 'Leaving',    cls: 'bg-amber-100 text-amber-900' },
-  let_agreed: { label: 'Let agreed', cls: 'bg-blue-100 text-blue-900' },
-  empty:      { label: 'Empty',      cls: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200' },
+  let:        { label: 'Let',             cls: 'bg-green-50 text-green-800' },
+  leaving:    { label: 'Notice received', cls: 'bg-amber-100 text-amber-900' },
+  let_agreed: { label: 'Let agreed',      cls: 'bg-blue-100 text-blue-900' },
+  empty:      { label: 'Void',            cls: 'bg-red-50 text-red-800' },
 }
 const TONE = { red: 'bg-red-50 text-red-800', amber: 'bg-amber-50 text-amber-900', grey: 'bg-neutral-100 text-neutral-600' }
 
@@ -65,18 +65,19 @@ type Filter = 'all' | 'attention' | 'agreed'
 
 /** What happens next for a room — one wording for the desktop table and the phone list. */
 function nextFor(r: Row): { text: string; cls: string } {
-  if (r.state === 'let') return r.incoming ? { text: `${r.incoming.short} moves in ${day(r.incoming.start!)}`, cls: 'font-semibold text-blue-800' } : { text: 'Rolling', cls: 'text-neutral-500' }
+  if (r.state === 'let') return r.incoming ? { text: `Incoming tenancy from ${day(r.incoming.start!)}`, cls: 'font-semibold text-blue-800' } : { text: 'Periodic tenancy', cls: 'text-neutral-500' }
   if (r.state === 'leaving') return r.incoming
-    ? { text: `Leaves ${day(r.shown!.end!)} · ${r.incoming.short} moves in ${day(r.incoming.start!)}`, cls: 'font-semibold text-blue-800' }
-    : { text: `Leaves ${day(r.shown!.end!)} · not re-let yet`, cls: 'font-semibold text-amber-800' }
+    ? { text: `Ends ${day(r.shown!.end!)} · incoming tenancy from ${day(r.incoming.start!)}`, cls: 'font-semibold text-blue-800' }
+    : { text: `Ends ${day(r.shown!.end!)} · not re-let yet`, cls: 'font-semibold text-amber-800' }
   if (r.state === 'let_agreed') return { text: `Let agreed${r.rent != null ? ` at ${gbp2(r.rent)}` : ''}`, cls: 'text-blue-800' }
-  return { text: `${r.emptyDays != null ? `Empty ${r.emptyDays} day${r.emptyDays === 1 ? '' : 's'}` : 'Empty'}${r.asking != null ? ` · asking ${gbp2(r.asking)}` : ' · no asking rent set'}`, cls: 'font-semibold text-emerald-800' }
+  return { text: `${r.emptyDays != null ? `Void ${r.emptyDays} day${r.emptyDays === 1 ? '' : 's'}` : 'Void'}${r.asking != null ? ` · asking ${gbp2(r.asking)}` : ' · no asking rent set'}`, cls: 'font-semibold text-red-800' }
 }
 function tenantNote(r: Row): string {
   if (!r.shown) return ''
-  if (r.last && r.shown.end) return `left ${day(r.shown.end)}`
-  if (r.state === 'let_agreed' && r.shown.start) return `moves in ${day(r.shown.start)}`
-  return r.shown.start ? `since ${day(r.shown.start)}` : ''
+  if (r.last && r.shown.end) return `ended ${day(r.shown.end)}`
+  if (r.state === 'let_agreed' && r.shown.start) return `tenancy start date ${day(r.shown.start)}`
+  if (r.state === 'leaving' && r.shown.end) return `ends ${day(r.shown.end)}`
+  return r.shown.start ? `from ${day(r.shown.start)}` : ''
 }
 
 export default function AllUnitsPage() {
@@ -190,8 +191,8 @@ export default function AllUnitsPage() {
         subtitle={<>{real.length} house{real.length === 1 ? '' : 's'} · {rooms.length} rooms · tap a room for its page · a name opens the letting file{letOnlyCount > 0 && <> · <a href="/admin/let-only-properties" className="underline">{letOnlyCount} let-only house{letOnlyCount === 1 ? '' : 's'} →</a></>}</>}
         stats={[
           { label: 'Rooms let', value: `${counts.let}/${rooms.length}` },
-          { label: 'Empty now', value: counts.empty, tone: 'good' },
-          { label: 'Leaving, not re-let', value: counts.leaving, tone: 'warn' },
+          { label: 'Void now', value: counts.empty, tone: counts.empty ? 'bad' : 'good' },
+          { label: 'Notice received, not re-let', value: counts.leaving, tone: 'warn' },
           { label: 'Let agreed', value: counts.agreed, tone: 'info' },
           { label: 'Rent a month', value: gbp(rentMonth) },
           { label: 'Fees a month', value: gbp(feeMonth) },
@@ -244,7 +245,7 @@ export default function AllUnitsPage() {
                         <span className={`shrink-0 rounded-full px-sm py-0.5 text-[11px] font-semibold ${STATE[r.state].cls}`}>{STATE[r.state].label}</span>
                       </div>
                       <div className="mt-0.5 flex items-baseline justify-between gap-sm text-sm">
-                        <span className={`min-w-0 truncate ${r.last || !r.shown ? 'italic text-neutral-400' : 'font-semibold text-neutral-900'}`}>{r.shown ? (r.last ? `Last: ${r.shown.name}` : r.shown.name) : 'No tenant on record yet'} <span className="text-[11px] font-normal not-italic text-neutral-400">{tenantNote(r)}</span></span>
+                        <span className={`min-w-0 truncate ${r.last || !r.shown ? 'italic text-neutral-400' : 'font-semibold text-neutral-900'}`}>{r.shown ? (r.last ? `Expired tenancy: ${r.shown.name}` : r.shown.name) : 'No tenant on record yet'} <span className="text-[11px] font-normal not-italic text-neutral-400">{tenantNote(r)}</span></span>
                         <span className={`shrink-0 tabular-nums ${r.state === 'empty' ? 'text-neutral-400' : 'text-neutral-900'}`}>{r.rent != null ? gbp2(r.rent) : '—'}</span>
                       </div>
                       <p className={`mt-0.5 text-[12px] ${nextFor(r).cls}`}>{nextFor(r).text}</p>
@@ -253,7 +254,8 @@ export default function AllUnitsPage() {
                 ))}
               </ul>
               <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[720px] border-collapse text-sm">
+                <table className="w-full min-w-[720px] table-fixed border-collapse text-sm">
+                  <colgroup><col className="w-[17%]" /><col className="w-[35%]" /><col className="w-[12%]" /><col className="w-[14%]" /><col className="w-[22%]" /></colgroup>
                   <thead>
                     <tr className="text-left text-[10.5px] uppercase tracking-wider text-neutral-400">
                       <th className="px-lg py-xs font-semibold">Room</th>
@@ -272,7 +274,7 @@ export default function AllUnitsPage() {
                         <td className="px-sm py-sm">
                           {r.shown ? <>
                             <Link href={`/admin/lettings/${r.shown.tenancyId}?from=/admin/active-rooms`} onClick={e => e.stopPropagation()}
-                              className={r.last ? 'italic text-neutral-400 hover:underline' : 'font-semibold text-neutral-900 hover:underline'}>{r.last ? `Last: ${r.shown.name}` : r.shown.name}</Link>
+                              className={r.last ? 'italic text-neutral-400 hover:underline' : 'font-semibold text-neutral-900 hover:underline'}>{r.last ? `Expired tenancy: ${r.shown.name}` : r.shown.name}</Link>
                             <span className="ml-xs text-[11.5px] text-neutral-400">{tenantNote(r)}</span>
                           </> : <span className="italic text-neutral-400">No tenant on record yet</span>}
                         </td>
