@@ -35,8 +35,8 @@ export interface PackDoc {
 const STATIC: Omit<PackDoc, 'available' | 'source'>[] = [
   { key: 'renters_rights', label: 'Renters’ Rights Act information sheet', group: 'Your rights', url: '/tenancy-pack/renters-rights-act-information-sheet-2026.pdf', include: true },
   { key: 'apt_guide', label: 'Assured periodic tenancies — a guide for tenants (GOV.UK)', group: 'Your rights', url: '/tenancy-pack/assured-periodic-tenancies-guide.pdf', include: true },
-  // the tenancy's own prescribed information is sent from Finance › Deposits once the deposit is protected
-  // (lib/deposits/prescribedInfo); the blank DPS form that used to sit here wasn't filled in for anyone (16 Oct 2026)
+  // the DPS prescribed information form now goes in filled in for this tenancy — a generated document (lib/deposits/
+  // dpsForm, 24 Oct 2026); it needs the DPS Terms and Conditions below with it (its note 1)
   { key: 'dps_terms', label: 'DPS Terms and Conditions', group: 'Your deposit', url: '/tenancy-pack/dps-terms-and-conditions.pdf', include: true },
   { key: 'deposit_guide', label: 'Deposit protection — a guide for tenants', group: 'Your deposit', url: '/tenancy-pack/deposit-protection-guide.pdf', include: true },
   { key: 'fire_doors', label: 'Fire door guide', group: 'Living in the house', url: '/tenancy-pack/fire-door-guide.pdf', include: true },
@@ -140,6 +140,9 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
   const documents: PackDoc[] = [
     { key: 'agreement', label: 'Tenancy agreement', group: 'Your tenancy', source: 'generated', available: true, include: true },
     { key: 'check_in', label: 'Check-in balance', group: 'Your tenancy', source: 'generated', available: true, include: true },
+    // the deposit's prescribed information on the DPS's own form, filled in — managed lets taking a deposit
+    ...(deposit > 0 && (prop as any)?.letting_type !== 'let_only'
+      ? [{ key: 'prescribed_info', label: 'Deposit prescribed information (DPS form) — to sign', group: 'Your deposit' as DocGroup, source: 'generated' as const, available: true, include: true }] : []),
     ...certDocs,
     // let-only (Nigel) tenants don't get the housemate and checking-out guides (Harry, 15 Oct 2026)
     ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true, include: d.include && !((prop as any)?.letting_type === 'let_only' && (d.key === 'jedi' || d.key === 'checking_out')) && !(isWholeLet((prop as any)?.property_type, room.name) && d.key === 'jedi') })),   // no housemates in a whole home
@@ -252,5 +255,11 @@ export async function renderCheckIn(ctx: PackContext) {
   })
 }
 
-export const packFileName = (ctx: PackContext, key: 'agreement' | 'check_in') =>
-  `${key === 'agreement' ? 'Tenancy Agreement' : 'Check-in Balance'} - ${ctx.address}.pdf`.replace(/[\\/:*?"<>|]/g, '')
+/** The documents CROS makes for the pack (the rest are fixed files or the property's certificates). */
+export type GeneratedKey = 'agreement' | 'check_in' | 'prescribed_info'
+export const GENERATED_KEYS: GeneratedKey[] = ['agreement', 'check_in', 'prescribed_info']
+/** The ones that are signed — what "Download for signing" gives you for Adobe Sign. */
+export const TO_SIGN: string[] = ['agreement', 'prescribed_info', 'guarantor_form']
+const GENERATED_NAME: Record<GeneratedKey, string> = { agreement: 'Tenancy Agreement', check_in: 'Check-in Balance', prescribed_info: 'Deposit Prescribed Information (DPS)' }
+export const packFileName = (ctx: PackContext, key: GeneratedKey) =>
+  `${GENERATED_NAME[key]} - ${ctx.address}.pdf`.replace(/[\\/:*?"<>|]/g, '')

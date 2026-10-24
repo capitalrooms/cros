@@ -27,15 +27,20 @@ export async function sendSms(to: string | null | undefined, body: string, opts:
   const from = process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_PHONE_NUMBER
   if (!sid || !token || !from) return { ok: false, error: 'texting is not set up' }
   const client = twilio(sid, token)
+  // every text is logged against the mobile (migration 242) so a tenant's or room's page can show what went
+  const log = (ok: boolean, providerId: string | null, error: string | null, sentAs: string) =>
+    import('@/lib/messageLog').then(m => m.logMessage({ channel: 'sms', to: [num], text: body, providerId, ok, error, sentBy: sentAs })).catch(() => {})
   if (opts.asName && num.startsWith('+44')) {
     // UK only; if Twilio won't send from the name (not switched on for the account), fall back to the number
-    try { await client.messages.create({ to: num, from: SENDER_NAME, body }); return { ok: true } } catch { /* use the number */ }
+    try { const m = await client.messages.create({ to: num, from: SENDER_NAME, body }); await log(true, m?.sid ?? null, null, SENDER_NAME); return { ok: true } } catch { /* use the number */ }
   }
   try {
-    await client.messages.create({ to: num, from, body })
+    const m = await client.messages.create({ to: num, from, body })
+    await log(true, m?.sid ?? null, null, from)
     return { ok: true }
   } catch (e) {
     const error = e instanceof Error ? e.message : 'text failed'
+    await log(false, null, error, from)
     await tellOfficeTextFailed(num, body, error)
     return { ok: false, error }
   }

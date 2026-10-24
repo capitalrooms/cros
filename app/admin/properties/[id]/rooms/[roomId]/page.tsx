@@ -1,1822 +1,617 @@
 'use client'
-import { displayName, nameFields } from '@/lib/people'
-import { isOfficeRole } from '@/lib/access/areas'
 
-import { useState, useEffect, use, useRef } from 'react'
-import { createClient } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
-import { useRouter } from 'next/navigation'
+// The room page (option D — Harry, 24 Oct 2026: "go with D, build it"). One page per room, reached by tapping the room
+// in All Units: Needs you (worked out from the records, most urgent first), the current tenancy, rent, one timeline of
+// messages and activity with a box to write from, the re-let plan, the room itself, repairs and spend, safety, and the
+// expired tenancies. A strip across the top steps through the other rooms in the house. Wording: Current tenancy /
+// Expired tenancies, dates in full, names with titles. The old room page lives on at …/edit for photos, details,
+// advert text, notes and checks. Data: GET /api/admin/rooms/[roomId] (lib/rooms/roomOverview).
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
-import NameInput, { emptyName, type NameValue } from '@/app/components/NameInput'
-import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
-import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
-import { ICEBREAKER_QUESTIONS } from '@/lib/icebreaker'
-import { genTenancyRefs } from '@/lib/references'
-import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
-import { StoredLink } from '@/components/StoredImg'
+import { StoredImg } from '@/components/StoredImg'
+import { adminFetch } from '@/lib/adminFetch'
+import type { RoomOverview, Need, TimelineItem } from '@/lib/rooms/roomOverview'
 
-type TabType = 'overview' | 'tenant' | 'maintenance' | 'lettings' | 'photos' | 'compliance' | 'notes'
-type ComplianceFilter = 'all' | 'fire_door' | 'smoke_alarm'
+const gbp = (n: number | null | undefined) => n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const full = (iso: string | null | undefined) => iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
+const dayHead = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
+const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
+const monthName = (ym: string) => new Date(`${ym}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+const initials = (name: string) => name.replace(/^(Mr|Mrs|Ms|Miss|Mx|Dr|Prof|Rev)\.?\s+/i, '').split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase()
+const yearsMonths = (n: number) => { const y = Math.floor(n / 365), m = Math.floor((n % 365) / 30.44); return [y ? `${y} year${y === 1 ? '' : 's'}` : '', m ? `${m} month${m === 1 ? '' : 's'}` : ''].filter(Boolean).join(' ') || `${n} days` }
 
-interface RoomData {
-  id: string
-  name: string
-  property_id: string
-  room_type: string | null
-  room_size: number | null
-  has_ensuite: boolean | null
-  location_in_house: string | null
-  features: string | null
-  furnishings_description: string | null
-  status: 'occupied' | 'available' | 'on_notice' | null
-  available_date: string | null
-  current_asking_rent: number | null
-  detected_features: Record<string, any> | null
-  marketing_description: string | null
+const DOT: Record<string, string> = { let: 'bg-green-400', notice: 'bg-amber-400', changeover: 'bg-blue-400', let_agreed: 'bg-blue-400', void: 'bg-red-400' }
+const LEVEL: Record<Need['level'], { bar: string; text: string; label: string }> = {
+  urgent: { bar: 'bg-red-600', text: 'text-red-800', label: 'urgent' },
+  week: { bar: 'bg-amber-500', text: 'text-amber-800', label: 'this week' },
+  tidy: { bar: 'bg-neutral-400', text: 'text-neutral-600', label: 'tidy-ups' },
 }
-
-interface PropertyData {
-  name: string
-  address: string
-  property_code?: string | null
+const STAGE_PILL: Record<string, { cls: string; label: (o: RoomOverview) => string }> = {
+  on_notice: { cls: 'bg-amber-100 text-amber-900', label: o => `Notice received · tenancy ends ${full(o.current?.end)}` },
+  live: { cls: 'bg-green-100 text-green-900', label: () => 'Current tenancy' },
+  let_agreed: { cls: 'bg-blue-100 text-blue-900', label: o => `Let agreed · tenancy starts ${full(o.incoming?.start)}` },
+  void: { cls: 'bg-red-100 text-red-900', label: o => o.voids.at(-1) && !o.voids.at(-1)!.to ? `Void since ${full(o.voids.at(-1)!.from)}` : 'Void' },
+  ended: { cls: 'bg-neutral-200 text-neutral-800', label: () => 'Tenancy ended' },
 }
+const APPLICANT_STEPS = ['invited', 'applied', 'offer_sent', 'referencing', 'referencing_passed', 'docs_uploaded']
+const KIND_ICON: Record<TimelineItem['kind'], string> = { email: '✉', sms: '💬', app: '🔔', event: '•', note: '✎', money: '£', repair: '🔧', viewing: '👁', offer: '✉', feedback: '★' }
+const btnDark = 'inline-flex min-h-[40px] items-center justify-center rounded-lg bg-neutral-900 px-md text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-40'
+const btnLight = 'inline-flex min-h-[40px] items-center justify-center rounded-lg border border-neutral-300 bg-white px-md text-sm font-bold text-neutral-900 hover:bg-neutral-50'
+const card = 'rounded-2xl border border-neutral-200 bg-white'
 
-interface PersonData {
-  id: string
-  name: string | null
-  email: string
-  phone: string | null
-}
-
-interface TenancyData {
-  id: string
-  person_id: string
-  co_tenant_id?: string | null
-  co_tenant?: PersonData | null
-  start_date: string
-  end_date: string | null
-  rent_amount: number | null
-  deposit_amount?: number | null
-  deposit_held_by?: string | null
-  deposit_scheme_ref?: string | null
-  person: PersonData
-}
-
-interface MaintenanceTicket {
-  id: string
-  title: string
-  status: string
-  priority: string
-  created_at: string
-  rooms: { name: string } | null
-}
-
-interface RoomPhoto {
-  id: string
-  file_url: string | null
-  file_path: string | null
-}
-
-interface SelfCheck {
-  id: string
-  check_type: 'fire_door' | 'smoke_alarm'
-  request_sent_at: string
-  response_received_at: string | null
-  tenant_response: 'confirmed_ok' | 'issue_reported' | 'no_response' | null
-  issue_description: string | null
-  photo_attachment_id: string | null
-  tenancy_id: string
-  // joined
-  tenantName?: string
-}
-
-interface RoomNote {
-  id: string
-  content: string
-  note_type: string
-  created_at: string
-  created_by: string | null
-  // joined
-  authorName?: string
-}
-
-interface Purchase {
-  id: string
-  name: string | null
-  category: string | null
-  cost: number | null
-  purchased_date: string | null
-  make_model: string | null
-}
-
-export default function RoomDashboardPage({
-  params,
-}: {
-  params: Promise<{ id: string; roomId: string }>
-}) {
-  const router = useRouter()
+export default function RoomPage({ params }: { params: Promise<{ id: string; roomId: string }> }) {
   const { id: propertyId, roomId } = use(params)
-  const supabase = createClient()
+  const [o, setO] = useState<RoomOverview | null>(null)
+  const [error, setError] = useState('')
+  const [wide, setWide] = useState(true)
+  const composeRef = useRef<HTMLTextAreaElement>(null!)
 
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabType>('lettings')
-  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all')
+  const load = useCallback(async () => {
+    const r = await adminFetch(`/api/admin/rooms/${roomId}`)
+    const d = await r.json().catch(() => ({}))
+    if (!r.ok) { setError(d.error ?? 'Could not open this room'); return }
+    setO(d); setError('')
+  }, [roomId])
+  useEffect(() => { setO(null); load() }, [load])
+  useEffect(() => { const m = window.matchMedia('(min-width: 768px)'); const on = () => setWide(m.matches); on(); m.addEventListener('change', on); return () => m.removeEventListener('change', on) }, [])
 
-  // Data
-  const [room, setRoom] = useState<RoomData | null>(null)
-  const [property, setProperty] = useState<PropertyData | null>(null)
-  const [currentTenancy, setCurrentTenancy] = useState<TenancyData | null>(null)
-  const [previousTenancies, setPreviousTenancies] = useState<TenancyData[]>([])
-  const [icebreakerAnswers, setIcebreakerAnswers] = useState<Record<string, string> | null>(null)
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>([])
-  const [photos, setPhotos] = useState<RoomPhoto[]>([])
-  const [purchases, setPurchases] = useState<Purchase[]>([])
-  const [selfChecks, setSelfChecks] = useState<SelfCheck[]>([])
-  const [roomNotes, setRoomNotes] = useState<RoomNote[]>([])
+  const message = () => { const el = document.getElementById('messages'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (el instanceof HTMLDetailsElement) el.open = true; setTimeout(() => composeRef.current?.focus(), 400) }
 
-  // Lettings / marketing state
-  const [advertDraft, setAdvertDraft] = useState('')
-  const [generatingAdvert, setGeneratingAdvert] = useState<'listing' | 'group' | null>(null)
-  const [savingAdvert, setSavingAdvert] = useState(false)
-  const [advertBanner, setAdvertBanner] = useState<string | null>(null)
-
-  // Notes state
-  const [newNoteText, setNewNoteText] = useState('')
-  const [savingNote, setSavingNote] = useState(false)
-  const [noteBanner, setNoteBanner] = useState<string | null>(null)
-
-  // Assign tenant modal
-  const [showAssignTenant, setShowAssignTenant] = useState(false)
-  const [assignBusy, setAssignBusy] = useState(false)
-  const [assignError, setAssignError] = useState<string | null>(null)
-  const [newTenant, setNewTenant] = useState<NameValue>(emptyName())
-  const [newTenantEmail, setNewTenantEmail] = useState('')
-  const [newTenantPhone, setNewTenantPhone] = useState('')
-  const [newTenancyStartDate, setNewTenancyStartDate] = useState(new Date().toISOString().slice(0, 10))
-  const [newTenancyEndDate, setNewTenancyEndDate] = useState('')
-  const [newTenancyRent, setNewTenancyRent] = useState('')
-  const [newTenancyRentDueDay, setNewTenancyRentDueDay] = useState('1')
-  const [newTenancyDeposit, setNewTenancyDeposit] = useState('')
-  const [newTenancyDepositHeldBy, setNewTenancyDepositHeldBy] = useState('')
-  const [newTenancyDepositRef, setNewTenancyDepositRef] = useState('')
-  const [newTenancyLeaseRef, setNewTenancyLeaseRef] = useState('')
-  // Co-tenant (couples / joint tenants)
-  const [showCoTenant, setShowCoTenant] = useState(false)
-  const [coTenant, setCoTenant] = useState<NameValue>(emptyName())
-  const [coTenantEmail, setCoTenantEmail] = useState('')
-  const [coTenantPhone, setCoTenantPhone] = useState('')
-
-  // Photos upload state
-  const photoInputRef = useRef<HTMLInputElement>(null)
-  const [uploadingPhotos, setUploadingPhotos] = useState(false)
-  const [uploadPhotoMsg, setUploadPhotoMsg] = useState<string | null>(null)
-  const [aiScanning, setAiScanning] = useState(false)
-  const [pendingScanFeatures, setPendingScanFeatures] = useState<Record<string, any> | null>(null)
-  const [manualFeatureInput, setManualFeatureInput] = useState('')
-  const [savedFeatureInput, setSavedFeatureInput] = useState('')
-
-  useEffect(() => {
-    async function init() {
-      const data = await getCurrentUser()
-      if (!data || !isOfficeRole(data.assignment?.role)) {
-        router.push('/login')
-        return
-      }
-      await loadAll()
-      setLoading(false)
-    }
-    init()
-  }, [propertyId, roomId])
-
-  async function loadAll() {
-    // Room
-    const { data: roomData } = await supabase
-      .from('rooms')
-      .select('*')
-      .eq('id', roomId)
-      .single()
-    if (!roomData) { router.push(`/admin/properties/${propertyId}`); return }
-    setRoom(roomData)
-    setAdvertDraft(roomData.marketing_description || '')
-
-    // Property
-    const { data: propData } = await supabase
-      .from('properties')
-      .select('name, address, property_code')
-      .eq('id', propertyId)
-      .single()
-    if (propData) setProperty(propData)
-
-    // Current tenancy: rolling (no end_date) OR on-notice (future end_date)
-    const todayStr = new Date().toISOString().split('T')[0]
-    const { data: curT } = await supabase
-      .from('tenancies')
-      .select('id, person_id, co_tenant_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, salutation, first_name, last_name, email, phone)')
-      .eq('room_id', roomId)
-      .or(`end_date.is.null,end_date.gte.${todayStr}`)
-      .order('end_date', { ascending: false, nullsFirst: true })
-      .limit(1)
-      .maybeSingle()
-    if (curT) {
-      const t = curT as any
-      const cur: TenancyData = {
-        id: t.id,
-        person_id: t.person_id,
-        co_tenant_id: t.co_tenant_id,
-        start_date: t.start_date,
-        end_date: t.end_date,
-        rent_amount: t.rent_amount,
-        person: t.people,
-      }
-      // Fetch co-tenant person if present
-      if (t.co_tenant_id) {
-        const { data: ct } = await supabase
-          .from('people')
-          .select('id, full_name, salutation, first_name, last_name, email, phone')
-          .eq('id', t.co_tenant_id)
-          .maybeSingle()
-        if (ct) cur.co_tenant = ct as PersonData
-      }
-      setCurrentTenancy(cur)
-
-      // Icebreaker for current tenant
-      const { data: ib } = await supabase
-        .from('tenant_icebreakers')
-        .select('answers')
-        .eq('person_id', t.person_id)
-        .maybeSingle()
-      if (ib) setIcebreakerAnswers(ib.answers as Record<string, string>)
-    }
-
-    // Previous tenancies (end_date in the past only)
-    const { data: prevTs } = await supabase
-      .from('tenancies')
-      .select('id, person_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, salutation, first_name, last_name, email, phone)')
-      .eq('room_id', roomId)
-      .lt('end_date', todayStr)
-      .order('end_date', { ascending: false })
-      .limit(20)
-    if (prevTs) {
-      setPreviousTenancies(prevTs.map((t: any) => ({
-        id: t.id,
-        person_id: t.person_id,
-        start_date: t.start_date,
-        end_date: t.end_date,
-        rent_amount: t.rent_amount,
-        deposit_amount: t.deposit_amount,
-        deposit_held_by: t.deposit_held_by,
-        deposit_scheme_ref: t.deposit_scheme_ref,
-        lease_reference: t.lease_reference,
-        person: t.people,
-      })))
-    }
-
-    // Maintenance tickets
-    const { data: tix } = await supabase
-      .from('maintenance_tickets')
-      .select('id, title, status, priority, created_at, rooms(name)')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: false })
-    setTickets(tix || [])
-
-    // Photos
-    const { data: ph } = await supabase
-      .from('property_photos')
-      .select('id, file_url, file_path')
-      .eq('room_id', roomId)
-      .order('display_order', { ascending: true })
-    setPhotos(ph || [])
-
-    // Purchases
-    const { data: purch } = await supabase
-      .from('purchases')
-      .select('id, name, category, cost, purchased_date, make_model')
-      .eq('room_id', roomId)
-      .order('purchased_date', { ascending: false, nullsFirst: false })
-    setPurchases(purch || [])
-
-    // Tenant self-checks (compliance)
-    const { data: checks } = await supabase
-      .from('tenant_self_checks')
-      .select('id, check_type, request_sent_at, response_received_at, tenant_response, issue_description, photo_attachment_id, tenancy_id')
-      .eq('room_id', roomId)
-      .order('request_sent_at', { ascending: false })
-
-    if (checks && checks.length > 0) {
-      // Enrich with tenant names via tenancy_id → tenancies → people
-      const tenancyIds = [...new Set(checks.map((c: any) => c.tenancy_id))]
-      const { data: tenancyPeople } = await supabase
-        .from('tenancies')
-        .select('id, person_id, people!person_id(full_name, salutation, first_name, last_name, email)')
-        .in('id', tenancyIds)
-      const nameMap: Record<string, string> = {}
-      ;(tenancyPeople || []).forEach((t: any) => {
-        nameMap[t.id] = displayName(t.people) || t.people?.email || 'Unknown tenant'
-      })
-      setSelfChecks(checks.map((c: any) => ({ ...c, tenantName: nameMap[c.tenancy_id] || 'Unknown' })))
-    } else {
-      setSelfChecks([])
-    }
-
-    // Room notes
-    const { data: notes } = await supabase
-      .from('room_notes')
-      .select('id, content, note_type, created_at, created_by, people(full_name, salutation, first_name, last_name)')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: false })
-    if (notes) {
-      setRoomNotes(notes.map((n: any) => ({
-        id: n.id,
-        content: n.content,
-        note_type: n.note_type,
-        created_at: n.created_at,
-        created_by: n.created_by,
-        authorName: displayName(n.people) || 'Admin',
-      })))
-    }
-  }
-
-  async function generateAdvert(format: 'listing' | 'group') {
-    if (!room || !property) return
-    setGeneratingAdvert(format)
-    try {
-      const res = await fetch('/api/let-only/generate-advert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          format,
-          room_id: roomId,
-          property_id: propertyId,
-          room_name: room.name,
-          monthly_rent: room.current_asking_rent,
-          floor_area_sqm: room.room_size,
-          has_ensuite: room.has_ensuite,
-          detected_features: room.detected_features,
-          address: property.address,
-          postcode: null,
-        }),
-      })
-      const data = await res.json()
-      if (data.advert) setAdvertDraft(data.advert)
-    } finally {
-      setGeneratingAdvert(null)
-    }
-  }
-
-  async function saveAdvert() {
-    setSavingAdvert(true)
-    await supabase.from('rooms').update({ marketing_description: advertDraft || null }).eq('id', roomId)
-    setRoom(prev => prev ? { ...prev, marketing_description: advertDraft } : prev)
-    setSavingAdvert(false)
-    setAdvertBanner('Advert copy saved')
-    setTimeout(() => setAdvertBanner(null), 2500)
-  }
-
-  async function addNote() {
-    if (!newNoteText.trim()) return
-    setSavingNote(true)
-    const { data: me } = await supabase.from('people').select('id, full_name, salutation, first_name, last_name').eq('email', (await supabase.auth.getUser()).data.user?.email || '').maybeSingle()
-    const { data: inserted } = await supabase.from('room_notes').insert({
-      room_id: roomId,
-      content: newNoteText.trim(),
-      note_type: 'admin_notes',
-      created_by: me?.id || null,
-    }).select('id, content, note_type, created_at, created_by').single()
-    if (inserted) {
-      setRoomNotes(prev => [{ ...inserted, authorName: displayName(me) || 'Admin' }, ...prev])
-      setNewNoteText('')
-      setNoteBanner('Note added')
-      setTimeout(() => setNoteBanner(null), 2500)
-    }
-    setSavingNote(false)
-  }
-
-  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || [])
-    if (!files.length) return
-    setUploadingPhotos(true)
-    setUploadPhotoMsg(null)
-    let done = 0
-    let firstUploadedUrl: string | null = null
-    for (const file of files) {
-      const ext = file.name.split('.').pop() || 'jpg'
-      const path = `${propertyId}/${roomId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-      const { error } = await supabase.storage.from('property-photos').upload(path, file, { upsert: false })
-      if (error) continue
-      const { data: urlData } = supabase.storage.from('property-photos').getPublicUrl(path)
-      const publicUrl = urlData?.publicUrl || null
-      const { data: inserted } = await supabase.from('property_photos').insert({
-        property_id: propertyId,
-        room_id: roomId,
-        file_name: file.name,
-        file_path: path,
-        file_url: publicUrl,
-        display_order: photos.length + done,
-      }).select('id, file_url, file_path').single()
-      if (inserted) {
-        setPhotos(prev => [...prev, inserted])
-        if (!firstUploadedUrl && publicUrl) firstUploadedUrl = publicUrl
-      }
-      done++
-    }
-    setUploadingPhotos(false)
-    setUploadPhotoMsg(done > 0 ? `✓ ${done} photo${done === 1 ? '' : 's'} uploaded` : 'Upload failed — please try again')
-    setTimeout(() => setUploadPhotoMsg(null), 4000)
-    // Reset the input so the same file can be re-selected
-    if (photoInputRef.current) photoInputRef.current.value = ''
-    // Auto-trigger AI scan on first new room photo
-    if (firstUploadedUrl && done > 0) {
-      triggerAiScan(firstUploadedUrl)
-    }
-  }
-
-  function photoUrl(p: RoomPhoto | undefined): string | null {
-    if (!p) return null
-    if (p.file_url) return p.file_url
-    if (!p.file_path) return null
-    const path = p.file_path.startsWith('property-photos/') ? p.file_path : `property-photos/${p.file_path}`
-    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${path}`
-  }
-
-  async function triggerAiScan(overrideUrl?: string) {
-    const url = overrideUrl || photoUrl(photos[0])
-    if (!url) return
-    setAiScanning(true)
-    setPendingScanFeatures(null)
-    try {
-      const res = await fetch('/api/rooms/scan-photo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_url: url }),
-      })
-      const data = await res.json()
-      if (data.features) {
-        // Hold for confirmation — don't auto-save
-        const hasAny = Object.entries(data.features as Record<string, any>).some(
-          ([, v]) => v && !(Array.isArray(v) && v.length === 0)
-        )
-        if (hasAny) setPendingScanFeatures(data.features)
-        else setUploadPhotoMsg('Scan complete — no specific features detected in this photo')
-      }
-    } catch {
-      // silent
-    }
-    setAiScanning(false)
-  }
-
-  async function acceptScanFeatures() {
-    if (!pendingScanFeatures) return
-    await supabase.from('rooms').update({ detected_features: pendingScanFeatures }).eq('id', roomId)
-    setRoom(prev => prev ? { ...prev, detected_features: pendingScanFeatures } : prev)
-    setPendingScanFeatures(null)
-  }
-
-  async function addSavedFeature(text: string) {
-    if (!text.trim() || !room) return
-    const current: Record<string, any> = room.detected_features || {}
-    const extras: string[] = Array.isArray(current.extras) ? current.extras : []
-    const updated = { ...current, extras: [...extras, text.trim()] }
-    await supabase.from('rooms').update({ detected_features: updated }).eq('id', roomId)
-    setRoom(prev => prev ? { ...prev, detected_features: updated } : prev)
-    setSavedFeatureInput('')
-  }
-
-  async function removeDetectedFeature(key: string, extraValue?: string) {
-    if (!room?.detected_features) return
-    const updated: Record<string, any> = { ...room.detected_features }
-    if (key === 'extras' && extraValue) {
-      updated.extras = (updated.extras as string[] || []).filter((v: string) => v !== extraValue)
-      if ((updated.extras as string[]).length === 0) delete updated.extras
-    } else {
-      delete updated[key]
-    }
-    const hasData = Object.entries(updated).some(([, v]) => v && !(Array.isArray(v) && v.length === 0))
-    const nextVal = hasData ? updated : null
-    await supabase.from('rooms').update({ detected_features: nextVal }).eq('id', roomId)
-    setRoom(prev => prev ? { ...prev, detected_features: nextVal } : prev)
-  }
-
-  async function clearAllFeatures() {
-    await supabase.from('rooms').update({ detected_features: null }).eq('id', roomId)
-    setRoom(prev => prev ? { ...prev, detected_features: null } : prev)
-  }
-
-  async function deletePhoto(photo: RoomPhoto) {
-    if (!photo.file_path) {
-      await supabase.from('property_photos').delete().eq('id', photo.id)
-    } else {
-      await supabase.storage.from('property-photos').remove([photo.file_path])
-      await supabase.from('property_photos').delete().eq('id', photo.id)
-    }
-    setPhotos(prev => prev.filter(p => p.id !== photo.id))
-  }
-
-  // ─── assign tenant ─────────────────────────────────────────────────────────
-
-  async function handleAssignTenant() {
-    if (!newTenant.salutation || !newTenant.first_name.trim() || !newTenant.last_name.trim() || !newTenantEmail.trim() || !newTenancyStartDate) {
-      setAssignError('Title, first name, surname, email and start date are required.')
-      return
-    }
-    setAssignBusy(true)
-    setAssignError(null)
-    try {
-      // 1. Find or create the person
-      let personId: string
-      const { data: existing } = await supabase
-        .from('people')
-        .select('id')
-        .eq('email', newTenantEmail.trim().toLowerCase())
-        .maybeSingle()
-
-      if (existing) {
-        personId = existing.id
-        await supabase.from('people').update({
-          salutation: newTenant.salutation || null,
-          ...nameFields(newTenant.first_name, newTenant.last_name, newTenant.middle_name ?? ''),
-          phone: newTenantPhone.trim() || null,
-        }).eq('id', personId)
-      } else {
-        const { data: newPerson, error: pe } = await supabase
-          .from('people')
-          .insert({
-            salutation: newTenant.salutation || null,
-            ...nameFields(newTenant.first_name, newTenant.last_name, newTenant.middle_name ?? ''),
-            email: newTenantEmail.trim().toLowerCase(),
-            phone: newTenantPhone.trim() || null,
-            role: 'tenant',
-          })
-          .select('id')
-          .single()
-        if (pe) throw pe
-        personId = newPerson.id
-      }
-
-      // 2. Handle co-tenant (if provided)
-      let coTenantId: string | null = null
-      if (showCoTenant && coTenantEmail.trim()) {
-        const { data: existingCt } = await supabase
-          .from('people')
-          .select('id')
-          .eq('email', coTenantEmail.trim().toLowerCase())
-          .maybeSingle()
-        if (existingCt) {
-          coTenantId = existingCt.id
-          await supabase.from('people').update({
-            salutation: coTenant.salutation || null,
-            ...nameFields(coTenant.first_name, coTenant.last_name, coTenant.middle_name ?? ''),
-            phone: coTenantPhone.trim() || null,
-          }).eq('id', coTenantId)
-        } else {
-          const { data: newCt, error: cte } = await supabase
-            .from('people')
-            .insert({
-              salutation: coTenant.salutation || null,
-              ...nameFields(coTenant.first_name, coTenant.last_name, coTenant.middle_name ?? ''),
-              email: coTenantEmail.trim().toLowerCase(),
-              phone: coTenantPhone.trim() || null,
-              role: 'tenant',
-            })
-            .select('id')
-            .single()
-          if (cte) throw cte
-          coTenantId = newCt.id
-        }
-      }
-
-      // 3. Create tenancy — auto-generate CR references if property has a code
-      const refs = property?.property_code && room
-        ? await genTenancyRefs(supabase, property.property_code, room.name, roomId)
-        : null
-      const { error: te } = await supabase.from('tenancies').insert({
-        person_id: personId,
-        co_tenant_id: coTenantId,
-        room_id: roomId,
-        property_id: propertyId,
-        start_date: newTenancyStartDate,
-        end_date: null,   // periodic (Renters' Rights Act): an end date only comes from notice
-        rent_amount: newTenancyRent ? parseFloat(newTenancyRent) : null,
-        rent_due_day: newTenancyRentDueDay ? parseInt(newTenancyRentDueDay) : 1,
-        deposit_amount: newTenancyDeposit ? parseFloat(newTenancyDeposit) : null,
-        deposit_held_by: newTenancyDepositHeldBy.trim() || null,
-        deposit_scheme_ref: newTenancyDepositRef.trim() || null,
-        deposit_release_status: 'pending',
-        lease_reference: newTenancyLeaseRef.trim() || refs?.lease_reference || null,
-        deposit_reference: refs?.deposit_reference || null,
-        holding_deposit_reference: refs?.holding_deposit_reference || null,
-        // the bank import matches rent on this reference
-        payment_reference: property?.name && room ? buildPaymentRef(property.name, room.name) : null,
-      })
-      if (te) throw te
-
-      // 3. Mark room as occupied
-      await supabase.from('rooms').update({ status: 'occupied' }).eq('id', roomId)
-
-      // Reset + reload
-      setShowAssignTenant(false)
-      setNewTenant(emptyName())
-      setNewTenantEmail('')
-      setNewTenantPhone('')
-      setNewTenancyRent('')
-      setNewTenancyStartDate(new Date().toISOString().slice(0, 10))
-      setNewTenancyEndDate('')
-      setNewTenancyRentDueDay('1')
-      setNewTenancyDeposit('')
-      setNewTenancyDepositHeldBy('')
-      setNewTenancyDepositRef('')
-      setNewTenancyLeaseRef('')
-      await loadAll()
-    } catch (err: any) {
-      setAssignError(err?.message || 'Something went wrong — try again.')
-    } finally {
-      setAssignBusy(false)
-    }
-  }
-
-  // ─── helpers ───────────────────────────────────────────────────────────────
-
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-  const fmtShort = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-
-  const statusBadge = (status: string | null) => {
-    if (status === 'occupied') return { label: 'Occupied', cls: 'bg-emerald-100 text-emerald-700' }
-    if (status === 'on_notice') return { label: 'On notice', cls: 'bg-amber-100 text-amber-700' }
-    return { label: 'Available', cls: 'bg-blue-100 text-blue-700' }
-  }
-
-  const priorityStyle = (p: string) => {
-    if (p === 'high' || p === 'urgent') return 'bg-red-100 text-red-700'
-    if (p === 'medium') return 'bg-amber-100 text-amber-700'
-    return 'bg-neutral-100 text-neutral-600'
-  }
-
-  const ticketStatusDot = (s: string) => {
-    if (s === 'completed' || s === 'closed') return 'bg-emerald-400'
-    if (s === 'in_progress') return 'bg-blue-400'
-    return 'bg-amber-400'
-  }
-
-  const openJobs = tickets.filter(t => t.status !== 'completed' && t.status !== 'closed')
-  const closedJobs = tickets.filter(t => t.status === 'completed' || t.status === 'closed')
-
-  const detectedChips = room?.detected_features
-    ? Object.entries(room.detected_features)
-        .filter(([k, v]) => v && k !== 'extras')
-        .map(([, v]) => String(v))
-        .concat((room.detected_features.extras as string[] | undefined) || [])
-    : []
-
-  const filteredChecks = complianceFilter === 'all'
-    ? selfChecks
-    : selfChecks.filter(c => c.check_type === complianceFilter)
-
-  const tabs: Array<{ id: TabType; label: string }> = [
-    { id: 'lettings', label: 'Lettings' },
-    { id: 'overview', label: 'Overview' },
-    { id: 'tenant', label: 'Tenant' },
-    { id: 'maintenance', label: 'Maintenance' },
-    { id: 'photos', label: 'Photos' },
-    { id: 'compliance', label: 'Compliance' },
-    { id: 'notes', label: 'Notes' },
-  ]
-
-  const heroPhoto = photos[0]
-  const heroPhotoUrl = heroPhoto?.file_url || (heroPhoto?.file_path
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${heroPhoto.file_path.startsWith('property-photos/') ? heroPhoto.file_path : `property-photos/${heroPhoto.file_path}`}`
-    : null)
-
-  // Derive tenant-facing status from the tenancy record itself — never trust room.status for this
-  const derivedRoomStatus = currentTenancy
-    ? (currentTenancy as any).notice_received_date ? 'on_notice' : 'occupied'
-    : (room?.status || null)
-  const { label: statusLabel, cls: statusCls } = statusBadge(derivedRoomStatus)
-
-  if (loading) return <GenericPageSkeleton />
-
-  if (!room || !property) return (
+  if (error) return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href={`/admin/properties/${propertyId}`} />} />
-      <div className="mx-auto max-w-6xl px-lg py-xl">
-        <p className="text-sm text-neutral-500">Room not found.</p>
-      </div>
+      <AppBar left={<BackButton href="/admin/active-rooms" />} />
+      <div className="mx-auto max-w-6xl px-lg py-xl"><p className="rounded-xl bg-red-50 p-md text-sm font-semibold text-red-800">{error}</p></div>
+    </div>
+  )
+  if (!o) return (
+    <div className="min-h-screen bg-neutral-100">
+      <AppBar left={<BackButton href="/admin/active-rooms" />} />
+      <div className="h-64 animate-pulse bg-[#181614]" />
+      <div className="mx-auto max-w-6xl space-y-md px-lg py-xl">{[0, 1, 2].map(i => <div key={i} className="h-32 animate-pulse rounded-2xl bg-white" />)}</div>
     </div>
   )
 
+  const cur = o.current
+  const pill = STAGE_PILL[o.stage] ?? STAGE_PILL.live
+  const photo = o.room.photos[0]?.src ?? null
+  const reletDue = !!(cur?.end && !o.incoming) || o.stage === 'void'
+  const facts = [o.room.unitCode, o.room.type, o.room.ensuite ? 'en suite' : o.room.sharedBathroom === false ? '' : 'shared bathroom', o.property.furnished, o.property.bills ? 'bills included' : ''].filter(Boolean).join(' · ')
+
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href={`/admin/properties/${propertyId}`} />} />
-      <PageHero
-        eyebrow={<><Link href="/admin/active-rooms" className="hover:underline">All Units</Link> · <Link href={`/admin/properties/${propertyId}`} className="hover:underline">{String(property.name ?? '').split('\n')[0]}</Link></>}
-        title={room.name}
-        subtitle={property.address}
-        actions={<HeroButton href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} primary>🏷️ Listing &amp; share link</HeroButton>}
-      />
+      <AppBar left={<BackButton href="/admin/active-rooms" />} />
 
-      <main className="mx-auto max-w-6xl px-lg py-xl">
-
-        {/* ── Hero card ─────────────────────────────────────────────────────── */}
-        <div className="mb-xl rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-[200px_1fr]">
-            {/* Photo */}
-            <div className="relative bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center min-h-[180px] md:min-h-0">
-              {heroPhotoUrl ? (
-                <img src={heroPhotoUrl} alt={room.name} className="w-full h-full object-cover absolute inset-0" />
-              ) : (
-                <div className="text-center">
-                  <div className="text-5xl mb-sm opacity-60">🛏️</div>
+      {/* ── hero ─────────────────────────────────────────────────────────────────────────────── */}
+      <section className="bg-[#181614] text-[#F6F3EC]">
+        <div className="mx-auto max-w-6xl px-lg pt-lg">
+          <div className="flex flex-wrap items-end justify-between gap-md">
+            <div className="flex min-w-0 flex-1 items-center gap-md md:items-end">
+              <StoredImg src={photo} alt={`${o.room.name} photo`} className="h-16 w-16 flex-none rounded-xl object-cover md:h-[90px] md:w-[120px]" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#F6F3EC]/55">{facts}</p>
+                <div className="flex flex-wrap items-center gap-sm">
+                  <h1 className="text-[28px] font-extrabold leading-none md:text-[34px]" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{o.room.name}</h1>
+                  <span className={`rounded-full px-sm py-0.5 text-[11px] font-black uppercase tracking-wide ${pill.cls}`}>{pill.label(o)}</span>
                 </div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 md:hidden bg-gradient-to-t from-black/40 to-transparent h-10" />
-            </div>
-
-            {/* Info */}
-            <div className="p-lg flex flex-col gap-md">
-              <div className="flex items-start justify-between gap-md flex-wrap">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mt-xs">Status</p>
-                <span className={`inline-flex items-center gap-xs px-md py-xs rounded-full text-xs font-semibold shrink-0 mt-xs ${statusCls}`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                  {statusLabel}
-                </span>
+                {cur && <p className="mt-0.5 text-sm text-[#F6F3EC]/80">Current tenancy: <b className="text-[#F6F3EC]">{cur.tenant.name}</b> · {full(cur.start)} – {cur.end ? full(cur.end) : 'periodic, no end date'}</p>}
+                {!cur && o.incoming && <p className="mt-0.5 text-sm text-[#F6F3EC]/80">Incoming tenancy: <b className="text-[#F6F3EC]">{o.incoming.tenant}</b> · tenancy start date {full(o.incoming.start)}</p>}
+                <p className="mt-0.5 text-[13px] text-[#F6F3EC]/65">
+                  <Link href={`/admin/properties/${propertyId}`} className="font-bold text-[#F6F3EC] underline-offset-2 hover:underline">{o.property.name}</Link>
+                  {o.property.type === 'hmo' && ` · HMO, ${o.property.roomCount} rooms`}
+                  {o.landlord && <> · Landlord: <Link href={`/admin/landlord/${o.landlord.id}`} className="hover:underline">{o.landlord.name}{o.landlord.company ? `, ${o.landlord.company}` : ''}</Link></>}
+                  {o.fee.label && ` · ${o.fee.label}`}
+                </p>
               </div>
-
-              <div className="flex flex-wrap gap-xl">
-                {currentTenancy && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Tenant</p>
-                    <p className="text-sm font-semibold text-neutral-900">{displayName(currentTenancy.person) || currentTenancy.person?.email || '—'}</p>
-                  </div>
-                )}
-                {(currentTenancy?.rent_amount || room.current_asking_rent) && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Rent</p>
-                    <p className="text-sm font-semibold text-neutral-900">£{(currentTenancy?.rent_amount || room.current_asking_rent)?.toLocaleString()} pcm</p>
-                  </div>
-                )}
-                {currentTenancy?.start_date && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Since</p>
-                    <p className="text-sm font-semibold text-neutral-900">{fmtDate(currentTenancy.start_date)}</p>
-                  </div>
-                )}
-                {openJobs.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Open jobs</p>
-                    <p className="text-sm font-semibold text-amber-600">{openJobs.length}</p>
-                  </div>
-                )}
-                {room.room_size && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Size</p>
-                    <p className="text-sm font-semibold text-neutral-900">{room.room_size} m²</p>
-                  </div>
-                )}
-                {room.has_ensuite && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">En-suite</p>
-                    <p className="text-sm font-semibold text-neutral-900">Yes 🚿</p>
-                  </div>
-                )}
-              </div>
-
-              {detectedChips.length > 0 && (
-                <div className="flex flex-wrap gap-xs">
-                  {detectedChips.map((chip, i) => (
-                    <span key={i} className="px-sm py-0.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700">
-                      {chip}
-                    </span>
-                  ))}
-                  <span className="px-sm py-0.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700">✨ AI scanned</span>
-                </div>
-              )}
             </div>
+            <div className="hidden flex-wrap gap-sm md:flex">
+              {cur && <button type="button" onClick={message} className="rounded-lg bg-[#F6F3EC] px-md py-sm text-sm font-black text-[#181614]">Message {cur.tenant.name}</button>}
+              <Link href="/admin/maintenance/new" className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Report a job</Link>
+              <Link href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Marketing view</Link>
+              <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Edit room</Link>
+            </div>
+          </div>
+
+          <div className="mt-md grid grid-cols-2 gap-sm md:grid-cols-4">
+            <Stat value={gbp(cur?.rent ?? o.incoming?.rent ?? o.room.askingRent)} label={cur ? `Rent per month · due on the ${ordinal(cur.dueDay)}` : 'Asking rent per month'} />
+            {cur?.balance != null && cur.balance > 0.004
+              ? <Stat value={gbp(cur.balance)} label="Owed on the rent account" tone="text-red-300" />
+              : <Stat value={cur ? gbp(0) : '—'} label={cur ? 'Owed on the rent account' : 'No current tenancy'} />}
+            <Stat value={o.occupancy ? `${o.occupancy.pct}%` : '—'} label={o.occupancy ? `Let since ${full(o.occupancy.since)} · ${o.occupancy.voidDays} void days` : 'No tenancies yet'} />
+            <Stat value={gbp(o.spend)} label={`Spent on this room · ${o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status)).length} repair${o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status)).length === 1 ? '' : 's'} open`} />
+          </div>
+
+          <nav aria-label={`Rooms at ${o.property.name}`} className="-mx-lg mt-md flex gap-0.5 overflow-x-auto px-lg" style={{ scrollbarWidth: 'none' }}>
+            {o.strip.map(r => {
+              const on = r.id === roomId
+              return (
+                <Link key={r.id} href={`/admin/properties/${propertyId}/rooms/${r.id}`} aria-current={on ? 'page' : undefined}
+                  className={`flex min-w-[148px] flex-none flex-col gap-0.5 rounded-t-xl px-md py-sm text-left ${on ? 'bg-neutral-100 text-neutral-900' : 'text-[#F6F3EC]/75 hover:text-[#F6F3EC]'}`}>
+                  <span className="flex items-center gap-xs text-[13px] font-black"><span className={`h-2 w-2 rounded-full ${DOT[r.state] ?? 'bg-neutral-400'}`} />{r.name}{r.rent ? ` · ${gbp(r.rent)}` : ''}</span>
+                  <span className="truncate text-xs">{r.tenant ?? 'No tenancy'}</span>
+                  <span className={`truncate text-[11px] ${on ? 'text-neutral-500' : 'text-[#F6F3EC]/50'}`}>{r.line}</span>
+                </Link>
+              )
+            })}
+            <Link href={`/admin/properties/${propertyId}`} className="flex min-w-[148px] flex-none flex-col gap-0.5 rounded-t-xl border-l border-[#F6F3EC]/15 px-md py-sm text-[#F6F3EC]/75 hover:text-[#F6F3EC]">
+              <span className="text-[13px] font-black">The house</span><span className="text-xs">Shared areas, certificates</span><span className="text-[11px] text-[#F6F3EC]/50">{o.property.roomCount} rooms</span>
+            </Link>
+          </nav>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-6xl space-y-lg px-lg py-xl pb-[120px] md:pb-xl">
+        <NeedsYou needs={o.needs} today={o.today} reload={load} />
+
+        <div className="flex flex-wrap items-start gap-lg">
+          <div className="min-w-0 flex-[999_1_560px] space-y-lg">
+            {cur ? <CurrentTenancy o={o} wide={wide} onMessage={message} /> : (
+              <Section title="Current tenancy" summary="No current tenancy" wide={wide} open>
+                <p className="text-sm text-neutral-600">{o.incoming ? <>Incoming tenancy: <b>{o.incoming.tenant}</b>, tenancy start date {full(o.incoming.start)}. <Link className="font-bold underline" href={`/admin/lettings/${o.incoming.id}`}>Letting file</Link></> : 'Nobody has a tenancy of this room today.'}</p>
+              </Section>
+            )}
+            <Rent o={o} wide={wide} />
+            <Messages o={o} wide={wide} composeRef={composeRef} roomId={roomId} reload={load} />
+          </div>
+          <div className="min-w-0 flex-[1_1_340px] space-y-lg">
+            {(reletDue || o.incoming || o.applicants.length > 0) && <Relet o={o} wide={wide} />}
+            <TheRoom o={o} wide={wide} propertyId={propertyId} />
+            <Repairs o={o} wide={wide} />
+            <Safety o={o} wide={wide} propertyId={propertyId} />
           </div>
         </div>
 
-        {/* ── Tab bar ───────────────────────────────────────────────────────── */}
-        <div className="mb-0 flex gap-0 border-b border-neutral-700 overflow-x-auto bg-neutral-900 rounded-t-xl">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-shrink-0 px-lg py-md whitespace-nowrap font-semibold text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-white text-neutral-900 rounded-t-lg'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
-              }`}
-            >
-              {tab.label}
-              {tab.id === 'maintenance' && openJobs.length > 0 && (
-                <span className="ml-xs inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-400 text-neutral-900 text-[10px] font-bold">{openJobs.length}</span>
-              )}
-              {tab.id === 'compliance' && selfChecks.filter(c => c.tenant_response === 'issue_reported').length > 0 && (
-                <span className="ml-xs inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-400 text-white text-[10px] font-bold">!</span>
-              )}
-            </button>
+        <Expired o={o} wide={wide} />
+      </div>
+
+      {/* phone: the two things you most often do here, above the tab bar */}
+      <div className="sticky bottom-0 z-30 grid grid-cols-[1fr_1fr_auto] gap-sm border-t border-neutral-200 bg-neutral-100/95 px-md py-sm backdrop-blur md:hidden">
+        {cur && <button type="button" onClick={message} className={`${btnDark} col-span-3`}>Message {cur.tenant.name}</button>}
+        <Link href="/admin/maintenance/new" className={`${btnLight} col-span-2`}>Report a job</Link>
+        <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className={btnLight} aria-label="Edit room">Edit</Link>
+      </div>
+    </div>
+  )
+}
+
+function ordinal(n: number) { return n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th') }
+
+function Stat({ value, label, tone }: { value: string; label: string; tone?: string }) {
+  return (
+    <div className="rounded-2xl px-md py-sm" style={{ backgroundColor: 'rgba(246,243,236,0.07)' }}>
+      <p className={`text-xl font-bold tabular-nums md:text-2xl ${tone ?? ''}`} style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{value}</p>
+      <p className="text-[11px] uppercase tracking-[0.06em] text-[#F6F3EC]/55">{label}</p>
+    </div>
+  )
+}
+
+/** A section: always open on a computer; on a phone it folds, with a one-line summary when closed. */
+function Section({ id, title, summary, wide, open, children, tone = 'border-neutral-200', right }: { id?: string; title: string; summary?: React.ReactNode; wide: boolean; open?: boolean; children: React.ReactNode; tone?: string; right?: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(!!open)
+  useEffect(() => { if (wide) setIsOpen(true) }, [wide])
+  return (
+    <details id={id} open={wide || isOpen} onToggle={e => { if (!wide) setIsOpen((e.target as HTMLDetailsElement).open) }} className={`overflow-hidden rounded-2xl border bg-white ${tone}`}>
+      <summary className={`flex list-none items-center gap-sm px-lg py-md [&::-webkit-details-marker]:hidden ${wide ? 'pointer-events-none' : 'cursor-pointer'}`}>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[17px] font-black text-neutral-900">{title}</span>
+          {summary && (!isOpen || wide) && <span className="block text-xs text-neutral-500">{summary}</span>}
+        </span>
+        {wide && right ? <span className="pointer-events-auto">{right}</span> : null}
+        {!wide && <span aria-hidden className={`text-neutral-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}>⌄</span>}
+      </summary>
+      <div className="border-t border-neutral-100">{children}</div>
+    </details>
+  )
+}
+
+function NeedsYou({ needs, today, reload }: { needs: Need[]; today: string; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState('')
+  const counts = (['urgent', 'week', 'tidy'] as const).map(l => [l, needs.filter(n => n.level === l).length] as const).filter(([, n]) => n > 0)
+  async function run(n: Need) {
+    if (n.op !== 'apply_move_in_rent' || !n.opTenancyId) return
+    if (!confirm(`${n.title}\n\n${n.detail}\n\nMark this rent as paid from the move-in monies? It’s logged in the payment audit.`)) return
+    setBusy(n.key); setMsg('')
+    const r = await adminFetch(`/api/admin/lettings/${n.opTenancyId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'apply_move_in_rent' }) })
+    const d = await r.json().catch(() => ({}))
+    setBusy('')
+    if (!r.ok) { setMsg(d.error ?? 'Not marked paid'); return }
+    setMsg(d.paid?.length ? `Marked paid: ${d.paid.map((p: any) => `${monthName(p.month)} ${gbp(p.amount)}`).join(', ')}` : d.note || 'Nothing to mark')
+    await reload()
+  }
+  return (
+    <section aria-labelledby="needs" className={`${card} overflow-hidden`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-md gap-y-xs border-b border-neutral-100 bg-neutral-50 px-lg py-md">
+        <div className="flex flex-wrap items-baseline gap-sm">
+          <h2 id="needs" className="text-xl font-extrabold" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>Needs you · {needs.length}</h2>
+          <span className="text-xs text-neutral-500">From this room’s records as at {full(today)}, most urgent first. Each clears itself once done.</span>
+        </div>
+        {counts.length > 0 && <span className="flex gap-md text-xs font-bold">{counts.map(([l, n]) => <span key={l} className={`inline-flex items-center gap-xs ${LEVEL[l].text}`}><span className={`h-2 w-2 rounded-full ${LEVEL[l].bar}`} />{n} {LEVEL[l].label}</span>)}</span>}
+      </div>
+      {msg && <p className="border-b border-neutral-100 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">{msg}</p>}
+      {needs.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">Nothing needs doing on this room.</p> : (
+        <ol>
+          {needs.map(n => (
+            <li key={n.key} className="flex items-stretch gap-md border-b border-neutral-100 pr-lg last:border-b-0">
+              <span className={`w-1 flex-none rounded-r ${LEVEL[n.level].bar}`} />
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-lg gap-y-xs py-md">
+                <span className="w-[120px] flex-none text-[10.5px] font-black uppercase tracking-[0.08em] text-neutral-500">{n.category}</span>
+                <span className="min-w-0 flex-[1_1_300px]"><b className="block text-[14.5px] text-neutral-900">{n.title}</b><span className="block text-[13px] leading-snug text-neutral-600">{n.detail}</span></span>
+                <span className={`w-[170px] flex-none text-xs font-bold ${LEVEL[n.level].text}`}>{n.due}</span>
+                {n.op
+                  ? <button type="button" disabled={busy === n.key} onClick={() => run(n)} className={`${btnDark} w-full sm:w-[190px]`}>{busy === n.key ? 'Working…' : n.action}</button>
+                  : n.href?.startsWith('#')
+                    ? <a href={n.href} className={`${n.level === 'urgent' ? btnDark : btnLight} w-full sm:w-[190px]`}>{n.action}</a>
+                    : <Link href={n.href ?? '#'} className={`${n.level === 'urgent' ? btnDark : btnLight} w-full sm:w-[190px]`}>{n.action}</Link>}
+              </div>
+            </li>
           ))}
+        </ol>
+      )}
+    </section>
+  )
+}
+
+function CurrentTenancy({ o, wide, onMessage }: { o: RoomOverview; wide: boolean; onMessage: () => void }) {
+  const c = o.current!
+  const holdOver = c.hold && c.rent ? Math.round((c.hold.amount - Math.floor(c.rent * 12 / 52 * 100) / 100) * 100) / 100 : 0
+  const steps = c.steps.filter(s => s.id !== 'offer' && s.id !== 'move_in')
+  const row = (label: string, value: React.ReactNode, tone = '') => <><dt className="text-neutral-500">{label}</dt><dd className={tone}>{value}</dd></>
+  return (
+    <Section title="Current tenancy" wide={wide} open summary={`${c.tenant.name} · ${full(c.start)} – ${c.end ? full(c.end) : 'periodic'}`}>
+      <div className="flex flex-wrap items-center justify-between gap-md border-b border-neutral-100 px-lg py-md">
+        <div className="flex min-w-0 items-center gap-md">
+          <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-amber-100 font-black text-amber-900">{initials(c.tenant.name)}</span>
+          <div className="min-w-0">
+            <p className="text-lg font-black text-neutral-900">{c.tenant.name}</p>
+            <p className="text-[13px] text-neutral-500">{c.jointTenant ? `Joint tenancy with ${c.jointTenant.name}` : 'Sole tenant'}{c.tenant.occupation ? ` · ${c.tenant.occupation}` : ''}</p>
+          </div>
         </div>
-
-        {/* ── Tab content ───────────────────────────────────────────────────── */}
-        <div className="bg-white rounded-b-xl border border-t-0 border-neutral-700 shadow-sm p-lg">
-
-          {/* ── OVERVIEW ────────────────────────────────────────────────────── */}
-          {activeTab === 'overview' && (
-            <div className="space-y-lg">
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Room details</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-md">
-                  {[
-                    { label: 'Type', value: room.room_type },
-                    { label: 'Size', value: room.room_size ? `${room.room_size} m²` : null },
-                    { label: 'En-suite', value: room.has_ensuite === true ? 'Yes' : room.has_ensuite === false ? 'No' : null },
-                    { label: 'Location', value: room.location_in_house },
-                    { label: 'Features', value: room.features },
-                    { label: 'Status', value: statusLabel },
-                  ].filter(r => r.value).map(row => (
-                    <div key={row.label} className="rounded-lg border border-neutral-100 bg-neutral-50 p-md">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">{row.label}</p>
-                      <p className="text-sm font-semibold text-neutral-900">{row.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {room.furnishings_description && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Furnishings</h2>
-                  <p className="text-sm text-neutral-700 leading-relaxed">{room.furnishings_description}</p>
-                </div>
-              )}
-
-              {detectedChips.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">AI-detected features <span className="text-purple-500">✨</span></h2>
-                  <div className="flex flex-wrap gap-sm">
-                    {detectedChips.map((chip, i) => (
-                      <span key={i} className="px-md py-xs rounded-full bg-purple-50 border border-purple-200 text-xs font-semibold text-purple-700">{chip}</span>
-                    ))}
-                  </div>
-                  <p className="text-xs text-neutral-400 mt-sm">Detected from room photos. Rescan from the Photos tab after uploading new images.</p>
-                </div>
-              )}
-
-              {/* Lettings history — all tenancies for this room */}
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">
-                  Lettings history ({(currentTenancy ? 1 : 0) + previousTenancies.length})
-                </h2>
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-neutral-200">
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Tenant</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Start</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">End</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Rent</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Deposit</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Scheme ref</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100">
-                        {currentTenancy && (
-                          <tr className="bg-green-50/40">
-                            <td className="px-lg py-md">
-                              <Link href={`/admin/tenant/${currentTenancy.person?.id}`} className="font-semibold text-neutral-900 hover:underline">
-                                {displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}
-                              </Link>
-                              <p className="text-xs text-neutral-400 mt-xs">{currentTenancy.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md text-neutral-700">{fmtShort(currentTenancy.start_date)}</td>
-                            <td className="px-lg py-md text-neutral-400">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : '—'}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{currentTenancy.rent_amount ? `£${Number(currentTenancy.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right text-neutral-700">{currentTenancy.deposit_amount ? `£${Number(currentTenancy.deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-xs text-neutral-500">{(currentTenancy as any).deposit_scheme_ref || '—'}</td>
-                            <td className="px-lg py-md"><span className="text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-sm py-0.5 rounded-full">Current</span></td>
-                          </tr>
-                        )}
-                        {previousTenancies.map((t: any) => (
-                          <tr key={t.id}>
-                            <td className="px-lg py-md">
-                              {t.person?.id
-                                ? <Link href={`/admin/tenant/${t.person.id}`} className="font-semibold text-neutral-900 hover:underline">{displayName(t.person) || t.person?.email || 'Unknown'}</Link>
-                                : <span className="font-semibold text-neutral-900">{displayName(t.person) || t.person?.email || 'Unknown'}</span>
-                              }
-                              <p className="text-xs text-neutral-400 mt-xs">{t.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md text-neutral-700">{fmtShort(t.start_date)}</td>
-                            <td className="px-lg py-md text-neutral-500">{fmtShort(t.end_date)}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{t.rent_amount ? `£${Number(t.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right text-neutral-700">{t.deposit_amount ? `£${Number(t.deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-xs text-neutral-500">{t.deposit_scheme_ref || '—'}</td>
-                            <td className="px-lg py-md"><span className="text-xs text-neutral-400 bg-neutral-100 border border-neutral-200 px-sm py-0.5 rounded-full">Ended</span></td>
-                          </tr>
-                        ))}
-                        {!currentTenancy && previousTenancies.length === 0 && (
-                          <tr><td colSpan={7} className="px-lg py-lg text-sm text-neutral-400 text-center">No tenancy history for this room</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* ── TENANT ──────────────────────────────────────────────────────── */}
-          {activeTab === 'tenant' && (
-            <div className="space-y-xl">
-              {/* Current tenant */}
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Current tenant</h2>
-                {currentTenancy ? (
-                  <div className="rounded-xl border border-neutral-200 bg-neutral-50 overflow-hidden">
-                    {/* Primary tenant */}
-                    <div className="flex items-center gap-md p-lg border-b border-neutral-200">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-300 to-blue-500 flex items-center justify-center text-white font-bold text-lg shrink-0">
-                        {(displayName(currentTenancy.person) || currentTenancy.person?.email || '?')[0].toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <Link href={`/admin/tenant/${currentTenancy.person?.id}`}>
-                          <p className="font-semibold text-blue-600 hover:text-blue-700">
-                            {displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}
-                            {currentTenancy.co_tenant && (
-                              <span className="text-neutral-400 font-normal"> &amp; {displayName(currentTenancy.co_tenant)}</span>
-                            )}
-                          </p>
-                        </Link>
-                        {currentTenancy.person?.email && <p className="text-xs text-neutral-500">{currentTenancy.person.email}</p>}
-                        {currentTenancy.person?.phone && <p className="text-xs text-neutral-500">{currentTenancy.person.phone}</p>}
-                      </div>
-                      <Link href={`/admin/tenant/${currentTenancy.person?.id}?tab=tenancy`}
-                        className="shrink-0 text-xs font-semibold text-neutral-500 hover:text-neutral-900 border border-neutral-200 rounded-lg px-md py-xs bg-white">
-                        Tenant profile →
-                      </Link>
-                    </div>
-                    {/* Co-tenant detail row */}
-                    {currentTenancy.co_tenant && (
-                      <div className="flex items-center gap-md px-lg py-sm border-b border-neutral-200 bg-blue-50/50">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-300 to-purple-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                          {(displayName(currentTenancy.co_tenant) || currentTenancy.co_tenant?.email || '?')[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-neutral-600">{displayName(currentTenancy.co_tenant)}</p>
-                          {currentTenancy.co_tenant.email && <p className="text-xs text-neutral-400">{currentTenancy.co_tenant.email}</p>}
-                        </div>
-                        <span className="text-xs text-purple-600 font-semibold bg-purple-100 px-sm py-xs rounded-full shrink-0">Co-tenant</span>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-3 divide-x divide-neutral-200 text-center">
-                      <div className="p-md">
-                        <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wider mb-xs">Rent</p>
-                        <p className="text-sm font-bold text-neutral-900">£{currentTenancy.rent_amount?.toLocaleString() || '—'}</p>
-                      </div>
-                      <div className="p-md">
-                        <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wider mb-xs">Start</p>
-                        <p className="text-sm font-bold text-neutral-900">{fmtShort(currentTenancy.start_date)}</p>
-                      </div>
-                      <div className="p-md">
-                        <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wider mb-xs">End</p>
-                        <p className="text-sm font-bold text-neutral-900">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : 'Rolling'}</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    {!showAssignTenant ? (
-                      <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-lg flex flex-col items-center gap-md text-center">
-                        <p className="text-sm text-neutral-500">
-                          No current tenant — room is {room.status === 'available' ? 'available' : 'on notice'}
-                        </p>
-                        <button
-                          onClick={() => setShowAssignTenant(true)}
-                          className="rounded-lg bg-neutral-900 text-white text-sm font-semibold px-lg py-sm hover:bg-neutral-800 transition-colors"
-                        >
-                          + Assign tenant
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border-2 border-neutral-900 bg-white p-lg space-y-md">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-bold text-neutral-900">Assign tenant to this room</h3>
-                          <button onClick={() => { setShowAssignTenant(false); setAssignError(null) }}
-                            className="text-neutral-400 hover:text-neutral-700 text-sm">✕ Cancel</button>
-                        </div>
-                        {assignError && (
-                          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-md py-sm">{assignError}</p>
-                        )}
-                        <div className="grid gap-md sm:grid-cols-2">
-                          <div className="sm:col-span-2">
-                            <NameInput value={newTenant} onChange={setNewTenant} required titleRequired withMiddle
-                              inputClass="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                              labelClass="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Email *</label>
-                            <input value={newTenantEmail} onChange={e => setNewTenantEmail(e.target.value)}
-                              type="email" placeholder="jane@example.com"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Phone</label>
-                            <input value={newTenantPhone} onChange={e => setNewTenantPhone(e.target.value)}
-                              type="tel" placeholder="07700 000000"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Monthly rent (£)</label>
-                            <input value={newTenancyRent} onChange={e => setNewTenancyRent(e.target.value)}
-                              type="number" placeholder="750"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Tenancy start date *</label>
-                            <input value={newTenancyStartDate} onChange={e => setNewTenancyStartDate(e.target.value)}
-                              type="date"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Rent due day of month</label>
-                            <input value={newTenancyRentDueDay} onChange={e => setNewTenancyRentDueDay(e.target.value)}
-                              type="number" min="1" max="31" placeholder="1"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Deposit amount (£)</label>
-                            <input value={newTenancyDeposit} onChange={e => setNewTenancyDeposit(e.target.value)}
-                              type="number" placeholder="1500"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Deposit held by</label>
-                            <input value={newTenancyDepositHeldBy} onChange={e => setNewTenancyDepositHeldBy(e.target.value)}
-                              placeholder="e.g. DPS, TDS, mydeposits"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Deposit scheme ref</label>
-                            <input value={newTenancyDepositRef} onChange={e => setNewTenancyDepositRef(e.target.value)}
-                              placeholder="Scheme reference number"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                          <div className="sm:col-span-2">
-                            <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Lease reference</label>
-                            <input value={newTenancyLeaseRef} onChange={e => setNewTenancyLeaseRef(e.target.value)}
-                              placeholder="e.g. TEN-2024-001"
-                              className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                          </div>
-                        </div>
-                        <p className="text-xs text-neutral-400">If this email already exists in the system, the person record will be updated rather than duplicated.</p>
-
-                        {/* Co-tenant toggle */}
-                        {!showCoTenant ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowCoTenant(true)}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
-                          >
-                            + Add co-tenant (couple or joint tenancy)
-                          </button>
-                        ) : (
-                          <div className="border-t border-neutral-200 pt-md space-y-md">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">Co-tenant</p>
-                              <button type="button" onClick={() => { setShowCoTenant(false); setCoTenant(emptyName()); setCoTenantEmail(''); setCoTenantPhone('') }}
-                                className="text-xs text-neutral-400 hover:text-neutral-700">✕ Remove</button>
-                            </div>
-                            <div className="grid gap-md sm:grid-cols-2">
-                              <div className="sm:col-span-2">
-                                <NameInput value={coTenant} onChange={setCoTenant} withMiddle
-                                  inputClass="w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                  labelClass="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider" />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Email</label>
-                                <input value={coTenantEmail} onChange={e => setCoTenantEmail(e.target.value)}
-                                  type="email" placeholder="alex@example.com"
-                                  className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-semibold text-neutral-500 mb-xs uppercase tracking-wider">Phone</label>
-                                <input value={coTenantPhone} onChange={e => setCoTenantPhone(e.target.value)}
-                                  type="tel" placeholder="07700 000000"
-                                  className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        <button
-                          onClick={handleAssignTenant}
-                          disabled={assignBusy}
-                          className="w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40 transition-colors"
-                        >
-                          {assignBusy ? 'Saving…' : 'Assign tenant & mark room occupied'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Tenant lifestyle */}
-              {icebreakerAnswers && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Lifestyle &amp; schedule</h2>
-                  <div className="rounded-xl border border-neutral-200 bg-neutral-50 divide-y divide-neutral-200 overflow-hidden">
-                    {ICEBREAKER_QUESTIONS.filter(q => icebreakerAnswers[q.id]?.trim()).map(q => (
-                      <div key={q.id} className="flex items-start gap-md p-md">
-                        <span className="text-lg shrink-0 mt-0.5">{q.emoji}</span>
-                        <div>
-                          <p className="text-xs font-semibold text-neutral-500 mb-xs">{q.short}</p>
-                          <p className="text-sm text-neutral-900">{icebreakerAnswers[q.id]}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-neutral-400 mt-sm">Set by tenant at onboarding and updateable via their profile.</p>
-                </div>
-              )}
-
-              {/* Full lettings history — current + all previous in one table */}
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">
-                  Lettings history ({(currentTenancy ? 1 : 0) + previousTenancies.length})
-                </h2>
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-neutral-200">
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Tenant</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Start</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">End</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Rent</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Deposit</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Scheme ref</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100">
-                        {/* Current tenancy first */}
-                        {currentTenancy && (
-                          <tr className="bg-green-50/40">
-                            <td className="px-lg py-md">
-                              <Link href={`/admin/tenant/${currentTenancy.person?.id}`} className="font-semibold text-neutral-900 hover:underline">
-                                {displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}
-                              </Link>
-                              <p className="text-xs text-neutral-400 mt-xs">{currentTenancy.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md text-neutral-700">{fmtShort(currentTenancy.start_date)}</td>
-                            <td className="px-lg py-md text-neutral-400">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : '—'}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{currentTenancy.rent_amount ? `£${Number(currentTenancy.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right text-neutral-700">{currentTenancy.deposit_amount ? `£${Number(currentTenancy.deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-xs text-neutral-500">{(currentTenancy as any).deposit_scheme_ref || '—'}</td>
-                            <td className="px-lg py-md"><span className="text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-sm py-0.5 rounded-full">Current</span></td>
-                          </tr>
-                        )}
-                        {/* Previous tenancies */}
-                        {previousTenancies.map((t: any) => (
-                          <tr key={t.id}>
-                            <td className="px-lg py-md">
-                              {t.person?.id
-                                ? <Link href={`/admin/tenant/${t.person.id}`} className="font-semibold text-neutral-900 hover:underline">{displayName(t.person) || t.person?.email || 'Unknown'}</Link>
-                                : <span className="font-semibold text-neutral-900">{displayName(t.person) || t.person?.email || 'Unknown'}</span>
-                              }
-                              <p className="text-xs text-neutral-400 mt-xs">{t.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md text-neutral-700">{fmtShort(t.start_date)}</td>
-                            <td className="px-lg py-md text-neutral-500">{fmtShort(t.end_date)}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{t.rent_amount ? `£${Number(t.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right text-neutral-700">{t.deposit_amount ? `£${Number(t.deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-xs text-neutral-500">{t.deposit_scheme_ref || '—'}</td>
-                            <td className="px-lg py-md"><span className="text-xs text-neutral-400 bg-neutral-100 border border-neutral-200 px-sm py-0.5 rounded-full">Ended</span></td>
-                          </tr>
-                        ))}
-                        {!currentTenancy && previousTenancies.length === 0 && (
-                          <tr><td colSpan={7} className="px-lg py-lg text-sm text-neutral-400 text-center">No tenancy history for this room</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── MAINTENANCE ─────────────────────────────────────────────────── */}
-          {activeTab === 'maintenance' && (
-            <div className="space-y-xl">
-              {openJobs.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Open ({openJobs.length})</h2>
-                  <div className="space-y-sm">
-                    {openJobs.map(t => (
-                      <div key={t.id} className="flex items-start gap-md rounded-lg border border-neutral-200 bg-neutral-50 p-md">
-                        <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${ticketStatusDot(t.status)}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-neutral-900">{t.title}</p>
-                          <p className="text-xs text-neutral-500 mt-xs">{fmtDate(t.created_at)}</p>
-                        </div>
-                        <span className={`shrink-0 text-xs font-semibold px-sm py-0.5 rounded-full ${priorityStyle(t.priority)}`}>{t.priority}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {closedJobs.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Completed</h2>
-                  <div className="space-y-sm">
-                    {closedJobs.map(t => (
-                      <div key={t.id} className="flex items-start gap-md rounded-lg border border-neutral-100 bg-white p-md">
-                        <span className="mt-1 w-2 h-2 rounded-full shrink-0 bg-emerald-400" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-neutral-700">{t.title}</p>
-                          <p className="text-xs text-neutral-400 mt-xs">{fmtDate(t.created_at)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {tickets.length === 0 && (
-                <div className="text-center py-2xl text-neutral-400">
-                  <div className="text-3xl mb-sm opacity-40">🔧</div>
-                  <p className="text-sm font-medium">No maintenance history for this room</p>
-                </div>
-              )}
-
-              {/* Purchases for this room */}
-              {purchases.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Purchases</h2>
-                  <div className="overflow-x-auto rounded-xl border border-neutral-200">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-neutral-200 bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                          <th className="px-md py-sm">Item</th>
-                          <th className="px-md py-sm">Category</th>
-                          <th className="px-md py-sm">Date</th>
-                          <th className="px-md py-sm text-right">Cost</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {purchases.map(p => (
-                          <tr key={p.id} className="border-b border-neutral-100 last:border-0">
-                            <td className="px-md py-sm">
-                              <p className="font-medium text-neutral-900">{p.name || '—'}</p>
-                              {p.make_model && <p className="text-xs text-neutral-500">{p.make_model}</p>}
-                            </td>
-                            <td className="px-md py-sm text-neutral-600 capitalize">{(p.category || '').replace(/_/g, ' ')}</td>
-                            <td className="px-md py-sm text-neutral-500 text-xs">{fmtDate(p.purchased_date)}</td>
-                            <td className="px-md py-sm text-right font-medium text-neutral-900">
-                              {p.cost != null ? `£${Number(p.cost).toLocaleString()}` : <span className="text-neutral-400">—</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── LETTINGS ────────────────────────────────────────────────────── */}
-          {activeTab === 'lettings' && (
-            <div className="space-y-xl">
-
-              {/* ── Register table — primary view ── */}
-              <div>
-                <div className="flex items-center justify-between mb-md gap-md flex-wrap">
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400">
-                    Lettings register ({(currentTenancy ? 1 : 0) + previousTenancies.length})
-                  </h2>
-                  <Link
-                    href={`/admin/applicants?add=1&property_id=${propertyId}&room_id=${roomId}`}
-                    className="inline-flex items-center gap-xs px-md py-xs rounded-lg bg-neutral-900 text-white text-xs font-semibold hover:bg-neutral-700 transition"
-                  >
-                    + Add letting
-                  </Link>
-                </div>
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-neutral-200">
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Reference</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Tenant</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Start date</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">End date</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Rent</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Deposit</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Status</th>
-                          <th className="px-lg py-sm"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100">
-                        {currentTenancy && (
-                          <tr className="bg-green-50/50">
-                            <td className="px-lg py-md">
-                              {(currentTenancy as any).lease_reference
-                                ? <span className="font-mono text-xs font-bold text-indigo-600">{(currentTenancy as any).lease_reference}</span>
-                                : <span className="text-xs text-neutral-300">—</span>
-                              }
-                            </td>
-                            <td className="px-lg py-md">
-                              <p className="font-semibold text-neutral-900">{displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}</p>
-                              <p className="text-xs text-neutral-400 mt-0.5">{currentTenancy.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md text-neutral-700">{fmtShort(currentTenancy.start_date)}</td>
-                            <td className="px-lg py-md text-neutral-400">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : <span className="text-xs text-neutral-300">Periodic</span>}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{currentTenancy.rent_amount ? `£${Number(currentTenancy.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right text-neutral-700">{(currentTenancy as any).deposit_amount ? `£${Number((currentTenancy as any).deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md">
-                              <span className="inline-flex items-center gap-xs text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-sm py-0.5 rounded-full">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                {derivedRoomStatus === 'on_notice' ? 'On notice' : 'Current'}
-                              </span>
-                            </td>
-                            <td className="px-lg py-md text-right">
-                              <Link
-                                href={`/admin/tenant/${currentTenancy.person?.id}`}
-                                className="inline-flex items-center gap-xs px-md py-xs rounded-lg border border-neutral-200 bg-white text-xs font-semibold text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 transition whitespace-nowrap"
-                              >
-                                View →
-                              </Link>
-                            </td>
-                          </tr>
-                        )}
-                        {previousTenancies.map((t: any) => (
-                          <tr key={t.id} className="text-neutral-500">
-                            <td className="px-lg py-md">
-                              {t.lease_reference
-                                ? <span className="font-mono text-xs font-bold text-indigo-400">{t.lease_reference}</span>
-                                : <span className="text-xs text-neutral-300">—</span>
-                              }
-                            </td>
-                            <td className="px-lg py-md">
-                              <p className="font-semibold text-neutral-700">{displayName(t.person) || t.person?.email || 'Unknown'}</p>
-                              <p className="text-xs text-neutral-400 mt-0.5">{t.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md">{fmtShort(t.start_date)}</td>
-                            <td className="px-lg py-md">{fmtShort(t.end_date)}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-700">{t.rent_amount ? `£${Number(t.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right">{t.deposit_amount ? `£${Number(t.deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md">
-                              <span className="text-xs text-neutral-400 bg-neutral-100 border border-neutral-200 px-sm py-0.5 rounded-full">Ended</span>
-                            </td>
-                            <td className="px-lg py-md text-right">
-                              {t.person?.id && (
-                                <Link
-                                  href={`/admin/tenant/${t.person.id}`}
-                                  className="inline-flex items-center gap-xs px-md py-xs rounded-lg border border-neutral-200 bg-white text-xs font-semibold text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300 transition whitespace-nowrap"
-                                >
-                                  View →
-                                </Link>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                        {!currentTenancy && previousTenancies.length === 0 && (
-                          <tr><td colSpan={8} className="px-lg py-xl text-sm text-neutral-400 text-center">No lettings history for this room yet.</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Marketing copy — secondary, below the register ── */}
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Marketing copy</h2>
-                {(room.status === 'available' || room.status === 'on_notice') ? (
-                  <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-lg space-y-md">
-                    {advertBanner && (
-                      <div className="rounded-lg bg-blue-50 border border-blue-200 px-lg py-sm text-sm text-blue-800">{advertBanner}</div>
-                    )}
-                    <div className="flex items-center gap-sm flex-wrap">
-                      <span className="text-xs font-semibold text-neutral-500">Generate:</span>
-                      <button onClick={() => generateAdvert('listing')} disabled={!!generatingAdvert} className="px-md py-xs rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition">
-                        {generatingAdvert === 'listing' ? '✨ Drafting…' : '✨ Advert'}
-                      </button>
-                      <button onClick={() => generateAdvert('group')} disabled={!!generatingAdvert} className="px-md py-xs rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition">
-                        {generatingAdvert === 'group' ? '✨ Drafting…' : '✨ Group post'}
-                      </button>
-                      {detectedChips.length > 0 && <span className="text-xs text-neutral-400">✨ Uses detected room features</span>}
-                    </div>
-                    <textarea value={advertDraft} onChange={e => setAdvertDraft(e.target.value)} rows={8} placeholder="Generate an advert listing or a quick group post above — then edit and save…" className="w-full rounded-lg border border-neutral-200 px-md py-sm text-sm text-neutral-900 resize-y focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none bg-white" />
-                    {advertDraft !== (room.marketing_description || '') && (
-                      <button onClick={saveAdvert} disabled={savingAdvert} className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50">
-                        {savingAdvert ? 'Saving…' : 'Save copy →'}
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-lg text-center">
-                    <p className="text-sm text-neutral-500">Room is occupied — marketing copy activates when status changes to available or on notice.</p>
-                    {room.marketing_description && (
-                      <div className="mt-md text-left">
-                        <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-sm">Saved copy (ready for when available)</p>
-                        <p className="text-sm text-neutral-700 whitespace-pre-wrap">{room.marketing_description}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-            </div>
-          )}
-
-          {/* ── PHOTOS ──────────────────────────────────────────────────────── */}
-          {activeTab === 'photos' && (
-            <div>
-              <div className="flex items-center justify-between gap-md mb-md flex-wrap">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400">Room photos</h2>
-                <div className="flex items-center gap-sm flex-wrap">
-                  {photos.length > 0 && (
-                    <button
-                      onClick={() => triggerAiScan()}
-                      disabled={aiScanning || uploadingPhotos}
-                      className="px-md py-xs rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 disabled:opacity-50 transition"
-                    >
-                      {aiScanning ? '✨ Scanning…' : '✨ AI Feature Scan'}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => photoInputRef.current?.click()}
-                    disabled={uploadingPhotos}
-                    className="px-md py-xs rounded-lg bg-neutral-900 text-white text-xs font-semibold hover:bg-neutral-700 disabled:opacity-50 transition"
-                  >
-                    {uploadingPhotos ? 'Uploading…' : '+ Upload photos'}
-                  </button>
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handlePhotoUpload}
-                  />
-                </div>
-              </div>
-
-              {uploadPhotoMsg && (
-                <div className={`mb-md rounded-lg px-lg py-sm text-sm ${uploadPhotoMsg.startsWith('✓') ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-red-50 border border-red-200 text-red-700'}`}>
-                  {uploadPhotoMsg}
-                </div>
-              )}
-
-              {photos.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-md">
-                  {photos.map(p => {
-                    const url = p.file_url || (p.file_path ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${p.file_path.startsWith('property-photos/') ? p.file_path : `property-photos/${p.file_path}`}` : null)
-                    return (
-                      <div key={p.id} className="group relative aspect-[4/3] rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100">
-                        {url ? (
-                          <img src={url} alt="Room photo" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">📷</div>
-                        )}
-                        <button
-                          onClick={() => deletePhoto(p)}
-                          className="absolute top-xs right-xs w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                          title="Remove photo"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-2xl text-neutral-400">
-                  <div className="text-3xl mb-sm opacity-40">📷</div>
-                  <p className="text-sm font-medium">No photos for this room yet</p>
-                  <button
-                    onClick={() => photoInputRef.current?.click()}
-                    className="mt-md px-lg py-sm rounded-xl border border-dashed border-neutral-300 text-sm text-neutral-500 hover:border-neutral-500 hover:text-neutral-700 transition"
-                  >
-                    + Upload the first photo
-                  </button>
-                </div>
-              )}
-
-              {photos.length > 0 && !room.detected_features && !pendingScanFeatures && (
-                <p className="text-xs text-neutral-400 mt-md">
-                  The first photo is used as the room hero image. ✨ AI Feature Scan detects features (flooring, windows, wardrobe) for advert copy.
-                </p>
-              )}
-
-              {/* ── Scan confirmation panel ───────────────────────────────── */}
-              {pendingScanFeatures && (() => {
-                const pf = pendingScanFeatures as Record<string, any>
-                const featureRows = [
-                  { key: 'flooring', label: 'Flooring' },
-                  { key: 'natural_light', label: 'Light' },
-                  { key: 'window_type', label: 'Windows' },
-                  { key: 'window_treatment', label: 'Curtains/blinds' },
-                  { key: 'wardrobe', label: 'Wardrobe' },
-                ].filter(({ key }) => pf[key])
-                const extras: string[] = Array.isArray(pf.extras) ? pf.extras : []
-                return (
-                  <div className="mt-lg rounded-xl border border-purple-200 bg-purple-50 p-lg space-y-md">
-                    <div className="flex items-start justify-between gap-md">
-                      <div>
-                        <p className="text-sm font-semibold text-purple-900">✨ Features detected</p>
-                        <p className="text-xs text-purple-600 mt-xs">Remove anything that looks wrong, then save.</p>
-                      </div>
-                      <button onClick={() => setPendingScanFeatures(null)} className="text-xs text-purple-400 hover:text-purple-700 shrink-0">Dismiss</button>
-                    </div>
-                    <div className="space-y-sm">
-                      {featureRows.map(({ key, label }) => (
-                        <div key={key} className="flex items-center gap-sm">
-                          <span className="text-xs text-purple-500 w-28 shrink-0">{label}</span>
-                          <span className="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-white border border-purple-200 text-xs font-medium text-purple-800">
-                            {String(pf[key])}
-                            <button
-                              onClick={() => {
-                                const updated = { ...pendingScanFeatures }
-                                delete updated[key]
-                                const hasAny = Object.entries(updated).some(([, v]) => v && !(Array.isArray(v) && v.length === 0))
-                                setPendingScanFeatures(hasAny ? updated : null)
-                              }}
-                              className="text-purple-300 hover:text-red-500 transition leading-none"
-                            >✕</button>
-                          </span>
-                        </div>
-                      ))}
-                      {extras.length > 0 && (
-                        <div className="flex items-start gap-sm">
-                          <span className="text-xs text-purple-500 w-28 shrink-0 mt-0.5">Other</span>
-                          <div className="flex flex-wrap gap-xs">
-                            {extras.map((extra: string) => (
-                              <span key={extra} className="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-white border border-purple-200 text-xs font-medium text-purple-800">
-                                {extra}
-                                <button
-                                  onClick={() => {
-                                    const newExtras = extras.filter(e => e !== extra)
-                                    const updated = { ...pendingScanFeatures, extras: newExtras }
-                                    const hasAny = featureRows.some(({ key }) => updated[key]) || newExtras.length > 0
-                                    setPendingScanFeatures(hasAny ? updated : null)
-                                  }}
-                                  className="text-purple-300 hover:text-red-500 transition leading-none"
-                                >✕</button>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {/* Manual feature add */}
-                    <div className="flex gap-xs pt-xs border-t border-purple-100">
-                      <input
-                        type="text"
-                        value={manualFeatureInput}
-                        onChange={e => setManualFeatureInput(e.target.value)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' && manualFeatureInput.trim()) {
-                            const current = Array.isArray(pendingScanFeatures?.extras) ? pendingScanFeatures!.extras : []
-                            setPendingScanFeatures({ ...pendingScanFeatures!, extras: [...current, manualFeatureInput.trim()] })
-                            setManualFeatureInput('')
-                          }
-                        }}
-                        placeholder="Add a feature the AI missed…"
-                        className="flex-1 rounded-lg border border-purple-200 bg-white px-sm py-xs text-xs text-neutral-800 placeholder-purple-300 focus:outline-none focus:border-purple-400"
-                      />
-                      <button
-                        onClick={() => {
-                          if (!manualFeatureInput.trim()) return
-                          const current = Array.isArray(pendingScanFeatures?.extras) ? pendingScanFeatures!.extras : []
-                          setPendingScanFeatures({ ...pendingScanFeatures!, extras: [...current, manualFeatureInput.trim()] })
-                          setManualFeatureInput('')
-                        }}
-                        className="px-sm py-xs rounded-lg bg-purple-100 text-purple-700 text-xs font-semibold hover:bg-purple-200 transition shrink-0"
-                      >
-                        Add
-                      </button>
-                    </div>
-                    <button
-                      onClick={acceptScanFeatures}
-                      className="px-md py-xs rounded-lg bg-purple-700 text-white text-xs font-semibold hover:bg-purple-800 transition"
-                    >
-                      Save these features
-                    </button>
-                  </div>
-                )
-              })()}
-
-              {/* ── AI feature summary strip ──────────────────────────────── */}
-              {room.detected_features && Object.entries(room.detected_features).some(([, v]) => v && !(Array.isArray(v) && v.length === 0)) && (() => {
-                const df = room.detected_features as Record<string, any>
-                const featureRows = [
-                  { key: 'flooring', label: 'Flooring' },
-                  { key: 'natural_light', label: 'Light' },
-                  { key: 'window_type', label: 'Windows' },
-                  { key: 'window_treatment', label: 'Curtains/blinds' },
-                  { key: 'wardrobe', label: 'Wardrobe' },
-                ].filter(({ key }) => df[key])
-                const extras: string[] = Array.isArray(df.extras) ? df.extras : []
-                return (
-                  <div className="mt-xl pt-lg border-t border-neutral-100">
-                    <div className="flex items-center justify-between gap-md mb-xs">
-                      <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">✨ AI-detected features</p>
-                      <button onClick={clearAllFeatures} className="text-xs text-neutral-400 hover:text-red-500 transition">
-                        Clear all
-                      </button>
-                    </div>
-                    <p className="text-xs text-neutral-400 mb-md">Remove anything that looks wrong — the rest feeds into advert copy.</p>
-                    <div className="space-y-sm">
-                      {featureRows.map(({ key, label }) => (
-                        <div key={key} className="flex items-center gap-sm">
-                          <span className="text-xs text-neutral-400 w-28 shrink-0">{label}</span>
-                          <span className="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700">
-                            {String(df[key])}
-                            <button onClick={() => removeDetectedFeature(key)} className="text-purple-300 hover:text-red-500 transition leading-none">✕</button>
-                          </span>
-                        </div>
-                      ))}
-                      {extras.length > 0 && (
-                        <div className="flex items-start gap-sm">
-                          <span className="text-xs text-neutral-400 w-28 shrink-0 mt-0.5">Other</span>
-                          <div className="flex flex-wrap gap-xs">
-                            {extras.map((extra: string) => (
-                              <span key={extra} className="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700">
-                                {extra}
-                                <button onClick={() => removeDetectedFeature('extras', extra)} className="text-purple-300 hover:text-red-500 transition leading-none">✕</button>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {/* Add more features manually */}
-                    <div className="flex gap-xs mt-sm">
-                      <input
-                        type="text"
-                        value={savedFeatureInput}
-                        onChange={e => setSavedFeatureInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') addSavedFeature(savedFeatureInput) }}
-                        placeholder="Add a feature manually…"
-                        className="flex-1 rounded-lg border border-neutral-200 bg-white px-sm py-xs text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:border-purple-300"
-                      />
-                      <button
-                        onClick={() => addSavedFeature(savedFeatureInput)}
-                        className="px-sm py-xs rounded-lg bg-neutral-100 text-neutral-600 text-xs font-semibold hover:bg-neutral-200 transition shrink-0"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-          )}
-
-          {/* ── COMPLIANCE ──────────────────────────────────────────────────── */}
-          {activeTab === 'compliance' && (
-            <div>
-              <div className="flex items-center justify-between gap-md mb-md flex-wrap">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400">Tenant safety checks</h2>
-                <div className="flex gap-xs">
-                  {(['all', 'fire_door', 'smoke_alarm'] as ComplianceFilter[]).map(f => (
-                    <button
-                      key={f}
-                      onClick={() => setComplianceFilter(f)}
-                      className={`px-md py-xs rounded-lg text-xs font-semibold transition-colors border ${
-                        complianceFilter === f
-                          ? 'bg-neutral-900 text-white border-neutral-900'
-                          : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
-                      }`}
-                    >
-                      {f === 'all' ? 'All' : f === 'fire_door' ? '🚪 Fire Door' : '🟢 Smoke Alarm'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <p className="text-xs text-neutral-500 mb-lg">
-                Photo checks submitted by tenants — room-scoped, spanning all tenancies. Most recent first.
-              </p>
-
-              {filteredChecks.length > 0 ? (
-                <div className="space-y-sm">
-                  {filteredChecks.map(check => (
-                    <div key={check.id} className="flex gap-md items-start rounded-xl border border-neutral-200 bg-neutral-50 p-md">
-                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl shrink-0 ${check.check_type === 'fire_door' ? 'bg-red-50 border border-red-200' : 'bg-emerald-50 border border-emerald-200'}`}>
-                        {check.check_type === 'fire_door' ? '🚪' : '🟢'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-md flex-wrap">
-                          <div>
-                            <p className="text-sm font-semibold text-neutral-900">
-                              {check.check_type === 'fire_door' ? 'Fire door' : 'Smoke alarm'}
-                            </p>
-                            <p className="text-xs text-neutral-500 mt-xs">
-                              {fmtDate(check.request_sent_at)} · {check.tenantName}
-                            </p>
-                          </div>
-                          <span className={`text-xs font-semibold px-sm py-0.5 rounded-full shrink-0 ${
-                            check.tenant_response === 'confirmed_ok' ? 'bg-emerald-100 text-emerald-700' :
-                            check.tenant_response === 'issue_reported' ? 'bg-red-100 text-red-700' :
-                            'bg-neutral-100 text-neutral-500'
-                          }`}>
-                            {check.tenant_response === 'confirmed_ok' ? '✓ All clear' :
-                             check.tenant_response === 'issue_reported' ? '⚠ Issue reported' :
-                             check.response_received_at ? 'Responded' : 'Awaiting response'}
-                          </span>
-                        </div>
-                        {check.issue_description && (
-                          <p className="text-xs text-red-700 mt-sm bg-red-50 rounded-lg p-sm border border-red-100">{check.issue_description}</p>
-                        )}
-                        {check.photo_attachment_id && /^https?:/.test(check.photo_attachment_id) && (
-                          <StoredLink href={check.photo_attachment_id}
-                            className="inline-flex items-center gap-xs mt-sm text-xs text-blue-600 hover:text-blue-800 font-medium">
-                            📷 View photo
-                          </StoredLink>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-2xl text-neutral-400">
-                  <div className="text-3xl mb-sm opacity-40">
-                    {complianceFilter === 'fire_door' ? '🚪' : complianceFilter === 'smoke_alarm' ? '🟢' : '✅'}
-                  </div>
-                  <p className="text-sm font-medium">
-                    No {complianceFilter === 'all' ? '' : complianceFilter === 'fire_door' ? 'fire door ' : 'smoke alarm '}checks recorded yet
-                  </p>
-                  <p className="text-xs mt-xs">Checks are submitted by tenants via the tenant app</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── NOTES ───────────────────────────────────────────────────────── */}
-          {activeTab === 'notes' && (
-            <div className="space-y-xl">
-              {/* Add note */}
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Add a note</h2>
-                {noteBanner && (
-                  <div className="mb-md rounded-lg bg-blue-50 border border-blue-200 px-lg py-sm text-sm text-blue-800">{noteBanner}</div>
-                )}
-                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md space-y-sm">
-                  <p className="text-xs text-neutral-500">Notes here are scoped to this room and tied to the active context (current tenant). They are visible to admins only.</p>
-                  <textarea
-                    value={newNoteText}
-                    onChange={e => setNewNoteText(e.target.value)}
-                    rows={3}
-                    placeholder="e.g. Tenant has asked to avoid viewings before 10am on weekdays…"
-                    className="w-full rounded-lg border border-neutral-200 px-md py-sm text-sm text-neutral-900 resize-y focus:border-neutral-400 focus:ring-2 focus:ring-neutral-100 outline-none bg-white"
-                  />
-                  <button
-                    onClick={addNote}
-                    disabled={savingNote || !newNoteText.trim()}
-                    className="px-md py-xs rounded-lg bg-neutral-900 text-white text-xs font-semibold hover:bg-neutral-800 disabled:opacity-50 transition"
-                  >
-                    {savingNote ? 'Saving…' : 'Add note'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Existing notes */}
-              {roomNotes.length > 0 && (
-                <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">Notes ({roomNotes.length})</h2>
-                  <div className="space-y-sm">
-                    {roomNotes.map(note => (
-                      <div key={note.id} className="rounded-xl border border-neutral-200 bg-neutral-50 p-md">
-                        <div className="flex items-center gap-sm mb-sm text-xs text-neutral-500">
-                          <span className="font-semibold text-neutral-700">{note.authorName || 'Admin'}</span>
-                          <span>·</span>
-                          <span>{fmtDate(note.created_at)}</span>
-                          {currentTenancy && <span className="ml-xs rounded-full bg-blue-50 border border-blue-100 px-sm py-0.5 text-blue-600">re: {displayName(currentTenancy.person) || 'current tenant'}</span>}
-                        </div>
-                        <p className="text-sm text-neutral-900 leading-relaxed">{note.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {roomNotes.length === 0 && (
-                <div className="text-center py-xl text-neutral-400">
-                  <p className="text-sm font-medium">No notes for this room yet</p>
-                </div>
-              )}
-            </div>
-          )}
-
+        <div className="grid w-full grid-cols-3 gap-sm sm:flex sm:w-auto">
+          <button type="button" onClick={onMessage} className={btnDark}>Message</button>
+          {c.tenant.phone ? <a href={`tel:${c.tenant.phone.replace(/\s+/g, '')}`} className={btnLight}>Call</a> : <span className={`${btnLight} opacity-40`}>No mobile</span>}
+          <Link href={`/admin/lettings/${c.id}?from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={btnLight}>Letting file</Link>
         </div>
-      </main>
+      </div>
+      <div className="grid gap-x-xl gap-y-sm px-lg py-md md:grid-cols-2">
+        <dl className="grid grid-cols-[150px_1fr] gap-y-sm text-sm">
+          {row('Tenancy start date', full(c.start), 'font-bold')}
+          {row('Notice received', c.notice ? full(c.notice) : 'None')}
+          {row('Tenancy end date', c.end ? <>{full(c.end)} <span className="font-normal text-neutral-500">({Math.round((Date.parse(c.end) - Date.parse(c.start)) / 86_400_000) + 1} days)</span></> : 'Periodic — no end date', 'font-bold')}
+          {row('Agreement', [c.agreementType === 'assured_periodic' ? 'Assured periodic' : c.agreementType, c.agreementSigned ? `signed ${full(c.agreementSigned)}` : 'not signed'].filter(Boolean).join(' · '))}
+          {row('Rent', c.rent ? `${gbp(c.rent)} per month, due on the ${ordinal(c.dueDay)}` : '—')}
+          {row('Payment reference', c.paymentRef ?? 'None', 'tabular-nums')}
+        </dl>
+        <dl className="grid grid-cols-[150px_1fr] gap-y-sm text-sm">
+          {row('Deposit', c.deposit ? [gbp(c.deposit), c.scheme, c.protectedAt ? `protected ${full(c.protectedAt)}` : 'not protected'].filter(Boolean).join(' · ') : 'None', c.deposit && !c.protectedAt ? 'font-bold text-red-700' : '')}
+          {c.deposit > 0 && row('Prescribed info', c.prescribedAt ? `Served ${full(c.prescribedAt)}` : 'Not served', c.prescribedAt ? '' : 'font-bold text-amber-800')}
+          {c.hold && row('Holding deposit', <>{c.hold.no} · {gbp(c.hold.amount)} received {full(c.hold.received)}{c.hold.outcomeOn ? ` · applied ${full(c.hold.outcomeOn)}` : ''}{holdOver > 0.004 && <span className="font-bold text-amber-800"> · {gbp(holdOver)} over the cap</span>}</>)}
+          {row('Email', c.tenant.email ?? 'None')}
+          {row('Mobile', c.tenant.phone ?? 'None')}
+          {c.tenant.rightToRentUntil && row('Right to Rent', `Time-limited · recheck by ${full(c.tenant.rightToRentUntil)}`, 'text-amber-800')}
+        </dl>
+      </div>
+      <div className="flex flex-wrap gap-xs px-lg pb-md">
+        {steps.map(s => <span key={s.id} className={`rounded-full px-sm py-0.5 text-xs font-bold ${s.done ? 'bg-green-50 text-green-800' : 'bg-neutral-100 text-neutral-600'}`}>{s.done ? '✓' : '–'} {s.label}{s.done && s.date ? ` ${full(s.date)}` : s.done ? '' : ': no date recorded'}</span>)}
+      </div>
+    </Section>
+  )
+}
+
+function Rent({ o, wide }: { o: RoomOverview; wide: boolean }) {
+  const [all, setAll] = useState(false)
+  const rows = all ? o.rent : o.rent.slice(0, 6)
+  const owed = o.current?.balance
+  const STATE: Record<string, [string, string]> = { paid: ['Paid', 'bg-green-50 text-green-800'], part: ['Part paid', 'bg-amber-50 text-amber-900'], overdue: ['Overdue', 'bg-red-50 text-red-800'], due: ['Not yet due', 'bg-neutral-100 text-neutral-600'], statement: ['Before CROS', 'bg-neutral-100 text-neutral-600'] }
+  return (
+    <Section title="Rent on this room" wide={wide} summary={owed && owed > 0.004 ? `${gbp(owed)} owed on the current tenancy` : o.fee.toLandlord != null ? `${gbp(o.fee.toLandlord)} per month to the landlord` : 'No rent recorded'}
+      right={o.current ? <Link href={`/admin/lettings/${o.current.id}?tab=money`} className={btnLight}>Statement of account</Link> : null}>
+      {o.rent.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">No rent charges on this room yet.</p> : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[680px] text-[13px]">
+            <thead><tr className="bg-neutral-50 text-left text-[10.5px] uppercase tracking-wide text-neutral-500"><th className="px-lg py-xs">Period</th><th className="px-sm py-xs">Tenant</th><th className="px-sm py-xs">Due date</th><th className="px-sm py-xs text-right">Due</th><th className="px-sm py-xs text-right">Received</th><th className="px-lg py-xs">Status</th></tr></thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.id} className={`border-t border-neutral-100 ${r.state === 'overdue' ? 'bg-red-50/50' : ''}`}>
+                  <td className="px-lg py-sm"><b>{monthName(r.month)}</b><span className="block text-[11.5px] text-neutral-500">{full(r.from)} – {full(r.to)}</span></td>
+                  <td className="px-sm py-sm">{r.tenant || <span className="text-neutral-400">—</span>}</td>
+                  <td className="px-sm py-sm">{full(r.dueOn)}</td>
+                  <td className="px-sm py-sm text-right tabular-nums">{gbp(r.due)}</td>
+                  <td className="px-sm py-sm text-right tabular-nums">{gbp(r.received)}</td>
+                  <td className="px-lg py-sm"><span className={`rounded-full px-sm py-0.5 text-[11px] font-bold ${STATE[r.state]?.[1]}`}>{STATE[r.state]?.[0]}</span>{r.state === 'statement' && <span className="block text-[11px] text-neutral-500">on the landlord statement</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {o.rent.length > 6 && <button type="button" onClick={() => setAll(!all)} className="w-full border-t border-neutral-100 py-sm text-sm font-bold text-neutral-700">{all ? 'Show fewer' : `Show all ${o.rent.length} months`}</button>}
+      {o.fee.rent != null && o.fee.perMonth != null && (
+        <p className="border-t border-neutral-100 px-lg py-sm text-[13px] text-neutral-600">Each full month: <b className="text-neutral-900">{gbp(o.fee.rent)}</b> rent → <b className="text-neutral-900">{gbp(o.fee.perMonth)}</b> management fee ({o.fee.label}) → <b className="text-neutral-900">{gbp(o.fee.toLandlord)}</b> to {o.landlord ? `${o.landlord.name}${o.landlord.company ? `, ${o.landlord.company}` : ''}` : 'the landlord'}</p>
+      )}
+      {o.voids.length > 0 && <p className="border-t border-neutral-100 px-lg py-sm text-[13px] text-amber-800">Void periods: {o.voids.map(v => `${full(v.from)} – ${v.to ? full(v.to) : 'today'} (${v.days} days, ${gbp(v.lost)} of rent)`).join(' · ')}</p>}
+    </Section>
+  )
+}
+
+function Messages({ o, wide, composeRef, roomId, reload }: { o: RoomOverview; wide: boolean; composeRef: React.RefObject<HTMLTextAreaElement>; roomId: string; reload: () => Promise<void> }) {
+  type F = 'all' | 'current' | 'expired' | 'applicant' | 'mail' | 'office' | 'money'
+  const [filter, setFilter] = useState<F>('all')
+  const [shown, setShown] = useState(15)
+  const people = useMemo(() => [
+    ...(o.current ? [{ id: o.current.tenant.id, name: o.current.tenant.name, email: o.current.tenant.email, phone: o.current.tenant.phone }] : []),
+    ...(o.current?.jointTenant ? [{ id: o.current.jointTenant.id, name: o.current.jointTenant.name, email: o.current.jointTenant.email, phone: o.current.jointTenant.phone }] : []),
+  ], [o])
+  const [to, setTo] = useState(people[0]?.id ?? '')
+  const [mode, setMode] = useState<'message' | 'note'>(people.length ? 'message' : 'note')
+  const [ch, setCh] = useState({ email: true, sms: false, app: false })
+  const [subject, setSubject] = useState('')
+  const [body, setBody] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
+  const who = people.find(p => p.id === to)
+
+  const FILTERS: [F, string][] = [['all', 'All'], ['current', 'Current tenancy'], ['expired', 'Expired tenancies'], ['applicant', 'Applicants'], ['mail', 'Emails and texts'], ['office', 'Office notes'], ['money', 'Money']]
+  const match = (t: TimelineItem) => filter === 'all' ? true : filter === 'mail' ? (t.kind === 'email' || t.kind === 'sms' || t.kind === 'app') : filter === 'money' ? t.kind === 'money' : filter === 'office' ? t.kind === 'note' : t.group === filter
+  const items = o.timeline.filter(match)
+  const visible = items.slice(0, shown)
+
+  async function send() {
+    setResult(null)
+    if (mode === 'note') {
+      if (!body.trim()) return
+      setBusy(true)
+      const r = await adminFetch(`/api/admin/rooms/${roomId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'note', content: body }) })
+      const d = await r.json().catch(() => ({})); setBusy(false)
+      if (!r.ok) { setResult({ ok: false, text: d.error ?? 'Not saved' }); return }
+      setBody(''); setResult({ ok: true, text: 'Office note saved' }); await reload(); return
+    }
+    if (!who || !subject.trim() || !body.trim()) { setResult({ ok: false, text: 'Add a subject and a message' }); return }
+    const how = [ch.email && 'email', ch.sms && 'text', ch.app && 'app'].filter(Boolean).join(' and ')
+    if (!how) { setResult({ ok: false, text: 'Choose email, text or the app' }); return }
+    if (!confirm(`Send this by ${how} to ${who.name}?\n\n${subject}\n\n${body}`)) return
+    setBusy(true)
+    const r = await adminFetch(`/api/admin/rooms/${roomId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'message', personId: who.id, subject, body, ...ch }) })
+    const d = await r.json().catch(() => ({})); setBusy(false)
+    if (!r.ok) { setResult({ ok: false, text: d.error ?? 'Not sent' }); return }
+    const parts = [ch.email ? (d.emailCount ? 'email sent' : 'email not sent') : '', ch.sms ? (d.smsCount ? 'text sent' : `text not sent${d.smsFailed?.length ? ` (${d.smsFailed.join(', ')})` : ''}`) : '', ch.app ? (d.pushCount ? 'app message delivered' : 'not on the app') : ''].filter(Boolean)
+    setResult({ ok: true, text: `${who.name}: ${parts.join(' · ')}` }); setSubject(''); setBody(''); await reload()
+  }
+
+  return (
+    <Section id="messages" title="Messages and activity" wide={wide} open summary={`${o.timeline.length} items · current tenancy, expired tenancies and applicants`}>
+      <div className="space-y-sm px-lg py-md">
+        <div className="overflow-hidden rounded-xl border border-neutral-300">
+          <div className="flex flex-wrap items-center gap-sm border-b border-neutral-100 px-md py-sm text-xs">
+            <span className="flex overflow-hidden rounded-lg border border-neutral-300">
+              {people.length > 0 && <button type="button" onClick={() => setMode('message')} className={`px-sm py-1 font-bold ${mode === 'message' ? 'bg-neutral-900 text-white' : 'bg-white'}`}>Message</button>}
+              <button type="button" onClick={() => setMode('note')} className={`px-sm py-1 font-bold ${mode === 'note' ? 'bg-neutral-900 text-white' : 'bg-white'}`}>Office note</button>
+            </span>
+            {mode === 'message' && (people.length > 1
+              ? <label className="flex items-center gap-xs font-semibold text-neutral-600">To <select value={to} onChange={e => setTo(e.target.value)} className="rounded border border-neutral-300 bg-white px-xs py-0.5 text-neutral-900">{people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+              : <span className="font-semibold text-neutral-600">To {who?.name}</span>)}
+          </div>
+          {mode === 'message' && <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Subject" aria-label="Subject" className="block w-full border-0 border-b border-neutral-100 px-md py-sm text-sm font-semibold outline-none" />}
+          <textarea ref={composeRef} value={body} onChange={e => setBody(e.target.value)} rows={3} placeholder={mode === 'note' ? 'A note for the office — kept on this room, never sent' : `Write to ${who?.name ?? 'the tenant'}…`} aria-label={mode === 'note' ? 'Office note' : 'Message'} className="block w-full resize-y border-0 px-md py-sm text-sm outline-none" />
+          <div className="flex flex-wrap items-center justify-between gap-sm border-t border-neutral-100 bg-neutral-50 px-sm py-sm">
+            {mode === 'message' ? (
+              <div className="flex flex-wrap gap-xs">
+                {([['email', 'Email', who?.email], ['sms', 'Text', who?.phone], ['app', 'App', true]] as const).map(([k, label, has]) => (
+                  <button key={k} type="button" disabled={!has} onClick={() => setCh(c => ({ ...c, [k]: !c[k] }))} title={has ? undefined : `No ${k === 'email' ? 'email address' : 'mobile'} on file`}
+                    className={`rounded-full px-sm py-1 text-xs font-bold ${ch[k] ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'} disabled:opacity-40`}>{label}</button>
+                ))}
+              </div>
+            ) : <span className="text-xs text-neutral-500">Notes are only seen by the office</span>}
+            <button type="button" disabled={busy} onClick={send} className={btnDark}>{busy ? 'Working…' : mode === 'note' ? 'Save note' : 'Send…'}</button>
+          </div>
+        </div>
+        {result && <p className={`rounded-lg px-md py-sm text-sm font-semibold ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{result.text}</p>}
+        {!o.messagesLogged && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900">Emails and texts appear here once the message log (migration 242) has been run.</p>}
+        <div role="group" aria-label="Show" className="-mx-lg flex gap-xs overflow-x-auto px-lg pb-xs" style={{ scrollbarWidth: 'none' }}>
+          {FILTERS.map(([k, label]) => <button key={k} type="button" onClick={() => { setFilter(k); setShown(15) }} className={`flex-none rounded-full px-sm py-1 text-xs font-bold ${filter === k ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'}`}>{label}{k === 'all' ? ` · ${o.timeline.length}` : ''}</button>)}
+        </div>
+      </div>
+      {visible.length === 0 ? <p className="px-lg pb-md text-sm text-neutral-500">Nothing here yet.</p> : (
+        <ol className="px-lg pb-sm">
+          {visible.map((t, i) => {
+            const head = dayHead(t.at), prev = i > 0 ? dayHead(visible[i - 1].at) : ''
+            return (
+              <li key={`${t.at}-${i}`}>
+                {head !== prev && <p className="pb-xs pt-md text-[11px] font-black uppercase tracking-[0.1em] text-neutral-400">{head}</p>}
+                <div className="grid grid-cols-[30px_1fr_auto] gap-sm border-t border-neutral-100 py-sm">
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs ${t.failed ? 'bg-red-100 text-red-800' : t.kind === 'email' || t.kind === 'offer' ? 'bg-blue-50 text-blue-900' : t.kind === 'money' ? 'bg-amber-50 text-amber-900' : t.kind === 'repair' ? 'bg-orange-50 text-orange-900' : 'bg-neutral-100 text-neutral-700'}`} aria-hidden>{KIND_ICON[t.kind]}</span>
+                  <div className="min-w-0">
+                    {t.href ? <Link href={t.href} className="block text-sm font-bold text-neutral-900 hover:underline">{t.title}</Link> : <p className="text-sm font-bold text-neutral-900">{t.title}</p>}
+                    {t.detail && <p className={`text-[13px] ${t.failed ? 'font-semibold text-red-700' : 'text-neutral-600'}`}>{t.detail}</p>}
+                  </div>
+                  <span className="text-xs tabular-nums text-neutral-400">{time(t.at)}</span>
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+      {items.length > shown && <button type="button" onClick={() => setShown(n => n + 25)} className="w-full border-t border-neutral-100 py-sm text-sm font-bold text-neutral-700">Show earlier ({items.length - shown} more)</button>}
+    </Section>
+  )
+}
+
+function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
+  const c = o.current
+  const freeFrom = c?.end ? new Date(Date.parse(`${c.end}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10) : null
+  const daily = (c?.rent ?? o.room.askingRent ?? 0) * 12 / 365
+  const lead = o.lead
+  const leadStep = lead ? Math.max(0, APPLICANT_STEPS.indexOf(lead.stage)) : -1
+  const openRepairs = o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status))
+  const summary = o.incoming ? `Incoming tenancy: ${o.incoming.tenant} from ${full(o.incoming.start)}` : lead ? `Applicant ${lead.name} · ${lead.stage.replace(/_/g, ' ')}` : freeFrom ? `Room free from ${full(freeFrom)} · no applicant` : 'No applicant'
+  return (
+    <Section id="relet" title={o.incoming ? 'Incoming tenancy' : 'Re-let plan'} wide={wide} open tone="border-blue-200" summary={summary}>
+      <div className="space-y-md px-lg py-md">
+        {(freeFrom || o.stage === 'void') && !o.incoming && <p className="text-[13px] text-neutral-600">{freeFrom ? `Tenancy ends ${full(c!.end)} · room free from ${full(freeFrom)}` : 'The room is void'}{daily > 0 ? ` · each void day costs ${gbp(Math.round(daily * 100) / 100)}` : ''}</p>}
+        {o.incoming ? (
+          <div className="rounded-xl bg-blue-50 p-md">
+            <p className="text-[10.5px] font-black uppercase tracking-[0.1em] text-blue-900">Incoming tenancy · let agreed</p>
+            <p className="font-bold">{o.incoming.tenant}</p>
+            <p className="text-[13px] text-neutral-600">Tenancy start date {full(o.incoming.start)}{o.incoming.rent ? ` · ${gbp(o.incoming.rent)} per month` : ''}</p>
+            <Link href={`/admin/lettings/${o.incoming.id}`} className={`${btnDark} mt-sm`}>Open letting file</Link>
+          </div>
+        ) : lead ? (
+          <div className="space-y-sm rounded-xl bg-blue-50 p-md">
+            <p className="text-[10.5px] font-black uppercase tracking-[0.1em] text-blue-900">Incoming tenancy · not yet agreed</p>
+            <div className="flex justify-between gap-sm"><b>{lead.name}{!lead.hasTitle && <span className="text-xs font-bold text-amber-800"> · title not recorded</span>}</b>{lead.offerRent != null && <span className="text-xs font-bold text-blue-900">{gbp(lead.offerRent)} offered</span>}</div>
+            <div className="grid grid-cols-6 gap-[3px]" aria-label={`Stage: ${lead.stage.replace(/_/g, ' ')}`}>{APPLICANT_STEPS.map((s, i) => <span key={s} className={`h-1.5 rounded ${i <= leadStep ? 'bg-blue-700' : 'bg-slate-300'}`} />)}</div>
+            <p className="text-xs text-neutral-600">Applied {full(lead.applied)}{lead.offerSentAt ? ` · offer sent ${full(lead.offerSentAt)}` : ''} · {lead.stage.replace(/_/g, ' ')}</p>
+            <div className="flex flex-wrap gap-sm"><Link href="/admin/applicants" className={btnDark}>Open applicant</Link></div>
+            {o.applicants.length > 1 && <p className="text-xs text-neutral-600">{o.applicants.length - 1} more applicant{o.applicants.length === 2 ? '' : 's'} for this room: {o.applicants.filter(a => a.id !== lead.id).map(a => a.name).join(', ')}</p>}
+          </div>
+        ) : <p className="text-sm text-neutral-600">No applicants for this room.</p>}
+        {!o.incoming && (
+          <ol className="text-sm">
+            {c?.notice && <Check done={false} label={`Confirm the notice and end date of ${full(c.end)} in writing`} href={`/admin/lettings/${c.id}?tab=notice`} action="Open" />}
+            {c?.end && <Check done={false} label={`Check-out inspection and keys returned · ${full(c.end)}`} href="/admin/agency-diary/book-appointment" action="Book" />}
+            {c?.end && <Check done={false} label={`End-of-tenancy clean · ${full(c.end)}`} href="/admin/agency-diary/book-clean" action="Book clean" />}
+            {openRepairs.map(r => <Check key={r.id} done={false} label={`${r.title} · reported ${full(r.reported)}`} href="/admin/maintenance" action="Book" />)}
+            {c?.end && c.deposit > 0 && <Check done={false} label={`Return ${c.tenant.name}’s ${gbp(c.deposit)} deposit after the check-out inspection`} />}
+          </ol>
+        )}
+        {!o.incoming && (
+          <div className="flex flex-wrap gap-sm border-t border-neutral-100 pt-md">
+            <Link href={`/lettings/listing/${o.room.id}`} className={btnLight}>Advertise {o.room.name}</Link>
+            <Link href="/admin/agency-diary/book-appointment" className={btnLight}>Book a viewing</Link>
+            <Link href="/admin/invite-to-apply" className={btnLight}>Invite to apply</Link>
+          </div>
+        )}
+        {o.viewings.length > 0 && <p className="text-[13px] text-neutral-600">Viewings booked: {o.viewings.map(v => `${full(v.date)}${v.slot ? ` ${String(v.slot).slice(0, 5)}` : ''} · ${v.name ?? 'visitor'}`).join(' · ')}</p>}
+      </div>
+    </Section>
+  )
+}
+
+function Check({ done, label, href, action }: { done: boolean; label: string; href?: string; action?: string }) {
+  return (
+    <li className="flex min-h-[44px] items-center gap-sm border-t border-neutral-100 py-xs">
+      <span className={`h-4 w-4 flex-none rounded-full border-2 ${done ? 'border-green-600 bg-green-600' : 'border-amber-500'}`} />
+      <span className="flex-1">{label}</span>
+      {href && action && <Link href={href} className="text-xs font-bold underline">{action}</Link>}
+    </li>
+  )
+}
+
+function TheRoom({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; propertyId: string }) {
+  const r = o.room
+  const d: any = r.detected ?? {}
+  const facts: [string, React.ReactNode][] = [
+    ['Unit code', r.unitCode ?? '—'],
+    ['Type', r.type ?? '—'],
+    ['Size', r.size ?? <span className="text-amber-800">Not measured</span>],
+    ['Bathroom', r.ensuite ? 'En suite' : r.sharedBathroom === false ? '—' : 'Shared'],
+    ...(r.location ? [['Location', r.location] as [string, React.ReactNode]] : []),
+    ...(d.flooring ? [['Floor', d.flooring] as [string, React.ReactNode]] : []),
+    ...(d.window_type || d.natural_light ? [['Window', [d.window_type, d.natural_light].filter(Boolean).join(', ')] as [string, React.ReactNode]] : []),
+    ...(r.furnishings || d.wardrobe ? [['Furniture', r.furnishings ?? d.wardrobe] as [string, React.ReactNode]] : []),
+    ...(Array.isArray(d.extras) && d.extras.length ? [['Extras', d.extras.join(', ')] as [string, React.ReactNode]] : []),
+    ['Asking rent', r.askingRent != null ? `${gbp(r.askingRent)} per month` : 'Not set'],
+  ]
+  return (
+    <Section title="The room" wide={wide} summary={`${r.type ?? 'Room'} · ${r.photos.length} photo${r.photos.length === 1 ? '' : 's'}${r.size ? '' : ' · not measured'}`}
+      right={<Link href={`/admin/properties/${propertyId}/rooms/${r.id}/edit`} className={btnLight}>Edit</Link>}>
+      {r.photos[0] && <StoredImg src={r.photos[0].src} alt={`${r.name}: ${r.photos[0].caption ?? 'room photo'}`} className="h-48 w-full object-cover" />}
+      <div className="space-y-sm px-lg py-md">
+        <dl className="grid grid-cols-[110px_1fr] gap-y-xs text-sm">{facts.map(([k, v]) => <><dt key={`k-${k}`} className="text-neutral-500">{k}</dt><dd key={`v-${k}`}>{v}</dd></>)}</dl>
+        {d && Object.keys(d).length > 0 && <p className="text-xs text-neutral-400">Some features were read from the room photo. Confirm them at the next inspection.</p>}
+        <p className="border-t border-neutral-100 pt-sm text-[13px] text-neutral-600">{r.photos.length} photo{r.photos.length === 1 ? '' : 's'} · advert text {r.marketingDescription ? 'written' : <b className="text-amber-800">not written</b>} · {r.showOnWebsite ? 'on the website' : 'not on the website'}</p>
+        <div className="flex flex-wrap gap-sm">
+          <Link href={`/admin/properties/${propertyId}/rooms/${r.id}/edit`} className={btnLight}>Photos and details</Link>
+          <Link href={`/lettings/listing/${r.id}`} className={btnLight}>Marketing view</Link>
+        </div>
+      </div>
+    </Section>
+  )
+}
+
+function Repairs({ o, wide }: { o: RoomOverview; wide: boolean }) {
+  const open = o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status))
+  const done = o.repairs.filter(r => r.status === 'completed').slice(0, 5)
+  return (
+    <Section title="Repairs and spend" wide={wide} summary={`${open.length} open · ${gbp(o.spend)} spent`} right={<Link href="/admin/maintenance/new" className={btnLight}>Report a job</Link>}>
+      <ul className="px-lg py-sm text-sm">
+        {open.map(r => <li key={r.id} className="flex justify-between gap-sm border-b border-neutral-100 py-sm"><span><b>{r.title}</b><span className="block text-xs text-neutral-500">Reported {full(r.reported)} · {r.priority} priority · {r.booked ? `booked ${full(r.booked)}` : 'no date booked'}</span></span><span className="self-start rounded-full bg-amber-50 px-sm py-0.5 text-[11px] font-bold text-amber-900">Open</span></li>)}
+        {done.map(r => <li key={r.id} className="flex justify-between gap-sm border-b border-neutral-100 py-sm text-neutral-600"><span>{r.title}<span className="block text-xs">Completed {full(r.completed)}</span></span><span className="tabular-nums">{r.price != null ? gbp(r.price) : ''}</span></li>)}
+        {o.purchases.map(p => <li key={p.id} className="flex justify-between gap-sm border-b border-neutral-100 py-sm"><span>{p.name}<span className="block text-xs text-neutral-500">{p.category}{p.date ? ` · ${full(p.date)}` : ''}</span></span><span className="tabular-nums">{gbp(p.cost)}</span></li>)}
+        <li className="flex justify-between gap-sm py-sm"><span className="text-neutral-500">Spent on {o.room.name}{o.occupancy ? ` since ${full(o.occupancy.since)}` : ''}</span><b className="tabular-nums">{gbp(o.spend)}</b></li>
+      </ul>
+    </Section>
+  )
+}
+
+function Safety({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; propertyId: string }) {
+  const today = o.today
+  const last = o.safety.checks.find(c => c.answered)
+  return (
+    <Section title="Safety" wide={wide} summary={`${o.safety.certs.every((c: { expiry: string }) => c.expiry >= today) ? 'House certificates in date' : 'A house certificate has expired'} · ${last ? `last monthly check ${full(last.answered)}` : 'no monthly checks yet'}`}>
+      <div className="space-y-sm px-lg py-md text-sm">
+        <div className="flex justify-between gap-sm"><span>Monthly smoke alarm and fire door check</span><span className={`text-right text-xs font-bold ${last ? 'text-neutral-700' : 'text-amber-800'}`}>{last ? `Answered ${full(last.answered)}` : 'None recorded'}</span></div>
+        <dl className="grid grid-cols-[1fr_auto] gap-y-xs border-t border-neutral-100 pt-sm text-[13px]">
+          {o.safety.certs.map((c: { label: string; expiry: string }) => <><dt key={`k-${c.label}`}>{c.label}</dt><dd key={`v-${c.label}`} className={`text-right font-bold ${c.expiry < today ? 'text-red-700' : 'text-green-800'}`}>{c.expiry < today ? 'expired' : 'expires'} {full(c.expiry)}</dd></>)}
+        </dl>
+        <Link href={`/admin/properties/${propertyId}?tab=compliance`} className="text-[13px] font-bold underline">All certificates for {o.property.name}</Link>
+      </div>
+    </Section>
+  )
+}
+
+function Expired({ o, wide }: { o: RoomOverview; wide: boolean }) {
+  const rows: ({ kind: 'tenancy'; x: RoomOverview['expired'][number] } | { kind: 'void'; v: RoomOverview['voids'][number] })[] = [
+    ...o.expired.map(x => ({ kind: 'tenancy' as const, x })), ...o.voids.map(v => ({ kind: 'void' as const, v })),
+  ].sort((a, b) => (b.kind === 'tenancy' ? b.x.start : b.v.from).localeCompare(a.kind === 'tenancy' ? a.x.start : a.v.from))
+  const spanStart = o.occupancy?.since
+  return (
+    <Section title="Expired tenancies" wide={wide} summary={`${o.expired.length} expired tenanc${o.expired.length === 1 ? 'y' : 'ies'} · ${o.voids.length} void period${o.voids.length === 1 ? '' : 's'}${o.occupancy ? ` · let ${o.occupancy.pct}% since ${full(o.occupancy.since)}` : ''}`}>
+      {spanStart && <Timeline o={o} />}
+      {rows.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">No expired tenancies on this room.</p> : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-[13px]">
+            <thead><tr className="bg-neutral-50 text-left text-[10.5px] uppercase tracking-wide text-neutral-500"><th className="px-lg py-xs">Tenant</th><th className="px-sm py-xs">Tenancy start date</th><th className="px-sm py-xs">Tenancy end date</th><th className="px-sm py-xs">Length</th><th className="px-sm py-xs">Notice received</th><th className="px-sm py-xs text-right">Rent</th><th className="px-sm py-xs">Deposit</th><th className="px-lg py-xs"></th></tr></thead>
+            <tbody>
+              {rows.map(r => r.kind === 'void' ? (
+                <tr key={`v-${r.v.from}`} className="border-t border-neutral-100 bg-amber-50/50 text-amber-900"><td className="px-lg py-sm font-bold">Void</td><td className="px-sm py-sm">{full(r.v.from)}</td><td className="px-sm py-sm">{r.v.to ? full(r.v.to) : 'today'}</td><td className="px-sm py-sm">{r.v.days} days</td><td className="px-sm py-sm"></td><td className="px-sm py-sm text-right tabular-nums">−{gbp(r.v.lost)}</td><td className="px-sm py-sm"></td><td className="px-lg py-sm"></td></tr>
+              ) : (
+                <tr key={r.x.id} className="border-t border-neutral-100">
+                  <td className="px-lg py-sm font-bold">{r.x.tenant}</td>
+                  <td className="px-sm py-sm">{full(r.x.start)}</td>
+                  <td className="px-sm py-sm">{full(r.x.end)}</td>
+                  <td className="px-sm py-sm">{r.x.days} days<span className="block text-[11px] text-neutral-500">{yearsMonths(r.x.days)}</span></td>
+                  <td className="px-sm py-sm">{r.x.notice ? full(r.x.notice) : <span className="text-neutral-400">No date recorded</span>}</td>
+                  <td className="px-sm py-sm text-right tabular-nums">{gbp(r.x.rent)}</td>
+                  <td className="px-sm py-sm">{r.x.deposit ? <>{gbp(r.x.deposit)}{r.x.scheme ? ` · ${r.x.scheme}` : ''} · {r.x.depositReturn ? <span>{r.x.depositReturn.status}{r.x.depositReturn.returnedOn ? ` ${full(r.x.depositReturn.returnedOn)}` : ''}</span> : <b className="text-amber-800">return not recorded</b>}</> : 'None'}</td>
+                  <td className="whitespace-nowrap px-lg py-sm text-right"><Link href={`/admin/lettings/${r.x.id}`} className="font-bold underline">Letting file</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {o.current?.end && <p className="border-t border-neutral-100 px-lg py-sm text-xs text-neutral-500">The current tenancy moves into this list after its tenancy end date, {full(o.current.end)}.</p>}
+    </Section>
+  )
+}
+
+/** Tenancies and voids along one bar, oldest on the left. */
+function Timeline({ o }: { o: RoomOverview }) {
+  const segs = [
+    ...o.expired.map(x => ({ from: x.start, to: x.end, label: x.tenant, cls: 'bg-neutral-500 text-white' })),
+    ...o.voids.map(v => ({ from: v.from, to: v.to ?? o.today, label: '', cls: 'bg-amber-400' })),
+    ...(o.current ? [{ from: o.current.start, to: o.current.end && o.current.end > o.today ? o.current.end : o.today, label: 'Current', cls: 'bg-green-700 text-white' }] : []),
+  ].sort((a, b) => a.from.localeCompare(b.from))
+  if (!segs.length) return null
+  const len = (s: { from: string; to: string }) => Math.max(1, (Date.parse(s.to) - Date.parse(s.from)) / 86_400_000 + 1)
+  return (
+    <div className="px-lg py-md">
+      <div className="flex h-7 overflow-hidden rounded-lg text-xs font-bold" role="img" aria-label={segs.map(s => `${s.label || 'Void'} ${full(s.from)} to ${full(s.to)}`).join('; ')}>
+        {segs.map((s, i) => <div key={i} className={`flex min-w-[8px] items-center overflow-hidden whitespace-nowrap px-sm ${s.cls}`} style={{ flex: len(s) }} title={`${s.label || 'Void'} · ${full(s.from)} – ${full(s.to)}`}>{len(s) > 60 ? s.label : ''}</div>)}
+      </div>
+      <div className="mt-1 flex justify-between text-[11px] text-neutral-400"><span>{full(segs[0].from)}</span><span>{full(segs.at(-1)!.to)}</span></div>
     </div>
   )
 }

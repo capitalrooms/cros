@@ -14,7 +14,9 @@ import { getNewTenantCommsLive } from '@/lib/comms'
 import { sendEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFor } from '@/lib/email/sender'
-import { loadPackContext, moneySummary, renderAgreement, renderCheckIn, packFileName, type PackDoc } from '@/lib/movein/pack'
+import { loadPackContext, moneySummary, renderAgreement, renderCheckIn, packFileName, type PackDoc, type GeneratedKey } from '@/lib/movein/pack'
+import { renderDpsFormFor } from '@/lib/deposits/dpsForm'
+import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { svc, newPackToken, packLink, packEmailHtml, defaultPackSubject, PACK_BUCKET } from '@/lib/movein/email'
 
 export const dynamic = 'force-dynamic'
@@ -60,9 +62,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   // ── Create the pack: generated files stored, documents + figures snapshotted ──
   const packId = randomUUID()
   const token = newPackToken()
-  const generated: Partial<Record<'agreement' | 'check_in', Buffer>> = {}
+  const generated: Partial<Record<GeneratedKey, Buffer>> = {}
   if (docs.some(d => d.key === 'agreement')) generated.agreement = await renderAgreement(ctx, { parking: !!b.parking })
   if (docs.some(d => d.key === 'check_in')) generated.check_in = await renderCheckIn(ctx)
+  if (docs.some(d => d.key === 'prescribed_info')) generated.prescribed_info = await renderDpsFormFor(s, tenancyId)
   const snapshot = docs.map((d: PackDoc) => ({
     key: d.key, label: d.label, group: d.group, source: d.source, available: d.available,
     ...(d.source === 'generated' ? { path: `tenancy-packs/${packId}/${d.key}.pdf` } : { url: d.url }),
@@ -97,7 +100,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
     const { error } = await s.storage.from(PACK_BUCKET).upload(`tenancy-packs/${packId}/${key}.pdf`, pdf!, { contentType: 'application/pdf', upsert: true })
     if (error) {
       await s.from('tenancy_packs').update({ status: 'withdrawn' }).eq('id', packId)
-      return NextResponse.json({ error: `Could not store the ${key === 'agreement' ? 'agreement' : 'check-in balance'}: ${error.message}` }, { status: 500 })
+      return NextResponse.json({ error: `Could not store the ${key === 'agreement' ? 'agreement' : key === 'prescribed_info' ? 'deposit prescribed information' : 'check-in balance'}: ${error.message}` }, { status: 500 })
     }
   }
   const link = packLink(token)
@@ -106,9 +109,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   const subject = String(b.subject || '').trim() || defaultPackSubject(ctx)
   const res = await sendEmail(to, action === 'test' ? `[TEST] ${subject}` : subject, packEmailHtml(ctx, docs, link, message), {
     req, cc: action === 'send' && cc.length ? cc : undefined,
-    attachments: Object.entries(generated).map(([key, pdf]) => ({ filename: packFileName(ctx, key as 'agreement' | 'check_in'), content: pdf!.toString('base64') })),
+    attachments: Object.entries(generated).map(([key, pdf]) => ({ filename: packFileName(ctx, key as GeneratedKey), content: pdf!.toString('base64') })),
   })
   if (!res.ok) return NextResponse.json({ error: res.error || 'The email could not be sent.', link }, { status: 502 })
   await s.from('tenancy_pack_events').insert({ pack_id: packId, event: 'sent', document_key: action === 'test' ? `test:${to[0]}` : to.join(', ') })
+  // the prescribed information went to the tenant with the DPS Terms and Conditions: served, once the deposit has
+  // been received (it's served within 30 days of receiving it). Sent before then, it's noted and served again later.
+  if (action === 'send' && generated.prescribed_info) {
+    const { data: tt } = await s.from('tenancies').select('move_in_monies_received_at, prescribed_info_served_at').eq('id', tenancyId).maybeSingle()
+    const withTerms = docs.some(d => d.key === 'dps_terms')
+    if (tt?.move_in_monies_received_at && !tt.prescribed_info_served_at && withTerms) {
+      await s.from('tenancies').update({ prescribed_info_served_at: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) }).eq('id', tenancyId)
+      await logTenancyEvent(s, tenancyId, 'prescribed_info', `Deposit prescribed information (DPS form) served in the move-in pack, with the DPS Terms and Conditions, to ${to.join(', ')}`, admin.email)
+    } else {
+      await logTenancyEvent(s, tenancyId, 'prescribed_info_sent', `Deposit prescribed information (DPS form) included in the move-in pack to ${to.join(', ')}${!tt?.move_in_monies_received_at ? ' — before the deposit was received, so serve it again once it is' : !withTerms ? ' — without the DPS Terms and Conditions, which must go with it' : ''}`, admin.email)
+    }
+  }
   return NextResponse.json({ ok: true, link, packId, sentTo: to })
 }

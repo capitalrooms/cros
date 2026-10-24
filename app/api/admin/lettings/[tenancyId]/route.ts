@@ -4,6 +4,8 @@
  *   PATCH { action: 'step', step, date?, undo?, scheme?, schemeRef?, rightToRentUntil? }
  *                                               → ticks a step off (or undoes it), logged in the file's activity.
  *                                                 Move-in monies received also applies the held holding deposit.
+ *   PATCH { action: 'apply_move_in_rent', preview? } → the move-in monies pay off the first rent (lib/lettings/moveInRent);
+ *                                                 for lets recorded before 24 Oct 2026, when ticking the monies didn't
  *   PATCH { action: 'terms', changes: {…} }      → edits the terms (rent, dates, deposit, reference only before move-in)
  *   PATCH { action: 'cancel', reason }           → the let fell through: kept on record, off every current list,
  *                                                 the room goes back on the market
@@ -23,6 +25,7 @@ import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { roomCode } from '@/lib/references'
 import { canUndoTenancy } from '@/lib/lettings/undo'
+import { applyMoveInRent } from '@/lib/lettings/moveInRent'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -72,6 +75,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
     const date = b.undo ? null : String(b.date || today)
     if (date && !ISO.test(date)) return NextResponse.json({ error: 'Enter a valid date' }, { status: 400 })
     if (date && date > today) return NextResponse.json({ error: 'That date is in the future' }, { status: 400 })
+    // a time-limited right to rent is rechecked when it runs out — that's after the check, never the same day
+    // (Mr Raphael Wassermann's was saved as "recheck by 5 Oct 2026", the day of the check)
+    if (step === 'right_to_rent' && !b.undo && b.rightToRentUntil && String(b.rightToRentUntil) <= date!)
+      return NextResponse.json({ error: 'The recheck date is the day their permission to stay runs out, so it must be after the check date' }, { status: 400 })
     const update: Record<string, unknown> = { [col]: date }
     if (step === 'deposit_protected' && !b.undo) {
       if (b.scheme) update.deposit_scheme = String(b.scheme).slice(0, 60)
@@ -96,10 +103,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
         }).eq('id', h.id)
         extra += hErr ? ` (holding deposit ${h.hold_no} not marked applied: ${hErr.message})` : ` — holding deposit ${h.hold_no} applied`
       }
+      // …and they include the first rent, so that rent is paid off in the schedule
+      try {
+        const r = await applyMoveInRent(s, tenancyId, { date: date!, byPersonId: caller.personId, apply: true })
+        if (r.paid.length) extra += ` — first rent paid (${r.paid.map(p => `£${p.amount.toFixed(2)}`).join(' + ')})`
+      } catch (e: any) { extra += ` (first rent not marked paid: ${e?.message ?? 'error'})` }
     }
     if (step === 'deposit_protected' && !b.undo && (b.scheme || b.schemeRef)) extra += ` — ${[b.scheme, b.schemeRef].filter(Boolean).join(' ')}`
     await logTenancyEvent(s, tenancyId, b.undo ? `undone:${step}` : `step:${step}`, b.undo ? `${STEP_NAMES[step]} — undone` : `${STEP_NAMES[step]} ${longDate(date!)}${extra}`, caller.email)
     return NextResponse.json({ ok: true })
+  }
+
+  if (b.action === 'apply_move_in_rent') {
+    const { data: tm } = await s.from('tenancies').select('move_in_monies_received_at').eq('id', tenancyId).single()
+    if (!tm?.move_in_monies_received_at) return NextResponse.json({ error: 'The move-in monies aren’t recorded as received yet' }, { status: 409 })
+    try {
+      const r = await applyMoveInRent(s, tenancyId, { date: tm.move_in_monies_received_at, byPersonId: caller.personId, apply: !b.preview })
+      if (!b.preview && r.paid.length) await logTenancyEvent(s, tenancyId, 'move_in_rent', `First rent paid from the move-in monies received ${longDate(tm.move_in_monies_received_at)}: ${r.paid.map(p => `£${p.amount.toFixed(2)}`).join(' + ')}`, caller.email)
+      return NextResponse.json({ ok: true, ...r })
+    } catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Could not mark the rent paid' }, { status: 500 }) }
   }
 
   if (b.action === 'terms') {

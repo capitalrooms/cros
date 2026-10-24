@@ -758,7 +758,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                   {rooms.map((room) => (
                     <tr
                       key={room.id}
-                      onClick={() => openRoom(room)}
+                      onClick={() => router.push(`/admin/properties/${propertyId}/rooms/${room.id}`)}
                       className="border-t border-neutral-100 hover:bg-neutral-50 cursor-pointer transition-colors"
                     >
                       <td className="px-md sm:px-lg py-md">
@@ -778,6 +778,8 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                           <div>
                             <p className="font-semibold text-neutral-900">{room.unit_code || room.name}</p>
                             {room.unit_code && <p className="text-xs text-neutral-400">{room.name}</p>}
+                            {/* the row opens the room page; the in-tab tools (asking rent, tenancy, delete) are here */}
+                            <button type="button" onClick={e => { e.stopPropagation(); openRoom(room) }} className="mt-0.5 text-[11px] font-semibold text-neutral-500 underline">Manage</button>
                           </div>
                         </div>
                       </td>
@@ -1128,9 +1130,13 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                         className="flex items-center gap-xs rounded-lg border border-neutral-900 bg-neutral-900 px-sm py-xs text-xs font-semibold text-white hover:bg-neutral-700 transition">
                         <span>🏷️</span>Listing
                       </button>
+                      <button onClick={() => router.push(`/admin/properties/${propertyId}/rooms/${selectedRoom.id}`)}
+                        className="flex items-center gap-xs rounded-lg border border-neutral-900 bg-white px-sm py-xs text-xs font-semibold text-neutral-900 hover:bg-neutral-50 transition">
+                        Room page
+                      </button>
                       {[['Maintenance','🔧'],['Photos','📷'],['Compliance','✅'],['Notes','📝']].map(([label, icon]) => (
                         <button key={label}
-                          onClick={() => router.push(`/admin/properties/${propertyId}/rooms/${selectedRoom.id}`)}
+                          onClick={() => router.push(`/admin/properties/${propertyId}/rooms/${selectedRoom.id}/edit`)}
                           className="flex items-center gap-xs text-xs text-neutral-500 border border-neutral-200 bg-white rounded-lg px-sm py-xs hover:bg-neutral-50 transition">
                           <span>{icon}</span>{label}
                         </button>

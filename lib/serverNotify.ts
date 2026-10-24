@@ -115,7 +115,7 @@ export async function activeTenantIds(
  * 'push_email_sms' = push + email + a text to everyone with a mobile (16 Oct 2026 — lettings tell a house about a
  *                    viewing by email AND text)
  */
-export type NotifyChannels = 'push_email' | 'push_only' | 'email_only' | 'push_email_sms'
+export type NotifyChannels = 'push_email' | 'push_only' | 'email_only' | 'push_email_sms' | 'email_sms' | 'sms_only' | 'push_sms'
 
 /**
  * Dispatch a notification via the requested channels.
@@ -138,15 +138,15 @@ export async function dispatchChannels(
   let emailCount = 0
   let sms: { smsCount: number; smsFailed: string[] } | null = null
 
-  if (channels === 'push_email' || channels === 'push_only' || channels === 'push_email_sms') {
+  if (channels === 'push_email' || channels === 'push_only' || channels === 'push_email_sms' || channels === 'push_sms') {
     pushCount = await tryPush(ids, content.title, content.body, content.link, !!opts.elected) // devices reached
   }
 
-  if (channels === 'push_email' || channels === 'email_only' || channels === 'push_email_sms') {
+  if (channels === 'push_email' || channels === 'email_only' || channels === 'push_email_sms' || channels === 'email_sms') {
     emailCount = await sendEmailToAll(service, ids, content, req)
   }
 
-  if (channels === 'push_email_sms') sms = await sendSmsToAll(service, ids, content)
+  if (channels === 'push_email_sms' || channels === 'email_sms' || channels === 'sms_only' || channels === 'push_sms') sms = await sendSmsToAll(service, ids, content)
 
   return { pushCount, emailCount, ...(sms ?? {}) }
 }

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { svc, packLink, packReminderHtml, packReminderSubject, PACK_BUCKET } from '@/lib/movein/email'
-import { loadPackContext, packFileName } from '@/lib/movein/pack'
+import { loadPackContext, packFileName, GENERATED_KEYS, type GeneratedKey } from '@/lib/movein/pack'
 import { getNewTenantCommsLive } from '@/lib/comms'
 import { sendEmail } from '@/lib/sendEmail'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
@@ -37,12 +37,12 @@ async function remind(req: NextRequest, s: ReturnType<typeof svc>, packId: strin
   const to = ctx.tenant.emails
   if (!to.length) return NextResponse.json({ error: 'No email address on this tenancy.' }, { status: 400 })
 
-  // the same agreement and check-in balance that were sent — read back from the pack, never regenerated
+  // the same agreement, check-in balance and prescribed information that were sent — read back from the pack, never regenerated
   const attachments: { filename: string; content: string }[] = []
   for (const d of (pack.documents ?? []) as { key: string; path?: string }[]) {
-    if ((d.key !== 'agreement' && d.key !== 'check_in') || !d.path) continue
+    if (!GENERATED_KEYS.includes(d.key as GeneratedKey) || !d.path) continue
     const { data: file } = await s.storage.from(PACK_BUCKET).download(d.path)
-    if (file) attachments.push({ filename: packFileName(ctx, d.key as 'agreement' | 'check_in'), content: Buffer.from(await file.arrayBuffer()).toString('base64') })
+    if (file) attachments.push({ filename: packFileName(ctx, d.key as GeneratedKey), content: Buffer.from(await file.arrayBuffer()).toString('base64') })
   }
   const biz = await fetchPDFBizSettings()
   const res = await sendEmail(to, packReminderSubject(ctx), packReminderHtml(ctx, packLink(pack.token), { sentAt: pack.sent_at, opened: !!pack.first_viewed_at, phone: biz.phone }), { req, attachments })
