@@ -72,9 +72,12 @@ function LoginForm() {
       }
       const role = result.assignment?.role
       // lettings: the office screens (their areas only) on a computer, the lettings app on a phone
-      const path = { administrator: '/admin', admin: '/admin', tenant: '/tenant',
+      const home = { administrator: '/admin', admin: '/admin', tenant: '/tenant',
         contractor: '/contractor', cleaner: '/cleaner', landlord: '/landlord',
         lettings: window.innerWidth >= 768 ? '/admin' : '/lettings', agent: '/agent' }[role ?? ''] ?? '/tenant'
+      // signed out part-way through (the office "Sign in again" bar): back to the screen they were on — office screens only
+      const next = searchParams.get('next') ?? ''
+      const path = home === '/admin' && /^\/admin(\/[\w\-/?=&%.]*)?$/.test(next) && !next.startsWith('//') ? next : home
 
       if (await needsTwoStep(createClient())) { setCodeFor(path); setLoading(false); return }
       router.push(path)

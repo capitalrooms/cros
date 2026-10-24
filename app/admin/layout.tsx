@@ -51,6 +51,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       if (p) setAccess({ role: p.role, areas: areasFor(p.role, (p as any).access_areas) })
     })
   }, [])
+  // signed out part-way through (the session ran out): every screen used to go quietly empty or say "nothing here".
+  // Watch office requests for a refusal and say so once, at the top, with a way back in (24 Oct 2026).
+  const [signedOut, setSignedOut] = useState(false)
+  useEffect(() => {
+    const original = window.fetch
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const res = await original(...args)
+      const url = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : args[0].url
+      // a refusal can also mean "not in your access" — only call it signed out when the sign-in itself has gone
+      if (res.status === 401 && /\/api\/(admin|staff)\//.test(url)) createClient().auth.getUser().then(({ data, error }) => { if (error || !data.user) setSignedOut(true) }).catch(() => {})
+      return res
+    }
+    const { data: sub } = createClient().auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') setSignedOut(true)
+      else if (session) setSignedOut(false)
+    })
+    return () => { window.fetch = original; sub.subscription.unsubscribe() }
+  }, [])
   const allowed = (href: string) => !access || canOpenPage(href.split('?')[0], access.areas, access.role)
   const blocked = !!access && !isAdministrator(access.role) && !canOpenPage(pathname, access.areas, access.role)
   // no Dashboard in their access: the office home takes them to their first area instead
@@ -144,6 +162,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             pulls the footer up under it with a blank strip below (17 Oct 2026) */}
         <main className="flex flex-1 flex-col overflow-y-auto min-w-0 md:pb-[env(safe-area-inset-bottom)]">
           <div className="flex flex-1 shrink-0 flex-col">
+          {signedOut && (
+            <div role="alert" className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-sm bg-red-700 px-lg py-sm text-sm text-white">
+              <span><b>You’ve been signed out.</b> Nothing on this screen can load or save until you sign in again.</span>
+              <a href={`/login?next=${encodeURIComponent(pathname + (searchParams.toString() ? `?${searchParams}` : ''))}`} className="rounded-lg bg-white px-md py-xs font-bold text-red-800">Sign in again</a>
+            </div>
+          )}
           {blocked ? (
             <div className="mx-auto max-w-xl px-lg py-3xl text-center">
               <h1 className="text-xl font-bold text-neutral-900">That isn’t part of your access</h1>
