@@ -258,12 +258,14 @@ export default function AdminGuideDetailPage() {
   const [ackRequired, setAckRequired] = useState(false)
   const [heroUrl, setHeroUrl] = useState('')
   const [isPublished, setIsPublished] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/admin/guides/${id}`)
       .then(r => r.json())
       .then(d => {
-        const g = d.guide as Guide
+        const g = d.guide as Guide | undefined
+        if (!g) { setLoadError(d.error ?? 'This guide couldn’t be loaded — sign in again, or it may have been deleted.'); return }
         setGuide(g)
         setBlocks(d.blocks || [])
         setAckCount(d.acknowledgmentCount ?? 0)
@@ -276,6 +278,7 @@ export default function AdminGuideDetailPage() {
         setHeroUrl(g.hero_image_url || '')
         setIsPublished(g.is_published)
       })
+      .catch(() => setLoadError('This guide couldn’t be loaded — check the connection.'))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -312,9 +315,10 @@ export default function AdminGuideDetailPage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/guides" />} />
+        {loadError ? <p className="mx-auto max-w-6xl px-lg py-xl text-sm font-semibold text-red-700">{loadError}</p> : (
         <div className="flex items-center justify-center pt-[30vh]">
           <div className="w-6 h-6 rounded-full border-2 border-neutral-300 border-t-neutral-700 animate-spin" />
-        </div>
+        </div>)}
       </div>
     )
   }

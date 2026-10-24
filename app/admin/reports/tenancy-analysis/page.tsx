@@ -12,11 +12,12 @@ const monthLabel = (ym: string) => new Date(ym + '-01').toLocaleDateString('en-G
 export default function TenancyAnalysisReport() {
   const [data, setData]     = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/reports/tenancy-analysis')
-      .then(r => r.json())
-      .then(setData)
+      .then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) setLoadError(d.error ?? 'The report couldn’t be loaded — sign in again, or try later.'); else setData(d) })
+      .catch(() => setLoadError('The report couldn’t be loaded — check the connection.'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -36,14 +37,15 @@ export default function TenancyAnalysisReport() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/reports" />} title="Tenancy Analysis" />
-      <PageHero eyebrow="Finance · Reports" title="Tenancy Analysis" subtitle="Active, on notice, void counts and monthly move chart." />
+      <PageHero eyebrow="Finance · Reports" title="Tenancy Analysis" subtitle="Current tenancies, notices received, void rooms and moves each month." />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-lg">
 
+        {loadError && <p className="rounded-xl bg-red-50 px-md py-sm text-sm font-semibold text-red-700">{loadError}</p>}
         {/* Summary tiles */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-md">
           {[
-            { label: 'Active',     value: counts.active || 0,           colour: 'text-green-700', bg: 'bg-green-50 border-green-200' },
-            { label: 'On notice',  value: counts.on_notice || 0,        colour: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+            { label: 'Current',    value: counts.active || 0,           colour: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+            { label: 'Notice received', value: counts.on_notice || 0,        colour: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
             { label: 'Void rooms', value: counts.void_rooms || 0,       colour: 'text-red-700',   bg: 'bg-red-50 border-red-200' },
             { label: 'Total rooms',value: counts.total_rooms || 0,      colour: 'text-neutral-700',bg: 'bg-white border-neutral-200' },
             { label: 'Ended',      value: counts.ended || 0,            colour: 'text-neutral-600',bg: 'bg-white border-neutral-200' },
