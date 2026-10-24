@@ -58,7 +58,7 @@ function dayLabel(iso: string) {
   const tomorrow = new Date(new Date(`${todayISO()}T12:00:00`).getTime() + 86400000).toISOString().split('T')[0];
   if (isToday) return 'Today';
   if (iso === tomorrow) return 'Tomorrow';
-  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 export default function ContractorJobs() {
@@ -627,7 +627,7 @@ export default function ContractorJobs() {
                     <p className="truncate font-semibold text-neutral-900">{job.title}</p>
                     <p className="truncate text-sm text-neutral-500">
                       {job.properties?.name} · {job.rooms?.name || job.location}
-                      {job.completed_at ? ` · ${new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ''}
+                      {job.completed_at ? ` · ${new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-green-100 px-sm py-xs text-xs font-bold text-green-800">

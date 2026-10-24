@@ -209,7 +209,7 @@ export default function CleanDetailPage() {
     setBusy('reschedule')
     try {
       await patch({ clean_date: reDate, clean_time: reTime || null })
-      const when = `${new Date(reDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}${reTime ? ` at ${reTime}` : ''}`
+      const when = `${new Date(reDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${reTime ? ` at ${reTime}` : ''}`
       const isSameDay = /Running late/.test(reReason)
       pushTenants(
         isSameDay
@@ -343,7 +343,7 @@ export default function CleanDetailPage() {
             <div>
               <p className="text-xs text-white/60">When</p>
               <p className="text-base font-bold mt-xs">
-                {new Date(clean.clean_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}
+                {new Date(clean.clean_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 {clean.clean_time ? ` · ${String(clean.clean_time).slice(0, 5)}` : ''}
               </p>
             </div>
@@ -359,7 +359,7 @@ export default function CleanDetailPage() {
           {/* a clean whose day has gone by and isn't finished (21 Oct 2026) */}
           {clean.status !== 'completed' && clean.status !== 'cancelled' && clean.clean_date && clean.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) && (
             <p className="mt-md rounded-xl bg-amber-400/15 px-md py-sm text-sm font-semibold text-amber-200">
-              This clean was due {new Date(`${clean.clean_date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}. If you did it, finish it below with the real date in your notes — otherwise use “Running late / change day” to move it.
+              This clean was due {new Date(`${clean.clean_date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. If you did it, finish it below with the real date in your notes — otherwise use “Running late / change day” to move it.
             </p>
           )}
         </div>
