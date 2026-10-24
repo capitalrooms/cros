@@ -9,7 +9,8 @@
 import { use, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
-import PageHero from '@/components/PageHero'
+import PageHero, { HeroButton } from '@/components/PageHero'
+import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
@@ -43,6 +44,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
   const [tab, setTab] = useState<Tab | null>(initialTab ?? null)
   const [step, setStep] = useState<StepId | null>(null)
   const [banner, setBanner] = useState(done ?? '')
+  const [notify, setNotify] = useState(false)
 
   const load = useCallback(async () => {
     const r = await adminFetch(`/api/admin/lettings/${tenancyId}`)
@@ -86,6 +88,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href={from} />} title="Letting file" />
+      {notify && <QuickNotifyModal propertyId={file.property.id} initialPeople={[file.tenant.id, ...(file.jointTenant ? [file.jointTenant.id] : [])]} onClose={() => setNotify(false)} onSuccess={load} />}
       <PageHero
         eyebrow={<>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''} · {STAGE_LABEL[file.stage]} · {file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</>}
         title={[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ') || where}   // both joint tenants
@@ -96,6 +99,8 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
           ...(file.account && file.stage !== 'let_agreed' ? [{ label: 'Rent account', value: file.account.balance > 0.004 ? `${gbp(file.account.balance)} owed` : file.account.balance < -0.004 ? `${gbp(-file.account.balance)} credit` : 'Clear', tone: (file.account.balance > 0.004 ? 'bad' : 'good') as 'bad' | 'good' }] : []),
           { label: 'Deposit', value: gbp(tn.deposit_amount) },
         ]}
+        // message the tenant(s) through Quick Notify — the one tenant messaging (current tenancies only)
+        actions={(file.stage === 'live' || file.stage === 'on_notice') ? <HeroButton onClick={() => setNotify(true)} primary>Message {[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ')}</HeroButton> : undefined}
         tabs={TABS.map(([k, label]) => ({ key: k, label: k === 'letters' && file.documents.length ? `${label} · ${file.documents.length}` : k === 'progress' && file.stage !== 'let_agreed' ? 'Move-in' : label, active: activeTab === k, onClick: () => setTab(k) }))}
       />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">

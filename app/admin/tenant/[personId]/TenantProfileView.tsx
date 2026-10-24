@@ -11,13 +11,15 @@ import EditPersonModal from '@/app/admin/components/EditPersonModal'
 import DocUploadDrawer from '@/components/DocUploadDrawer'
 import DocViewDrawer from '@/components/DocViewDrawer'
 import { rentChargesForTenancies } from '@/lib/rentCharges'
-import { downloadPdf } from '@/lib/adminFetch'
+import { downloadPdf, adminFetch } from '@/lib/adminFetch'
+import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import DepositReturnPanel from '@/app/components/DepositReturnPanel'
 import TenancyFeeEditor from '@/app/components/TenancyFeeEditor'
 
 /* ── Types ── */
 
 interface TenancyRow extends TenantCardTenancy {
+  notice_received_date?: string | null
   id: string
   room_id: string
   property_id: string
@@ -33,6 +35,8 @@ interface Communication {
   id: string
   title: string
   message: string
+  kind?: string        // Email · Text · App
+  failed?: boolean
   notification_type: string
   status: string
   created_at: string
@@ -783,6 +787,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
   const [tenant, setTenant]                     = useState<TenantCardTenant | null>(null)
   const [tenancies, setTenancies]               = useState<TenancyRow[]>([])
   const [communications, setCommunications]     = useState<Communication[]>([])
+  const [notifyOpen, setNotifyOpen] = useState(false)   // Quick Notify, addressed to this tenant
   const [safetyChecks, setSafetyChecks]         = useState<SafetyCheck[]>([])
   const [referenceHistory, setReferenceHistory] = useState<TenantReference[]>([])
   const [loading, setLoading]                   = useState(true)
@@ -845,10 +850,14 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
         .order('start_date', { ascending: false })
       setTenancies((tenanciesData || []) as TenancyRow[])
 
-      const { data: commsData } = await supabase
-        .from('notifications').select('*').eq('user_id', personId)
-        .order('created_at', { ascending: false }).limit(50)
-      setCommunications(commsData || [])
+      // everything sent to them: emails and texts (message log, 242) and app messages (24 Oct 2026)
+      const mr = await adminFetch(`/api/admin/messages?personId=${encodeURIComponent(personId)}`).catch(() => null)
+      const md = mr?.ok ? await mr.json().catch(() => ({})) : null
+      if (md?.items) setCommunications(md.items.map((m: any) => ({ id: m.id, title: m.title, message: m.detail, notification_type: m.kind, kind: m.kind, failed: m.failed, created_at: m.at })))
+      else {
+        const { data: commsData } = await supabase.from('notifications').select('*').eq('user_id', personId).order('created_at', { ascending: false }).limit(50)
+        setCommunications(commsData || [])
+      }
 
       const { data: checksData } = await supabase
         .from('tenant_self_checks').select('*')
@@ -1282,18 +1291,16 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
 
                   {/* ── Actions ── */}
                   <div className="flex gap-md flex-wrap">
-                    <button
-                      onClick={async () => {
-                        if (!window.confirm(`Mark ${tenantDisplayName(tenant)} as on notice?`)) return
-                        const endDate = window.prompt('Enter notice end date (YYYY-MM-DD):', new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-                        if (!endDate) return
-                        await supabase.from('tenancies').update({ end_date: endDate, notice_received_date: new Date().toISOString().slice(0, 10) }).eq('id', currentTenancy.id)
-                        window.location.reload()
-                      }}
-                      className="px-lg py-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition"
-                    >
-                      ⚠ Mark on Notice
+                    <button type="button" onClick={() => setNotifyOpen(true)}
+                      className="px-lg py-sm rounded-lg bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700 transition">
+                      Message {tenantDisplayName(tenant)}
                     </button>
+                    {notifyOpen && <QuickNotifyModal propertyId={currentTenancy.property_id} initialPeople={[personId]} onClose={() => setNotifyOpen(false)} />}
+                    {/* notice is recorded in the letting file — its notice period rules and the email to the tenant (was a 30-day prompt) */}
+                    <a href={`/admin/lettings/${currentTenancy.id}?tab=notice${currentTenancy.notice_received_date ? '' : '&mark=1'}`}
+                      className="px-lg py-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition">
+                      {currentTenancy.notice_received_date ? 'Notice' : 'Record notice'}
+                    </a>
                     <a href={currentTenancy.room_id ? `/admin/properties/${currentTenancy.property_id}/rooms/${currentTenancy.room_id}` : `/admin/properties/${currentTenancy.property_id}`} className="px-lg py-sm rounded-lg border border-neutral-200 text-neutral-700 text-sm font-semibold hover:bg-neutral-50 transition">
                       Room page →
                     </a>
@@ -1579,7 +1586,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                     <p className="font-semibold text-neutral-900 text-sm">{c.title}</p>
                     <p className="text-xs text-neutral-500 mt-xs line-clamp-2">{c.message}</p>
                     <div className="flex items-center justify-between mt-sm text-xs text-neutral-400">
-                      <span>{c.notification_type}</span><span>{fmt(c.created_at)}</span>
+                      <span className={c.failed ? 'font-semibold text-red-700' : ''}>{c.kind ?? c.notification_type}{c.failed ? ' · not sent' : ''}</span><span>{fmt(c.created_at)}</span>
                     </div>
                   </div>
                 ))}

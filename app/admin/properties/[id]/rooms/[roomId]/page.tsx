@@ -12,6 +12,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { StoredImg } from '@/components/StoredImg'
 import { adminFetch } from '@/lib/adminFetch'
+import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import type { RoomOverview, Need, TimelineItem } from '@/lib/rooms/roomOverview'
 
 const gbp = (n: number | null | undefined) => n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -47,6 +48,9 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
   const [error, setError] = useState('')
   const [wide, setWide] = useState(true)
   const composeRef = useRef<HTMLTextAreaElement>(null!)
+  // messages go through Quick Notify — the full tenant messaging (ready-made messages, fields, preview, channels,
+  // copy-in), opened addressed to this room's tenant (Harry, 24 Oct 2026: not a second, lesser sender)
+  const [notifyFor, setNotifyFor] = useState<string[] | null>(null)
 
   const load = useCallback(async () => {
     const r = await adminFetch(`/api/admin/rooms/${roomId}`)
@@ -57,7 +61,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
   useEffect(() => { setO(null); load() }, [load])
   useEffect(() => { const m = window.matchMedia('(min-width: 768px)'); const on = () => setWide(m.matches); on(); m.addEventListener('change', on); return () => m.removeEventListener('change', on) }, [])
 
-  const message = () => { const el = document.getElementById('messages'); el?.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (el instanceof HTMLDetailsElement) el.open = true; setTimeout(() => composeRef.current?.focus(), 400) }
+  const message = () => { if (o?.current) setNotifyFor([o.current.tenant.id, ...(o.current.jointTenant ? [o.current.jointTenant.id] : [])]) }
 
   if (error) return (
     <div className="min-h-screen bg-neutral-100">
@@ -152,7 +156,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
               </Section>
             )}
             <Rent o={o} wide={wide} />
-            <Messages o={o} wide={wide} composeRef={composeRef} roomId={roomId} reload={load} />
+            <Messages o={o} wide={wide} composeRef={composeRef} roomId={roomId} reload={load} onMessage={message} />
           </div>
           <div className="min-w-0 flex-[1_1_340px] space-y-lg">
             {(reletDue || o.incoming || o.applicants.length > 0) && <Relet o={o} wide={wide} />}
@@ -164,6 +168,8 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
 
         <Expired o={o} wide={wide} />
       </div>
+
+      {notifyFor && <QuickNotifyModal propertyId={propertyId} initialPeople={notifyFor} onClose={() => setNotifyFor(null)} onSuccess={load} />}
 
       {/* phone: the two things you most often do here, above the tab bar */}
       <div className="sticky bottom-0 z-30 grid grid-cols-[1fr_1fr_auto] gap-sm border-t border-neutral-200 bg-neutral-100/95 px-md py-sm backdrop-blur md:hidden">
@@ -343,75 +349,41 @@ function Rent({ o, wide }: { o: RoomOverview; wide: boolean }) {
   )
 }
 
-function Messages({ o, wide, composeRef, roomId, reload }: { o: RoomOverview; wide: boolean; composeRef: React.RefObject<HTMLTextAreaElement>; roomId: string; reload: () => Promise<void> }) {
+function Messages({ o, wide, composeRef, roomId, reload, onMessage }: { o: RoomOverview; wide: boolean; composeRef: React.RefObject<HTMLTextAreaElement>; roomId: string; reload: () => Promise<void>; onMessage: () => void }) {
   type F = 'all' | 'current' | 'expired' | 'applicant' | 'mail' | 'office' | 'money'
   const [filter, setFilter] = useState<F>('all')
   const [shown, setShown] = useState(wide ? 15 : 5)
-  const people = useMemo(() => [
-    ...(o.current ? [{ id: o.current.tenant.id, name: o.current.tenant.name, email: o.current.tenant.email, phone: o.current.tenant.phone }] : []),
-    ...(o.current?.jointTenant ? [{ id: o.current.jointTenant.id, name: o.current.jointTenant.name, email: o.current.jointTenant.email, phone: o.current.jointTenant.phone }] : []),
-  ], [o])
-  const [to, setTo] = useState(people[0]?.id ?? '')
-  const [mode, setMode] = useState<'message' | 'note'>(people.length ? 'message' : 'note')
-  const [ch, setCh] = useState({ email: true, sms: false, app: false })
-  const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
-  const who = people.find(p => p.id === to)
 
   const FILTERS: [F, string][] = [['all', 'All'], ['current', 'Current tenancy'], ['expired', 'Expired tenancies'], ['applicant', 'Applicants'], ['mail', 'Emails and texts'], ['office', 'Office notes'], ['money', 'Money']]
   const match = (t: TimelineItem) => filter === 'all' ? true : filter === 'mail' ? (t.kind === 'email' || t.kind === 'sms' || t.kind === 'app') : filter === 'money' ? t.kind === 'money' : filter === 'office' ? t.kind === 'note' : t.group === filter
   const items = o.timeline.filter(match)
   const visible = items.slice(0, shown)
 
-  async function send() {
+  async function saveNote() {
     setResult(null)
-    if (mode === 'note') {
-      if (!body.trim()) return
-      setBusy(true)
-      const r = await adminFetch(`/api/admin/rooms/${roomId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'note', content: body }) })
-      const d = await r.json().catch(() => ({})); setBusy(false)
-      if (!r.ok) { setResult({ ok: false, text: d.error ?? 'Not saved' }); return }
-      setBody(''); setResult({ ok: true, text: 'Office note saved' }); await reload(); return
-    }
-    if (!who || !subject.trim() || !body.trim()) { setResult({ ok: false, text: 'Add a subject and a message' }); return }
-    const how = [ch.email && 'email', ch.sms && 'text', ch.app && 'app'].filter(Boolean).join(' and ')
-    if (!how) { setResult({ ok: false, text: 'Choose email, text or the app' }); return }
-    if (!confirm(`Send this by ${how} to ${who.name}?\n\n${subject}\n\n${body}`)) return
+    if (!body.trim()) return
     setBusy(true)
-    const r = await adminFetch(`/api/admin/rooms/${roomId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'message', personId: who.id, subject, body, ...ch }) })
+    const r = await adminFetch(`/api/admin/rooms/${roomId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'note', content: body }) })
     const d = await r.json().catch(() => ({})); setBusy(false)
-    if (!r.ok) { setResult({ ok: false, text: d.error ?? 'Not sent' }); return }
-    const parts = [ch.email ? (d.emailCount ? 'email sent' : 'email not sent') : '', ch.sms ? (d.smsCount ? 'text sent' : `text not sent${d.smsFailed?.length ? ` (${d.smsFailed.join(', ')})` : ''}`) : '', ch.app ? (d.pushCount ? 'app message delivered' : 'not on the app') : ''].filter(Boolean)
-    setResult({ ok: true, text: `${who.name}: ${parts.join(' · ')}` }); setSubject(''); setBody(''); await reload()
+    if (!r.ok) { setResult({ ok: false, text: d.error ?? 'Not saved' }); return }
+    setBody(''); setResult({ ok: true, text: 'Office note saved' }); await reload()
   }
 
   return (
     <Section id="messages" title="Messages and activity" wide={wide} open summary={`${o.timeline.length} items · current tenancy, expired tenancies and applicants`}>
       <div className="space-y-sm px-lg py-md">
+        <div className="flex flex-wrap items-center gap-sm">
+          {o.current && <button type="button" onClick={onMessage} className={btnDark}>Message {o.current.tenant.name}{o.current.jointTenant ? ` and ${o.current.jointTenant.name}` : ''}</button>}
+          <span className="text-xs text-neutral-500">Opens Quick Notify: ready-made messages, a preview, and app, email or text</span>
+        </div>
         <div className="overflow-hidden rounded-xl border border-neutral-300">
-          <div className="flex flex-wrap items-center gap-sm border-b border-neutral-100 px-md py-sm text-xs">
-            <span className="flex overflow-hidden rounded-lg border border-neutral-300">
-              {people.length > 0 && <button type="button" onClick={() => setMode('message')} className={`px-sm py-1 font-bold ${mode === 'message' ? 'bg-neutral-900 text-white' : 'bg-white'}`}>Message</button>}
-              <button type="button" onClick={() => setMode('note')} className={`px-sm py-1 font-bold ${mode === 'note' ? 'bg-neutral-900 text-white' : 'bg-white'}`}>Office note</button>
-            </span>
-            {mode === 'message' && (people.length > 1
-              ? <label className="flex items-center gap-xs font-semibold text-neutral-600">To <select value={to} onChange={e => setTo(e.target.value)} className="rounded border border-neutral-300 bg-white px-xs py-0.5 text-neutral-900">{people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-              : <span className="font-semibold text-neutral-600">To {who?.name}</span>)}
-          </div>
-          {mode === 'message' && <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Subject" aria-label="Subject" className="block w-full border-0 border-b border-neutral-100 px-md py-sm text-sm font-semibold outline-none" />}
-          <textarea ref={composeRef} value={body} onChange={e => setBody(e.target.value)} rows={3} placeholder={mode === 'note' ? 'A note for the office — kept on this room, never sent' : `Write to ${who?.name ?? 'the tenant'}…`} aria-label={mode === 'note' ? 'Office note' : 'Message'} className="block w-full resize-y border-0 px-md py-sm text-sm outline-none" />
-          <div className="flex flex-wrap items-center justify-between gap-sm border-t border-neutral-100 bg-neutral-50 px-sm py-sm">
-            {mode === 'message' ? (
-              <div className="flex flex-wrap gap-xs">
-                {([['email', 'Email', who?.email], ['sms', 'Text', who?.phone], ['app', 'App', true]] as const).map(([k, label, has]) => (
-                  <button key={k} type="button" disabled={!has} onClick={() => setCh(c => ({ ...c, [k]: !c[k] }))} title={has ? undefined : `No ${k === 'email' ? 'email address' : 'mobile'} on file`}
-                    className={`rounded-full px-sm py-1 text-xs font-bold ${ch[k] ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'} disabled:opacity-40`}>{label}</button>
-                ))}
-              </div>
-            ) : <span className="text-xs text-neutral-500">Notes are only seen by the office</span>}
-            <button type="button" disabled={busy} onClick={send} className={btnDark}>{busy ? 'Working…' : mode === 'note' ? 'Save note' : 'Send…'}</button>
+          <textarea ref={composeRef} value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder="An office note — kept on this room, never sent" aria-label="Office note" className="block w-full resize-y border-0 px-md py-sm text-sm outline-none" />
+          <div className="flex items-center justify-between gap-sm border-t border-neutral-100 bg-neutral-50 px-sm py-sm">
+            <span className="text-xs text-neutral-500">Only the office sees notes</span>
+            <button type="button" disabled={busy || !body.trim()} onClick={saveNote} className={btnLight}>{busy ? 'Saving…' : 'Save note'}</button>
           </div>
         </div>
         {result && <p className={`rounded-lg px-md py-sm text-sm font-semibold ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{result.text}</p>}
