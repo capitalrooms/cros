@@ -76,6 +76,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   }
   const initialTab: TabType = (legacyMap[rawTab] as TabType) || (rawTab as TabType) || 'units'
   const initialRoomId = searchParams.get('room') || undefined;
+  // an old link to "the house, Units tab, this room" now means the room's own page
+  useEffect(() => { if (initialRoomId && (rawTab === 'units' || !searchParams.get('tab'))) router.replace(`/admin/properties/${id}/rooms/${initialRoomId}`) }, [initialRoomId])   // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   // the header's figures: rooms let today, their rent, the next certificate to expire
   const [house, setHouse] = useState<{ rooms: number; let: number; rent: number; nextCert: { label: string; expiry: string } | null } | null>(null)

@@ -105,7 +105,7 @@ export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDa
   return {
     today, rooms: out, summary,
     avgDaysToRelet: gaps.length ? Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) : null, relets: gaps.length,
-    emptyNow: out.filter(r => r.emptyNowSince).map(r => ({ room: r.name, house: r.house, since: r.emptyNowSince!, rent: r.rent })),
-    checks: out.filter(r => r.check).map(r => ({ room: r.name, house: r.house, houseId: r.houseId, why: r.check! })),
+    emptyNow: out.filter(r => r.emptyNowSince).map(r => ({ room: r.name, roomId: r.id, house: r.house, houseId: r.houseId, since: r.emptyNowSince!, rent: r.rent })),
+    checks: out.filter(r => r.check).map(r => ({ room: r.name, roomId: r.id, house: r.house, houseId: r.houseId, why: r.check! })),
   }
 }

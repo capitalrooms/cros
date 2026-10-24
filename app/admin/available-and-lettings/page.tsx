@@ -37,7 +37,7 @@ interface AvailableRoom {
 function roomLinks(room: AvailableRoom) {
   const href = room.let_only_listing_id
     ? `/admin/let-only/${room.let_only_listing_id}`
-    : `/admin/properties/${room.property_id}?tab=units&room=${room.id}`
+    : `/admin/properties/${room.property_id}/rooms/${room.id}`   // the room page
   const viewingHref = room.let_only_listing_id ? '/lettings/viewings' : `/admin/properties/${room.property_id}?tab=lettings&book=${room.id}`
   return { href, viewingHref }
 }

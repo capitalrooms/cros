@@ -92,7 +92,7 @@ export default function VoidsReport() {
                   {visible.sort((a,b) => b.days_void - a.days_void).map(r => (
                     <tr key={r.room_id} className="hover:bg-neutral-50">
                       <td className="px-lg py-md">
-                        <Link href={`/admin/properties/${r.property_id}`} className="font-semibold text-indigo-700 hover:underline">{r.property_name || r.property_address}</Link>
+                        <Link href={`/admin/properties/${r.property_id}/rooms/${r.room_id}`} className="font-semibold text-indigo-700 hover:underline">{r.property_name || r.property_address}</Link>
                       </td>
                       <td className="px-lg py-md font-medium text-neutral-700">{r.room_name}</td>
                       <td className="px-lg py-md tabular-nums text-neutral-600">{gbp(r.monthly_rent)}</td>
