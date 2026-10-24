@@ -476,11 +476,18 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
 
   /** One person, one row: who, how to reach them, the details that matter for their role, and actions. */
   // plain functions, not components: defined inside the page, a component would be rebuilt (and lose clicks) on every change
+  // the right-hand column has one fixed width per list, so every row's columns line up (an auto width sized itself to
+  // each row's own chips and pushed the role and phone columns about — 24 Oct 2026)
+  const TAIL: Record<string, string> = {
+    default: 'lg:grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1.2fr)_130px_270px]',
+    contractors: 'lg:grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1.2fr)_130px_430px]',
+    landlords: 'lg:grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1.2fr)_130px_350px]',
+  }
   const Row = ({ p, detail, extra }: { p: Person; detail?: React.ReactNode; extra?: React.ReactNode }) => (
-    <li key={p.id} className="relative grid grid-cols-[40px_minmax(0,1fr)_auto] md:grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1.2fr)_150px_auto] items-center gap-x-md gap-y-0.5 px-lg py-sm hover:bg-neutral-50">
+    <li key={p.id} className={`relative grid grid-cols-[40px_minmax(0,1fr)_auto] md:grid-cols-[40px_minmax(0,1.3fr)_minmax(0,1.2fr)_130px_auto] ${TAIL[activeTab] ?? TAIL.default} items-center gap-x-md gap-y-0.5 px-lg py-sm hover:bg-neutral-50`}>
       <span className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${tone(p.role)}`}>{initials(p)}</span>
       <Link href={profile(p)} className="min-w-0 after:absolute after:inset-0 after:content-['']">
-        <span className="block truncate text-sm font-semibold text-neutral-900">{p.role === 'landlord' ? landlordName(p as any) : [(p as any).salutation, displayName(p)].filter(x => x && x !== '—').join(' ') || p.email}</span>
+        <span className="block truncate text-sm font-semibold text-neutral-900">{p.role === 'landlord' ? landlordName(p as any) : (displayName(p) !== '—' ? displayName(p) : p.email)}</span>
         <span className="block truncate text-xs text-neutral-500">{p.email}</span>
       </Link>
       <span className="hidden md:block min-w-0 text-sm text-neutral-700">{detail}</span>
@@ -510,8 +517,8 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     if (!st) return null
     const [label, cls, title] = st.off ? ['Sign-in off', 'bg-red-50 text-red-700', 'The office turned their sign-in off']
       : !st.hasLogin ? ['No login', 'bg-neutral-100 text-neutral-500', 'Not invited yet — ⋯ › Send sign-in invite']
-      : !st.confirmed ? ['Invited', 'bg-amber-50 text-amber-800', st.invitedAt ? `Invited ${new Date(st.invitedAt).toLocaleDateString('en-GB')} — not signed in yet` : 'Not signed in yet']
-      : [`${st.twoStep ? '🔐 ' : ''}Signed in${st.lastSignIn ? ` ${new Date(st.lastSignIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}`, 'bg-green-50 text-green-800', st.twoStep ? 'Has a login, with two-step sign-in' : 'Has a login']
+      : !st.confirmed ? ['Invited', 'bg-amber-50 text-amber-800', st.invitedAt ? `Invited ${new Date(st.invitedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })} — not signed in yet` : 'Not signed in yet']
+      : [`${st.twoStep ? '🔐 ' : ''}Last signed in${st.lastSignIn ? ` ${new Date(st.lastSignIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })}` : ''}`, 'bg-green-50 text-green-800', st.twoStep ? 'Has a login, with two-step sign-in' : 'Has a login']
     return <span className={`hidden lg:inline-block rounded-full px-sm py-0.5 text-[11px] font-semibold ${cls}`} title={title}>{label}</span>
   }
   const AccountMenu = (p: Person) => {
