@@ -62,6 +62,8 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
 
   // the move-in money is worked out alongside the other reads rather than after them
   const packCtxP = loadPackContext(s, tenancyId).catch(e => { console.warn('letting file: move-in money not worked out', e); return null })
+  // alongside the other reads, not after them (24 Oct 2026, speed)
+  const undoP = canUndoTenancy(s, t, today)
   const [landlordQ, holdQ, applicantQ, roomTenQ, account, docsQ, propDocsQ, eventsQ, packsQ, returnsQ] = await Promise.all([
     prop.landlord_id ? s.from('people').select('id, salutation, first_name, last_name, full_name, company, email, phone').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     s.from('holding_deposits').select('*').or(`tenancy_id.eq.${tenancyId}${applicantId ? `,applicant_id.eq.${applicantId}` : ''}`).order('recorded_at'),
@@ -134,7 +136,7 @@ export async function loadLettingFile(s: SupabaseClient, tenancyId: string) {
       outgoing: outgoing ? { id: outgoing.id, name: name(outgoing.people), personId: outgoing.people?.id, endDate: outgoing.end_date } : null,
       incoming: incomingNext ? { id: incomingNext.id, name: name(incomingNext.people), personId: incomingNext.people?.id, startDate: incomingNext.start_date } : null,
       depositReturn: (returnsQ as any).data ?? null,
-      undo: await canUndoTenancy(s, t, today),
+      undo: await undoP,
     },
   }
 }
