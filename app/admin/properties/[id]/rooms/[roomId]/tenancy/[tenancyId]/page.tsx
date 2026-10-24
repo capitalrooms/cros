@@ -17,7 +17,7 @@ export default function TenancyRedirectPage({
   const { tenancyId, id, roomId } = use(params)
 
   useEffect(() => {
-    router.replace(`/admin/lettings/${tenancyId}?from=${encodeURIComponent(`/admin/properties/${id}?tab=units&room=${roomId}`)}`)
+    router.replace(`/admin/lettings/${tenancyId}?from=${encodeURIComponent(`/admin/properties/${id}/rooms/${roomId}`)}`)
   }, [tenancyId, id, roomId, router])
 
   return (

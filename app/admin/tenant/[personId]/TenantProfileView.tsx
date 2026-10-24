@@ -1294,8 +1294,8 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                     >
                       ⚠ Mark on Notice
                     </button>
-                    <a href={`/admin/properties/${currentTenancy.property_id}`} className="px-lg py-sm rounded-lg border border-neutral-200 text-neutral-700 text-sm font-semibold hover:bg-neutral-50 transition">
-                      View property →
+                    <a href={currentTenancy.room_id ? `/admin/properties/${currentTenancy.property_id}/rooms/${currentTenancy.room_id}` : `/admin/properties/${currentTenancy.property_id}`} className="px-lg py-sm rounded-lg border border-neutral-200 text-neutral-700 text-sm font-semibold hover:bg-neutral-50 transition">
+                      Room page →
                     </a>
                     <a href={`/admin/rent-increase/${currentTenancy.id}`} className="px-lg py-sm rounded-lg border border-blue-200 bg-blue-50 text-blue-800 text-sm font-semibold hover:bg-blue-100 transition">
                       📈 Rent review

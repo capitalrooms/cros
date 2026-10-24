@@ -71,15 +71,15 @@ export default function VoidsPage() {
               <section className={card}>
                 <h2 className="border-b border-[#E4E1DB] px-md py-sm text-[11.5px] font-bold uppercase tracking-[0.06em] text-neutral-600">Empty now</h2>
                 {data.emptyNow.length ? data.emptyNow.map(e => (
-                  <div key={e.house + e.room} className="flex justify-between gap-sm border-t border-[#F0EEEA] px-md py-sm text-[13px] first-of-type:border-t-0">
+                  <Link key={e.house + e.room} href={`/admin/properties/${e.houseId}/rooms/${e.roomId}`} className="flex justify-between gap-sm border-t border-[#F0EEEA] px-md py-sm text-[13px] first-of-type:border-t-0 hover:bg-neutral-50">
                     <span>{e.room}, {e.house}</span><span className="text-neutral-500">since {day(e.since)}{e.rent ? ` · ${gbp(e.rent)}/month` : ''}</span>
-                  </div>
+                  </Link>
                 )) : <p className="px-md py-sm text-[13px] text-neutral-500">No rooms empty.</p>}
               </section>
               <section className={`${card} border-amber-300`}>
                 <h2 className="border-b border-amber-200 bg-amber-50 px-md py-sm text-[11.5px] font-bold uppercase tracking-[0.06em] text-amber-800">Records to check · not counted</h2>
                 {data.checks.length ? data.checks.map(c => (
-                  <Link key={c.house + c.room} href={`/admin/properties/${c.houseId}`} className="block border-t border-[#F0EEEA] px-md py-sm text-[13px] first-of-type:border-t-0 hover:bg-neutral-50">
+                  <Link key={c.house + c.room} href={`/admin/properties/${c.houseId}/rooms/${c.roomId}`} className="block border-t border-[#F0EEEA] px-md py-sm text-[13px] first-of-type:border-t-0 hover:bg-neutral-50">
                     <b>{c.room}, {c.house}</b> <span className="text-neutral-600">— {c.why}</span>
                   </Link>
                 )) : <p className="px-md py-sm text-[13px] text-neutral-500">Records and rooms agree.</p>}

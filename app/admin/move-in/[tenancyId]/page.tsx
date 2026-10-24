@@ -248,7 +248,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                           <span className="flex-1">
                             <span className="text-neutral-900">{d.label}</span>
                             {!d.available && <span className="ml-sm rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">Missing</span>}
-                            {d.note && <span className="block text-xs text-neutral-500">{d.note}{!d.available && <> · <Link href={`/admin/properties/${c.property.id}`} className="underline">upload on the property</Link></>}</span>}
+                            {d.note && <span className="block text-xs text-neutral-500">{d.note}{!d.available && <> · <Link href={`/admin/properties/${c.property.id}?tab=documents`} className="underline">upload on the house’s Documents tab</Link></>}</span>}
                           </span>
                           {d.url && d.available && <button type="button" onClick={() => d.url!.startsWith('/') ? window.open(d.url, '_blank') : openStoredFile(d.url!)} className="text-xs font-semibold text-neutral-500 underline">Open</button>}
                         </li>

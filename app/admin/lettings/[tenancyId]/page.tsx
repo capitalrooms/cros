@@ -190,7 +190,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
             <section className="rounded-2xl border border-neutral-200 bg-white p-md">
               <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-500 mb-sm">Go to</h2>
               <div className="flex flex-col gap-xs text-sm">
-                <Link href={`/admin/properties/${file.property.id}?tab=units&room=${file.room.id}`} className="font-semibold text-blue-700 hover:underline">The room on its property</Link>
+                <Link href={`/admin/properties/${file.property.id}/rooms/${file.room.id}`} className="font-semibold text-blue-700 hover:underline">Room page</Link>
                 <Link href={`/admin/move-in/${tenancyId}`} className="font-semibold text-blue-700 hover:underline">Move-in pack</Link>
                 <button type="button" onClick={() => openPdf(`/api/admin/tenancies/${tenancyId}/statement-of-account`)} className="text-left font-semibold text-blue-700 hover:underline">Statement of account (PDF)</button>
                 {file.stage !== 'let_agreed' && file.stage !== 'fell_through' && <Link href={`/admin/rent-increase/${tenancyId}`} className="font-semibold text-blue-700 hover:underline">Rent review</Link>}

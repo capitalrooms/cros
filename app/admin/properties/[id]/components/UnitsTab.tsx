@@ -127,8 +127,8 @@ function statusPill(room: RoomRow) {
 export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRoomId, propertyName, propertyAddress, propertyCode }: UnitsTabProps) {
   // a single let (whole house or flat): one unit, unit wording, no rooms to add (15 Oct 2026)
   const wholeLet = propertyType === 'single_let'
-  // a tenancy's letting file; Back returns to this room on this property
-  const lettingFile = (tenancyId: string) => `/admin/lettings/${tenancyId}?from=${encodeURIComponent(`/admin/properties/${propertyId}?tab=units&room=${selectedRoom?.id ?? ''}`)}`
+  // a tenancy's letting file; Back returns to the room page
+  const lettingFile = (tenancyId: string) => `/admin/lettings/${tenancyId}?from=${encodeURIComponent(selectedRoom?.id ? `/admin/properties/${propertyId}/rooms/${selectedRoom.id}` : `/admin/properties/${propertyId}`)}`
   const router = useRouter()
   const supabase = createClient()
 
