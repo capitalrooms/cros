@@ -204,6 +204,8 @@ export default function TenantDashboard() {
   const [weather, setWeather] = useState<{ temp: number; humidity: number } | null>(null)
   const [showReportSheet, setShowReportSheet] = useState(false)
   const [showOnboarding, setShowOnboarding]   = useState(false)
+  // one pop-up per visit: the welcome tour on the first, the add-to-home-screen prompt on a later one (they used to stack)
+  const [tourThisVisit, setTourThisVisit]     = useState(false)
   const [houseInfoOpen, setHouseInfoOpen] = useState(false)
   const [acc, setAcc] = useState<Set<string>>(new Set())
 
@@ -278,7 +280,7 @@ export default function TenantDashboard() {
         effectiveId = (data.assignment as any)?.id
         // Show onboarding if not yet seen on this device
         try {
-          if (!localStorage.getItem('cros-onboarded-tenant')) setShowOnboarding(true)
+          if (!localStorage.getItem('cros-onboarded-tenant')) { setShowOnboarding(true); setTourThisVisit(true) }
         } catch { /* private mode — skip */ }
       }
 
@@ -549,7 +551,7 @@ export default function TenantDashboard() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
-      <InstallPrompt />
+      {!tourThisVisit && <InstallPrompt />}
       <AppBar />
 
       <main className="mx-auto max-w-lg px-lg pb-2xl">
@@ -591,13 +593,13 @@ export default function TenantDashboard() {
               />
               <Stat
                 label="Next due"
-                value={rentDate ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : '—'}
+                value={rentDate ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
                 sub={rentIn === 0 ? 'today' : rentIn != null ? `in ${rentIn} days` : ''}
               />
               <Stat
                 label="Started"
-                value={tenancy.start_date ? new Date(tenancy.start_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : '—'}
-                sub="rolling · 2 months’ notice"
+                value={tenancy.start_date ? new Date(`${tenancy.start_date.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
+                sub="periodic tenancy · you give 2 months’ notice"
               />
             </div>
           )}
@@ -838,7 +840,7 @@ export default function TenantDashboard() {
                         Mark all read
                       </button>
                     )}
-                    {messages.map((m) => (
+                    {messages.slice(0, 5).map((m) => (
                       <div
                         key={m.id}
                         className={`rounded-xl border p-md ${m.read ? 'border-neutral-100 bg-neutral-50' : 'border-blue-200 bg-blue-50'}`}
@@ -849,7 +851,7 @@ export default function TenantDashboard() {
                         </div>
                         {m.body && <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{m.body}</p>}
                         <p className="mt-sm text-xs text-neutral-400">
-                          {new Date(m.created_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(m.created_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })} at {new Date(m.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
                         </p>
                         {m.link && (
                           <Link href={m.link} className="mt-sm inline-block text-xs font-semibold text-blue-600 hover:underline">
@@ -858,6 +860,9 @@ export default function TenantDashboard() {
                         )}
                       </div>
                     ))}
+                    <Link href="/tenant/inbox" className="block pt-xs text-sm font-semibold text-neutral-900 underline">
+                      {messages.length > 5 ? `See all ${messages.length} in your inbox` : 'Open your inbox'}
+                    </Link>
                   </div>
                 )}
               </Accordion>
@@ -1066,7 +1071,7 @@ function SafetyBadge({ title, expiry }: { title: string; expiry?: string | null 
     <div className={`flex-1 rounded-xl border p-sm text-center ${inDate ? 'border-green-200 bg-green-50' : 'border-neutral-100 bg-neutral-50'}`}>
       <p className="text-xs font-bold text-neutral-700">{title}</p>
       <p className={`text-xs mt-xs ${inDate ? 'text-green-700' : 'text-neutral-400'}`}>
-        {inDate ? `✓ valid to ${new Date(expiry!).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}` : 'On file'}
+        {inDate ? `✓ valid to ${new Date(expiry!).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'On file'}
       </p>
     </div>
   )

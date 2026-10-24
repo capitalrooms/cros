@@ -502,7 +502,7 @@ function NoticeCard({ notice, personId, onResolve, onWithdraw }: { notice: Notic
         {/* Deadline */}
         {isTask && notice.deadline && !isResolved && (
           <p className={`text-xs font-semibold mb-2 ${isOverdue ? 'text-red-600' : 'text-neutral-500'}`}>
-            📅 By {new Date(notice.deadline + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}
+            📅 By {new Date(notice.deadline + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         )}
 
@@ -522,7 +522,7 @@ function NoticeCard({ notice, personId, onResolve, onWithdraw }: { notice: Notic
           <p className="text-xs text-neutral-400">
             {isResolved && notice.resolved_by_person
               ? `✅ Done by ${authorName(notice.resolved_by_person, false)}${notice.resolved_at ? ` · ${timeAgo(notice.resolved_at)}` : ''}`
-              : `${authorName(notice.created_by_person, isHouseReminder, isMaintenance)} · ${new Date(notice.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
+              : `${authorName(notice.created_by_person, isHouseReminder, isMaintenance)} · ${new Date(notice.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
             }
           </p>
           <div className="flex items-center gap-2">

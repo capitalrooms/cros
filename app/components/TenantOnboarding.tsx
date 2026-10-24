@@ -29,9 +29,9 @@ function ScreenDashboard() {
       <div style={{ background: '#171717', padding: '10px 14px 22px' }}>
         <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'rgba(255,255,255,0.35)', marginBottom: 4 }}>Your tenancy</p>
         <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.15, marginBottom: 3 }}>Room 3, 14 Saltwell St</p>
-        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 12 }}>14 Saltwell Street, Newcastle, NE8</p>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 12 }}>14 Saltwell Street, Poplar, London E14</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 10 }}>
-          {[['Rent','£650','per month'],['Next due','1 Oct','in 17 days'],['Started','Oct \'26','contract']].map(([l,v,s]) => (
+          {[['Rent','£650','per month'],['Next due','1 November 2026','in 8 days'],['Started','1 March 2026','periodic']].map(([l,v,s]) => (
             <div key={l}>
               <p style={{ fontSize: 8.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>{l}</p>
               <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', margin: '3px 0 1px' }}>{v}</p>
@@ -55,7 +55,7 @@ function ScreenDashboard() {
           <div style={{ padding: '9px 11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <p style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>📋 Notice Board</p>
-              <p style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>📢 Bin collections move to Friday from Oct</p>
+              <p style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>📢 Bin collections move to Friday from 1 November 2026</p>
             </div>
             <span style={{ color: '#9ca3af', fontSize: 13 }}>›</span>
           </div>
@@ -94,7 +94,7 @@ function ScreenMaintenance() {
           </div>
         </div>
       </div>
-      {[['✅','Bedroom light','Completed · 1 week ago','#f0fdf4'],['🕐','Boiler pressure low','Booked: Tue 6 Oct · 9–12','#eff6ff']].map(([icon,title,sub,bg]) => (
+      {[['✅','Bedroom light','Completed · 1 week ago','#f0fdf4'],['🕐','Boiler pressure low','Booked: Tuesday 3 November 2026 · 9am–12pm','#eff6ff']].map(([icon,title,sub,bg]) => (
         <div key={title as string} style={{ background: '#fff', borderRadius: 12, padding: '9px 12px', border: '1px solid #e5e7eb', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 9 }}>
           <div style={{ width: 28, height: 28, borderRadius: 8, background: bg as string, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{icon}</div>
           <div>
@@ -136,7 +136,7 @@ function ScreenNotices() {
       </div>
       {[
         { bar: '#f59e0b', type: '✅ Task', typeCol: '#d97706', title: 'Check your smoke alarm this month', body: 'Press and hold the test button until it beeps. Takes 30 seconds.', task: true },
-        { bar: '#3b82f6', type: '📢 Announcement', typeCol: '#2563eb', title: 'Bin collections moving to Friday from October', body: 'Newcastle City Council updated the schedule. Bins out by 7am on Fridays.', task: false },
+        { bar: '#3b82f6', type: '📢 Announcement', typeCol: '#2563eb', title: 'Bin collections moving to Friday from 1 November 2026', body: 'Tower Hamlets Council updated the schedule. Bins out by 7am on Fridays.', task: false },
       ].map(n => (
         <div key={n.title} style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb', marginBottom: 7 }}>
           <div style={{ height: 3, background: n.bar }} />

@@ -167,7 +167,7 @@ export default function CleanerExtrasPage() {
           {cleanInfo && (
             <p className="mt-xs text-sm text-neutral-600">
               {cleanInfo.properties?.name} · {cleanInfo.clean_date
-                ? new Date(cleanInfo.clean_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+                ? new Date(cleanInfo.clean_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
                 : 'Upcoming clean'}
             </p>
           )}

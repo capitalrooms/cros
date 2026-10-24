@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { blockAddress, inlineAddress } from '@/lib/formatAddress'
 import { createClient } from '@/lib/supabase'
+import { currentTenancy } from '@/lib/tenancy'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
@@ -41,13 +42,8 @@ export default function GiveNoticePage() {
       setPersonId(pid)
 
       const supabase = createClient()
-      const { data: t } = await supabase
-        .from('tenancies')
-        .select('id, person_id, start_date, end_date, notice_received_date, rent_amount, rescind_requested_at, rooms(name), properties(name, address, notice_period_months)')
-        .or(`person_id.eq.${pid},co_tenant_id.eq.${pid}`)   // joint tenants too
-        .is('notice_received_date', null)
-        .or(`end_date.is.null,end_date.gte.${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}`)
-        .maybeSingle()
+      const current = await currentTenancy(pid, 'id, person_id, start_date, end_date, notice_received_date, rent_amount, rescind_requested_at, rooms(name), properties(name, address, notice_period_months)')
+      const t = current && !current.notice_received_date ? current : null   // notice already given: nothing to give
 
       setTenancy(t as Tenancy | null)
       setLoading(false)

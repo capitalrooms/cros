@@ -26,22 +26,29 @@ export interface ActiveTenancy {
  * "mark inactive" step for anyone to forget.
  */
 export async function getActiveTenancy(personId: string): Promise<ActiveTenancy | null> {
-  if (!personId) return null
-  const supabase = createClient()
-  const today = new Date().toISOString().split('T')[0]
+  return currentTenancy<ActiveTenancy>(personId,
+    'id, property_id, room_id, start_date, end_date, notice_received_date, rent_amount, rent_due_day, properties(name, address), rooms(name)')
+}
 
-  const { data } = await supabase
+/**
+ * The same current tenancy with the columns a screen needs. Every tenant screen uses this (24 Oct 2026) — they each
+ * had their own lookup, and most broke on ordinary tenancies: smart repair reporting only looked at tenancies WITH an
+ * end date (so never a periodic one), early move-out only at ones WITHOUT (so never after notice), important notes
+ * and rescind notice failed for anyone with an old tenancy on record.
+ */
+export async function currentTenancy<T = any>(personId: string | null | undefined, select: string): Promise<T | null> {
+  if (!personId) return null
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const { data } = await createClient()
     .from('tenancies')
-    .select(
-      'id, property_id, room_id, start_date, end_date, notice_received_date, rent_amount, rent_due_day, properties(name, address), rooms(name)'
-    )
+    .select(select)
     .or(`person_id.eq.${personId},co_tenant_id.eq.${personId}`)   // joint tenants too
+    .is('let_cancelled_at', null)
     .lte('start_date', today)
     // Open-ended, or not yet ended.
     .or(`end_date.is.null,end_date.gte.${today}`)
     .order('start_date', { ascending: false })
     .limit(1)
     .maybeSingle()
-
-  return (data as any) ?? null
+  return (data as T) ?? null
 }

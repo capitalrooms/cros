@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase';
+import { currentTenancy } from '@/lib/tenancy';
 import AppBar from '@/components/AppBar';
 import BackButton from '@/app/components/BackButton';
 
@@ -40,13 +41,7 @@ export default function SmartTroubleshootingPage() {
       const data = await getCurrentUser();
       if (!data || data.assignment?.role !== 'tenant') { router.push('/login'); return; }
       setPersonId(data.assignment?.id || '');
-      const supabase = createClient();
-      const { data: tenancy } = await supabase
-        .from('tenancies').select('id, property_id, room_id')
-        .or(`person_id.eq.${data.assignment?.id},co_tenant_id.eq.${data.assignment?.id}`)   // joint tenants too
-        .not('end_date', 'is', null)
-        .or('end_date.gte.' + new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
-        .single();
+      const tenancy = await currentTenancy<{ id: string; property_id: string; room_id: string | null }>(data.assignment?.id, 'id, property_id, room_id');
       if (tenancy) {
         setTenancyId(tenancy.id);
         setPropertyId(tenancy.property_id);

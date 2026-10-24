@@ -84,12 +84,8 @@ export default function InstallPrompt() {
 
         {/* Header */}
         <div className="flex items-center gap-md mb-lg">
-          <div className="w-12 h-12 rounded-2xl bg-black border border-white/10 flex items-center justify-center flex-shrink-0"
-            style={{ boxShadow: '0 0 0 1px rgba(196,146,42,.3)' }}>
-            <span className="text-[10px] font-black text-white tracking-tight leading-tight text-center">
-              CAP<br /><span style={{ color: '#C4922A' }}>ITAL</span>
-            </span>
-          </div>
+          {/* the real app icon — the one that lands on their home screen (never typed lettering) */}
+          <img src="/icon-192.png" alt="" className="w-12 h-12 rounded-2xl border border-white/10 flex-shrink-0" style={{ boxShadow: '0 0 0 1px rgba(196,146,42,.3)' }} />
           <div>
             <p className="text-white font-bold text-base leading-tight">Add to your home screen</p>
             <p className="text-white/40 text-xs mt-0.5">Access Capital Rooms in two taps — no browser needed</p>
