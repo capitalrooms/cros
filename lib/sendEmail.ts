@@ -141,6 +141,13 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
+    // every email is logged against its recipients (migration 242) so a tenant's or room's page can show what went
+    if (!msg.noCopy) {
+      const providerId = res.ok ? await res.clone().json().then((j: any) => j?.id ?? null).catch(() => null) : null
+      const why = res.ok ? null : await res.clone().json().then((j: any) => j?.message || j?.error || `refused (${res.status})`).catch(() => `refused (${res.status})`)
+      const { logMessage } = await import('@/lib/messageLog')
+      await logMessage({ channel: 'email', to: payload.to as string[], cc: msg.cc, subject: String(payload.subject), html: msg.html, text: msg.text, providerId, ok: res.ok, error: why, sentBy: String(payload.from ?? '') })
+    }
     if (!res.ok) {
       console.error('[deliverEmail] email service refused:', res.status, String(msg.subject).slice(0, 80))
       // tell the office straight away — a refused email otherwise only shows up in the server logs
@@ -152,6 +159,7 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
     return res
   } catch (err: any) {
     console.error('[deliverEmail] could not reach the email service:', err?.message)
+    if (!msg.noCopy) await import('@/lib/messageLog').then(m => m.logMessage({ channel: 'email', to: payload.to as string[], cc: msg.cc, subject: String(payload.subject), html: msg.html, ok: false, error: err?.message ?? 'network error', sentBy: String(payload.from ?? '') })).catch(() => {})
     if (!msg.noCopy) await tellOfficeNotSent(payload.to as string[], String(msg.subject), `CROS couldn’t reach the email service (${err?.message ?? 'network error'}).`)
     return Response.json({ message: err?.message ?? 'Could not reach the email service' }, { status: 502 })
   }

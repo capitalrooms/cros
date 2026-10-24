@@ -83,7 +83,21 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
     finally { setBusy('') }
   }
 
-  async function previewDoc(key: 'agreement' | 'check_in') {
+  // a sent pack's documents as one ZIP — for Adobe Sign (24 Oct 2026)
+  async function download(p: Pack, set: 'sign' | 'all') {
+    setBusy(`dl-${p.id}-${set}`); setError('')
+    try {
+      const r = await adminFetch(`/api/admin/move-in/packs/${p.id}/download?set=${set}`)
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Could not download the documents')
+      const name = decodeURIComponent((r.headers.get('content-disposition') ?? '').match(/filename\*=UTF-8''([^;]+)/)?.[1] ?? '') || (set === 'sign' ? 'For signing.zip' : 'Move-in pack.zip')
+      const url = URL.createObjectURL(await r.blob())
+      const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not download the documents') }
+    finally { setBusy('') }
+  }
+
+  async function previewDoc(key: 'agreement' | 'check_in' | 'prescribed_info') {
     if (dirty) return setError('Save the figures first, so the preview uses them.')
     setBusy(key); setError('')
     const win = window.open('', '_blank')
@@ -211,6 +225,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
               <button onClick={save} disabled={!dirty || busy === 'save'} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:bg-neutral-300">{busy === 'save' ? 'Saving…' : dirty ? 'Save figures' : 'Saved'}</button>
               <button onClick={() => previewDoc('agreement')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'agreement' ? 'Building…' : 'Preview agreement'}</button>
               <button onClick={() => previewDoc('check_in')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'check_in' ? 'Building…' : 'Preview check-in balance'}</button>
+              {c.documents.some(d => d.key === 'prescribed_info') && <button onClick={() => previewDoc('prescribed_info')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'prescribed_info' ? 'Building…' : 'Preview deposit prescribed information'}</button>}
               <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={parking} onChange={e => setParking(e.target.checked)} />Include parking clause</label>
             </div>
             {c.warnings.length > 0 && <ul className="list-disc space-y-xs pl-lg text-sm text-amber-800">{c.warnings.map(w => <li key={w}>{w}</li>)}</ul>}
@@ -296,6 +311,13 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                     </p>
                     {reminders.length > 0 && <p className="text-xs text-neutral-500">Reminder{reminders.length > 1 ? 's' : ''} sent {reminders.map(e => when(e.at)).join(', ')}</p>}
                     {p.tenant_questions && <p className="mt-xs rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900 whitespace-pre-line">Questions: {p.tenant_questions}</p>}
+                    {p.status !== 'withdrawn' && !sentTo?.startsWith('test:') && (
+                      <div className="mt-sm flex flex-wrap items-center gap-sm rounded-xl bg-neutral-50 px-md py-sm">
+                        <span className="text-xs font-semibold text-neutral-700">{p.status === 'confirmed' ? 'Ready to sign — download the documents for Adobe Sign:' : 'For Adobe Sign, once they’re ready to sign:'}</span>
+                        <button onClick={() => download(p, 'sign')} disabled={!!busy} className={`rounded-lg px-md py-xs text-xs font-bold disabled:opacity-40 ${p.status === 'confirmed' ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-900'}`}>{busy === `dl-${p.id}-sign` ? 'Preparing…' : 'Download for signing (ZIP)'}</button>
+                        <button onClick={() => download(p, 'all')} disabled={!!busy} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-bold text-neutral-900 disabled:opacity-40">{busy === `dl-${p.id}-all` ? 'Preparing…' : 'Whole pack (ZIP)'}</button>
+                      </div>
+                    )}
                     {p.status !== 'withdrawn' && (
                       <div className="mt-xs flex flex-wrap gap-sm">
                         <button onClick={() => navigator.clipboard?.writeText(p.link).then(() => setNotice('Link copied.'))} className="text-xs font-bold text-neutral-700 underline">Copy link</button>

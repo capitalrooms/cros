@@ -295,7 +295,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
             <label className={lbl}>Virtual tour link<input className={field} value={l.virtual_tour_url ?? ''} onChange={e => set('virtual_tour_url', e.target.value)} placeholder="https://…" /></label>
             <label className={lbl}>Floor plan link<input className={field} value={l.floorplan_url ?? ''} onChange={e => set('floorplan_url', e.target.value)} placeholder="https://…" /></label>
           </div>
-          <Link href={`/admin/properties/${l.property_id}/rooms/${roomId}`} className="text-xs font-semibold underline">Upload photos or video to the room</Link>
+          <Link href={`/admin/properties/${l.property_id}/rooms/${roomId}/edit`} className="text-xs font-semibold underline">Upload photos or video to the room</Link>
         </Section>
 
         <Section title="The property" tag="Material info · Part B">

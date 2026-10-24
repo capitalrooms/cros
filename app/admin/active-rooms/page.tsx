@@ -187,7 +187,7 @@ export default function AllUnitsPage() {
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
       <PageHero
         title="All Units"
-        subtitle={<>{real.length} house{real.length === 1 ? '' : 's'} · {rooms.length} rooms · every name opens its letting file{letOnlyCount > 0 && <> · <a href="/admin/let-only-properties" className="underline">{letOnlyCount} let-only house{letOnlyCount === 1 ? '' : 's'} →</a></>}</>}
+        subtitle={<>{real.length} house{real.length === 1 ? '' : 's'} · {rooms.length} rooms · tap a room for its page · a name opens the letting file{letOnlyCount > 0 && <> · <a href="/admin/let-only-properties" className="underline">{letOnlyCount} let-only house{letOnlyCount === 1 ? '' : 's'} →</a></>}</>}
         stats={[
           { label: 'Rooms let', value: `${counts.let}/${rooms.length}` },
           { label: 'Empty now', value: counts.empty, tone: 'good' },
@@ -238,7 +238,7 @@ export default function AllUnitsPage() {
               <ul className="divide-y divide-neutral-100 md:hidden">
                 {h.rows.map(r => (
                   <li key={r.id}>
-                    <Link href={r.shown ? `/admin/lettings/${r.shown.tenancyId}?from=/admin/active-rooms` : `/admin/properties/${h.id}?tab=units&room=${r.id}`} className="block px-md py-sm active:bg-neutral-50">
+                    <Link href={`/admin/properties/${h.id}/rooms/${r.id}`} className="block px-md py-sm active:bg-neutral-50">
                       <div className="flex items-center justify-between gap-sm">
                         <span className="text-sm"><b className="text-neutral-900">{r.name}</b> <span role="link" tabIndex={0} onClick={e => { e.preventDefault(); e.stopPropagation(); router.push(`/lettings/listing/${r.id}?from=/admin/active-rooms`) }} className="ml-xs rounded border border-neutral-300 px-1 py-px text-[10.5px] font-semibold text-neutral-600">Listing</span></span>
                         <span className={`shrink-0 rounded-full px-sm py-0.5 text-[11px] font-semibold ${STATE[r.state].cls}`}>{STATE[r.state].label}</span>
@@ -265,7 +265,7 @@ export default function AllUnitsPage() {
                   </thead>
                   <tbody>
                     {h.rows.map(r => (
-                      <tr key={r.id} onClick={() => router.push(`/admin/properties/${h.id}?tab=units&room=${r.id}`)} className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50">
+                      <tr key={r.id} onClick={() => router.push(`/admin/properties/${h.id}/rooms/${r.id}`)} className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50">
                         <td className="whitespace-nowrap px-lg py-sm"><b className="text-neutral-900">{r.name}</b>
                           {/* the room's listing — photos, details, share link (17 Oct 2026) */}
                           <Link href={`/lettings/listing/${r.id}?from=/admin/active-rooms`} onClick={e => e.stopPropagation()} className="ml-sm rounded border border-neutral-300 px-1 py-px text-[10.5px] font-semibold text-neutral-600 hover:bg-white">Listing</Link></td>

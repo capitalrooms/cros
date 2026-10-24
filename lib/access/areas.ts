@@ -22,7 +22,7 @@ export const AREAS: Area[] = [
   { key: 'properties', label: 'Properties', hint: 'All Units, property pages, adding properties',
     pages: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties', '/admin/property-documents', '/admin/property-notes'],
     // (removing a property is administrators only — not in any area)
-    api: ['/api/admin/property-tasks', '/api/admin/house-docs', '/api/admin/hmo-notice', '/api/admin/files',
+    api: ['/api/admin/property-tasks', '/api/admin/rooms', '/api/admin/house-docs', '/api/admin/hmo-notice', '/api/admin/files',
       '/api/admin/ensure-storage', '/api/admin/create-property', '/api/admin/delete-photo', '/api/admin/house-info-extract', '/api/admin/property-insights',
       '/api/admin/property-policies', '/api/admin/upload-photo', '/api/admin/key-safe'],
     // the property page shows finance dates, compliance history, the landlord's account, notices and who lives there
