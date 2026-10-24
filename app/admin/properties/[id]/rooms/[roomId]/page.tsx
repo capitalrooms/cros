@@ -87,7 +87,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
       <section className="bg-[#181614] text-[#F6F3EC]">
         <div className="mx-auto max-w-6xl px-lg pt-lg">
           <div className="flex flex-wrap items-end justify-between gap-md">
-            <div className="flex min-w-0 flex-1 items-center gap-md md:items-end">
+            <div className="flex min-w-0 flex-[1_1_420px] items-center gap-md md:items-end">
               <StoredImg src={photo} alt={`${o.room.name} photo`} className="h-16 w-16 flex-none rounded-xl object-cover md:h-[90px] md:w-[120px]" />
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#F6F3EC]/55">{facts}</p>
@@ -235,15 +235,21 @@ function NeedsYou({ needs, today, reload }: { needs: Need[]; today: string; relo
           {needs.map(n => (
             <li key={n.key} className="flex items-stretch gap-md border-b border-neutral-100 pr-lg last:border-b-0">
               <span className={`w-1 flex-none rounded-r ${LEVEL[n.level].bar}`} />
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-lg gap-y-xs py-md">
-                <span className="w-[120px] flex-none text-[10.5px] font-black uppercase tracking-[0.08em] text-neutral-500">{n.category}</span>
-                <span className="min-w-0 flex-[1_1_300px]"><b className="block text-[14.5px] text-neutral-900">{n.title}</b><span className="block text-[13px] leading-snug text-neutral-600">{n.detail}</span></span>
-                <span className={`w-[170px] flex-none text-xs font-bold ${LEVEL[n.level].text}`}>{n.due}</span>
+              {/* phone: category over the title, two lines of detail, deadline and a small button; computer: columns */}
+              <div className="flex min-w-0 flex-1 items-center gap-x-lg py-sm sm:flex-wrap sm:gap-y-xs sm:py-md">
+                <span className="hidden w-[120px] flex-none text-[10.5px] font-black uppercase tracking-[0.08em] text-neutral-500 sm:block">{n.category}</span>
+                <span className="min-w-0 flex-1 sm:flex-[1_1_300px]">
+                  <span className="block text-[10px] font-black uppercase tracking-[0.08em] text-neutral-400 sm:hidden">{n.category}</span>
+                  <b className="block text-[14px] leading-tight text-neutral-900 sm:text-[14.5px]">{n.title}</b>
+                  <span className="line-clamp-2 text-[12.5px] leading-snug text-neutral-600 sm:line-clamp-none sm:text-[13px]">{n.detail}</span>
+                  <span className={`mt-0.5 block text-[11.5px] font-bold sm:hidden ${LEVEL[n.level].text}`}>{n.due}</span>
+                </span>
+                <span className={`hidden w-[170px] flex-none text-xs font-bold sm:block ${LEVEL[n.level].text}`}>{n.due}</span>
                 {n.op
-                  ? <button type="button" disabled={busy === n.key} onClick={() => run(n)} className={`${btnDark} w-full sm:w-[190px]`}>{busy === n.key ? 'Working…' : n.action}</button>
+                  ? <button type="button" disabled={busy === n.key} onClick={() => run(n)} className={`${btnDark} max-w-[124px] flex-none px-sm text-center text-xs leading-tight sm:w-[190px] sm:max-w-none sm:px-md sm:text-sm`}>{busy === n.key ? 'Working…' : n.action}</button>
                   : n.href?.startsWith('#')
-                    ? <a href={n.href} className={`${n.level === 'urgent' ? btnDark : btnLight} w-full sm:w-[190px]`}>{n.action}</a>
-                    : <Link href={n.href ?? '#'} className={`${n.level === 'urgent' ? btnDark : btnLight} w-full sm:w-[190px]`}>{n.action}</Link>}
+                    ? <a href={n.href} className={`${n.level === 'urgent' ? btnDark : btnLight} max-w-[124px] flex-none px-sm text-center text-xs leading-tight sm:w-[190px] sm:max-w-none sm:px-md sm:text-sm`}>{n.action}</a>
+                    : <Link href={n.href ?? '#'} className={`${n.level === 'urgent' ? btnDark : btnLight} max-w-[124px] flex-none px-sm text-center text-xs leading-tight sm:w-[190px] sm:max-w-none sm:px-md sm:text-sm`}>{n.action}</Link>}
               </div>
             </li>
           ))}
@@ -338,7 +344,7 @@ function Rent({ o, wide }: { o: RoomOverview; wide: boolean }) {
 function Messages({ o, wide, composeRef, roomId, reload }: { o: RoomOverview; wide: boolean; composeRef: React.RefObject<HTMLTextAreaElement>; roomId: string; reload: () => Promise<void> }) {
   type F = 'all' | 'current' | 'expired' | 'applicant' | 'mail' | 'office' | 'money'
   const [filter, setFilter] = useState<F>('all')
-  const [shown, setShown] = useState(15)
+  const [shown, setShown] = useState(wide ? 15 : 5)
   const people = useMemo(() => [
     ...(o.current ? [{ id: o.current.tenant.id, name: o.current.tenant.name, email: o.current.tenant.email, phone: o.current.tenant.phone }] : []),
     ...(o.current?.jointTenant ? [{ id: o.current.jointTenant.id, name: o.current.jointTenant.name, email: o.current.jointTenant.email, phone: o.current.jointTenant.phone }] : []),
@@ -409,7 +415,7 @@ function Messages({ o, wide, composeRef, roomId, reload }: { o: RoomOverview; wi
         {result && <p className={`rounded-lg px-md py-sm text-sm font-semibold ${result.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>{result.text}</p>}
         {!o.messagesLogged && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-900">Emails and texts appear here once the message log (migration 242) has been run.</p>}
         <div role="group" aria-label="Show" className="-mx-lg flex gap-xs overflow-x-auto px-lg pb-xs" style={{ scrollbarWidth: 'none' }}>
-          {FILTERS.map(([k, label]) => <button key={k} type="button" onClick={() => { setFilter(k); setShown(15) }} className={`flex-none rounded-full px-sm py-1 text-xs font-bold ${filter === k ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'}`}>{label}{k === 'all' ? ` · ${o.timeline.length}` : ''}</button>)}
+          {FILTERS.map(([k, label]) => <button key={k} type="button" onClick={() => { setFilter(k); setShown(wide ? 15 : 5) }} className={`flex-none rounded-full px-sm py-1 text-xs font-bold ${filter === k ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'}`}>{label}{k === 'all' ? ` · ${o.timeline.length}` : ''}</button>)}
         </div>
       </div>
       {visible.length === 0 ? <p className="px-lg pb-md text-sm text-neutral-500">Nothing here yet.</p> : (
@@ -461,7 +467,7 @@ function Relet({ o, wide }: { o: RoomOverview; wide: boolean }) {
             <p className="text-[10.5px] font-black uppercase tracking-[0.1em] text-blue-900">Incoming tenancy · not yet agreed</p>
             <div className="flex justify-between gap-sm"><b>{lead.name}{!lead.hasTitle && <span className="text-xs font-bold text-amber-800"> · title not recorded</span>}</b>{lead.offerRent != null && <span className="text-xs font-bold text-blue-900">{gbp(lead.offerRent)} offered</span>}</div>
             <div className="grid grid-cols-6 gap-[3px]" aria-label={`Stage: ${lead.stage.replace(/_/g, ' ')}`}>{APPLICANT_STEPS.map((s, i) => <span key={s} className={`h-1.5 rounded ${i <= leadStep ? 'bg-blue-700' : 'bg-slate-300'}`} />)}</div>
-            <p className="text-xs text-neutral-600">Applied {full(lead.applied)}{lead.offerSentAt ? ` · offer sent ${full(lead.offerSentAt)}` : ''} · {lead.stage.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-neutral-600">Applied {full(lead.applied)}{lead.offerSentAt ? ` · offer sent ${full(lead.offerSentAt)}` : ''}{lead.stage !== 'offer_sent' || !lead.offerSentAt ? ` · ${lead.stage.replace(/_/g, ' ')}` : ' · not reserved yet'}</p>
             <div className="flex flex-wrap gap-sm"><Link href="/admin/applicants" className={btnDark}>Open applicant</Link></div>
             {o.applicants.length > 1 && <p className="text-xs text-neutral-600">{o.applicants.length - 1} more applicant{o.applicants.length === 2 ? '' : 's'} for this room: {o.applicants.filter(a => a.id !== lead.id).map(a => a.name).join(', ')}</p>}
           </div>
@@ -501,16 +507,17 @@ function Check({ done, label, href, action }: { done: boolean; label: string; hr
 function TheRoom({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; propertyId: string }) {
   const r = o.room
   const d: any = r.detected ?? {}
+  const cap = (v: unknown) => { const t = String(v ?? ''); return t ? t[0].toUpperCase() + t.slice(1) : t }
   const facts: [string, React.ReactNode][] = [
     ['Unit code', r.unitCode ?? '—'],
     ['Type', r.type ?? '—'],
     ['Size', r.size ?? <span className="text-amber-800">Not measured</span>],
     ['Bathroom', r.ensuite ? 'En suite' : r.sharedBathroom === false ? '—' : 'Shared'],
     ...(r.location ? [['Location', r.location] as [string, React.ReactNode]] : []),
-    ...(d.flooring ? [['Floor', d.flooring] as [string, React.ReactNode]] : []),
-    ...(d.window_type || d.natural_light ? [['Window', [d.window_type, d.natural_light].filter(Boolean).join(', ')] as [string, React.ReactNode]] : []),
-    ...(r.furnishings || d.wardrobe ? [['Furniture', r.furnishings ?? d.wardrobe] as [string, React.ReactNode]] : []),
-    ...(Array.isArray(d.extras) && d.extras.length ? [['Extras', d.extras.join(', ')] as [string, React.ReactNode]] : []),
+    ...(d.flooring ? [['Floor', cap(d.flooring)] as [string, React.ReactNode]] : []),
+    ...(d.window_type || d.natural_light ? [['Window', cap([d.window_type, d.natural_light].filter(Boolean).join(', '))] as [string, React.ReactNode]] : []),
+    ...(r.furnishings || d.wardrobe ? [['Furniture', cap(r.furnishings ?? d.wardrobe)] as [string, React.ReactNode]] : []),
+    ...(Array.isArray(d.extras) && d.extras.length ? [['Extras', cap(d.extras.join(', '))] as [string, React.ReactNode]] : []),
     ['Asking rent', r.askingRent != null ? `${gbp(r.askingRent)} per month` : 'Not set'],
   ]
   return (
@@ -547,7 +554,7 @@ function Repairs({ o, wide }: { o: RoomOverview; wide: boolean }) {
 
 function Safety({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; propertyId: string }) {
   const today = o.today
-  const last = o.safety.checks.find(c => c.answered)
+  const last = o.safety.checks.find((c: { answered: string | null }) => c.answered)
   return (
     <Section title="Safety" wide={wide} summary={`${o.safety.certs.every((c: { expiry: string }) => c.expiry >= today) ? 'House certificates in date' : 'A house certificate has expired'} · ${last ? `last monthly check ${full(last.answered)}` : 'no monthly checks yet'}`}>
       <div className="space-y-sm px-lg py-md text-sm">
