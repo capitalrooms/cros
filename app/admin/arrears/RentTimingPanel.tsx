@@ -22,7 +22,10 @@ export default function RentTimingPanel() {
 
   useEffect(() => {
     setData(null); setNote(null)
-    adminFetch(`/api/admin/rent-reminders?month=${month}`).then(r => r.json()).then(d => {
+    adminFetch(`/api/admin/rent-reminders?month=${month}`).then(async r => {
+      const d = await r.json().catch(() => ({}))
+      // a refused request (e.g. signed out) is an error to show, never data to draw — it crashed the Arrears screen
+      if (!r.ok || !Array.isArray(d.rows)) { setData({ rows: [], collecting: true, from: '', previews: {} }); setNote({ ok: false, text: d.error ?? 'Rent timing couldn’t be loaded — sign in again, or try later.' }); return }
       setData(d)
       // late payers ticked; unpaid ones left for you to choose
       setPicked(new Set(((d.rows ?? []) as RentTiming[]).filter(r => r.state === 'late').map(r => r.tenancyId)))
@@ -58,7 +61,7 @@ export default function RentTimingPanel() {
       </div>
 
       {!data ? <p className="text-sm text-neutral-400">Loading…</p>
-        : !data.collecting ? <p className="text-sm text-neutral-500">{monthName(month)} is in the import period — CROS collects rent from {monthName(data.from.slice(0, 7))}, so timing starts then.</p>
+        : !data.collecting ? <p className="text-sm text-neutral-500">{monthName(month)} is in the import period — CROS collects rent from {monthName((data.from || month).slice(0, 7))}, so timing starts then.</p>
         : !rows.length ? <p className="text-sm text-neutral-500">No rent charges for {monthName(month)} yet — they’re raised on the 1st.</p>
         : <>
           <div className="mb-md grid grid-cols-3 gap-sm">

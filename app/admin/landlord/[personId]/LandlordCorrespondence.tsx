@@ -20,9 +20,14 @@ export default function LandlordCorrespondence({ personId }: { personId: string 
   const [pref, setPref] = useState('app_and_email')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [kind, setKind] = useState('All')
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    adminFetch(`/api/admin/landlords/${personId}/correspondence`).then(r => r.json()).then(d => { setData(d); setCc(d.cc ?? []); setPref(d.contactPref ?? 'app_and_email') })
+    adminFetch(`/api/admin/landlords/${personId}/correspondence`).then(async r => {
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !Array.isArray(d.items)) { setLoadError(d.error ?? 'Correspondence couldn’t be loaded — sign in again, or try later.'); return }
+      setData(d); setCc(d.cc ?? []); setPref(d.contactPref ?? 'app_and_email')
+    }).catch(() => setLoadError('Correspondence couldn’t be loaded — check the connection.'))
   }, [personId])
 
   async function save(patch: Record<string, unknown>) {
@@ -32,6 +37,7 @@ export default function LandlordCorrespondence({ personId }: { personId: string 
     setMsg(r.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: d.error ?? 'Not saved' })
   }
 
+  if (loadError) return <p className="text-sm font-semibold text-red-700">{loadError}</p>
   if (!data) return <p className="text-sm text-neutral-400">Loading…</p>
   const kinds = ['All', ...new Set(data.items.map(i => i.kind))]
   const shown = data.items.filter(i => kind === 'All' || i.kind === kind)
