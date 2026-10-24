@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
 import { displayName } from '@/lib/people'
 import { firstRentPayment } from '@/lib/tenancy/firstRent'
+import { fullDatesIn } from '@/lib/fullDates'
 
 type Patch = (body: Record<string, unknown>) => Promise<void>
 
@@ -413,7 +414,7 @@ export function TermsTab({ file, patch }: { file: LettingFile; patch: Patch }) {
     ['First payment', (() => {
       const fr = t.start_date && Number(t.rent_amount) > 0 ? firstRentPayment(t.start_date, Number(t.rent_amount), Number(t.rent_due_day) || 1) : null
       if (!fr) return '—'
-      const dd = (x: Date) => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      const dd = (x: Date) => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
       return fr.full ? `Full month — ${gbp(fr.amount)} for ${dd(fr.from)} – ${dd(fr.to)}` : `Pro rata — ${gbp(fr.amount)} for ${fr.days} days (${dd(fr.from)} – ${dd(fr.to)}); set the rent due day to the start day for a full first month`
     })()],
   ]
@@ -832,7 +833,7 @@ export function activityItems(file: LettingFile) {
   }
   if (file.applicant?.submitted_at) items.push({ at: file.applicant.submitted_at, text: 'Application received' })
   items.sort((a, b) => b.at.localeCompare(a.at))
-  return items
+  return items.map(i => ({ ...i, text: fullDatesIn(i.text) }))   // older notes were written with short dates
 }
 
 export function ActivityTab({ file }: { file: LettingFile }) {

@@ -14,6 +14,7 @@ import { rentChargesForTenancies } from '@/lib/rentCharges'
 import { downloadPdf, adminFetch } from '@/lib/adminFetch'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import { docTypeLabel } from '@/lib/documents/types'
+import { fullDatesIn } from '@/lib/fullDates'
 import DepositReturnPanel from '@/app/components/DepositReturnPanel'
 import TenancyFeeEditor from '@/app/components/TenancyFeeEditor'
 
@@ -592,9 +593,9 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
                       <tr key={p.id}>
                         <td className="px-lg py-sm text-neutral-900">{period}</td>
                         <td className="px-lg py-sm text-neutral-400 text-xs">{s?.statement_reference || '—'}</td>
-                        <td className="px-lg py-sm text-right font-semibold text-neutral-900">£{Number(p.rent_income).toLocaleString()}</td>
-                        <td className="px-lg py-sm text-right text-neutral-500">£{Number(p.management_fee).toLocaleString()}</td>
-                        <td className="px-lg py-sm text-right font-semibold text-neutral-900">£{Number(p.net_to_landlord).toLocaleString()}</td>
+                        <td className="px-lg py-sm text-right font-semibold text-neutral-900">£{Number(p.rent_income).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-lg py-sm text-right text-neutral-500">£{Number(p.management_fee).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td className="px-lg py-sm text-right font-semibold text-neutral-900">£{Number(p.net_to_landlord).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       </tr>
                     )
                   })}
@@ -602,9 +603,9 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
                 <tfoot>
                   <tr className="bg-neutral-50 border-t-2 border-neutral-200">
                     <td className="px-lg py-sm font-semibold text-neutral-700" colSpan={2}>Total</td>
-                    <td className="px-lg py-sm text-right font-semibold text-neutral-900">£{totalReceived.toLocaleString()}</td>
-                    <td className="px-lg py-sm text-right text-neutral-500">£{totalFee.toLocaleString()}</td>
-                    <td className="px-lg py-sm text-right font-semibold text-neutral-900">£{totalNet.toLocaleString()}</td>
+                    <td className="px-lg py-sm text-right font-semibold text-neutral-900">£{totalReceived.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-lg py-sm text-right text-neutral-500">£{totalFee.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-lg py-sm text-right font-semibold text-neutral-900">£{totalNet.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -631,7 +632,14 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
                 manually_paid: 'Payment recorded',
                 amount_due_edited: 'Amount due edited',
                 voided: 'Payment voided',
+                promoted_overdue: 'Marked overdue',
+                csv_matched: 'Matched to the bank',
+                manual_allocated: 'Payment allocated',
+                fuzzy_confirmed: 'Bank match confirmed',
               }
+              // the change in words, not the raw record (24 Oct 2026)
+              const money = (v: unknown) => `£${Number(v).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              const said = (v: any) => !v || typeof v !== 'object' ? '' : [v.status ? String(v.status).replace(/_/g, ' ') : '', v.amount_received != null ? `${money(v.amount_received)} received` : '', v.amount_due != null ? `${money(v.amount_due)} due` : '', v.this_payment != null ? `this payment ${money(v.this_payment)}` : ''].filter(Boolean).join(', ')
               const actionColour: Record<string, string> = {
                 manually_paid: 'bg-green-100 text-green-800 border-green-200',
                 amount_due_edited: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -650,10 +658,10 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
                       </span>
                       <span className="text-xs text-neutral-400">{when} · {performer}</span>
                     </div>
-                    {entry.note && <p className="text-xs text-neutral-500 mt-xs">{entry.note}</p>}
+                    {entry.note && <p className="text-xs text-neutral-500 mt-xs">{fullDatesIn(entry.note)}</p>}
                     {entry.old_value && entry.new_value && (
-                      <p className="text-xs text-neutral-400 mt-xs font-mono">
-                        {JSON.stringify(entry.old_value)} → {JSON.stringify(entry.new_value)}
+                      <p className="text-xs text-neutral-500 mt-xs">
+                        {[said(entry.old_value), said(entry.new_value)].filter(Boolean).join(' → ')}
                       </p>
                     )}
                   </div>
@@ -1119,7 +1127,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                   <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
                     <div className="border-b border-neutral-100 px-xl py-lg flex items-center justify-between">
                       <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Current tenancy</p>
-                      <span className="text-xs font-semibold px-sm py-xs rounded-full bg-green-100 text-green-800 border border-green-200">Active</span>
+                      {t.end_date || t.notice_received_date ? <span className="text-xs font-semibold px-sm py-xs rounded-full bg-amber-100 text-amber-900 border border-amber-200">Notice received</span> : <span className="text-xs font-semibold px-sm py-xs rounded-full bg-green-100 text-green-800 border border-green-200">Let</span>}
                     </div>
 
                     {/* Block 1 — location & term */}
@@ -1128,9 +1136,9 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-lg text-sm">
                         <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Property</p><p className="font-semibold text-neutral-900">{t.property?.address || t.property?.name || '—'}</p></div>
                         <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Room</p><p className="font-semibold text-neutral-900">{t.room?.name || '—'}</p></div>
-                        <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Start date</p><p className="font-semibold text-neutral-900">{fmt(t.start_date)}</p></div>
-                        <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">End date</p><p className="font-semibold text-neutral-900">{t.end_date ? fmt(t.end_date) : 'Rolling (Assured Periodic Tenancy)'}</p></div>
-                        {t.notice_received_date && <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Notice given</p><p className="font-semibold text-amber-700">{fmt(t.notice_received_date)}</p></div>}
+                        <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Tenancy start date</p><p className="font-semibold text-neutral-900">{fmt(t.start_date)}</p></div>
+                        <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Tenancy end date</p><p className="font-semibold text-neutral-900">{t.end_date ? fmt(t.end_date) : 'Periodic — no end date'}</p></div>
+                        {t.notice_received_date && <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Notice received</p><p className="font-semibold text-amber-700">{fmt(t.notice_received_date)}</p></div>}
                         {t.lease_reference && <div><p className="text-xs text-neutral-400 mb-xs uppercase tracking-wide">Lease ref</p><p className="font-semibold text-neutral-900">{t.lease_reference}</p></div>}
                       </div>
                     </div>
@@ -1200,7 +1208,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                       Room page →
                     </a>
                     <a href={`/admin/rent-increase/${currentTenancy.id}`} className="px-lg py-sm rounded-lg border border-blue-200 bg-blue-50 text-blue-800 text-sm font-semibold hover:bg-blue-100 transition">
-                      📈 Rent review
+                      Rent review
                     </a>
                     <button type="button" onClick={() => downloadPdf(`/api/admin/tenancies/${currentTenancy.id}/statement-of-account`, 'Statement of account.pdf').catch(e => alert(e.message))}
                       className="px-lg py-sm rounded-lg border border-neutral-200 text-neutral-700 text-sm font-semibold hover:bg-neutral-50 transition">
