@@ -196,7 +196,7 @@ export default function TenantCard({
               {rent ? (
                 <span>
                   <span className="text-neutral-400 text-xs uppercase tracking-wide mr-xs">Rent</span>
-                  <span className="text-neutral-700 font-medium">£{rent.toLocaleString()} pcm</span>
+                  <span className="text-neutral-700 font-medium">£{rent.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per month</span>
                 </span>
               ) : null}
               {currentTenancy?.start_date ? (

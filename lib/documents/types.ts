@@ -2,9 +2,7 @@
 // such as "gas_safety_certificate"). docTypeLabel never shows a code: an unlisted type still reads as words.
 /** A type's name — any code without a label still reads as words ("boiler_service" → "Boiler service"). */
 export const docTypeLabel = (t: string | null | undefined) => (t && DOC_TYPE_LABELS[t]) || (t ? t.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()) : 'Document')
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-/** older descriptions say "expires 16/09/2027" — shown in full */
-export const fullDatesIn = (t: string) => t.replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (m, d, mo, y) => Number(mo) >= 1 && Number(mo) <= 12 ? `${Number(d)} ${MONTHS[Number(mo) - 1]} ${y}` : m)
+export { fullDatesIn } from '@/lib/fullDates'
 
 export const DOC_TYPE_LABELS: Record<string, string> = {
   tenancy_agreement: 'Tenancy Agreement',

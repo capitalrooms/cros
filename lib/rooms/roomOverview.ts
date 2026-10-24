@@ -11,6 +11,7 @@ import { resolveFee, describeFee } from '@/lib/fees/managementFee'
 import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import { oneWeekRent } from '@/lib/tenancy/deposit'
 import { applyMoveInRent } from '@/lib/lettings/moveInRent'
+import { fullDatesIn } from '@/lib/fullDates'
 
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -25,9 +26,7 @@ const pname = (p: any) => p ? ([p.salutation, p.first_name, p.last_name].filter(
 const roomNo = (name: string) => Number(String(name).match(/(\d+)/)?.[1] ?? 999)
 const firstLine = (v: string | null | undefined) => String(v ?? '').split('\n')[0].trim()
 const dailyRent = (monthly: number) => r2(monthly * 12 / 365)
-const MONTHS: Record<string, string> = { Jan: 'January', Feb: 'February', Mar: 'March', Apr: 'April', May: 'May', Jun: 'June', Jul: 'July', Aug: 'August', Sep: 'September', Sept: 'September', Oct: 'October', Nov: 'November', Dec: 'December' }
-/** older activity notes were written "23 Oct 2026" — shown in full */
-const fullDates = (t: string) => t.replace(/\b(\d{1,2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept?|Oct|Nov|Dec) (\d{4})\b/g, (_, d, m, y) => `${d} ${MONTHS[m]} ${y}`)
+const fullDates = (t: string) => fullDatesIn(t)
 
 export type NeedLevel = 'urgent' | 'week' | 'tidy'
 export interface Need { key: string; level: NeedLevel; category: string; title: string; detail: string; due: string; href?: string; op?: 'apply_move_in_rent'; opTenancyId?: string; action: string }
