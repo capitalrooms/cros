@@ -175,7 +175,7 @@ function commsBadge(enabled: boolean | null | undefined) {
 
 function fmtDate(d: string | null | undefined) {
   if (!d) return null
-  return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
 const initials = (name: string): string => avatarInitials(name)   // lib/people — never the title

@@ -194,7 +194,7 @@ function DocCard({ doc }: { doc: PropertyDocument }) {
           <p className="text-sm text-neutral-500 mt-xs line-clamp-2">{doc.description}</p>
         )}
         <p className="text-xs text-neutral-400 mt-xs">
-          {new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
       </div>
       {hasFile && <span className="shrink-0 text-neutral-400">→</span>}

@@ -16,7 +16,7 @@ const COLS = [['draft', 'Draft', 'Being written'], ['ready', 'Ready', 'Checks pa
 const NEXT: Record<string, string> = { draft: 'ready', ready: 'live', live: 'let_agreed', let_agreed: 'let' }
 const NEXT_LABEL: Record<string, string> = { draft: 'Mark ready', ready: 'Publish', live: 'Let agreed', let_agreed: 'Mark let' }
 const gbp = (n: number | null) => n == null ? '' : `£${Number(n).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`
-const day = (d: string | null) => d ? new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''
+const day = (d: string | null) => d ? new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : ''
 
 export default function MarketingBoard() {
   const router = useRouter()

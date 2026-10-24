@@ -255,7 +255,7 @@ export default function AgentDashboard() {
                       <p className="text-xs font-bold text-neutral-500 uppercase">
                         {new Date(viewing.viewing_date).toLocaleDateString('en-GB', {
                           weekday: 'short',
-                          month: 'short',
+                          month: 'long',
                           day: 'numeric',
                         })}
                       </p>

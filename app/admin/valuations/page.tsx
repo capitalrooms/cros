@@ -600,7 +600,7 @@ export default function ValuationsPage() {
                       investment_analysis: 'Investment',
                     }
                     const date = new Date(row.generated_at).toLocaleDateString('en-GB', {
-                      day: 'numeric', month: 'short', year: 'numeric',
+                      day: 'numeric', month: 'long', year: 'numeric',
                     })
                     const time = new Date(row.generated_at).toLocaleTimeString('en-GB', {
                       hour: '2-digit', minute: '2-digit',

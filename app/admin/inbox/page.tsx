@@ -276,7 +276,7 @@ export default function InboxPage() {
                                   <a key={o.id} href="#" onClick={e => { e.preventDefault(); openStoredFile({ bucket: 'inbox-docs', path: o.storage_path }) }}
                                     className="text-xs font-semibold text-amber-700 underline hover:text-amber-900">
                                     View {o.status === 'filed' ? 'filed' : o.status === 'dismissed' ? 'dismissed' : 'other'} copy
-                                    ({new Date(o.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})
+                                    ({new Date(o.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })})
                                   </a>
                                 ))}
                               </div>

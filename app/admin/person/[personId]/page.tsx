@@ -427,7 +427,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
                   <div className="min-w-0">
                     <p className="font-semibold text-neutral-900 text-sm">{c.properties?.address || '—'}</p>
                     <p className="text-xs text-neutral-500 mt-xs">
-                      {c.clean_date ? new Date(c.clean_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No date'}
+                      {c.clean_date ? new Date(c.clean_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No date'}
                     </p>
                   </div>
                   <span className={`shrink-0 text-xs font-bold px-sm py-xs rounded-full ${

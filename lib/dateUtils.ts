@@ -78,6 +78,6 @@ export function formatDateUK(dateStr: string): string {
   return date.toLocaleDateString('en-GB', {
     weekday: 'short',
     day: 'numeric',
-    month: 'short',
+    month: 'long',
   })
 }

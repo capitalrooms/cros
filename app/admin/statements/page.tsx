@@ -673,7 +673,7 @@ export default function AdminStatementsPage() {
                 <div>
                   {rowsFor.map((s, si) => {
                     const isExpanded = expandedStatementId === s.id
-                    const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+                    const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
                     const gbp = (n: number | null) => n != null ? `£${Number(n).toFixed(2)}` : '—'
                     const net = Number(s.net_to_landlord)
                     return (

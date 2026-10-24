@@ -15,7 +15,7 @@ interface State {
   boardId: string | null
 }
 
-const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export default function LandlordAppAccess({ personId, name }: { personId: string; name: string }) {
   const [st, setSt] = useState<State | null>(null)

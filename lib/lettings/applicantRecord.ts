@@ -29,7 +29,7 @@ export async function moveToRoom(s: SupabaseClient, a: { id: string; room_id: st
     s.from('rooms').select('name, properties(name)').eq('id', roomId).maybeSingle(),
   ])
   const label = (r: any) => r ? `${r.name}, ${String(r.properties?.name ?? '').split('\n')[0]}` : 'no room'
-  const day = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })
+  const day = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
   const note = `${day}: moved from ${label(from)} to ${label(to)}`
   await s.from('applicants').update({ room_id: roomId, ...(propertyId ? { property_id: propertyId } : {}), admin_notes: [a.admin_notes, note].filter(Boolean).join('\n'), updated_at: new Date().toISOString() }).eq('id', a.id)
   a.room_id = roomId
@@ -71,7 +71,7 @@ export async function mergeApplicants(s: SupabaseClient, keepId: string, otherId
   for (const o of ((rows ?? []) as any[]).filter(r => r.id !== keepId).sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))) {
     for (const [k, v] of Object.entries(o)) if (!skip.has(k) && (keep[k] == null || keep[k] === '') && v != null && v !== '' && !(k in fill)) fill[k] = v
   }
-  const note = `${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })}: merged ${others.length} duplicate record${others.length === 1 ? '' : 's'} into this one`
+  const note = `${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })}: merged ${others.length} duplicate record${others.length === 1 ? '' : 's'} into this one`
   await s.from('applicants').update({ ...fill, admin_notes: [keep.admin_notes, note].filter(Boolean).join('\n'), updated_at: new Date().toISOString() }).eq('id', keepId)
   let moved = 0
   for (const [table, col] of REFERENCES) {

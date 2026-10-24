@@ -338,7 +338,7 @@ export default function AcknowledgmentNotesPage() {
                       ✓ Acknowledged{' '}
                       {new Date(note.acknowledged_at).toLocaleDateString('en-GB', {
                         day: 'numeric',
-                        month: 'short',
+                        month: 'long',
                         year: 'numeric',
                       })}
                     </p>
@@ -351,7 +351,7 @@ export default function AcknowledgmentNotesPage() {
                     Expires{' '}
                     {new Date(note.expires_at).toLocaleDateString('en-GB', {
                       day: 'numeric',
-                      month: 'short',
+                      month: 'long',
                       year: 'numeric',
                     })}
                   </p>

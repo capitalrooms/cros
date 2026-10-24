@@ -102,7 +102,7 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
           </div>
         </section>
       )}
-      {changed && <p className="rounded-lg bg-amber-50 px-md py-sm text-sm text-amber-900">They were emailed {gbp(p!.earlier!.rent!)} on {new Date(p!.earlier!.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}. This one is headed “Updated” and says it replaces that email.</p>}
+      {changed && <p className="rounded-lg bg-amber-50 px-md py-sm text-sm text-amber-900">They were emailed {gbp(p!.earlier!.rent!)} on {new Date(p!.earlier!.at).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}. This one is headed “Updated” and says it replaces that email.</p>}
 
       <section>
         <p className="mb-sm text-xs font-bold uppercase tracking-wide text-neutral-500">Send by</p>

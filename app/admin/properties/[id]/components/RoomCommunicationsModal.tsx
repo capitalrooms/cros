@@ -86,8 +86,9 @@ export default function RoomCommunicationsModal({
   }
 
   const today = new Date().toISOString().slice(0, 10)
-  const currentTenancy = tenancies.find(t => !t.notice_received_date && (!t.end_date || t.end_date >= today))
-  const previousTenancies = tenancies.filter(t => t.notice_received_date || (t.end_date && t.end_date < today))
+  // the tenancy running today, notice or not; previous = ended (24 Oct 2026)
+  const currentTenancy = tenancies.find(t => (!(t as any).start_date || (t as any).start_date <= today) && (!t.end_date || t.end_date >= today))
+  const previousTenancies = tenancies.filter(t => !!t.end_date && t.end_date < today)
 
   const getTenantName = (personId: string) => {
     const tenancy = tenancies.find(t => t.person_id === personId)
@@ -102,7 +103,7 @@ export default function RoomCommunicationsModal({
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric'
     })
   }

@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 interface Doc { type: 'pd' | 'gd' | 'ls'; id: string; title: string; property: string; date: string | null; extra?: string }
 interface Data { houses: { id: string; name: string; lettingType: string }[]; statements: Doc[]; agreements: Doc[]; invoices: Doc[]; certificates: Doc[] }
 
-const day = (d: string | null) => d ? new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+const day = (d: string | null) => d ? new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 
 export default function LandlordDocuments({ asId }: { asId?: string | null }) {
   const [data, setData] = useState<Data | null>(null)

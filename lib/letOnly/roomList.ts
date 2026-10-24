@@ -107,7 +107,7 @@ export async function resolveRows(s: SupabaseClient, rows: ListRow[]): Promise<R
 /** Save one house's rows. Rooms are made when missing; nothing is deleted. Returns what changed, in words. */
 export async function applyRoomList(s: SupabaseClient, propertyId: string, rows: ListRow[], by: string): Promise<string[]> {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-  const source = `Landlord’s list, ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })}`
+  const source = `Landlord’s list, ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })}`
   const { data: prop } = await s.from('properties').select('id, letting_type, property_code').eq('id', propertyId).maybeSingle()
   if (!prop || prop.letting_type !== 'let_only') throw new Error('That house isn’t a let-only property')
   const { data: existing } = await s.from('rooms').select('id, name').eq('property_id', propertyId)

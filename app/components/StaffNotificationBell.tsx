@@ -14,7 +14,7 @@ function ago(iso: string) {
   if (mins < 60) return `${mins} min ago`
   const h = Math.round(mins / 60)
   if (h < 24) return `${h}h ago`
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
 }
 
 export default function StaffNotificationBell({ className = '' }: { className?: string }) {

@@ -44,7 +44,7 @@ function certStatus(expiryStr: string | null | undefined): 'expired' | 'soon' | 
 
 function fmtDate(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 const STATUS_CLASSES = {
@@ -476,7 +476,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
                               {h.notes && <span className="text-neutral-400 ml-sm">{h.notes}</span>}
                             </div>
                             <div className="text-right text-neutral-400 shrink-0">
-                              <p>{new Date(h.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                              <p>{new Date(h.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                               {h.recorded_by_person && (
                                 <p>{[h.recorded_by_person.salutation, h.recorded_by_person.first_name, h.recorded_by_person.last_name].filter(Boolean).join(' ')}</p>
                               )}
@@ -566,7 +566,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
                     <span className="text-neutral-600">Expires {fmtDate(h.expiry_date)}</span>
                   </div>
                   <div className="text-right text-neutral-400 shrink-0">
-                    <p>{new Date(h.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    <p>{new Date(h.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                     {h.recorded_by_person && <p>{[h.recorded_by_person.salutation, h.recorded_by_person.first_name, h.recorded_by_person.last_name].filter(Boolean).join(' ')}</p>}
                   </div>
                 </div>

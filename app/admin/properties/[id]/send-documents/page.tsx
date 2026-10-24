@@ -15,7 +15,7 @@ interface Data {
   commsLive: boolean; defaults: { subject: string; message: string }; setupNeeded: string | null
 }
 
-const d = (iso: string | null) => iso ? new Date(iso.length === 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+const d = (iso: string | null) => iso ? new Date(iso.length === 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 const input = 'mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900'
 
 export default function SendHouseDocuments({ params }: { params: Promise<{ id: string }> }) {

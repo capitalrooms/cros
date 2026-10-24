@@ -120,14 +120,14 @@ function formatDayHeading(iso: string) {
   const d = isoToDate(iso)
   const today = todayISO()
   const tomorrow = addDays(today, 1)
-  if (iso === today) return `Today · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
-  if (iso === tomorrow) return `Tomorrow · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
-  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
+  if (iso === today) return `Today · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}`
+  if (iso === tomorrow) return `Tomorrow · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}`
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 function formatShortDate(iso: string | null) {
   if (!iso) return '—'
-  return isoToDate(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return isoToDate(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function formatTime(slot: string | null) {
@@ -755,7 +755,7 @@ export default function LettingsPage() {
                     Coming Up
                   </h3>
                   {upcomingViewings.slice(0, 5).map((v: any) => {
-                    const viewDate = new Date(v.viewing_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+                    const viewDate = new Date(v.viewing_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })
                     return (
                       <div key={v.id} style={{ background: '#FFFFFF', border: '1px solid #E7E1D4', borderRadius: 12, padding: '10px 12px', marginBottom: 7 }}>
                         <div style={{ fontWeight: 700, fontSize: 12, color: '#181614', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1586,7 +1586,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
 
 // Let, on notice (moving out) or let agreed (moving in) — on each tenancy in the Let tab
 function LetBadge({ room }: { room: LetRoom }) {
-  const d = room.date ? new Date(`${room.date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''
+  const d = room.date ? new Date(`${room.date}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : ''
   const [cls, text] = room.state === 'let_agreed' ? ['bg-amber-100 text-amber-900', `Let agreed${d ? ` · in ${d}` : ''}`]
     : room.state === 'on_notice' ? ['bg-orange-100 text-orange-900', `On notice${d ? ` · out ${d}` : ''}`]
     : ['bg-green-100 text-green-700', 'Let']

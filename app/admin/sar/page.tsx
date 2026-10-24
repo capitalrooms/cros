@@ -279,7 +279,7 @@ export default function SarPage() {
                     </div>
                     <p className="text-sm font-bold text-neutral-900">{r.subject_name || 'Subject name not provided'}</p>
                     <p className="text-xs text-neutral-500 mt-xs">
-                      Reported by {r.reported_by_name}{r.reported_by_title ? ` (${r.reported_by_title})` : ''} · {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      Reported by {r.reported_by_name}{r.reported_by_title ? ` (${r.reported_by_title})` : ''} · {new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                   </div>
                   <span className="text-neutral-400">{selectedId === r.id ? '▲' : '▼'}</span>

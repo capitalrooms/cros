@@ -10,7 +10,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import type { MtdRow } from '@/lib/finance/mtd'
 
 const gbp = (n: number) => '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const ukDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const ukDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export default function MtdReportPage() {
   const now = new Date()

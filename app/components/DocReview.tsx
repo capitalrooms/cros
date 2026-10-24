@@ -758,7 +758,7 @@ export default function DocReview({
                   t.properties?.address ||
                   ''
                 const startLabel = t.start_date
-                  ? new Date(t.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                  ? new Date(t.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                   : null
                 const parts = [[t.people?.salutation, t.people?.first_name, t.people?.last_name].filter(Boolean).join(' ') || t.people?.full_name || t.people?.name || 'Tenant', t.rooms?.name, prop, startLabel ? `from ${startLabel}` : null].filter(Boolean)
                 return (

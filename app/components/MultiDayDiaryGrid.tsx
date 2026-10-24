@@ -94,7 +94,7 @@ export default function MultiDayDiaryGrid({
   // Date range label for header
   const fmt = (iso: string) => {
     const d = new Date(iso + 'T00:00:00')
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })
   }
   const rangeLabel = `${fmt(days[0])} — ${fmt(days[4])}`
 

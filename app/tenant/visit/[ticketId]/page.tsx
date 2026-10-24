@@ -356,7 +356,7 @@ export default function VisitDetailPage() {
                     <p className="text-sm font-semibold text-neutral-800 truncate">{t.title}</p>
                     <p className="text-xs text-neutral-400 mt-xs">
                       {statusLabel[t.status] ?? t.status}
-                      {t.booked_date ? ` · ${new Date(t.booked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+                      {t.booked_date ? ` · ${new Date(t.booked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ''}
                     </p>
                   </div>
                   <span className="text-neutral-300 shrink-0">›</span>

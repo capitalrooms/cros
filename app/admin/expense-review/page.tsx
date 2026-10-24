@@ -208,7 +208,7 @@ export default function ExpenseReviewPage() {
                   const current = item.room_id ? `${item.category}|${item.room_id}` : item.category
                   return (
                     <tr key={item.id}>
-                      <td className="whitespace-nowrap text-neutral-600">{new Date(item.statement_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
+                      <td className="whitespace-nowrap text-neutral-600">{new Date(item.statement_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
                       <td className="max-w-[160px]"><span className="block truncate font-semibold">{propertyName(item)}</span><span className="block truncate text-[10.5px] text-neutral-500">{landlordName(item)}</span></td>
                       <td className="max-w-[340px]"><span className="line-clamp-2" title={item.description}>{item.description}</span></td>
                       <td className="text-right font-semibold whitespace-nowrap">£{Number(item.amount).toLocaleString('en-GB', { minimumFractionDigits: 2 })}</td>

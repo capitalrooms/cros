@@ -44,7 +44,7 @@ export interface TenantCardBodyProps {
 
 function formatDate(d: string | null | undefined) {
   if (!d) return null
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 export default function TenantCardBody({

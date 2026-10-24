@@ -73,8 +73,8 @@ function fmtDate(iso: string): { label: string; cls: string } {
   if (diff < 0)   return { label: `${Math.abs(diff)}d overdue`, cls: 'text-red-600 font-bold' }
   if (diff === 0) return { label: 'Due today',                  cls: 'text-amber-600 font-bold' }
   if (diff === 1) return { label: 'Due tomorrow',               cls: 'text-amber-500 font-semibold' }
-  if (diff <= 7)  return { label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), cls: 'text-amber-500 font-semibold' }
-  return { label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), cls: 'text-neutral-500' }
+  if (diff <= 7)  return { label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }), cls: 'text-amber-500 font-semibold' }
+  return { label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }), cls: 'text-neutral-500' }
 }
 
 // ── Email supplier modal ───────────────────────────────────────────────────────

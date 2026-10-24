@@ -29,7 +29,7 @@ const gbp = (n: number | null | undefined) =>
   n == null ? '—' : `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const fmtDate = (s: string | null | undefined) =>
-  s ? new Date(s.slice(0,10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+  s ? new Date(s.slice(0,10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 
 const fmtMonth = (s: string | null | undefined) =>
   s ? new Date(s.slice(0,10) + 'T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : '—'

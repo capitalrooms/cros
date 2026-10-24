@@ -577,7 +577,7 @@ export default function AgencyDiaryPage() {
                               <div className="text-xs text-slate-500">
                                 {new Date(event.date).toLocaleDateString('en-US', {
                                   weekday: 'short',
-                                  month: 'short',
+                                  month: 'long',
                                   day: 'numeric',
                                 })}
                               </div>

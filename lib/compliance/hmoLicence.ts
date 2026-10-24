@@ -10,7 +10,7 @@ export function hmoLicenceState(p: LicenceFields, today = new Date().toISOString
   const expiry = p.license_expiry || null
   if (applied) {
     const appliedLate = !!expiry && applied > expiry
-    const d = new Date(applied + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    const d = new Date(applied + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     return { state: 'applied', label: `Applied ${d} — awaiting council${p.licence_application_ref ? ` (ref ${p.licence_application_ref})` : ''}`, appliedLate }
   }
   if (!expiry) return { state: 'none', label: 'No licence recorded', appliedLate: false }

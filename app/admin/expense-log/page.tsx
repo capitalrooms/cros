@@ -37,7 +37,7 @@ interface Property { id: string; name: string; address: string; property_code?: 
 interface Dup { level: string; reason: string; description: string; amount: number; date: string; where: string }
 
 const gbp = (n: number) => '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const ukDate = (d: string) => new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const ukDate = (d: string) => new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 const monthName = (m: string) => new Date(m.slice(0, 7) + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 const firstLine = (s: string) => String(s || '').split('\n')[0]
 const taxYearOf = (d: string) => { const y = Number(d.slice(0, 4)); return d.slice(5) >= '04-06' ? y : y - 1 }

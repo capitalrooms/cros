@@ -22,7 +22,7 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: 
 const when = (iso: string) => {
   const d = new Date(iso), today = new Date()
   const same = d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) === today.toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-  return same ? time(iso) : `${time(iso)} ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })}`
+  return same ? time(iso) : `${time(iso)} ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'Europe/London' })}`
 }
 const inMinutes = (m: number) => new Date(Date.now() + m * 60000).toISOString()
 const tomorrowAt = (h: number) => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(h, 0, 0, 0); return d.toISOString() }
@@ -165,7 +165,7 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
           <p className="text-base font-bold text-neutral-900">Thanks — we’ve got your update.</p>
           <p className="mt-1 text-sm text-neutral-700">
             {r.outcome === 'fixed' ? 'Marked as fixed.' : r.outcome === 'made_safe' ? 'Made safe for now.' : r.outcome === 'not_fixed' ? 'Not fixed yet.' : 'Closed.'}
-            {r.part ? ` Part: ${r.part}.` : ''}{r.fixCost != null ? ` Proper fix £${r.fixCost}.` : ''}{r.returnDate ? ` Back ${new Date(`${r.returnDate}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${r.returnSlot ? ` ${slots.find(x => x.value === r.returnSlot)?.label ?? ''}` : ''}.` : ''}
+            {r.part ? ` Part: ${r.part}.` : ''}{r.fixCost != null ? ` Proper fix £${r.fixCost}.` : ''}{r.returnDate ? ` Back ${new Date(`${r.returnDate}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}${r.returnSlot ? ` ${slots.find(x => x.value === r.returnSlot)?.label ?? ''}` : ''}.` : ''}
           </p>
           <p className="mt-2 text-sm text-neutral-600">Add photos, the price and your invoice on the job in the CROS app as usual.</p>
         </Card>

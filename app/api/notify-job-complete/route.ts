@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         returnVisitDate
       ).toLocaleDateString('en-GB', {
         day: 'numeric',
-        month: 'short',
+        month: 'long',
         year: 'numeric',
       })}. We'll be in touch to book it.`;
     } else if (hasReturnVisit) {

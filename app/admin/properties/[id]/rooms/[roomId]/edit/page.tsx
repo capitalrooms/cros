@@ -663,8 +663,8 @@ export default function RoomDashboardPage({
 
   // ─── helpers ───────────────────────────────────────────────────────────────
 
-  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-  const fmtShort = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+  const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
+  const fmtShort = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 
   const statusBadge = (status: string | null) => {
     if (status === 'occupied') return { label: 'Occupied', cls: 'bg-emerald-100 text-emerald-700' }

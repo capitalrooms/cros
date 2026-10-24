@@ -423,7 +423,7 @@ export default function RentChargesPage() {
                               <StatusChip status={status} />
                               {status === 'paid' && charge?.paid_at && (
                                 <p className="text-xs text-neutral-400 mt-xs">
-                                  {new Date(charge.paid_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                  {new Date(charge.paid_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                                   {charge.payment_method && ` · ${charge.payment_method.replace('_', ' ')}`}
                                 </p>
                               )}

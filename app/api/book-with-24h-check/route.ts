@@ -46,7 +46,7 @@ function isWithinNotice(dateISO: string, timeHHMM: string): boolean {
 
 function fmtSlot(dateISO: string, time: string) {
   const d = new Date(`${dateISO}T${time}:00`)
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) +
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' }) +
     ` at ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
 }
 
@@ -217,7 +217,7 @@ export async function PATCH(req: NextRequest) {
   // tell the contractor and the office (staff-facing messages — not affected by the tenant messages switch)
   const house = String(ticket.properties?.name || 'the property').split('\n')[0]
   const what = ticket.title || ticket.category || 'the job'
-  const when = (d: string | null, slot: string | null) => d ? `${new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${slot ? ` (${slot})` : ''}` : ''
+  const when = (d: string | null, slot: string | null) => d ? `${new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}${slot ? ` (${slot})` : ''}` : ''
   const line = decision === 'approve'
     ? `The tenant agreed to the short-notice visit for ${what} at ${house} — ${when(ticket.booked_date, ticket.booked_slot)}.`
     : ticket.fallback_date

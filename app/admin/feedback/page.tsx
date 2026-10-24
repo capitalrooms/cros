@@ -14,7 +14,7 @@ import type { FeedbackSummary } from '@/lib/feedback/summarise'
 interface House { id: string; name: string; forms: number; lastAt: string; areas: { key: string; label: string; average: number; count: number }[] }
 interface Form { id: string; who: string; at: string; ratings: Record<string, number>; comments: Record<string, string>; anything_else: string | null }
 
-const ukDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })
+const ukDate = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
 const tone = (n: number) => n >= 4 ? 'bg-green-100 text-green-800' : n >= 3 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
 
 export default function FeedbackPage({ searchParams }: { searchParams: PageSearchParams }) {

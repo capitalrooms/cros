@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const slotLabel = (slot: string | null) => TIME_SLOTS.find(s => s.value === slot)?.label ?? slot ?? ''
 
 export interface ChaseJob {

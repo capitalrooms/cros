@@ -316,7 +316,7 @@ export default function AIUploadPage() {
                     </p>
                   </div>
                   <p className="text-xs text-neutral-400 shrink-0 tabular-nums">
-                    {new Date(f.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    {new Date(f.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                   </p>
                 </div>
               ))}

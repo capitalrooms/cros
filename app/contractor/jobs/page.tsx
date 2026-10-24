@@ -626,7 +626,7 @@ export default function ContractorJobs() {
                     <p className="truncate font-semibold text-neutral-900">{job.title}</p>
                     <p className="truncate text-sm text-neutral-500">
                       {job.properties?.name} · {job.rooms?.name || job.location}
-                      {job.completed_at ? ` · ${new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+                      {job.completed_at ? ` · ${new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ''}
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-green-100 px-sm py-xs text-xs font-bold text-green-800">
@@ -823,7 +823,7 @@ export default function ContractorJobs() {
             {selectedJob.status === 'completed' && (
               <div className="mt-lg rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
                 <p className="font-bold text-green-800">
-                  ✅ Completed{selectedJob.completed_at ? ` · ${new Date(selectedJob.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                  ✅ Completed{selectedJob.completed_at ? ` · ${new Date(selectedJob.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
                 </p>
                 <div className="mt-md space-y-xs text-sm text-green-900">
                   {selectedJob.completion_price != null && (

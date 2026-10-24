@@ -46,7 +46,7 @@ function relativeTime(iso: string) {
   if (mins  < 60) return `${mins}m ago`
   if (hours < 24) return `${hours}h ago`
   if (days  < 7)  return `${days}d ago`
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
 }
 
 function readDismissed(): string[] {

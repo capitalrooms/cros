@@ -16,7 +16,7 @@ const label = 'block text-xs font-bold uppercase tracking-wide text-neutral-500 
 const btn = 'rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 disabled:opacity-40'
 const btnDark = 'rounded-xl bg-neutral-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-40'
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'UTC' })
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 let seq = 0
 const blank = (): Line => ({ key: `l${++seq}`, description: '', where: '', labour: '', parts: '', partsPaid: false })

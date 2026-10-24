@@ -12,7 +12,7 @@ const PREFS = [
   { v: 'app_only', l: 'App only', h: 'They keep everything in the app — no email' },
   { v: 'email_only', l: 'Email only', h: 'Email, nothing in the app' },
 ] as const
-const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })
+const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
 
 export default function LandlordCorrespondence({ personId }: { personId: string }) {
   const [data, setData] = useState<{ contactPref: string; cc: Cc[]; setupNeeded: boolean; items: Item[] } | null>(null)

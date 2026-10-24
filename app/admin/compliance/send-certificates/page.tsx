@@ -10,7 +10,7 @@ import { adminFetch } from '@/lib/adminFetch'
 
 interface House { id: string; name: string; address: string; fresh: { key: string; label: string }[]; older: string[]; tenants: number; lastSent: string | null }
 
-const d = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+const d = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 
 export default function CertificateRound() {
   const [since, setSince] = useState(`${new Date().getFullYear()}-07-01`)

@@ -67,10 +67,10 @@ export default function StatementEmails({ onChanged }: { onChanged?: () => void 
             <tbody>
               {rows.map(r => (
                 <tr key={r.id} className="border-t border-neutral-100">
-                  <td className="px-md py-xs whitespace-nowrap">{new Date(r.receivedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
+                  <td className="px-md py-xs whitespace-nowrap">{new Date(r.receivedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</td>
                   <td className="px-sm py-xs">{r.subject.replace(/^Fwd:\s*/i, '')}</td>
                   <td className="px-sm py-xs whitespace-nowrap">{r.number ?? '—'}</td>
-                  <td className="px-sm py-xs">{r.statement ? `${r.statement.property} · ${new Date(r.statement.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : <span className={`rounded px-xs ${BADGE[r.status][1]}`}>{BADGE[r.status][0]}</span>}</td>
+                  <td className="px-sm py-xs">{r.statement ? `${r.statement.property} · ${new Date(r.statement.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : <span className={`rounded px-xs ${BADGE[r.status][1]}`}>{BADGE[r.status][0]}</span>}</td>
                   <td className="px-sm py-xs text-right tabular-nums">{r.statement ? gbp(r.statement.gross) : ''}</td>
                   <td className="px-sm py-xs text-right tabular-nums">{r.statement ? gbp(r.statement.net) : ''}</td>
                   <td className="px-sm py-xs text-right">{r.status !== 'no_pdf' && <button type="button" disabled={!!busy} onClick={() => reread([r])} className="font-semibold text-blue-700 hover:underline disabled:opacity-40">{busy === r.id ? 'Reading…' : 'Re-read'}</button>}</td>

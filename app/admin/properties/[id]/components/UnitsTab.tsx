@@ -834,7 +834,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
               <div className="grid grid-cols-4 border-b border-neutral-100">
                 {[
                   { label: wholeLet ? 'Unit' : 'Room', value: selectedRoom.unit_code || selectedRoom.name, mono: true },
-                  { label: 'Rent', value: selectedRoom.tenancy?.rent_amount ? `£${selectedRoom.tenancy.rent_amount.toLocaleString()} pcm` : '—' },
+                  { label: 'Rent', value: selectedRoom.tenancy?.rent_amount ? `£${selectedRoom.tenancy.rent_amount.toLocaleString()} per month` : '—' },
                   { label: 'Move-out', value: selectedRoom.tenancyEndDate ? fmtDate(selectedRoom.tenancyEndDate) : '—', amber: !!selectedRoom.tenancyEndDate },
                   { label: 'Status', status: true },
                 ].map(({ label, value, mono, amber, status }) => (
@@ -954,7 +954,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                                 <p className="text-sm font-semibold text-neutral-700 truncate">{ptName}</p>
                                 <p className="text-xs text-neutral-400">
                                   {fmtDate(pt.start_date)} – {fmtDate(pt.end_date!)}
-                                  {pt.rent_amount ? ` · £${pt.rent_amount.toLocaleString()} pcm` : ''}
+                                  {pt.rent_amount ? ` · £${pt.rent_amount.toLocaleString()} per month` : ''}
                                 </p>
                               </div>
                               <button
@@ -1482,7 +1482,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                     const fr = firstRentPayment(newTenancyStart, Number(newTenancyRent), Number(newTenancyRentDueDay) || 1)
                     if (!fr) return null
                     const startDay = Number(newTenancyStart.slice(8, 10))
-                    const d = (x: Date) => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                    const d = (x: Date) => x.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                     const ord = (n: number) => `${n}${n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th'}`
                     return (
                       <div className="mt-sm rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm text-xs text-neutral-700 space-y-xs">

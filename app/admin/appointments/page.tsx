@@ -280,7 +280,7 @@ export default function AppointmentsPage() {
             ← <span className="hidden sm:inline">Previous week</span><span className="sm:hidden">Prev</span>
           </button>
           <div className="text-sm font-semibold text-neutral-900">
-            Week of {weekStart.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
+            Week of {weekStart.toLocaleDateString('en-GB', { month: 'long', day: 'numeric' })}
           </div>
           <button
             onClick={() => {
@@ -453,7 +453,7 @@ export default function AppointmentsPage() {
               <section key={i} className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
                 <div className={`flex items-center justify-between px-lg py-sm ${isToday ? 'bg-blue-50' : 'bg-neutral-50'}`}>
                   <p className={`text-sm font-bold ${isToday ? 'text-blue-700' : 'text-neutral-900'}`}>
-                    {d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}{isToday && ' · Today'}
+                    {d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}{isToday && ' · Today'}
                   </p>
                   <button type="button"
                     onClick={() => { setAppointmentDate(dateStr(d)); setAppointmentTime('10:00'); setShowCreateForm(true) }}

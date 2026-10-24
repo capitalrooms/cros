@@ -215,7 +215,7 @@ export default function LetOnlyDetailPage() {
                     <div className="flex-1">
                       <p className="font-semibold text-neutral-900">{room.room_name}</p>
                       <div className="flex flex-wrap items-center gap-md mt-xs text-sm text-neutral-500">
-                        {room.monthly_rent && <span className="font-medium text-neutral-900">£{Number(room.monthly_rent).toLocaleString()} pcm</span>}
+                        {room.monthly_rent && <span className="font-medium text-neutral-900">£{Number(room.monthly_rent).toLocaleString()} per month</span>}
                         {room.floor_area_sqm && <span>{room.floor_area_sqm} m²</span>}
                         {room.available_date && <span>Available {formatDate(room.available_date)}</span>}
                       </div>

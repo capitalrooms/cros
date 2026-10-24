@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       const roomName = viewingData.rooms?.name || 'Room'
       const dateStr = new Date(viewingData.viewing_date).toLocaleDateString('en-GB', {
         day: 'numeric',
-        month: 'short',
+        month: 'long',
         year: 'numeric',
       })
       const sub = (s: string) =>

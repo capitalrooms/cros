@@ -80,7 +80,7 @@ export default function StatementSend({ statementId, label, sentAt, onSent }: { 
       <div className="flex flex-wrap items-center gap-sm">
         <button type="button" onClick={() => downloadPdf(`/api/admin/statements/${statementId}/pdf`, `Statement ${label}.pdf`)} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-bold text-neutral-800">PDF</button>
         <button type="button" onClick={start} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">{sentAt ? 'Send again' : 'Email to landlord'}</button>
-        {sentAt && <span className="text-xs text-neutral-500">Sent {new Date(sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
+        {sentAt && <span className="text-xs text-neutral-500">Sent {new Date(sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</span>}
       </div>
 
       {open && (
@@ -93,7 +93,7 @@ export default function StatementSend({ statementId, label, sentAt, onSent }: { 
             {loading ? <p className="p-lg text-sm text-neutral-500">Building the statement…</p> : (
               <div className="grid min-h-0 flex-1 gap-lg overflow-y-auto p-lg md:grid-cols-[1fr_1.2fr]">
                 <div className="space-y-md">
-                  {prior && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-800">Already sent {new Date(prior.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} to {prior.to}.</p>}
+                  {prior && <p className="rounded-lg bg-amber-50 px-md py-sm text-xs text-amber-800">Already sent {new Date(prior.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} to {prior.to}.</p>}
                   <label className="block text-xs font-semibold text-neutral-700">To<input className={input} value={to} onChange={e => setTo(e.target.value)} placeholder="landlord@example.com" /></label>
                   <label className="block text-xs font-semibold text-neutral-700">CC<input className={input} value={cc} onChange={e => setCc(e.target.value)} /></label>
                   {prefNote && <p className="rounded-lg bg-amber-50 px-sm py-xs text-xs text-amber-900">{prefNote}</p>}

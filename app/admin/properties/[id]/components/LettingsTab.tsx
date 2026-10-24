@@ -465,7 +465,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
     return new Date(dateString).toLocaleDateString('en-GB', {
       weekday: 'short',
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric'
     })
   }

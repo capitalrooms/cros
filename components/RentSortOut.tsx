@@ -6,7 +6,7 @@ import { adminFetch } from '@/lib/adminFetch'
 
 const gbp = (n: number) => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const monthName = (iso: string) => iso ? new Date(`${iso.slice(0, 7)}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
-const day = (iso: string | null) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : ''
+const day = (iso: string | null) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
 type Form = { kind: 'direct' | 'reduce' | 'refund' | 'reverse'; chargeId?: string; key?: string } | null

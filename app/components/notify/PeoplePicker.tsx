@@ -27,7 +27,7 @@ export default function PeoplePicker({ value, onChange, compact = false }: { val
       s.from('applicants').select('full_name, email, phone, pipeline_stage, archived_at, properties(name)').is('archived_at', null).order('created_at', { ascending: false }).limit(200),
     ]).then(([v, a]) => {
       const list: Recipient[] = [
-        ...((v.data ?? []) as any[]).filter(x => x.visitor_email || x.visitor_phone).map(x => ({ name: x.visitor_name, email: x.visitor_email?.toLowerCase() ?? null, phone: x.visitor_phone ?? null, from: `Viewing ${new Date(`${x.viewing_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, propertyName: x.properties?.name ?? null })),
+        ...((v.data ?? []) as any[]).filter(x => x.visitor_email || x.visitor_phone).map(x => ({ name: x.visitor_name, email: x.visitor_email?.toLowerCase() ?? null, phone: x.visitor_phone ?? null, from: `Viewing ${new Date(`${x.viewing_date}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`, propertyName: x.properties?.name ?? null })),
         ...((a.data ?? []) as any[]).filter(x => x.email || x.phone).map(x => ({ name: x.full_name, email: x.email?.toLowerCase() ?? null, phone: x.phone ?? null, from: 'Applicant', propertyName: x.properties?.name ?? null })),
       ]
       setKnown([...new Map(list.map(r => [key(r), r])).values()])

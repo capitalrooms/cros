@@ -33,7 +33,7 @@ export const maxDuration = 30
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 
 // Terms that can be edited, and whether only before move-in (money and dates the rent schedule runs on)
 const TERMS: Record<string, { label: string; beforeMoveIn: boolean; kind: 'date' | 'money' | 'int' | 'text' }> = {
@@ -210,7 +210,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
       await s.from('rooms').update({ status: 'occupied' }).eq('id', t.room_id)
       if (incoming?.length) await logTenancyEvent(s, tenancyId, 'notice', 'Heads up: an incoming tenancy is already agreed for this room — check it', caller.email)
     }
-    await logTenancyEvent(s, tenancyId, 'notice', `Notice cancelled (was moving out ${t.end_date ? new Date(`${t.end_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—'})${reason ? `: ${reason}` : ''}`, caller.email)
+    await logTenancyEvent(s, tenancyId, 'notice', `Notice cancelled (was moving out ${t.end_date ? new Date(`${t.end_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '—'})${reason ? `: ${reason}` : ''}`, caller.email)
     return NextResponse.json({ ok: true })
   }
 

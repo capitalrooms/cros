@@ -188,7 +188,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
 
     return date.toLocaleDateString('en-GB', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric'
     })
   }

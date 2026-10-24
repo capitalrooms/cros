@@ -42,7 +42,7 @@ const OUTCOMES: [string, string, string][] = [
 const STATUS: Record<string, string> = { held: 'Held', applied: 'Applied', refunded: 'Refunded', retained: 'Retained', reversed: 'Reversed' }
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const gbp = (n: number) => `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 
 export default function HoldingDepositModal({ applicantId, onClose, onDone }: Props) {
   const [draft, setDraft] = useState<Draft | null>(null)

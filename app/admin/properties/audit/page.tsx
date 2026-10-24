@@ -35,7 +35,7 @@ interface PropertyRow {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
+    day: 'numeric', month: 'long', year: 'numeric',
   })
 }
 

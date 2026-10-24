@@ -167,7 +167,7 @@ export default function CommunicationsHubPage() {
                       className={`border-b border-neutral-100 align-top text-sm ${m.link ? 'cursor-pointer hover:bg-neutral-50' : ''} ${m.former ? 'opacity-55' : ''}`}
                     >
                       <td className="whitespace-nowrap px-lg py-sm text-neutral-600">
-                        {new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        {new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                         <span className="block text-xs text-neutral-400">
                           {new Date(m.date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                         </span>

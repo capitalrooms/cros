@@ -475,7 +475,7 @@ export default function AddLetOnlyModal({ onClose, onSave, createdByPersonId, in
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-neutral-600 mb-xs">Rent (£pcm)</label>
+                      <label className="block text-xs font-medium text-neutral-600 mb-xs">Rent per month (£)</label>
                       <input
                         type="number"
                         value={room.monthly_rent}

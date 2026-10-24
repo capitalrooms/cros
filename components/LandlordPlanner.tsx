@@ -11,7 +11,7 @@ import '@/components/public/public.css'
 interface Reply { id: string; body: string; author: string; createdAt: string; links: string[]; photos: Photo[] }
 interface Entry { id: string; title: string; body: string; status: 'open' | 'done'; dueDate: string | null; stage?: string | null; responsible?: string | null; dueNote?: string | null; createdAt: string; property: string | null; propertyId: string | null; author: string; links: string[]; photos: Photo[]; replies: Reply[] }
 
-const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
 const MUTED = '#6F6B64', RULE = '#E4E0D8'
 // monday.com-style status pills (14 Oct 2026, Harry: "more monday.com … griddy to start then drop down"). Boards
 // brought in from the office Planner carry their status and person on the first line ("In progress · Damian").

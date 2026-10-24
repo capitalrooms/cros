@@ -13,7 +13,7 @@ import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import type { ArrearsRow } from '@/app/api/admin/arrears/route'
 
 const gbp = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const day = (iso: string) => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+const day = (iso: string) => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const mon = (iso: string) => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' })
 
 const ACTION_LABEL: Record<string, string> = {
@@ -127,7 +127,7 @@ export default function ArrearsPage() {
                         <td className="px-lg py-md text-neutral-700">
                           <span className="whitespace-nowrap">{day(r.since)} <span className="text-neutral-400">· {r.days} days</span></span>
                           {r.nextStep && <span className="block text-xs font-semibold text-neutral-900">Next: {r.nextStep}</span>}
-                          <span className="block text-xs text-neutral-500">{r.lastAction ? `Last contact: ${ACTION_LABEL[r.lastAction.action] || r.lastAction.action} ${new Date(r.lastAction.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'No contact logged'}</span>
+                          <span className="block text-xs text-neutral-500">{r.lastAction ? `Last contact: ${ACTION_LABEL[r.lastAction.action] || r.lastAction.action} ${new Date(r.lastAction.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : 'No contact logged'}</span>
                           {r.plan && <span className="mt-0.5 inline-block rounded-full bg-violet-100 px-sm py-0.5 text-[11px] font-semibold text-violet-900">Plan: {gbp(r.plan.instalment)} a month from {day(r.plan.startsOn)}</span>}
                         </td>
                         <td className="px-lg py-md">

@@ -44,7 +44,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', {
     weekday: 'short',
     day: 'numeric',
-    month: 'short',
+    month: 'long',
     year: 'numeric',
   });
 }

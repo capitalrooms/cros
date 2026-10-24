@@ -22,7 +22,7 @@ const btn = 'rounded-lg border border-neutral-300 bg-white px-md py-xs text-sm f
 const btnDark = 'rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-40'
 const input = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
 const day = (d: string | null) => d ? new Date(`${d.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
-const stateOf = (p: Post): [string, string] => p.status !== 'published' ? ['Draft', 'bg-neutral-100 text-neutral-600'] : isLive(p) ? ['Live', 'bg-green-50 text-green-800'] : [`Scheduled ${new Date(p.publish_at!).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`, 'bg-blue-50 text-blue-800']
+const stateOf = (p: Post): [string, string] => p.status !== 'published' ? ['Draft', 'bg-neutral-100 text-neutral-600'] : isLive(p) ? ['Live', 'bg-green-50 text-green-800'] : [`Scheduled ${new Date(p.publish_at!).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}`, 'bg-blue-50 text-blue-800']
 
 export default function WebsitePage({ searchParams }: { searchParams: PageSearchParams }) {
   const sp = use(searchParams)
@@ -122,7 +122,7 @@ export default function WebsitePage({ searchParams }: { searchParams: PageSearch
                       <input type="checkbox" checked={r.show} onChange={async e => { const show = e.target.checked; if (await act({ action: 'room', roomId: r.id, show })) load() }} />
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-semibold text-neutral-900">{r.name} · {r.house}{r.letOnly ? <span className="ml-xs rounded bg-purple-100 px-1 text-[10px] font-semibold text-purple-700">LET-ONLY</span> : null}</span>
-                        <span className="block text-xs text-neutral-500">{r.rent != null ? `£${Number(r.rent).toLocaleString('en-GB')} pcm` : 'no asking rent set'} · {r.status === 'on_notice' ? 'coming up' : 'available'}{r.availableDate ? ` from ${day(r.availableDate)}` : ''}</span>
+                        <span className="block text-xs text-neutral-500">{r.rent != null ? `£${Number(r.rent).toLocaleString('en-GB')} per month` : 'no asking rent set'} · {r.status === 'on_notice' ? 'coming up' : 'available'}{r.availableDate ? ` from ${day(r.availableDate)}` : ''}</span>
                       </span>
                       <span className={`shrink-0 rounded-full px-sm py-0.5 text-[11px] font-semibold ${r.show ? 'bg-green-50 text-green-800' : 'bg-neutral-100 text-neutral-500'}`}>{r.show ? 'On the site' : 'Not shown'}</span>
                     </label>

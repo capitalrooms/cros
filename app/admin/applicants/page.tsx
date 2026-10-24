@@ -567,7 +567,7 @@ export default function ApplicantsPage() {
                       {/* Viewing date */}
                       {view && (
                         <p className="hidden md:block text-xs text-neutral-400 whitespace-nowrap">
-                          Viewed {new Date(view.viewing_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          Viewed {new Date(view.viewing_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                         </p>
                       )}
 
@@ -650,7 +650,7 @@ export default function ApplicantsPage() {
                           {room?.current_asking_rent && (
                             <div>
                               <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Asking rent</p>
-                              <p className="text-neutral-900">£{room.current_asking_rent.toLocaleString()} pcm</p>
+                              <p className="text-neutral-900">£{room.current_asking_rent.toLocaleString()} per month</p>
                               {applicant.rent_offer_type === 'below_asking' && applicant.offered_rent && (
                                 <p className="text-amber-700 font-semibold">Offered: £{Number(applicant.offered_rent).toLocaleString()}</p>
                               )}
@@ -659,13 +659,13 @@ export default function ApplicantsPage() {
                           {applicant.preferred_start_date && (
                             <div>
                               <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Move-in</p>
-                              <p className="text-neutral-900">{new Date(applicant.preferred_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                              <p className="text-neutral-900">{new Date(applicant.preferred_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                               {applicant.preferred_term && <p className="text-neutral-500">{applicant.preferred_term}</p>}
                             </div>
                           )}
                           <div>
                             <p className="font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Applied</p>
-                            <p className="text-neutral-900">{new Date(applicant.submitted_at || applicant.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                            <p className="text-neutral-900">{new Date(applicant.submitted_at || applicant.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                           </div>
                         </div>
 
@@ -1018,7 +1018,7 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     ['LinkedIn', (a as any).linkedin_url ?? ''],
     ['Requirements', a.room_requirements ?? ''],
     ['Room', [room?.name, prop?.address || prop?.name].filter(Boolean).join(', ')],
-    ['Rent · start', [rent ? `£${Number(rent).toLocaleString('en-GB', { minimumFractionDigits: 2 })} pcm` : '', start ? `from ${start}` : ''].filter(Boolean).join(' · ')],
+    ['Rent · start', [rent ? `£${Number(rent).toLocaleString('en-GB', { minimumFractionDigits: 2 })} per month` : '', start ? `from ${start}` : ''].filter(Boolean).join(' · ')],
   ]
   const g = a.guarantor_needed
   if (g) rows.push(['Guarantor', g === 'no' ? 'Not needed' : g === 'not_sure' && !a.guarantor_name ? 'Not sure yet' : [a.guarantor_name, a.guarantor_phone, a.guarantor_email].filter(Boolean).join(' · ')])
