@@ -19,17 +19,18 @@ export default function RentTimingPanel() {
   const [channels, setChannels] = useState<'push_email' | 'push_only'>('push_email')
   const [sending, setSending] = useState(false)
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    setData(null); setNote(null)
+    setData(null); setNote(null); setLoadError(null)
     adminFetch(`/api/admin/rent-reminders?month=${month}`).then(async r => {
       const d = await r.json().catch(() => ({}))
       // a refused request (e.g. signed out) is an error to show, never data to draw — it crashed the Arrears screen
-      if (!r.ok || !Array.isArray(d.rows)) { setData({ rows: [], collecting: true, from: '', previews: {} }); setNote({ ok: false, text: d.error ?? 'Rent timing couldn’t be loaded — sign in again, or try later.' }); return }
+      if (!r.ok || !Array.isArray(d.rows)) { setLoadError(d.error ?? 'Rent timing couldn’t be loaded — sign in again, or try later.'); return }
       setData(d)
       // late payers ticked; unpaid ones left for you to choose
       setPicked(new Set(((d.rows ?? []) as RentTiming[]).filter(r => r.state === 'late').map(r => r.tenancyId)))
-    }).catch(() => setData({ rows: [], collecting: true, from: '', previews: {} }))
+    }).catch(() => setLoadError('Rent timing couldn’t be loaded — check the connection.'))
   }, [month])
 
   const rows = data?.rows ?? []
@@ -60,7 +61,8 @@ export default function RentTimingPanel() {
         </div>
       </div>
 
-      {!data ? <p className="text-sm text-neutral-400">Loading…</p>
+      {loadError ? <p className="text-sm font-semibold text-red-700">{loadError}</p>
+        : !data ? <p className="text-sm text-neutral-400">Loading…</p>
         : !data.collecting ? <p className="text-sm text-neutral-500">{monthName(month)} is in the import period — CROS collects rent from {monthName((data.from || month).slice(0, 7))}, so timing starts then.</p>
         : !rows.length ? <p className="text-sm text-neutral-500">No rent charges for {monthName(month)} yet — they’re raised on the 1st.</p>
         : <>
