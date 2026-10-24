@@ -39,7 +39,7 @@ interface PropertyNote {
 const todayISO = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
 function dayLabel(iso: string) {
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+  const tomorrow = new Date(new Date(`${todayISO()}T12:00:00Z`).getTime() + 86400000).toISOString().slice(0, 10)
   if (iso === todayISO()) return 'Today'
   if (iso === tomorrow) return 'Tomorrow'
   return new Date(iso).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })

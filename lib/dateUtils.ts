@@ -8,11 +8,8 @@
  * Used for all date comparisons
  */
 export function getTodayGMT(): string {
-  const now = new Date()
-  const year = now.getUTCFullYear()
-  const month = String(now.getUTCMonth() + 1).padStart(2, '0')
-  const date = String(now.getUTCDate()).padStart(2, '0')
-  return `${year}-${month}-${date}`
+  // today in London (24 Oct 2026): the UTC date was still yesterday between midnight and 1am all summer
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 }
 
 /**

@@ -39,7 +39,7 @@ type ApplicantPreset = 'running_late' | 'outside' | 'moved' | 'custom'
 
 const hhmm = (slot: string | null) => (slot ? slot.slice(0, 5) : '')
 const niceDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
-const todayISO = () => new Date().toISOString().slice(0, 10)
+const todayISO = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
 export default function LettingsQuickNotify({ properties, viewings, initialMode = 'tenants', initialPropertyId, initialViewingId, onClose, onSent }: Props) {
   const [mode, setMode] = useState<NotifyMode>(initialMode)

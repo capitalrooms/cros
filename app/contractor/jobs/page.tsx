@@ -55,7 +55,7 @@ function dayLabel(iso: string) {
   const d = new Date(iso);
   const t = new Date();
   const isToday = iso === todayISO();
-  const tomorrow = new Date(t.getTime() + 86400000).toISOString().split('T')[0];
+  const tomorrow = new Date(new Date(`${todayISO()}T12:00:00`).getTime() + 86400000).toISOString().split('T')[0];
   if (isToday) return 'Today';
   if (iso === tomorrow) return 'Tomorrow';
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -291,6 +291,7 @@ export default function ContractorJobs() {
   // Week strip — which of the next 7 days have work on them.
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
+    d.setHours(12, 0, 0, 0);   // midday: midnight here became the day before as an ISO date all summer (24 Oct 2026)
     d.setDate(d.getDate() + i);
     const iso = d.toISOString().split('T')[0];
     return { iso, d, count: booked.filter((j) => j.booked_date === iso).length };

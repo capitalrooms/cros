@@ -51,7 +51,7 @@ const statusStyle = (status: string | null) => {
 function getNextSevenDays(): DayInfo[] {
   const days: DayInfo[] = [];
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setHours(12, 0, 0, 0);   // midday: midnight here became the day before as an ISO date all summer (24 Oct 2026)
 
   for (let i = 0; i < 7; i++) {
     const date = new Date(today);
