@@ -32,36 +32,41 @@ export async function tenantAccount(s: SupabaseClient, tenancyId: string): Promi
   let q = s.from('rent_charges').select('*').eq('room_id', tt.room_id).or(`tenancy_id.eq.${tt.id},tenancy_id.is.null`)
     .gte('charge_month', String(tt.start_date).slice(0, 7) + '-01').order('charge_month')
   if (tt.end_date) q = q.lte('charge_month', tt.end_date)
-  const { data: charges } = await q
   // A room charge with no tenancy (imported from an agent's statement before the tenant was in CROS) in the month this
   // tenancy began belongs to whoever was in the room on the 1st — the outgoing tenant — not the one arriving mid-month.
   // (Erin Pollard, 17 Oct 2026: moved in 20 Sept and was shown Isaac Hale's £950 September rent.)
   const startMonth = String(tt.start_date).slice(0, 7)
-  let outgoingHadStartMonth = false
-  if (!String(tt.start_date).endsWith('-01')) {
-    const { data: before } = await s.from('tenancies').select('id').eq('room_id', tt.room_id).neq('id', tt.id).is('let_cancelled_at', null)
-      .lte('start_date', `${startMonth}-01`).or(`end_date.is.null,end_date.gte.${startMonth}-01`).limit(1)
-    outgoingHadStartMonth = !!(before ?? []).length
-  }
+  // the reads that don't depend on each other go together (24 Oct 2026, speed: this was one after another)
+  const [{ data: charges }, beforeQ, takeover] = await Promise.all([
+    q,
+    String(tt.start_date).endsWith('-01') ? Promise.resolve({ data: [] as any[] }) : s.from('tenancies').select('id').eq('room_id', tt.room_id).neq('id', tt.id).is('let_cancelled_at', null)
+      .lte('start_date', `${startMonth}-01`).or(`end_date.is.null,end_date.gte.${startMonth}-01`).limit(1),
+    ledgerStart(s),
+  ])
+  const outgoingHadStartMonth = !!((beforeQ as any).data ?? []).length
   const live = ((charges ?? []) as any[]).filter(c => !c.voided)
     .filter(c => !(outgoingHadStartMonth && !c.tenancy_id && String(c.charge_month).slice(0, 7) === startMonth))
   const ids = live.map(c => c.id)
-  const { data: audit } = ids.length
-    ? await s.from('payment_audit_log').select('rent_charge_id, action, performed_at, new_value, bank_transaction_id').in('rent_charge_id', ids).in('action', ['csv_matched', 'manual_allocated', 'fuzzy_confirmed', 'manually_paid']).order('performed_at')
-    : { data: [] as any[] }
+  // the payments, and the imported statements for the months before CROS collected rent, fetched together
+  const importMonths = [...new Set(live.map(c => String(c.charge_month).slice(0, 7)).filter(m => `${m}-01` < takeover))]
+  const [{ data: audit }, imported] = await Promise.all([
+    ids.length
+      ? s.from('payment_audit_log').select('rent_charge_id, action, performed_at, new_value, bank_transaction_id').in('rent_charge_id', ids).in('action', ['csv_matched', 'manual_allocated', 'fuzzy_confirmed', 'manually_paid']).order('performed_at')
+      : Promise.resolve({ data: [] as any[] }),
+    Promise.all(importMonths.map(m => importedRentFor(s, m).catch(() => []).then(lines => [m, lines] as const))),
+  ])
   const txnIds = [...new Set(((audit ?? []) as any[]).map(a => a.bank_transaction_id).filter(Boolean))]
   const { data: txns } = txnIds.length ? await s.from('bank_transactions').select('id, txn_no, transaction_date').in('id', txnIds) : { data: [] as any[] }
   const txn = new Map(((txns ?? []) as any[]).map(x => [x.id, x]))
 
   const dueDay = Math.min(Math.max(Number(tt.rent_due_day) || 1, 1), 28)
-  const takeover = await ledgerStart(s)
   const roomNo = String(tt.rooms?.name ?? '').match(/(\d+[A-Za-z]?)/)?.[1] ?? ''
-  const importedCache = new Map<string, Awaited<ReturnType<typeof importedRentFor>>>()
-  const importedFor = async (m: string) => {
-    if (!importedCache.has(m)) importedCache.set(m, await importedRentFor(s, m).catch(() => []))
-    return importedCache.get(m)!
-  }
-  const statementRefs = new Map<string, string>()
+  const importedCache = new Map(imported)
+  const importedFor = async (m: string) => importedCache.get(m) ?? []
+  // every statement this tenancy's months point at, in one read
+  const stIds = [...new Set(live.map(c => String(c.charge_month).slice(0, 7)).flatMap(m => (importedCache.get(m) ?? []).filter(l => l.propertyId === tt.property_id && l.room === roomNo).map(l => l.statementId)))]
+  const { data: stRows } = stIds.length ? await s.from('landlord_statements').select('id, statement_reference').in('id', stIds) : { data: [] as any[] }
+  const statementRefs = new Map<string, string>(((stRows ?? []) as any[]).map(st => [st.id, String(st.statement_reference ?? '').split(' · ')[0]]))
 
   const events: { date: string; order: number; details: string; reference: string; charged: number | null; paid: number | null }[] = []
   const months: RentMonth[] = []
@@ -97,10 +102,6 @@ export async function tenantAccount(s: SupabaseClient, tenancyId: string): Promi
     if (`${m}-01` < takeover) {
       const line = (await importedFor(m)).find(l => l.propertyId === tt.property_id && l.room === roomNo)
       if (line) {
-        if (!statementRefs.has(line.statementId)) {
-          const { data: st } = await s.from('landlord_statements').select('statement_reference').eq('id', line.statementId).maybeSingle()
-          statementRefs.set(line.statementId, String(st?.statement_reference ?? '').split(' · ')[0])
-        }
         statementRef = statementRefs.get(line.statementId) || undefined
       }
       if (line && recorded < amount - 0.004) {

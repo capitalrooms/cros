@@ -4,7 +4,7 @@
 // first, each line gone once it's done. Wording follows Harry's rules: Current tenancy / Expired tenancies, full dates,
 // full names with titles.
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadLettingFile, stageOf } from '@/lib/lettings/lettingFile'
+import { stageOf } from '@/lib/lettings/lettingFile'
 import { tenantAccount } from '@/lib/finance/tenantAccount'
 import { ledgerStart } from '@/lib/clientLedger'
 import { resolveFee, describeFee } from '@/lib/fees/managementFee'
@@ -35,15 +35,16 @@ export interface TimelineItem { at: string; kind: 'email' | 'sms' | 'app' | 'eve
 
 export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
   const today = todayIso()
-  const { data: room } = await s.from('rooms').select('*').eq('id', roomId).maybeSingle()
-  if (!room) return { error: 'Room not found' as const }
-  const { data: prop } = await s.from('properties').select('*').eq('id', room.property_id).maybeSingle()
+  // the room with its house in one read (24 Oct 2026, speed)
+  const { data: roomRow } = await s.from('rooms').select('*, property:properties(*)').eq('id', roomId).maybeSingle()
+  if (!roomRow) return { error: 'Room not found' as const }
+  const { property: prop, ...room } = roomRow as any
   if (!prop) return { error: 'Property not found' as const }
 
   const [houseRoomsQ, houseTenQ, roomTenQ, landlordQ, chargesQ, ticketsQ, purchasesQ, photosQ, viewingsQ, applicantsQ, offersQ, holdsQ, notesQ, checksQ, takeover] = await Promise.all([
     s.from('rooms').select('id, name, current_asking_rent, status').eq('property_id', prop.id),
     s.from('tenancies').select('id, room_id, start_date, end_date, notice_received_date, rent_amount, let_cancelled_at, people!person_id(salutation, first_name, last_name, full_name)').eq('property_id', prop.id).is('let_cancelled_at', null),
-    s.from('tenancies').select('*, people!person_id(id, salutation, first_name, last_name, full_name, email, phone), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name, email, phone)').eq('room_id', roomId).is('let_cancelled_at', null).order('start_date'),
+    s.from('tenancies').select('*, people!person_id(id, salutation, first_name, last_name, full_name, email, phone, occupation, right_to_rent_until), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name, email, phone)').eq('room_id', roomId).is('let_cancelled_at', null).order('start_date'),
     prop.landlord_id ? s.from('people').select('id, salutation, first_name, last_name, full_name, company').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     s.from('rent_charges').select('id, charge_month, amount_due, amount_received, status, received_date, voided, tenancy_id, amount_due_note').eq('room_id', roomId).eq('voided', false).order('charge_month', { ascending: false }).limit(36),
     s.from('maintenance_tickets').select('id, title, status, priority, created_at, booked_date, completed_at, final_price, quote_amount').eq('room_id', roomId).order('created_at', { ascending: false }).limit(50),
@@ -52,7 +53,7 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
     s.from('viewings').select('id, viewing_date, viewing_slot, visitor_name, visitor_email, viewing_status, feedback, created_at').eq('room_id', roomId).order('viewing_date', { ascending: false }).limit(30),
     s.from('applicants').select('id, salutation, first_name, last_name, full_name, email, phone, pipeline_stage, created_at, archived_at, offer_id').eq('room_id', roomId).is('archived_at', null).order('created_at', { ascending: false }).limit(30),
     s.from('offers').select('id, applicant_id, applicant_name, applicant_email, advertised_rent, status, sent_at').eq('room_id', roomId).order('sent_at', { ascending: false }).limit(30),
-    s.from('holding_deposits').select('id, hold_no, amount, received_on, status, tenancy_id, applicant_id').eq('room_id', roomId),
+    s.from('holding_deposits').select('id, hold_no, amount, received_on, status, outcome_on, tenancy_id, applicant_id').eq('room_id', roomId),
     s.from('room_notes').select('id, content, note_type, created_by, created_at').eq('room_id', roomId).order('created_at', { ascending: false }).limit(50),
     s.from('tenant_self_checks').select('id, check_type, request_sent_at, response_received_at, tenant_response, issue_type').eq('room_id', roomId).order('created_at', { ascending: false }).limit(12),
     ledgerStart(s).catch(() => '2026-11-01'),
@@ -62,9 +63,27 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
   const current = tenancies.find(t => t.start_date <= today && (!t.end_date || t.end_date >= today)) ?? null
   const incoming = tenancies.find(t => t.start_date > today) ?? null
   const expired = tenancies.filter(t => t.end_date && t.end_date < today).sort((a, b) => b.end_date.localeCompare(a.end_date))
-  const fileQ = current ? await loadLettingFile(s, current.id) : null
-  const file = fileQ && 'file' in fileQ ? fileQ.file : null
-  const account = current ? await tenantAccount(s, current.id).catch(() => null) : null
+  // the letting-file steps, worked out from the tenancy itself (the full letting file loader took 1.4 seconds)
+  const holds = ((holdsQ as any).data ?? []) as any[]
+  const holdFor = (t: any) => holds.find(h => h.tenancy_id === t.id && (h.status === 'held' || h.status === 'applied')) ?? holds.find(h => h.tenancy_id === t.id) ?? null
+  const stepsFor = (t: any) => {
+    const h = holdFor(t)
+    return [
+      { id: 'holding', label: 'Holding deposit', done: !!h, date: h?.received_on ?? null, sub: h ? h.hold_no : 'Not recorded' },
+      { id: 'referencing', label: 'Referencing', done: !!t.referencing_passed_at, date: t.referencing_passed_at ?? t.referencing_sent_at ?? null, sub: t.referencing_passed_at ? 'Passed' : t.referencing_sent_at ? 'With Homeppl' : 'Homeppl' },
+      { id: 'right_to_rent', label: 'Right to Rent', done: !!t.right_to_rent_checked_at, date: t.right_to_rent_checked_at ?? null, sub: t.right_to_rent_checked_at ? 'Checked' : `Before ${fullDate(t.start_date)}` },
+      // the agreement is due within 15 days of the holding deposit (Tenant Fees Act), unless agreed otherwise
+      { id: 'agreement', label: 'Agreement', done: !!t.agreement_signed_at, date: t.agreement_signed_at ?? t.agreement_sent_at ?? null, sub: t.agreement_signed_at ? 'Signed' : `${t.agreement_sent_at ? 'Sent for signing' : 'Not sent'}${h?.received_on ? ` · due by ${fullDate(addDays(h.received_on, 15))}${addDays(h.received_on, 15) < todayIso() ? ' (passed)' : ''}` : ''}` },
+      { id: 'monies', label: 'Move-in monies', done: !!t.move_in_monies_received_at, date: t.move_in_monies_received_at ?? null, sub: t.move_in_monies_received_at ? 'Received' : 'Due by move-in' },
+      { id: 'deposit', label: 'Deposit protected', done: !!t.deposit_protected_at || !!t.deposit_protection_assumed, date: t.deposit_protected_at ?? null, sub: t.deposit_protected_at ? (t.deposit_scheme || 'Protected') : 'Within 30 days' },
+      { id: 'keys', label: 'Keys & check-in', done: !!t.keys_handed_at, date: t.keys_handed_at ?? null, sub: t.keys_handed_at ? 'Handed over' : 'Inventory, keys' },
+    ]
+  }
+  const file = current ? {
+    tenant: { id: current.people?.id ?? current.person_id, name: pname(current.people), email: current.people?.email ?? null, phone: current.people?.phone ?? null, occupation: current.people?.occupation ?? null, rightToRentUntil: current.people?.right_to_rent_until ?? null },
+    jointTenant: current.co ? { id: current.co.id, name: pname(current.co), email: current.co.email ?? null, phone: current.co.phone ?? null } : null,
+    liveHold: holdFor(current), steps: stepsFor(current),
+  } : null
 
   // ── the house strip: every room, who's in it, what's next ───────────────────────────────────────────────────────
   const houseTen = ((houseTenQ as any).data ?? []) as any[]
@@ -151,10 +170,11 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
   const timeline: TimelineItem[] = []
   const groupOf = (tenancyId: string) => tenancyId === current?.id || tenancyId === incoming?.id ? 'current' as const : 'expired' as const
   const tIds = tenancies.map(t => t.id)
-  const [eventsQ, notifQ, feedbackQ] = await Promise.all([
+  const [eventsQ, notifQ, feedbackQ, account] = await Promise.all([
     tIds.length ? s.from('tenancy_events').select('tenancy_id, kind, note, at, by_email').in('tenancy_id', tIds).order('at', { ascending: false }).limit(200) : Promise.resolve({ data: [] }),
     s.from('notifications').select('user_id, title, body, created_at').in('user_id', tenancies.map(t => t.person_id).filter(Boolean)).order('created_at', { ascending: false }).limit(60),
     tIds.length ? s.from('tenant_feedback').select('tenancy_id, created_at, comments').in('tenancy_id', tIds) : Promise.resolve({ data: [] }),
+    current ? tenantAccount(s, current.id).catch(() => null) : Promise.resolve(null),
   ])
   for (const e of ((eventsQ as any).data ?? []) as any[]) {
     const kind = String(e.kind)
@@ -251,8 +271,7 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
     if (!current.keys_handed_at && days(current.start_date, today) > 3) needs.push({ key: 'keys', level: 'tidy', category: 'Records', title: 'Keys handed over: no date recorded', detail: `Tenancy start date ${fullDate(current.start_date)}.`, due: 'No deadline', href: `/admin/lettings/${current.id}?tab=progress`, action: 'Record it' })
   }
   if (incoming) {
-    const f = await loadLettingFile(s, incoming.id).catch(() => null)
-    const next = f && 'file' in f && f.file ? f.file.steps.find(x => !x.done && x.id !== 'move_in') : null
+    const next = stepsFor(incoming).find(x => !x.done)
     if (next) needs.push({ key: 'incoming', level: days(today, incoming.start_date) <= 7 ? 'urgent' : 'week', category: 'Incoming tenancy', title: `${next.label} · ${pname(incoming.people)}`, detail: `Tenancy start date ${fullDate(incoming.start_date)}. ${next.sub}`.trim(), due: `Starts in ${days(today, incoming.start_date)} days`, href: `/admin/lettings/${incoming.id}?tab=progress`, action: 'Open letting file' })
   }
   if (!current && !incoming) {
