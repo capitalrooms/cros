@@ -2,10 +2,18 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signIn } from '@/lib/auth'
+import { signIn, getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import Logo from '@/components/Logo'
 import TwoStepCode, { needsTwoStep } from '@/components/TwoStepCode'
+
+const ROLE_NAME: Record<string, string> = { administrator: 'Office', admin: 'Office', lettings: 'Lettings', tenant: 'Tenant', contractor: 'Contractor', cleaner: 'Cleaner', landlord: 'Landlord', agent: 'Agent' }
+function roleHome(role: string | null | undefined): string {
+  // lettings: the office screens (their areas only) on a computer, the lettings app on a phone
+  return ({ administrator: '/admin', admin: '/admin', tenant: '/tenant',
+    contractor: '/contractor', cleaner: '/cleaner', landlord: '/landlord',
+    lettings: typeof window !== 'undefined' && window.innerWidth >= 768 ? '/admin' : '/lettings', agent: '/agent' } as Record<string, string>)[role ?? ''] ?? '/tenant'
+}
 
 // Inner component that reads search params (requires Suspense wrapper)
 function LoginForm() {
@@ -31,6 +39,13 @@ function LoginForm() {
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const [forgotMsg, setForgotMsg]     = useState('')
+
+  // already signed in (24 Oct 2026): another role's screen sends people here, and the bare form read as "you've been
+  // signed out" — say who they are and take them to their own screens instead
+  const [signedInAs, setSignedInAs]   = useState<{ email: string; role: string } | null>(null)
+  useEffect(() => {
+    getCurrentUser().then(u => { if (u?.assignment?.role) setSignedInAs({ email: u.user?.email ?? '', role: u.assignment.role }) }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     // Pre-fill from ?email= or ?phone= query param
@@ -72,9 +87,7 @@ function LoginForm() {
       }
       const role = result.assignment?.role
       // lettings: the office screens (their areas only) on a computer, the lettings app on a phone
-      const home = { administrator: '/admin', admin: '/admin', tenant: '/tenant',
-        contractor: '/contractor', cleaner: '/cleaner', landlord: '/landlord',
-        lettings: window.innerWidth >= 768 ? '/admin' : '/lettings', agent: '/agent' }[role ?? ''] ?? '/tenant'
+      const home = roleHome(role)
       // signed out part-way through (the office "Sign in again" bar): back to the screen they were on — office screens only
       const next = searchParams.get('next') ?? ''
       const path = home === '/admin' && /^\/admin(\/[\w\-/?=&%.]*)?$/.test(next) && !next.startsWith('//') ? next : home
@@ -146,6 +159,15 @@ function LoginForm() {
         </div>
 
         <div className="cr-fade-up" style={{ animationDelay: '1150ms' }}>
+
+          {signedInAs && !codeFor && (
+            <div className="mb-lg rounded-2xl border border-white/15 bg-white/5 p-lg text-center text-white">
+              <p className="text-sm">You’re signed in as <b>{signedInAs.email}</b> ({ROLE_NAME[signedInAs.role] ?? signedInAs.role}).</p>
+              <p className="mt-xs text-xs text-white/60">The screen you tried to open is for someone else.</p>
+              <a href={roleHome(signedInAs.role)} className="mt-md block rounded-xl bg-white px-md py-sm text-sm font-bold text-black">Go to my screens</a>
+              <button type="button" onClick={async () => { await createClient().auth.signOut(); setSignedInAs(null) }} className="mt-sm text-xs font-semibold text-white/70 underline">Sign in as someone else</button>
+            </div>
+          )}
 
           {/* ── Two-step sign-in code ── */}
           {codeFor ? (
