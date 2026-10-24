@@ -41,7 +41,9 @@ export const AREAS: Area[] = [
     // read only (GET): landlords' bank details for agreements — changing where a landlord is paid stays with Finance;
     // the rent account and deposit return in the letting file and tenant profile; landlord pages
     apiRead: ['/api/admin/landlord-bank-accounts', '/api/admin/rent-charges', '/api/admin/payment-audit-log', '/api/admin/deposit-returns',
-      '/api/admin/landlords', '/api/admin/landlord-access', '/api/admin/finance-dates', '/api/admin/rent-resolve'] },
+      '/api/admin/landlords', '/api/admin/landlord-access', '/api/admin/finance-dates', '/api/admin/rent-resolve',
+      // 24 Oct 2026: the letting file and tenant profile show what's been sent to the tenant
+      '/api/admin/messages'] },
   { key: 'diary', label: 'Diary & viewings', hint: 'The diary, booking viewings and appointments',
     pages: ['/admin/appointments', '/admin/agency-diary', '/admin/calendar'], api: ['/api/admin/appointments', '/api/admin/calendar', '/api/admin/quick-notify-lettings'],
     // the Lettings home and viewings screens (the phone diary) show the overview and documents
