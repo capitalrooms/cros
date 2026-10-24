@@ -13,6 +13,7 @@ import BackButton from '@/app/components/BackButton'
 import { StoredImg } from '@/components/StoredImg'
 import { adminFetch } from '@/lib/adminFetch'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
+import { useAdminAccess } from '@/lib/admin-context'
 import type { RoomOverview, Need, TimelineItem } from '@/lib/rooms/roomOverview'
 
 const gbp = (n: number | null | undefined) => n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -43,6 +44,8 @@ const btnLight = 'inline-flex min-h-[40px] items-center justify-center rounded-l
 const card = 'rounded-2xl border border-neutral-200 bg-white'
 
 export default function RoomPage({ params }: { params: Promise<{ id: string; roomId: string }> }) {
+  // reporting a job is Maintenance's screen — hidden for staff without it (lettings) rather than a dead end
+  const canReport = useAdminAccess()('/admin/maintenance/new')
   const { id: propertyId, roomId } = use(params)
   const [o, setO] = useState<RoomOverview | null>(null)
   const [error, setError] = useState('')
@@ -111,7 +114,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
             </div>
             <div className="hidden flex-wrap gap-sm md:flex">
               {cur && <button type="button" onClick={message} className="rounded-lg bg-[#F6F3EC] px-md py-sm text-sm font-black text-[#181614]">Message {cur.tenant.name}</button>}
-              <Link href="/admin/maintenance/new" className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Report a job</Link>
+              {canReport && <Link href="/admin/maintenance/new" className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Report a job</Link>}
               <Link href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Marketing view</Link>
               <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Edit room</Link>
             </div>
@@ -174,8 +177,8 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
       {/* phone: the two things you most often do here, above the tab bar */}
       <div className="sticky bottom-0 z-30 grid grid-cols-[1fr_1fr_auto] gap-sm border-t border-neutral-200 bg-neutral-100/95 px-md py-sm backdrop-blur md:hidden">
         {cur && <button type="button" onClick={message} className={`${btnDark} col-span-3`}>Message {cur.tenant.name}</button>}
-        <Link href="/admin/maintenance/new" className={`${btnLight} col-span-2`}>Report a job</Link>
-        <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className={btnLight} aria-label="Edit room">Edit</Link>
+        {canReport && <Link href="/admin/maintenance/new" className={`${btnLight} col-span-2`}>Report a job</Link>}
+        <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className={`${btnLight} ${canReport ? '' : 'col-span-3'}`} aria-label="Edit room">{canReport ? 'Edit' : 'Edit room'}</Link>
       </div>
     </div>
   )
@@ -214,6 +217,8 @@ function Section({ id, title, summary, wide, open, children, tone = 'border-neut
 function NeedsYou({ needs, today, reload }: { needs: Need[]; today: string; reload: () => Promise<void> }) {
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
+  // a step on someone else's screens (e.g. booking a repair is Maintenance) — say whose it is rather than a dead end
+  const allowed = useAdminAccess()
   const counts = (['urgent', 'week', 'tidy'] as const).map(l => [l, needs.filter(n => n.level === l).length] as const).filter(([, n]) => n > 0)
   async function run(n: Need) {
     if (n.op !== 'apply_move_in_rent' || !n.opTenancyId) return
@@ -233,7 +238,7 @@ function NeedsYou({ needs, today, reload }: { needs: Need[]; today: string; relo
           <h2 id="needs" className="text-xl font-extrabold" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>Needs you · {needs.length}</h2>
           <span className="text-xs text-neutral-500">From this room’s records as at {full(today)}, most urgent first. Each clears itself once done.</span>
         </div>
-        {counts.length > 0 && <span className="flex gap-md text-xs font-bold">{counts.map(([l, n]) => <span key={l} className={`inline-flex items-center gap-xs ${LEVEL[l].text}`}><span className={`h-2 w-2 rounded-full ${LEVEL[l].bar}`} />{n} {LEVEL[l].label}</span>)}</span>}
+        {counts.length > 0 && <span className="flex gap-md text-xs font-bold">{counts.map(([l, n]) => <span key={l} className={`inline-flex items-center gap-xs ${LEVEL[l].text}`}><span className={`h-2 w-2 rounded-full ${LEVEL[l].bar}`} />{n} {l === 'tidy' && n === 1 ? 'tidy-up' : LEVEL[l].label}</span>)}</span>}
       </div>
       {msg && <p className="border-b border-neutral-100 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">{msg}</p>}
       {needs.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">Nothing needs doing on this room.</p> : (
@@ -255,7 +260,9 @@ function NeedsYou({ needs, today, reload }: { needs: Need[]; today: string; relo
                   ? <button type="button" disabled={busy === n.key} onClick={() => run(n)} className={`${btnDark} max-w-[124px] flex-none px-sm text-center text-xs leading-tight sm:w-[190px] sm:max-w-none sm:px-md sm:text-sm`}>{busy === n.key ? 'Working…' : n.action}</button>
                   : n.href?.startsWith('#')
                     ? <a href={n.href} className={`${n.level === 'urgent' ? btnDark : btnLight} max-w-[124px] flex-none px-sm text-center text-xs leading-tight sm:w-[190px] sm:max-w-none sm:px-md sm:text-sm`}>{n.action}</a>
-                    : <Link href={n.href ?? '#'} className={`${n.level === 'urgent' ? btnDark : btnLight} max-w-[124px] flex-none px-sm text-center text-xs leading-tight sm:w-[190px] sm:max-w-none sm:px-md sm:text-sm`}>{n.action}</Link>}
+                    : n.href && !allowed(n.href.split('?')[0])
+                      ? <span className="max-w-[124px] flex-none text-center text-[11px] leading-tight text-neutral-500 sm:w-[190px] sm:max-w-none">For whoever looks after {n.category.toLowerCase() === 'repair' ? 'repairs' : n.category.toLowerCase()}</span>
+                      : <Link href={n.href ?? '#'} className={`${n.level === 'urgent' ? btnDark : btnLight} max-w-[124px] flex-none px-sm text-center text-xs leading-tight sm:w-[190px] sm:max-w-none sm:px-md sm:text-sm`}>{n.action}</Link>}
               </div>
             </li>
           ))}
@@ -512,10 +519,11 @@ function TheRoom({ o, wide, propertyId }: { o: RoomOverview; wide: boolean; prop
 }
 
 function Repairs({ o, wide }: { o: RoomOverview; wide: boolean }) {
+  const canReport = useAdminAccess()('/admin/maintenance/new')
   const open = o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status))
   const done = o.repairs.filter(r => r.status === 'completed').slice(0, 5)
   return (
-    <Section title="Repairs and spend" wide={wide} summary={`${open.length} open · ${gbp(o.spend)} spent`} right={<Link href="/admin/maintenance/new" className={btnLight}>Report a job</Link>}>
+    <Section title="Repairs and spend" wide={wide} summary={`${open.length} open · ${gbp(o.spend)} spent`} right={canReport ? <Link href="/admin/maintenance/new" className={btnLight}>Report a job</Link> : undefined}>
       <ul className="px-lg py-sm text-sm">
         {open.map(r => <li key={r.id} className="flex justify-between gap-sm border-b border-neutral-100 py-sm"><span><b>{r.title}</b><span className="block text-xs text-neutral-500">Reported {full(r.reported)} · {r.priority} priority · {r.booked ? `booked ${full(r.booked)}` : 'no date booked'}</span></span><span className="self-start rounded-full bg-amber-50 px-sm py-0.5 text-[11px] font-bold text-amber-900">Open</span></li>)}
         {done.map(r => <li key={r.id} className="flex justify-between gap-sm border-b border-neutral-100 py-sm text-neutral-600"><span>{r.title}<span className="block text-xs">Completed {full(r.completed)}</span></span><span className="tabular-nums">{r.price != null ? gbp(r.price) : ''}</span></li>)}
