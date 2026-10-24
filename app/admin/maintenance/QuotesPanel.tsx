@@ -15,7 +15,7 @@ interface Contractor { id: string; label: string; email: string }
 interface Other { name: string; email: string; phone: string }
 
 const gbp = (n: number) => '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
 const STATUS: Record<Quote['status'], [string, string]> = {
   requested: ['Waiting', 'bg-neutral-100 text-neutral-600'],
   submitted: ['Price in', 'bg-blue-50 text-blue-700'],

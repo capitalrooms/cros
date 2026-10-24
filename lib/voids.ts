@@ -64,7 +64,7 @@ export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDa
     if (!letOn(end - 1) && toDay(knownFrom) < end) { let d = end - 1; while (d > toDay(knownFrom) && !letOn(d - 1)) d--; emptyNowSince = toIso(d) }
     // records say empty, room says let → those trailing days are unconfirmed
     const checkFrom = emptyNowSince && !marketed ? toDay(emptyNowSince) : Infinity
-    const check = emptyNowSince && !marketed ? `Marked let, but no tenancy on file since ${new Date(`${emptyNowSince}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : null
+    const check = emptyNowSince && !marketed ? `Marked let, but no tenancy on file since ${new Date(`${emptyNowSince}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}` : null
 
     const w = {} as VoidRoom['w']
     for (const m of VOID_WINDOWS) {

@@ -155,7 +155,7 @@ export default function RoomsManagement() {
                     <p className="font-bold">
                       {room.available_date
                         ? new Date(room.available_date).toLocaleDateString('en-GB', {
-                            month: 'short',
+                            month: 'long',
                             day: 'numeric',
                           })
                         : '—'}

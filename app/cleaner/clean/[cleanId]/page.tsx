@@ -209,7 +209,7 @@ export default function CleanDetailPage() {
     setBusy('reschedule')
     try {
       await patch({ clean_date: reDate, clean_time: reTime || null })
-      const when = `${new Date(reDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}${reTime ? ` at ${reTime}` : ''}`
+      const when = `${new Date(reDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}${reTime ? ` at ${reTime}` : ''}`
       const isSameDay = /Running late/.test(reReason)
       pushTenants(
         isSameDay
@@ -343,7 +343,7 @@ export default function CleanDetailPage() {
             <div>
               <p className="text-xs text-white/60">When</p>
               <p className="text-base font-bold mt-xs">
-                {new Date(clean.clean_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                {new Date(clean.clean_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}
                 {clean.clean_time ? ` · ${String(clean.clean_time).slice(0, 5)}` : ''}
               </p>
             </div>
@@ -436,7 +436,7 @@ export default function CleanDetailPage() {
           <>
             <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
               <h3 className="font-bold text-green-800">
-                ✅ Completed{clean.completed_at ? ` · ${new Date(clean.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                ✅ Completed{clean.completed_at ? ` · ${new Date(clean.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
               </h3>
               {clean.special_jobs?.length ? (
                 <p className="mt-sm text-sm text-green-900">Extra jobs: {clean.special_jobs.join(', ')}</p>

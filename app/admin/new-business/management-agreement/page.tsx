@@ -316,7 +316,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
                 <li key={a.id} className={`flex flex-wrap items-center justify-between gap-sm py-sm ${savedId === a.id ? 'bg-amber-50 -mx-sm px-sm rounded-lg' : ''}`}>
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-neutral-900">{a.client_name || 'Client'} <span className="font-normal text-neutral-500">· {TYPE_LABEL[a.agreement_type as AgreementType] ?? a.agreement_type} · v{a.version}</span></span>
-                    <span className="block truncate text-xs text-neutral-500">{(a.properties ?? []).map((p: string) => p.split('\n')[0].split(',')[0]).join(' · ')} · {new Date(a.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    <span className="block truncate text-xs text-neutral-500">{(a.properties ?? []).map((p: string) => p.split('\n')[0].split(',')[0]).join(' · ')} · {new Date(a.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                   </span>
                   <span className="flex shrink-0 gap-md text-xs font-semibold">
                     <button type="button" onClick={() => openSaved(a.id)} className="text-blue-700 hover:underline">{savedId === a.id ? 'Open (editing)' : 'Open & edit'}</button>

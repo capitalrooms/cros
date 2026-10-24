@@ -12,7 +12,7 @@ interface ChaseJob {
   bookedDate: string | null; reason: 'not_booked' | 'overdue'; message: string
 }
 
-const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })
 
 export default function ChaseContractors() {
   const [jobs, setJobs] = useState<ChaseJob[] | null>(null)

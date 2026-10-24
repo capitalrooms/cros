@@ -45,7 +45,7 @@ function stageDot(type: 'action' | 'passive' | 'complete') {
 
 function fmt(iso?: string | null) {
   if (!iso) return null
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://cros-sigma.vercel.app'

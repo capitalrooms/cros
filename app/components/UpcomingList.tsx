@@ -28,7 +28,7 @@ function friendlyDate(iso: string): string {
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'
   if (diff <= 6) return d.toLocaleDateString('en-GB', { weekday: 'long' })
-  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })
 }
 
 function weekLabel(iso: string): string {

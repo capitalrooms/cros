@@ -72,7 +72,7 @@ function amlStatus(records: AmlRecord[]): { label: string; colour: string; lastC
 
 function fmtDate(d: Date | null) {
   if (!d) return '—'
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 export default function LandlordsPage() {

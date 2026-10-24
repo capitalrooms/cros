@@ -43,7 +43,7 @@ export default function DuplicateApplicants({ onMerged }: { onMerged: () => void
                   <label className="flex flex-wrap items-center gap-sm text-sm">
                     <input type="radio" name={`keep-${g.email}`} checked={keep[g.email] === r.id} onChange={() => setKeep(k => ({ ...k, [g.email]: r.id }))} />
                     <span className="font-semibold">{r.name}</span>
-                    <span className="text-neutral-500">{STAGE[r.stage] ?? r.stage}{r.applied ? ' · application in' : ''} · {r.room || 'no room'} · made {new Date(r.created).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' })}</span>
+                    <span className="text-neutral-500">{STAGE[r.stage] ?? r.stage}{r.applied ? ' · application in' : ''} · {r.room || 'no room'} · made {new Date(r.created).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' })}</span>
                   </label>
                 </li>
               ))}

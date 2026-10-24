@@ -10,7 +10,7 @@ import ExportButtons from '@/app/components/ExportButtons'
 import { adminFetch } from '@/lib/adminFetch'
 
 const gbp = (n: number) => `${n < 0 ? '−' : ''}£${Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const day = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const day = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 const ym = (d: Date) => d.toISOString().slice(0, 10)
 
 export default function ResoldReport() {

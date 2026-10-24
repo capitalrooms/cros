@@ -62,7 +62,7 @@ const gbp = (n: number | null | undefined) =>
   n == null ? '—' : `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const fmtDate = (s: string | null | undefined) =>
-  s ? new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+  s ? new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 
 const fmtMonth = (s: string | null | undefined) => {
   if (!s) return '—'
@@ -554,7 +554,7 @@ export default function ReconciliationPage() {
                       <p className="text-sm font-semibold text-neutral-900">
                         £{Number(txn.amount).toLocaleString('en-GB', { minimumFractionDigits: 2 })}
                         <span className="ml-md text-neutral-400 font-normal text-xs">
-                          {new Date(txn.transaction_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {new Date(txn.transaction_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </span>
                       </p>
                       <p className="text-xs text-neutral-600 mt-xs font-mono truncate max-w-lg">{txn.description}</p>
@@ -688,7 +688,7 @@ export default function ReconciliationPage() {
                                     <button key={opt.tenancy_id} type="button" onClick={() => setManualPick(prev => ({ ...prev, [txn.id]: opt.tenancy_id }))}
                                       className="flex w-full items-baseline justify-between gap-md px-md py-sm text-left text-sm hover:bg-neutral-50">
                                       <span className="min-w-0"><b>{opt.name}</b> · {opt.room_name} · {opt.property_name}{opt.when ? <span className="text-amber-700"> · {opt.when}</span> : null}<span className="block text-xs text-neutral-500">Ref {opt.payment_reference || '—'}{opt.sender_name ? ` · pays as ${opt.sender_name}` : ''}</span></span>
-                                      <span className="shrink-0 text-xs tabular-nums text-neutral-600">{opt.rent_amount != null ? `£${Number(opt.rent_amount).toFixed(2)} pcm` : ''}</span>
+                                      <span className="shrink-0 text-xs tabular-nums text-neutral-600">{opt.rent_amount != null ? `£${Number(opt.rent_amount).toFixed(2)} per month` : ''}</span>
                                     </button>
                                   ))}
                                   {(pickQuery[txn.id] ?? '').trim() && !found.length && <p className="px-md py-sm text-xs text-neutral-500">Nobody matches “{pickQuery[txn.id]}”.</p>}
@@ -733,7 +733,7 @@ export default function ReconciliationPage() {
             <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
               {setAside.map(t => (
                 <li key={t.id} className="flex items-center justify-between gap-md px-xl py-sm text-sm">
-                  <span className="min-w-0"><b>£{Number(t.amount).toFixed(2)}</b> <span className="text-xs text-neutral-500">{new Date(t.transaction_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span><span className="block truncate font-mono text-xs text-neutral-600">{t.description}</span></span>
+                  <span className="min-w-0"><b>£{Number(t.amount).toFixed(2)}</b> <span className="text-xs text-neutral-500">{new Date(t.transaction_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span><span className="block truncate font-mono text-xs text-neutral-600">{t.description}</span></span>
                   <button type="button" disabled={allocating[t.id]} onClick={() => moveLine(t.id, 'restore')} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline disabled:opacity-40">Put back to match</button>
                 </li>
               ))}

@@ -10,7 +10,7 @@ import {
 const fmtDate = (iso?: string) => {
   if (!iso) return ''
   const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 const SHOWN_FACTS = ['expiry_date', 'supplier', 'insurer', 'account_number', 'policy_number', 'certificate_number', 'licence_number', 'rating', 'tenant_names', 'rent', 'end_date', 'lease_end', 'council_tax_band', 'title_number']
 

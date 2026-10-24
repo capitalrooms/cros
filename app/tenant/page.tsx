@@ -591,7 +591,7 @@ export default function TenantDashboard() {
               />
               <Stat
                 label="Next due"
-                value={rentDate ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}
+                value={rentDate ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : '—'}
                 sub={rentIn === 0 ? 'today' : rentIn != null ? `in ${rentIn} days` : ''}
               />
               <Stat
@@ -849,7 +849,7 @@ export default function TenantDashboard() {
                         </div>
                         {m.body && <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{m.body}</p>}
                         <p className="mt-sm text-xs text-neutral-400">
-                          {new Date(m.created_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(m.created_at).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
                         </p>
                         {m.link && (
                           <Link href={m.link} className="mt-sm inline-block text-xs font-semibold text-blue-600 hover:underline">
@@ -1084,7 +1084,7 @@ function PropertyNoteCard({ note, isForMyRoom }: { note: PropertyNote; isForMyRo
       <p className="mt-xs text-sm font-bold text-neutral-900">{note.title}</p>
       <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{note.content}</p>
       <p className="mt-sm text-xs text-neutral-400">
-        {note.note_type === 'admin' ? 'Capital Rooms' : (note.people as any)?.first_name || 'Capital Rooms'} · {new Date(note.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+        {note.note_type === 'admin' ? 'Capital Rooms' : (note.people as any)?.first_name || 'Capital Rooms'} · {new Date(note.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
       </p>
     </div>
   )

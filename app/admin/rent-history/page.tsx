@@ -31,7 +31,7 @@ interface TenancyRow {
 function fmtDate(iso: string | null) {
   if (!iso) return '—'
   return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
+    day: 'numeric', month: 'long', year: 'numeric',
   })
 }
 

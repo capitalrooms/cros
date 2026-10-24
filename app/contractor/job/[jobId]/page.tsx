@@ -244,7 +244,7 @@ export default function JobDetailPage() {
     setBusy('reschedule')
     try {
       await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
-      const when = new Date(bookDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+      const when = new Date(bookDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })
       const isSameDay = reReason === 'Running late — same day'
       notify('/api/notify-booking')
       pushTenants(
@@ -279,7 +279,7 @@ export default function JobDetailPage() {
         `A repair is booked at your property for ${new Date(bookDate).toLocaleDateString('en-GB', {
           weekday: 'short',
           day: 'numeric',
-          month: 'short',
+          month: 'long',
         })}, ${slotLabel(bookSlot)}.`
       )
       alert('✅ Visit booked — the tenants have been notified.')
@@ -434,7 +434,7 @@ export default function JobDetailPage() {
         // a fresh visit: booked, and they'll tap "I've arrived" again on the day
         await patch({ return_needed: true, return_reason: reason, return_date: returnDate, booked_date: returnDate, booked_slot: returnSlot, arrived_at: null, status: 'assigned' })
         notify('/api/notify-booking')
-        const when = new Date(returnDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+        const when = new Date(returnDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })
         pushTenants(`Your contractor needs to come back to finish the repair: ${when}, ${slotLabel(returnSlot)}.`)
         alert('✅ Return visit booked — the tenants have been told.')
       }
@@ -578,7 +578,7 @@ export default function JobDetailPage() {
                 <p className="text-xs text-white/60">Booked</p>
                 <p className="text-base font-bold mt-xs">
                   {new Date(job.booked_date).toLocaleDateString('en-GB', {
-                    weekday: 'short', day: 'numeric', month: 'short',
+                    weekday: 'short', day: 'numeric', month: 'long',
                   })}
                 </p>
                 <p className="text-sm text-white/80">{slotLabel(job.booked_slot)}</p>
@@ -665,7 +665,7 @@ export default function JobDetailPage() {
                 {job.quote_site_visit ? (
                   <p className="text-sm text-green-900 font-semibold">
                     Site visit requested{job.quote_visit_date
-                      ? ` for ${new Date(job.quote_visit_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
+                      ? ` for ${new Date(job.quote_visit_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}`
                       : ''}
                   </p>
                 ) : (

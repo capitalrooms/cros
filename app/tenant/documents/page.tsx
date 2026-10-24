@@ -9,7 +9,7 @@ import { adminFetch } from '@/lib/adminFetch'
 
 interface Doc { id: string; group: string; label: string; date: string | null; note?: string }
 const GROUPS = ['Your tenancy', 'Your rent', 'Letters & receipts', 'House certificates']
-const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
 
 export default function TenantDocumentsPage() {
   const [docs, setDocs] = useState<Doc[] | null>(null)

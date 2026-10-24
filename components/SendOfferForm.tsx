@@ -306,7 +306,7 @@ export default function SendOfferForm() {
               <div key={o.id} className="flex flex-wrap items-center gap-sm rounded-xl bg-neutral-800 border border-neutral-700 px-md py-sm">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-white truncate">{o.name}</p>
-                  <p className="text-xs text-neutral-400 truncate">{[o.room, o.property].filter(Boolean).join(' · ')} · sent {new Date(o.sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                  <p className="text-xs text-neutral-400 truncate">{[o.room, o.property].filter(Boolean).join(' · ')} · sent {new Date(o.sentAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</p>
                 </div>
                 <span className={`rounded-full px-sm py-0.5 text-xs font-semibold ${OFFER_STATE[o.state].cls}`}>{OFFER_STATE[o.state].label}</span>
                 {o.state !== 'paid' && o.applicantId && (

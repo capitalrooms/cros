@@ -17,7 +17,7 @@ export function formatBooking(
   const day = new Date(date).toLocaleDateString('en-GB', {
     weekday: 'short',
     day: 'numeric',
-    month: 'short',
+    month: 'long',
   })
   const time = slotLabel(slot)
   return time ? `${day}, ${time}` : day

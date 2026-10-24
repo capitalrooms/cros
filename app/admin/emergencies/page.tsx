@@ -30,7 +30,7 @@ const when = (iso: string | null) => {
   if (!iso) return '—'
   const d = new Date(iso)
   const same = d.toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) === new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-  return same ? time(iso) : `${time(iso)}, ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })}`
+  return same ? time(iso) : `${time(iso)}, ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'Europe/London' })}`
 }
 const ago = (iso: string | null) => { if (!iso) return 'never'; const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago` }
 const gbp = (n: number | null | undefined) => n == null ? 'no fee given' : `£${Number(n).toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
@@ -151,7 +151,7 @@ function summary(em: any, rs: any[]) {
     case 'awaiting_office': return soon ? `${asked}. The soonest, ${soon.name}, can be there by ${when(soon.eta_at)} for ${gbp(soon.call_out_fee)} — that’s over your limit, so it’s waiting for you.` : `${asked}. No one can come yet — please call round. The tenant has the overnight steps.`
     case 'assigned': return chosen ? `${chosen.name} is coming — due by ${when(em.eta_at)}, call-out ${gbp(em.call_out_fee)}. CROS checks in with them at ${when(em.followup_due_at)}.` : 'A contractor is on the way.'
     case 'on_site': return `${chosen?.name ?? 'The contractor'} is on site${chosen?.on_site_at ? ` since ${when(chosen.on_site_at)}` : ''}.`
-    case 'needs_return': return `${chosen?.name ?? 'The contractor'}: ${chosen?.outcome === 'made_safe' ? 'made safe' : 'not fixed'}${chosen?.part_needed ? `, needs ${chosen.part_needed}` : ''}${chosen?.fix_cost != null ? `, proper fix ${gbp(chosen.fix_cost)}` : ''}${chosen?.return_date ? `, back ${new Date(`${chosen.return_date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : ', no return date yet'}.`
+    case 'needs_return': return `${chosen?.name ?? 'The contractor'}: ${chosen?.outcome === 'made_safe' ? 'made safe' : 'not fixed'}${chosen?.part_needed ? `, needs ${chosen.part_needed}` : ''}${chosen?.fix_cost != null ? `, proper fix ${gbp(chosen.fix_cost)}` : ''}${chosen?.return_date ? `, back ${new Date(`${chosen.return_date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })}` : ', no return date yet'}.`
     case 'resolved': return `Resolved${em.resolved_at ? ` ${when(em.resolved_at)}` : ''}${chosen ? ` by ${chosen.name}` : ''}.`
     case 'morning': return 'The tenant says it’s contained until morning. Book someone first thing — or send it out now if it needs it.'
     case 'call_999': return 'The tenant was told to call the emergency services / gas line. No contractor was sent — check in with them.'

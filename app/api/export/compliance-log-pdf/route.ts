@@ -273,7 +273,7 @@ export async function POST(req: NextRequest) {
             </div>
             <span class="entry-date">${new Date(log.checked_date).toLocaleDateString('en-GB', {
                   year: 'numeric',
-                  month: 'short',
+                  month: 'long',
                   day: 'numeric'
                 })}</span>
           </div>

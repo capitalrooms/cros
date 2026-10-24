@@ -22,7 +22,7 @@ const gbp = (n: number) =>
   `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const fmtDate = (s: string) =>
-  new Date(s.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  new Date(s.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export async function GET(req: NextRequest) {
   const supabase = createRouteHandlerClient({ cookies })

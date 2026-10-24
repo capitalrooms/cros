@@ -552,7 +552,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       const key = t?.properties?.id ?? 'none'
       if (!match(p, `${t?.rooms?.name ?? ''} ${t?.properties?.name ?? ''}`)) continue
       if (!g.has(key)) g.set(key, { name: t ? firstLine(t.properties?.name) : 'No current tenancy', address: t ? String(t.properties?.address ?? '').replace(/\n/g, ', ') : 'Past tenants, applicants who became tenants, or not set up yet', rows: [] })
-      const note = !t ? '' : t.start_date > today ? `Moving in ${new Date(`${t.start_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : t.notice_received_date ? `On notice · out ${t.end_date ? new Date(`${t.end_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '?'}` : ''
+      const note = !t ? '' : t.start_date > today ? `Moving in ${new Date(`${t.start_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : t.notice_received_date ? `On notice · out ${t.end_date ? new Date(`${t.end_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : '?'}` : ''
       g.get(key)!.rows.push({ p, room: t?.rooms?.name ?? '', note })
     }
     const groups = [...g.entries()].map(([id, v]) => ({ id, ...v }))

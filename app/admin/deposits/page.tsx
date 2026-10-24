@@ -17,7 +17,7 @@ interface Row {
   deadline: string | null; status: 'overdue' | 'due' | 'no_deposit' | 'protected'
 }
 const gbp = (n: number) => '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const d = (iso: string | null) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+const d = (iso: string | null) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 const STATUS: Record<Row['status'], [string, string]> = {
   overdue: ['Past 30 days', 'bg-red-100 text-red-800'], due: ['Protect by deadline', 'bg-amber-100 text-amber-900'],
   no_deposit: ['No deposit recorded', 'bg-neutral-100 text-neutral-600'], protected: ['Protected', 'bg-emerald-50 text-emerald-700'],

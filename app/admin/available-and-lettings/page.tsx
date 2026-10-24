@@ -324,7 +324,7 @@ export default function LettingsPage() {
                     <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Property &amp; Room</th>
                     <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Room Type</th>
                     <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Available</th>
-                    <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Rent (£pcm)</th>
+                    <th className="px-lg py-md text-left text-sm font-semibold text-neutral-900">Rent per month (£)</th>
                     <th className="px-lg py-md text-center text-sm font-semibold text-neutral-900">Days on market</th>
                     <th className="px-lg py-md"></th>
                   </tr>

@@ -198,7 +198,7 @@ export default function PropertyNotesPage() {
           alert(
             `✅ Tasks added to the cleaner's next visit (${new Date(
               nextClean.clean_date
-            ).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})`
+            ).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })})`
           )
           setPosting(false)
           return
@@ -511,7 +511,7 @@ export default function PropertyNotesPage() {
                 <div className="space-y-sm max-h-[600px] overflow-y-auto">
                   {notes.map((note) => {
                     const createdDate = new Date(note.created_at).toLocaleDateString('en-GB', {
-                      month: 'short',
+                      month: 'long',
                       day: 'numeric',
                     })
                     return (

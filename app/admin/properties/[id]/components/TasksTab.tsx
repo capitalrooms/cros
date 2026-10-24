@@ -28,7 +28,7 @@ function fmtDate(iso: string) {
   if (diff === 0) return { label: 'Due today', cls: 'text-amber-600 font-bold' }
   if (diff === 1) return { label: 'Due tomorrow', cls: 'text-amber-500 font-semibold' }
   return {
-    label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+    label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }),
     cls:   diff <= 7 ? 'text-amber-500 font-semibold' : 'text-neutral-500',
   }
 }

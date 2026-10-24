@@ -28,7 +28,7 @@ const gbp = (n: number) => '£' + Number(n).toLocaleString('en-GB', { minimumFra
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const monthLabel = (m: string) => new Date(m.slice(0, 7) + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 const monthEnd = (m: string) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10) }
-const ukDate = (d: string) => new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const ukDate = (d: string) => new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
 interface MadeStatement { id: string; statement_reference: string; statement_date: string; net_to_landlord: number; approved_at: string | null; paid_date: string | null; sent_at: string | null; source: string; payment_run_id: string | null }
 

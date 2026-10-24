@@ -24,7 +24,7 @@ const STAGE: Record<string, [string, string]> = {
   referencing_passed: ['Ref. passed', 'bg-sky-50 text-sky-800'],
   docs_uploaded: ['Docs in', 'bg-teal-50 text-teal-800'],
 }
-const day = (iso: string | null | undefined) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : '—'
+const day = (iso: string | null | undefined) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' }) : '—'
 const FROM = 'from=/admin/lettings'
 
 function Column({ title, hint, count, href, hrefLabel, children }: { title: string; hint: string; count: number; href: string; hrefLabel: string; children: React.ReactNode }) {

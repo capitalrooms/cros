@@ -373,7 +373,7 @@ function CertUploadDrawer({
             <h2 className="text-lg font-bold text-neutral-900">{info.icon} {info.label}</h2>
             {panel.currentExpiry ? (
               <p className="text-xs text-neutral-500 mt-xs">
-                Expires: {new Date(panel.currentExpiry).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                Expires: {new Date(panel.currentExpiry).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             ) : (
               <p className="text-xs text-amber-600 mt-xs">Expiry date not yet recorded</p>
@@ -654,7 +654,7 @@ function CertificatesTab({
   }) {
     if (naOverride || (hmoOnly && !isHmo)) return <span className="text-xs text-neutral-300">n/a</span>
     if (appliedOn) {
-      const d = new Date(appliedOn + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+      const d = new Date(appliedOn + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
       return (
         <button type="button" onClick={() => onCellClick(propertyId, propertyName, certKey, expiry)} title={`Licence application made ${d} — waiting for the council. Click to update it or upload the licence.`}
           className="inline-flex flex-col items-center rounded px-sm py-[3px] text-xs font-medium min-w-[5rem] text-center leading-tight bg-blue-50 text-blue-800 hover:bg-blue-100 cursor-pointer">
@@ -664,7 +664,7 @@ function CertificatesTab({
     }
     const e = effectiveExpiry(certKey, expiry, date)
     const st = e ? checkStatus(e.due).status : null
-    const short = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
+    const short = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     const cls = !e
       ? 'border border-dashed border-neutral-300 bg-white text-neutral-400 hover:border-neutral-500 hover:text-neutral-700'
       : st === 'compliant' ? 'bg-green-50 text-green-800 hover:bg-green-100'
@@ -999,7 +999,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
                           <p className="text-xs text-neutral-500">{propById[log.property_id] || 'Unknown property'}</p>
                         </div>
                         <p className="text-xs text-neutral-500 mt-xs">
-                          {new Date(log.checked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {new Date(log.checked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                           {' · '}{displayName(log.person) || (log as any).checked_by_name || 'Unknown'}
                           {log.person?.role && <span className="ml-xs text-neutral-400">({log.person.role})</span>}
                         </p>

@@ -25,7 +25,7 @@ import type { RentRoll, RollRoom } from '@/lib/finance/rentRoll'
 
 const gbp = (n: number | null | undefined) => (n == null ? '' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const monthLabel = (m: string) => new Date(m + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-const shortDate = (d: string | null) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '')
+const shortDate = (d: string | null) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }) : '')
 
 const STATUS: Record<RollRoom['status'], { label: string; cls: string }> = {
   paid: { label: 'Paid', cls: 'bg-green-100 text-green-800' },

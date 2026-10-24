@@ -31,7 +31,7 @@ const STATUS_COLOURS: Record<string, string> = {
 
 function fmt(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function daysUntil(d: string | null | undefined): number | null {

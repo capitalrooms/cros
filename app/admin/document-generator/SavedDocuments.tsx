@@ -20,7 +20,7 @@ interface Doc {
   emailed_to: string[] | null
 }
 
-const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 const money = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: number; onEdit?: (doc: Doc) => void }) {

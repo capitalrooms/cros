@@ -21,7 +21,7 @@ interface Data {
 
 const input = 'mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900'
 const label = 'block text-xs font-semibold text-neutral-700'
-const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const when = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export default function HmoNoticePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)

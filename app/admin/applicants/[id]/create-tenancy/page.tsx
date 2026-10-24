@@ -265,7 +265,7 @@ export default function CreateTenancyPage() {
               <p className="text-neutral-400 uppercase tracking-wide font-semibold mb-xs">Preferred move-in</p>
               <p className="font-semibold text-neutral-900">
                 {applicant.preferred_start_date
-                  ? new Date(applicant.preferred_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                  ? new Date(applicant.preferred_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                   : '—'}
               </p>
             </div>

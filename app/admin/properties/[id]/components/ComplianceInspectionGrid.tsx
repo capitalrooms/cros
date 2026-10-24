@@ -128,7 +128,7 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
       year: 'numeric',
-      month: 'short',
+      month: 'long',
       day: 'numeric'
     })
   }

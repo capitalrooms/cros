@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 
 const gbp = (n: number | null | undefined) => `£${Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const ukDay = (d?: string | null) => d ? new Date(`${String(d).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }) : ''
+const ukDay = (d?: string | null) => d ? new Date(`${String(d).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const card = 'rounded-2xl border border-neutral-200 bg-white p-lg'
 const input = 'rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'

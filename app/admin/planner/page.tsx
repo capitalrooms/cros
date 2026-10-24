@@ -304,7 +304,7 @@ export default function PlannerPage() {
   function saveUpdate() {
     if (!updateDraft.trim() && draftLinks.length === 0 && draftImages.length === 0) return
     if (!selectedItemId || !activeBoardId) return
-    const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
     const upd: Update = {
       id: uid(), author: 'Harry', when: today,
       body: updateDraft.trim(),

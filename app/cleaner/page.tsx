@@ -280,7 +280,7 @@ export default function CleanerDashboard() {
     await loadCleans(personId)
     setBooking(false)
     const propName = properties.find((p) => p.id === propertyId)?.name || 'the property'
-    const when = new Date(cleanDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+    const when = new Date(cleanDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })
     setBookedNotice(`✅ Clean booked for ${propName} on ${when}${cleanTime ? ` at ${cleanTime}` : ''}.`)
     setShowBookCleanModal(false)
   }
@@ -804,7 +804,7 @@ export default function CleanerDashboard() {
               /* Viewing another day */
               <div>
                 <h2 className="text-sm font-bold text-neutral-700 mb-md">
-                  {new Date(selectedDay + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+                  {new Date(selectedDay + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
                 </h2>
                 {dayCleans.length > 0 ? (
                   <div className="space-y-sm">
@@ -928,7 +928,7 @@ export default function CleanerDashboard() {
                       <div className="min-w-0">
                         <p className="font-bold text-neutral-900">{checkTypeLabels[log.check_type]}</p>
                         <p className="text-sm text-neutral-500 mt-xs">
-                          {new Date(log.checked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {new Date(log.checked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                           {' · '}
                           {displayName(log.people as any) || 'Unknown'} ({log.checked_by_role})
                         </p>

@@ -40,7 +40,7 @@ const DOC_LABELS: Record<string, string> = {
   pat_test_record: 'PAT test record', legionella_risk_assessment: 'Legionella risk assessment', hmo_licence: 'HMO licence',
   other_document: 'Other document',
 }
-const fmt = (iso?: string) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+const fmt = (iso?: string) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 
 export default function OnboardingReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)

@@ -22,7 +22,7 @@ interface Data {
 
 const SEG: Record<Seg[2], string> = { let: '#2F6B4F', empty: '#C8372D', check: 'repeating-linear-gradient(135deg,#F6D58E 0 4px,#EBC46A 4px 6px)', unknown: 'repeating-linear-gradient(135deg,#F1EFEB 0 4px,#E6E2DC 4px 5px)' }
 const gbp = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
-const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const card = 'rounded-[10px] border border-[#E4E1DB] bg-white'
 const th = 'px-md py-sm text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500'
 const td = 'px-md py-sm text-[13px] tabular-nums'

@@ -23,7 +23,7 @@ export interface DashboardData {
 const INK = '#181614', CREAM = '#F6F3EC', LET = '#2F6B4F', NOTICE = '#E8A33A', EMPTY = '#6E95D2', RED = '#C8372D'
 const gbp0 = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
 const gbp2 = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const day = (iso: string | null) => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : '—'
+const day = (iso: string | null) => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' }) : '—'
 const pct = (a: number, b: number) => b ? Math.round(a / b * 100) : 0
 
 function Tile({ title, note, href, children, foot, wide }: { title: string; note?: React.ReactNode; href?: string; children: React.ReactNode; foot?: React.ReactNode; wide?: boolean }) {

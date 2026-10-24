@@ -123,7 +123,7 @@ export default function CleanerJobsPage() {
 
   const formatDate = (d: string | null) => {
     if (!d) return null
-    return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   }
 
   if (loading) return <GenericPageSkeleton />

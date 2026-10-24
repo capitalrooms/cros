@@ -10,7 +10,7 @@ import { importedRentFor } from '@/lib/finance/importedRent'
 import { fullAddressLine } from '@/lib/formatAddress'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
-const ukDate = (d: string) => new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const ukDate = (d: string) => new Date(d.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 const monthName = (d: string) => new Date(d.slice(0, 7) + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 
 export interface AccountLine { date: string; details: string; reference: string; charged: number | null; paid: number | null; balance: number }

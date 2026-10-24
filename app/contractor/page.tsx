@@ -684,7 +684,7 @@ export default function ContractorDashboard() {
                         <p className="font-bold text-neutral-900 truncate">{job.properties?.name}</p>
                         <p className="text-sm text-neutral-500 truncate">{String(job.category || 'General').replace(/-/g, ' ')}</p>
                         {job.completed_at && (
-                          <p className="text-xs text-neutral-400 mt-xs">Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                          <p className="text-xs text-neutral-400 mt-xs">Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</p>
                         )}
                       </div>
                       <span className="shrink-0 rounded-full bg-green-100 text-green-700 text-xs font-bold px-sm py-xs">Done ✓</span>
@@ -958,7 +958,7 @@ export default function ContractorDashboard() {
                           <p className="text-sm text-neutral-500 truncate">{String(job.category || 'General').replace(/-/g, ' ')}</p>
                           {job.completed_at && (
                             <p className="text-xs text-neutral-400 mt-xs">
-                              Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                              Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                             </p>
                           )}
                         </div>

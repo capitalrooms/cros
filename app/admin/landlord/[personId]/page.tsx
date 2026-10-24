@@ -71,7 +71,7 @@ const MGMT_TYPES = [
 
 function fmt(d: string | null | undefined) {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function riskBadge(level: string | null | undefined) {

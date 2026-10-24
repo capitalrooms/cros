@@ -307,7 +307,7 @@ export default function AutoLedgerPage() {
                     <p className="text-sm text-neutral-900 truncate">{item.description}</p>
                     <p className="text-xs text-neutral-400">
                       {(item.properties as any)?.name || 'Unknown property'} ·{' '}
-                      {new Date(item.statement_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(item.statement_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                   </div>
                   <p className="text-sm font-semibold text-neutral-900 ml-md shrink-0">

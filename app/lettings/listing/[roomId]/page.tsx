@@ -16,7 +16,7 @@ interface Photo { id: string; url: string; video: boolean; caption: string | nul
 interface Chan { channel: string; label: string; available: boolean; enabled: boolean; status?: string | null }
 const STEPS = [['draft', 'Draft'], ['ready', 'Ready'], ['live', 'Live'], ['let_agreed', 'Let agreed']] as const
 const gbp = (n: number | null | undefined) => n == null ? '—' : `£${Number(n).toLocaleString('en-GB', { maximumFractionDigits: 2 })}`
-const day = (d: string | null) => d ? new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+const day = (d: string | null) => d ? new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
 export default function ListingEditor({ params }: { params: Promise<{ roomId: string }> }) {

@@ -69,7 +69,7 @@ export async function checkDeliveries(s: SupabaseClient, opts: { force?: boolean
     const rows = problems.map(e => {
       const to = (e.to ?? []).join(', ')
       const name = (e.to ?? []).map((a: string) => who(a.toLowerCase())).filter(Boolean).join(', ')
-      const when = new Date(e.created_at).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      const when = new Date(e.created_at).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
       return `<tr><td style="padding:8px;border-bottom:1px solid #eee;vertical-align:top"><b>${esc(name || to)}</b>${name ? `<br><span style="color:#666">${esc(to)}</span>` : ''}</td>
         <td style="padding:8px;border-bottom:1px solid #eee;vertical-align:top">${esc(e.subject)}<br><span style="color:#666">${esc(when)}</span></td>
         <td style="padding:8px;border-bottom:1px solid #eee;vertical-align:top">${esc(e.why ?? BAD[e.last_event] ?? 'Still not delivered after an hour — their provider is holding it.')}</td></tr>`

@@ -99,7 +99,7 @@ export async function shape(s: S, personId: string, role: 'contractor' | 'cleane
   const issue = /^\d{4}-\d{2}-\d{2}$/.test(String(d.issueDate ?? '')) ? d.issueDate! : todayIso()
   const labourTotal = r2(lines.reduce((t, l) => t + l.labour, 0)), partsTotal = r2(lines.reduce((t, l) => t + l.parts, 0))
   const vat = prof.vatRegistered ? r2((labourTotal + partsTotal) * 0.2) : 0
-  const period = d.periodFrom && d.periodTo ? `${new Date(`${d.periodFrom}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(`${d.periodTo}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : null
+  const period = d.periodFrom && d.periodTo ? `${new Date(`${d.periodFrom}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })} – ${new Date(`${d.periodTo}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : null
   return {
     ours: !!d.toCapitalRooms, prof, client, property, lines, issue, due: addDays(issue, prof.paymentDays), labourTotal, partsTotal, vat, total: r2(labourTotal + partsTotal + vat), period,
     propertyLine: property ? [firstLine(property.name), String(property.address ?? '').replace(/\n/g, ', '), property.postcode].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ') : null,

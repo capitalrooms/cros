@@ -112,7 +112,7 @@ function Capture({ initialTab }: { initialTab: Tab }) {
           <section className={card}>
             <h3 className="border-b border-neutral-100 px-lg py-sm text-xs font-bold uppercase tracking-wider text-neutral-500">Recently filed</h3>
             <ul className="divide-y divide-neutral-100 text-sm">
-              {data.recent.map((r: any) => <li key={r.id} className="flex justify-between gap-sm px-lg py-xs"><span className="min-w-0 truncate">{r.name} <span className="text-neutral-500">· {r.kind}{r.property ? ` · ${r.property}` : ''}</span></span><span className="shrink-0 text-xs text-neutral-400">{new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span></li>)}
+              {data.recent.map((r: any) => <li key={r.id} className="flex justify-between gap-sm px-lg py-xs"><span className="min-w-0 truncate">{r.name} <span className="text-neutral-500">· {r.kind}{r.property ? ` · ${r.property}` : ''}</span></span><span className="shrink-0 text-xs text-neutral-400">{new Date(r.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</span></li>)}
             </ul>
           </section>
         )}
@@ -180,7 +180,7 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
           {isImage && it.url ? <img src={it.url} alt="" className="h-40 w-full object-cover" /> : <div className="flex h-40 items-center justify-center text-3xl">📄</div>}
         </a>
         <div className="min-w-0 space-y-sm">
-          <p className="text-xs text-neutral-500">{it.file_name} · {it.source === 'email' ? `emailed${it.email_from ? ` by ${it.email_from}` : ''}${it.email_subject ? ` — “${it.email_subject}”` : ''}` : it.source === 'shortcut' ? 'shared from iPhone' : 'from your phone'} · {new Date(it.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</p>
+          <p className="text-xs text-neutral-500">{it.file_name} · {it.source === 'email' ? `emailed${it.email_from ? ` by ${it.email_from}` : ''}${it.email_subject ? ` — “${it.email_subject}”` : ''}` : it.source === 'shortcut' ? 'shared from iPhone' : 'from your phone'} · {new Date(it.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })}</p>
           {g.kind ? <p className="text-sm text-neutral-700">Looks like <strong>{kinds[g.kind] ?? g.kind}</strong>{g.title ? ` — ${g.title}` : ''}{g.reason ? <span className="text-neutral-500"> ({g.reason})</span> : null}</p> : <p className="text-sm text-neutral-500">Say what it is:</p>}
           <div className="flex flex-wrap gap-xs">
             {Object.entries(kinds).map(([k, l]) => (
@@ -409,7 +409,7 @@ function CompanyTab({ data, reload }: { data: any; reload: () => Promise<void> }
             <li key={c.id} className={`flex items-baseline justify-between gap-sm px-lg py-sm ${c.voided_at ? 'opacity-50' : ''}`}>
               <span className="min-w-0">
                 <span className="font-semibold text-neutral-900">{c.cex_no ? `${c.cex_no} · ` : ''}{c.title}</span>
-                <span className="block text-xs text-neutral-500">{c.amount ? `£${Number(c.amount).toFixed(2)} · ${c.expense_category ?? ''}${c.supplier ? ` · ${c.supplier}` : ''} · dated ${c.expense_date ?? '—'}` : `${c.category} · received ${new Date(`${c.received_on}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`}{c.voided_at ? ` · VOID: ${c.void_reason}` : ''}{c.notes ? ` · ${c.notes}` : ''}</span>
+                <span className="block text-xs text-neutral-500">{c.amount ? `£${Number(c.amount).toFixed(2)} · ${c.expense_category ?? ''}${c.supplier ? ` · ${c.supplier}` : ''} · dated ${c.expense_date ?? '—'}` : `${c.category} · received ${new Date(`${c.received_on}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`}{c.voided_at ? ` · VOID: ${c.void_reason}` : ''}{c.notes ? ` · ${c.notes}` : ''}</span>
               </span>
               <span className="flex shrink-0 gap-sm">
                 {c.url && <a href={c.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-700 hover:underline">Open</a>}
@@ -433,7 +433,7 @@ function EmailSetup({ data }: { data: any }) {
         <p className="mt-xs text-sm text-neutral-600">Forward your email to <code className="rounded bg-neutral-100 px-1">{addr}</code>. CROS keeps only invoices, bills and receipts, and drops everything else without saving it. Each one waits under “To file”, read and with a suggestion, until you file it.</p>
         <button type="button" className={`${btn} mt-xs`} onClick={() => navigator.clipboard.writeText(addr)}>Copy the address</button>
       </div>
-      {data.gmail?.code && <p className="rounded-xl border border-amber-300 bg-amber-50 p-md text-sm text-amber-900">Gmail sent a confirmation code on {new Date(data.gmail.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}: <b className="font-mono text-base">{data.gmail.code}</b> — enter it in Gmail (step 3).</p>}
+      {data.gmail?.code && <p className="rounded-xl border border-amber-300 bg-amber-50 p-md text-sm text-amber-900">Gmail sent a confirmation code on {new Date(data.gmail.at).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })}: <b className="font-mono text-base">{data.gmail.code}</b> — enter it in Gmail (step 3).</p>}
       <ol className="list-decimal space-y-xs pl-lg text-sm text-neutral-800">
         <li>In Gmail on a computer: <strong>Settings (cog) → See all settings → Forwarding and POP/IMAP</strong>.</li>
         <li><strong>Add a forwarding address</strong> → paste <code className="rounded bg-neutral-100 px-1">{addr}</code> → Next → Proceed.</li>

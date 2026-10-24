@@ -29,7 +29,7 @@ const OPEN = ['collecting', 'awaiting_office', 'assigned', 'on_site', 'needs_ret
 // ── small helpers ────────────────────────────────────────────────────────────
 
 export const ukTime = (d: string | Date) => new Date(d).toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Europe/London' }).replace(/\s/g, '').replace(':00', '')
-export const ukDay = (d: string | Date) => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })
+export const ukDay = (d: string | Date) => new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long', timeZone: 'Europe/London' })
 const ukWhen = (d: string | Date) => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const that = new Date(d).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })

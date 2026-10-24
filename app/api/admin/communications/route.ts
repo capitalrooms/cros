@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     safe(s.from('people').select('id, full_name, salutation, first_name, last_name, email, role')),
     safe(s.from('rooms').select('id, name, property_id')),
     safe(s.from('properties').select('id, name, address')),
-    safe(s.from('tenancies').select('person_id, room_id, property_id, end_date, notice_received_date')),
+    safe(s.from('tenancies').select('person_id, room_id, property_id, start_date, end_date, notice_received_date, let_cancelled_at')),
   ])
   const personName = new Map<string, string>()
   const personRole = new Map<string, string>()
@@ -76,7 +76,8 @@ export async function GET(request: NextRequest) {
   const activeTenant = new Set<string>()
   const personTenancy = new Map<string, { propertyId: string; roomId: string | null }>()
   for (const t of tenancies as any[]) {
-    const active = !t.notice_received_date && (!t.end_date || t.end_date >= today)
+    // still a tenant until the tenancy end date — notice given doesn't make them a former tenant (24 Oct 2026)
+    const active = !t.let_cancelled_at && (!t.start_date || t.start_date <= today) && (!t.end_date || t.end_date >= today)
     if (active && t.person_id) {
       activeTenant.add(t.person_id)
       if (!personTenancy.has(t.person_id)) personTenancy.set(t.person_id, { propertyId: t.property_id, roomId: t.room_id })

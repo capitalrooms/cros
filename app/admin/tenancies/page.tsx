@@ -279,7 +279,7 @@ export default function TenanciesManagementPage() {
   const shown = active
     .filter(t => !needle || [displayName(t), t.people?.email, t.rooms?.name, t.properties?.name, t.properties?.address].some(v => String(v ?? '').toLowerCase().includes(needle)))
     .sort(view === 'ended' ? (a, b) => String(b.end_date).localeCompare(String(a.end_date)) : byAddress);
-  const shortDay = (iso: string | null | undefined) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC' }) : '—';
+  const shortDay = (iso: string | null | undefined) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '—';
   const fileHref = (t: Tenancy) => `/admin/lettings/${t.id}?from=/admin/tenancies`;
   const filteredRooms = selProp ? rooms.filter(r => r.property_id === selProp) : [];
 
@@ -467,7 +467,7 @@ export default function TenanciesManagementPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-neutral-600 mb-1">Rent (£pcm)</label>
+                    <label className="block text-xs font-medium text-neutral-600 mb-1">Rent per month (£)</label>
                     <input type="number" value={rent} onChange={e => setRent(e.target.value)} placeholder="0"
                       className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm" />
                   </div>

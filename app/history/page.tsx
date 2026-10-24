@@ -184,7 +184,7 @@ export default function HistoryPage() {
                       <p className="text-sm text-neutral-500">
                         Every {freq === 1 ? 'week' : `${freq} weeks`} · next due{' '}
                         <strong className="text-neutral-900">
-                          {due.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          {due.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
                         </strong>
                       </p>
                     )}
@@ -224,7 +224,7 @@ export default function HistoryPage() {
                                   : item.clean_date
                               ).toLocaleDateString('en-GB', {
                                 day: 'numeric',
-                                month: 'short',
+                                month: 'long',
                                 year: 'numeric',
                               })}
                             </p>

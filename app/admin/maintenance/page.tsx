@@ -263,7 +263,7 @@ export default function MaintenanceDashboard() {
       updates: [{
         id: uid(),
         author: 'Harry',
-        when: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        when: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }),
         body: `Raised by tenant${ticket.properties?.name ? ` at ${ticket.properties.name}` : ''}${ticket.rooms?.name ? `, ${ticket.rooms.name}` : ''}. Priority: ${ticket.priority}. ${ticket.description || ''}`.trim(),
       }],
     }
@@ -662,7 +662,7 @@ export default function MaintenanceDashboard() {
     const tomorrow = new Date(t.getTime() + 86400000).toISOString().split('T')[0];
     if (isToday) return 'Today';
     if (iso === tomorrow) return 'Tomorrow';
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' });
   };
 
   // One job on the board: two short lines; tap to open it in place with that stage's actions (Harry, 13 Oct 2026).
@@ -680,7 +680,7 @@ export default function MaintenanceDashboard() {
             className="min-w-0 flex-1 px-md py-sm text-left hover:bg-neutral-50">
             <span className="flex items-baseline justify-between gap-sm">
               <span className="truncate text-sm font-semibold text-neutral-900">{ticket.properties?.name ?? 'Unknown property'}</span>
-              <span className="shrink-0 text-[11px] text-neutral-400">{new Date(ticket.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+              <span className="shrink-0 text-[11px] text-neutral-400">{new Date(ticket.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</span>
             </span>
             <span className="mt-0.5 flex items-center gap-xs text-xs text-neutral-500">
               {PRIORITY_MARK[ticket.priority] && <span className={`shrink-0 rounded px-1 text-[10px] font-bold uppercase ${PRIORITY_MARK[ticket.priority]}`}>{ticket.priority}</span>}
@@ -700,7 +700,7 @@ export default function MaintenanceDashboard() {
             {ticket.title && <p className="text-xs text-neutral-600">“{ticket.title}”</p>}
             {col.key === 'booked' && <p className="text-xs text-neutral-500">{ticket.contractor_id ? 'Contractor assigned' : 'No contractor yet'}</p>}
             {col.key === 'progress' && ticket.return_needed && <p className="text-xs font-semibold text-neutral-900">Return visit needed</p>}
-            {col.key === 'cancelled' && ticket.cancel_reason && <p className="text-xs text-neutral-600">Cancelled{ticket.cancelled_at ? ` ${new Date(ticket.cancelled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}: {ticket.cancel_reason}</p>}
+            {col.key === 'cancelled' && ticket.cancel_reason && <p className="text-xs text-neutral-600">Cancelled{ticket.cancelled_at ? ` ${new Date(ticket.cancelled_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ''}: {ticket.cancel_reason}</p>}
             {col.key === 'awaiting' && (
               <div className="flex gap-xs">
                 <button onClick={() => approveTicket(ticket.id)} className="flex-1 rounded-lg bg-neutral-900 py-xs text-xs font-bold text-white">Approve</button>
@@ -1129,7 +1129,7 @@ export default function MaintenanceDashboard() {
                       .map(t => (
                         <option key={t.id} value={t.id}>
                           {t.title}
-                          {t.booked_date ? ` · ${new Date(t.booked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ' · no date'}
+                          {t.booked_date ? ` · ${new Date(t.booked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ' · no date'}
                         </option>
                       ))
                     }

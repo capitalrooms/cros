@@ -24,7 +24,7 @@ interface Line {
 type Tab = 'new' | 'filed' | 'not_expense' | 'receipts'
 
 const gbp = (n: number) => `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-const day = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+const day = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const inp = 'rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
 const btn = 'rounded-lg border border-neutral-300 bg-white px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-40'

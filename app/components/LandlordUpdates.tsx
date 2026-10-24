@@ -21,7 +21,7 @@ interface Data {
 interface Draft { subject: string; message: string; facts: { label: string; value: string; on: boolean }[]; docs: { id: string; label: string; fileName: string; on: boolean; idDoc: boolean }[] }
 
 const LABEL: Record<string, string> = { offer: 'Offer to review', reserved: 'Room reserved', referenced: 'Referencing passed', signed_paid: 'Signed & paid', summary: 'New tenant report' }
-const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Europe/London' }) : ''
+const day = (iso: string | null) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'Europe/London' }) : ''
 const input = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
 
 export default function LandlordUpdates({ applicantId, tenancyId, only, bare = false, phase = 'letting' }: { applicantId?: string | null; tenancyId?: string | null; only?: string[]; bare?: boolean; phase?: 'letting' | 'settling' | 'established' }) {

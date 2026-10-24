@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const { data: me } = await s.from('people').select('salutation, first_name, last_name, full_name, email').eq('id', caller.personId).maybeSingle()
   const by = pname(me) || caller.email
   const now = new Date().toISOString()
-  const day = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' })
+  const day = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
   const { error } = await s.from('maintenance_tickets').update({
     status: 'cancelled', cancelled_at: now, cancelled_by: caller.personId, cancel_reason: reason,
     admin_note: [t.admin_note, `[${day}] Cancelled by ${by}: ${reason}`].filter(Boolean).join('\n'), updated_at: now,
