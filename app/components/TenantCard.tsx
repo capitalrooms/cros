@@ -78,7 +78,7 @@ function tenantInitials(t: TenantCardTenant): string {
 
 function fmtDate(d: string | null | undefined) {
   if (!d) return null
-  return new Date(d).toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(`${String(d).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })
 }
 
 function decisionBadge(d: string | null | undefined) {
@@ -97,7 +97,7 @@ function rtrBadge(until: string | null | undefined) {
   const valid = new Date(until) > new Date()
   return (
     <span className={`text-xs font-semibold px-sm py-xs rounded-full border ${valid ? 'bg-green-100 text-green-800 border-green-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
-      RTR {valid ? '✓' : 'EXPIRED'} {new Date(until).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+      Right to Rent {valid ? 'until' : 'expired'} {new Date(`${String(until).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
     </span>
   )
 }
