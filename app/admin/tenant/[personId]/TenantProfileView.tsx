@@ -13,6 +13,7 @@ import DocViewDrawer from '@/components/DocViewDrawer'
 import { rentChargesForTenancies } from '@/lib/rentCharges'
 import { downloadPdf, adminFetch } from '@/lib/adminFetch'
 import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
+import { docTypeLabel } from '@/lib/documents/types'
 import DepositReturnPanel from '@/app/components/DepositReturnPanel'
 import TenancyFeeEditor from '@/app/components/TenancyFeeEditor'
 
@@ -1678,13 +1679,6 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
               ) : (
                 <div className="divide-y divide-neutral-100">
                   {tenancyDocs.map((doc: any) => {
-                    const typeLabel: Record<string, string> = {
-                      tenancy_agreement: 'Tenancy Agreement', right_to_rent: 'Right to Rent',
-                      deposit_certificate: 'Deposit Certificate', how_to_rent: 'How to Rent Guide',
-                      epc: 'EPC', gas_safety: 'Gas Safety Cert', electrical_cert: 'EICR',
-                      inventory: 'Inventory', reference_report: 'Reference Report',
-                      id_proof: 'ID Proof', employment_letter: 'Employment Letter', other: 'Other',
-                    }
                     return (
                       <button
                         key={doc.id}
@@ -1692,10 +1686,9 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                         className="w-full px-xl py-md flex items-center justify-between gap-md text-left hover:bg-neutral-50 transition"
                       >
                         <div className="flex items-center gap-md min-w-0">
-                          <span className="text-lg shrink-0">📄</span>
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-neutral-900 truncate">{doc.file_name}</p>
-                            <p className="text-xs text-neutral-400">{typeLabel[doc.document_type] ?? doc.document_type} · {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</p>
+                            <p className="text-xs text-neutral-400">{docTypeLabel(doc.document_type)} · {doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
                           </div>
                         </div>
                         {doc.storage_url && (

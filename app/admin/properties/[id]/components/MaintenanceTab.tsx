@@ -97,38 +97,14 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
 
   return (
     <div className="space-y-xl">
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-semibold text-neutral-900">Maintenance Jobs</h2>
-        <p className="text-sm text-neutral-400 mt-xs">Track and manage all maintenance tickets for this property</p>
+      {/* Header: one line of counts (24 Oct 2026 — five tiles for one job was noise) */}
+      <div className="flex flex-wrap items-baseline justify-between gap-sm">
+        <h2 className="text-lg font-semibold text-neutral-900">Repair jobs</h2>
+        <p className="text-sm text-neutral-500">{stats.total} in all · {stats.reported} reported · {stats.booked} booked · {stats.inProgress} in progress · {stats.completed} done</p>
       </div>
 
-      {/* Statistics Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-md">
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-lg text-center">
-          <p className="text-2xl font-bold text-neutral-900">{stats.total}</p>
-          <p className="text-xs text-neutral-500 mt-sm uppercase tracking-wider font-semibold">Total</p>
-        </div>
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-lg text-center">
-          <p className="text-2xl font-bold text-blue-700">{stats.reported}</p>
-          <p className="text-xs text-blue-700 mt-sm uppercase tracking-wider font-semibold">Reported</p>
-        </div>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-lg text-center">
-          <p className="text-2xl font-bold text-amber-900">{stats.booked}</p>
-          <p className="text-xs text-amber-700 mt-sm uppercase tracking-wider font-semibold">Booked</p>
-        </div>
-        <div className="rounded-lg border border-orange-200 bg-orange-50 p-lg text-center">
-          <p className="text-2xl font-bold text-orange-900">{stats.inProgress}</p>
-          <p className="text-xs text-orange-700 mt-sm uppercase tracking-wider font-semibold">In Progress</p>
-        </div>
-        <div className="rounded-lg border border-green-200 bg-green-50 p-lg text-center">
-          <p className="text-2xl font-bold text-green-700">{stats.completed}</p>
-          <p className="text-xs text-green-700 mt-sm uppercase tracking-wider font-semibold">Done</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="space-y-md">
+      {/* Filters — once there are enough jobs to need them */}
+      {stats.total > 6 && <div className="space-y-md">
         <div>
           <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">
             Search Jobs
@@ -173,7 +149,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
             </select>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Jobs List */}
       {filtered.length === 0 ? (
@@ -207,11 +183,11 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
                       {getStatusLabel(ticket.status)}
                     </span>
                     <span className={`text-xs font-semibold px-md py-sm rounded-full ${getPriorityColor(ticket.priority)}`}>
-                      {ticket.priority}
+                      {ticket.priority ? ticket.priority[0].toUpperCase() + ticket.priority.slice(1) : ''}
                     </span>
                     {ticket.rooms && (
                       <span className="text-xs text-neutral-500 font-semibold">
-                        📍 {ticket.rooms.name}
+                        {ticket.rooms.name}
                       </span>
                     )}
                   </div>
@@ -220,19 +196,13 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
 
               {ticket.booked_date && (
                 <p className="text-xs text-neutral-500 mb-md">
-                  📅 Booked for {new Date(ticket.booked_date).toLocaleDateString('en-GB')}
+                  Booked for {new Date(`${String(ticket.booked_date).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
                   {ticket.booked_slot && ` at ${ticket.booked_slot}`}
                 </p>
               )}
 
-              <div className="flex gap-sm">
-                <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                  View Details
-                </button>
-                <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-                  Update Status
-                </button>
-              </div>
+              {/* these two buttons did nothing — jobs are managed on Maintenance (24 Oct 2026) */}
+              <a href="/admin/maintenance" className="text-xs font-semibold text-neutral-900 underline">Open in Maintenance</a>
             </div>
           ))}
         </div>
