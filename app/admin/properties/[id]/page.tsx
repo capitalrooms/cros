@@ -29,6 +29,11 @@ import TasksTab from './components/TasksTab'
 import BackButton from '@/app/components/BackButton'
 import TenantAppTab from './components/TenantAppTab'
 import { landlordFormalNames } from '@/lib/people'
+import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
+
+const fullDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+const addDaysIso = (n: number) => { const d = new Date(`${todayIso()}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 
 type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'lettings' | 'compliance' | 'documents' | 'tenant_app'
 
@@ -61,7 +66,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   // Backwards-compat: old URL ?tab=property → details, old sub-tabs → their merged parent
-  const rawTab = searchParams.get('tab') || 'details'
+  const rawTab = searchParams.get('tab') || 'units'   // opens on its rooms — where you go from All Units
   const legacyMap: Record<string, TabType> = {
     property: 'details', extended: 'details',
     housemates: 'people',
@@ -69,9 +74,11 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     communications: 'compliance',
     photos: 'documents', financials: 'documents',
   }
-  const initialTab: TabType = (legacyMap[rawTab] as TabType) || (rawTab as TabType) || 'details'
+  const initialTab: TabType = (legacyMap[rawTab] as TabType) || (rawTab as TabType) || 'units'
   const initialRoomId = searchParams.get('room') || undefined;
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  // the header's figures: rooms let today, their rent, the next certificate to expire
+  const [house, setHouse] = useState<{ rooms: number; let: number; rent: number; nextCert: { label: string; expiry: string } | null } | null>(null)
   const [peopleSubTab, setPeopleSubTab] = useState<PeopleSubTab>('tenants')
   const [maintenanceSubTab, setMaintenanceSubTab] = useState<MaintenanceSubTab>('jobs')
   const [complianceSubTab, setComplianceSubTab] = useState<ComplianceSubTab>('compliance')
@@ -149,6 +156,13 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
         .order('created_at', { ascending: false });
 
       setTickets(jobs || []);
+      {
+        const today = todayIso()
+        const { data: ts } = await supabase.from('tenancies').select('room_id, start_date, end_date, rent_amount').eq('property_id', id).is('let_cancelled_at', null)
+        const current = ((ts ?? []) as any[]).filter(t => t.start_date <= today && (!t.end_date || t.end_date >= today))
+        const certs = PROPERTY_CERTIFICATES.map(([col, label]) => ({ label, expiry: (prop as any)?.[col] as string | null })).filter(c => !!c.expiry).sort((x, y) => x.expiry!.localeCompare(y.expiry!))
+        setHouse({ rooms: (prop as any)?.rooms?.length ?? 0, let: new Set(current.map(t => t.room_id)).size, rent: current.reduce((n, t) => n + (Number(t.rent_amount) || 0), 0), nextCert: certs[0] ? { label: certs[0].label, expiry: certs[0].expiry! } : null })
+      }
       setLoading(false);
     }
     init();
@@ -235,15 +249,15 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     );
   }
 
-  const tabs: Array<{ id: TabType; label: string; icon: string }> = [
-    { id: 'details',     label: 'Details',     icon: '🏠' },
-    { id: 'units',       label: 'Units',       icon: '🛏️' },
-    { id: 'people',      label: 'People',      icon: '👥' },
-    { id: 'maintenance', label: 'Maintenance', icon: '🔧' },
-    { id: 'lettings',    label: 'Lettings',    icon: '🔑' },
-    { id: 'compliance',  label: 'Compliance',  icon: '✅' },
-    { id: 'documents',   label: 'Documents',   icon: '📁' },
-    { id: 'tenant_app',  label: 'Tenant App',  icon: '📱' },
+  const tabs: Array<{ id: TabType; label: string }> = [
+    { id: 'details', label: 'Details' },
+    { id: 'units', label: 'Units' },
+    { id: 'people', label: 'People' },
+    { id: 'maintenance', label: 'Maintenance' },
+    { id: 'lettings', label: 'Lettings' },
+    { id: 'compliance', label: 'Compliance' },
+    { id: 'documents', label: 'Documents' },
+    { id: 'tenant_app', label: 'Tenant App' },
   ]
 
   return (
@@ -260,170 +274,38 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           </button>
         }
       />
+      {/* One header, the same as every other screen (24 Oct 2026 tidy): the name once, the facts that matter, the
+          figures, and the tabs. Name, address and postcode are edited on the Details tab. */}
       <PageHero
         eyebrow={[property.property_code, property.property_type === 'hmo' ? 'HMO' : property.property_type === 'single' || property.property_type === 'single_let' ? 'Single let' : property.property_type, property.letting_type === 'let_only' ? 'Let only' : 'Fully managed'].filter(Boolean).join(' · ')}
-        title={property.name || '—'}
-        // the address only when it says more than the name (most houses are named after their address)
-        subtitle={(() => { const addr = String(property.address || '').split('\n').join(', '); const sq = (v: string) => v.replace(/[\s,]/g, '').toLowerCase(); return sq(addr) === sq(String(property.name || '').split('\n').join(', ')) || sq(String(property.name || '')).includes(sq(addr)) ? undefined : addr })()}
-        actions={<HeroButton onClick={() => setShowQuickNotify(true)}>📢 Quick Notify</HeroButton>}
+        title={String(property.name || '—').split('\n')[0]}
+        subtitle={<>
+          {(() => { const addr = String(property.address || '').split('\n').join(', '); const sq = (v: string) => v.replace(/[\s,]/g, '').toLowerCase(); return sq(addr) === sq(String(property.name || '').split('\n').join(', ')) || sq(String(property.name || '')).includes(sq(addr)) ? null : <>{addr} · </> })()}
+          {property.landlord_id ? <>Landlord: <Link href={`/admin/landlord/${property.landlord_id}`} className="hover:underline">{property.landlord_name}</Link></> : 'No landlord linked'}
+        </>}
+        actions={<HeroButton onClick={() => setShowQuickNotify(true)}>Message the house</HeroButton>}
+        stats={house ? [
+          { label: 'Rooms let', value: `${house.let} of ${house.rooms}`, tone: house.let < house.rooms ? 'warn' : 'good' },
+          { label: 'Rent per month', value: `£${house.rent.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+          { label: house.nextCert ? `${house.nextCert.label} expires` : 'Certificates', value: house.nextCert ? fullDate(house.nextCert.expiry) : 'None on file', tone: house.nextCert && house.nextCert.expiry < addDaysIso(30) ? 'warn' : undefined },
+          { label: 'Repairs open', value: String(tickets.filter((t: any) => !['completed', 'cancelled'].includes(t.status)).length), tone: tickets.some((t: any) => !['completed', 'cancelled'].includes(t.status)) ? 'warn' : undefined },
+        ] : undefined}
+        tabs={tabs.map(t => ({ key: t.id, label: t.label, active: activeTab === t.id, onClick: () => setActiveTab(t.id) }))}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-
-        {/* ── Compact property header ───────────────────────────────────── */}
-        <div className="mb-lg rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-          <div className="flex items-stretch">
-
-            {/* Featured photo — slim left strip when available */}
-            {property.featured_photo?.file_path && (
-              <div className="w-32 flex-shrink-0 overflow-hidden">
-                <img
-                  src={property.featured_photo.file_url || `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${property.featured_photo.file_path?.startsWith('property-photos/') ? property.featured_photo.file_path : `property-photos/${property.featured_photo.file_path}`}`}
-                  alt="Featured photo"
-                  className="w-full h-full object-cover"
-                  onError={(e) => { e.currentTarget.parentElement!.style.display = 'none' }}
-                />
-              </div>
-            )}
-
-            {/* Main info */}
-            <div className="flex-1 px-xl py-lg min-w-0">
-              {/* Name row — inline edit on hover */}
-              <div className="flex items-start justify-between gap-md mb-xs">
-                <div className="flex items-center gap-sm group min-w-0">
-                  {editingName ? (
-                    <div className="flex items-center gap-sm">
-                      <input
-                        value={nameValue}
-                        onChange={(e) => setNameValue(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
-                        className="px-sm py-xs border border-neutral-300 rounded text-xl font-bold"
-                        autoFocus
-                      />
-                      <button onClick={handleSaveName} disabled={savingName} className="text-sm text-green-700 font-semibold">{savingName ? '…' : '✓ Save'}</button>
-                      <button onClick={() => { setEditingName(false); setNameValue(property.name || '') }} className="text-sm text-neutral-400">Cancel</button>
-                    </div>
-                  ) : (
-                    <>
-                      <h2 className="text-lg font-bold text-neutral-900">{property.name || '—'}</h2>
-                      <button onClick={() => setEditingName(true)} className="opacity-0 group-hover:opacity-100 transition text-neutral-400 hover:text-neutral-700 text-xs">✏️</button>
-                    </>
-                  )}
-                </div>
-                {/* Metadata chips */}
-                <div className="flex items-center gap-sm flex-shrink-0 flex-wrap justify-end">
-                  {property.property_code && (
-                    <span className="text-xs font-mono font-semibold bg-neutral-100 text-neutral-600 px-sm py-xs rounded">{property.property_code}</span>
-                  )}
-                  {property.property_type && (
-                    <span className="text-xs font-semibold bg-neutral-900 text-white px-sm py-xs rounded">
-                      {property.property_type === 'hmo' ? 'HMO' : property.property_type === 'single' || property.property_type === 'single_let' ? 'Single Let' : property.property_type}
-                    </span>
-                  )}
-                  {property.letting_type === 'let_only' && (
-                    <span className="text-xs font-semibold bg-purple-100 text-purple-800 px-sm py-xs rounded">🔑 Let only</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Address row — inline edit on hover */}
-              <div className="flex items-center gap-sm group mb-sm">
-                {editingAddress ? (
-                  <div className="flex items-center gap-sm w-full">
-                    <input
-                      value={addressValue}
-                      onChange={(e) => setAddressValue(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSaveAddress()}
-                      className="flex-1 px-sm py-xs border border-neutral-300 rounded text-sm"
-                      autoFocus
-                    />
-                    <button onClick={handleSaveAddress} disabled={savingAddress} className="text-sm text-green-700 font-semibold whitespace-nowrap">{savingAddress ? '…' : '✓ Save'}</button>
-                    <button onClick={() => { setEditingAddress(false); setAddressValue(property.address || '') }} className="text-sm text-neutral-400">Cancel</button>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm text-neutral-500">{inlineAddress(property.address)}</p>
-                    <button onClick={() => setEditingAddress(true)} className="opacity-0 group-hover:opacity-100 transition text-neutral-400 hover:text-neutral-700 text-xs">✏️</button>
-                  </>
-                )}
-              </div>
-
-              {/* Meta row: landlord · rooms · maintenance · postcode edit */}
-              <div className="flex items-center gap-xl flex-wrap">
-                {property.landlord_name && (
-                  <span className="text-xs text-neutral-500">Landlord: <strong className="text-neutral-700">{property.landlord_name}</strong></span>
-                )}
-                {property.property_type === 'single_let'
-                  ? <span className="text-xs text-neutral-500"><strong className="text-neutral-700">Whole property</strong>{property.bedrooms ? ` · ${property.bedrooms} bedroom${property.bedrooms === 1 ? '' : 's'}` : ''}</span>
-                  : (() => { const n = property.rooms?.length || property.bedrooms || 0; return <span className="text-xs text-neutral-500"><strong className="text-neutral-700">{n}</strong> room{n === 1 ? '' : 's'}</span> })()}
-                {tickets.length > 0 && (
-                  <span className="text-xs text-neutral-500"><strong className="text-amber-700">{tickets.length}</strong> maintenance</span>
-                )}
-                {/* Postcode — hidden inline edit only, not displayed (already in address) */}
-                {!property.postcode && (
-                  <div className="flex items-center gap-xs group">
-                    <span className="text-xs text-amber-600 italic">No postcode set for lat/lng lookup</span>
-                    {editingPostcode ? (
-                      <div className="flex items-center gap-xs">
-                        <input
-                          value={postcodeValue}
-                          onChange={(e) => setPostcodeValue(e.target.value.toUpperCase())}
-                          onKeyDown={(e) => e.key === 'Enter' && handleSavePostcode()}
-                          maxLength={8} placeholder="SW1A 2AA"
-                          className="w-24 px-xs py-0.5 border border-neutral-300 rounded font-mono text-xs uppercase"
-                          autoFocus
-                        />
-                        <button onClick={handleSavePostcode} disabled={savingPostcode} className="text-xs text-green-700 font-semibold">{savingPostcode ? '…' : '✓'}</button>
-                        <button onClick={() => { setEditingPostcode(false); setPostcodeValue(property.postcode || '') }} className="text-xs text-neutral-400">✕</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setEditingPostcode(true)} className="opacity-0 group-hover:opacity-100 text-xs text-neutral-400 hover:text-neutral-600 transition">Set postcode →</button>
-                    )}
-                  </div>
-                )}
-                {!property.property_code && (
-                  <div className="flex items-center gap-xs">
-                    <input
-                      value={codeValue}
-                      onChange={(e) => setCodeValue(e.target.value.toUpperCase())}
-                      placeholder="Set property code"
-                      maxLength={10}
-                      className="w-32 rounded border border-neutral-300 px-xs py-0.5 text-xs font-mono uppercase"
-                    />
-                    <button
-                      onClick={handleSaveCode}
-                      disabled={savingCode || !codeValue.trim()}
-                      className="rounded bg-neutral-900 px-sm py-0.5 text-xs font-semibold text-white hover:bg-neutral-700 disabled:opacity-50"
-                    >
-                      {savingCode ? '…' : 'Set code'}
-                    </button>
-                    {codeError && <span className="text-xs text-red-600">{codeError}</span>}
-                  </div>
-                )}
-              </div>
-            </div>
+        {!property.property_code && (
+          <div className="mb-lg flex flex-wrap items-center gap-sm rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">
+            <span className="font-semibold">This house has no property code.</span>
+            <input value={codeValue} onChange={(e) => setCodeValue(e.target.value.toUpperCase())} placeholder="e.g. 075CR" maxLength={10}
+              className="w-28 rounded border border-amber-300 bg-white px-xs py-0.5 font-mono text-xs uppercase" />
+            <button onClick={handleSaveCode} disabled={savingCode || !codeValue.trim()} className="rounded bg-neutral-900 px-sm py-0.5 text-xs font-semibold text-white disabled:opacity-50">{savingCode ? 'Saving…' : 'Set code'}</button>
+            {codeError && <span className="text-xs text-red-700">{codeError}</span>}
           </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="mb-0 flex gap-0 border-b border-neutral-700 overflow-x-auto bg-neutral-900 rounded-t-xl relative">
-          {tabs.map((tab, idx) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 px-lg py-md whitespace-nowrap font-semibold text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'border-b-2 border-white text-white bg-neutral-900'
-                  : 'border-b-2 border-transparent text-neutral-400 hover:text-white hover:bg-neutral-900'
-              } ${idx > 0 ? 'border-l border-l-neutral-800' : ''}`}
-            >
-              <span className="mr-xs">{tab.icon}</span> {tab.label}
-            </button>
-          ))}
-        </div>
+        )}
 
         {/* Tab Content */}
-        <div className="rounded-b-xl border border-t-0 border-neutral-200 bg-white shadow-sm">
+        <div className="rounded-2xl border border-neutral-200 bg-white">
 
           {/* ── Details (Property Info + Extended) ───────────────────────── */}
           {activeTab === 'details' && (
@@ -448,7 +330,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'people' && (
             <div>
               <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
-                {([['tenants', '👥 Tenants'], ['housemates', '🙋 Housemates']] as [PeopleSubTab, string][]).map(([key, label]) => (
+                {([['tenants', 'Tenants'], ['housemates', 'Housemates']] as [PeopleSubTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setPeopleSubTab(key)}
@@ -471,7 +353,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'maintenance' && (
             <div>
               <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
-                {([['jobs', '🔧 Jobs'], ['purchases', '🛒 Purchases'], ['tasks', '📋 Tasks']] as [MaintenanceSubTab, string][]).map(([key, label]) => (
+                {([['jobs', 'Jobs'], ['purchases', 'Purchases'], ['tasks', 'Tasks']] as [MaintenanceSubTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setMaintenanceSubTab(key)}
@@ -502,7 +384,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'compliance' && (
             <div>
               <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
-                {([['compliance', '✅ Compliance'], ['communications', '💬 Communications']] as [ComplianceSubTab, string][]).map(([key, label]) => (
+                {([['compliance', 'Certificates'], ['communications', 'Communications']] as [ComplianceSubTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setComplianceSubTab(key)}
@@ -525,7 +407,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'documents' && (
             <div>
               <div className="flex flex-wrap gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
-                {([['documents', '📁 Documents'], ['photos', '📷 Photos'], ['financials', '💷 Financials']] as [DocumentsSubTab, string][]).map(([key, label]) => (
+                {([['documents', 'Documents'], ['photos', 'Photos'], ['financials', 'Financials']] as [DocumentsSubTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setDocumentsSubTab(key)}
@@ -538,7 +420,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 ))}
                 <Link href={`/admin/properties/${id}/send-documents`}
                   className="ml-auto mb-xs self-center rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white hover:bg-neutral-700">
-                  ✉️ Send certificates to tenants
+                  Send certificates to tenants
                 </Link>
               </div>
               <div className="p-lg">

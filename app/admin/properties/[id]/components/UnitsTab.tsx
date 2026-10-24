@@ -101,12 +101,13 @@ function initials(p: TenancyDetail['person']): string {
 
 function fmtDate(d: string | null | undefined): string {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  // dates in full, everywhere (Harry, 24 Oct 2026)
+  return new Date(`${String(d).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 }
 
 function fmtRent(r: number | null | undefined): string {
   if (!r) return '—'
-  return `£${r.toLocaleString()} pcm`
+  return `£${Number(r).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function statusPill(room: RoomRow) {
@@ -114,11 +115,11 @@ function statusPill(room: RoomRow) {
     const isOnNotice = room.tenancyInfo?.start_date &&
       room.status === 'on_notice'
     if (isOnNotice) {
-      return <span className="text-xs font-semibold px-sm py-xs rounded-full bg-amber-100 text-amber-800">On notice</span>
+      return <span className="whitespace-nowrap text-xs font-semibold px-sm py-xs rounded-full bg-amber-100 text-amber-800">Notice received</span>
     }
-    return <span className="text-xs font-semibold px-sm py-xs rounded-full bg-green-100 text-green-800">Occupied</span>
+    return <span className="text-xs font-semibold px-sm py-xs rounded-full bg-green-100 text-green-800">Let</span>
   }
-  return <span className="text-xs font-semibold px-sm py-xs rounded-full bg-neutral-100 text-neutral-500">Vacant</span>
+  return <span className="text-xs font-semibold px-sm py-xs rounded-full bg-red-50 text-red-800">Void</span>
 }
 
 /* ─── Component ──────────────────────────────────────────── */
@@ -720,7 +721,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
           <div className="flex items-center justify-between mb-lg">
             <p className="text-sm text-neutral-500">{wholeLet
               ? `Whole property${bedrooms ? ` · ${bedrooms} bedroom${bedrooms !== 1 ? 's' : ''}` : ''}`
-              : `${rooms.length} room${rooms.length !== 1 ? 's' : ''} · ${bedrooms} bedroom${bedrooms !== 1 ? 's' : ''} in record`}</p>
+              : `${rooms.length} room${rooms.length !== 1 ? 's' : ''} · ${rooms.filter(r => r.currentTenant).length} let`}</p>
             {/* a single let is one unit — no rooms to add (15 Oct 2026) */}
             {!(wholeLet && rooms.length >= 1) && (
               <button
@@ -749,8 +750,8 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                     <th className="px-lg py-sm hidden md:table-cell">Type</th>
                     <th className="px-md sm:px-lg py-sm">Tenant</th>
                     <th className="px-lg py-sm hidden sm:table-cell">Rent</th>
-                    <th className="px-lg py-sm hidden lg:table-cell">Start</th>
-                    <th className="px-lg py-sm hidden xl:table-cell">End</th>
+                    <th className="px-lg py-sm hidden lg:table-cell">Tenancy start date</th>
+                    <th className="px-lg py-sm hidden xl:table-cell">Tenancy end date</th>
                     <th className="px-md sm:px-lg py-sm text-right">Status</th>
                   </tr>
                 </thead>
@@ -787,7 +788,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                       <td className="px-md sm:px-lg py-md">
                         {room.currentTenant
                           ? <span className="font-medium text-neutral-900">{room.currentTenant.name || room.currentTenant.email}</span>
-                          : <span className="text-neutral-400 italic">Vacant</span>}
+                          : <span className="text-neutral-400 italic">No current tenancy</span>}
                       </td>
                       <td className="px-lg py-md hidden sm:table-cell text-neutral-600">{fmtRent(room.tenancyInfo?.rent_amount)}</td>
                       <td className="px-lg py-md hidden lg:table-cell text-neutral-400 text-xs">{fmtDate(room.tenancyInfo?.start_date)}</td>
@@ -799,22 +800,6 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                       <td className="px-md sm:px-lg py-md text-right">
                         {/* phones: the pill above the button, so the row fits the screen */}
                         <div className="flex flex-col-reverse items-end gap-xs sm:flex-row sm:items-center sm:justify-end sm:gap-sm">
-                          {room.currentTenant && room.tenancyId && !room.tenancyNoticeReceivedDate && (
-                            <button
-                              onClick={(e) => openOnNotice(room, e)}
-                              className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs hover:bg-amber-100 transition-colors whitespace-nowrap"
-                            >
-                              Mark on notice
-                            </button>
-                          )}
-                          {room.currentTenant && room.tenancyNoticeReceivedDate && (
-                            <button
-                              onClick={(e) => openQuickEditNotice(room, e)}
-                              className="text-xs font-semibold text-neutral-600 bg-white border border-neutral-300 rounded-lg px-sm py-xs hover:bg-neutral-50 transition-colors whitespace-nowrap"
-                            >
-                              ✏️ Edit notice
-                            </button>
-                          )}
                           {statusPill(room)}
                         </div>
                       </td>
