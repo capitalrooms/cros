@@ -280,7 +280,7 @@ export default function ViewingsDiary() {
         <div className="mb-3xl flex items-start justify-between gap-md">
           <div>
             <h1 className="text-3xl font-bold text-neutral-900">Viewing Diary</h1>
-            <p className="mt-sm text-neutral-600">Click a day to see viewings for that date, tap a card to amend, or book a new one.</p>
+            <p className="mt-sm text-neutral-600">Choose a day to see its viewings, open a viewing to change it, or book a new one.</p>
           </div>
           <button
             onClick={() => openNewViewing()}
