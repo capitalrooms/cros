@@ -47,17 +47,13 @@ interface Job {
 
 /** Build 7 days for a given week offset (0 = current week Mon–Sun) */
 function buildWeekDays(offset = 0): string[] {
-  const base = new Date()
-  base.setHours(0, 0, 0, 0)
-  // Find Monday of the current week
-  const dow = base.getDay() // 0=Sun
-  const mondayShift = dow === 0 ? -6 : 1 - dow
-  base.setDate(base.getDate() + mondayShift + offset * 7)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(base)
-    d.setDate(base.getDate() + i)
-    return d.toISOString().slice(0, 10)
-  })
+  // whole-day arithmetic in UTC on London's date (24 Oct 2026): local midnight turned into an ISO date slipped every
+  // day back by one all summer — the week ran Sunday to Saturday and a Sunday job never showed
+  const [y, m, d] = getTodayGMT().split('-').map(Number)
+  const base = new Date(Date.UTC(y, m - 1, d))
+  const dow = base.getUTCDay() // 0=Sun
+  base.setUTCDate(base.getUTCDate() + (dow === 0 ? -6 : 1 - dow) + offset * 7)   // Monday
+  return Array.from({ length: 7 }, (_, i) => new Date(base.getTime() + i * 86_400_000).toISOString().slice(0, 10))
 }
 
 const DAY_LABELS  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
@@ -327,14 +323,7 @@ export default function ContractorDashboard() {
 
   // ── Today's week (Mon–Sun) for desktop mini calendar ─────────────────────
   const today = getTodayGMT()
-  const todayDate = new Date(today + 'T00:00:00')
-  const weekStart = new Date(todayDate)
-  weekStart.setDate(todayDate.getDate() - ((todayDate.getDay() + 6) % 7)) // Monday
-  const weekDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart)
-    d.setDate(weekStart.getDate() + i)
-    return d.toISOString().slice(0, 10)
-  })
+  const weekDays = buildWeekDays(0)
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

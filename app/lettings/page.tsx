@@ -103,11 +103,13 @@ const blankViewingForm = (date = '', time = '') => ({
 })
 
 function todayISO() {
-  return new Date().toISOString().split('T')[0]
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 }
 
+// midday, so adding days and turning it back into an ISO date never slips a day — at midnight "tomorrow" came back
+// as today and the week started a day early all summer (24 Oct 2026)
 function isoToDate(iso: string) {
-  return new Date(iso + 'T00:00:00')
+  return new Date(iso + 'T12:00:00')
 }
 
 function addDays(iso: string, days: number) {
@@ -122,7 +124,7 @@ function formatDayHeading(iso: string) {
   const tomorrow = addDays(today, 1)
   if (iso === today) return `Today · ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`
   if (iso === tomorrow) return `Tomorrow · ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`
-  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
+  return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 function formatShortDate(iso: string | null) {
@@ -170,7 +172,7 @@ const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 
 function buildWeekDays(offset = 0): string[] {
   const base = new Date()
-  base.setHours(0, 0, 0, 0)
+  base.setHours(12, 0, 0, 0)   // midday: midnight here became the day before as an ISO date all summer (24 Oct 2026)
   const dow = base.getDay()
   const mondayShift = dow === 0 ? -6 : 1 - dow
   base.setDate(base.getDate() + mondayShift + offset * 7)
@@ -311,7 +313,7 @@ export default function LettingsPage() {
     setAvailableRooms(allAvailable)
 
     // Every current and incoming tenancy, by property — each opens its letting file
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayISO()
     const { data: letData } = await supabase
       .from('tenancies')
       .select('id, start_date, end_date, notice_received_date, rent_amount, property_id, rooms(name), properties(name, address), people!person_id(full_name, salutation, first_name, last_name, email)')
@@ -838,9 +840,7 @@ export default function LettingsPage() {
             <div className="flex items-center justify-between mb-md">
               <button
                 onClick={() => {
-                  const d = new Date(selectedDay + 'T00:00:00')
-                  d.setDate(d.getDate() - 1)
-                  setSelectedDay(d.toISOString().split('T')[0])
+                  setSelectedDay(addDays(selectedDay, -1))
                 }}
                 className="px-md py-sm rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 text-sm font-semibold transition-colors"
               >‹ Prev</button>
@@ -855,9 +855,7 @@ export default function LettingsPage() {
               </div>
               <button
                 onClick={() => {
-                  const d = new Date(selectedDay + 'T00:00:00')
-                  d.setDate(d.getDate() + 1)
-                  setSelectedDay(d.toISOString().split('T')[0])
+                  setSelectedDay(addDays(selectedDay, 1))
                 }}
                 className="px-md py-sm rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 text-sm font-semibold transition-colors"
               >Next ›</button>

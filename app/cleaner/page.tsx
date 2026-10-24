@@ -32,6 +32,7 @@ const checkTypeLabels: Record<string, string> = {
 
 const sixMonthsAgo = () => {
   const d = new Date()
+  d.setHours(12, 0, 0, 0)
   d.setMonth(d.getMonth() - 6)
   return d.toISOString().split('T')[0]
 }
@@ -45,7 +46,7 @@ const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 
 function buildWeekDays(offset = 0): string[] {
   const base = new Date()
-  base.setHours(0, 0, 0, 0)
+  base.setHours(12, 0, 0, 0)   // midday: midnight here became the day before as an ISO date all summer (24 Oct 2026)
   const dow = base.getDay()
   const mondayShift = dow === 0 ? -6 : 1 - dow
   base.setDate(base.getDate() + mondayShift + offset * 7)
