@@ -4,7 +4,9 @@
 //   set=sign → the documents that are signed: the tenancy agreement, the deposit prescribed information (with the DPS
 //              Terms and Conditions, which must go with it) and the guarantor form when it was in the pack
 //   set=all  → every document in the pack
-// Always the copies that were sent (the pack's stored files), never regenerated — what they sign is what they read.
+// Always the copies that were sent (the pack's stored files), never regenerated — what they sign is what they read —
+// except the prescribed information in packs sent before 24 Oct 2026, which held the DPS's blank form: that one is
+// filled in from the tenancy's records.
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -14,6 +16,7 @@ import { svc, PACK_BUCKET } from '@/lib/movein/email'
 import { loadPackContext, packFileName, GENERATED_KEYS, TO_SIGN, type GeneratedKey } from '@/lib/movein/pack'
 import { fetchStored } from '@/lib/files/server'
 import { contentDisposition } from '@/lib/contentDisposition'
+import { renderDpsFormFor } from '@/lib/deposits/dpsForm'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -32,7 +35,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pack
 
   const all = (pack.documents ?? []) as { key: string; label: string; source: string; path?: string; url?: string; available?: boolean }[]
   const hasPI = all.some(d => d.key === 'prescribed_info')
-  const wanted = set === 'all' ? all : all.filter(d => TO_SIGN.includes(d.key) || (hasPI && d.key === 'dps_terms'))
+  const wanted = set === 'all' ? [...all] : all.filter(d => TO_SIGN.includes(d.key) || (hasPI && d.key === 'dps_terms'))
+  // the prescribed information must go with the DPS Terms and Conditions (its note 1) — packs sent before 16 Oct 2026
+  // didn't include them
+  if (hasPI && !wanted.some(d => d.key === 'dps_terms')) wanted.push({ key: 'dps_terms', label: 'DPS Terms and Conditions', source: 'static', url: '/tenancy-pack/dps-terms-and-conditions.pdf' })
   if (!wanted.length) return NextResponse.json({ error: set === 'sign' ? 'This pack has no documents to sign — it was sent before the agreement was included.' : 'This pack has no documents.' }, { status: 404 })
 
   const zip = new JSZip()
@@ -41,7 +47,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pack
   for (const d of wanted) {
     let bytes: Buffer | null = null
     try {
-      if (d.path) {
+      if (d.key === 'prescribed_info' && !d.path) {
+        // packs sent before 24 Oct 2026 carried the DPS's blank form: fill it in now from the tenancy's records
+        bytes = await renderDpsFormFor(s, pack.tenancy_id)
+      } else if (d.path) {
         const { data } = await s.storage.from(PACK_BUCKET).download(d.path)
         if (data) bytes = Buffer.from(await data.arrayBuffer())
       } else if (d.url?.startsWith('/tenancy-pack/')) {
