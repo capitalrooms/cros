@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { blockAddress, inlineAddress } from '@/lib/formatAddress'
 import { createClient } from '@/lib/supabase'
+import { currentTenancy } from '@/lib/tenancy'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
@@ -38,12 +39,8 @@ export default function RescindNoticePage() {
       setPersonId(pid)
 
       const supabase = createClient()
-      const { data: t } = await supabase
-        .from('tenancies')
-        .select('id, person_id, end_date, notice_received_date, rescind_requested_at, rooms(name), properties(address)')
-        .or(`person_id.eq.${pid},co_tenant_id.eq.${pid}`)   // joint tenants too
-        .not('notice_received_date', 'is', null)
-        .maybeSingle()
+      const current = await currentTenancy(pid, 'id, person_id, end_date, notice_received_date, rescind_requested_at, rooms(name), properties(address)')
+      const t = current?.notice_received_date ? current : null   // only a current tenancy with notice given can be rescinded
 
       setTenancy(t as Tenancy | null)
       setLoading(false)

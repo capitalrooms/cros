@@ -55,6 +55,7 @@ function fmtDate(iso: string) {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
+    year: 'numeric',
   })
 }
 
@@ -356,7 +357,7 @@ export default function VisitDetailPage() {
                     <p className="text-sm font-semibold text-neutral-800 truncate">{t.title}</p>
                     <p className="text-xs text-neutral-400 mt-xs">
                       {statusLabel[t.status] ?? t.status}
-                      {t.booked_date ? ` · ${new Date(t.booked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}` : ''}
+                      {t.booked_date ? ` · ${new Date(t.booked_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
                     </p>
                   </div>
                   <span className="text-neutral-300 shrink-0">›</span>

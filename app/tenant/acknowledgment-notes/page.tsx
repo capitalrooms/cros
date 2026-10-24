@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
+import { currentTenancy } from '@/lib/tenancy'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
@@ -43,11 +44,7 @@ export default function AcknowledgmentNotesPage() {
       const supabase = createClient()
 
       // Get tenancy for this tenant
-      const { data: tenancies } = await supabase
-        .from('tenancies')
-        .select('room_id')
-        .or(`person_id.eq.${data.assignment.id},co_tenant_id.eq.${data.assignment.id}`)   // joint tenants too
-        .single()
+      const tenancies = await currentTenancy<{ room_id: string | null }>(data.assignment.id, 'room_id')
 
       if (tenancies) {
         // Fetch active acknowledgment notes for this room
@@ -110,11 +107,7 @@ export default function AcknowledgmentNotesPage() {
       setPhotoFile(null)
 
       // Refresh notes
-      const { data: tenancies } = await supabase
-        .from('tenancies')
-        .select('room_id')
-        .or(`person_id.eq.${user.id},co_tenant_id.eq.${user.id}`)   // joint tenants too
-        .single()
+      const tenancies = await currentTenancy<{ room_id: string | null }>(user.id, 'room_id')
 
       if (tenancies) {
         const { data: notesData } = await supabase
@@ -159,7 +152,7 @@ export default function AcknowledgmentNotesPage() {
                   <p className="text-neutral-700 mb-md leading-relaxed whitespace-pre-wrap">{note.content}</p>
 
                   <p className="text-xs text-neutral-600 mb-md">
-                    Expires: {new Date(note.expires_at).toLocaleDateString('en-GB')}
+                    Expires: {new Date(note.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
 
                   {acknowledgingId === note.id ? (
@@ -226,7 +219,7 @@ export default function AcknowledgmentNotesPage() {
                 >
                   <p className="font-semibold text-neutral-900">{note.title}</p>
                   <p className="text-xs text-neutral-600 mt-xs">
-                    Acknowledged {new Date(note.acknowledged_at!).toLocaleDateString('en-GB')}
+                    Acknowledged {new Date(note.acknowledged_at!).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
                 </div>
               ))}

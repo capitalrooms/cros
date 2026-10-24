@@ -54,7 +54,7 @@ export function addWorkingDays(from: string, n: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-const ukDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })
+const ukDay = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 
 /** The date we aim to have it fixed by, counted from when we received it, and the sentence to tell the tenant. */
 export function repairTarget(t: { priority?: string | null; category?: string | null; title?: string | null; description?: string | null; created_at?: string | null }) {

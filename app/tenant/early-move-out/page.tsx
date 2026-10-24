@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
+import { currentTenancy } from '@/lib/tenancy'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
@@ -58,12 +59,7 @@ export default function EarlyMoveOutPage() {
       const supabase = createClient()
 
       // Get active tenancy
-      const { data: t } = await supabase
-        .from('tenancies')
-        .select('id, property_id, room_id, start_date, end_date, rent_amount, notice_received_date, rooms(name), properties(name, address)')
-        .or(`person_id.eq.${pid},co_tenant_id.eq.${pid}`)   // joint tenants too
-        .is('end_date', null)
-        .maybeSingle()
+      const t = await currentTenancy(pid, 'id, property_id, room_id, start_date, end_date, rent_amount, notice_received_date, rooms(name), properties(name, address)')
 
       setTenancy(t as Tenancy | null)
 
@@ -219,7 +215,7 @@ export default function EarlyMoveOutPage() {
               <div className="flex justify-between">
                 <dt className="text-neutral-500">Submitted</dt>
                 <dd className="text-neutral-700">
-                  {new Date(existing.created_at).toLocaleDateString('en-GB')}
+                  {new Date(existing.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </dd>
               </div>
               {existing.reason && (
@@ -240,7 +236,7 @@ export default function EarlyMoveOutPage() {
             {existing.refund_amount !== null && (
               <div className="mt-md pt-md border-t border-neutral-100 bg-green-50 rounded-xl p-md">
                 <p className="text-xs font-bold text-green-700 mb-xs">Estimated refund</p>
-                <p className="text-2xl font-bold text-green-800">£{existing.refund_amount.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-800">£{Number(existing.refund_amount).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 <p className="text-xs text-green-600 mt-xs">Paid within 4 business days of handover</p>
                 {existing.voucher_amount && (
                   <p className="text-xs text-green-600">+ £{existing.voucher_amount} Amazon voucher (discretionary)</p>

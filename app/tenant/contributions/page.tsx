@@ -284,7 +284,7 @@ export default function ContributionsPage() {
                       {c.amount && <p className="shrink-0 font-bold text-green-700 text-sm">£{Number(c.amount).toFixed(2)}</p>}
                     </div>
                     <p className="text-xs text-neutral-400 mt-xs">
-                      {isMe ? 'You' : personName(c, personId)} · {new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
+                      {isMe ? 'You' : personName(c, personId)} · {new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                   </div>
                 </div>

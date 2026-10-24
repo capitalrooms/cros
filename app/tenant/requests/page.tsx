@@ -32,17 +32,11 @@ const STATUS_STYLES: Record<string, { badge: string; label: string }> = {
   completed: { badge: 'bg-green-100 text-green-700', label: 'Completed' },
 };
 
-const PRIORITY_STYLES: Record<string, string> = {
-  low: 'bg-neutral-100 text-neutral-500',
-  medium: 'bg-neutral-200 text-neutral-700',
-  high: 'bg-neutral-900 text-white',
-};
-
 const todayISO = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', {
-    weekday: 'short',
+    weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -202,7 +196,8 @@ export default function TenantRequests() {
                         </span>
                       </div>
 
-                      <p className="mt-sm text-sm text-neutral-600">{request.description}</p>
+                      {(() => { const stem = String(request.title ?? '').replace(/(\.\.\.|…)$/, '').trim(); const d = String(request.description ?? '');
+                        return d && !(stem && d.startsWith(stem) && d.length <= stem.length + 3) ? <p className="mt-sm text-sm text-neutral-600">{d}</p> : null })()}
 
                       <div className="mt-md space-y-xs text-sm text-neutral-600">
                         <p>
@@ -231,8 +226,10 @@ export default function TenantRequests() {
                       {/* how long we've said it can take (lib/repairs/targets) */}
                       {request.status !== 'completed' && request.status !== 'cancelled' && (() => {
                         const target = repairTarget(request as any);
+                        // a target that has gone by is said plainly — not "we aim to have it fixed by" a date in the past
+                        const late = target.by < todayISO();
                         return target.tier !== 'emergency' && (
-                          <p className="mt-md text-xs text-neutral-600"><span className="font-semibold text-neutral-800">{target.label} repair</span> · we aim to have it fixed by {target.byText}</p>
+                          <p className={`mt-md text-xs ${late ? 'font-semibold text-amber-800' : 'text-neutral-600'}`}><span className="font-semibold text-neutral-800">{target.label} repair</span> · {late ? `overdue — we aimed to have it fixed by ${target.byText}. Tell us in the inbox if it’s still a problem.` : `we aim to have it fixed by ${target.byText}`}</p>
                         );
                       })()}
                       {(request as any).reopened_at && request.status !== 'completed' && (
@@ -272,10 +269,6 @@ export default function TenantRequests() {
                       )}
                     </div>
 
-                    {/* Priority Badge */}
-                    <span className={`shrink-0 rounded-full px-md py-xs text-xs font-bold uppercase ${PRIORITY_STYLES[request.priority]}`}>
-                      {request.priority}
-                    </span>
                   </div>
                 </div>
               );
