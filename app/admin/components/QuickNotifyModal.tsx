@@ -200,7 +200,8 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
           <div className="min-w-0">
             <p className="text-xs font-bold uppercase tracking-wide text-neutral-400">Quick Notify</p>
             <p className="truncate text-lg font-bold">{house?.property.name ?? 'Loading…'}</p>
-            {house && <p className="truncate text-xs text-neutral-400">{house.property.address}</p>}
+            {/* the address only when it says more than the name (most houses are named after it) */}
+            {house && house.property.address.replace(/[\s,]/g, '').toLowerCase() !== house.property.name.replace(/[\s,]/g, '').toLowerCase() && <p className="truncate text-xs text-neutral-400">{house.property.address}</p>}
           </div>
           <button onClick={onClose} aria-label="Close" className="rounded-lg px-sm text-2xl leading-none text-neutral-400 hover:text-white">×</button>
         </div>

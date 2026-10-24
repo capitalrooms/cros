@@ -384,7 +384,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
       {/* HMO export */}
       {isHmo && (
         <button onClick={exportLog} disabled={exporting} className="w-full rounded-xl bg-neutral-900 px-lg py-md text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50 transition flex items-center justify-center gap-sm">
-          {exporting ? '⏳ Generating…' : '📋 Export HMO Compliance Log PDF'}
+          {exporting ? 'Making the PDF…' : 'HMO compliance log (PDF)'}
         </button>
       )}
 
@@ -398,7 +398,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
           <div className="flex items-center gap-sm shrink-0">
             {certSaved && !certDirty && <span className="text-sm font-semibold text-green-600">✓ Saved</span>}
             <button onClick={openSendModal} className="rounded-xl border border-neutral-300 bg-white px-md py-sm text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition">
-              📨 Send
+              Send to tenants
             </button>
             {certDirty && (
               <button onClick={saveCerts} disabled={certSaving} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50 transition">
@@ -421,10 +421,10 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
                 <div className="p-md">
                   <div className="flex items-center gap-sm mb-sm">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[status]}`} />
-                    <span className="text-xs font-semibold text-neutral-700 flex-1">{icon} {label}</span>
+                    <span className="text-xs font-semibold text-neutral-700 flex-1">{label}</span>
                     {days !== null && (
                       <span className={`text-xs font-semibold ${STATUS_TEXT[status]}`}>
-                        {days < 0 ? `Expired ${Math.abs(days)}d ago` : days === 0 ? 'Expires today' : `${days}d remaining`}
+                        {(() => { const d = new Date(`${String(certEdits[expiryKey]).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }); return days < 0 ? `Expired ${d} · ${Math.abs(days)} days ago` : days === 0 ? `Expires today, ${d}` : `Expires ${d} · ${days} days` })()}
                       </span>
                     )}
                     {status === 'missing' && <span className="text-xs text-neutral-400">Not set</span>}
@@ -497,7 +497,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
       {isHmo && (
         <section className="border-t border-neutral-100 pt-xl">
           <div className="flex items-center justify-between mb-md">
-            <h3 className="text-sm font-bold text-neutral-900">🏛️ HMO Licence</h3>
+            <h3 className="text-sm font-bold text-neutral-900">HMO licence</h3>
             <div className="flex items-center gap-sm">
               <a href={`/admin/properties/${property.id}/hmo-notice`} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-900 hover:border-neutral-900 transition">Application notice</a>
               {hmoSaved && !hmoDirty && <span className="text-sm font-semibold text-green-600">✓ Saved</span>}
@@ -579,7 +579,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
       {/* ── Insurance ─────────────────────────────────────────────────────── */}
       <section className="border-t border-neutral-100 pt-xl">
         <div className="flex items-center justify-between mb-md">
-          <h3 className="text-sm font-bold text-neutral-900">🛡️ Building Insurance</h3>
+          <h3 className="text-sm font-bold text-neutral-900">Building insurance</h3>
           <div className="flex items-center gap-sm">
             {insSaved && !insDirty && <span className="text-sm font-semibold text-green-600">✓ Saved</span>}
             {insDirty && (
@@ -605,7 +605,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
       <section className="border-t border-neutral-100 pt-xl">
         <div className="flex items-center justify-between mb-md">
           <div>
-            <h3 className="text-sm font-bold text-neutral-900">💰 Policies & Warranties</h3>
+            <h3 className="text-sm font-bold text-neutral-900">Policies and warranties</h3>
             {policies.length > 0 && (
               <p className="text-xs text-neutral-500 mt-xs">Total: £{totalMonthly.toFixed(2)}/month across {policies.length} {policies.length === 1 ? 'policy' : 'policies'}</p>
             )}
@@ -730,7 +730,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
               </>
             ) : (
               <>
-                <h3 className="text-base font-bold text-neutral-900">📨 Send Compliance Certificates</h3>
+                <h3 className="text-base font-bold text-neutral-900">Send certificates to tenants</h3>
                 <p className="text-xs text-neutral-500">Select which certificates to include and who should receive the email.</p>
 
                 {/* Cert selection */}

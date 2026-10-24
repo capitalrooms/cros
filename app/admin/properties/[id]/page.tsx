@@ -38,7 +38,7 @@ const addDaysIso = (n: number) => { const d = new Date(`${todayIso()}T12:00:00Z`
 type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'lettings' | 'compliance' | 'documents' | 'tenant_app'
 
 // Sub-tab types for merged tabs
-type PeopleSubTab = 'tenants' | 'housemates'
+type PeopleSubTab = 'tenants' | 'housemates' | 'messages'
 type MaintenanceSubTab = 'jobs' | 'purchases' | 'tasks'
 type ComplianceSubTab = 'compliance' | 'communications'
 type DocumentsSubTab = 'documents' | 'photos' | 'financials'
@@ -71,7 +71,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
     property: 'details', extended: 'details',
     housemates: 'people',
     purchases: 'maintenance', tasks: 'maintenance',
-    communications: 'compliance',
+    communications: 'people',
     photos: 'documents', financials: 'documents',
   }
   const initialTab: TabType = (legacyMap[rawTab] as TabType) || (rawTab as TabType) || 'units'
@@ -332,7 +332,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'people' && (
             <div>
               <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
-                {([['tenants', 'Tenants'], ['housemates', 'Housemates']] as [PeopleSubTab, string][]).map(([key, label]) => (
+                {([['tenants', 'Tenants'], ['housemates', 'Housemates'], ['messages', 'Messages sent']] as [PeopleSubTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setPeopleSubTab(key)}
@@ -347,6 +347,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
               <div className="p-lg">
                 {peopleSubTab === 'tenants' && <PeopleTab propertyId={id} />}
                 {peopleSubTab === 'housemates' && <HousematesTab propertyId={id} />}
+                {peopleSubTab === 'messages' && <CommunicationsTab propertyId={id} />}
               </div>
             </div>
           )}
@@ -384,24 +385,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
 
           {/* ── Compliance (Compliance + Communications) ─────────────────── */}
           {activeTab === 'compliance' && (
-            <div>
-              <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
-                {([['compliance', 'Certificates'], ['communications', 'Communications']] as [ComplianceSubTab, string][]).map(([key, label]) => (
-                  <button
-                    key={key}
-                    onClick={() => setComplianceSubTab(key)}
-                    className={`px-md py-sm rounded-t-lg text-sm font-semibold transition-colors border-b-2 ${
-                      complianceSubTab === key
-                        ? 'text-neutral-900 border-neutral-900'
-                        : 'text-neutral-400 border-transparent hover:text-neutral-600'
-                    }`}
-                  >{label}</button>
-                ))}
-              </div>
-              <div className="p-lg">
-                {complianceSubTab === 'compliance' && <ComplianceTab property={property} />}
-                {complianceSubTab === 'communications' && <CommunicationsTab propertyId={id} />}
-              </div>
+            <div className="p-lg">
+              <ComplianceTab property={property} />
             </div>
           )}
 

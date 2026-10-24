@@ -1,204 +1,92 @@
 'use client'
 
+// The house's tenants, by tenancy (rewritten 24 Oct 2026): Current tenancies, Incoming tenancies, Expired tenancies —
+// full names with titles, tenancy dates in full, the same status words as All Units and the room page. Each row links to
+// the letting file, the tenant's profile and the room page. (It used to show email usernames, list a tenancy still
+// running as "Moved Out" because notice had been given, and an incoming tenant as already moved in.)
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase'
+import { displayName } from '@/lib/people'
 
-interface Tenancy {
+interface Row {
   id: string
-  person_id: string
-  room_id: string
+  room_id: string | null
   start_date: string
   end_date: string | null
-  person: {
-    id: string
-    email: string
-    role: string
-  }
-  room: {
-    id: string
-    name: string
-  }
+  notice_received_date: string | null
+  rent_amount: number | null
+  person: { id: string; salutation: string | null; first_name: string | null; last_name: string | null; full_name: string | null; email: string | null; phone: string | null } | null
+  co: { id: string; salutation: string | null; first_name: string | null; last_name: string | null; full_name: string | null } | null
+  room: { id: string; name: string } | null
 }
 
-interface PeopleTabProps {
-  propertyId: string
-}
+const full = (iso: string | null | undefined) => iso ? new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
+const gbp = (n: number | null) => n == null ? '' : `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+const roomNo = (name?: string | null) => Number(String(name ?? '').match(/\d+/)?.[0] ?? 999)
 
-export default function PeopleTab({ propertyId }: PeopleTabProps) {
-  const [tenancies, setTenancies] = useState<Tenancy[]>([])
-  const [loading, setLoading] = useState(true)
+export default function PeopleTab({ propertyId }: { propertyId: string }) {
+  const [rows, setRows] = useState<Row[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const supabase = createClient()
-
   useEffect(() => {
-    loadTenancies()
+    const supabase = createClient()
+    supabase.from('tenancies')
+      .select('id, room_id, start_date, end_date, notice_received_date, rent_amount, person:people!person_id(id, salutation, first_name, last_name, full_name, email, phone), co:people!co_tenant_id(id, salutation, first_name, last_name, full_name), room:rooms(id, name)')
+      .eq('property_id', propertyId).is('let_cancelled_at', null).order('start_date', { ascending: false })
+      .then(({ data, error: err }) => { if (err) setError('The tenancies couldn’t be loaded'); else setRows((data ?? []) as any) })
   }, [propertyId])
 
-  async function loadTenancies() {
-    setLoading(true)
-    const { data, error: err } = await supabase
-      .from('tenancies')
-      .select(`
-        id,
-        person_id,
-        room_id,
-        start_date,
-        end_date,
-        notice_received_date,
-        person:person_id(id, email, role),
-        room:room_id(id, name)
-      `)
-      .eq('property_id', propertyId)
-      .order('start_date', { ascending: false })
+  if (error) return <p className="text-sm font-semibold text-red-700">{error}</p>
+  if (!rows) return <p className="text-sm text-neutral-500">Loading tenancies…</p>
 
-    if (err) {
-      setError('Failed to load tenancies')
-      console.error(err)
-    } else {
-      // Filter to current tenancies
-      setTenancies(data || [])
-    }
-    setLoading(false)
-  }
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const byRoom = (a: Row, b: Row) => roomNo(a.room?.name) - roomNo(b.room?.name)
+  const current = rows.filter(t => t.start_date <= today && (!t.end_date || t.end_date >= today)).sort(byRoom)
+  const incoming = rows.filter(t => t.start_date > today).sort((a, b) => a.start_date.localeCompare(b.start_date))
+  const expired = rows.filter(t => t.end_date && t.end_date < today).sort((a, b) => (b.end_date ?? '').localeCompare(a.end_date ?? ''))
 
-  const today = new Date().toISOString().slice(0, 10)
-  const activeTenancies = tenancies.filter(t => !(t as any).notice_received_date && (!t.end_date || t.end_date >= today))
-  const pastTenancies   = tenancies.filter(t => (t as any).notice_received_date || (t.end_date && t.end_date < today))
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  const getDaysAsSince = (startDate: string) => {
-    const days = Math.floor((new Date().getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24))
-    return days
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center p-xl">
-        <div className="text-sm text-neutral-400">Loading people...</div>
-      </div>
-    )
-  }
+  const names = (t: Row) => [t.person, t.co].filter(Boolean).map(p => displayName(p as any)).join(' and ') || 'No tenant recorded'
+  const List = ({ title, items, empty, kind }: { title: string; items: Row[]; empty: string; kind: 'current' | 'incoming' | 'expired' }) => (
+    <section>
+      <h3 className="mb-sm text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{title} · {items.length}</h3>
+      {items.length === 0 ? <p className="text-sm text-neutral-500">{empty}</p> : (
+        <ul className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200">
+          {items.map(t => {
+            const pill = kind === 'incoming' ? ['Let agreed', 'bg-blue-100 text-blue-900']
+              : kind === 'expired' ? ['Ended', 'bg-neutral-100 text-neutral-600']
+              : t.end_date || t.notice_received_date ? ['Notice received', 'bg-amber-100 text-amber-900'] : ['Let', 'bg-green-50 text-green-800']
+            return (
+              <li key={t.id} className="flex flex-wrap items-center gap-x-lg gap-y-xs px-md py-sm">
+                <div className="min-w-0 flex-[1_1_260px]">
+                  <p className="font-semibold text-neutral-900">{names(t)}</p>
+                  <p className="text-xs text-neutral-500">
+                    {t.room?.name ?? 'No room'} · {kind === 'incoming' ? `tenancy start date ${full(t.start_date)}` : `${full(t.start_date)} – ${t.end_date ? full(t.end_date) : 'periodic, no end date'}`}
+                    {t.notice_received_date && kind !== 'expired' ? ` · notice received ${full(t.notice_received_date)}` : ''}
+                    {t.rent_amount != null ? ` · ${gbp(t.rent_amount)} per month` : ''}
+                  </p>
+                  {kind !== 'expired' && (t.person?.email || t.person?.phone) && <p className="text-xs text-neutral-500">{[t.person?.email, t.person?.phone].filter(Boolean).join(' · ')}</p>}
+                </div>
+                <span className={`whitespace-nowrap rounded-full px-sm py-0.5 text-[11px] font-semibold ${pill[1]}`}>{pill[0]}</span>
+                <span className="flex flex-wrap gap-sm text-xs font-semibold">
+                  <Link href={`/admin/lettings/${t.id}`} className="underline">Letting file</Link>
+                  {t.person && <Link href={`/admin/tenant/${t.person.id}`} className="underline">Profile</Link>}
+                  {t.room_id && <Link href={`/admin/properties/${propertyId}/rooms/${t.room_id}`} className="underline">Room page</Link>}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
 
   return (
-    <div className="space-y-3xl">
-      {error && (
-        <div className="p-lg rounded-lg bg-red-950 border border-red-800">
-          <p className="text-sm font-semibold text-red-400">{error}</p>
-        </div>
-      )}
-
-      {/* Active Tenants Section */}
-      <div>
-        <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
-          👥 Current Tenants ({activeTenancies.length})
-        </h3>
-
-        {activeTenancies.length === 0 ? (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center">
-            <p className="text-sm text-neutral-500">No active tenancies</p>
-          </div>
-        ) : (
-          <div className="grid gap-md">
-            {activeTenancies.map((tenancy) => (
-              <div key={tenancy.id} className="rounded-lg border border-neutral-200 bg-white p-lg hover:shadow-md transition">
-                <div className="flex items-start justify-between gap-lg mb-md">
-                  <div className="flex-1">
-                    <p className="font-semibold text-neutral-900">{tenancy.person.email.split('@')[0]}</p>
-                    <p className="text-xs text-neutral-500 mt-xs">
-                      {tenancy.room.name} • Moved in {formatDate(tenancy.start_date)} ({getDaysAsSince(tenancy.start_date)} days)
-                    </p>
-                  </div>
-                  <span className="px-md py-sm rounded-full bg-green-100 text-green-700 text-xs font-semibold whitespace-nowrap">
-                    Active
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-md">
-                  {tenancy.person.email && (
-                    <button
-                      onClick={() => navigator.clipboard.writeText(tenancy.person.email || '')}
-                      className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
-                      title="Click to copy"
-                    >
-                      📧 {tenancy.person.email}
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex gap-sm mt-lg">
-                  <Link
-                    href={`/admin/tenant/${tenancy.person.id}`}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline"
-                  >
-                    View Profile
-                  </Link>
-                  <Link
-                    href={`/admin/tenant/${tenancy.person.id}?tab=tenancy`}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 underline"
-                  >
-                    Tenancy Details
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Past Tenants Section */}
-      {pastTenancies.length > 0 && (
-        <div>
-          <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
-            📋 Past Tenants ({pastTenancies.length})
-          </h3>
-
-          <div className="grid gap-md">
-            {pastTenancies.map((tenancy) => (
-              <div key={tenancy.id} className="rounded-lg border border-neutral-200 bg-white p-lg">
-                <div className="flex items-start justify-between gap-lg mb-md">
-                  <div className="flex-1">
-                    <p className="font-semibold text-neutral-900">{tenancy.person.email.split('@')[0]}</p>
-                    <p className="text-xs text-neutral-500 mt-xs">
-                      {tenancy.room.name} • {formatDate(tenancy.start_date)} to {formatDate(tenancy.end_date!)}
-                    </p>
-                  </div>
-                  <span className="px-md py-sm rounded-full bg-neutral-200 text-neutral-400 text-xs font-semibold whitespace-nowrap">
-                    Moved Out
-                  </span>
-                </div>
-
-                <Link
-                  href={`/admin/tenant/${tenancy.person.id}`}
-                  className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
-                >
-                  View Profile
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Contractors/Staff Section */}
-      <div>
-        <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
-          🔧 Staff & Contractors
-        </h3>
-
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-xl text-center">
-          <p className="text-sm font-medium text-neutral-500">Manage contractors in the Maintenance section</p>
-          <p className="text-xs text-neutral-400 mt-xs">Cleaners, electricians, and trades are assigned per job — view them under Operations → Maintenance.</p>
-        </div>
-      </div>
+    <div className="space-y-xl">
+      <List title="Current tenancies" items={current} empty="No current tenancies." kind="current" />
+      {incoming.length > 0 && <List title="Incoming tenancies" items={incoming} empty="" kind="incoming" />}
+      <List title="Expired tenancies" items={expired} empty="No expired tenancies on record." kind="expired" />
+      <p className="text-xs text-neutral-500">Contractors and cleaners are chosen per job, on Maintenance.</p>
     </div>
   )
 }

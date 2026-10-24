@@ -100,6 +100,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
     has_shared_bathroom?: boolean | null
     has_lounge?: boolean | null
     marketing_description?: string | null
+    detected_features?: Record<string, any> | null
   }>>(rooms)
 
   // Marketing copy state
@@ -147,10 +148,25 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
   async function loadRooms() {
     const { data } = await supabase
       .from('rooms')
-      .select('id, name, status, current_asking_rent, available_date, has_ensuite, has_shared_bathroom, has_lounge, marketing_description')
+      .select('id, name, status, current_asking_rent, available_date, has_ensuite, has_shared_bathroom, has_lounge, marketing_description, detected_features')
       .eq('property_id', propertyId)
       .order('name')
-    const list = data && data.length > 0 ? data : rooms
+    let list: any[] = data && data.length > 0 ? data : rooms
+    // status and the date it's free come from the tenancies, not the room's stored flags (Room 3, 75 Crownfield Road
+    // said "Available 29 Sept 2026" with a tenancy running to 31 October 2026 — 24 Oct 2026)
+    if (list?.length) {
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+      const dayAfter = (iso: string) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10) }
+      const { data: ts } = await supabase.from('tenancies').select('room_id, start_date, end_date, notice_received_date').eq('property_id', propertyId).is('let_cancelled_at', null)
+      list = list.map((r: any) => {
+        const mine = ((ts ?? []) as any[]).filter(t => t.room_id === r.id)
+        const cur = mine.find(t => t.start_date <= today && (!t.end_date || t.end_date >= today))
+        const inc = mine.find(t => t.start_date > today)
+        const status = cur ? (cur.end_date || cur.notice_received_date ? (inc ? 'let_agreed' : 'on_notice') : 'occupied') : inc ? 'let_agreed' : 'available'
+        const available_date = cur?.end_date && !inc ? dayAfter(cur.end_date) : !cur && !inc ? (r.available_date && r.available_date > today ? r.available_date : today) : null
+        return { ...r, status, available_date }
+      })
+    }
     if (list && list.length > 0) {
       setRoomList(list)
       setFormData((f) => ({ ...f, room_id: f.room_id || list[0].id }))
@@ -513,7 +529,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
             <span className="text-sm font-semibold text-green-700">🟢 {availableCount} available now</span>
           )}
           {onNoticeCount > 0 && (
-            <span className="text-sm font-semibold text-amber-700">📋 {onNoticeCount} on notice (coming up)</span>
+            <span className="text-sm font-semibold text-amber-700">{onNoticeCount} {onNoticeCount === 1 ? 'room has' : 'rooms have'} notice received and no incoming tenancy</span>
           )}
         </div>
       )}
@@ -794,7 +810,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
         return (
           <div>
             <div className="flex items-center justify-between mb-lg pb-sm border-b border-neutral-200">
-              <h3 className="text-sm font-bold uppercase text-neutral-500">✨ Room Marketing</h3>
+              <h3 className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Rooms to let</h3>
               {advertBanner && (
                 <span className="text-xs text-green-700 font-semibold">{advertBanner}</span>
               )}
@@ -820,7 +836,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                               onKeyDown={e => { if (e.key === 'Enter') saveRent(room.id); if (e.key === 'Escape') setEditingRentId(null) }}
                               className="w-20 bg-white text-neutral-900 border border-neutral-300 rounded px-xs py-0.5 text-xs focus:outline-none focus:border-blue-400"
                             />
-                            <span className="text-neutral-500">pcm</span>
+                            <span className="text-neutral-500">per month</span>
                             <button onClick={() => saveRent(room.id)} disabled={savingRent} className="text-green-600 hover:text-green-700 text-xs font-bold">
                               {savingRent ? '…' : '✓'}
                             </button>
@@ -832,15 +848,15 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                             className="hover:text-neutral-900 transition-colors group flex items-center gap-xs"
                             title="Click to edit marketed rent"
                           >
-                            {room.current_asking_rent ? `£${Number(room.current_asking_rent).toLocaleString()} pcm` : 'Set rent'}
+                            {room.current_asking_rent ? `£${Number(room.current_asking_rent).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per month` : 'Set rent'}
                             <span className="opacity-0 group-hover:opacity-60 text-xs">✏️</span>
                           </button>
                         )}
                         {room.available_date && (
-                          <span>Available {new Date(room.available_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          <span>Available {new Date(`${room.available_date}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}</span>
                         )}
                         {room.status === 'on_notice' && (
-                          <span className="text-amber-600 font-semibold">📋 On notice</span>
+                          <span className="text-amber-700 font-semibold">Notice received</span>
                         )}
                       </div>
                     </div>
@@ -851,7 +867,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                         className="text-xs text-purple-600 hover:text-purple-700 font-semibold disabled:opacity-50"
                         title={room.detected_features ? 'Uses saved room features + photos' : 'Upload a room photo to enable photo-based generation'}
                       >
-                        {generatingAdvert === `${room.id}:listing` ? '✨ Drafting…' : '✨ Advert'}
+                        {generatingAdvert === `${room.id}:listing` ? 'Drafting…' : 'Write advert'}
                       </button>
                       <span className="text-neutral-600 text-xs">|</span>
                       <button
@@ -859,7 +875,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                         disabled={!!generatingAdvert}
                         className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold disabled:opacity-50"
                       >
-                        {generatingAdvert === `${room.id}:group` ? '✨ Drafting…' : '✨ Group post'}
+                        {generatingAdvert === `${room.id}:group` ? 'Drafting…' : 'Write group post'}
                       </button>
                     </div>
                   </div>
@@ -902,12 +918,12 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       {/* Upcoming Viewings */}
       <div>
         <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
-          📅 Upcoming Viewings ({upcomingViewings.length})
+          Upcoming viewings ({upcomingViewings.length})
         </h3>
 
         {upcomingViewings.length === 0 ? (
           <div className="rounded-lg border-2 border-dashed border-neutral-300 bg-neutral-50 p-xl text-center">
-            <div className="text-3xl mb-md opacity-50">👀</div>
+
             <p className="text-sm font-semibold text-neutral-900 mb-md">No viewings scheduled</p>
             <p className="text-xs text-neutral-500 mb-lg">Schedule your first viewing to start tracking leads</p>
             <button
