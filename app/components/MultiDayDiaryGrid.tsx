@@ -50,8 +50,9 @@ function todayISOFn() {
 }
 
 function buildDays(dayOffset = 0): string[] {
-  const base = new Date()
-  base.setHours(0, 0, 0, 0)
+  // midday (24 Oct 2026): from local midnight every day came out as the day before all summer, so the diary began
+  // yesterday — and across the clocks going back Sunday vanished from the grid
+  const base = new Date(`${todayISOFn()}T12:00:00`)
   base.setDate(base.getDate() + dayOffset)
   return Array.from({ length: 5 }, (_, i) => {
     const d = new Date(base)
@@ -93,8 +94,8 @@ export default function MultiDayDiaryGrid({
 
   // Date range label for header
   const fmt = (iso: string) => {
-    const d = new Date(iso + 'T00:00:00')
-    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' })
+    const d = new Date(iso + 'T12:00:00')
+    return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   }
   const rangeLabel = `${fmt(days[0])} — ${fmt(days[4])}`
 
@@ -117,7 +118,7 @@ export default function MultiDayDiaryGrid({
         {/* Header row */}
         <div style={{ borderBottom: '1px solid #E7E1D4', background: '#FBFAF6' }} />
         {days.map(iso => {
-          const d      = new Date(iso + 'T00:00:00')
+          const d      = new Date(iso + 'T12:00:00')
           const isToday = iso === today
           return (
             <div

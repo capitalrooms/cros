@@ -73,8 +73,8 @@ export function formatDateUK(dateStr: string): string {
   const [year, month, day] = dateStr.split('-')
   const date = new Date(`${dateStr}T00:00:00Z`)
   return date.toLocaleDateString('en-GB', {
-    weekday: 'short',
+    weekday: 'long',
     day: 'numeric',
-    month: 'long',
+    month: 'long', year: 'numeric'
   })
 }

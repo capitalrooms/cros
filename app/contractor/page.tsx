@@ -396,7 +396,7 @@ export default function ContractorDashboard() {
             <div>
               <h1 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, margin: '0 0 3px', fontWeight: 800 }}>Hi {firstName} 👋</h1>
               <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,243,236,0.6)' }}>
-                {today ? `Here's what's on today, ${new Date(today + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}.` : ''}
+                {today ? `Here's what's on today, ${new Date(today + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.` : ''}
               </p>
             </div>
             {/* Stat tiles */}
@@ -673,7 +673,7 @@ export default function ContractorDashboard() {
                         <p className="font-bold text-neutral-900 truncate">{job.properties?.name}</p>
                         <p className="text-sm text-neutral-500 truncate">{String(job.category || 'General').replace(/-/g, ' ')}</p>
                         {job.completed_at && (
-                          <p className="text-xs text-neutral-400 mt-xs">Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}</p>
+                          <p className="text-xs text-neutral-400 mt-xs">Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                         )}
                       </div>
                       <span className="shrink-0 rounded-full bg-green-100 text-green-700 text-xs font-bold px-sm py-xs">Done ✓</span>
@@ -947,7 +947,7 @@ export default function ContractorDashboard() {
                           <p className="text-sm text-neutral-500 truncate">{String(job.category || 'General').replace(/-/g, ' ')}</p>
                           {job.completed_at && (
                             <p className="text-xs text-neutral-400 mt-xs">
-                              Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}
+                              Completed {new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </p>
                           )}
                         </div>
