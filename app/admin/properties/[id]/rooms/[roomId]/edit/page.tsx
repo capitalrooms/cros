@@ -121,7 +121,7 @@ export default function RoomDashboardPage({
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabType>('lettings')
+  const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>('all')
 
   // Data
@@ -672,13 +672,12 @@ export default function RoomDashboardPage({
     ? selfChecks
     : selfChecks.filter(c => c.check_type === complianceFilter)
 
+  // the editor edits; everything else about the room (tenancies, repairs, rent) is on the room page (24 Oct 2026)
   const tabs: Array<{ id: TabType; label: string }> = [
-    { id: 'lettings', label: 'Lettings' },
-    { id: 'overview', label: 'Overview' },
-    { id: 'tenant', label: 'Tenant' },
-    { id: 'maintenance', label: 'Maintenance' },
+    { id: 'overview', label: 'Details' },
     { id: 'photos', label: 'Photos' },
-    { id: 'compliance', label: 'Compliance' },
+    { id: 'lettings', label: 'Advert' },
+    { id: 'compliance', label: 'Monthly checks' },
     { id: 'notes', label: 'Notes' },
   ]
 
@@ -710,115 +709,15 @@ export default function RoomDashboardPage({
       <PageHero
         eyebrow={<><Link href="/admin/active-rooms" className="hover:underline">All Units</Link> · <Link href={`/admin/properties/${propertyId}`} className="hover:underline">{String(property.name ?? '').split('\n')[0]}</Link></>}
         title={`Edit ${room.name}`}
-        subtitle={<>{property.address} · photos, details, advert, notes and checks — <Link href={`/admin/properties/${propertyId}/rooms/${roomId}`} className="underline">back to the room page</Link></>}
-        actions={<HeroButton href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} primary>🏷️ Listing &amp; share link</HeroButton>}
+        tabs={tabs.map(t => ({ key: t.id, label: t.label, active: activeTab === t.id, onClick: () => setActiveTab(t.id) }))}
+        subtitle={String(property.address ?? '').split('\n').join(', ')}
+        actions={<><HeroButton href={`/admin/properties/${propertyId}/rooms/${roomId}`} primary>Back to the room page</HeroButton><HeroButton href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}/edit`)}`}>Marketing view</HeroButton></>}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 
-        {/* ── Hero card ─────────────────────────────────────────────────────── */}
-        <div className="mb-xl rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-[200px_1fr]">
-            {/* Photo */}
-            <div className="relative bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center min-h-[180px] md:min-h-0">
-              {heroPhotoUrl ? (
-                <img src={heroPhotoUrl} alt={room.name} className="w-full h-full object-cover absolute inset-0" />
-              ) : (
-                <div className="text-center">
-                  <div className="text-5xl mb-sm opacity-60">🛏️</div>
-                </div>
-              )}
-              <div className="absolute bottom-0 left-0 right-0 md:hidden bg-gradient-to-t from-black/40 to-transparent h-10" />
-            </div>
-
-            {/* Info */}
-            <div className="p-lg flex flex-col gap-md">
-              <div className="flex items-start justify-between gap-md flex-wrap">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mt-xs">Status</p>
-                <span className={`inline-flex items-center gap-xs px-md py-xs rounded-full text-xs font-semibold shrink-0 mt-xs ${statusCls}`}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                  {statusLabel}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-xl">
-                {currentTenancy && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Tenant</p>
-                    <p className="text-sm font-semibold text-neutral-900">{displayName(currentTenancy.person) || currentTenancy.person?.email || '—'}</p>
-                  </div>
-                )}
-                {(currentTenancy?.rent_amount || room.current_asking_rent) && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Rent</p>
-                    <p className="text-sm font-semibold text-neutral-900">£{(currentTenancy?.rent_amount || room.current_asking_rent)?.toLocaleString()} pcm</p>
-                  </div>
-                )}
-                {currentTenancy?.start_date && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Since</p>
-                    <p className="text-sm font-semibold text-neutral-900">{fmtDate(currentTenancy.start_date)}</p>
-                  </div>
-                )}
-                {openJobs.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Open jobs</p>
-                    <p className="text-sm font-semibold text-amber-600">{openJobs.length}</p>
-                  </div>
-                )}
-                {room.room_size && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">Size</p>
-                    <p className="text-sm font-semibold text-neutral-900">{room.room_size} m²</p>
-                  </div>
-                )}
-                {room.has_ensuite && (
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-xs">En-suite</p>
-                    <p className="text-sm font-semibold text-neutral-900">Yes 🚿</p>
-                  </div>
-                )}
-              </div>
-
-              {detectedChips.length > 0 && (
-                <div className="flex flex-wrap gap-xs">
-                  {detectedChips.map((chip, i) => (
-                    <span key={i} className="px-sm py-0.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700">
-                      {chip}
-                    </span>
-                  ))}
-                  <span className="px-sm py-0.5 rounded-full bg-purple-50 border border-purple-200 text-xs font-medium text-purple-700">✨ AI scanned</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Tab bar ───────────────────────────────────────────────────────── */}
-        <div className="mb-0 flex gap-0 border-b border-neutral-700 overflow-x-auto bg-neutral-900 rounded-t-xl">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-shrink-0 px-lg py-md whitespace-nowrap font-semibold text-sm transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-white text-neutral-900 rounded-t-lg'
-                  : 'text-neutral-400 hover:text-white hover:bg-neutral-800'
-              }`}
-            >
-              {tab.label}
-              {tab.id === 'maintenance' && openJobs.length > 0 && (
-                <span className="ml-xs inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-400 text-neutral-900 text-[10px] font-bold">{openJobs.length}</span>
-              )}
-              {tab.id === 'compliance' && selfChecks.filter(c => c.tenant_response === 'issue_reported').length > 0 && (
-                <span className="ml-xs inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-400 text-white text-[10px] font-bold">!</span>
-              )}
-            </button>
-          ))}
-        </div>
-
         {/* ── Tab content ───────────────────────────────────────────────────── */}
-        <div className="bg-white rounded-b-xl border border-t-0 border-neutral-700 shadow-sm p-lg">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
 
           {/* ── OVERVIEW ────────────────────────────────────────────────────── */}
           {activeTab === 'overview' && (
@@ -1291,107 +1190,6 @@ export default function RoomDashboardPage({
           {/* ── LETTINGS ────────────────────────────────────────────────────── */}
           {activeTab === 'lettings' && (
             <div className="space-y-xl">
-
-              {/* ── Register table — primary view ── */}
-              <div>
-                <div className="flex items-center justify-between mb-md gap-md flex-wrap">
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400">
-                    Lettings register ({(currentTenancy ? 1 : 0) + previousTenancies.length})
-                  </h2>
-                  <Link
-                    href={`/admin/applicants?add=1&property_id=${propertyId}&room_id=${roomId}`}
-                    className="inline-flex items-center gap-xs px-md py-xs rounded-lg bg-neutral-900 text-white text-xs font-semibold hover:bg-neutral-700 transition"
-                  >
-                    + Add letting
-                  </Link>
-                </div>
-                <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                      <thead>
-                        <tr className="bg-neutral-50 border-b border-neutral-200">
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Reference</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Tenant</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Start date</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">End date</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Rent</th>
-                          <th className="px-lg py-sm text-right text-xs font-semibold uppercase tracking-wider text-neutral-400">Deposit</th>
-                          <th className="px-lg py-sm text-left text-xs font-semibold uppercase tracking-wider text-neutral-400">Status</th>
-                          <th className="px-lg py-sm"></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100">
-                        {currentTenancy && (
-                          <tr className="bg-green-50/50">
-                            <td className="px-lg py-md">
-                              {(currentTenancy as any).lease_reference
-                                ? <span className="font-mono text-xs font-bold text-indigo-600">{(currentTenancy as any).lease_reference}</span>
-                                : <span className="text-xs text-neutral-300">—</span>
-                              }
-                            </td>
-                            <td className="px-lg py-md">
-                              <p className="font-semibold text-neutral-900">{displayName(currentTenancy.person) || currentTenancy.person?.email || 'Unknown'}</p>
-                              <p className="text-xs text-neutral-400 mt-0.5">{currentTenancy.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md text-neutral-700">{fmtShort(currentTenancy.start_date)}</td>
-                            <td className="px-lg py-md text-neutral-400">{currentTenancy.end_date ? fmtShort(currentTenancy.end_date) : <span className="text-xs text-neutral-300">Periodic</span>}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-900">{currentTenancy.rent_amount ? `£${Number(currentTenancy.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right text-neutral-700">{(currentTenancy as any).deposit_amount ? `£${Number((currentTenancy as any).deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md">
-                              <span className="inline-flex items-center gap-xs text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-sm py-0.5 rounded-full">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                {derivedRoomStatus === 'on_notice' ? 'On notice' : 'Current'}
-                              </span>
-                            </td>
-                            <td className="px-lg py-md text-right">
-                              <Link
-                                href={`/admin/tenant/${currentTenancy.person?.id}`}
-                                className="inline-flex items-center gap-xs px-md py-xs rounded-lg border border-neutral-200 bg-white text-xs font-semibold text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 transition whitespace-nowrap"
-                              >
-                                View →
-                              </Link>
-                            </td>
-                          </tr>
-                        )}
-                        {previousTenancies.map((t: any) => (
-                          <tr key={t.id} className="text-neutral-500">
-                            <td className="px-lg py-md">
-                              {t.lease_reference
-                                ? <span className="font-mono text-xs font-bold text-indigo-400">{t.lease_reference}</span>
-                                : <span className="text-xs text-neutral-300">—</span>
-                              }
-                            </td>
-                            <td className="px-lg py-md">
-                              <p className="font-semibold text-neutral-700">{displayName(t.person) || t.person?.email || 'Unknown'}</p>
-                              <p className="text-xs text-neutral-400 mt-0.5">{t.person?.email}</p>
-                            </td>
-                            <td className="px-lg py-md">{fmtShort(t.start_date)}</td>
-                            <td className="px-lg py-md">{fmtShort(t.end_date)}</td>
-                            <td className="px-lg py-md text-right font-semibold text-neutral-700">{t.rent_amount ? `£${Number(t.rent_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md text-right">{t.deposit_amount ? `£${Number(t.deposit_amount).toLocaleString()}` : '—'}</td>
-                            <td className="px-lg py-md">
-                              <span className="text-xs text-neutral-400 bg-neutral-100 border border-neutral-200 px-sm py-0.5 rounded-full">Ended</span>
-                            </td>
-                            <td className="px-lg py-md text-right">
-                              {t.person?.id && (
-                                <Link
-                                  href={`/admin/tenant/${t.person.id}`}
-                                  className="inline-flex items-center gap-xs px-md py-xs rounded-lg border border-neutral-200 bg-white text-xs font-semibold text-neutral-500 hover:bg-neutral-50 hover:border-neutral-300 transition whitespace-nowrap"
-                                >
-                                  View →
-                                </Link>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                        {!currentTenancy && previousTenancies.length === 0 && (
-                          <tr><td colSpan={8} className="px-lg py-xl text-sm text-neutral-400 text-center">No lettings history for this room yet.</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
 
               {/* ── Marketing copy — secondary, below the register ── */}
               <div>

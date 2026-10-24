@@ -112,8 +112,9 @@ function fmtRent(r: number | null | undefined): string {
 
 function statusPill(room: RoomRow) {
   if (room.currentTenant) {
-    const isOnNotice = room.tenancyInfo?.start_date &&
-      room.status === 'on_notice'
+    // from the tenancy itself — a notice date or an end date — never the room's own status flag (Room 2, 75 Crownfield
+    // Road showed "Let" with its tenancy ending 31 October 2026)
+    const isOnNotice = !!(room.tenancyNoticeReceivedDate || room.tenancyEndDate || room.status === 'on_notice')
     if (isOnNotice) {
       return <span className="whitespace-nowrap text-xs font-semibold px-sm py-xs rounded-full bg-amber-100 text-amber-800">Notice received</span>
     }
