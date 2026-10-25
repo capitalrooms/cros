@@ -54,8 +54,11 @@ const COMMUNAL = [
   'Other Communal Area',
 ]
 
+// a shared area, reachable with the key safe: the old names above, or any place that isn't a tenant's room — the
+// tenant form says "Bathroom (first floor)", "Living Room", "Hallway (ground floor)"… which this used to miss, so
+// those jobs were given the bedroom's 24-hour notice (25 Oct 2026). A room ("Room 2", "My Room / Bedroom") isn't.
 export function isCommunal(location: string | null | undefined) {
-  return !!location && COMMUNAL.includes(location)
+  return !!location && (COMMUNAL.includes(location) || !/my room|bedroom|^room\b|\broom \d+/i.test(location))
 }
 
 /**
@@ -69,9 +72,9 @@ export function earliestBookableDate(
   location: string | null | undefined,
   priority?: string | null
 ) {
-  const d = new Date()
+  const d = new Date(`${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}T12:00:00Z`)   // London's today
   const needsNotice = !isCommunal(location) && priority !== 'emergency' && priority !== 'high'
-  if (needsNotice) d.setDate(d.getDate() + 1)
+  if (needsNotice) d.setUTCDate(d.getUTCDate() + 1)
   return d.toISOString().split('T')[0]
 }
 
