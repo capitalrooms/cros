@@ -46,7 +46,11 @@ export function isTestPhone(phone: string | null | undefined): boolean {
 }
 
 /** A test account's address or number — a failed message to one is no reason to alert the office. */
-export const isTestAddress = (a: string | null | undefined) => isTestEmail(a) || isTestPhone(a)
+export const isTestAddress = (a: string | null | undefined) => isTestEmail(a) || isTestPhone(a) || /\.invalid$/i.test(String(a ?? '').trim())
+
+/** A placeholder for someone with no email (people.email can't be empty): never sent to (lib/sendEmail). */
+export const noEmailPlaceholder = (phone: string) => `mobile-${String(phone).replace(/[^\d]/g, '') || 'unknown'}@no-email.invalid`
+export const hasRealEmail = (e: string | null | undefined) => !!e && !/\.invalid$/i.test(e.trim())
 
 export function isTestEmail(email: string | null | undefined): boolean {
   const e = String(email ?? '').toLowerCase().trim()

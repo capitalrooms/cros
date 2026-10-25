@@ -17,6 +17,7 @@ import { sendSms } from '@/lib/sms'
 import { buildEmail } from '@/lib/emailWrapper'
 import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 import { defaultSender } from '@/lib/email/sender'
+import { hasRealEmail } from '@/lib/people'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,6 +102,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     `<p><b>${esc(who)}</b> has ${moved ? `moved their visit from ${esc(before)} to` : 'booked'} <b>${esc(when)}</b> for <b>${esc(t.title)}</b> at ${esc(house)}${job?.roomName ? `, ${esc(job.roomName)}` : ''}.</p><p>They booked it themselves with their booking link (they’re not on the app).</p>`)
   const link = bookingLink(t.id, c.id)
   if (c.phone) await sendSms(c.phone, `Capital Rooms: you're booked for ${when} at ${house} (${t.title}). To move or cancel: ${link}`, { asName: true }).catch(() => null)
-  if (c.email) await sendEmail(c.email, `Booked: ${when} — ${t.title} at ${house}`, `<p>Thanks — you’re booked for <b>${esc(when)}</b>.</p><p><b>${esc(t.title)}</b><br>${esc(job?.propertyAddress ?? house)}${job?.roomName ? `<br>${esc(job.roomName)}` : ''}</p><p>${esc(job ? accessNote(job) : '')}</p><p><a href="${link}">Move or cancel this visit</a></p>`, { signature: false }).catch(() => null)
+  if (hasRealEmail(c.email)) await sendEmail(c.email, `Booked: ${when} — ${t.title} at ${house}`, `<p>Thanks — you’re booked for <b>${esc(when)}</b>.</p><p><b>${esc(t.title)}</b><br>${esc(job?.propertyAddress ?? house)}${job?.roomName ? `<br>${esc(job.roomName)}` : ''}</p><p>${esc(job ? accessNote(job) : '')}</p><p><a href="${link}">Move or cancel this visit</a></p>`, { signature: false }).catch(() => null)
   return NextResponse.json({ ok: true, label: when })
 }
