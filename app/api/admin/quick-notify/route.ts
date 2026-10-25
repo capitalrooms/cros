@@ -11,6 +11,8 @@ import { getElectedCommsLive } from '@/lib/comms'
 import { displayName, dearName, isTestEmail } from '@/lib/people'
 import { senderFor } from '@/lib/email/sender'
 import { hmoNoticeDefaults } from '@/lib/letters/hmoNotice'
+import { sendQuickNotify } from '@/lib/notify/quickSend'
+import { houseCleanerIds } from '@/lib/cleaners/regular'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -32,7 +34,7 @@ export async function GET(req: NextRequest) {
     s.from('rooms').select('id, name').eq('property_id', propertyId),
     s.from('tenancies').select('room_id, person_id, co_tenant_id, rooms(name)').eq('property_id', propertyId).lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
     s.from('tenant_guides').select('id, slug, title, emoji, sort_order').eq('is_published', true).order('sort_order'),
-    s.from('people').select('id', { count: 'exact', head: true }).eq('role', 'cleaner'),
+    houseCleanerIds(s, propertyId).then(ids => ({ count: ids.length })),   // this house's cleaners, not every cleaner
     getElectedCommsLive(),
     hmoNoticeDefaults(s, propertyId, await senderFor(req)).catch(() => null),
   ])
@@ -79,43 +81,5 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!(await requireStaff(req))) return NextResponse.json({ error: SIGN_IN_AGAIN }, { status: 401 })
-  if (!(await getElectedCommsLive())) return NextResponse.json({ error: '“Messages you send yourself” is switched off in Settings — switch it on to send this.' }, { status: 409 })
-
-  const b = await req.json().catch(() => ({}))
-  const { property_id, recipient_type, room_id } = b
-  const subject = String(b.subject ?? '').trim().slice(0, 200)
-  const message = String(b.message ?? '').trim().slice(0, 5000)
-  const channels: NotifyChannels = CHANNELS.includes(b.channels) ? b.channels : 'push_email'
-  // where the message opens in the tenant app — only ever a tenant screen
-  const link = typeof b.link === 'string' && /^\/tenant(\/[a-z0-9\-/]*)?$/.test(b.link) ? b.link : '/tenant/inbox'
-  if (!property_id || !subject || !message || !recipient_type) return NextResponse.json({ error: 'Add a subject and a message first.' }, { status: 400 })
-  if (/\{[a-z_]+\}/.test(subject + message)) return NextResponse.json({ error: 'Some details are still in {curly brackets} — fill them in before sending.' }, { status: 400 })
-
-  const s = svc()
-  try {
-    let recipientIds: string[] = []
-    if (recipient_type === 'cleaners') {
-      const { data: staff } = await s.from('people').select('id').eq('role', 'cleaner')
-      recipientIds = (staff || []).map((x: any) => x.id)
-    } else {
-      // only ever people living at this house now
-      const living = await activeTenantIds(s, property_id, recipient_type === 'room' ? room_id : null)
-      if (recipient_type === 'people') {
-        const picked = new Set<string>(Array.isArray(b.person_ids) ? b.person_ids.map(String) : [])
-        recipientIds = living.filter(id => picked.has(id))
-      } else if (recipient_type === 'individual' && b.person_id) {
-        recipientIds = living.filter(id => id === b.person_id)
-      } else recipientIds = living
-    }
-    if (recipientIds.length === 0) return NextResponse.json({ error: recipient_type === 'cleaners' ? 'There are no cleaners in CROS yet.' : 'No one picked lives at this house now, so there’s no one to send to.' }, { status: 400 })
-
-    const { count, error } = await insertNotifications(s, recipientIds, { title: subject, body: message, type: 'admin', link }, { propertyId: property_id, roomId: room_id || null })
-    if (error) return NextResponse.json({ error: `The message couldn’t be saved: ${error}` }, { status: 500 })
-
-    const { pushCount, emailCount, smsCount, smsFailed } = await dispatchChannels(s, recipientIds, { title: subject, body: message, link }, channels, req, { elected: true })
-    return NextResponse.json({ ok: true, recipientCount: count, pushCount, emailCount, smsCount: smsCount ?? 0, smsFailed: smsFailed ?? [] })
-  } catch (e: any) {
-    console.error('Quick notify error:', e)
-    return NextResponse.json({ error: `Sending failed: ${e?.message ?? 'unknown error'}` }, { status: 500 })
-  }
+  return sendQuickNotify(req, await req.json().catch(() => ({})))
 }
