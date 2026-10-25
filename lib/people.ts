@@ -39,6 +39,15 @@ export function displayName(person: PersonLike | null | undefined): string {
 }
 
 /** A made-up account for testing — example.com, "+test" and the test-onboard@ inbox. */
+/** Ofcom's drama range, 07700 900000–900999 — numbers that never connect, used for test accounts (25 Oct 2026). */
+export function isTestPhone(phone: string | null | undefined): boolean {
+  const d = String(phone ?? '').replace(/[^\d]/g, '').replace(/^44/, '0')
+  return /^07700900\d{3}$/.test(d)
+}
+
+/** A test account's address or number — a failed message to one is no reason to alert the office. */
+export const isTestAddress = (a: string | null | undefined) => isTestEmail(a) || isTestPhone(a)
+
 export function isTestEmail(email: string | null | undefined): boolean {
   const e = String(email ?? '').toLowerCase().trim()
   return !!e && (/@example\.(com|org|net|co\.uk)$/.test(e) || /\+test@/.test(e) || e.startsWith('test-onboard@'))

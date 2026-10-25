@@ -169,14 +169,16 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+<style>:root { color-scheme: light only; supported-color-schemes: light only; }</style>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 </head>
 <body style="margin:0;padding:0;background:#f5f4f2;-webkit-text-size-adjust:100%;">
 <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f5f4f2;padding:24px 0;">
 <tr><td align="center">
 <table cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;background:#ffffff;">
-  <tr><td style="padding:24px 32px 18px;border-bottom:1px solid #efedea;"><img src="${SIGNATURE_ASSET_BASE}/brand/lockup-ink.png" width="150" alt="${biz.company_name}" style="display:block;border:0;width:150px;max-width:60%;height:auto;"></td></tr>
+  <tr><td bgcolor="#ffffff" style="padding:12px 20px 6px;border-bottom:1px solid #efedea;background:#ffffff;"><img src="${SIGNATURE_ASSET_BASE}/brand/lockup-ink-on-white.png" width="174" alt="${biz.company_name}" style="display:block;border:0;width:174px;max-width:62%;height:auto;"></td></tr>
   <tr>
     <td style="padding:34px 32px 30px;font-family:${BODY_FONT};font-size:14.5px;line-height:1.7;color:#2b2a27;">
       ${content}

@@ -5,6 +5,7 @@
 // Called every 5 minutes from the database's every-minute tick (app/api/emergencies/tick).
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { deliverEmail, COPY_TO } from '@/lib/sendEmail'
+import { isTestAddress } from '@/lib/people'
 
 const BAD: Record<string, string> = {
   bounced: 'Bounced — their email provider rejected it (usually a wrong or closed address).',
@@ -52,8 +53,14 @@ export async function checkDeliveries(s: SupabaseClient, opts: { force?: boolean
     }
   }
   const late = (e: any) => e.last_event === 'delivery_delayed' && Date.now() - Date.parse(e.created_at) > 60 * 60_000
+  const seen = new Set<string>()
   const problems = recent.filter(e => (BAD[e.last_event] || late(e) || e.last_event === 'text_failed') && !reported.has(`${e.id}:${e.last_event}`)
-    && !/^(Not sent|Didn’t arrive)/.test(String(e.subject)))
+    && !/^(Not sent|Didn’t arrive)/.test(String(e.subject))
+    // not test accounts (example.com, 07700 900xxx), and one line for the same message to the same person (25 Oct 2026)
+    && !(e.to ?? []).every((a: string) => isTestAddress(a)))
+    .filter(e => { const k = `${(e.to ?? []).join(',')}|${e.subject}`; if (seen.has(k)) return false; seen.add(k); return true })
+  // everything found is remembered as reported, the test-account ones and repeats included, so they're never re-checked
+  for (const e of recent) if ((BAD[e.last_event] || late(e) || e.last_event === 'text_failed') && (e.to ?? []).every((a: string) => isTestAddress(a))) reported.add(`${e.id}:${e.last_event}`)
 
   if (problems.length) {
     const addrs = [...new Set(problems.flatMap(e => e.to ?? []).map((a: string) => a.toLowerCase()))].filter(a => a.includes('@'))
@@ -78,9 +85,10 @@ export async function checkDeliveries(s: SupabaseClient, opts: { force?: boolean
       to: [COPY_TO], noCopy: true,
       subject: `Didn’t arrive: ${problems.length === 1 ? `${problems[0].subject}`.slice(0, 120) : `${problems.length} messages from CROS`}`,
       html: `<p>${problems.length === 1 ? 'This message' : 'These messages'} from CROS did <b>not</b> reach the person:</p>
-        <table style="border-collapse:collapse;font-size:14px;width:100%"><tr style="text-align:left;color:#666"><th style="padding:8px">To</th><th style="padding:8px">Email</th><th style="padding:8px">What happened</th></tr>${rows}</table>
-        <p><b>What to do:</b> check the email address with them (phone or text) and correct it in CROS, then send again.
-        If the address was right all along, remove it from the blocked list in the email service (Resend › Suppressions) before sending again.</p>`,
+        <table style="border-collapse:collapse;font-size:14px;width:100%"><tr style="text-align:left;color:#666"><th style="padding:8px">To</th><th style="padding:8px">Message</th><th style="padding:8px">What happened</th></tr>${rows}</table>
+        ${problems.some(e => e.last_event === 'text_failed') ? `<p><b>For a text:</b> check the mobile number with them and correct it in CROS, then send again — or call them.</p>` : ''}
+        ${problems.some(e => e.last_event !== 'text_failed') ? `<p><b>For an email:</b> check the email address with them (phone or text) and correct it in CROS, then send again.
+        If the address was right all along, remove it from the blocked list in the email service (Resend › Suppressions) before sending again.</p>` : ''}`,
     })
     if (res.ok) for (const e of problems) reported.add(`${e.id}:${e.last_event}`)
   }
