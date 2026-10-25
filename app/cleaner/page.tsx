@@ -164,7 +164,6 @@ export default function CleanerDashboard() {
     const t = new URLSearchParams(window.location.search).get('tab') as Tab | null
     if (t && ['today', 'upcoming', 'done', 'compliance'].includes(t)) setActiveTab(t)
   }, [])
-  const [showFabMenu, setShowFabMenu] = useState(false)
   const [selectedDay, setSelectedDay] = useState(todayISO())
   const [weekOffset, setWeekOffset] = useState(0)
 
@@ -441,10 +440,6 @@ export default function CleanerDashboard() {
   return (
     <div style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>
 
-      {/* Dismiss FAB menu on backdrop click */}
-      {showFabMenu && (
-        <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
-      )}
 
       {/* ── View-as banner ────────────────────────────────────────────────── */}
       {viewingAs && (
@@ -712,6 +707,11 @@ export default function CleanerDashboard() {
           <div className="pt-lg pb-sm">
             <EnableNotifications />
             <div className="mt-sm grid grid-cols-2 gap-sm">
+              {/* booking and logging cleans live here now — a floating + covered the Accept/Decline buttons (25 Oct 2026) */}
+              <button type="button" onClick={() => { setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
+                className="rounded-xl bg-neutral-950 px-md py-sm text-center text-xs font-bold text-white">🧹 Book a clean</button>
+              <button type="button" onClick={() => { setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' }); setShowLogPastCleanModal(true) }}
+                className="rounded-xl border border-neutral-900 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">📝 Log a past clean</button>
               <a href="/planner" className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">🗂️ Notes with Capital Rooms</a>
               <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">🧾 Invoice your cleans</a>
             </div>
@@ -945,36 +945,6 @@ export default function CleanerDashboard() {
         )}
 
       </main>
-
-      {/* ── FAB ────────────────────────────────────────────────────────────── */}
-      <div
-        className="fixed z-30 right-lg"
-        style={{ bottom: 'calc(max(env(safe-area-inset-bottom), 6px) + 76px)' }}   // above the bottom tab bar
-      >
-        {showFabMenu && (
-          <div className="mb-sm flex flex-col gap-sm items-end">
-            <button
-              onClick={() => { setShowFabMenu(false); setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
-              className="rounded-full bg-neutral-950 text-white px-lg py-sm text-sm font-bold shadow-lg whitespace-nowrap hover:bg-neutral-700 transition-colors"
-            >
-              🧹 Book a clean
-            </button>
-            <button
-              onClick={() => { setShowFabMenu(false); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' }); setShowLogPastCleanModal(true) }}
-              className="rounded-full bg-neutral-950 text-white px-lg py-sm text-sm font-bold shadow-lg whitespace-nowrap hover:bg-neutral-700 transition-colors"
-            >
-              📝 Log past clean
-            </button>
-          </div>
-        )}
-        <button
-          onClick={() => setShowFabMenu(v => !v)}
-          className="w-14 h-14 rounded-full bg-neutral-950 text-white text-2xl font-bold shadow-xl flex items-center justify-center hover:bg-neutral-700 transition-colors"
-          aria-label="Book"
-        >
-          {showFabMenu ? '×' : '＋'}
-        </button>
-      </div>
 
       </div>{/* end lg:hidden */}
 
