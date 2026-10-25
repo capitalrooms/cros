@@ -31,7 +31,7 @@ async function emptyWindow(s: ReturnType<typeof createServiceClient>, roomId: st
   const to = next ? addDays(next.start_date, -1) : null
   if (to && to < from) return null   // the next tenant moves in the day after — no gap
   return { from, to, nextMoveIn: next?.start_date ?? null,
-    text: `${from === today ? 'from today' : `from ${full(from)}`}${to ? ` to ${full(to)}` : ', until it’s let'}${next ? ` (the next tenant moves in on ${full(next.start_date)})` : ''}` }
+    text: `${to === from ? `on ${full(from)} only` : `${from === today ? 'from today' : `from ${full(from)}`}${to ? ` to ${full(to)}` : ', until it’s let'}`}${next ? ` (the next tenant moves in on ${full(next.start_date)})` : ''}` }
 }
 
 export async function GET(req: NextRequest) {
