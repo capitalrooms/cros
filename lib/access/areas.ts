@@ -37,7 +37,9 @@ export const AREAS: Area[] = [
       // what lettings work reaches into (12 Oct 2026 check): holding deposit receipts, landlords' bank details on agreements, letters
       '/api/admin/documents/generated', '/api/admin/document-generator',
       // 23 Oct 2026 audit: Tell the landlord, letter templates, let-only initial monies
-      '/api/admin/landlord-updates', '/api/admin/letter-templates', '/api/admin/initial-monies'],
+      '/api/admin/landlord-updates', '/api/admin/letter-templates', '/api/admin/initial-monies',
+      // 24 Oct 2026: viewing and visit messages to tenants (the route only takes those)
+      '/api/admin/quick-notify/visits'],
     // read only (GET): landlords' bank details for agreements — changing where a landlord is paid stays with Finance;
     // the rent account and deposit return in the letting file and tenant profile; landlord pages
     apiRead: ['/api/admin/landlord-bank-accounts', '/api/admin/rent-charges', '/api/admin/payment-audit-log', '/api/admin/deposit-returns',
@@ -45,9 +47,9 @@ export const AREAS: Area[] = [
       // 24 Oct 2026: the letting file and tenant profile show what's been sent to the tenant
       '/api/admin/messages'] },
   { key: 'diary', label: 'Diary & viewings', hint: 'The diary, booking viewings and appointments',
-    pages: ['/admin/appointments', '/admin/agency-diary', '/admin/calendar'], api: ['/api/admin/appointments', '/api/admin/calendar', '/api/admin/quick-notify-lettings'],
-    // the Lettings home and viewings screens (the phone diary) show the overview and documents
-    apiRead: ['/api/admin/lettings/overview', '/api/admin/documents/generated'] },
+    pages: ['/admin/appointments', '/admin/agency-diary', '/admin/calendar'], api: ['/api/admin/appointments', '/api/admin/calendar', '/api/admin/quick-notify-lettings', '/api/admin/quick-notify/visits'],
+    // the Lettings home and viewings screens (the phone diary) show the overview and documents; Quick Notify's house
+    apiRead: ['/api/admin/lettings/overview', '/api/admin/documents/generated', '/api/admin/quick-notify'] },
   { key: 'maintenance', label: 'Maintenance', hint: 'Repairs, contractors, quotes, cleaning, emergencies, planner',
     pages: ['/admin/maintenance', '/admin/cleaner-jobs', '/admin/emergencies', '/admin/planner', '/admin/contractor'],
     api: ['/api/admin/maintenance', '/api/admin/quotes', '/api/admin/emergencies', '/api/admin/planner', '/api/admin/cleaner', '/api/admin/jobs', '/api/admin/visit-requests'] },

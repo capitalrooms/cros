@@ -7,6 +7,7 @@ import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { regularCleanerId } from '@/lib/cleaners/regular'
 
 
 const ukDay = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -178,7 +179,8 @@ export async function POST(request: Request) {
       // rather than adding a second (21 Oct 2026: 208 Rotherhithe Street Room 5 had two)
       const ukMoveOut = moveOutDate ? new Date(`${moveOutDate}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'TBC'
       const job = {
-        cleaner_id: cleanerId || null,   // null = unassigned; admin can pick from cleaner-jobs page
+        // the one picked here, else the house's regular cleaner (migration 243); null = unassigned, picked on Cleaning
+        cleaner_id: cleanerId || (await regularCleanerId(supabase as any, propertyId)) || null,
         property_id: propertyId,
         room_id: roomId,
         task_type: taskType,

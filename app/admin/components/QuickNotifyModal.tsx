@@ -8,7 +8,7 @@ import { createPortal } from 'react-dom'
 import { adminFetch } from '@/lib/adminFetch'
 import { useAdminAccess } from '@/lib/admin-context'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
-import { PURPOSES, TENANT_MESSAGES, SLOTS, fillMessage, unfilled, type Purpose, type TenantMessage } from '@/lib/notify/tenantMessages'
+import { PURPOSES, TENANT_MESSAGES, SLOTS, VISIT_PURPOSES, fillMessage, unfilled, type Purpose, type TenantMessage } from '@/lib/notify/tenantMessages'
 
 interface QuickNotifyModalProps {
   propertyId: string
@@ -49,8 +49,13 @@ const errorText = async (r: Response, fallback: string) => {
 export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initialPeople, initialRoomId }: QuickNotifyModalProps) {
   const [house, setHouse] = useState<HouseData | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  // sending is part of Comms (lib/access/areas): someone without it (lettings staff) is told before writing, not after
-  const canSend = useAdminAccess()('/admin/notify')
+  // sending is part of Comms (lib/access/areas). Lettings and diary staff without it may send viewing and visit
+  // messages only (24 Oct 2026) — through /api/admin/quick-notify/visits, which checks the same thing
+  const allowed = useAdminAccess()
+  const fullComms = allowed('/admin/notify')
+  const visitsOnly = !fullComms && (allowed('/admin/lettings') || allowed('/admin/agency-diary'))
+  const canSend = fullComms || visitsOnly
+  const purposes = visitsOnly ? PURPOSES.filter(p => VISIT_PURPOSES.includes(p.key)) : PURPOSES
 
   const [who, setWho] = useState<Who>(initialPeople?.length ? 'people' : initialRoomId ? 'room' : 'everyone')
   const [roomId, setRoomId] = useState(initialRoomId ?? '')
@@ -140,10 +145,10 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
     if (count === 0) { setError('No one is picked to send to.'); return }
     setSending(true); setError(null)
     try {
-      const r = await adminFetch('/api/admin/quick-notify', {
+      const r = await adminFetch(visitsOnly ? '/api/admin/quick-notify/visits' : '/api/admin/quick-notify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          property_id: propertyId, subject, message: body, channels, link,
+          property_id: propertyId, subject, message: body, channels, link, purpose, message_id: msg?.id ?? null,
           recipient_type: who === 'everyone' ? 'all_tenants' : who,
           room_id: who === 'room' ? roomId : null,
           person_ids: who === 'people' ? [...picked] : undefined,
@@ -211,6 +216,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
 
         <div className="flex-1 space-y-lg overflow-y-auto px-lg py-lg">
           {!canSend && <p className="rounded-xl border border-amber-200 bg-amber-50 p-md text-sm font-semibold text-amber-900">Sending messages is part of Comms, which isn’t in your access — you can look, but Send won’t go. Ask an administrator if you need it.</p>}
+          {visitsOnly && <p className="rounded-xl border border-neutral-200 bg-white p-md text-sm text-neutral-700">You can send <b>viewing and visit</b> messages to the tenants. Other messages are part of Comms.</p>}
           {loadError && <p className="rounded-xl border border-red-200 bg-red-50 p-md text-sm font-semibold text-red-800">{loadError}</p>}
           {!house && !loadError && <p className="text-sm text-neutral-400">Loading the house…</p>}
 
@@ -243,7 +249,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
                 <button onClick={() => setWho('everyone')} className={chip(who === 'everyone')}>Everyone at the house ({house.tenants.length})</button>
                 <button onClick={() => setWho('room')} className={chip(who === 'room')}>One room</button>
                 <button onClick={() => setWho('people')} className={chip(who === 'people')}>Pick people</button>
-                <button onClick={() => setWho('cleaners')} className={chip(who === 'cleaners')}>Cleaners ({house.cleaners})</button>
+                {!visitsOnly && <button onClick={() => setWho('cleaners')} className={chip(who === 'cleaners')}>Cleaners ({house.cleaners})</button>}
               </div>
               {who === 'room' && (
                 <select value={roomId} onChange={e => setRoomId(e.target.value)} className={`${input} mt-sm`}>
@@ -277,7 +283,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
             <section>
               <p className={label}>What it’s about</p>
               <div className="grid grid-cols-2 gap-sm sm:grid-cols-4">
-                {PURPOSES.map(p => (
+                {purposes.map(p => (
                   <button key={p.key} onClick={() => choosePurpose(p.key)} title={p.hint}
                     className={`rounded-xl border p-sm text-left transition ${purpose === p.key ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400'}`}>
                     <span className="block text-sm font-bold">{p.label}</span>

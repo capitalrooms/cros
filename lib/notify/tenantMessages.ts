@@ -17,7 +17,7 @@ export const PURPOSES: { key: Purpose; label: string; hint: string }[] = [
   { key: 'house', label: 'House standards', hint: 'Shared spaces, bins, noise, cleaning' },
   { key: 'maintenance', label: 'Maintenance updates', hint: 'Reports, quotes, bookings, works' },
   { key: 'photography', label: 'Photography', hint: 'Photos and video for listings' },
-  { key: 'viewings', label: 'Viewings', hint: 'Viewings and new housemates' },
+  { key: 'viewings', label: 'Viewings & visits', hint: 'Viewings, new housemates, our visits' },
   { key: 'other', label: 'Something else', hint: 'Write your own or ask AI' },
 ]
 
@@ -138,7 +138,14 @@ export const TENANT_MESSAGES: TenantMessage[] = [
   { id: 'new-housemate', purpose: 'viewings', name: 'A new housemate is moving in', subject: 'A new housemate is moving in',
     body: '{room} at {house} has been let and your new housemate moves in on {date}. Please make them welcome!\n\nThey’ll be able to say hello in the app under Meet your housemates.',
     fields: [{ key: 'room', label: 'Which room', type: 'text', placeholder: 'Room 3' }, date('date', 'Moving in')] },
+  { id: 'office-visit', purpose: 'viewings', name: 'We’re visiting the house', subject: 'We’re visiting {house} – {date}',
+    body: 'One of the Capital Rooms team will visit {house} on {date} {slot} to {reason}. We’ll use the management keys and only go into the shared areas and any empty room – never your room unless we’ve arranged it with you.\n\nThere’s nothing you need to do – thank you.',
+    fields: [date(), slot(), { key: 'reason', label: 'What for', type: 'text', placeholder: 'check the empty room before the new tenant moves in' }] },
 ]
+
+/** What lettings staff may send without Comms (24 Oct 2026, Harry: "for viewings etc or visits only"). The server
+ *  checks it too (/api/admin/quick-notify/visits). */
+export const VISIT_PURPOSES: Purpose[] = ['photography', 'viewings']
 
 /** Words in curly brackets still waiting to be filled in. */
 export const unfilled = (text: string) => [...new Set([...text.matchAll(/\{([a-z_]+)\}/g)].map(m => m[1]))]
