@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { getTodayGMT, isDatePast, isDateToday, formatDateUK } from '@/lib/dateUtils'
 import MultiDayDiaryGrid, { type DiaryJob } from '@/app/components/MultiDayDiaryGrid'
 import DesktopRightRail from '@/app/components/DesktopRightRail'
+import { jobWhere } from '@/lib/repairs/where'
 
 interface Job {
   id: string
@@ -84,7 +85,7 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
         <div className="min-w-0 flex-1">
           <p className="font-bold text-neutral-900 truncate">{job.properties?.name}</p>
           <p className="text-sm text-neutral-500 truncate">
-            {category}{job.rooms?.name ? ` · ${job.rooms.name}` : ''}
+            {category} · {jobWhere(job)}
           </p>
           {variant === 'ongoing' && job.return_reason && (
             <p className="text-xs text-amber-700 font-semibold mt-xs">
@@ -129,7 +130,7 @@ function QuoteCard({ job, asParam }: { job: Job; asParam?: string }) {
           <p className="font-bold text-neutral-900 truncate">{job.properties?.name}</p>
           <p className="text-sm text-neutral-500 truncate">
             {String(job.category || 'General').replace(/-/g, ' ')}
-            {job.rooms?.name ? ` · ${job.rooms.name}` : ''}
+            {` · ${jobWhere(job)}`}
           </p>
           {submitted ? (
             <p className="text-xs text-green-700 font-semibold mt-xs">

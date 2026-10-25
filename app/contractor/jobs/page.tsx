@@ -11,6 +11,7 @@ import { TIME_SLOTS, formatBooking, slotLabel, earliestBookableDate, bookingLead
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton';
 import JobMap, { type MapPin } from '@/components/JobMap';
+import { jobWhere, jobPlace } from '@/lib/repairs/where';
 
 interface Attachment {
   id: string;
@@ -152,7 +153,7 @@ export default function ContractorJobs() {
     // override — a tenant may well say "come today, I'm in" — but make the
     // person booking state that they have that authorisation.
     const earliest = earliestBookableDate(
-      selectedJob.rooms?.name ?? selectedJob.location,
+      jobPlace(selectedJob),
       selectedJob.priority
     );
     if (proposedDate < earliest) {
@@ -355,7 +356,7 @@ export default function ContractorJobs() {
               <div className="mt-lg border-t border-neutral-200 pt-md">
                 <p className="font-semibold">{nextJob.properties?.name}</p>
                 <p className="text-sm text-neutral-600">
-                  {nextJob.properties?.address} · {nextJob.rooms?.name || nextJob.location}
+                  {nextJob.properties?.address} · {jobWhere(nextJob)}
                 </p>
                 <p className="mt-sm text-sm text-neutral-500">{nextJob.title}</p>
               </div>
@@ -476,7 +477,7 @@ export default function ContractorJobs() {
                     {job.properties?.name}
                   </p>
                   <p className="text-sm text-neutral-500">
-                    {job.properties?.address} · {job.rooms?.name || job.location}
+                    {job.properties?.address} · {jobWhere(job)}
                   </p>
 
                   <button
@@ -569,7 +570,7 @@ export default function ContractorJobs() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-semibold text-neutral-900">{job.title}</p>
                           <p className="truncate text-sm text-neutral-500">
-                            {job.properties?.name} · {job.rooms?.name || job.location}
+                            {job.properties?.name} · {jobWhere(job)}
                           </p>
                         </div>
                         {job.status === 'in_progress' && (
@@ -598,7 +599,7 @@ export default function ContractorJobs() {
                       >
                         <p className="font-semibold">{job.title}</p>
                         <p className="text-sm text-neutral-600">
-                          {job.properties?.name} · {job.rooms?.name || job.location}
+                          {job.properties?.name} · {jobWhere(job)}
                         </p>
                       </button>
                     ))}
@@ -626,7 +627,7 @@ export default function ContractorJobs() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-neutral-900">{job.title}</p>
                     <p className="truncate text-sm text-neutral-500">
-                      {job.properties?.name} · {job.rooms?.name || job.location}
+                      {job.properties?.name} · {jobWhere(job)}
                       {job.completed_at ? ` · ${new Date(job.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
                     </p>
                   </div>
@@ -684,7 +685,7 @@ export default function ContractorJobs() {
               <p className="font-semibold">{selectedJob.properties?.name}</p>
               <p className="text-sm text-neutral-600">{selectedJob.properties?.address}</p>
               <p className="text-sm text-neutral-600">
-                {selectedJob.rooms?.name || selectedJob.location}
+                {jobWhere(selectedJob)}
               </p>
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -749,7 +750,7 @@ export default function ContractorJobs() {
                 />
 
                 <p className="mt-xs text-xs text-neutral-500">
-                  {bookingLeadTimeNote(selectedJob.rooms?.name ?? selectedJob.location, selectedJob.priority)}
+                  {bookingLeadTimeNote(jobPlace(selectedJob), selectedJob.priority)}
                 </p>
 
                 <label className="mt-md block text-sm font-medium text-neutral-700">

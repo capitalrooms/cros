@@ -14,6 +14,7 @@ import BackButton from '@/app/components/BackButton'
 import JobCompletion from '@/app/components/JobCompletion'
 import StaffQuickNotifyModal from '@/app/components/StaffQuickNotifyModal'
 import Link from 'next/link'
+import { inTenantRoom, jobWhere, jobPlace } from '@/lib/repairs/where'
 // the office's note for the contractor — without the office's own chase stamps ("[02/10/2026] Update requested from …
 // by harry@… (app)"), which are records for the office, not messages (21 Oct 2026)
 const officeNote = (n?: string | null) => String(n ?? '').split('\n').filter(l => !/^\[\d{1,2}\/\d{1,2}\/\d{4}\] Update requested from /.test(l.trim())).join('\n').trim()
@@ -236,9 +237,9 @@ export default function JobDetailPage() {
   async function handleReschedule() {
     if (!job || !bookDate || !bookSlot) return
     // a new day needs the usual notice (24h for bedroom access); running late on the same day doesn't
-    const earliest = earliestBookableDate(job.location ?? job.rooms?.name, job.priority)
+    const earliest = earliestBookableDate(jobPlace(job), job.priority)
     if (reReason !== 'Running late — same day' && bookDate !== job.booked_date && bookDate < earliest) {
-      alert(`${bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)} The earliest new date is ${new Date(earliest).toLocaleDateString('en-GB')}.`)
+      alert(`${bookingLeadTimeNote(jobPlace(job), job.priority)} The earliest new date is ${new Date(earliest).toLocaleDateString('en-GB')}.`)
       return
     }
     setBusy('reschedule')
@@ -422,8 +423,8 @@ export default function JobDetailPage() {
     if (!job) return
     if (!returnReason.trim()) { alert('Please add a reason.'); return }
     if (!returnUncertain && (!returnDate || !returnSlot)) { alert('Pick a date and time slot for the return visit, or tick "Not sure yet".'); return }
-    const earliest = earliestBookableDate(job.location ?? job.rooms?.name, job.priority)
-    if (!returnUncertain && returnDate < earliest) { alert(`${bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)} The earliest date is ${new Date(earliest).toLocaleDateString('en-GB')}.`); return }
+    const earliest = earliestBookableDate(jobPlace(job), job.priority)
+    if (!returnUncertain && returnDate < earliest) { alert(`${bookingLeadTimeNote(jobPlace(job), job.priority)} The earliest date is ${new Date(earliest).toLocaleDateString('en-GB')}.`); return }
     const reason = [returnReason.trim(), areaInstruction.trim() ? `Area: ${areaInstruction.trim()}` : ''].filter(Boolean).join(' — ')
     setSavingReturn(true)
     try {
@@ -567,12 +568,18 @@ export default function JobDetailPage() {
               <p className="text-base font-bold mt-xs">{job.properties?.name}</p>
               <p className="text-sm text-white/80">{job.properties?.address}</p>
             </div>
-            {job.rooms?.name && (
-              <div>
-                <p className="text-xs text-white/60">Room</p>
-                <p className="text-base font-bold mt-xs">{job.rooms.name}</p>
-              </div>
-            )}
+            {/* where the problem is (25 Oct 2026): it always said the reporter's room, even for a kitchen or hallway job —
+                a contractor could have gone into a tenant's bedroom for a shared-area repair */}
+            {(job.location || job.rooms?.name) && (() => {
+              const inRoom = inTenantRoom(job)
+              return (
+                <div>
+                  <p className="text-xs text-white/60">Where</p>
+                  <p className="text-base font-bold mt-xs">{jobWhere(job)}</p>
+                  <p className="text-xs text-white/60">{inRoom ? 'A tenant’s room' : 'Shared area — not anyone’s room'}</p>
+                </div>
+              )
+            })()}
             {job.booked_date && (
               <div>
                 <p className="text-xs text-white/60">Booked</p>
@@ -849,7 +856,7 @@ export default function JobDetailPage() {
               <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg">
                 <h3 className="font-bold text-neutral-900 mb-xs">Book your visit</h3>
                 <p className="text-xs text-neutral-500 mb-md">
-                  {job.rooms?.name
+                  {inTenantRoom(job)
                     ? 'Bedroom access needs 24 hours notice so the tenant can arrange access.'
                     : 'Communal area — reachable via the key safe, can be booked for today.'}
                 </p>
@@ -857,7 +864,7 @@ export default function JobDetailPage() {
                   <div>
                     <label className="block text-xs font-medium text-neutral-700 mb-xs">Date</label>
                     <input type="date" value={bookDate}
-                      min={earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
+                      min={earliestBookableDate(jobPlace(job), job.priority)}
                       onChange={(e) => setBookDate(e.target.value)}
                       className="w-full rounded-lg border border-neutral-300 px-md py-md text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
                   </div>
@@ -900,9 +907,9 @@ export default function JobDetailPage() {
                         alert('Pick a new date and time slot first (in the sidebar below).')
                         return
                       }
-                      const earliest = earliestBookableDate(job.location ?? job.rooms?.name, job.priority)
+                      const earliest = earliestBookableDate(jobPlace(job), job.priority)
                       if (bookDate < earliest) {
-                        alert(`${bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)} The earliest date is ${new Date(earliest).toLocaleDateString('en-GB')}.`)
+                        alert(`${bookingLeadTimeNote(jobPlace(job), job.priority)} The earliest date is ${new Date(earliest).toLocaleDateString('en-GB')}.`)
                         return
                       }
                       setBusy('book')
@@ -928,7 +935,7 @@ export default function JobDetailPage() {
                       <input
                         type="date"
                         value={bookDate}
-                        min={earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
+                        min={earliestBookableDate(jobPlace(job), job.priority)}
                         onChange={(e) => setBookDate(e.target.value)}
                         className="w-full rounded-lg border border-neutral-300 px-md py-md text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
                       />
@@ -971,14 +978,14 @@ export default function JobDetailPage() {
                   ) : (
                     <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md space-y-md">
                       <p className="text-sm font-bold text-neutral-900">Move this visit</p>
-                      {reReason !== 'Running late — same day' && <p className="text-[11px] text-neutral-500">{bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)}</p>}
+                      {reReason !== 'Running late — same day' && <p className="text-[11px] text-neutral-500">{bookingLeadTimeNote(jobPlace(job), job.priority)}</p>}
                       <div className="grid gap-md sm:grid-cols-2">
                         <div>
                           <label className="block text-xs font-medium text-neutral-700 mb-xs">New date</label>
                           <input
                             type="date"
                             value={bookDate}
-                            min={reReason === 'Running late — same day' ? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
+                            min={reReason === 'Running late — same day' ? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : earliestBookableDate(jobPlace(job), job.priority)}
                             onChange={(e) => setBookDate(e.target.value)}
                             className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
                           />
@@ -1190,14 +1197,14 @@ export default function JobDetailPage() {
                           {!returnUncertain && (
                             <div className="grid gap-sm sm:grid-cols-2">
                               <input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)}
-                                min={earliestBookableDate(job.location ?? job.rooms?.name, job.priority)}
+                                min={earliestBookableDate(jobPlace(job), job.priority)}
                                 className="w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
                               <select value={returnSlot} onChange={(e) => setReturnSlot(e.target.value)}
                                 className="w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
                                 <option value="">Time slot…</option>
                                 {TIME_SLOTS.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
                               </select>
-                              <p className="sm:col-span-2 text-[11px] text-amber-800">{bookingLeadTimeNote(job.location ?? job.rooms?.name, job.priority)} The tenants are told the new time.</p>
+                              <p className="sm:col-span-2 text-[11px] text-amber-800">{bookingLeadTimeNote(jobPlace(job), job.priority)} The tenants are told the new time.</p>
                             </div>
                           )}
                         </div>

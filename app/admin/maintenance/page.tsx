@@ -14,6 +14,7 @@ import PageHero from '@/components/PageHero'
 import ChaseContractors from './ChaseContractors'
 import BackButton from '@/app/components/BackButton'
 import { localISO } from '@/lib/dateUtils'
+import { jobPlace } from '@/lib/repairs/where'
 
 interface Ticket {
   id: string;
@@ -423,7 +424,7 @@ export default function MaintenanceDashboard() {
   async function bookOnBehalf(ticketId: string) {
     let shortNotice = false;
     const t = tickets.find((x) => x.id === ticketId);
-    const earliest = earliestBookableDate(t?.rooms?.name ?? t?.location, t?.priority);
+    const earliest = earliestBookableDate(t ? jobPlace(t as any) : null, t?.priority);
     if (bookDate < earliest) {
       const authorised = window.confirm(
         `This job is in a bedroom and you're booking less than 24 hours ahead.\n\n` +
@@ -970,7 +971,7 @@ export default function MaintenanceDashboard() {
                   </p>
                   <p className="mt-xs text-xs text-neutral-500">
                     {bookingLeadTimeNote(
-                      selectedTicket.rooms?.name ?? selectedTicket.location,
+                      jobPlace(selectedTicket as any),
                       selectedTicket.priority
                     )}
                   </p>
