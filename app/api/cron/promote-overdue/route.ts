@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   )
 
   const [GRACE_DAYS, start] = await Promise.all([rentGraceDays(service), ledgerStart(service)])
-  const todayIso = new Date().toISOString().slice(0, 10)
+  const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const graceCutoff = new Date(todayIso + 'T00:00:00Z')
   graceCutoff.setUTCDate(graceCutoff.getUTCDate() - GRACE_DAYS)
   const cutoffIso = graceCutoff.toISOString().split('T')[0]

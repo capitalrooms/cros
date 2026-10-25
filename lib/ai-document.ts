@@ -297,7 +297,7 @@ Return the extracted data in the exact JSON structure provided.`,
 
   try {
     const extracted = JSON.parse(content.text) as ExtractedDocument
-    extracted.extracted_at = new Date().toISOString().split('T')[0]
+    extracted.extracted_at = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     return extracted
   } catch (e) {
     throw new Error(`Failed to parse Claude response: ${content.text}`)

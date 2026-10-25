@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   if (!sk) return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY not set' }, { status: 500 })
   const s: SupabaseClient = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, sk, { auth: { persistSession: false } })
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   // ── Lookups ────────────────────────────────────────────────────────────────
   const [people, rooms, properties, tenancies] = await Promise.all([

@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   // Tenancies to match against: everyone current, moving in within 60 days, or moved out in the last 120 days
   // (arrears and final payments still arrive) — with or without a payment reference
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const shift = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
   const { data: tenancies } = await supabase
     .from('tenancies')

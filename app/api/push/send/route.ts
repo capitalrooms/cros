@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       q = q.eq('role', role)
     } else if (propertyId) {
       // Resolve the property's current tenants (optionally one room) → their devices.
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       const { data: tenancies } = await supabase
         .from('tenancies')
         .select('person_id, room_id')

@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
 
   // ── a bill or receipt as an expense ──
   if (b.action === 'choices') {
-    const propertyId = String(b.propertyId ?? ''), date = isDate(b.date) ? String(b.date) : new Date().toISOString().slice(0, 10)
+    const propertyId = String(b.propertyId ?? ''), date = isDate(b.date) ? String(b.date) : new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     if (!propertyId) return NextResponse.json({ choices: [], duplicates: [] })
     const [choices, duplicates] = await Promise.all([
       statementChoices(s, propertyId, date),
@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
       }
       const category = (COMPANY_CATEGORIES as readonly string[]).includes(String(b.category)) ? String(b.category) : 'Other'
       const { data: doc, error } = await s.from('company_documents').insert({
-        title: description, category: kind, file_path: item.file_path, file_name: item.file_name, mime: item.mime, received_on: new Date().toISOString().slice(0, 10),
+        title: description, category: kind, file_path: item.file_path, file_name: item.file_name, mime: item.mime, received_on: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
         amount, supplier: supplier || null, invoice_number: String(b.invoiceNumber ?? '').trim() || null, expense_date: b.date, expense_category: category,
         paid_on: isDate(b.paidOn) ? b.paidOn : null, capture_item_id: item.id, created_by: admin.personId,
         notes: item.source === 'email' && item.email_from ? `Emailed from ${item.email_from}` : null,

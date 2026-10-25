@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       tenancies = data;
     } else {
       // Get all active tenancies (not on notice, and end_date not yet passed)
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
       const { data } = await supabase
         .from('tenancies')
         .select('id, person_id, room_id, property_id')

@@ -113,7 +113,7 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
     bizSettings,
   })
 
-  const filename = `CR-Lettings-Statement_${sanitise(room.name)}_${sanitise(property.name)}_${new Date().toISOString().slice(0, 10)}.pdf`
+  const filename = `CR-Lettings-Statement_${sanitise(room.name)}_${sanitise(property.name)}_${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}.pdf`
   return { buffer, filename }
 }
 

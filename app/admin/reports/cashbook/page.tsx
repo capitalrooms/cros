@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import { localISO } from '@/lib/dateUtils'
 
 const gbp = (n: number) => `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 const fmtDate = (s: string) => new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
-const firstOfMonth = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
-const today = () => new Date().toISOString().slice(0, 10)
+const firstOfMonth = () => localISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
 export default function CashbookReport() {
   const [from, setFrom]     = useState(firstOfMonth())

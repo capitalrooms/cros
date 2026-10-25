@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
       for (const r of rows.filter(r => want.has(r.id))) {
         lines.push([r.bank?.name ?? '', (r.bank?.sortCode ?? '').replace(/\D/g, ''), (r.bank?.accountNo ?? '').replace(/\D/g, ''), r.amount.toFixed(2), `CR ${r.reference}`.slice(0, 18)].map(q).join(','))
       }
-      return new NextResponse(lines.join('\r\n') + '\r\n', { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': contentDisposition(`Landlord payouts ${new Date().toISOString().slice(0, 10)}.csv`) } })
+      return new NextResponse(lines.join('\r\n') + '\r\n', { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': contentDisposition(`Landlord payouts ${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}.csv`) } })
     }
     return NextResponse.json({ rows })
   } catch (e) {
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const b = await req.json().catch(() => ({}))
   if (b.action !== 'mark_paid' && b.action !== 'mark_historic') return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-  const paidDate = /^\d{4}-\d{2}-\d{2}$/.test(b.paidDate || '') ? b.paidDate : new Date().toISOString().slice(0, 10)
+  const paidDate = /^\d{4}-\d{2}-\d{2}$/.test(b.paidDate || '') ? b.paidDate : new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const s = svc()
   if (b.action === 'mark_historic') {
     const old = (await unpaid(s)).filter(r => r.older && (b.ids ?? []).includes(r.id))

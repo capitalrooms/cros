@@ -54,7 +54,7 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
     const { data: rs } = await s.from('system_settings').select('value').eq('key', 'records_start').maybeSingle()
     if (/^\d{4}-\d{2}-\d{2}$/.test(String(rs?.value)) && String(rs!.value) < start) start = String(rs!.value)
   }
-  const asAt = opts.asAt || new Date().toISOString().slice(0, 10)
+  const asAt = opts.asAt || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const from = opts.from && opts.from > start ? opts.from : start
   const [demo, props, charges, statements, adjustments, initial] = await Promise.all([
     demoPropertyIds(s),

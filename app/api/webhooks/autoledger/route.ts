@@ -86,7 +86,7 @@ ${text.slice(0, 6000)}
 Extract every individual expense line item you can identify. For each item return:
 - description: what the expense is for
 - amount: the pound amount (positive number, no £ sign)
-- date: best estimate of the date in YYYY-MM-DD format (use today if unknown: ${new Date().toISOString().split('T')[0]})
+- date: best estimate of the date in YYYY-MM-DD format (use today if unknown: ${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })})
 - ref: any reference number or statement ref (empty string if none)
 
 Respond with a JSON array only, no explanation:
@@ -349,7 +349,7 @@ async function processStatement(body: any): Promise<ReadResult> {
 
   // Extract line items
   let rawItems: Array<{ description: string; amount: number; date: string; ref: string; line_type?: string }> = []
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   const csvAttachment = attachments.find(a =>
     a.content_type === 'text/csv' || a.filename?.toLowerCase().endsWith('.csv')

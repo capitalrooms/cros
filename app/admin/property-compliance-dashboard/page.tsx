@@ -97,7 +97,7 @@ export default function PropertyComplianceDashboard() {
         )
         .eq('property_id', propertyId)
         .not('end_date', 'is', null)
-        .or('end_date.gte.' + new Date().toISOString().split('T')[0]);
+        .or('end_date.gte.' + new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }));
 
       if (!rooms) return;
 
@@ -198,7 +198,7 @@ export default function PropertyComplianceDashboard() {
         .from('tenancies')
         .select('person_id')
         .eq('property_id', selectedProperty)
-        .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`);
+        .or(`end_date.is.null,end_date.gte.${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}`);
 
       if (tenancies && tenancies.length > 0) {
         // Send notifications to tenants (via canonical notifications table schema)

@@ -56,7 +56,7 @@ export async function renderStatementPdf({ statement: st, property, landlord, ex
   const periodLabel = st.period_start ? new Date(String(st.period_start).slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : (st.statement_reference || '')
   const addressLines = String(landlord?.home_address || '').split(/\n|,\s*/).map((l: string) => l.trim()).filter(Boolean)
   return renderModernStatement({
-    reference: st.statement_reference, statementDate: st.statement_date ? ukDate(st.statement_date) : ukDate(new Date().toISOString().slice(0, 10)),
+    reference: st.statement_reference, statementDate: st.statement_date ? ukDate(st.statement_date) : ukDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })),
     periodLabel, paymentNo: st.payout_no ?? null, feeNo: st.fee_no ?? null,
     landlordName: (landlord ? (landlord.company || landlordFormalNames(landlord)) : '') || 'Landlord', landlordAddress: addressLines,
     property: fullAddress(property?.name, property?.address, property?.postcode) || String(property?.name || ''), propertyCode: property?.property_code ?? null,

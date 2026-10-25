@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
 
   // Active tenants
   if (recipient_type === 'tenants' || recipient_type === 'both') {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     const { data: tenancies } = await sb
       .from('tenancies')
       .select('people!person_id(id, salutation, first_name, last_name, email), co:people!co_tenant_id(id, salutation, first_name, last_name, email)')

@@ -87,7 +87,7 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
   // The tenancy (once per person + room)
   const roomId = body.room_id || applicant.room_id
   const propertyId = body.property_id || applicant.property_id
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   // the agreed rent (lib/lettings/holdingDeposit agreedRent) — never the room's advertised rent
   const rentAmount = body.rent_amount || await agreedRent(sb, applicant) || applicant.advertised_rent || null
   let tenancyId: string | null = null

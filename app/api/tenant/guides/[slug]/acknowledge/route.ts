@@ -18,7 +18,7 @@ function serviceClient() {
 async function getActiveTenancySR(personId: string) {
   if (!personId) return null
   const sb = serviceClient()
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { data } = await sb
     .from('tenancies')
     .select('id, person_id, notice_received_date')

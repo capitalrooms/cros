@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     `)
     .order('start_date', { ascending: false })
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   if (filter === 'active') query = query.or(`end_date.is.null,end_date.gt.${today}`)
   if (filter === 'ended')  query = query.lte('end_date', today)
 

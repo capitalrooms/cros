@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
   // (Rule 0, the fixed-term block, removed 21 Oct 2026: since the Renters' Rights Act every tenancy is periodic —
   //  no fixed term, so a Section 13 notice is never blocked by one. Harry: "there is no contract length anymore".)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   // ── Last Section 13 effective date ────────────────────────────────────────
   const { data: lastNotice } = await sb

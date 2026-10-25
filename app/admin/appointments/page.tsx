@@ -12,6 +12,7 @@ import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { localISO } from '@/lib/dateUtils'
 type AppointmentType = 'landlord' | 'lettings' | 'contractor' | 'cleaner' | 'delivery' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 interface Appointment {
@@ -115,8 +116,8 @@ export default function AppointmentsPage() {
       const { data: appts } = await supabase
         .from('property_appointments')
         .select('*, property:properties(name, address)')
-        .gte('appointment_date', weekStart.toISOString().split('T')[0])
-        .lt('appointment_date', weekEnd.toISOString().split('T')[0])
+        .gte('appointment_date', localISO(weekStart))
+        .lt('appointment_date', localISO(weekEnd))
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true })
 

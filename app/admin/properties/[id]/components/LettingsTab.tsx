@@ -54,7 +54,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
     visitor_name: '',
     visitor_email: '',
     visitor_phone: '',
-    viewing_date: new Date().toISOString().split('T')[0],
+    viewing_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
     viewing_slot: '09:00',
     room_id: rooms[0]?.id || '',
     feedback: ''
@@ -79,7 +79,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
     setOccupant(null); setTellTenant(true); setTellHousemates(true); setOtherOccupant({ name: '', email: '', phone: '' })
     if (!formData.room_id) return
     let stale = false   // switching rooms quickly: ignore the answer for the room no longer chosen
-    const today = new Date().toISOString().slice(0, 10)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     supabase.from('tenancies').select('people!person_id(salutation, first_name, last_name, phone, email)').eq('room_id', formData.room_id)
       .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`).order('start_date', { ascending: false }).limit(1)
       .then(({ data }) => {
@@ -238,7 +238,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       .from('viewings')
       .select('*, room:room_id(name)')
       .eq('property_id', propertyId)
-      .gte('viewing_date', new Date().toISOString().split('T')[0])
+      .gte('viewing_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
       .order('viewing_date', { ascending: true })
       .limit(30)
 
@@ -368,7 +368,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
         visitor_name: '',
         visitor_email: '',
         visitor_phone: '',
-        viewing_date: new Date().toISOString().split('T')[0],
+        viewing_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
         viewing_slot: '09:00',
         room_id: roomList[0]?.id || '',
         feedback: ''

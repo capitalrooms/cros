@@ -23,7 +23,7 @@ async function getPersonAndPropertyFromToken(req: NextRequest) {
   const { data: { user }, error } = await sb.auth.getUser(token)
   if (error || !user?.email) return null
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   // Single DB query: person + their active tenancy
   const { data: person } = await sb

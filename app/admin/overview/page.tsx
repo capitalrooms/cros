@@ -56,7 +56,7 @@ export default function OverviewPage() {
         supabase
           .from('viewings')
           .select('id')
-          .gte('viewing_date', new Date().toISOString().split('T')[0]),
+          .gte('viewing_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })),
         supabase.from('maintenance_tickets').select('id, status'),
         supabase.from('people').select('id', { count: 'exact' }).in('role', ['administrator', 'admin', 'lettings', 'cleaner', 'contractor']),
       ])

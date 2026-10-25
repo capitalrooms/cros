@@ -66,7 +66,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
     setRooms(roomData || [])
 
     // Get all tenant person_ids at this property (active and recently ended)
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     const { data: tenancyData } = await supabase
       .from('tenancies')
       .select('person_id')

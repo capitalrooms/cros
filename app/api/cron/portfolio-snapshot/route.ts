@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   )
 
   // Fee: each current tenancy's own management fee, else its property's (never an assumed 12%)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { data: lets } = await service.from('tenancies')
     .select('room_id, rent_amount, management_fee_type, management_fee_pct, management_fee_fixed, properties(management_fee_type, management_fee_pct, management_fee_fixed)')
     .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)

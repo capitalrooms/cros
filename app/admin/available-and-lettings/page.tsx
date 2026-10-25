@@ -54,7 +54,7 @@ export default function LettingsPage() {
 
   // Cluster viewing tour notice
   const [showTourModal, setShowTourModal]       = useState(false)
-  const [tourDate, setTourDate]                 = useState(new Date().toISOString().split('T')[0])
+  const [tourDate, setTourDate]                 = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [tourFrom, setTourFrom]                 = useState('17:00')
   const [tourTo, setTourTo]                     = useState('19:00')
   const [tourRooms, setTourRooms]               = useState<Set<string>>(new Set())

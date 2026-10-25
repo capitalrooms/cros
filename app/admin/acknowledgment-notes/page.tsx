@@ -105,7 +105,7 @@ export default function AcknowledgmentNotesPage() {
       setRooms(roomsData || []);
 
       // Load active tenancies for this property
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
       const { data: tenanciesData } = await supabase
         .from('tenancies')
         .select('id, people:person_id(full_name, salutation, first_name, last_name)')

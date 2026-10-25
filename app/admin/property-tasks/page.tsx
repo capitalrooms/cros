@@ -11,6 +11,7 @@ import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
 import { pendingLicenceIds } from '@/lib/compliance/hmoLicence'
+import { localISO } from '@/lib/dateUtils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -63,7 +64,7 @@ const HORIZONS: { value: HorizonDays; label: string }[] = [
 function addDays(days: number) {
   const d = new Date()
   d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  return localISO(d)
 }
 
 function fmtDate(iso: string): { label: string; cls: string } {
@@ -222,7 +223,7 @@ function CompleteCertModal({ cert, onClose, onSaved }: {
   // Default new expiry = 1 year from today
   const defaultExpiry = (() => {
     const d = new Date(); d.setFullYear(d.getFullYear() + 1)
-    return d.toISOString().split('T')[0]
+    return localISO(d)
   })()
 
   const [newExpiry, setNewExpiry] = useState(defaultExpiry)
@@ -305,7 +306,7 @@ function CompleteCertModal({ cert, onClose, onSaved }: {
               type="date"
               value={newExpiry}
               onChange={e => setNewExpiry(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
+              min={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}
               className="w-full border border-neutral-200 rounded-xl p-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-950"
             />
           </div>

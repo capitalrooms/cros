@@ -10,6 +10,7 @@ import { formatBooking } from '@/lib/booking';
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton';
+import { localISO } from '@/lib/dateUtils';
 
 interface Ticket {
   id: string;
@@ -190,9 +191,9 @@ export default function CalendarPage() {
 
   const dayLabel = (iso: string) => {
     const d = new Date(iso + 'T00:00:00');
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
     if (iso === today) return 'Today';
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const tomorrow = localISO(new Date(Date.now() + 86400000));
     if (iso === tomorrow) return 'Tomorrow';
     return d.toLocaleDateString('en-GB', { weekday: 'short' });
   };
@@ -250,7 +251,7 @@ export default function CalendarPage() {
                     .toISOString()
                     .split('T')[0];
                   const dayTickets = byDate[dateStr] || [];
-                  const isToday = dateStr === new Date().toISOString().split('T')[0];
+                  const isToday = dateStr === new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
 
                   return (
                     <div

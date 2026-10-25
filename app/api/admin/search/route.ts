@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const { data: tens } = tenantIds.length
     ? await s.from('tenancies').select('id, person_id, start_date, end_date, rooms(name), properties(name)').in('person_id', tenantIds).order('start_date', { ascending: false })
     : { data: [] as any[] }
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const fileFor = new Map<string, any>()
   for (const id of tenantIds) {
     const mine = ((tens ?? []) as any[]).filter(t => t.person_id === id)

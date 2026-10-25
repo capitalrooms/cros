@@ -104,7 +104,7 @@ export default function RentIncreasePage() {
       setTenancy(data as unknown as TenancyInfo)
 
       // Pre-fetch earliest valid date for display (probe call — any valid rent, invalid date)
-      const today = new Date().toISOString().slice(0, 10)
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       const probRent = Math.max(Number((data as any).rent_amount) || 0, 1)
       const previewRes = await fetch('/api/rent-increase/preview', {
         method: 'POST',

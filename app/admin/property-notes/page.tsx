@@ -172,7 +172,7 @@ export default function PropertyNotesPage() {
         // Attach the note to the property's NEXT upcoming clean so it greets the
         // cleaner when she opens that visit (cleans.admin_note).
         // If no clean is scheduled, save to pending_cleaner_notes for auto-attach later.
-        const today = new Date().toISOString().split('T')[0]
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
         const { data: nextClean } = await supabase
           .from('cleans')
           .select('id, clean_date')

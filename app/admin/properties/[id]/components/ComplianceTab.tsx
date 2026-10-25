@@ -229,7 +229,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
     setHmoSaving(true)
     const edits = { ...hmoEdits }
     // a new licence has arrived (expiry moved later and in the future) → the pending application is finished
-    const today = new Date().toISOString().slice(0, 10)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     let cleared = false
     if (edits.licence_application_submitted_at && edits.license_expiry && edits.license_expiry > today && edits.license_expiry > (originalHmo.license_expiry || '')) {
       edits.licence_application_submitted_at = ''
@@ -522,7 +522,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
             <div className="mb-sm rounded-xl border border-neutral-200 bg-neutral-50 px-md py-sm">
               <label className="flex items-center gap-sm text-sm font-semibold text-neutral-900">
                 <input type="checkbox" checked={!!hmoEdits.licence_application_submitted_at}
-                  onChange={e => { setHmoEdits(prev => ({ ...prev, licence_application_submitted_at: e.target.checked ? new Date().toISOString().slice(0, 10) : '', licence_application_ref: e.target.checked ? prev.licence_application_ref : '' })); setHmoDirty(true) }} />
+                  onChange={e => { setHmoEdits(prev => ({ ...prev, licence_application_submitted_at: e.target.checked ? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : '', licence_application_ref: e.target.checked ? prev.licence_application_ref : '' })); setHmoDirty(true) }} />
                 Application made to the council — waiting for the licence
               </label>
               {hmoEdits.licence_application_submitted_at && (

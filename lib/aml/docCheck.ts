@@ -72,7 +72,7 @@ export async function readDocument(path: string, kind: DocKind): Promise<DocRead
     const msg = await new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! }).messages.create({
       model: AI_MODEL_SMART,
       max_tokens: 800,
-      messages: [{ role: 'user', content: [block, { type: 'text', text: `Today's date is ${new Date().toISOString().slice(0, 10)}.\n${PROMPTS[kind]}` }] }],
+      messages: [{ role: 'user', content: [block, { type: 'text', text: `Today's date is ${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}.\n${PROMPTS[kind]}` }] }],
     })
     const raw = msg.content.map(c => (c.type === 'text' ? c.text : '')).join('')
     const json = raw.match(/\{[\s\S]*\}/)?.[0] ?? '{}'

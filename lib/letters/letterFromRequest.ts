@@ -8,7 +8,7 @@ export function letterFromBody(v: unknown): { letter?: FormalLetter; error?: str
   const letter: FormalLetter = {
     recipientName: str(l.recipientName, 300),
     recipientAddress: str(l.recipientAddress, 1000),
-    date: str(l.date, 10) || new Date().toISOString().slice(0, 10),
+    date: str(l.date, 10) || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
     reference: str(l.reference, 100),
     subject: str(l.subject, 300),
     salutation: str(l.salutation, 200),

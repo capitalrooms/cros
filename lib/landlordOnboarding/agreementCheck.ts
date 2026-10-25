@@ -92,6 +92,6 @@ export function checkAgreement(f: F): AgreementCheck {
     if (change('nominated_account', 'Nominated bank account', before || 'Not stated', `${acc.accountName} · ${acc.bankName} · ${acc.sortCode} · ${acc.accountNumber}`)) updated.nominatedAccount = acc
   }
 
-  updated.agreementDate = new Date().toISOString().slice(0, 10)
+  updated.agreementDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   return { hasSnapshot: true, diffs, updated, formPatch }
 }

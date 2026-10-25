@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
   // Fetch other open tickets in this room
   let otherTickets: any[] = []
   if (ticket.room_id) {
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     const { data: others } = await service
       .from('maintenance_tickets')
       .select('id, title, category, status, booked_date')

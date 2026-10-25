@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
   })
 
   const safeName = (landlordName ?? 'Landlord').replace(/[^a-zA-Z0-9 ]+/g, '').trim().replace(/ +/g, '-')
-  const filename = `Capital-Rooms-AML-Record_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`
+  const filename = `Capital-Rooms-AML-Record_${safeName}_${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}.pdf`
 
   return new NextResponse(buffer, {
     status: 200,

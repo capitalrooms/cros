@@ -17,7 +17,7 @@ const NEW_COLS = ', deposit_scheme, deposit_protected_at, prescribed_info_served
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = svc()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const active = (cols: string) => s.from('tenancies').select(cols).or(`end_date.is.null,end_date.gte.${today}`).order('start_date', { ascending: false })
   let res = await active(BASE + NEW_COLS)
   const ready = !res.error

@@ -27,7 +27,7 @@ const FEE_DEFAULTS = {
   single: { managementFee: 8,  letFee: '£500',           floatAmount: 0,   epcCost: 100 },
 }
 
-function today() { return new Date().toISOString().slice(0, 10) }
+function today() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) }
 
 function fmtDate(iso: string) {
   try { return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) }

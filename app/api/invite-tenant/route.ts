@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Get their current tenancy for the welcome details
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { data: tenancy } = await supabase
     .from('tenancies')
     .select('start_date, rent_amount, room:rooms(name), property:properties(address)')

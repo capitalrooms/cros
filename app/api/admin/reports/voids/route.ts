@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!person || !['administrator','admin','lettings'].includes(person.role))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   // All rooms
   const { data: rooms } = await supabase

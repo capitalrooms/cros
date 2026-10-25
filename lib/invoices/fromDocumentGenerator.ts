@@ -28,7 +28,7 @@ export function invoiceFromBody(v: unknown, biz: PDFBizSettings): { input?: Land
     addressLines: String(b.recipientAddress ?? '').split(/\n/),
     propertyAddress: b.propertyAddress ?? '',
     invoiceNumber: b.invoiceNumber,
-    invoiceDate: b.invoiceDate || new Date().toISOString().slice(0, 10),
+    invoiceDate: b.invoiceDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
     title: String(b.title ?? '').trim() || undefined,
     items: items.map(i => ({ description: String(i.description).trim(), detail: String(i.detail ?? '').trim() || undefined, qty: Number(i.qty) || 1, unitPrice: Number(i.unitPrice) })),
     kind: b.kind, period: b.period,

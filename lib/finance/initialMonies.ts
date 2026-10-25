@@ -48,7 +48,7 @@ export async function expectedFor(s: SupabaseClient, tenancyId: string): Promise
 /** Unmatched bank lines that could be the balance: the right amount (to the penny, or within £1), or the tenant's
  *  name or payment reference in the description — within six weeks either side of the move-in date. Best first. */
 export async function bankMatches(s: SupabaseClient, e: InitialExpected) {
-  const around = e.startDate ?? new Date().toISOString().slice(0, 10)
+  const around = e.startDate ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const shift = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
   const { data } = await s.from('bank_transactions').select('id, txn_no, transaction_date, amount, description, extracted_ref, status, is_practice')
     .in('status', ['unmatched', 'possible_duplicate']).gte('transaction_date', shift(around, -42)).lte('transaction_date', shift(around, 42)).gt('amount', 0)

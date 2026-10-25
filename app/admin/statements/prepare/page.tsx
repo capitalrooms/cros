@@ -45,7 +45,7 @@ function Prepare({ propertyId, month, practice }: { propertyId: string; month: s
   const [holdExp, setHoldExp] = useState<Set<string>>(new Set())
   const [holdLet, setHoldLet] = useState<Set<string>>(new Set())
   const [skipFloat, setSkipFloat] = useState(false)
-  const [statementDate, setStatementDate] = useState(new Date().toISOString().slice(0, 10))
+  const [statementDate, setStatementDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')

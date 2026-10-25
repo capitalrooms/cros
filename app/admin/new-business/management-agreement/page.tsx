@@ -29,7 +29,7 @@ const DEFAULTS = {
 
 const TYPE_LABEL: Record<AgreementType, string> = { hmo: 'Multi-Let', single: 'Single-Let', rent_collection: 'Rent-Collection' }
 
-function today() { return new Date().toISOString().slice(0, 10) }
+function today() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) }
 
 // ── Inner form ────────────────────────────────────────────────────────────────
 

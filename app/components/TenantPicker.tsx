@@ -31,7 +31,7 @@ export function personDisplayName(p: Person) {
 }
 
 function getPropertyForPerson(personId: string, tenancies: Tenancy[]): string {
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const active = tenancies
     .filter(t => {
       const pid = t.person_id ?? t.people?.id

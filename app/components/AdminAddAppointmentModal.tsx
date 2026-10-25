@@ -91,7 +91,7 @@ export default function AdminAddAppointmentModal({
 }: AdminAddAppointmentModalProps) {
   const [step, setStep] = useState<'type' | 'details'>('type')
   const [selectedType, setSelectedType] = useState('')
-  const [date, setDate] = useState(initialDate || new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(initialDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [time, setTime] = useState(initialTime || '10:00')
 
   // Sync when pre-filled values arrive (slot tap from calendar)
@@ -232,7 +232,7 @@ export default function AdminAddAppointmentModal({
       // Reset form
       setStep('type')
       setSelectedType('')
-      setDate(new Date().toISOString().split('T')[0])
+      setDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
       setTime('10:00')
       setProperty('')
       setCustomAddress('')

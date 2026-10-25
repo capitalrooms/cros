@@ -444,7 +444,7 @@ export default function AgencyDiaryPage() {
             {days.map((day) => {
               const events = getEventsForDay(day)
               const dateStr = day.toISOString().split('T')[0]
-              const isToday = dateStr === new Date().toISOString().split('T')[0]
+              const isToday = dateStr === new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
               return (
                 <div

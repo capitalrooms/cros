@@ -243,10 +243,10 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
                       </div>
                       <span className={`shrink-0 text-xs font-bold px-sm py-xs rounded-full ${
                         (t as any).notice_received_date ? 'bg-amber-100 text-amber-800' :
-                        !t.end_date || t.end_date >= new Date().toISOString().split('T')[0] ? 'bg-green-100 text-green-800' :
+                        !t.end_date || t.end_date >= new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'bg-green-100 text-green-800' :
                         'bg-neutral-100 text-neutral-600'
                       }`}>
-                        {(t as any).notice_received_date ? 'on notice' : !t.end_date || t.end_date >= new Date().toISOString().split('T')[0] ? 'active' : 'ended'}
+                        {(t as any).notice_received_date ? 'on notice' : !t.end_date || t.end_date >= new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'active' : 'ended'}
                       </span>
                     </div>
                     {!isReadOnly && (

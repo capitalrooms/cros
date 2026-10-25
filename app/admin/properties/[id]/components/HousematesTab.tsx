@@ -34,7 +34,7 @@ export default function HousematesTab({ propertyId }: { propertyId: string }) {
 
   async function load() {
     const supabase = createClient()
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
     const { data: tens } = await supabase
       .from('tenancies')

@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     .single()
   if (!person) return NextResponse.json({ error: 'Person not found' }, { status: 404 })
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { data: tenancy } = await service
     .from('tenancies')
     .select('property_id')

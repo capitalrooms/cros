@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
 
   const afterAddr = Math.max(ay + 12, MARGIN + LOGO_H + 20)
   doc.font(fontReg).fontSize(9).fillColor(GREY)
-    .text(fmtDate(new Date().toISOString().slice(0, 10)), MARGIN, afterAddr)
+    .text(fmtDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })), MARGIN, afterAddr)
   let y = afterAddr + 20
 
   doc.save()
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
   doc.end()
   const pdf = await new Promise<Buffer>(resolve => { doc.on('end', () => resolve(Buffer.concat(chunks))) })
 
-  const filename = `capital-rooms-arrears-${tenantName.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`
+  const filename = `capital-rooms-arrears-${tenantName.replace(/\s+/g, '-').toLowerCase()}-${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}.pdf`
   return new NextResponse(pdf, {
     headers: {
       'Content-Type':        'application/pdf',

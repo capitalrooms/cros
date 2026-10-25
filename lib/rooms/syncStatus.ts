@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export interface RoomStatusChange { roomId: string; room: string; property: string; from: string; to: string }
 
 export async function syncRoomStatuses(s: SupabaseClient, opts: { apply: boolean }): Promise<RoomStatusChange[]> {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const [{ data: rooms, error }, { data: lets, error: tErr }, { data: ended }, { data: incoming }] = await Promise.all([
     s.from('rooms').select('id, name, status, is_let_only, available_date, properties(name, letting_type)'),
     s.from('tenancies').select('room_id, start_date, end_date, notice_received_date')

@@ -22,7 +22,7 @@ export function carryOver(prev: { id: string; docs_received_at?: string | null; 
   const checks: { label: string; detail: string }[] = f.__review?.checks ?? []
   const documents: Record<string, string[]> = {}
   const summary: PreviousDoc[] = []
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   for (const [type, paths] of Object.entries((f.documents ?? {}) as Record<string, string[]>)) {
     if (!paths?.length) continue
     const who = type.startsWith('joint_') ? 'Second landlord' : type.startsWith('director_') ? 'Directors' : null
