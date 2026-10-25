@@ -902,7 +902,7 @@ export default function MaintenanceDashboard() {
                 <div>
                   <h2 className="text-xl font-semibold text-neutral-900">{selectedTicket.title}</h2>
                   <p className="mt-xs text-sm text-neutral-600">
-                    Reported {new Date(selectedTicket.created_at).toLocaleDateString()}
+                    Reported {new Date(selectedTicket.created_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })}
                   </p>
                 </div>
                 <button
@@ -916,7 +916,7 @@ export default function MaintenanceDashboard() {
               <div className="space-y-md">
                 <div>
                   <h3 className="font-medium text-neutral-900">Description</h3>
-                  <p className="mt-xs text-sm text-neutral-600">{selectedTicket.description}</p>
+                  <p className="mt-xs whitespace-pre-line text-sm text-neutral-600">{selectedTicket.description}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-md">

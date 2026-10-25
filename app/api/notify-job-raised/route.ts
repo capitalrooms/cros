@@ -41,8 +41,11 @@ export async function POST(request: NextRequest) {
 
   const { ticketId } = await request.json()
   if (!ticketId) return NextResponse.json({ error: 'ticketId required' }, { status: 400 })
+  // the office's own actions (raising or sending a job) don't email the office back about them (25 Oct 2026)
+  let officeActed = false
   {
     const caller = await requireSignedIn(request)
+    officeActed = isStaff(caller)
     const { data: t } = await createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!).from('maintenance_tickets').select('property_id').eq('id', ticketId).maybeSingle()
     if (!t?.property_id || !(isStaff(caller) || (await canActAtProperty(caller, t.property_id)))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -140,8 +143,8 @@ export async function POST(request: NextRequest) {
     if (success) sent.push(reporter.email)
   }
 
-  // Admin — notified that a new job has been raised
-  if (admin) {
+  // Admin — notified that a new job has been raised (by a tenant, cleaner or contractor — not by the office itself)
+  if (admin && !officeActed) {
     const subject = tplAdmin ? render(tplAdmin.subject_line, vars) : `New request — ${heading}`
     const body = tplAdmin ? render(tplAdmin.template_text, vars) : `
         <h2 style="margin:0 0 18px;font-size:22px">New maintenance request</h2>
