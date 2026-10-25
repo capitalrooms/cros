@@ -6,7 +6,7 @@ import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { buildEmail } from '@/lib/emailWrapper'
 
 import { oneLine } from '@/lib/lettings/letWording'
-import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
+import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 
 /** POST — tenant submits standard notice via portal
  *  Body: { tenancyId, personId, intendedMoveOutDate }
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
         <li><strong>Notice given:</strong> ${todayStr}</li>
         <li><strong>Intended move-out:</strong> ${moveOutFormatted}</li>
       </ul>
-      <p style="margin:0">Please review in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a> and send the checkout email once you have confirmed the pro-rata rent.</p>`
+      <p style="margin:0">Check the dates and send the checkout email once you’ve confirmed the pro-rata rent.</p>${officeButton(`/admin/lettings/${tenancyId}`, 'Open the letting file')}`
     await deliverEmail({
         to: adminEmail,
         subject: oneLine(`Notice given — ${roomName}, ${propertyAddress}`),

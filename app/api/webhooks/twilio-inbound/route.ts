@@ -117,9 +117,9 @@ export async function POST(request: NextRequest) {
         <p style="font-size:14px;color:#78716c;margin:0 0 20px;">
           ${isViewing ? 'The applicant' : 'The contractor'} replied <strong>Y</strong> — they are on their way.
         </p>
-        <a href="${PORTAL_URL}/${isViewing ? 'lettings' : 'admin/maintenance'}"
+        <a href="${PORTAL_URL}${isViewing ? '/lettings/viewings' : conf.related_id ? `/admin/maintenance?ticket=${conf.related_id}` : '/admin/maintenance'}"
            style="display:inline-block;background:#1c1917;color:#fff;font-size:14px;font-weight:600;padding:11px 20px;border-radius:8px;text-decoration:none;">
-          View in portal →
+          ${isViewing ? 'Open the viewings' : 'Open this job'} →
         </a>`)
     )
 
@@ -150,9 +150,9 @@ export async function POST(request: NextRequest) {
           ${isViewing ? 'The applicant' : 'The contractor'} replied <strong>N</strong>.
           They may be running late or need to reschedule — please give them a call.
         </p>
-        <a href="${PORTAL_URL}/${isViewing ? 'lettings' : 'admin/maintenance'}"
+        <a href="${PORTAL_URL}${isViewing ? '/lettings/viewings' : conf.related_id ? `/admin/maintenance?ticket=${conf.related_id}` : '/admin/maintenance'}"
            style="display:inline-block;background:#d97706;color:#fff;font-size:14px;font-weight:600;padding:11px 20px;border-radius:8px;text-decoration:none;">
-          View in portal →
+          ${isViewing ? 'Open the viewings' : 'Open this job'} →
         </a>`)
     )
 

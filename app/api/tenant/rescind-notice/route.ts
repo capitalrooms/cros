@@ -6,7 +6,7 @@ import { hasArea } from '@/lib/access/server'
 import { buildEmail } from '@/lib/emailWrapper'
 
 import { oneLine } from '@/lib/lettings/letWording'
-import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
+import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 
 /** POST — tenant requests to rescind their notice
  *  Body: { tenancyId, personId, note? }
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         <li><strong>Current move-out date:</strong> ${moveOut}</li>
         ${note ? `<li><strong>Reason:</strong> ${note}</li>` : ''}
       </ul>
-      <p style="margin:0">Please review and approve or reject in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a>.</p>`
+      <p style="margin:0">Approve or turn it down in Tenancy Management.</p>${officeButton('/admin/tenancy-management', 'Review the request')}${officeButton(`/admin/lettings/${tenancyId}`, 'Open the letting file')}`
     await deliverEmail({
         to: OFFICE_ALERT_EMAIL,
         subject: oneLine(`Rescind notice request — ${roomName}, ${address}`),

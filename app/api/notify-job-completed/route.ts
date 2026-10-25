@@ -11,7 +11,7 @@ import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
+import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 
 
 
@@ -90,8 +90,8 @@ export async function POST(request: NextRequest) {
         </table>
 
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">
-          The contractor has marked this job complete. Check the portal for photos and notes.
-        </p>`, { req: request })
+          The contractor has marked this job complete — see their photos, notes and price on the job.
+        </p>${officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job')}`, { req: request })
     )
     sent.push(admin)
   }
