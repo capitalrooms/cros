@@ -11,7 +11,7 @@ import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
+import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 
 
 
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px">
           <span style="color:#78716c">Reported by tenant:</span><br>${ticket.title}
         </p>
-        <p style="color:#78716c;font-size:13px">Add the attached invite to your calendar.</p>`, { req: request }),
+        <p style="color:#78716c;font-size:13px">Add the attached invite to your calendar.</p>${officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job')}`, { req: request }),
       true
     )
   }

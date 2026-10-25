@@ -11,7 +11,7 @@ import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import twilio from 'twilio'
 import { getTemplate, render } from '@/lib/messageTemplate'
-import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
+import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 
 
 
@@ -164,7 +164,9 @@ export async function POST(request: NextRequest) {
         </table>
         ${viewing.feedback ? `<p style="margin-top:20px;padding:12px;background:#fafaf9;border-radius:8px;font-size:14px;color:#78716c">Notes: ${viewing.feedback}</p>` : ''}
       `
-    await send(admin, adminSubject, await emailHtml(adminBody, { req: request }))
+    // straight to the room's page (its viewings, applicants and messages) — or the diary if there's no room
+    const viewingLink = viewing.room_id && (viewing.rooms as any)?.property_id ? officeButton(`/admin/properties/${(viewing.rooms as any).property_id}/rooms/${viewing.room_id}`, 'Open the room') : officeButton('/lettings/viewings', 'Open the viewings')
+    await send(admin, adminSubject, await emailHtml(adminBody + viewingLink, { req: request }))
     sent.push(admin)
   }
 

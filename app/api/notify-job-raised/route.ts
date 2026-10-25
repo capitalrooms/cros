@@ -12,7 +12,7 @@ import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendServerPush } from '@/lib/serverPush'
 import { getCommsLive } from '@/lib/comms'
 import { repairTarget } from '@/lib/repairs/targets'
-import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
+import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 
 
 
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
         <p style="margin-top:20px">
           <strong>Action needed:</strong> Review and approve this request, then assign to a contractor.
         </p>`
-    await send(admin, subject, await emailHtml(body, { req: request }))
+    await send(admin, subject, await emailHtml(body + officeButton(`/admin/maintenance?ticket=${ticketId}`, 'Open this job'), { req: request }))
     sent.push(admin)
   }
 
