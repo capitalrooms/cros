@@ -84,35 +84,22 @@ export async function GET(req: NextRequest) {
   const personId = person?.id || null
   const role = (person as any)?.role || ''
 
-  // Admins and contractors can always view
-  const isAdminOrContractor = ['administrator', 'admin', 'contractor'].includes(role)
+  // the office can always view; a contractor only a job that's theirs (25 Oct 2026 security audit: any contractor
+  // could read any job — house, room, description and booking — by its id)
+  const isAdminOrContractor = ['administrator', 'admin', 'lettings'].includes(role)
+    || (role === 'contractor' && (ticket as any).contractor_id === (person as any)?.id)
 
-  if (!isAdminOrContractor && ticket.room_id && personId) {
-    // Verify tenant has a tenancy in this room
-    const { data: tenancy } = await service
-      .from('tenancies')
-      .select('id')
-      .eq('room_id', ticket.room_id)
+  // everyone else: a tenant of that room — or of that house, for a shared-area job. It used to skip the check for
+  // a job with no room, or a sign-in with no person, letting anyone signed in read it (25 Oct 2026).
+  if (!isAdminOrContractor) {
+    if (!personId) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    let q = service.from('tenancies').select('id')
       .or(`person_id.eq.${personId},co_tenant_id.eq.${personId}`)   // joint tenants too
-      .limit(1)
-
-    if (!tenancy?.length) {
-      // Also allow if ticket is property-wide (no room_id) and tenant is in the property
-      if (ticket.property_id) {
-        const { data: anyTenancy } = await service
-          .from('tenancies')
-          .select('id, rooms!inner(property_id)')
-          .or(`person_id.eq.${personId},co_tenant_id.eq.${personId}`)   // joint tenants too
-          .limit(1)
-
-        const tenantInProp = (anyTenancy as any)?.[0]?.rooms?.property_id === ticket.property_id
-        if (!tenantInProp) {
-          return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-        }
-      } else {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-      }
-    }
+      .is('let_cancelled_at', null)
+      .or(`end_date.is.null,end_date.gte.${new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)}`)
+    q = ticket.room_id ? q.eq('room_id', ticket.room_id) : q.eq('property_id', (ticket as any).property_id ?? '00000000-0000-0000-0000-000000000000')
+    const { data: mine } = await q.limit(1)
+    if (!mine?.length) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
   }
 
   // Fetch other open tickets in this room
