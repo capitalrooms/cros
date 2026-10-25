@@ -291,6 +291,22 @@ export default function JobDetailPage() {
     }
   }
 
+  // A visit already gone by (25 Oct 2026): it used "I've arrived" — a location check as if on site now (it just hung,
+  // or said they were miles away), "your contractor has arrived" to the tenants weeks later, and today as the arrival
+  // time. Logging it records the visit day, tells nobody, and opens the completion form below.
+  async function handleLogPast() {
+    if (!job?.booked_date) return
+    setBusy('arrive')
+    try {
+      const startHour = Number(String(job.booked_slot ?? '').split('-')[0]) || 9
+      await patch({ arrived_at: new Date(`${job.booked_date.slice(0, 10)}T${String(startHour).padStart(2, '0')}:00:00`).toISOString() })
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
+    } finally {
+      setBusy('')
+    }
+  }
+
   async function handleArrive() {
     if (!job) return
     setBusy('arrive')
@@ -311,8 +327,18 @@ export default function JobDetailPage() {
       await finish()
       return
     }
+    // a location request the phone never answers (prompt dismissed or ignored) must not leave the button stuck
+    let answered = false
+    setTimeout(() => {
+      if (answered) return
+      answered = true
+      if (window.confirm('Your phone didn’t share its location. Mark arrived without the check?')) finish()
+      else setBusy('')
+    }, 15000)
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        if (answered) return
+        answered = true
         const dist = metresBetween(pos.coords.latitude, pos.coords.longitude, lat, lng)
         if (dist > 150) {
           if (
@@ -328,6 +354,8 @@ export default function JobDetailPage() {
         await finish()
       },
       () => {
+        if (answered) return
+        answered = true
         if (window.confirm('Could not read your location. Mark arrived without the check?')) finish()
         else setBusy('')
       },
@@ -895,7 +923,7 @@ export default function JobDetailPage() {
                     </strong>.{' If you attended, log it below — or reschedule if you did not make it.'}
                   </p>
                   <button
-                    onClick={handleArrive}
+                    onClick={handleLogPast}
                     disabled={busy === 'arrive'}
                     className="w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40"
                   >
