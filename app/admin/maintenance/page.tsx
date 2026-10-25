@@ -15,6 +15,7 @@ import ChaseContractors from './ChaseContractors'
 import BackButton from '@/app/components/BackButton'
 import { localISO } from '@/lib/dateUtils'
 import { jobPlace } from '@/lib/repairs/where'
+import BookingLinkPanel from './BookingLinkPanel'
 
 interface Ticket {
   id: string;
@@ -1004,6 +1005,9 @@ export default function MaintenanceDashboard() {
                   >
                     Send to contractor →
                   </button>
+
+                  {/* a one-off contractor who isn't on the app: a link to book their own visit (25 Oct 2026) */}
+                  <BookingLinkPanel ticketId={selectedTicket.id} onSent={fetchTickets} />
 
                   {/* Fallback: book the date now (phone confirmation) */}
                   <div className="mt-md border-t border-neutral-200 pt-md">
