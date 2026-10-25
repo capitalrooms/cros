@@ -248,6 +248,10 @@ export default function CleanDetailPage() {
 
   async function completeClean() {
     if (!clean) return
+    // a clean booked for a later day: one stray tap used to close it off with no question (25 Oct 2026)
+    const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    if (clean.clean_date && clean.clean_date > todayISO
+      && !window.confirm(`This clean is booked for ${new Date(`${clean.clean_date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. Mark it done today?`)) return
     setBusy('complete')
     try {
       const supabase = createClient()
@@ -265,8 +269,9 @@ export default function CleanDetailPage() {
       // Pencil in the next clean at the house's usual gap (its cleaning frequency; two weeks if none is set), at the same
       // time and length as this one — unless one is already booked. Nothing is sent to tenants for a pencilled clean.
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+      // (not this clean itself, nor one already done — finishing a clean dated tomorrow used to count as "one ahead")
       const { data: ahead } = await supabase.from('cleans').select('id').eq('property_id', clean.property_id)
-        .gt('clean_date', today).neq('status', 'cancelled').limit(1)
+        .gt('clean_date', today).neq('id', clean.id).not('status', 'in', '("cancelled","completed")').limit(1)
       if (!ahead?.length) {
         const weeks = Number(clean.clean_frequency_weeks || clean.properties?.clean_frequency_weeks || 2)
         const from = new Date(`${clean.clean_date || today}T12:00:00`)
@@ -288,7 +293,7 @@ export default function CleanDetailPage() {
         await fetch('/api/cleaner/reminder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cleanId: clean.id, text: nextTime }) }).catch(() => null)
       }
       if (issue.trim()) {
-        await supabase.from('maintenance_tickets').insert({
+        const { data: raised } = await supabase.from('maintenance_tickets').insert({
           title: issue.trim(),
           description: `Reported by cleaner after visit on ${clean.clean_date}.`,
           category: 'Cleanliness & Pests',
@@ -297,7 +302,9 @@ export default function CleanDetailPage() {
           property_id: clean.property_id,
           reporter_id: (me as any)?.id,
           raised_by_role: 'cleaner',
-        })
+        }).select('id').maybeSingle()
+        // "goes straight to the property manager" — it used to make the job without telling anyone
+        if (raised?.id) await fetch('/api/notify-job-raised', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: raised.id }) }).catch(() => null)
       }
       setShowExitReminder(true)
       // Will navigate after reminder is dismissed
