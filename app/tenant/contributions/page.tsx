@@ -7,6 +7,7 @@ import { getActiveTenancy } from '@/lib/tenancy'
 import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import { withNames } from '@/lib/peopleDirectory'
 
 const CATEGORIES = [
   { id: 'cleaning_supplies', label: 'Cleaning supplies', icon: '🧹' },
@@ -64,12 +65,13 @@ export default function ContributionsPage() {
       const supabase = createClient()
       const { data: rows } = await supabase
         .from('house_contributions')
-        .select('*, people(salutation, first_name, last_name, full_name)')
+        .select('*')
         .eq('property_id', tenancy.property_id)
         .order('created_at', { ascending: false })
         .limit(50)
 
-      const list = (rows || []) as Contribution[]
+      // housemates' names from the directory (their full records are office-only — migration 244)
+      const list = (await withNames(supabase, rows || [], 'person_id')) as Contribution[]
       setContributions(list)
       const mine = list.filter(c => c.person_id === pid)
       setMyTotal(mine.reduce((sum, c) => sum + (c.amount || 0), 0))
@@ -91,7 +93,7 @@ export default function ContributionsPage() {
         amount_gbp: amount ? parseFloat(amount) : null,
         category,
       })
-      .select('*, people(salutation, first_name, last_name, full_name)')
+      .select('*, people(salutation, first_name, last_name, full_name)')   // your own entry — your own record
       .single()
 
     if (!error && data) {
