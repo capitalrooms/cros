@@ -31,7 +31,7 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
     fire_door_status: 'pass' as 'pass' | 'fail' | 'not_checked',
     smoke_alarm_status: 'pass' as 'pass' | 'fail' | 'not_checked',
     notes: '',
-    inspection_date: new Date().toISOString().split('T')[0]
+    inspection_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   })
 
   const supabase = createClient()
@@ -117,7 +117,7 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
         fire_door_status: 'pass',
         smoke_alarm_status: 'pass',
         notes: '',
-        inspection_date: new Date().toISOString().split('T')[0]
+        inspection_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       })
       setIsAddingInspection(false)
       setSuccess('Inspection recorded')

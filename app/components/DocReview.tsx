@@ -304,7 +304,7 @@ export default function DocReview({
     // Auto-select the active tenancy for the matched person (most recent non-ended)
     const personId = matchedPersonId || undefined
     if (personId && tenancies?.length) {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       const activeTenancy = (tenancies as any[]).find((t) => {
         if (t.people?.id !== personId && t.person_id !== personId) return false
         if (t.end_date && t.end_date < today) return false

@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const s = createServiceClient()
   const [y, m] = month.split('-').map(Number)
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   try {
     const [roll, run, position, start, demo] = await Promise.all([buildRentRoll(s, month), loadPaymentRun(s, month), clientAccountPosition(s), ledgerStart(s), demoPropertyIds(s)])
     const [unmatched, overdue, recs, period, deposits] = await Promise.all([

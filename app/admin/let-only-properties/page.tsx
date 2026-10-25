@@ -102,7 +102,7 @@ export default function LetOnlyPropertiesPage() {
       ...p,
       rooms: (Array.isArray(p.rooms) ? p.rooms : p.rooms ? [p.rooms] : []).map((r: any) => {
         const tenancies = Array.isArray(r.tenancies) ? r.tenancies : r.tenancies ? [r.tenancies] : []
-        const today = new Date().toISOString().slice(0, 10)
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
         const active = tenancies.find((t: any) => t.start_date <= today) || tenancies[0] || null
         return { ...r, activeTenancy: active ? { ...active, person: active.people || null } : null }
       }),
@@ -308,7 +308,7 @@ export default function LetOnlyPropertiesPage() {
                                         <div className="mt-xs">
                                           <p className="text-sm text-neutral-700">{o.name}{o.phone && <span className="ml-sm text-xs tabular-nums text-neutral-500">{o.phone}</span>}</p>
                                           <p className="text-xs text-neutral-500">
-                                            {o.move_in ? `${o.move_in > new Date().toISOString().slice(0, 10) ? 'Moving in' : 'Since'} ${o.move_in.split('-').reverse().join('/')} · ` : ''}
+                                            {o.move_in ? `${o.move_in > new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'Moving in' : 'Since'} ${o.move_in.split('-').reverse().join('/')} · ` : ''}
                                             {o.rent ? `${fmtGBP(Number(o.rent))}/mo · ` : ''}<span className="text-neutral-400">{o.source || 'from the landlord'}</span>
                                           </p>
                                         </div>

@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
     .select('room_id, people!person_id(salutation, first_name, phone), co:people!co_tenant_id(salutation, first_name, phone)')
     .in('room_id', room_ids)
     // current tenants — including anyone on notice (they have an end date and still live there)
-    .lte('start_date', new Date().toISOString().slice(0, 10))
-    .or(`end_date.is.null,end_date.gte.${new Date().toISOString().slice(0, 10)}`)
+    .lte('start_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
+    .or(`end_date.is.null,end_date.gte.${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}`)
 
   const dateStr = new Date(viewing_date).toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long',

@@ -25,7 +25,7 @@ const STATUS_COLOUR: Record<string, string> = {
 
 export default function MaintenanceReport() {
   const [from, setFrom]     = useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 2, 1); return d.toISOString().slice(0, 10) })
-  const [to, setTo]         = useState(new Date().toISOString().slice(0, 10))
+  const [to, setTo]         = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')

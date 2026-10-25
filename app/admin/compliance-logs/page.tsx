@@ -43,7 +43,7 @@ export default function ComplianceLogsPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
 
   const [form, setForm] = useState({
-    checked_date: new Date().toISOString().split('T')[0],
+    checked_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
     notes: '',
   })
 
@@ -132,7 +132,7 @@ export default function ComplianceLogsPage() {
 
       setSuccess(`✓ ${tab === 'fire_door' ? 'Fire door' : 'Smoke alarm'} check recorded`)
       setForm({
-        checked_date: new Date().toISOString().split('T')[0],
+        checked_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
         notes: '',
       })
       setShowModal(false)

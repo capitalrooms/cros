@@ -85,7 +85,7 @@ export default function RoomCommunicationsModal({
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   // the tenancy running today, notice or not; previous = ended (24 Oct 2026)
   const currentTenancy = tenancies.find(t => (!(t as any).start_date || (t as any).start_date <= today) && (!t.end_date || t.end_date >= today))
   const previousTenancies = tenancies.filter(t => !!t.end_date && t.end_date < today)

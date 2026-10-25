@@ -41,7 +41,7 @@ function PaymentRun({ initialMonth, practice }: { initialMonth?: string; practic
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [open, setOpen] = useState<Record<string, boolean>>({})
-  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10))
+  const [payDate, setPayDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
 
   const load = useCallback(async (m: string) => {
     const r = await adminFetch(`/api/admin/payment-run?month=${m}${P}`)

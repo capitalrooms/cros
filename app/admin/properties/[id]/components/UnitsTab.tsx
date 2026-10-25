@@ -251,7 +251,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
       return
     }
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     const enriched = await Promise.all(
       (roomsData || []).map(async (room) => {
         const { data: tenancy } = await supabase
@@ -593,7 +593,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
     setPastTenancies([])
     setView('room')
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     const TENANCY_SELECT = `id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, person_id, people!person_id(id, full_name, salutation, first_name, last_name, email, phone, occupation)`
 
     // Current tenancy: started on or before today, not yet ended
@@ -639,9 +639,9 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
   async function setRoomAvailability(room: RoomRow, status: 'occupied' | 'available') {
     let available_date: string | null | undefined = undefined
     if (status === 'available') {
-      const d = window.prompt('Available from (YYYY-MM-DD)', new Date().toISOString().slice(0, 10))
+      const d = window.prompt('Available from (YYYY-MM-DD)', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
       if (d === null) return
-      available_date = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : new Date().toISOString().slice(0, 10)
+      available_date = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     }
     const { error: e } = await supabase.from('rooms').update({ status, ...(available_date ? { available_date } : {}) }).eq('id', room.id)
     if (e) { setError(e.message); return }
@@ -1053,7 +1053,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                       <button
                         onClick={() => {
                           setConfirmDepartureRoom(selectedRoom)
-                          setActualDepartureDate(selectedRoom.tenancyEndDate ?? new Date().toISOString().split('T')[0])
+                          setActualDepartureDate(selectedRoom.tenancyEndDate ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
                         }}
                         className="w-full flex items-center gap-md rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 px-md py-sm transition text-left"
                       >
@@ -1072,7 +1072,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                           setAddingTenancyRoom(selectedRoom)
                           setNewTenancyStart(selectedRoom.tenancyEndDate
                             ? new Date(new Date(selectedRoom.tenancyEndDate).getTime() + 86400000).toISOString().split('T')[0]
-                            : new Date().toISOString().split('T')[0])
+                            : new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
                         }}
                         className={`w-full flex items-center gap-md rounded-xl border px-md py-sm transition text-left ${
                           selectedRoom.status === 'on_notice'

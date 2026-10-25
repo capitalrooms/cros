@@ -64,7 +64,7 @@ export default function AgentDashboard() {
       const { data: viewingsData } = await supabase
         .from('viewings')
         .select('*, rooms(name, property_id)')
-        .gte('viewing_date', new Date().toISOString().split('T')[0])
+        .gte('viewing_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
         .order('viewing_date', { ascending: true })
 
       setViewings(viewingsData || [])

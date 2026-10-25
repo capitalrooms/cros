@@ -17,6 +17,7 @@ import { docTypeLabel } from '@/lib/documents/types'
 import { fullDatesIn } from '@/lib/fullDates'
 import DepositReturnPanel from '@/app/components/DepositReturnPanel'
 import TenancyFeeEditor from '@/app/components/TenancyFeeEditor'
+import { localISO } from '@/lib/dateUtils'
 
 /* ── Types ── */
 
@@ -158,7 +159,7 @@ function RecordPaymentModal({ modal, onClose, onSuccess }: {
   onSuccess: () => void
 }) {
   const [amount, setAmount]   = useState(modal ? modal.amountDue.toFixed(2) : '')
-  const [date, setDate]       = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate]       = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [method, setMethod]   = useState('bank_transfer')
   const [notes, setNotes]     = useState('')
   const [saving, setSaving]   = useState(false)
@@ -1117,8 +1118,8 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
               const anchor = lrc || t.start_date
               const nextFrom = anchor ? new Date(anchor + 'T00:00:00') : null
               if (nextFrom) nextFrom.setDate(nextFrom.getDate() + 364)
-              const nextFromStr = nextFrom?.toISOString().slice(0, 10) ?? null
-              const today = new Date().toISOString().slice(0, 10)
+              const nextFromStr = nextFrom ? localISO(nextFrom) : null
+              const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
               const rentEligible = nextFromStr ? nextFromStr <= today : false
 
               return (
@@ -1532,13 +1533,13 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
               {tenancies.map((t, i) => (
                 <div key={t.id} className="flex gap-lg">
                   <div className="flex flex-col items-center">
-                    <div className={`w-3 h-3 rounded-full mt-xs flex-shrink-0 ${!(t as any).notice_received_date && (!t.end_date || t.end_date >= new Date().toISOString().slice(0,10)) ? 'bg-green-500' : 'bg-neutral-300'}`} />
+                    <div className={`w-3 h-3 rounded-full mt-xs flex-shrink-0 ${!(t as any).notice_received_date && (!t.end_date || t.end_date >= new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })) ? 'bg-green-500' : 'bg-neutral-300'}`} />
                     {i < tenancies.length - 1 && <div className="w-px flex-1 bg-neutral-200 mt-sm" />}
                   </div>
                   <div className="pb-lg">
                     <p className="text-sm font-semibold text-neutral-900">{t.property?.address || '—'} — {t.room?.name || '—'}</p>
                     <p className="text-xs text-neutral-400 mt-xs">{fmt(t.start_date)} {t.end_date ? `→ ${fmt(t.end_date)}` : '→ present'}</p>
-                    {!(t as any).notice_received_date && (!t.end_date || t.end_date >= new Date().toISOString().slice(0,10)) && <span className="mt-sm inline-block text-xs font-semibold px-sm py-xs rounded-full bg-green-100 text-green-800 border border-green-200">Active</span>}
+                    {!(t as any).notice_received_date && (!t.end_date || t.end_date >= new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })) && <span className="mt-sm inline-block text-xs font-semibold px-sm py-xs rounded-full bg-green-100 text-green-800 border border-green-200">Active</span>}
                   </div>
                 </div>
               ))}

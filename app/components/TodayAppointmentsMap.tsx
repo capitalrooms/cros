@@ -20,7 +20,7 @@ export default function TodayAppointmentsMap() {
   useEffect(() => {
     async function loadTodayEvents() {
       const supabase = createClient()
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
       try {
         // Load maintenance jobs for today

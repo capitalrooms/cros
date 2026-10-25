@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   const prompt = `You help tenants in a shared house post notices to their communal notice board.
 A tenant has described what they want to post in plain English. Determine the best notice type, write a polished notice, and extract any relevant details.

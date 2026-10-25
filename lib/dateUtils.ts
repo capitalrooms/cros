@@ -78,3 +78,12 @@ export function formatDateUK(dateStr: string): string {
     month: 'long', year: 'numeric'
   })
 }
+
+/**
+ * A date made in the browser (new Date(y, m, d), setDate…) as YYYY-MM-DD, from its own calendar day (24 Oct 2026).
+ * toISOString() gives the UTC day, which all summer is the day before for a date at local midnight — weeks started a
+ * day early and "a year after" dates came out a day short.
+ */
+export function localISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}

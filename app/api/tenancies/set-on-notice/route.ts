@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       end_date: moveOutDate,
     }
     // "on notice" = notice recorded; without this date a notice looked the same as a fixed-term end date
-    tenancyUpdate.notice_received_date = noticeReceivedDate || new Date().toISOString().slice(0, 10)
+    tenancyUpdate.notice_received_date = noticeReceivedDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     if (rentDueDay)         tenancyUpdate.rent_due_day = rentDueDay
 
     const { error: tenancyError } = await supabase
@@ -239,7 +239,7 @@ export async function POST(request: Request) {
 
     // the letting file's activity
     await logTenancyEvent(supabase, tenancyId, 'notice',
-      `Notice recorded (received ${ukDay(noticeReceivedDate || new Date().toISOString().slice(0, 10))}), moving out ${ukDay(moveOutDate)}${tenantEmailSent ? ' · checkout email sent to the tenant' : ' · no email to the tenant'}${cleanerEmailSent ? ' · cleaner told' : ''}`, caller.email)
+      `Notice recorded (received ${ukDay(noticeReceivedDate || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))}), moving out ${ukDay(moveOutDate)}${tenantEmailSent ? ' · checkout email sent to the tenant' : ' · no email to the tenant'}${cleanerEmailSent ? ' · cleaner told' : ''}`, caller.email)
 
     return Response.json({
       success: true,

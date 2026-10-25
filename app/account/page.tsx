@@ -138,7 +138,7 @@ function TwoStepCard({ sb, factors, staff, required = false, onChange }: { sb: R
     setBusy('passkey'); setError('')
     try {
       await clearUnfinished()
-      const { error: err } = await sb.auth.mfa.webauthn.register({ friendlyName: `${deviceName()} · ${new Date().toISOString().slice(0, 10)}`, webauthn: {} } as never)
+      const { error: err } = await sb.auth.mfa.webauthn.register({ friendlyName: `${deviceName()} · ${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}`, webauthn: {} } as never)
       if (err) {
         setError(/disabled|not enabled|unsupported factor/i.test(err.message)
           ? 'Face ID sign-in needs switching on in Supabase first (Authentication › Multi-Factor › WebAuthn). Use the authenticator app for now, or ask Claude.'
@@ -151,7 +151,7 @@ function TwoStepCard({ sb, factors, staff, required = false, onChange }: { sb: R
   async function start() {
     setBusy('app'); setError('')
     await clearUnfinished()
-    const { data, error: err } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Authenticator app ${new Date().toISOString().slice(0, 10)}` })
+    const { data, error: err } = await sb.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Authenticator app ${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}` })
     setBusy('')
     if (err || !data) { setError(err?.message || 'Could not start set-up'); return }
     setEnrol({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret })

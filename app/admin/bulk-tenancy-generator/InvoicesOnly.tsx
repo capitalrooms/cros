@@ -152,7 +152,7 @@ export default function InvoicesOnly(props: Props) {
     addressLines: g.address.split(/\n|,/).map(x => x.trim()).filter(Boolean),
     propertyAddress: g.property.trim(),
     invoiceNumber: g.invoiceNumber.trim(),
-    invoiceDate: new Date().toISOString().slice(0, 10),
+    invoiceDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
     title: 'Tenancy services',
     items: g.items.map(it => ({ description: it.description.trim(), detail: it.detail.trim() || undefined, qty: 1, unitPrice: num(it.amount) })),
   })

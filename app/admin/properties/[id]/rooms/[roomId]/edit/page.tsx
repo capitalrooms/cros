@@ -159,7 +159,7 @@ export default function RoomDashboardPage({
   const [newTenant, setNewTenant] = useState<NameValue>(emptyName())
   const [newTenantEmail, setNewTenantEmail] = useState('')
   const [newTenantPhone, setNewTenantPhone] = useState('')
-  const [newTenancyStartDate, setNewTenancyStartDate] = useState(new Date().toISOString().slice(0, 10))
+  const [newTenancyStartDate, setNewTenancyStartDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [newTenancyEndDate, setNewTenancyEndDate] = useState('')
   const [newTenancyRent, setNewTenancyRent] = useState('')
   const [newTenancyRentDueDay, setNewTenancyRentDueDay] = useState('1')
@@ -215,7 +215,7 @@ export default function RoomDashboardPage({
     if (propData) setProperty(propData)
 
     // Current tenancy: rolling (no end_date) OR on-notice (future end_date)
-    const todayStr = new Date().toISOString().split('T')[0]
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     const { data: curT } = await supabase
       .from('tenancies')
       .select('id, person_id, co_tenant_id, start_date, end_date, rent_amount, deposit_amount, deposit_held_by, deposit_scheme_ref, lease_reference, people!person_id(id, full_name, salutation, first_name, last_name, email, phone)')
@@ -646,7 +646,7 @@ export default function RoomDashboardPage({
       setNewTenantEmail('')
       setNewTenantPhone('')
       setNewTenancyRent('')
-      setNewTenancyStartDate(new Date().toISOString().slice(0, 10))
+      setNewTenancyStartDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
       setNewTenancyEndDate('')
       setNewTenancyRentDueDay('1')
       setNewTenancyDeposit('')

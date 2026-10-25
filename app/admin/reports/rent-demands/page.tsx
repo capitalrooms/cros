@@ -9,7 +9,7 @@ const gbp = (n: number | null) => n == null ? '—' : `£${Number(n).toLocaleStr
 const fmtDate = (s: string) => new Date(s.slice(0,10)+'T00:00:00').toLocaleDateString('en-GB')
 const fmtMonth = (s: string) => new Date(s.slice(0,7)+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})
 
-const today = new Date().toISOString().slice(0, 10)
+const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const firstOfMonth = today.slice(0, 8) + '01'
 
 interface Row {

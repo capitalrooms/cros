@@ -81,7 +81,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
     const v = prompt('Practice payment received (£):', String(Math.max(0, Math.round((due - received) * 100) / 100)))
     if (!v || !(Number(v) > 0)) return
     setBusyPractice(chargeId)
-    const r = await adminFetch(`/api/admin/rent-charges/${chargeId}/pay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount_received: Number(v), payment_date: new Date().toISOString().slice(0, 10), payment_method: 'bank_transfer', payment_notes: 'Practice payment' }) })
+    const r = await adminFetch(`/api/admin/rent-charges/${chargeId}/pay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount_received: Number(v), payment_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), payment_method: 'bank_transfer', payment_notes: 'Practice payment' }) })
     const j = await r.json().catch(() => ({}))
     setBusyPractice(''); if (!r.ok) setError(j.error || 'Could not record it'); else load(month)
   }

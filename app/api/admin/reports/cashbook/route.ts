@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const from = searchParams.get('from') || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
-  const to   = searchParams.get('to')   || new Date().toISOString().slice(0, 10)
+  const to   = searchParams.get('to')   || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   // Money IN — rent payments recorded on rent_charges
   const [chargesRes, expensesRes, bankRes] = await Promise.all([

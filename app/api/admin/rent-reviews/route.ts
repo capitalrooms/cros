@@ -11,7 +11,7 @@ const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.en
 export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = svc()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   const [{ data: tenancies, error }, { data: notices, error: nErr }] = await Promise.all([
     s.from('tenancies')

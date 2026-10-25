@@ -734,7 +734,7 @@ export default function AccountsPage() {
                                           recordPayment(room.id, rowProp.id, rent, {
                                             status: 'paid',
                                             amount_received: charge?.amount_due ?? rent,
-                                            received_date: new Date().toISOString().split('T')[0],
+                                            received_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
                                           }, charge?.id)
                                         }
                                         className="rounded-lg bg-emerald-600 px-sm py-xs text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
@@ -1076,7 +1076,7 @@ export default function AccountsPage() {
                                     recordPayment(room.id, prop.id, charge.amount_due, {
                                       status: 'paid',
                                       amount_received: charge.amount_due,
-                                      received_date: new Date().toISOString().split('T')[0],
+                                      received_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
                                     }, charge.id)
                                   }
                                   className="rounded-lg bg-emerald-600 px-sm py-xs text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"

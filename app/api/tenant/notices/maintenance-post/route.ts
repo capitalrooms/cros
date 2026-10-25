@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   if (!person) return NextResponse.json({ error: 'Person not found' }, { status: 404 })
 
   // Find their property via active tenancy (date-based, matching notices route pattern)
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { data: tenancy } = await sb
     .from('tenancies')
     .select('property_id, rooms!inner(property_id)')

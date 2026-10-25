@@ -133,7 +133,7 @@ const CERT_SCAN_TYPE: Partial<Record<CertKey, string>> = {
 // certificate grid. The Licence cell then shows "Applied <date>" and the property stops counting as expired/missing.
 function LicenceApplied({ propertyId, onSaved }: { propertyId: string; onSaved: () => void }) {
   const [cur, setCur] = useState<{ on: string | null; ref: string | null } | null>(null)
-  const [on, setOn] = useState(new Date().toISOString().slice(0, 10))
+  const [on, setOn] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [ref, setRef] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -142,7 +142,7 @@ function LicenceApplied({ propertyId, onSaved }: { propertyId: string; onSaved: 
       .then(({ data }) => { const d: any = data; setCur({ on: d?.licence_application_submitted_at ?? null, ref: d?.licence_application_ref ?? null }); if (d?.licence_application_submitted_at) { setOn(d.licence_application_submitted_at); setRef(d.licence_application_ref ?? '') } })
   }, [propertyId])
   async function save(clear = false) {
-    if (!clear && (!/^\d{4}-\d{2}-\d{2}$/.test(on) || on > new Date().toISOString().slice(0, 10))) { setMsg('Enter the date the application was made (not in the future)'); return }
+    if (!clear && (!/^\d{4}-\d{2}-\d{2}$/.test(on) || on > new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))) { setMsg('Enter the date the application was made (not in the future)'); return }
     setBusy(true); setMsg('')
     const { error } = await createClient().from('properties').update((clear ? { licence_application_submitted_at: null, licence_application_ref: null } : { licence_application_submitted_at: on, licence_application_ref: ref.trim() || null }) as never).eq('id', propertyId)
     setBusy(false)
@@ -154,7 +154,7 @@ function LicenceApplied({ propertyId, onSaved }: { propertyId: string; onSaved: 
     <div className="rounded-xl border border-blue-200 bg-blue-50 p-md space-y-sm">
       <p className="text-sm font-bold text-blue-900">{cur.on ? 'Licence application recorded' : 'Applied for a licence? Record it here'}</p>
       <div className="grid grid-cols-2 gap-sm">
-        <label className="text-xs font-semibold text-blue-900">Applied on<input type="date" value={on} max={new Date().toISOString().slice(0, 10)} onChange={e => setOn(e.target.value)} className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-sm py-xs text-sm text-neutral-900" /></label>
+        <label className="text-xs font-semibold text-blue-900">Applied on<input type="date" value={on} max={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })} onChange={e => setOn(e.target.value)} className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-sm py-xs text-sm text-neutral-900" /></label>
         <label className="text-xs font-semibold text-blue-900">Council reference<input value={ref} onChange={e => setRef(e.target.value)} placeholder="optional" className="mt-1 w-full rounded-lg border border-blue-200 bg-white px-sm py-xs text-sm text-neutral-900" /></label>
       </div>
       <div className="flex flex-wrap items-center gap-sm">
@@ -780,7 +780,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
   const [logError, setLogError] = useState<string | null>(null)
   const [logSuccess, setLogSuccess] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [logForm, setLogForm] = useState({ checked_date: new Date().toISOString().split('T')[0], notes: '' })
+  const [logForm, setLogForm] = useState({ checked_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
 
   // Quick upload drawer
   const [uploadPanel, setUploadPanel] = useState<UploadPanel | null>(null)
@@ -855,7 +855,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
       })
       if (insertError) throw new Error(insertError.message)
       setLogSuccess(`✓ ${logTab === 'fire_door' ? 'Fire door' : 'Smoke alarm'} check recorded`)
-      setLogForm({ checked_date: new Date().toISOString().split('T')[0], notes: '' })
+      setLogForm({ checked_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
       setShowLogModal(false)
       await loadAllLogs()
       setTimeout(() => setLogSuccess(null), 3000)

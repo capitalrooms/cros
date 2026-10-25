@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Load active tenancies with bank_sender_name and rent ────────────────────
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { data: tenancies } = await service
     .from('tenancies')
     .select(`

@@ -7,6 +7,7 @@
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit')
+import { localISO } from '@/lib/dateUtils'
 import {
   loadPDFLetterheadAssets,
   PAGE_W as _PW, PAGE_H as _PH, MARGIN as _M, FOOTER_BAND_H as _FBH,
@@ -658,7 +659,7 @@ export function validateEffectiveDate(opts: {
     ev.setMonth(ev.getMonth() + 2, periodDay)
   }
 
-  const earliestValidDate = ev.toISOString().slice(0, 10)
+  const earliestValidDate = localISO(ev)
 
   return { valid: errors.length === 0, errors, earliestValidDate }
 }

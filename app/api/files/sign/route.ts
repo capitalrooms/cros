@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   // what a tenant or contractor is connected to (looked up once)
   let myTenancyIds = new Set<string>(), myPropertyIds = new Set<string>()
   if (!staff && me.role === 'tenant') {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     const { data } = await s.from('tenancies').select('id, property_id, end_date, let_cancelled_at').eq('person_id', me.personId)
     for (const t of (data ?? []) as any[]) {
       if (t.let_cancelled_at) continue

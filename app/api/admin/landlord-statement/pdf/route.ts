@@ -126,7 +126,7 @@ export async function GET(req: NextRequest) {
   doc.on('data', (c: Buffer) => chunks.push(c))
 
   const landlordName = landlordFormalNames(landlord as any) || 'Landlord'
-  const statementDate = fmtDate(new Date().toISOString().slice(0, 10))
+  const statementDate = fmtDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
 
   // ── Page 1 header ────────────────────────────────────────────────────────────
   const drawPageHeader = () => {

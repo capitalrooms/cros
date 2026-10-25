@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   }
 
   const groups = new Map<string, ArrearsRow>()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   for (const c of open as any[]) {
     const month = String(c.charge_month).slice(0, 10)
     // the charge's own tenant (migration 217) — in a changeover month the outgoing tenant's debt stays theirs

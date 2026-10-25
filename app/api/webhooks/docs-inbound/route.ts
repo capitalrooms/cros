@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
             // (or any previously imported value) with the real value from the doc.
             // No admin confirmation needed: the doc IS the source of truth.
             if (extracted_rent_due_day) {
-              const today = new Date().toISOString().slice(0, 10)
+              const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
               await supabase
                 .from('tenancies')
                 .update({ rent_due_day: extracted_rent_due_day })

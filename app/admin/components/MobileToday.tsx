@@ -39,7 +39,7 @@ export default function MobileToday() {
     try {
       const res = await adminFetch(`/api/admin/rent-charges/${it.chargeId}/pay`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount_received: it.amount, payment_date: new Date().toISOString().slice(0, 10), payment_method: 'bank_transfer', payment_notes: 'Marked paid from phone' }),
+        body: JSON.stringify({ amount_received: it.amount, payment_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), payment_method: 'bank_transfer', payment_notes: 'Marked paid from phone' }),
       })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not mark as paid')
       setItems(prev => (prev ?? []).filter(x => x.id !== it.id))

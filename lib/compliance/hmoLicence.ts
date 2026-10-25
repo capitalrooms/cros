@@ -5,7 +5,7 @@ export interface LicenceFields { license_expiry?: string | null; licence_applica
 
 export type LicenceState = 'none' | 'valid' | 'soon' | 'expired' | 'applied'
 
-export function hmoLicenceState(p: LicenceFields, today = new Date().toISOString().slice(0, 10)): { state: LicenceState; label: string; appliedLate: boolean } {
+export function hmoLicenceState(p: LicenceFields, today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })): { state: LicenceState; label: string; appliedLate: boolean } {
   const applied = p.licence_application_submitted_at || null
   const expiry = p.license_expiry || null
   if (applied) {

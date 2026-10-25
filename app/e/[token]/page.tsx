@@ -214,7 +214,7 @@ export default function EmergencyLink({ params }: { params: Promise<{ token: str
                   <div><label className={label}>Part needed (if any)</label><input className={input} value={part} onChange={e => setPart(e.target.value)} placeholder="e.g. 15mm compression valve" /></div>
                   <div><label className={label}>Cost for the proper fix (£)</label><input inputMode="decimal" className={input} value={fixCost} onChange={e => setFixCost(e.target.value.replace(/[^\d.]/g, ''))} placeholder="Labour and parts" /></div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div><label className={label}>Back on</label><input type="date" className={input} value={returnDate} min={new Date().toISOString().slice(0, 10)} onChange={e => setReturnDate(e.target.value)} /></div>
+                    <div><label className={label}>Back on</label><input type="date" className={input} value={returnDate} min={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })} onChange={e => setReturnDate(e.target.value)} /></div>
                     <div><label className={label}>Time</label><select className={input} value={returnSlot} onChange={e => setReturnSlot(e.target.value)}><option value="">Any time</option>{slots.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
                   </div>
                 </>

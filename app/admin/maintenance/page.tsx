@@ -13,6 +13,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import ChaseContractors from './ChaseContractors'
 import BackButton from '@/app/components/BackButton'
+import { localISO } from '@/lib/dateUtils'
 
 interface Ticket {
   id: string;
@@ -628,13 +629,13 @@ export default function MaintenanceDashboard() {
   });
 
   // Calendar: week of upcoming bookings
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
   const weekStart = new Date();
   weekStart.setDate(weekStart.getDate() + weekOffset * 7);
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(d.getDate() + i);
-    const iso = d.toISOString().split('T')[0];
+    const iso = localISO(d);
     const count = tickets.filter((t) => t.booked_date === iso && t.status !== 'completed').length;
     return { iso, d, count };
   });
@@ -642,8 +643,8 @@ export default function MaintenanceDashboard() {
   // Get the week range for display
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
-  const weekStartStr = weekStart.toISOString().split('T')[0];
-  const weekEndStr = weekEnd.toISOString().split('T')[0];
+  const weekStartStr = localISO(weekStart);
+  const weekEndStr = localISO(weekEnd);
 
   // Group booked jobs by date, filtered to the selected week only
   const bookedTickets = tickets
@@ -659,7 +660,7 @@ export default function MaintenanceDashboard() {
     const d = new Date(iso + 'T00:00:00');
     const t = new Date();
     const isToday = iso === today;
-    const tomorrow = new Date(t.getTime() + 86400000).toISOString().split('T')[0];
+    const tomorrow = localISO(new Date(t.getTime() + 86400000));
     if (isToday) return 'Today';
     if (iso === tomorrow) return 'Tomorrow';
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' });

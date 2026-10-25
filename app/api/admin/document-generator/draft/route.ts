@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     const letter: FormalLetter = {
       recipientName: current?.recipientName ?? String(r.name ?? ''),
       recipientAddress: current?.recipientAddress ?? String(r.address ?? ''),
-      date: current?.date ?? new Date().toISOString().slice(0, 10),
+      date: current?.date ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
       reference: current?.reference ?? '',
       subject: d.subject,
       salutation: d.salutation,

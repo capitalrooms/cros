@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       bizSettings,
     })
 
-    const filename = `Capital-Rooms-Valuation_${data.propertyAddress.replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)}_${new Date().toISOString().slice(0, 10)}.pdf`
+    const filename = `Capital-Rooms-Valuation_${data.propertyAddress.replace(/[^a-zA-Z0-9]+/g, '-').slice(0, 40)}_${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}.pdf`
 
     // ── Save log record + upload PDF to storage (best-effort, never blocks response) ──
     try {
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         type:             data.type,
         property_address: data.propertyAddress,
         recipient_name:   data.recipientName,
-        letter_date:      data.letterDate ?? new Date().toISOString().slice(0, 10),
+        letter_date:      data.letterDate ?? new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
         generated_by:     generatedById,
         pdf_storage_path: storagePath,
         room_count:       data.rooms?.length ?? 0,

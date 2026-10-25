@@ -286,7 +286,7 @@ export default function DocumentGenerator() {
     if ((letter || invoice) && !window.confirm('Start from this letter? The draft you have open now will be replaced.')) return
     const f: LetterFacts = { ...facts, tenant: facts.tenant || recipient.name || undefined }
     const l: FormalLetter = {
-      recipientName: recipient.name, recipientAddress: recipient.address, date: new Date().toISOString().slice(0, 10),
+      recipientName: recipient.name, recipientAddress: recipient.address, date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }),
       subject: fillLetter(t.subject, f), salutation: recipient.name ? `Dear ${dearFromText(recipient.name)}` : 'Dear [name]',
       body: fillLetter(t.body, f), closing: t.closing,
     }
@@ -393,7 +393,7 @@ export default function DocumentGenerator() {
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setError(d.error ?? 'Could not prepare the invoice'); return }
-      const today = new Date().toISOString().slice(0, 10)
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       const matched = redraft ? undefined : matchProperty(`${d.invoice.propertyAddress} ${instructions}`)
       const propertyId = redraft ? invoice?.propertyId ?? null : matched?.id ?? null
       const number = redraft && invoice ? invoice.invoiceNumber : await freeNumber(propertyId, today, recipient.name)

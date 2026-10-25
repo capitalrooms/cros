@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
     }
 
     const category_type = category.startsWith('room_') ? 'room_specific' : 'property_wide'
-    const dateStr = item.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    const dateStr = item.date ? new Date(item.date).toISOString().split('T')[0] : new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
     return {
       property_id: propertyId,

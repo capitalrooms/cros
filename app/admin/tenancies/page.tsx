@@ -80,7 +80,7 @@ export default function TenanciesManagementPage() {
   const [lastName, setLastName]       = useState('');
   const [email, setEmail]             = useState('');
   const [phone, setPhone]             = useState('');
-  const [startDate, setStartDate]     = useState(new Date().toISOString().split('T')[0]);
+  const [startDate, setStartDate]     = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }));
   const [rent, setRent]               = useState('');
   const [deposit, setDeposit]         = useState('');
   const [agreementType, setAgreementType] = useState('assured_periodic');
@@ -148,7 +148,7 @@ export default function TenanciesManagementPage() {
   function resetForm() {
     setSelProp(''); setSelRoom(''); setPersonSearch(''); setPersonHits([]);
     setLinkedPerson(null); setSalutation(''); setFirstName(''); setMiddleName(''); setLastName(''); setEmail('');
-    setPhone(''); setStartDate(new Date().toISOString().split('T')[0]);
+    setPhone(''); setStartDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }));
     setRent(''); setDeposit(''); setAgreementType('assured_periodic');
   }
 
@@ -203,7 +203,7 @@ export default function TenanciesManagementPage() {
     setSavingNotice(true);
     try {
       const supabase = createClient();
-      await supabase.from('tenancies').update({ end_date: noticeDate, notice_received_date: new Date().toISOString().split('T')[0] }).eq('id', noticeTenancy.id);
+      await supabase.from('tenancies').update({ end_date: noticeDate, notice_received_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) }).eq('id', noticeTenancy.id);
       // the room shows as on notice (and appears in Available Rooms) only once notice is recorded
       if (noticeTenancy.room_id) await supabase.from('rooms').update({ status: 'on_notice' }).eq('id', noticeTenancy.room_id);
       setNoticeTenancy(null); setNoticeDate('');
@@ -223,7 +223,7 @@ export default function TenanciesManagementPage() {
   async function handleEndTenancy(t: Tenancy) {
     if (!confirm(`End tenancy for ${displayName(t)}? The record is kept for history.`)) return;
     const supabase = createClient();
-    const endDate = new Date().toISOString().split('T')[0];
+    const endDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
     await supabase.from('tenancies').update({ end_date: endDate }).eq('id', t.id);
     await loadData(); showToast('Tenancy ended — record kept in history');
   }
@@ -256,7 +256,7 @@ export default function TenanciesManagementPage() {
 
   if (loading) return <GenericPageSkeleton />;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' });
   const current = tenancies.filter(t => !t.end_date || t.end_date >= today);
   const letAgreed = current.filter(t => t.start_date > today);
   const onNoticeList = current.filter(t => t.start_date <= today && isOnNotice(t));
@@ -504,7 +504,7 @@ export default function TenanciesManagementPage() {
               Once set, the room is marketed as available from this date. The tenancy shows as "On notice" until the tenant leaves.
             </p>
             <label className="mt-4 block text-sm font-medium text-neutral-700">Move-out date</label>
-            <input type="date" value={noticeDate} min={new Date().toISOString().split('T')[0]}
+            <input type="date" value={noticeDate} min={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}
               onChange={e => setNoticeDate(e.target.value)}
               className="mt-2 w-full rounded-xl border border-neutral-300 px-md py-md text-base" />
             <div className="mt-4 flex gap-3">

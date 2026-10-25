@@ -22,7 +22,7 @@ function RateBar({ rate }: { rate: number }) {
 
 export default function RentAnalysisReport() {
   const [from, setFrom]     = useState(`${new Date().getFullYear()}-01-01`)
-  const [to, setTo]         = useState(new Date().toISOString().slice(0, 10))
+  const [to, setTo]         = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
   const [search, setSearch] = useState('')
   const [data, setData]     = useState<any>(null)
   const [loading, setLoading] = useState(false)

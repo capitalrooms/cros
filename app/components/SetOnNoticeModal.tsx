@@ -105,7 +105,7 @@ function calcProRata(
 }
 
 export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], onClose, onConfirm, initialMoveOutDate, initialNoticeReceivedDate }: Props) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   const [step, setStep] = useState<'details' | 'confirm-rent' | 'preview' | 'sending'>('details')
   const [moveOutDate, setMoveOutDate]           = useState(initialMoveOutDate ?? '')

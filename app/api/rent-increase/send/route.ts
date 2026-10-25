@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { tenancyId, proposedRent, effectiveDate, tenantTitle: bodyTitle, lastS13Date: lastS13DateOverride } = body
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   // ── Deemed service date ───────────────────────────────────────────────────
   const deemedServeDate = getDeemedServiceDate()

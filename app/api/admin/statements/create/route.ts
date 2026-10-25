@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const net = fl.net
   if (fl.short > 0) return NextResponse.json({ error: `This statement would leave the landlord owing £${fl.short.toFixed(2)}${fl.used ? ` even after using the £${fl.used.toFixed(2)} float` : ''}. Untick some expenses to pay them next month, or invoice the landlord.` }, { status: 409 })
 
-  const statementDate = /^\d{4}-\d{2}-\d{2}$/.test(b.statementDate || '') ? b.statementDate : new Date().toISOString().slice(0, 10)
+  const statementDate = /^\d{4}-\d{2}-\d{2}$/.test(b.statementDate || '') ? b.statementDate : new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { data, error } = await s.rpc('cros_create_statement', { p: {
     property_id: d.propertyId, landlord_id: d.landlordId, period_start: d.periodStart, period_end: d.periodEnd, statement_date: statementDate,
     management_fee_pct: d.feePct || null, created_by: admin.personId,

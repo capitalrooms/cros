@@ -125,7 +125,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
   const [savingNewAml, setSavingNewAml] = useState(false)
   const [newAml, setNewAml] = useState({
     entity_type: 'individual', risk_level: '', risk_reason: '', verification_notes: '',
-    docs_received_at: new Date().toISOString().split('T')[0], identity_verified: false,
+    docs_received_at: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), identity_verified: false,
     verification_checks: [] as string[], identity_docs: [] as string[],
   })
 
@@ -431,7 +431,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
       setAmlRecords(prev => [data, ...prev])
       setExpandedAml(data.id)
       setShowNewAml(false)
-      setNewAml({ entity_type: 'individual', risk_level: '', risk_reason: '', verification_notes: '', docs_received_at: new Date().toISOString().split('T')[0], identity_verified: false, verification_checks: [], identity_docs: [] })
+      setNewAml({ entity_type: 'individual', risk_level: '', risk_reason: '', verification_notes: '', docs_received_at: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), identity_verified: false, verification_checks: [], identity_docs: [] })
     } else { alert(error?.message || 'Error saving AML record') }
     setSavingNewAml(false)
   }

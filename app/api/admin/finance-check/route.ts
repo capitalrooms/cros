@@ -23,7 +23,7 @@ const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.en
 interface Check { key: string; title: string; ok: boolean; count: number; detail: string; items: { label: string; href?: string }[]; fix?: { action: string; label: string } | { href: string; label: string } }
 
 async function activeTenancies(s: ReturnType<typeof svc>, demo: Set<string>) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const { data } = await s.from('tenancies').select('id, property_id, room_id, payment_reference, deposit_amount, deposit_scheme_ref, start_date, rooms(name), properties(name), people!person_id(id, salutation, first_name, last_name, full_name)')
     .lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`)
   return ((data ?? []) as any[]).filter(t => !demo.has(t.property_id))
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const s = svc()
   const demo = await demoPropertyIds(s)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const month = today.slice(0, 7) + '-01'
   const [tens, rooms, props, banks, charges, recs, ledger] = await Promise.all([
     activeTenancies(s, demo),

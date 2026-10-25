@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       .from('viewings')
       .select('id, viewing_slot, viewing_date, room_id, rooms(name)')
       .eq('property_id', property_id)
-      .gte('viewing_date', new Date().toISOString().split('T')[0])
+      .gte('viewing_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))
 
     if (fetchError || !viewings) {
       return NextResponse.json({ error: 'Failed to fetch viewings' }, { status: 500 })

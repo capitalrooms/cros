@@ -97,7 +97,7 @@ export default function TenancyManagementPage() {
     // Active = no notice given yet, tenancy not ended
     // On notice = notice_received_date set, tenancy not yet ended
     // (live tenancies table has no status column — use these date fields instead)
-    const today = new Date().toISOString().slice(0, 10)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     // on notice = notice recorded, or (for notices recorded before that date was kept) the room marked on notice with
     // a move-out date — the same rule as Tenancies. Someone let agreed to move in later isn't counted here.
     const isOnNotice = (t: any) => !!t.notice_received_date || (t.rooms?.status === 'on_notice' && !!t.end_date)

@@ -45,7 +45,7 @@ const taxYearLabel = (y: number) => `${y}/${String(y + 1).slice(2)}`
 const addMonths = (month: string, n: number) => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 10) }
 const CATEGORIES = [...PROPERTY_WIDE_CATEGORIES.map(c => ({ slug: c.slug, label: c.label })), ...ROOM_SPECIFIC_CATEGORY_TYPES.map(c => ({ slug: c.slug, label: `Room: ${c.label}` }))]
 
-const EMPTY_FORM = { property_id: '', room_id: '', description: '', supplier: '', category: '', amount: '', expense_date: new Date().toISOString().slice(0, 10), invoice_number: '', notes: '', deduct_month: '', share_invoice: false, paid_to_supplier_on: '', supplier_payment_method: '', supplier_payment_ref: '', cost_amount: '' }
+const EMPTY_FORM = { property_id: '', room_id: '', description: '', supplier: '', category: '', amount: '', expense_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), invoice_number: '', notes: '', deduct_month: '', share_invoice: false, paid_to_supplier_on: '', supplier_payment_method: '', supplier_payment_ref: '', cost_amount: '' }
 const HOW: Record<string, string> = { card: 'card', bank_transfer: 'bank transfer', cash: 'cash', direct_debit: 'direct debit' }
 
 export default function ExpensesPage() {

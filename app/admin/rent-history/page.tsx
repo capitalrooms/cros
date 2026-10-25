@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import { localISO } from '@/lib/dateUtils'
 
 interface TenancyRow {
   id: string
@@ -52,7 +53,7 @@ function nextIncreaseFrom(t: TenancyRow): string {
   const anchor = t.last_rent_change_date || t.start_date
   const d = new Date(anchor + 'T00:00:00')
   d.setDate(d.getDate() + 364)
-  return d.toISOString().slice(0, 10)
+  return localISO(d)
 }
 
 export default function RentHistoryPage() {
@@ -72,7 +73,7 @@ export default function RentHistoryPage() {
         router.push('/login'); return
       }
       const sb = createClient()
-      const today = new Date().toISOString().slice(0, 10)
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       const { data, error } = await sb
         .from('tenancies')
         .select(`
@@ -223,7 +224,7 @@ export default function RentHistoryPage() {
                   last_rent_change_date: e.date || t.last_rent_change_date,
                 })
                 const nextFromFmt = fmtDate(nextFrom)
-                const isPast = nextFrom < new Date().toISOString().slice(0, 10)
+                const isPast = nextFrom < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
                 return (
                   <tr key={t.id} className={hasHistory ? 'bg-blue-50/30' : ''}>
                     <td className="px-lg py-md">
@@ -245,7 +246,7 @@ export default function RentHistoryPage() {
                       <input
                         type="date"
                         value={e.date}
-                        max={new Date().toISOString().slice(0, 10)}
+                        max={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}
                         onChange={ev => setEdits(prev => ({
                           ...prev,
                           [t.id]: { ...prev[t.id], date: ev.target.value }

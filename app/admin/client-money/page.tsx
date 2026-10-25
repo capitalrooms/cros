@@ -19,7 +19,7 @@ interface Data { position: ClientAccountPosition; periods: Period[]; start: stri
 
 const gbp = (n: number) => (n < 0 ? '−£' : '£') + Math.abs(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const d = (iso: string) => new Date(iso.length === 10 ? iso + 'T12:00:00' : iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const input = 'mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900'
 const KINDS: [string, string][] = [['opening_balance', 'Opening balance'], ['correction', 'Correction'], ['rent_other', 'Other money in'], ['expense_paid', 'Expense paid'], ['payout', 'Paid to landlord'], ['fee', 'Fee'], ['deposit_in', 'Deposit received'], ['deposit_out', 'Deposit paid out']]
 

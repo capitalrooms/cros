@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const propertyId = searchParams.get('property_id')
   const from = searchParams.get('from') || new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10)
-  const to   = searchParams.get('to')   || new Date().toISOString().slice(0, 10)
+  const to   = searchParams.get('to')   || new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   if (!propertyId) return NextResponse.json({ error: 'property_id required' }, { status: 400 })
 
@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
 
   const afterAddr = Math.max(ay + 12, MARGIN + LOGO_H + 20)
   doc.font(fontReg).fontSize(9).fillColor(GREY)
-    .text(fmtDate(new Date().toISOString().slice(0, 10)), MARGIN, afterAddr)
+    .text(fmtDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })), MARGIN, afterAddr)
   let y = afterAddr + 20
 
   doc.save().font(fontReg).fontSize(9).fillColor(BLACK)

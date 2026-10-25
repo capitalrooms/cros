@@ -253,7 +253,7 @@ const gbp = (n: number) => `£${Number(n || 0).toFixed(2)}`
 function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reload }: {
   it: any; data: any; read: any; propertyId: string; roomId: string; mode: 'landlord' | 'company' | 'document'; setMode: (m: 'landlord' | 'company' | 'document') => void; reload: () => Promise<void>
 }) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
   const [amount, setAmount] = useState(read?.amount ? String(read.amount) : '')
   const [date, setDate] = useState<string>(read?.date || read?.period_to || today)
   const [supplier, setSupplier] = useState<string>(read?.supplier ?? '')
@@ -388,7 +388,7 @@ function CompanyTab({ data, reload }: { data: any; reload: () => Promise<void> }
   function csv() {
     const head = ['Number', 'Date', 'Supplier', 'What for', 'Category', 'Amount', 'Invoice no.', 'Paid on', 'Void']
     const lines = rows.filter(c => c.amount).map(c => [c.cex_no, c.expense_date, c.supplier, c.title, c.expense_category, Number(c.amount).toFixed(2), c.invoice_number, c.paid_on, c.voided_at ? `void: ${c.void_reason}` : ''].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([[head.join(','), ...lines].join('\n')], { type: 'text/csv' })); a.download = `company-expenses-${new Date().toISOString().slice(0, 10)}.csv`; a.click()
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([[head.join(','), ...lines].join('\n')], { type: 'text/csv' })); a.download = `company-expenses-${new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })}.csv`; a.click()
   }
   async function voidIt(c: any) {
     const reason = prompt(`Void ${c.cex_no}? It stays on record, marked void. Why?`)

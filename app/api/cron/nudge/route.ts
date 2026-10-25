@@ -31,7 +31,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
   }
   const supabase = createServiceClient()
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 
   const { data: jobs } = await supabase
     .from('maintenance_tickets')
