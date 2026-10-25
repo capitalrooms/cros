@@ -15,6 +15,7 @@ import MultiDayDiaryGrid, { DiaryJob } from '@/app/components/MultiDayDiaryGrid'
 import DesktopRightRail from '@/app/components/DesktopRightRail'
 import { isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { withNames } from '@/lib/peopleDirectory'
 
 interface ComplianceLog {
   id: string
@@ -257,12 +258,13 @@ export default function CleanerDashboard() {
     const supabase = createClient()
     const { data } = await supabase
       .from('compliance_logs')
-      .select('id, check_type, checked_date, notes, checked_by_role, people(full_name, salutation, first_name, last_name)')
+      .select('id, check_type, checked_date, notes, checked_by_role, checked_by')
       .eq('property_id', propId)
       .gte('checked_date', sixMonthsAgo())
       .order('checked_date', { ascending: false })
       .limit(50)
-    setComplianceLogs((data || []) as any)
+    // who checked it, from the directory (other people's full records are office-only — migration 244)
+    setComplianceLogs((await withNames(supabase, data || [], 'checked_by')) as any)
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────

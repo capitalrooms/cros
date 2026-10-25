@@ -103,7 +103,9 @@ export default function LandlordProfilePage() {
       }).join('\n')
 
       // Tell every administrator (notifications are addressed to a person)
-      const { data: admins } = await supabase.from('people').select('id').in('role', ['administrator', 'admin'])
+      // names-only directory (migration 244); the people table before it's run
+      let { data: admins, error: dirErr } = await supabase.from('people_directory').select('id').in('role', ['administrator', 'admin'])
+      if (dirErr) ({ data: admins } = await supabase.from('people').select('id').in('role', ['administrator', 'admin']))
       const body = `Landlord ${[person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') || person.email} has requested the following changes:\n\n${lines}`
       if (admins?.length) {
         await supabase.from('notifications').insert(admins.map((a: { id: string }) => ({
