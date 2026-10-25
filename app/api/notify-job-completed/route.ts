@@ -16,10 +16,9 @@ import { OFFICE_ALERT_EMAIL, officeButton } from '@/lib/email/office'
 
 
 export async function POST(request: NextRequest) {
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
-  }
+  // Master switch: tenant/applicant messaging is paused until go-live — it holds back only theirs (and landlords').
+  // The office and contractor messages always go (25 Oct 2026: the whole route stopped, so the office never heard).
+  const tenantsOn = await getCommsLive()
   const user = await getCurrentUser()
   if (!user) {
     await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized notify-job-completed access', ipAddress: getClientIp(request.headers) })
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Send to tenant IN this room IF they've opted into maintenance notifications
-  if (room?.id) {
+  if (tenantsOn && room?.id) {
     const { data: tenancyRow } = await supabase
       .from('tenancies')
       .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
@@ -142,7 +141,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Send to all OTHER tenants in the property IF they've opted into maintenance notifications
-  if (property?.id) {
+  if (tenantsOn && property?.id) {
     const { data: otherTenancies } = await supabase
       .from('tenancies')
       .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')

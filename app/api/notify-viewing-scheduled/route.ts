@@ -42,10 +42,9 @@ async function sendConfirmationSms(
 }
 
 export async function POST(request: NextRequest) {
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
-  }
+  // Master switch: tenant/applicant messaging is paused until go-live — it holds back only theirs (and landlords').
+  // The office and contractor messages always go (25 Oct 2026: the whole route stopped, so the office never heard).
+  const tenantsOn = await getCommsLive()
   // Step 1: Verify authentication
   const user = await getCurrentUser()
   if (!user) {
@@ -171,7 +170,7 @@ export async function POST(request: NextRequest) {
   }
 
   // SMS confirmation to the applicant (if they have a phone number)
-  if (viewing.visitor_phone) {
+  if (tenantsOn && viewing.visitor_phone) {
     const contextText = `Viewing — ${roomName} at ${propertyNameAddress} on ${when}`
     const smsTpl = await getTemplate('viewing-confirmation-sms')
     const smsBody = smsTpl
@@ -204,7 +203,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Send to tenant IN this room: "A viewing has been booked on your room"
-  if (roomId) {
+  if (tenantsOn && roomId) {
     const { data: tenancyRow } = await supabase
       .from('tenancies')
       .select('person_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')
@@ -223,7 +222,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Send to all OTHER tenants in the property
-  if (propertyId) {
+  if (tenantsOn && propertyId) {
     const { data: allTenancies } = await supabase
       .from('tenancies')
       .select('person_id, room_id, people!person_id(full_name, salutation, first_name, last_name, email, notify_by_email), co:people!co_tenant_id(full_name, salutation, first_name, last_name, email, notify_by_email)')

@@ -41,10 +41,9 @@ function jobHeading(
 }
 
 export async function POST(request: NextRequest) {
-  // Master switch: tenant/applicant messaging is paused until go-live.
-  if (!await getCommsLive()) {
-    return NextResponse.json({ ok: true, skipped: true, reason: 'tenant_comms_paused' })
-  }
+  // Master switch: tenant/applicant messaging is paused until go-live — it holds back only theirs (and landlords').
+  // The office and contractor messages always go (25 Oct 2026: the whole route stopped, so the office never heard).
+  const tenantsOn = await getCommsLive()
   const user = await getCurrentUser()
   if (!user) {
     await logAudit({ userId: 'unknown', action: 'security_unauthorized_access', details: 'Unauthorized notify-booking access', ipAddress: getClientIp(request.headers) })
@@ -207,7 +206,7 @@ export async function POST(request: NextRequest) {
     .eq('property_id', ticket.property_id)
     .eq('notify_by_email', true)
 
-  for (const landlord of landlords ?? []) {
+  for (const landlord of tenantsOn ? landlords ?? [] : []) {
     await send(
       landlord.email,
       `Repair scheduled at ${property?.name ?? 'your property'}`,
