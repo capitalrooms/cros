@@ -15,7 +15,7 @@ const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.g
 const nextQuarter = () => { const d = new Date(); d.setMinutes(Math.ceil((d.getMinutes() + 1) / 15) * 15, 0, 0); return d }
 
 // openKey: opened from elsewhere (the lettings Quick notify menu) — each new number opens it; hideButton: no button of its own
-export default function PoppingByVisit({ className = '', label = 'Popping by a property', openKey = 0, hideButton = false }: { className?: string; label?: string; openKey?: number; hideButton?: boolean }) {
+export default function PoppingByVisit({ className = '', label = 'Need to visit a property?', openKey = 0, hideButton = false }: { className?: string; label?: string; openKey?: number; hideButton?: boolean }) {
   const [open, setOpen] = useState(false)
   useEffect(() => { if (openKey) setOpen(true) }, [openKey])
   const [opts, setOpts] = useState<Option[] | null>(null)
@@ -70,15 +70,15 @@ export default function PoppingByVisit({ className = '', label = 'Popping by a p
             {!done ? (
               <div className="space-y-md">
                 <div>
-                  <h2 className="text-lg font-bold">Popping by</h2>
+                  <h2 className="text-lg font-bold">Visiting a property</h2>
                   <p className="text-sm text-neutral-600">Tell the tenants you’re coming. Once they’ve been told, you’ll see the key safe code.</p>
                 </div>
                 <div className="rounded-xl border border-amber-300 bg-amber-50 px-md py-sm text-sm text-amber-900">
                   <strong>The key safe opens the house only.</strong>{' '}
-                  {canRoom ? 'Only go into a room you’ve chosen below — never anyone else’s.' : 'You must not go into any tenant’s room on a pop-by visit. If work is needed in a room, it has to be a booked job.'}
+                  {canRoom ? 'Only go into a room you’ve chosen below — never anyone else’s.' : 'You must not go into any tenant’s room on an unbooked visit. If work is needed in a room, it has to be a booked job.'}
                 </div>
                 {opts === null ? <p className="text-sm text-neutral-500">Loading…</p> : opts.length === 0 ? (
-                  <p className="text-sm text-neutral-600">{error || 'There are no properties you can pop by yet — you can visit properties where you’ve done jobs.'}</p>
+                  <p className="text-sm text-neutral-600">{error || 'There are no properties you can visit yet — you can visit properties where you’ve done jobs.'}</p>
                 ) : (
                   <>
                     <label className={lab}>Property
