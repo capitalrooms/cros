@@ -11,6 +11,7 @@ import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
 
 
 
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
   const property = ticket.properties as any
   const room = ticket.rooms as any
   const where = [property?.name, property?.address].filter(Boolean).join(', ')
-  const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const admin = OFFICE_ALERT_EMAIL
 
   async function send(to: string, subject: string, html: string) {
     const res = await deliverEmail({

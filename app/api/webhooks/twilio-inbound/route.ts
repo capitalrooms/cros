@@ -17,10 +17,11 @@ import { deliverEmail } from '@/lib/sendEmail'
 import twilio from 'twilio'
 import { createClient } from '@supabase/supabase-js'
 import { emailHtml } from '@/lib/emailTemplate'
+import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
 
 
 const PORTAL_URL = 'https://cros-sigma.vercel.app'
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'harry@capitalrooms.co.uk'
+const ADMIN_EMAIL = OFFICE_ALERT_EMAIL
 
 // Return TwiML so Twilio sends a reply SMS back to the user
 function twiml(message: string): NextResponse {

@@ -11,6 +11,7 @@ import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import twilio from 'twilio'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
 
 
 
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Send to admin
-  const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const admin = OFFICE_ALERT_EMAIL
   if (admin) {
     const adminSubject = tplViewing
       ? render(tplViewing.subject_line, viewingVars)

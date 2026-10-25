@@ -92,7 +92,8 @@ export default function TenantRequests() {
       const { data: reqs } = await supabase
         .from('maintenance_tickets')
         .select('*, rooms(name)')
-        .eq('reporter_id', data.user.id)
+        // reports are kept against the person now; older ones against the sign-in id (25 Oct 2026)
+        .in('reporter_id', [data.assignment?.id, data.user.id].filter(Boolean) as string[])
         .order('created_at', { ascending: false });
 
       setRequests(reqs || []);

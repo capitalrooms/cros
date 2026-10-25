@@ -130,7 +130,7 @@ function ReportSheet({ isHmo, onClose }: { isHmo: boolean; onClose: () => void }
         <h2 className="text-xl font-bold text-neutral-900 mb-xs">What's this about?</h2>
         <p className="text-sm text-neutral-500 mb-lg">Pick the closest match.</p>
         <Link
-          href="/tenant/maintenance-choose"
+          href="/tenant/maintenance"
           onClick={onClose}
           className="flex items-start gap-md rounded-2xl border-2 border-neutral-200 p-md hover:border-neutral-400 transition-colors mb-md"
         >
@@ -570,18 +570,7 @@ export default function TenantDashboard() {
               </p>
               <p className="text-sm text-white/50">{tenancy?.properties?.address}</p>
             </div>
-            <Link
-              href="/tenant/inbox"
-              className="relative mt-1 shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              aria-label="Inbox"
-            >
-              <span className="text-lg leading-none">🔔</span>
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-extrabold text-white leading-none">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </Link>
+            {/* the inbox bell is in the top bar (it used to be here as well — two bells, both with the count) */}
           </div>
 
           {tenancy && (

@@ -12,6 +12,7 @@ import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendServerPush } from '@/lib/serverPush'
 import { getCommsLive } from '@/lib/comms'
 import { repairTarget } from '@/lib/repairs/targets'
+import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
 
 
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
   const reporter = await personById((ticket as any).reporter_id)
   const contractor = await personById((ticket as any).contractor_id)
   const where = [property?.name, property?.address].filter(Boolean).join(', ')
-  const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const admin = OFFICE_ALERT_EMAIL
 
   async function send(to: string, subject: string, html: string) {
     const res = await deliverEmail({

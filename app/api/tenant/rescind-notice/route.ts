@@ -6,6 +6,7 @@ import { hasArea } from '@/lib/access/server'
 import { buildEmail } from '@/lib/emailWrapper'
 
 import { oneLine } from '@/lib/lettings/letWording'
+import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
 
 /** POST — tenant requests to rescind their notice
  *  Body: { tenancyId, personId, note? }
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
       </ul>
       <p style="margin:0">Please review and approve or reject in <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'}/admin/tenancy-management">Tenancy Management</a>.</p>`
     await deliverEmail({
-        to: process.env.ADMIN_EMAIL || 'admin@capitalrooms.co.uk',
+        to: OFFICE_ALERT_EMAIL,
         subject: oneLine(`Rescind notice request — ${roomName}, ${address}`),
         html: await buildEmail(rescindBody),
       }).catch(e => console.error('Admin rescind notify failed:', e))
