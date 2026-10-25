@@ -52,6 +52,7 @@ async function tellOfficeTextFailed(to: string, body: string, why: string) {
   try {
     const { deliverEmail, COPY_TO } = await import('@/lib/sendEmail')
     if (!COPY_TO || COPY_TO.toLowerCase() === 'off') return
+    if ((await import('@/lib/people')).isTestPhone(to)) return   // a test account's made-up number
     const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
     await deliverEmail({ to: [COPY_TO], noCopy: true, subject: `Text not sent to ${to}`,
       html: `<p>A text from CROS did <b>not</b> go out.</p><p><b>To:</b> ${esc(to)}<br><b>Why:</b> ${esc(why)}</p><p><b>The text:</b><br>${esc(body).replace(/\n/g, '<br>')}</p><p>Please check the number and send it again, or call them.</p>` })

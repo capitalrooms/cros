@@ -170,6 +170,8 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
 async function tellOfficeNotSent(to: string[], subject: string, why: string) {
   try {
     if (!copyOn()) return
+    const { isTestAddress } = await import('@/lib/people')
+    if (to.length && to.every(a => isTestAddress(a))) return   // only test accounts — nothing for the office to do
     const esc = (v: string) => v.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
     await deliverEmail({
       to: [COPY_TO], noCopy: true,
