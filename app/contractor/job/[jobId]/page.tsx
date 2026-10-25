@@ -1152,7 +1152,7 @@ export default function JobDetailPage() {
                 {/* After */}
                 <div className={job.before_photo ? '' : 'opacity-40 pointer-events-none'}>
                   <h3 className="font-bold text-neutral-900">2 · After photo</h3>
-                  <p className="text-xs text-neutral-500 mb-md">Show the finished work — required before you can complete.</p>
+                  <p className="text-xs text-neutral-500 mb-md">Show the finished work — or, if you’re logging it afterwards, write what you did in Your notes below.</p>
                   {job.after_photo ? (
                     <StoredImg src={job.after_photo} alt="after" className="w-full max-w-xs rounded-lg border border-neutral-200" />
                   ) : (
@@ -1279,12 +1279,15 @@ export default function JobDetailPage() {
                   </div>
                 )}
 
-                {/* Original complete button when no before photo yet */}
-                {!job.before_photo && (
+                {/* the complete button when no before photo yet (not when "Ready to finish now?" above already has one) */}
+                {!job.before_photo && !job.return_needed && (
                   <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
                     className="w-full rounded-lg bg-green-700 text-white font-bold py-md hover:bg-green-800 disabled:opacity-40">
                     {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
                   </button>
+                )}
+                {!job.after_photo && !notes.trim() && (
+                  <p className="text-xs text-neutral-500">To finish, add an after photo — or write what you did in Your notes below.</p>
                 )}
               </div>
             )}
