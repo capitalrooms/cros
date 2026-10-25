@@ -82,11 +82,11 @@ export async function createVisit(s: SupabaseClient, c: Caller, v: VisitInput, r
   // may they go there?
   const allowed = await visitOptions(s, c)
   const prop = allowed.find(p => p.id === v.propertyId)
-  if (!prop) return bad(staff ? 'Property not found.' : 'You can only pop by properties you’ve done jobs at. Ask the office if you need to visit somewhere else.', 403)
+  if (!prop) return bad(staff ? 'Property not found.' : 'You can only visit properties you’ve done jobs at. Ask the office if you need to visit somewhere else.', 403)
 
   let room: { id: string; name: string; occupied: boolean } | null = null
   if (v.roomId) {
-    if (!staff) return bad('Contractors can’t visit a tenant’s room on a pop-by — rooms need a booked job.', 403)
+    if (!staff) return bad('Contractors can’t visit a tenant’s room without a booked job.', 403)
     room = prop.rooms.find(r => r.id === v.roomId) ?? null
     if (!room) return bad('That room isn’t at this property.')
     if (room.occupied && !v.tenantAgreed) {
@@ -112,7 +112,7 @@ export async function createVisit(s: SupabaseClient, c: Caller, v: VisitInput, r
 
   const houseNote = {
     title: `Visit to ${prop.name} — ${niceDay(v.date)}`,
-    body: `${who} will pop by ${prop.name} on ${when} — ${reason}.\n\n${room ? `They’ll be visiting ${room.name}${room.occupied ? '' : ' (currently empty)'} and the shared areas` : 'They’ll only be in the shared areas and won’t go into anyone’s room'}. If you have any questions, just reply or get in touch with us.`,
+    body: `${who} will visit ${prop.name} on ${when} — ${reason}.\n\n${room ? `They’ll be visiting ${room.name}${room.occupied ? '' : ' (currently empty)'} and the shared areas` : 'They’ll only be in the shared areas and won’t go into anyone’s room'}. If you have any questions, just reply or get in touch with us.`,
     type: 'visit', link: '/tenant',
   }
   const roomNote = room ? {
@@ -143,7 +143,7 @@ export async function createVisit(s: SupabaseClient, c: Caller, v: VisitInput, r
     body: {
       ok: true, told, property: prop.name, room: room?.name ?? null, when,
       keySafe, noTenants: told === 0,
-      reminder: staff && room ? `Only ${room.name} and the shared areas — no other rooms.` : 'Shared areas only. Never go into a tenant’s room on a pop-by visit.',
+      reminder: staff && room ? `Only ${room.name} and the shared areas — no other rooms.` : 'Shared areas only. Never go into a tenant’s room on an unbooked visit.',
     },
   }
 }

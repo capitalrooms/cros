@@ -825,7 +825,7 @@ export default function LettingsPage() {
           {quickMenu && (
             <div className="absolute left-0 right-0 top-full z-40 mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm shadow-lg">
               <button type="button" onClick={() => { setQuickMenu(false); setQuickNotify({ mode: 'tenants' }) }} className="block w-full px-md py-sm text-left font-semibold hover:bg-neutral-50">✉️ Message the tenants at a house</button>
-              <button type="button" onClick={() => { setQuickMenu(false); setPopOpen(k => k + 1) }} className="block w-full border-t border-neutral-100 px-md py-sm text-left font-semibold hover:bg-neutral-50">🔑 Popping by a property (key safe)</button>
+              <button type="button" onClick={() => { setQuickMenu(false); setPopOpen(k => k + 1) }} className="block w-full border-t border-neutral-100 px-md py-sm text-left font-semibold hover:bg-neutral-50">🔑 Need to visit a property? (key safe)</button>
               <a href="/planner" className="block border-t border-neutral-100 px-md py-sm font-semibold hover:bg-neutral-50">🗂️ Notes, jobs &amp; photos with Capital Rooms</a>
             </div>
           )}
