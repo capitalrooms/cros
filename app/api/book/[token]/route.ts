@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { readBookingToken, bookingLink, contractorLabel } from '@/lib/jobs/bookingLink'
-import { loadQuoteJob, accessNote } from '@/lib/quotes/quoteRequest'
+import { loadQuoteJob } from '@/lib/quotes/quoteRequest'
 import { TIME_SLOTS, slotLabel, earliestBookableDate, bookingLeadTimeNote } from '@/lib/booking'
 import { jobPlace, inTenantRoom } from '@/lib/repairs/where'
 import { getCommsLive } from '@/lib/comms'
@@ -23,6 +23,10 @@ export const dynamic = 'force-dynamic'
 
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
 const full = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+// how they get in — never the key safe code on this page: they aren't signed in or vetted through the app
+const accessFor = (location: string | null, roomName?: string | null) => inTenantRoom({ location })
+  ? `Inside a tenant’s room${roomName ? ` (${roomName})` : ''}. When you book, the tenant is told and given your mobile number to arrange access.`
+  : 'A shared area. The tenants are told when you’re coming; the office will confirm how to get in before the day.'
 const gone = () => NextResponse.json({ error: 'This booking link isn’t active any more — the job may have been finished, cancelled or given to someone else. Please contact Capital Rooms.' }, { status: 404 })
 
 async function load(token: string) {
@@ -46,7 +50,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   return NextResponse.json({
     contractor: contractorLabel(ctx.c),
     job: { title: ctx.t.title, address: job?.propertyAddress ?? '', house: job?.propertyName ?? '', where: inTenantRoom({ location: ctx.t.location }) ? (job?.roomName || 'A tenant’s room') : ctx.t.location,
-      description: job?.description ?? '', access: job ? accessNote(job) : '', reference: job?.reference ?? '' },
+      description: job?.description ?? '', access: accessFor(ctx.t.location, job?.roomName), reference: job?.reference ?? '' },
     booking: ctx.t.booked_date ? { date: String(ctx.t.booked_date).slice(0, 10), slot: ctx.t.booked_slot, label: `${full(String(ctx.t.booked_date).slice(0, 10))}, ${slotLabel(ctx.t.booked_slot)}` } : null,
     earliest: earliestBookableDate(place, ctx.t.priority), note: bookingLeadTimeNote(place, ctx.t.priority),
     slots: TIME_SLOTS, office: { email: office.replyTo, phone: office.phone },
@@ -102,6 +106,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     `<p><b>${esc(who)}</b> has ${moved ? `moved their visit from ${esc(before)} to` : 'booked'} <b>${esc(when)}</b> for <b>${esc(t.title)}</b> at ${esc(house)}${job?.roomName ? `, ${esc(job.roomName)}` : ''}.</p><p>They booked it themselves with their booking link (they’re not on the app).</p>`)
   const link = bookingLink(t.id, c.id)
   if (c.phone) await sendSms(c.phone, `Capital Rooms: you're booked for ${when} at ${house} (${t.title}). To move or cancel: ${link}`, { asName: true }).catch(() => null)
-  if (hasRealEmail(c.email)) await sendEmail(c.email, `Booked: ${when} — ${t.title} at ${house}`, `<p>Thanks — you’re booked for <b>${esc(when)}</b>.</p><p><b>${esc(t.title)}</b><br>${esc(job?.propertyAddress ?? house)}${job?.roomName ? `<br>${esc(job.roomName)}` : ''}</p><p>${esc(job ? accessNote(job) : '')}</p><p><a href="${link}">Move or cancel this visit</a></p>`, { signature: false }).catch(() => null)
+  if (hasRealEmail(c.email)) await sendEmail(c.email, `Booked: ${when} — ${t.title} at ${house}`, `<p>Thanks — you’re booked for <b>${esc(when)}</b>.</p><p><b>${esc(t.title)}</b><br>${esc(job?.propertyAddress ?? house)}${job?.roomName ? `<br>${esc(job.roomName)}` : ''}</p><p>${esc(accessFor(t.location, job?.roomName))}</p><p><a href="${link}">Move or cancel this visit</a></p>`, { signature: false }).catch(() => null)
   return NextResponse.json({ ok: true, label: when })
 }
