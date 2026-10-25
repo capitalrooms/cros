@@ -115,6 +115,10 @@ export interface OutgoingEmail {
  * returns the email service's Response, or a stand-in error Response if the service can't be reached.
  */
 export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | null; sender?: EmailSender } = {}): Promise<Response> {
+  // "no email" placeholders (…@no-email.invalid — a contractor known only by mobile) are never sent to (25 Oct 2026)
+  const realTo = (Array.isArray(msg.to) ? msg.to : [msg.to]).filter(a => !/\.invalid$/i.test(String(a ?? '').trim()))
+  if (!realTo.length) return Response.json({ message: 'No email address on file' }, { status: 422 })
+  msg = { ...msg, to: Array.isArray(msg.to) ? realTo : realTo[0] }
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     console.error('[deliverEmail] RESEND_API_KEY not set')

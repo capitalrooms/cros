@@ -6,7 +6,7 @@
 import crypto from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { PORTAL_URL } from '@/lib/emailWrapper'
-import { nameFields, displayName } from '@/lib/people'
+import { nameFields, displayName, noEmailPlaceholder } from '@/lib/people'
 
 const secret = () => `job-booking-link:${process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''}`
 const sign = (ticketId: string, personId: string) => crypto.createHmac('sha256', secret()).update(`${ticketId}.${personId}`).digest('base64url').slice(0, 32)
@@ -38,7 +38,7 @@ export async function offAppContractor(s: SupabaseClient, c: { name: string; pho
   const [first, ...rest] = c.name.trim().split(/\s+/)
   const { data, error } = await s.from('people').insert({
     ...nameFields(first || c.name.trim(), rest.join(' ')),
-    email: email || null, phone: c.phone.trim() || null, role: 'contractor',
+    email: email || noEmailPlaceholder(c.phone), phone: c.phone.trim() || null, role: 'contractor',   // email can't be empty
     notify_by_sms: true, notify_by_email: !!email, notify_by_push: false,
   }).select('id').single()
   return error || !data ? { error: `Couldn’t add ${c.name}: ${error?.message ?? 'unknown error'}` } : { id: data.id }
