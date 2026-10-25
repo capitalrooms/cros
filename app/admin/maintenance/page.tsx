@@ -896,9 +896,12 @@ export default function MaintenanceDashboard() {
 
         {/* Details Modal */}
         {showDetails && selectedTicket && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-lg">
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-xl">
-              <div className="mb-md flex items-start justify-between">
+          // phones: a sheet from the bottom that stops below the notch and scrolls inside — 90vh centred ran off the
+          // top of an iPhone screen, out of reach (25 Oct 2026); the title and close stay pinned while you scroll
+          <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 sm:items-center sm:p-lg">
+            <div className="w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-lg pb-[max(env(safe-area-inset-bottom),20px)] sm:max-h-[90vh] sm:rounded-2xl sm:px-xl sm:pb-xl"
+              style={{ maxHeight: 'calc(100dvh - max(env(safe-area-inset-top), 12px) - 8px)' }}>
+              <div className="sticky top-0 z-10 -mx-lg mb-md flex items-start justify-between gap-md border-b border-neutral-100 bg-white px-lg pb-sm pt-lg sm:-mx-xl sm:px-xl sm:pt-xl">
                 <div>
                   <h2 className="text-xl font-semibold text-neutral-900">{selectedTicket.title}</h2>
                   <p className="mt-xs text-sm text-neutral-600">
@@ -907,7 +910,8 @@ export default function MaintenanceDashboard() {
                 </div>
                 <button
                   onClick={() => setShowDetails(false)}
-                  className="text-neutral-400 hover:text-neutral-600"
+                  aria-label="Close"
+                  className="-mr-sm shrink-0 rounded-full p-sm text-xl leading-none text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
                 >
                   ✕
                 </button>
