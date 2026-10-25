@@ -4,7 +4,7 @@
 // Reads /api/staff/notifications; checks again every minute and whenever the window regains focus.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 interface Note { id: string; title: string; body: string; link: string | null; read: boolean; created_at: string }
 
@@ -19,6 +19,8 @@ function ago(iso: string) {
 
 export default function StaffNotificationBell({ className = '' }: { className?: string }) {
   const router = useRouter()
+  const pathname = usePathname()
+  const inbox = pathname?.startsWith('/tenant') ? '/tenant/inbox' : null
   const [notes, setNotes] = useState<Note[]>([])
   const [unread, setUnread] = useState(0)
   const [ready, setReady] = useState(false)   // only shown once your notifications load (not on public pages)
@@ -95,7 +97,7 @@ export default function StaffNotificationBell({ className = '' }: { className?: 
           </div>
           <div className="max-h-96 overflow-y-auto">
             {notes.length === 0 ? (
-              <p className="px-md py-lg text-sm text-neutral-400 text-center">Nothing yet — new offers and reservations appear here.</p>
+              <p className="px-md py-lg text-sm text-neutral-400 text-center">Nothing yet — messages and updates from Capital Rooms appear here.</p>
             ) : notes.map(n => (
               <button key={n.id} onClick={() => openNote(n)}
                 className={`w-full text-left px-md py-sm border-b border-neutral-100 last:border-0 hover:bg-neutral-50 ${n.read ? '' : 'bg-amber-50/60'}`}>
@@ -110,6 +112,8 @@ export default function StaffNotificationBell({ className = '' }: { className?: 
               </button>
             ))}
           </div>
+          {/* tenants: everything they've been sent lives in their inbox */}
+          {inbox && <button onClick={() => { setOpen(false); router.push(inbox) }} className="block w-full border-t border-neutral-100 px-md py-sm text-center text-sm font-semibold text-neutral-900 hover:bg-neutral-50">Open your inbox</button>}
         </div>
       )}
     </div>

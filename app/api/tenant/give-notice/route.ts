@@ -6,6 +6,7 @@ import { alertLettingsRoomUp } from '@/lib/lettings/roomAlert'
 import { buildEmail } from '@/lib/emailWrapper'
 
 import { oneLine } from '@/lib/lettings/letWording'
+import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
 
 /** POST — tenant submits standard notice via portal
  *  Body: { tenancyId, personId, intendedMoveOutDate }
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Notify admin by email
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@capitalrooms.co.uk'
+  const adminEmail = OFFICE_ALERT_EMAIL
   const resendKey = process.env.RESEND_API_KEY
   if (resendKey) {
     const roomName = (tenancy.rooms as any)?.name || 'a room'

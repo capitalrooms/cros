@@ -11,6 +11,7 @@ import { logAudit, getClientIp } from '@/lib/auditLog'
 import { validateUUID } from '@/lib/validation'
 import { emailHtml, PORTAL_URL, tableRow, ctaButton } from '@/lib/emailTemplate'
 import { getTemplate, render } from '@/lib/messageTemplate'
+import { OFFICE_ALERT_EMAIL } from '@/lib/email/office'
 
 
 
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
   })
   const icsBase64 = Buffer.from(ics).toString('base64')
 
-  const admin = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const admin = OFFICE_ALERT_EMAIL
   const sent: string[] = []
   const failed: { to: string; error: string }[] = []
 

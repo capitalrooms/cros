@@ -54,12 +54,12 @@ export default function SmartTroubleshootingPage() {
 
   // Back navigation per step
   function goBack() {
-    if (step === 'category')    router.push('/tenant/maintenance-choose');
+    if (step === 'category')    router.push('/tenant/maintenance');
     else if (step === 'description') setStep('category');
     else if (step === 'questions')   setStep('description');
     else if (step === 'diagnosis')   setStep('questions');
     else if (step === 'choice')      setStep('diagnosis');
-    else router.push('/tenant/maintenance-choose');
+    else router.push('/tenant/maintenance');
   }
 
   async function generateQuestions() {
@@ -139,7 +139,7 @@ export default function SmartTroubleshootingPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-100">
-        <AppBar left={<BackButton href="/tenant/maintenance-choose" />} />
+        <AppBar left={<BackButton href="/tenant/maintenance" />} />
         <div className="flex items-center justify-center pt-32 text-sm text-neutral-400">Loading…</div>
       </div>
     );
@@ -308,7 +308,7 @@ export default function SmartTroubleshootingPage() {
               If it doesn't sort it, you can always report it to the agent and we'll send someone out.
             </p>
             <button
-              onClick={() => router.push('/tenant/maintenance-choose')}
+              onClick={() => router.push('/tenant/maintenance')}
               className="inline-block rounded-xl bg-neutral-900 px-xl py-md text-sm font-bold text-white hover:bg-neutral-800 mr-md mb-md"
             >
               Report anyway →

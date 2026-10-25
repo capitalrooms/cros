@@ -9,6 +9,8 @@
  */
 
 import { useEffect, useState } from 'react'
+import { getCurrentUser } from '@/lib/auth'
+import { enablePush, pushPermission, pushSupported } from '@/lib/push'
 
 interface Step {
   id: string
@@ -226,6 +228,39 @@ function AppBar({ back }: { back?: boolean }) {
   )
 }
 
+// ── The notifications slide asks for real (25 Oct 2026) ─────────────────────────
+// It used to only show a picture, so a tenant tapping Next never got notifications — and notifications are how they
+// hear about repairs, visits and messages. Apple only allows them once the app is on the home screen: say so.
+function PushAsk({ onNext }: { onNext: () => void }) {
+  const [state, setState] = useState<'ask' | 'busy' | 'on' | 'denied' | 'ios' | 'none'>('ask')
+  useEffect(() => {
+    if (!pushSupported()) {
+      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+      setState(ios ? 'ios' : 'none'); return
+    }
+    const p = pushPermission()
+    setState(p === 'granted' ? 'on' : p === 'denied' ? 'denied' : 'ask')
+  }, [])
+  async function turnOn() {
+    setState('busy')
+    try {
+      const u = await getCurrentUser(); const a = u?.assignment as any
+      const r = await enablePush({ id: a?.id, email: a?.email ?? u?.user?.email, role: a?.role })
+      if (r.ok) { setState('on'); setTimeout(onNext, 900) } else setState(r.reason === 'denied' ? 'denied' : 'ask')
+    } catch { setState('ask') }
+  }
+  const note = { fontSize: 11.5, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5, marginBottom: 12 } as const
+  if (state === 'on') return <p style={{ ...note, color: '#86efac', fontWeight: 700 }}>✓ Notifications are on</p>
+  if (state === 'denied') return <p style={note}>Notifications are blocked on this phone — you can turn them on later in its settings for Capital Rooms.</p>
+  if (state === 'ios') return <p style={note}>On iPhone, first add Capital Rooms to your home screen (Share → Add to Home Screen), then open it from there and turn notifications on.</p>
+  if (state === 'none') return null
+  return (
+    <button onClick={turnOn} disabled={state === 'busy'} style={{ width: '100%', marginBottom: 12, background: '#c4922a', color: '#1c1917', border: 'none', borderRadius: 12, padding: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: state === 'busy' ? 0.6 : 1 }}>
+      {state === 'busy' ? 'Turning on…' : '🔔 Turn on notifications'}
+    </button>
+  )
+}
+
 // ── Individual slide ──────────────────────────────────────────────────────────
 function Slide({ step, isLast, onNext, onSkip, slideIndex, total }: {
   step: Step
@@ -305,6 +340,7 @@ function Slide({ step, isLast, onNext, onSkip, slideIndex, total }: {
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(10,10,10,0.88) 0%, rgba(10,10,10,0.4) 60%, transparent 100%)', padding: '36px 18px 18px' }}>
         <h3 style={{ fontFamily: 'Georgia, serif', fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{step.title}</h3>
         <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)', lineHeight: 1.55, marginBottom: 14 }}>{step.body}</p>
+        {/notification/i.test(step.title) && <PushAsk onNext={onNext} />}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <button onClick={onSkip} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.35)', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>Skip</button>
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>{dots}</div>

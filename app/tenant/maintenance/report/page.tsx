@@ -8,6 +8,7 @@ import AppBar from '@/components/AppBar';
 import { repairTarget } from '@/lib/repairs/targets';
 import BackButton from '@/app/components/BackButton';
 import { KINDS, kindFrom } from '@/lib/emergencies/guide';
+import { currentTenancy } from '@/lib/tenancy';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -470,20 +471,23 @@ function ReportWizardContent() {
 
       // an emergency stays an emergency — the auto check only ever raises routine reports to urgent
       const finalUrgency = urgency === 'emergency' ? 'emergency' : checkAutoUrgent() ? 'urgent' : urgency;
-      const priority = finalUrgency === 'emergency' ? 'emergency' : finalUrgency === 'urgent' ? 'medium' : 'low';
+      // the tenant's own answer counts (25 Oct 2026): "Soon please" (within a week) used to be saved as low priority
+      const priority = finalUrgency === 'emergency' ? 'emergency' : finalUrgency === 'urgent' ? 'high' : finalUrgency === 'soon' ? 'medium' : 'low';
+      // the house and room from the tenancy running now, not the static people.property_id that nobody clears
+      const home = await currentTenancy<{ property_id: string; room_id: string | null }>(userData.assignment?.id, 'property_id, room_id');
 
       const { data: ticketData, error: ticketErr } = await supabase
         .from('maintenance_tickets')
         .insert([{
-          reporter_id: userData.user.id,
+          reporter_id: userData.assignment?.id ?? userData.user.id,   // the person, as the rest of CROS reads it (not the sign-in id)
           title,
           description: fullDescription,
           category: categoryLabel,
           location,
           priority,
           status: 'reported',
-          property_id: userData.assignment?.property_id,
-          room_id: userData.assignment?.room_id,
+          property_id: home?.property_id ?? userData.assignment?.property_id,
+          room_id: home?.room_id ?? userData.assignment?.room_id,
         }])
         .select();
 
@@ -833,7 +837,7 @@ function ReportWizardContent() {
               </button>
               <button type="button" onClick={() => router.push('/tenant')}
                 style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: '#9CA3AF', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
-                Back to dashboard
+                Back to home
               </button>
             </div>
           </div>
@@ -998,10 +1002,15 @@ function ReportWizardContent() {
                 : emStatus === 'morning' ? 'Thanks for making it safe. We’ll arrange someone first thing in the morning. If it gets worse, report it again as “still happening”.'
                 : emStatus === 'call_999' ? `${emInfo?.callServices ?? 'Please call the emergency services.'} We’ve told the office.`
                 : emStatus === 'failed' ? 'Your report is in, but we couldn’t start the emergency call-out automatically — the office has your report. If it’s not safe, call us.'
-                : `We’ve got it. ${promise ?? ''} We’ll check it, book a contractor and let you know the day — you can follow it in My requests.`}
+                : `We’ve got it${urgency === 'soon' ? ' — you said within a week, so we’ve marked it urgent' : urgency === 'urgent' ? ' — you said it’s affecting your daily life, so we’ve marked it urgent' : ''}. ${promise ?? ''} We’ll check it, book a contractor and let you know the day.`}
             </p>
-            <button style={{ ...nextBtn, maxWidth: 240, margin: '0 auto' }} onClick={() => router.push('/tenant')}>
-              Back to dashboard
+            {/* where to follow it — it used to just say "My requests" with no way there */}
+            <button style={{ ...nextBtn, maxWidth: 240, margin: '0 auto' }} onClick={() => router.push('/tenant/requests')}>
+              Follow it in My requests
+            </button>
+            <button type="button" onClick={() => router.push('/tenant')}
+              style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: '#6B7280', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
+              Back to home
             </button>
           </div>
         )}

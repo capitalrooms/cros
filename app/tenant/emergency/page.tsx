@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { KINDS, type EmergencyKind } from '@/lib/emergencies/guide'
+import { currentTenancy } from '@/lib/tenancy'
 
 const ORDER: EmergencyKind[] = ['gas', 'co', 'fire', 'flooding', 'ceiling_water', 'electrical', 'power', 'heating', 'security', 'window', 'toilet', 'appliance_leak', 'smoke_alarm', 'other']
 const ICON: Record<EmergencyKind, string> = {
@@ -36,7 +37,9 @@ export default function TenantEmergencyPage() {
   useEffect(() => {
     getCurrentUser().then(u => {
       if (!u) { router.push('/login'); return }
-      setHome({ propertyId: u.assignment?.property_id ?? null, roomId: u.assignment?.room_id ?? null })
+      // the tenancy running now, not the static people.property_id
+      currentTenancy<{ property_id: string; room_id: string | null }>(u.assignment?.id, 'property_id, room_id')
+        .then(t => setHome({ propertyId: t?.property_id ?? u.assignment?.property_id ?? null, roomId: t?.room_id ?? u.assignment?.room_id ?? null }))
     })
   }, [router])
 
@@ -54,7 +57,7 @@ export default function TenantEmergencyPage() {
       if (!session?.session || !u) { router.push('/login'); return }
       if (!home?.propertyId) { setError('We couldn’t find your home on file — please call the office.'); return }
       const { data: t, error: tErr } = await sb.from('maintenance_tickets').insert([{
-        reporter_id: u.user.id,
+        reporter_id: u.assignment?.id ?? u.user.id,
         title: `🚨 ${info.label}`,
         description: [details.trim(), controlled === true ? 'Tenant says it’s under control until morning.' : controlled === false ? 'Tenant says it’s still happening / not safe.' : ''].filter(Boolean).join('\n\n') || info.label,
         category: 'Emergency',

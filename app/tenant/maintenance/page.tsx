@@ -1,5 +1,7 @@
 'use client';
 
+// What needs to be fixed? — the first step of reporting a repair (25 Oct 2026: reached straight from "Report an issue",
+// no "how would you like to report this?" choice first; one compact list instead of a long scroll of large cards).
 import Link from 'next/link';
 import { MAINTENANCE_CATEGORIES } from './categories';
 import AppBar from '@/components/AppBar'
@@ -12,47 +14,32 @@ export default function MaintenanceHub() {
         left={<BackButton href="/tenant" label="Home" />}
       />
 
-      <main className="px-lg py-xl">
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-xl text-center">
-            <h2 className="text-xl font-bold text-neutral-900 mb-sm">
-              What needs to be fixed?
-            </h2>
-            <p className="text-neutral-600">
-              Select the category that best describes the issue you want to report
-            </p>
-          </div>
+      <main className="mx-auto max-w-xl px-lg py-xl">
+        <h1 className="text-xl font-bold text-neutral-900">What needs fixing?</h1>
+        <p className="mt-xs text-sm text-neutral-600">Pick the closest match — you’ll describe it on the next screen.</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
-            {MAINTENANCE_CATEGORIES.map((category) => (
-              <Link
-                key={category.id}
-                href={`/tenant/maintenance/report?category=${category.id}`}
-                className="group relative overflow-hidden rounded-xl border border-neutral-200 bg-white transition-all hover:border-transparent hover:shadow-lg"
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-0 transition-opacity group-hover:opacity-5`} />
-
-                <div className="relative p-lg">
-                  <div className="text-4xl mb-md">{category.icon}</div>
-
-                  <h3 className="text-base font-semibold text-neutral-900 mb-sm group-hover:text-neutral-950">
-                    {category.title}
-                  </h3>
-
-                  <p className="text-sm text-neutral-600 leading-relaxed">
-                    {category.description}
-                  </p>
-
-                  <div className="mt-md pt-md border-t border-neutral-100">
-                    <span className="inline-flex items-center text-sm font-medium text-neutral-900 group-hover:text-blue-700">
-                      Report issue
-                      <span className="ml-sm">→</span>
-                    </span>
-                  </div>
-                </div>
+        <ul className="mt-lg divide-y divide-neutral-100 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+          {MAINTENANCE_CATEGORIES.map((category) => (
+            <li key={category.id}>
+              <Link href={`/tenant/maintenance/report?category=${category.id}`} className="flex items-center gap-md px-lg py-md hover:bg-neutral-50">
+                <span className="text-2xl" aria-hidden="true">{category.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold text-neutral-900">{category.title}</span>
+                  <span className="block truncate text-xs text-neutral-500">{category.description}</span>
+                </span>
+                <span className="text-neutral-400" aria-hidden="true">›</span>
               </Link>
-            ))}
-          </div>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-lg space-y-sm text-sm">
+          <Link href="/tenant/maintenance-smart" className="block rounded-xl border border-neutral-200 bg-white px-lg py-md text-neutral-800 hover:bg-neutral-50">
+            <b>Not sure what’s wrong?</b> Answer a few questions and we’ll help you work it out — or report it from there.
+          </Link>
+          <Link href="/tenant/emergency" className="block rounded-xl border border-red-200 bg-red-50 px-lg py-md text-red-900 hover:bg-red-100">
+            <b>Water pouring, no power or heating, a door that won’t lock?</b> Report an emergency
+          </Link>
         </div>
       </main>
     </div>

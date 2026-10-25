@@ -154,7 +154,7 @@ export default function NewJobPage() {
           {
             property_id: propertyId,
             room_id: roomId || null,
-            reporter_id: user.user.id,
+            reporter_id: (user.assignment as any)?.id ?? user.user.id,
             title: title.trim(),
             description: description.trim(),
             category,
