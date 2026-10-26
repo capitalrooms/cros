@@ -150,7 +150,12 @@ export default function CleanDetailPage() {
 
   async function patch(fields: Record<string, any>) {
     const supabase = createClient()
-    const { error } = await supabase.from('cleans').update(fields).eq('id', cleanId)
+    let { error } = await supabase.from('cleans').update(fields).eq('id', cleanId)
+    // before migration 247 there's no hours column: save everything else rather than fail the clean
+    if (error && /hours_worked/.test(error.message) && 'hours_worked' in fields) {
+      const { hours_worked: _h, ...rest } = fields
+      ;({ error } = await supabase.from('cleans').update(rest).eq('id', cleanId))
+    }
     if (error) throw error
     setClean((c: any) => ({ ...c, ...fields }))
   }
