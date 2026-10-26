@@ -233,7 +233,7 @@ export default function CleanDetailPage() {
       void when
       await tellTenants(isSameDay ? 'late' : 'moved', !isSameDay && /emergency/i.test(reReason) ? 'It’s an unavoidable change — sorry.' : undefined)
       setShowReschedule(false)
-      alert('✅ Updated — the tenants have been notified of the new time.')
+      alert('Updated — the tenants have been notified of the new time.')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -396,7 +396,7 @@ export default function CleanDetailPage() {
         {tenantExtras.length > 0 && (
           <div className="rounded-2xl border-2 border-purple-300 bg-purple-50 p-lg">
             <p className="text-xs font-bold uppercase tracking-wide text-purple-800">
-              🧹 Tenant extra requests — if time allows
+              Tenant extra requests — if time allows
             </p>
             <p className="mt-xs text-xs text-purple-700">These aren't mandatory — fit them in if you have time.</p>
             {tenantExtras.map((req, i) => {
@@ -429,10 +429,10 @@ export default function CleanDetailPage() {
                 <div className="flex items-start justify-between gap-md">
                   <div className="flex-1">
                     <p className="text-xs font-bold uppercase tracking-wide text-blue-800">
-                      {note.cleaning_type === 'reminder' ? '📝 Your reminder' : note.cleaning_type ? `🧹 ${note.cleaning_type.replace(/_/g, ' ')}` : '📋 Cleaning task'}
+                      {note.cleaning_type === 'reminder' ? 'Your reminder' : note.cleaning_type ? `${note.cleaning_type.replace(/_/g, ' ')}` : '📋 Cleaning task'}
                     </p>
                     {note.room_id && (
-                      <p className="text-xs text-blue-700 mt-xs">📍 Specific room attention needed</p>
+                      <p className="text-xs text-blue-700 mt-xs">Specific room attention needed</p>
                     )}
                     <p className="mt-xs text-sm font-semibold text-blue-900">{note.note_title}</p>
                     {note.note_content && (

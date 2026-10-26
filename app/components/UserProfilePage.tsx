@@ -157,7 +157,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
       })
       if (!res.ok) throw new Error('Could not save subscription')
       setPushStatus('subscribed')
-      setPushMsg('✅ Push notifications enabled on this device!')
+      setPushMsg('Notifications are on for this device.')
     } catch (e: any) { setPushMsg(e.message || 'Failed to enable push') }
     finally { setPushLoading(false) }
   }
@@ -291,7 +291,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
 
           </div>
           <div className="px-xl pb-xl">
-            {error  && <p className="text-sm text-red-600 mb-md">⚠ {error}</p>}
+            {error  && <p className="text-sm text-red-600 mb-md">{error}</p>}
             {saved  && <p className="text-sm text-green-600 mb-md">✓ Saved successfully</p>}
             <button onClick={handleSave} disabled={saving}
               className="w-full py-sm rounded-xl bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40 transition">
@@ -326,7 +326,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
                   Push notifications require the app to be installed on your home screen. Open this site in <strong>Safari</strong>, tap the <strong>Share button ⬆</strong>, then <strong>"Add to Home Screen"</strong>. Once installed, this toggle will work.
                 </p>
                 <Link href="/install" className="inline-flex items-center gap-xs text-xs font-semibold text-neutral-900 underline underline-offset-2">
-                  📲 Installation guide
+                  Installation guide
                 </Link>
               </div>
             ) : pushStatus === 'denied' ? (
@@ -358,7 +358,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
                 {/* Tenant warning when disabling */}
                 {userRole === 'tenant' && pushStatus === 'subscribed' && (
                   <div className="flex items-start gap-sm rounded-lg bg-amber-50 border border-amber-200 px-md py-sm">
-                    <span className="text-amber-500 text-base shrink-0 mt-px">⚠️</span>
+                    
                     <p className="text-xs text-amber-800 leading-relaxed">
                       <strong>Heads up:</strong> Disabling notifications means you won't receive alerts when contractors need access to your property or room, or if there are important updates about your tenancy.
                     </p>
@@ -368,7 +368,7 @@ export default function UserProfilePage({ allowedRoles, backHref, roleName, extr
             )}
 
             {pushMsg && (
-              <p className={`text-xs rounded-lg px-md py-sm border ${pushMsg.startsWith('✅') ? 'bg-green-50 border-green-100 text-green-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+              <p className={`text-xs rounded-lg px-md py-sm border ${pushMsg.startsWith('Notifications are on') ? 'bg-green-50 border-green-100 text-green-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
                 {pushMsg}
               </p>
             )}

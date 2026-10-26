@@ -77,11 +77,11 @@ export default function AccountMenu() {
       </button>
       {open && (
         <div className="absolute right-0 top-10 z-50 w-52 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg">
-          <Link href={profile} onClick={() => setOpen(false)} className={item}>👤 My profile</Link>
-          <Link href="/account" onClick={() => setOpen(false)} className={item}>🔑 Password &amp; sign-in</Link>
-          {(isAdministrator(role) || (OFFICE.includes(role) && inOffice && allowed('/admin/settings'))) && <Link href="/admin/settings" onClick={() => setOpen(false)} className={`${item} border-t border-neutral-100`}>⚙️ Settings</Link>}
-          {OFFICE.includes(role) && <Link href="/admin/settings/signatures" onClick={() => setOpen(false)} className={item}>✍️ Email signatures</Link>}
-          <button onClick={handleSignOut} className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50">🚪 Sign out</button>
+          <Link href={profile} onClick={() => setOpen(false)} className={item}>My profile</Link>
+          <Link href="/account" onClick={() => setOpen(false)} className={item}>Password &amp; sign-in</Link>
+          {(isAdministrator(role) || (OFFICE.includes(role) && inOffice && allowed('/admin/settings'))) && <Link href="/admin/settings" onClick={() => setOpen(false)} className={`${item} border-t border-neutral-100`}>Settings</Link>}
+          {OFFICE.includes(role) && <Link href="/admin/settings/signatures" onClick={() => setOpen(false)} className={item}>Email signatures</Link>}
+          <button onClick={handleSignOut} className="flex w-full items-center gap-2 border-t border-neutral-100 px-3 py-2.5 text-xs text-red-600 hover:bg-red-50">Sign out</button>
         </div>
       )}
     </div>

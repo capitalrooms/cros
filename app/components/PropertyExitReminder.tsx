@@ -27,7 +27,7 @@ export default function PropertyExitReminder({ propertyAddress = 'the property',
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="mb-lg">
-          <h2 className="text-2xl font-bold text-neutral-900 mb-md">✓ Before You Leave</h2>
+          <h2 className="text-2xl font-bold text-neutral-900 mb-md">Before you leave</h2>
           <p className="text-sm text-neutral-600">Please confirm you've completed these before leaving {propertyAddress}:</p>
         </div>
 
@@ -42,7 +42,7 @@ export default function PropertyExitReminder({ propertyAddress = 'the property',
               disabled
             />
             <div className="flex-1">
-              <p className="font-semibold text-neutral-900">🔐 Return key to key safe</p>
+              <p className="font-semibold text-neutral-900">Return key to key safe</p>
               <p className="text-xs text-neutral-600 mt-xs">Make sure the key is secure and the safe is locked</p>
             </div>
           </div>
@@ -56,7 +56,7 @@ export default function PropertyExitReminder({ propertyAddress = 'the property',
               disabled
             />
             <div className="flex-1">
-              <p className="font-semibold text-neutral-900">🚪 Leave bedroom doors as found</p>
+              <p className="font-semibold text-neutral-900">Leave bedroom doors as found</p>
               <p className="text-xs text-neutral-600 mt-xs">Don't lock/unlock what you didn't change</p>
             </div>
           </div>
@@ -67,7 +67,7 @@ export default function PropertyExitReminder({ propertyAddress = 'the property',
           onClick={handleAcknowledge}
           className="w-full px-lg py-md bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-lg transition"
         >
-          I've Completed These ✓
+          I’ve done these
         </button>
 
         {/* Dismissible note */}
