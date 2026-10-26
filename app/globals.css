@@ -214,3 +214,6 @@ button:disabled {
 /* overflow-x auto, not hidden: on a phone a wide ledger table scrolls inside its card instead of being cut off (23 Oct 2026 audit) */
 .fin .ledger-card { background: #fff; border: 1px solid #D6DCE3; border-radius: 10px; overflow-x: auto; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
 .fin .ledger-band { background: #EEF1F5; border-bottom: 1px solid #D6DCE3; padding: 8px 12px; }
+
+/* the role apps on a computer (26 Oct 2026): the side rail carries the logo, so the top bar beside it doesn't repeat it */
+@media (min-width: 1024px) { .cr-shell .cr-topbar-logo { visibility: hidden; } }

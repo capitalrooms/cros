@@ -16,6 +16,7 @@ import DesktopRightRail from '@/app/components/DesktopRightRail'
 import { isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { withNames } from '@/lib/peopleDirectory'
+import { useRoleRail } from '@/app/components/role/RoleShell'
 
 interface ComplianceLog {
   id: string
@@ -383,6 +384,10 @@ export default function CleanerDashboard() {
     } finally { setSavingCompliance(false) }
   }
 
+  // the side rail on a computer (RoleShell): which section is showing, switched in place, and the day's count
+  const dueNow = cleans.filter(c => c.status !== 'completed' && c.clean_date && (isDatePast(c.clean_date) || isDateToday(c.clean_date))).length
+  useRoleRail({ active: activeTab, inPage: ['today', 'upcoming', 'done', 'compliance'], pick: k => setActiveTab(k as Tab), badges: { today: dueNow || undefined } })
+
   // ── Loading state ─────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -456,59 +461,23 @@ export default function CleanerDashboard() {
         <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />
       )}
 
-      {/* ── DESKTOP 3-column shell (lg+) ──────────────────────────────────── */}
-      <div className="hidden lg:grid lg:min-h-screen" style={{ gridTemplateColumns: '220px 1fr 300px', background: 'var(--cr-ivory)' }}>
+      {/* ── DESKTOP (lg+): the diary and a calendar column, beside the shared side rail (RoleShell) ── */}
+      <div className="hidden lg:grid lg:min-h-screen" style={{ gridTemplateColumns: 'minmax(0,1fr) 300px', background: 'var(--cr-ivory)' }}>
 
-        {/* Left sidebar */}
-        <aside style={{ background: 'var(--cr-ink)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
-          <div style={{ padding: '28px 20px 20px' }}>
-            <div style={{ fontWeight: 800, fontSize: '12px', letterSpacing: '0.14em', color: 'var(--cr-ivory)', textTransform: 'uppercase' }}>Capital Rooms</div>
-            <div style={{ fontSize: '11px', color: '#4B6358', fontWeight: 700, marginTop: 2 }}>Cleaner</div>
-          </div>
-          <div style={{ padding: '0 20px 20px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--cr-ivory)' }}>Hi {firstName} 👋</div>
-          </div>
-          <nav style={{ flex: 1, padding: '0 10px' }}>
-            {TABS.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                style={{
-                  display: 'block', width: '100%', textAlign: 'left',
-                  padding: '9px 12px', borderRadius: 10, marginBottom: 3,
-                  fontSize: '13px', fontWeight: 600,
-                  background: activeTab === key ? '#4B6358' : 'transparent',
-                  color: activeTab === key ? 'var(--cr-ivory)' : 'rgb(var(--n-400))',
-                  border: 'none', cursor: 'pointer',
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </nav>
-          <div style={{ padding: '20px' }}>
-            <button
-              onClick={async () => { await signOut(); router.push('/login') }}
-              style={{ fontSize: '12px', color: 'rgb(var(--n-400))', background: 'none', border: '1px solid rgb(var(--n-700))', borderRadius: '6px', cursor: 'pointer', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M3 1.5h5.5a.5.5 0 0 1 .5.5v2h1V2A1.5 1.5 0 0 0 8.5.5H3A1.5 1.5 0 0 0 1.5 2v11A1.5 1.5 0 0 0 3 14.5h5.5A1.5 1.5 0 0 0 10 13v-2H9v2a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V2A.5.5 0 0 1 3 1.5z" fill="currentColor"/><path d="M6 7.5a.5.5 0 0 1 .5-.5H13a.5.5 0 0 1 0 1H6.5A.5.5 0 0 1 6 7.5zm5.146-2.646a.5.5 0 0 1 .708.708L9.707 7.5l2.147 2.146a.5.5 0 0 1-.708.708l-2.5-2.5a.5.5 0 0 1 0-.708l2.5-2.5z" fill="currentColor"/></svg>
-              Log out
-            </button>
-          </div>
-        </aside>
 
         {/* Main */}
         <main style={{ overflowY: 'auto' }}>
           {/* Dark stats header */}
           <div style={{ background: 'var(--cr-ink)', padding: '28px 28px 20px' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--cr-ivory)', marginBottom: 16 }}>Cleans</h1>
+            <p style={{ fontSize: '14px', color: 'rgba(246,243,236,0.65)' }}>{greetingNow()}, {firstName}</p>
+            <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--cr-ivory)', margin: '2px 0 16px', fontFamily: 'var(--font-sora), sans-serif' }}>Your cleans</h1>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {([
                 { value: overdueCleans.length, label: 'Overdue', color: overdueCleans.length > 0 ? '#f87171' : 'var(--cr-ivory)' },
-                { value: todayCleans.length,   label: 'Today',   color: '#60a5fa' },
+                { value: todayCleans.length,   label: 'Today',   color: 'var(--cr-gold)' },
                 { value: upcomingCleans.length, label: 'Upcoming', color: 'var(--cr-ivory)' },
               ] as { value: number; label: string; color: string }[]).map(({ value, label, color }) => (
-                <div key={label} style={{ background: '#1f2937', borderRadius: 14, padding: '14px 12px', textAlign: 'center' }}>
+                <div key={label} style={{ background: 'rgba(246,243,236,0.07)', borderRadius: 14, padding: '14px 12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '26px', fontWeight: 800, color }}>{value}</div>
                   <div style={{ fontSize: '11px', color: 'rgb(var(--n-400))', marginTop: 3 }}>{label}</div>
                 </div>
@@ -634,7 +603,7 @@ export default function CleanerDashboard() {
       {/* ── Dark hero ──────────────────────────────────────────────────────── */}
       <DarkHeroHeader
         eyebrow="Cleaner"
-        heading={`Hi ${firstName} 👋`}
+        heading={`Hi ${firstName}`}
         
       >
         <div className="grid grid-cols-3 gap-sm mb-lg">
@@ -1160,4 +1129,10 @@ function HouseOptions({ houses }: { houses: any[] }) {
     <optgroup label="Your houses">{mine.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
     {rest.length > 0 && <optgroup label="Other houses">{rest.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>}
   </>)
+}
+
+/** "Good morning" / "Good afternoon" / "Good evening", London time — the same greeting as the tenant home. */
+function greetingNow() {
+  const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' }))
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 }

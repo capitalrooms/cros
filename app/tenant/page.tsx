@@ -558,13 +558,14 @@ export default function TenantDashboard() {
       {!tourThisVisit && <InstallPrompt />}
       <AppBar />
 
-      <main className="mx-auto max-w-lg px-lg pb-2xl">
+      {/* on a computer (26 Oct 2026): two columns beside the side rail — the home card, then everything else */}
+      <main className="mx-auto max-w-lg px-lg pb-2xl lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-start lg:gap-xl lg:pt-xl">
 
         {/* ── Dark tenancy pill ─────────────────────────────────────────── */}
         {/* the green header (Garden Square, 26 Oct 2026): a greeting, the home, the rent pill */}
         <section
-          className="cr-hero bg-neutral-900 pb-xl text-white"
-          style={{ marginInline: '-16px', paddingInline: '20px' }}
+          className="cr-hero -mx-lg bg-neutral-900 pb-xl text-white lg:mx-0 lg:rounded-[32px]"
+          style={{ paddingInline: '20px' }}
         >
           <div className="pt-lg">
             <p className="text-[15px] text-white/70">{(() => { const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' })); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening' })()}{firstName ? `, ${firstName}` : ''}</p>
@@ -657,7 +658,7 @@ export default function TenantDashboard() {
         </section>
 
         {/* ── Below the header: the four things tenants come for, as tiles (Garden Square) ── */}
-        <div className="pt-xl space-y-md">
+        <div className="pt-xl space-y-md lg:pt-0">
           <div className="grid grid-cols-2 gap-md">
             <button type="button" onClick={() => setShowReportSheet(true)}
               className="flex h-[116px] flex-col justify-between rounded-[22px] bg-neutral-900 p-lg text-left text-white active:scale-[0.98] transition-transform">

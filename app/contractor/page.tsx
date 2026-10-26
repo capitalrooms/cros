@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import PoppingByVisit from '@/app/components/PoppingByVisit'
+import { useRoleRail } from '@/app/components/role/RoleShell'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -267,23 +268,6 @@ export default function ContractorDashboard() {
     checkAuth()
   }, [router, searchParams])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-100">
-        <div className="bg-neutral-950 pb-xl">
-          <div style={{ height: 'calc(env(safe-area-inset-top) + 56px)' }} />
-          <div className="px-lg pt-lg">
-            <div className="h-2.5 w-14 rounded-full bg-white/20 mb-sm" />
-            <div className="h-7 w-44 rounded-xl bg-white/20 mb-xl" />
-            <div className="grid grid-cols-2 gap-sm">
-              {[0,1,2,3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // ── Derived categories ────────────────────────────────────────────────────
   const quoteJobs   = jobs.filter(j => j.quote_requested === true)
   const quoteJobIds = new Set(quoteJobs.map(j => j.id))
@@ -310,6 +294,34 @@ export default function ContractorDashboard() {
   const firstName       = contractorName.split(' ')[0] || 'there'
   const asId            = viewingAs?.id
 
+  // the side rail on a computer (RoleShell): which section is showing, switched in place, counts, and the extra buttons
+  useRoleRail({
+    active: activeTab, inPage: ['today', 'quotes', 'ongoing', 'waiting', 'booked', 'done'], pick: k => setActiveTab(k as Tab),
+    badges: { quotes: pendingQuotes.length || undefined, ongoing: ongoing.length || undefined, waiting: needsAttention || undefined },
+    extra: <div className="flex flex-col gap-1.5">
+      <PoppingByVisit className="rounded-xl bg-white/10 px-3 py-2 text-left text-[13px] font-bold text-white hover:bg-white/15" />
+      <a href="/planner" className="rounded-xl px-3 py-2 text-[13px] font-semibold text-white/65 hover:bg-white/5 hover:text-white">With Capital Rooms</a>
+    </div>,
+  })
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-neutral-100">
+        <div className="bg-neutral-950 pb-xl">
+          <div style={{ height: 'calc(env(safe-area-inset-top) + 56px)' }} />
+          <div className="px-lg pt-lg">
+            <div className="h-2.5 w-14 rounded-full bg-white/20 mb-sm" />
+            <div className="h-7 w-44 rounded-xl bg-white/20 mb-xl" />
+            <div className="grid grid-cols-2 gap-sm">
+              {[0,1,2,3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+
   const TABS: { key: Tab; label: string; badge?: number }[] = [
     { key: 'today',   label: 'Today' },
     { key: 'quotes',  label: 'Quotes',   badge: pendingQuotes.length },
@@ -333,61 +345,13 @@ export default function ContractorDashboard() {
       {viewingAs && <ViewAsBanner name={viewingAs.name} role={viewingAs.role} personId={viewingAs.id} />}
 
       {/* ════════════════════════════════════════════════════════════════════
-          DESKTOP LAYOUT (lg+) — 3-column vision spec: sidebar | main | rail
+          DESKTOP LAYOUT (lg+) — main | rail, beside the shared side rail (RoleShell)
       ════════════════════════════════════════════════════════════════════ */}
       <div
         className="hidden lg:grid lg:min-h-screen"
-        style={{ gridTemplateColumns: '220px 1fr 300px', background: 'var(--cr-ivory)', fontFamily: 'Inter,system-ui,sans-serif' }}
+        style={{ gridTemplateColumns: 'minmax(0,1fr) 300px', background: 'var(--cr-ivory)' }}
       >
 
-        {/* ═══ SIDEBAR ════════════════════════════════════════════════════ */}
-        {(() => {
-          const sidebarItems: { key: Tab; label: string; badge?: number }[] = [
-            { key: 'today',   label: 'Today' },
-            { key: 'quotes',  label: 'Quotes',  badge: pendingQuotes.length  },
-            { key: 'ongoing', label: 'Ongoing', badge: ongoing.length        },
-            { key: 'waiting', label: 'Overdue / to book', badge: needsAttention },
-            { key: 'booked',  label: 'Booked'  },
-            { key: 'done',    label: 'Done'    },
-          ]
-          return (
-            <nav style={{ background: 'var(--cr-ink)', color: 'var(--cr-ivory)', padding: '22px 16px', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
-              <div style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontWeight: 800, fontSize: 15, letterSpacing: '0.02em' }}>
-                CAPITAL ROOMS
-                <span style={{ display: 'block', fontSize: 9, fontWeight: 500, letterSpacing: '0.14em', opacity: 0.5, marginTop: 2, textTransform: 'uppercase' }}>Contractor Portal</span>
-              </div>
-              <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-                {sidebarItems.map(({ key, label, badge }) => (
-                  <button
-                    key={key}
-                    onClick={() => setActiveTab(key)}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
-                      color: activeTab === key ? 'var(--cr-ivory)' : 'rgba(246,243,236,0.6)',
-                      background: activeTab === key ? 'rgba(246,243,236,0.1)' : 'transparent',
-                      border: 'none', cursor: 'pointer', textAlign: 'left',
-                    }}
-                  >
-                    {label}
-                    {badge && badge > 0 ? (
-                      <span style={{ background: '#B4472F', color: 'white', fontSize: 10, fontWeight: 700, borderRadius: 8, padding: '1px 6px' }}>{badge}</span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
-                <PoppingByVisit className="rounded-xl bg-white/10 px-md py-sm text-left text-sm font-bold text-white hover:bg-white/20" />
-                <a href={`/contractor/invoices${asId ? `?as=${asId}` : ''}`} style={{ display: 'block', padding: '9px 12px', borderRadius: 9, background: 'var(--cr-ivory)', color: 'var(--cr-ink)', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>🧾 Invoices</a>
-                <a href="/planner" style={{ display: 'block', padding: '8px 12px', borderRadius: 9, color: 'rgba(246,243,236,0.8)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}>🗂️ With Capital Rooms</a>
-              </div>
-              <div style={{ borderTop: '1px solid rgba(246,243,236,0.15)', paddingTop: 14, fontSize: 12, color: 'rgba(246,243,236,0.55)', display: 'flex', justifyContent: 'space-between' }}>
-                <a href="/contractor/profile" style={{ color: 'inherit', textDecoration: 'none' }}>⚙ Profile</a>
-                <button onClick={async () => { await signOut(); router.push('/login') }} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: 12 }}>Sign out</button>
-              </div>
-            </nav>
-          )
-        })()}
 
         {/* ═══ MAIN ═══════════════════════════════════════════════════════ */}
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
@@ -395,7 +359,7 @@ export default function ContractorDashboard() {
           {/* Dark hero */}
           <div style={{ background: 'var(--cr-ink)', color: 'var(--cr-ivory)', padding: '26px 32px 22px' }}>
             <div>
-              <h1 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, margin: '0 0 3px', fontWeight: 800 }}>Hi {firstName} 👋</h1>
+              <h1 style={{ fontFamily: 'var(--font-sora), sans-serif', fontSize: 24, margin: '0 0 3px', fontWeight: 700 }}>Hi {firstName}</h1>
               <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,243,236,0.6)' }}>
                 {today ? `Here's what's on today, ${new Date(today + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.` : ''}
               </p>
@@ -735,7 +699,7 @@ export default function ContractorDashboard() {
 
         <DarkHeroHeader
           eyebrow="Contractor"
-          heading={`Hi ${firstName} 👋`}
+          heading={`Hi ${firstName}`}
           
         >
           <div className="max-w-2xl mx-auto w-full">
