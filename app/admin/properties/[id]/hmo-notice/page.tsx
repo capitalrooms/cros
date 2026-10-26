@@ -2,6 +2,7 @@
 
 // HMO licence application notice for one property — filled in from the property, landlord and council; check,
 // edit, then download (to print or post) or email it to the tenants living there now.
+import PdfView from '@/components/PdfView'
 import { use, useCallback, useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
@@ -220,7 +221,7 @@ export default function HmoNoticePage({ params }: { params: Promise<{ id: string
         {preview && (
           <div className="mt-md overflow-hidden rounded-2xl border border-neutral-200 bg-white">
             <div className="flex items-center justify-between px-lg py-sm"><span className="text-sm font-bold text-neutral-900">Preview</span><button onClick={() => setPreview('')} className="text-sm text-neutral-600 underline">Close</button></div>
-            <iframe src={preview} title="Letter preview" className="h-[900px] w-full" />
+            <PdfView src={preview} title="Letter preview" height={900} />
           </div>
         )}
       </div>

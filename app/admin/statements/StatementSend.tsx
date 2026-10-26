@@ -2,6 +2,7 @@
 
 // Email one saved statement to the landlord: preview the PDF and the email exactly as they'll get it,
 // edit the subject/message, CC Harry by default, send from the signed-in admin.
+import PdfView from '@/components/PdfView'
 import { useEffect, useRef, useState } from 'react'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 
@@ -121,7 +122,7 @@ export default function StatementSend({ statementId, label, sentAt, onSent }: { 
                     <button onClick={() => setTab('email')} className={`rounded-md px-md py-xs ${tab === 'email' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}>Email</button>
                   </div>
                   {tab === 'pdf'
-                    ? (pdfUrl ? <iframe src={pdfUrl} title="Statement PDF" className="w-full flex-1 rounded-lg border border-neutral-200" /> : null)
+                    ? (pdfUrl ? <PdfView src={pdfUrl} title="Statement PDF" className="flex-1 rounded-lg border border-neutral-200" /> : null)
                     : <iframe srcDoc={html} title="Email preview" className="w-full flex-1 rounded-lg border border-neutral-200 bg-white" />}
                 </div>
               </div>

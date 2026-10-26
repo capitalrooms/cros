@@ -1,4 +1,5 @@
 'use client'
+import PdfView from '@/components/PdfView'
 import { displayName } from '@/lib/people'
 import { isOfficeRole } from '@/lib/access/areas'
 
@@ -552,7 +553,7 @@ export default function ValuationsPage() {
               {genError && <span className="text-sm text-red-600">{genError}</span>}
             </div>
             <div className="rounded-2xl overflow-hidden border border-neutral-200 shadow-sm bg-white" style={{ height: '80vh' }}>
-              <iframe src={previewUrl} className="w-full h-full" title="Valuation letter preview" />
+              <PdfView src={previewUrl} title="Valuation letter preview" className="h-full" />
             </div>
           </div>
         )}

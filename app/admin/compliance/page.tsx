@@ -1,5 +1,6 @@
 'use client'
 
+import PdfView from '@/components/PdfView'
 import { useStoredUrl } from '@/lib/files/useStoredFile'
 import { isOfficeRole } from '@/lib/access/areas'
 import { use, useEffect, useState, useRef } from 'react'
@@ -365,7 +366,7 @@ function CertUploadDrawer({
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* Header */}
         <div className="flex items-start justify-between px-lg py-md border-b border-neutral-200 shrink-0">
           <div>
@@ -397,12 +398,7 @@ function CertUploadDrawer({
                   {/* PDF preview */}
                   <div className="rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50">
                     {isPdf(existingDoc.storage_url) ? (
-                      <iframe
-                        src={docLink ?? undefined}
-                        className="w-full"
-                        style={{ height: '420px' }}
-                        title={existingDoc.file_name}
-                      />
+                      <PdfView src={docLink} title={existingDoc.file_name} height={420} />
                     ) : (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={docLink ?? undefined} alt={existingDoc.file_name} className="w-full object-contain max-h-96" />
@@ -520,7 +516,7 @@ function CertUploadDrawer({
                   {filePreviewUrl && (
                     <div className="rounded-xl overflow-hidden border border-neutral-200">
                       {isPdf(file.name) ? (
-                        <iframe src={filePreviewUrl} className="w-full" style={{ height: '320px' }} title={file.name} />
+                        <PdfView src={filePreviewUrl} title={file.name} height={320} />
                       ) : (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={filePreviewUrl} alt={file.name} className="w-full object-contain max-h-64" />

@@ -57,7 +57,7 @@ export default function ListingGallery({ photos, videoCount }: { photos: Gallery
       </div>
 
       {open != null && (
-        <div role="dialog" aria-modal="true" aria-label="Photos" className="fixed inset-0 z-50 flex flex-col" style={{ background: '#111' }}>
+        <div role="dialog" aria-modal="true" aria-label="Photos" className="fixed inset-0 z-50 flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', background: '#111' }}>
           <div className="flex items-center justify-between px-4 py-3 text-white">
             <span className="text-[13px] text-white/70">{open + 1} of {photos.length}</span>
             <button type="button" onClick={() => setOpen(null)} className="rounded-full bg-white px-4 py-1.5 text-[13px] font-semibold text-[#111]">Close</button>

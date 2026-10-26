@@ -314,7 +314,7 @@ export default function FinancialTrail({ type, id, children, className }: Financ
 
       {/* Slide-over panel */}
       {open && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-50 flex justify-end" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setOpen(false)} />
 

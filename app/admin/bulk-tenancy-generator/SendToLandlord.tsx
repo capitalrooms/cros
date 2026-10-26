@@ -3,6 +3,7 @@
 // Review & send: preview every agreement and the invoice exactly as they will be attached, draft the
 // covering email (branded Capital Rooms email, CC Harry), then send it from the system.
 
+import PdfView from '@/components/PdfView'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -204,7 +205,7 @@ export default function SendToLandlord(props: Props) {
           <div className="rounded-lg border border-neutral-200 bg-neutral-100 overflow-hidden">
             {current?.url ? (
               <>
-                <iframe key={current.url} src={current.url} title={current.label} className="w-full h-[70vh] bg-white" />
+                <PdfView key={current.url} src={current.url} title={current.label} className="h-[70dvh] bg-white" />
                 <div className="flex justify-end px-sm py-xs bg-white border-t border-neutral-200">
                   <a href={current.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-neutral-700 hover:underline">Open in a new tab ↗</a>
                 </div>

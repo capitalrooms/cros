@@ -204,7 +204,7 @@ export default function AdminEarlyMoveOutPage() {
 
       {/* ── Side panel / modal for selected request ── */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <div className="flex-1 bg-black/40" onClick={() => setSelected(null)} />
           <div className="w-full max-w-lg bg-white overflow-y-auto shadow-2xl flex flex-col">
             <div className="sticky top-0 bg-white border-b border-neutral-200 px-lg py-md flex items-center justify-between gap-md z-10">

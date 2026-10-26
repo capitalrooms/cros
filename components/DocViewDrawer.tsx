@@ -1,6 +1,7 @@
 'use client'
 
 import { useStoredUrl } from '@/lib/files/useStoredFile'
+import PdfView from '@/components/PdfView'
 
 /**
  * Inline document viewer drawer.
@@ -39,7 +40,7 @@ export default function DocViewDrawer({
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* Header */}
         <div className="flex items-start justify-between px-lg py-md border-b border-neutral-200 shrink-0">
           <div className="min-w-0 pr-md">
@@ -55,11 +56,7 @@ export default function DocViewDrawer({
           {!link ? (
             <div className="flex h-full items-center justify-center text-sm text-neutral-400">Opening…</div>
           ) : isPdf ? (
-            <iframe
-              src={link}
-              className="w-full h-full"
-              title={fileName}
-            />
+            <PdfView src={link} title={fileName} className="h-full" />
           ) : (
             <div className="w-full h-full flex items-center justify-center p-lg overflow-auto">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -76,7 +73,7 @@ export default function DocViewDrawer({
             rel="noopener noreferrer"
             className="block w-full text-center rounded-lg bg-neutral-900 py-md text-sm font-semibold text-white hover:bg-neutral-800 transition"
           >
-            ↓ Download
+            Download
           </a>
           {onReplace && (
             <button

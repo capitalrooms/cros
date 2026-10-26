@@ -176,7 +176,7 @@ export default function DocUploadDrawer({
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col">
+      <div className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white shadow-2xl flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* Header */}
         <div className="flex items-start justify-between px-lg py-md border-b border-neutral-200 shrink-0">
           <div>

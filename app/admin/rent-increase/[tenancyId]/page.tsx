@@ -1,5 +1,6 @@
 'use client'
 
+import PdfView from '@/components/PdfView'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
@@ -431,12 +432,7 @@ export default function RentIncreasePage() {
           <h2 className="text-base font-bold text-neutral-900 mb-sm">Document 1 — Cover Letter</h2>
           {coverB64 && (
             <div className="rounded-2xl border border-neutral-200 overflow-hidden bg-white">
-              <iframe
-                src={`data:application/pdf;base64,${coverB64}`}
-                className="w-full"
-                style={{ height: '600px' }}
-                title="Cover letter preview"
-              />
+              <PdfView src={`data:application/pdf;base64,${coverB64}`} title="Cover letter preview" height={600} />
             </div>
           )}
           <a
@@ -453,12 +449,7 @@ export default function RentIncreasePage() {
           <h2 className="text-base font-bold text-neutral-900 mb-sm">Document 2 — Form 4A (statutory notice)</h2>
           {form4aB64 && (
             <div className="rounded-2xl border border-neutral-200 overflow-hidden bg-white">
-              <iframe
-                src={`data:application/pdf;base64,${form4aB64}`}
-                className="w-full"
-                style={{ height: '700px' }}
-                title="Form 4A preview"
-              />
+              <PdfView src={`data:application/pdf;base64,${form4aB64}`} title="Form 4A preview" height={700} />
             </div>
           )}
           <a
