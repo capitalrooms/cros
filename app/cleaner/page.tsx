@@ -208,11 +208,17 @@ export default function CleanerDashboard() {
         setPersonId(targetPersonId)
         await loadCleans(targetPersonId, cleansDisplayLimit)
 
-        const { data: props } = await supabase
+        // their houses first (26 Oct 2026): where they're the regular cleaner, or have cleaned before
+        let { data: props, error: propsErr } = await supabase
           .from('properties')
-          .select('id, name, address, clean_frequency_weeks')
+          .select('id, name, address, clean_frequency_weeks, regular_cleaner_id')
           .order('name')
-        setProperties(sortPropertiesNumerically(props || []))
+        if (propsErr) props = (await supabase.from('properties').select('id, name, address, clean_frequency_weeks').order('name')).data as any
+        const { data: theirs } = await supabase.from('cleans').select('property_id').eq('cleaner_id', targetPersonId).limit(500)
+        const mine = new Set<string>([...(props ?? []).filter((p: any) => p.regular_cleaner_id === targetPersonId).map((p: any) => p.id), ...(theirs ?? []).map((c: any) => c.property_id)])
+        props = [...sortPropertiesNumerically((props ?? []).filter((p: any) => mine.has(p.id))).map((p: any) => ({ ...p, mine: true })),
+          ...sortPropertiesNumerically((props ?? []).filter((p: any) => !mine.has(p.id)))]
+        setProperties(props || [])
         if (props?.[0]) {
           setPropertyId(props[0].id)
           setCompliancePropertyId(props[0].id)
@@ -272,13 +278,15 @@ export default function CleanerDashboard() {
     if (!propertyId || !cleanDate || booking) return
     setError(''); setBookedNotice(''); setBooking(true)
     const supabase = createClient()
-    const { error: err } = await supabase.from('cleans').insert({
+    const { data: made, error: err } = await supabase.from('cleans').insert({
       property_id: propertyId,
       cleaner_id: personId,
       clean_date: cleanDate,
       clean_time: cleanTime || null,
-    })
+    }).select('id').single()
     if (err) { setBooking(false); return setError(err.message) }
+    // the tenants hear it's booked (email or app, as set on the Cleaning screen — lib/cleans/tenantUpdates)
+    if (made?.id) fetch(`/api/cleans/${made.id}/tell-tenants`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'booked' }) }).catch(() => {})
     await loadCleans(personId)
     setBooking(false)
     const propName = properties.find((p) => p.id === propertyId)?.name || 'the property'
@@ -915,7 +923,7 @@ export default function CleanerDashboard() {
                 onChange={e => { setCompliancePropertyId(e.target.value); loadComplianceLogs(e.target.value) }}
                 className="w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm text-neutral-900"
               >
-                {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <HouseOptions houses={properties} />
               </select>
             </div>
 
@@ -959,7 +967,7 @@ export default function CleanerDashboard() {
               <div>
                 <label className="block text-sm font-bold text-neutral-900 mb-sm">Property</label>
                 <select value={propertyId} onChange={e => setPropertyId(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm">
-                  {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  <HouseOptions houses={properties} />
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-sm">
@@ -995,7 +1003,7 @@ export default function CleanerDashboard() {
                 <label className="block text-sm font-bold text-neutral-900 mb-sm">Property</label>
                 <select value={pastCleanForm.propertyId} onChange={e => setPastCleanForm({ ...pastCleanForm, propertyId: e.target.value })} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm">
                   <option value="">Select property</option>
-                  {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  <HouseOptions houses={properties} />
                 </select>
               </div>
               <div>
@@ -1029,7 +1037,7 @@ export default function CleanerDashboard() {
                 <label className="block text-sm font-bold text-neutral-900 mb-sm">Property</label>
                 <select value={compliancePropertyId} onChange={e => setCompliancePropertyId(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm">
                   <option value="">Select a property</option>
-                  {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  <HouseOptions houses={properties} />
                 </select>
               </div>
               <div>
@@ -1142,4 +1150,14 @@ export default function CleanerDashboard() {
 
     </div>
   )
+}
+
+/** The house list in the cleaner's pickers: their houses first, then the rest. */
+function HouseOptions({ houses }: { houses: any[] }) {
+  const mine = houses.filter(h => h.mine), rest = houses.filter(h => !h.mine)
+  if (!mine.length) return <>{rest.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</>
+  return (<>
+    <optgroup label="Your houses">{mine.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>
+    {rest.length > 0 && <optgroup label="Other houses">{rest.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</optgroup>}
+  </>)
 }

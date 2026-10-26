@@ -132,7 +132,7 @@ export default function CleanerJobsPage() {
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} />
-      <PageHero title="Cleaning" subtitle={<>Each house’s regular cleaner, and move-out cleans raised when notice is recorded — assign, track and reassign</>} />
+      <PageHero title="Cleaning" subtitle={<>Each house’s cleaner and cleaning schedule, how tenants hear about cleans, and move-out cleans — assign, track and reassign</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <RegularCleaners onChanged={loadData} />

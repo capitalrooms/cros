@@ -93,6 +93,8 @@ export default function BookCleanPage() {
             status: 'scheduled',
           })
           .eq('id', jobId)
+        // the tenants hear it's booked (lib/cleans/tenantUpdates)
+        await fetch(`/api/cleans/${jobId}/tell-tenants`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'booked' }) }).catch(() => null)
       }
 
       setSaving(false)
