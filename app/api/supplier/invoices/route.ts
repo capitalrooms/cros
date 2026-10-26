@@ -66,9 +66,18 @@ export async function GET(req: NextRequest) {
       .eq('contractor_id', c.personId).is('supplier_invoice_id', null).not('completed_at', 'is', null).order('completed_at', { ascending: false }).limit(100)
     jobs = ((data ?? []) as any[]).map(t => ({ id: t.id, title: t.title, price: t.final_price, completedAt: t.completed_at, propertyId: t.property_id, property: firstLine(t.properties?.name), where: [t.rooms?.name, t.location].filter(Boolean).join(' · ') }))
   } else {
-    const { data } = await s.from('cleans').select('id, clean_date, property_id, extra_charge, extra_charge_note, products_cost, cleaner_note, properties(name)')
-      .eq('cleaner_id', c.personId).eq('status', 'completed').is('supplier_invoice_id', null).order('clean_date', { ascending: true }).limit(200)
-    cleans = ((data ?? []) as any[]).map(x => ({ id: x.id, date: x.clean_date, propertyId: x.property_id, property: firstLine(x.properties?.name), price: profile.cleanPrices[x.property_id] ?? null, extra: x.extra_charge, extraNote: x.extra_charge_note, products: x.products_cost, note: x.cleaner_note }))
+    // each clean priced from its hours × the cleaner's hourly rate (26 Oct 2026, migration 247); without both, the
+    // price they last charged for that house
+    const base = 'id, clean_date, property_id, extra_charge, extra_charge_note, products_cost, cleaner_note, properties(name)'
+    const q = (cols: string) => s.from('cleans').select(cols).eq('cleaner_id', c.personId).eq('status', 'completed').is('supplier_invoice_id', null).order('clean_date', { ascending: true }).limit(200)
+    let { data, error } = await q(`${base}, hours_worked`)
+    if (error) ({ data } = await q(base))
+    cleans = ((data ?? []) as any[]).map(x => {
+      const hours = x.hours_worked != null ? Number(x.hours_worked) : null
+      const byHours = hours && profile.hourlyRate != null ? Math.round(hours * profile.hourlyRate * 100) / 100 : null
+      return { id: x.id, date: x.clean_date, propertyId: x.property_id, property: firstLine(x.properties?.name), hours, rate: byHours != null ? profile.hourlyRate : null,
+        price: byHours ?? profile.cleanPrices[x.property_id] ?? null, extra: x.extra_charge, extraNote: x.extra_charge_note, products: x.products_cost, note: x.cleaner_note }
+    })
   }
   // a contractor invoices us only for houses they've had our jobs at (21 Oct 2026 audit: they were offered every house
   // we manage, including demo houses); cleaners work across the portfolio, so they keep the full list
@@ -102,7 +111,15 @@ export async function POST(req: NextRequest) {
       vat_registered: !!b.vatRegistered, vat_number: t(b.vatNumber, 30), payment_days: Math.min(90, Math.max(0, Math.round(Number(b.paymentDays) || 14))),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'person_id' })
-    return error ? NextResponse.json({ error: missing(error) ? 'Not set up yet (migration 205)' : error.message }, { status: 400 }) : NextResponse.json({ ok: true })
+    if (error) return NextResponse.json({ error: missing(error) ? 'Not set up yet (migration 205)' : error.message }, { status: 400 })
+    // a cleaner's hourly rate — its own update, so the rest still saves before migration 247 is run
+    if (b.hourlyRate !== undefined) {
+      const rate = b.hourlyRate === '' || b.hourlyRate === null ? null : Number(String(b.hourlyRate).replace(/[^\d.]/g, ''))
+      if (rate !== null && !(rate >= 0 && rate <= 1000)) return NextResponse.json({ error: 'Check your hourly rate' }, { status: 400 })
+      const { error: rErr } = await s.from('supplier_profiles').update({ hourly_rate: rate === null ? null : Math.round(rate * 100) / 100 }).eq('person_id', c.personId)
+      if (rErr) return NextResponse.json({ error: /hourly_rate/.test(rErr.message) ? 'Your details are saved, but the hourly rate needs a quick update from the office first (migration 247).' : rErr.message }, { status: 400 })
+    }
+    return NextResponse.json({ ok: true })
   }
   if (b.action === 'logo') {
     if (b.remove) { await s.from('supplier_profiles').update({ logo_path: null }).eq('person_id', c.personId); return NextResponse.json({ ok: true }) }

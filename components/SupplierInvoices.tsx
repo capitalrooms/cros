@@ -226,7 +226,7 @@ function CleanerNew({ data, post, done }: { data: any; post: (b: Record<string, 
     setLines(prev => [
       ...inRange.map(c => prev.find(l => l.cleanId === c.id) ?? {
         ...blank(), cleanId: c.id, propertyId: c.propertyId, date: c.date,
-        description: `Clean — ${day(c.date)}`, where: [c.property, c.extraNote].filter(Boolean).join(' · '),
+        description: `Clean — ${day(c.date)}${c.hours ? ` · ${c.hours} hour${c.hours === 1 ? '' : 's'}${c.rate != null ? ` at £${Number(c.rate).toFixed(2)}` : ''}` : ''}`, where: [c.property, c.extraNote].filter(Boolean).join(' · '),
         labour: c.price != null ? String(Number(c.price) + Number(c.extra || 0)) : c.extra ? String(c.extra) : '',
         partsPaid: !!Number(c.products), parts: Number(c.products) ? String(c.products) : '',
       }),
@@ -284,7 +284,8 @@ function List({ data, headers, post, reload }: { data: any; headers: Record<stri
 
 function Details({ data, post, saved, viewAs }: { data: any; post: (b: Record<string, unknown>) => Promise<any>; saved: () => void; viewAs?: string | null }) {
   const p = data.profile
-  const [v, setV] = useState({ tradingName: p.tradingName ?? '', address: p.address ?? '', phone: p.phone ?? '', email: p.email ?? '', bankName: p.bankName ?? '', sortCode: p.sortCode ?? '', accountNo: p.accountNo ?? '', vatRegistered: !!p.vatRegistered, vatNumber: p.vatNumber ?? '', paymentDays: String(p.paymentDays ?? 14) })
+  const isCleaner = data.role === 'cleaner'
+  const [v, setV] = useState({ tradingName: p.tradingName ?? '', address: p.address ?? '', phone: p.phone ?? '', email: p.email ?? '', bankName: p.bankName ?? '', sortCode: p.sortCode ?? '', accountNo: p.accountNo ?? '', vatRegistered: !!p.vatRegistered, vatNumber: p.vatNumber ?? '', paymentDays: String(p.paymentDays ?? 14), hourlyRate: p.hourlyRate != null ? Number(p.hourlyRate).toFixed(2) : '' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const f = (k: keyof typeof v, l: string, extra: Record<string, unknown> = {}) => (
@@ -292,7 +293,7 @@ function Details({ data, post, saved, viewAs }: { data: any; post: (b: Record<st
   )
   async function save() {
     setBusy(true); setMsg('')
-    try { await post({ action: 'profile', ...v }); saved() } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not save') } finally { setBusy(false) }
+    try { const { hourlyRate, ...rest } = v; await post({ action: 'profile', ...rest, ...(isCleaner ? { hourlyRate } : {}) }); saved() } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not save') } finally { setBusy(false) }
   }
   const initials = String(v.tradingName || '?').replace(/\b(ltd|limited)\b/gi, '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
   return (
@@ -307,6 +308,10 @@ function Details({ data, post, saved, viewAs }: { data: any; post: (b: Record<st
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={v.vatRegistered} onChange={e => setV({ ...v, vatRegistered: e.target.checked })} /> I’m VAT registered (adds 20%)</label>
       {v.vatRegistered && f('vatNumber', 'VAT number')}
       {f('paymentDays', 'Payment due after (days)', { inputMode: 'numeric' })}
+      {isCleaner && <>
+        {f('hourlyRate', 'Your hourly rate (£)', { inputMode: 'decimal', placeholder: 'e.g. 15.00' })}
+        <p className="-mt-2 text-xs text-neutral-500">Each clean on your invoice is priced from the hours you put in when you finished it.</p>
+      </>}
       {msg && <p className="text-sm text-red-700">{msg}</p>}
       <button type="button" className={`${btnDark} w-full`} disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save my details'}</button>
     </div>

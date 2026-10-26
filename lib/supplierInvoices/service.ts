@@ -28,6 +28,7 @@ export async function profileFor(s: S, personId: string) {
     vatRegistered: !!p?.vat_registered, vatNumber: p?.vat_number ?? '', paymentDays: p?.payment_days ?? 14,
     logoPath: p?.logo_path ?? null, colour: p?.logo_colour || colourFor(name), nextNumber: p?.next_number ?? 1001,
     invoicingEnabled: p ? p.invoicing_enabled !== false : true, cleanPrices: (p?.clean_prices ?? {}) as Record<string, number>,
+    hourlyRate: p?.hourly_rate != null ? Number(p.hourly_rate) : null as number | null,   // a cleaner's £/hour (migration 247)
   }
 }
 

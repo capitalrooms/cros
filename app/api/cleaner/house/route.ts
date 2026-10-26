@@ -2,7 +2,7 @@
 // interact with the office"). One list of "notes for this house" shared with the office (property_cleaning_notes —
 // the office adds them on Property notes; the cleaner adds and ticks them here or at the end of a clean), the usual
 // rhythm worked out from the cleans themselves, and past visits with their notes.
-//   GET   ?propertyId=          → { house, usual, notes, done, cleans, deep (the deep-clean record) }
+//   GET   ?propertyId=          → { house, usual, notes, done, cleans, deep (the deep-clean record), myRate (a cleaner's £/hour) }
 //   POST  { propertyId, text }  → add a note for this house
 //   PATCH { noteId }            → tick a note off
 // Cleaners (they work across the portfolio) and the office.
@@ -21,7 +21,8 @@ async function who(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await who(req))) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
+  const me = await who(req)
+  if (!me) return NextResponse.json({ error: 'Please sign in again.' }, { status: 401 })
   const propertyId = req.nextUrl.searchParams.get('propertyId') ?? ''
   const s = createServiceClient()
   const { data: house } = await s.from('properties').select('id, name, address, postcode, clean_frequency_weeks, communal_notes').eq('id', propertyId).maybeSingle()
@@ -43,7 +44,13 @@ export async function GET(req: NextRequest) {
   // the deep-clean record (lib/cleans/deepTasks): each extra job's last date here, from a year of finished cleans
   const { data: finished } = await s.from('cleans').select('clean_date, completed_at, status, special_jobs').eq('property_id', propertyId).eq('status', 'completed')
     .gte('clean_date', new Date(Date.now() - 400 * 86_400_000).toISOString().slice(0, 10)).order('clean_date', { ascending: false }).limit(300)
-  return NextResponse.json({ house, usual, notes: open ?? [], done: done ?? [], cleans: cleans ?? [], deep: deepRecord((finished ?? []) as any[]) })
+  // a cleaner's own hourly rate (migration 247), so a clean can show what the hours come to
+  let myRate: number | null = null
+  if (me.role === 'cleaner' && me.personId) {
+    const { data: prof, error } = await s.from('supplier_profiles').select('hourly_rate').eq('person_id', me.personId).maybeSingle()
+    if (!error && (prof as any)?.hourly_rate != null) myRate = Number((prof as any).hourly_rate)
+  }
+  return NextResponse.json({ house, usual, notes: open ?? [], done: done ?? [], cleans: cleans ?? [], deep: deepRecord((finished ?? []) as any[]), myRate })
 }
 
 export async function POST(req: NextRequest) {

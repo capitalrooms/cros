@@ -74,6 +74,11 @@ export default function CleanDetailPage() {
   const [todos, setTodos] = useState<string[]>([])
   const [specials, setSpecials] = useState<string[]>([])
   const [otherJobText, setOtherJobText] = useState('')
+  // the day the clean was actually done and how long it took (26 Oct 2026, migration 247) — a clean whose day has gone
+  // by can be logged as done on the day it happened; hours × the cleaner's rate prices it on their invoice
+  const [visitDate, setVisitDate] = useState('')
+  const [hours, setHours] = useState('')
+  const [myRate, setMyRate] = useState<number | null>(null)
   // the house's deep-clean record — what's due, and when each extra job was last done (lib/cleans/deepTasks)
   const [deep, setDeep] = useState<any>(null)
   const [notes, setNotes] = useState('')
@@ -115,7 +120,11 @@ export default function CleanDetailPage() {
         setReDate((c as any).clean_date || '')
         setReTime((c as any).clean_time ? String((c as any).clean_time).slice(0, 5) : '')
 
-        fetch(`/api/cleaner/house?propertyId=${(c as any).property_id}`).then(r => r.ok ? r.json() : null).then(j => j?.deep && setDeep(j.deep)).catch(() => null)
+        fetch(`/api/cleaner/house?propertyId=${(c as any).property_id}`).then(r => r.ok ? r.json() : null).then(j => { if (j?.deep) setDeep(j.deep); if (j?.myRate != null) setMyRate(Number(j.myRate)) }).catch(() => null)
+        const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+        const cd = (c as any).clean_date as string | null
+        setVisitDate((c as any).status === 'completed' ? ((c as any).completed_at ? new Date((c as any).completed_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : cd || todayIso) : cd && cd < todayIso ? cd : todayIso)
+        setHours((c as any).hours_worked != null ? String(Number((c as any).hours_worked)) : (c as any).duration_hours != null ? String(Number((c as any).duration_hours)) : '')
 
         // Load property-level cleaning notes (not tied to specific clean)
         const { data: notes } = await supabase
@@ -233,8 +242,10 @@ export default function CleanDetailPage() {
         extra_charge: extraCharge ? Number(extraCharge) : null,
         extra_charge_note: extraChargeNote || null,
         products_cost: productsCost ? Number(productsCost) : null,
+        // a finished clean: the hours and the day can be put right afterwards
+        ...(clean?.status === 'completed' && !clean?.supplier_invoice_id ? { hours_worked: hours ? Number(hours) : null, ...(visitDate ? { completed_at: whenDone(visitDate), clean_date: visitDate } : {}) } : {}),
       })
-      alert('✅ Saved')
+      alert('Saved')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -250,14 +261,17 @@ export default function CleanDetailPage() {
     if (!clean) return
     // a clean booked for a later day: one stray tap used to close it off with no question (25 Oct 2026)
     const todayISO = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-    if (clean.clean_date && clean.clean_date > todayISO
-      && !window.confirm(`This clean is booked for ${new Date(`${clean.clean_date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. Mark it done today?`)) return
+    if (!visitDate || visitDate > todayISO) { alert('Pick the day you did the clean (today or earlier).'); return }
+    if (!hours || !(Number(hours) > 0)) { alert('Say how long you were there.'); return }
     setBusy('complete')
     try {
       const supabase = createClient()
       await patch({
         status: 'completed',
-        completed_at: new Date().toISOString(),
+        completed_at: whenDone(visitDate),
+        hours_worked: Number(hours),
+        // done on another day than booked: the clean moves to the day it happened, and the booked day is noted
+        ...(visitDate !== clean.clean_date ? { clean_date: visitDate, admin_note: [clean.admin_note, clean.clean_date ? `Booked for ${longDay(clean.clean_date)}; cleaned ${longDay(visitDate)}.` : null].filter(Boolean).join(' ') } : {}),
         tenant_todos: todos,
         special_jobs: [...specials, ...(otherJobText.trim() ? [otherJob(otherJobText)] : [])],
         notes: notes || null,
@@ -274,7 +288,7 @@ export default function CleanDetailPage() {
         .gt('clean_date', today).neq('id', clean.id).not('status', 'in', '("cancelled","completed")').limit(1)
       if (!ahead?.length) {
         const weeks = Number(clean.clean_frequency_weeks || clean.properties?.clean_frequency_weeks || 2)
-        const from = new Date(`${clean.clean_date || today}T12:00:00`)
+        const from = new Date(`${visitDate || clean.clean_date || today}T12:00:00`)
         const next = new Date(from); next.setDate(from.getDate() + 7 * weeks)
         while (next.toISOString().slice(0, 10) <= today) next.setDate(next.getDate() + 7 * weeks)   // a late write-up
         await supabase.from('cleans').insert({
@@ -306,7 +320,8 @@ export default function CleanDetailPage() {
         // "goes straight to the property manager" — it used to make the job without telling anyone
         if (raised?.id) await fetch('/api/notify-job-raised', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: raised.id }) }).catch(() => null)
       }
-      await tellTenants('done')   // "clean finished", with the next one (pencilled in above)
+      // "clean finished", with the next one (pencilled in above) — only on the day; a clean logged later isn't news
+      if (visitDate === todayISO) await tellTenants('done')
       setShowExitReminder(true)
       // Will navigate after reminder is dismissed
     } catch (err) {
@@ -366,9 +381,15 @@ export default function CleanDetailPage() {
           </div>
           {/* a clean whose day has gone by and isn't finished (21 Oct 2026) */}
           {clean.status !== 'completed' && clean.status !== 'cancelled' && clean.clean_date && clean.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) && (
-            <p className="mt-md rounded-xl bg-amber-400/15 px-md py-sm text-sm font-semibold text-amber-200">
-              This clean was due {new Date(`${clean.clean_date}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}. If you did it, finish it below with the real date in your notes — otherwise use “Running late / change day” to move it.
-            </p>
+            <div className="mt-md rounded-xl bg-amber-400/15 px-md py-sm">
+              <p className="text-sm font-semibold text-amber-100">This clean was due {longDay(clean.clean_date)}. Did you do it?</p>
+              <div className="mt-sm flex flex-wrap gap-sm">
+                <button type="button" onClick={() => { setVisitDate(clean.clean_date); setShowFinish(true); setTimeout(() => document.getElementById('finish-clean')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }}
+                  className="rounded-lg bg-white px-md py-sm text-sm font-bold text-neutral-900">Yes, I did it — log it</button>
+                <button type="button" onClick={() => { setShowReschedule(true); setTimeout(() => document.getElementById('change-day')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50) }}
+                  className="rounded-lg border border-white/40 px-md py-sm text-sm font-bold text-white">No — move it</button>
+              </div>
+            </div>
           )}
         </div>
 
@@ -446,8 +467,9 @@ export default function CleanDetailPage() {
           <>
             <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
               <h3 className="font-bold text-green-800">
-                ✅ Completed{clean.completed_at ? ` · ${new Date(clean.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
+                Done{clean.completed_at ? ` · ${longDay(new Date(clean.completed_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }))}` : ''}
               </h3>
+              <p className="mt-xs text-sm text-green-900">{clean.hours_worked != null ? `${hoursLabel(Number(clean.hours_worked))} there${myRate != null ? ` · £${(Number(clean.hours_worked) * myRate).toFixed(2)} at £${myRate.toFixed(2)} an hour` : ''}` : 'How long you were there isn’t recorded yet — add it below so it’s on your invoice.'}</p>
               {clean.special_jobs?.length ? (
                 <p className="mt-sm text-sm text-green-900">Extra jobs: {clean.special_jobs.map((j: string) => j.replace(/^Other: /, '')).join(', ')}</p>
               ) : null}
@@ -458,8 +480,10 @@ export default function CleanDetailPage() {
 
             {/* Editable after the fact — the figures often aren't known at completion time. */}
             <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg space-y-md">
-              <h3 className="font-bold text-neutral-900">Edit notes &amp; charges</h3>
-              <p className="text-xs text-neutral-500">This clean is done, but you can still update the note or add the extra-charge figures after the fact.</p>
+              <h3 className="font-bold text-neutral-900">Hours, notes and charges</h3>
+              <p className="text-xs text-neutral-500">This clean is done, but you can still put the day and hours right, update the note or add extra charges.</p>
+              {clean.supplier_invoice_id ? <p className="rounded-lg bg-neutral-50 px-md py-sm text-xs text-neutral-600">This clean is on an invoice already, so its day and hours are fixed.</p>
+                : <VisitFields visitDate={visitDate} setVisitDate={setVisitDate} hours={hours} setHours={setHours} rate={myRate} />}
               <textarea value={cleanerNote} onChange={(e) => setCleanerNote(e.target.value)} rows={3}
                 placeholder="Things you noticed, what to focus on next time…"
                 className="w-full rounded-lg border border-neutral-300 px-md py-sm text-sm" />
@@ -495,7 +519,7 @@ export default function CleanDetailPage() {
               ) : (
                 <button onClick={handleArrive} disabled={busy === 'arrive'}
                   className="w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40">
-                  {busy === 'arrive' ? 'Checking location…' : '📍 I’ve arrived'}
+                  {busy === 'arrive' ? 'Checking location…' : 'I’ve arrived'}
                 </button>
               )}
 
@@ -505,7 +529,7 @@ export default function CleanDetailPage() {
                   Running late / change day
                 </button>
               ) : (
-                <div className="rounded-xl border border-neutral-200 p-md space-y-md">
+                <div id="change-day" className="rounded-xl border border-neutral-200 p-md space-y-md">
                   <p className="text-sm font-bold">Change the time</p>
                   <div className="grid grid-cols-2 gap-md">
                     <input type="date" value={reDate} onChange={(e) => setReDate(e.target.value)}
@@ -566,7 +590,11 @@ export default function CleanDetailPage() {
                 Finish this clean
               </button>
             ) : (
-              <div className="rounded-2xl border-2 border-neutral-900 bg-white p-lg space-y-lg">
+              <div id="finish-clean" className="rounded-2xl border-2 border-neutral-900 bg-white p-lg space-y-lg">
+                <div>
+                  <h3 className="font-bold">When, and how long</h3>
+                  <VisitFields visitDate={visitDate} setVisitDate={setVisitDate} hours={hours} setHours={setHours} rate={myRate} />
+                </div>
                 <h3 className="font-bold">Things for tenants to do</h3>
                 <div className="space-y-sm">
                   {Object.entries(TENANT_TODOS).map(([area, options]) => (
@@ -653,6 +681,34 @@ export default function CleanDetailPage() {
         />
       )}
       <RoleTabBar<CleanerTab> role="cleaner" active={'today'} />
+    </div>
+  )
+}
+
+const longDay = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+const hoursLabel = (h: number) => `${h % 1 ? h.toFixed(1).replace(/\.0$/, '') : h} hour${h === 1 ? '' : 's'}`
+/** When a clean was done: now, if it was today; otherwise midday on that day. */
+function whenDone(day: string) {
+  return day === new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? new Date().toISOString() : `${day}T12:00:00.000Z`
+}
+
+/** The day the clean was done and the hours spent — when finishing it, and afterwards. Shows what the hours come to. */
+function VisitFields({ visitDate, setVisitDate, hours, setHours, rate }: { visitDate: string; setVisitDate: (v: string) => void; hours: string; setHours: (v: string) => void; rate: number | null }) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const h = Number(hours)
+  return (
+    <div className="mt-sm space-y-sm">
+      <div className="grid grid-cols-2 gap-md">
+        <label className="block min-w-0 text-xs text-neutral-600">Day you cleaned
+          <input type="date" max={today} value={visitDate} onChange={e => setVisitDate(e.target.value)} className="mt-xs w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900" /></label>
+        <label className="block min-w-0 text-xs text-neutral-600">Hours you were there
+          <select value={hours} onChange={e => setHours(e.target.value)} className="mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900">
+            <option value="">Choose…</option>
+            {Array.from({ length: 24 }, (_, i) => (i + 1) / 2).map(v => <option key={v} value={String(v)}>{hoursLabel(v)}</option>)}
+          </select></label>
+      </div>
+      {h > 0 && rate != null && <p className="text-sm font-semibold text-neutral-900">£{(h * rate).toFixed(2)} <span className="font-normal text-neutral-600">— {hoursLabel(h)} at your £{rate.toFixed(2)} an hour</span></p>}
+      {rate == null && <p className="text-xs text-neutral-500">Add your hourly rate in <Link href="/cleaner/invoices" className="font-semibold underline">Invoices › My details</Link> and your invoices will price each clean from its hours.</p>}
     </div>
   )
 }
