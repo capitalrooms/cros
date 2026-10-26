@@ -397,7 +397,7 @@ export default function ViewingsDiary() {
       {/* ── New viewing modal ── */}
       {addingNew && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-lg" onClick={() => !saving && setAddingNew(false)}>
-          <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-lg">
               <h2 className="text-xl font-bold text-neutral-900">Book a viewing</h2>
               <button onClick={() => !saving && setAddingNew(false)} className="text-neutral-400 hover:text-neutral-900 text-2xl leading-none">×</button>
@@ -531,7 +531,7 @@ export default function ViewingsDiary() {
       {/* Edit modal */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-lg" onClick={() => !saving && setEditing(null)}>
-          <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-lg">
               <h2 className="text-xl font-bold text-neutral-900">Amend viewing</h2>
               <button onClick={() => !saving && setEditing(null)} className="text-neutral-400 hover:text-neutral-900 text-2xl leading-none">×</button>

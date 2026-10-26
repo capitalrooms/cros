@@ -126,7 +126,7 @@ function ReportSheet({ isHmo, onClose }: { isHmo: boolean; onClose: () => void }
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       style={{ background: 'rgba(0,0,0,0.45)' }}
     >
-      <div className="w-full max-w-lg rounded-t-3xl bg-white px-lg pb-2xl pt-md animate-in slide-in-from-bottom duration-200">
+      <div className="w-full max-w-lg rounded-t-3xl bg-white px-lg pb-2xl pt-md animate-in slide-in-from-bottom duration-200 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
         <div className="mx-auto mb-md h-1 w-10 rounded-full bg-neutral-200" />
         <h2 className="text-xl font-bold text-neutral-900 mb-xs">What's this about?</h2>
         <p className="text-sm text-neutral-500 mb-lg">Pick the closest match.</p>

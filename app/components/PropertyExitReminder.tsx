@@ -24,7 +24,7 @@ export default function PropertyExitReminder({ propertyAddress = 'the property',
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-md">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-lg">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="mb-lg">
           <h2 className="text-2xl font-bold text-neutral-900 mb-md">✓ Before You Leave</h2>

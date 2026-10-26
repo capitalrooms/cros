@@ -76,7 +76,7 @@ export default function InstallPrompt() {
       />
 
       {/* Sheet — slides up from the bottom, matching the app's dark design */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-neutral-950 border-t border-white/10 px-lg pb-safe pt-lg shadow-2xl"
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-neutral-950 border-t border-white/10 px-lg pb-safe pt-lg shadow-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain"
         style={{ animation: 'slideUp .32s cubic-bezier(.32,0,.15,1)' }}>
 
         {/* Handle */}

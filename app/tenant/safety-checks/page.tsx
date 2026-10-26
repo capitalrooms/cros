@@ -225,7 +225,7 @@ export default function TenantSafetyChecksPage() {
       {/* Response Modal */}
       {activeCheck && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-lg">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
             <div className="flex items-center justify-between mb-lg">
               <h2 className="text-xl font-bold text-neutral-900">
                 {checkTypeLabels[activeCheck.check_type]?.title}
