@@ -1,0 +1,9 @@
+// The contractor app wears "Garden Square" (26 Oct 2026) — app/components/GardenTheme; the office keeps its own look.
+import type { Viewport } from 'next'
+import GardenTheme from '@/app/components/GardenTheme'
+
+export const viewport: Viewport = { themeColor: '#17332B' }
+
+export default function ContractorLayout({ children }: { children: React.ReactNode }) {
+  return <GardenTheme>{children}</GardenTheme>
+}

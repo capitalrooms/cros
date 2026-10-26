@@ -37,7 +37,7 @@ export default function PhoneTabBar({ tabs, label = 'Sections', fixed = false, c
   )
   return (
     <nav aria-label={label}
-      className={`${className} flex justify-around border-t border-neutral-200 bg-white/95 backdrop-blur ${fixed ? 'fixed inset-x-0 bottom-0 z-40' : 'flex-shrink-0'}`}
+      className={`cr-tabbar ${className} flex justify-around border-t border-neutral-200 bg-white/95 backdrop-blur ${fixed ? 'fixed inset-x-0 bottom-0 z-40' : 'flex-shrink-0'}`}
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 6px)' }}>
       {tabs.map(t => t.href
         ? <Link key={t.key} href={t.href} prefetch={false} aria-current={t.active ? 'page' : undefined} className={item(t.active)}>{svg(t)}{t.label}</Link>

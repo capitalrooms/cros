@@ -41,7 +41,7 @@ export default function DarkHeroHeader({
   children?: React.ReactNode
 }) {
   return (
-    <div className="bg-neutral-950 text-white">
+    <div className="cr-hero bg-[var(--cr-bar)] text-white">
 
       {/* the one top bar every user has (app/components/TopBar), pinned so it never moves on iOS overscroll */}
       <TopBar position="fixed" left={topLeft} right={topRight} />

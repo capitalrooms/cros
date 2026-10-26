@@ -57,7 +57,7 @@ const BADGE: Record<NoticeType, { label: string; emoji: string; stripe: string; 
   info:          { label: 'Info',           emoji: '📢', stripe: 'bg-blue-400',    pill: 'bg-blue-50 text-blue-700',    border: '#dbeafe' },
   task:          { label: 'Task',           emoji: '✅', stripe: 'bg-amber-400',   pill: 'bg-amber-50 text-amber-700',  border: '#fde68a' },
   update:        { label: 'Update',         emoji: '💬', stripe: 'bg-green-400',   pill: 'bg-green-50 text-green-700',  border: '#bbf7d0' },
-  house_reminder:{ label: 'House reminder', emoji: '🏠', stripe: 'bg-neutral-300', pill: 'bg-neutral-100 text-neutral-600', border: '#e5e7eb' },
+  house_reminder:{ label: 'House reminder', emoji: '🏠', stripe: 'bg-neutral-300', pill: 'bg-neutral-100 text-neutral-600', border: 'rgb(var(--n-200))' },
   maintenance:   { label: 'Maintenance',    emoji: '🔧', stripe: 'bg-orange-400',  pill: 'bg-orange-50 text-orange-700', border: '#fed7aa' },
 }
 
@@ -474,7 +474,7 @@ function NoticeCard({ notice, personId, onResolve, onWithdraw }: { notice: Notic
   return (
     <article
       className={`rounded-2xl border bg-white overflow-hidden transition-opacity ${isResolved ? 'opacity-60' : ''}`}
-      style={{ borderColor: isResolved ? '#e5e7eb' : badge.border }}
+      style={{ borderColor: isResolved ? 'rgb(var(--n-200))' : badge.border }}
     >
       {/* Type stripe */}
       <div className={`h-1 w-full ${isResolved ? 'bg-neutral-200' : badge.stripe}`} />

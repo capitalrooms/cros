@@ -337,7 +337,7 @@ export default function ContractorDashboard() {
       ════════════════════════════════════════════════════════════════════ */}
       <div
         className="hidden lg:grid lg:min-h-screen"
-        style={{ gridTemplateColumns: '220px 1fr 300px', background: '#F6F3EC', fontFamily: 'Inter,system-ui,sans-serif' }}
+        style={{ gridTemplateColumns: '220px 1fr 300px', background: 'var(--cr-ivory)', fontFamily: 'Inter,system-ui,sans-serif' }}
       >
 
         {/* ═══ SIDEBAR ════════════════════════════════════════════════════ */}
@@ -351,7 +351,7 @@ export default function ContractorDashboard() {
             { key: 'done',    label: 'Done'    },
           ]
           return (
-            <nav style={{ background: '#181614', color: '#F6F3EC', padding: '22px 16px', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
+            <nav style={{ background: 'var(--cr-ink)', color: 'var(--cr-ivory)', padding: '22px 16px', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
               <div style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontWeight: 800, fontSize: 15, letterSpacing: '0.02em' }}>
                 CAPITAL ROOMS
                 <span style={{ display: 'block', fontSize: 9, fontWeight: 500, letterSpacing: '0.14em', opacity: 0.5, marginTop: 2, textTransform: 'uppercase' }}>Contractor Portal</span>
@@ -364,7 +364,7 @@ export default function ContractorDashboard() {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '10px 12px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
-                      color: activeTab === key ? '#F6F3EC' : 'rgba(246,243,236,0.6)',
+                      color: activeTab === key ? 'var(--cr-ivory)' : 'rgba(246,243,236,0.6)',
                       background: activeTab === key ? 'rgba(246,243,236,0.1)' : 'transparent',
                       border: 'none', cursor: 'pointer', textAlign: 'left',
                     }}
@@ -378,7 +378,7 @@ export default function ContractorDashboard() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
                 <PoppingByVisit className="rounded-xl bg-white/10 px-md py-sm text-left text-sm font-bold text-white hover:bg-white/20" />
-                <a href={`/contractor/invoices${asId ? `?as=${asId}` : ''}`} style={{ display: 'block', padding: '9px 12px', borderRadius: 9, background: '#F6F3EC', color: '#181614', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>🧾 Invoices</a>
+                <a href={`/contractor/invoices${asId ? `?as=${asId}` : ''}`} style={{ display: 'block', padding: '9px 12px', borderRadius: 9, background: 'var(--cr-ivory)', color: 'var(--cr-ink)', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>🧾 Invoices</a>
                 <a href="/planner" style={{ display: 'block', padding: '8px 12px', borderRadius: 9, color: 'rgba(246,243,236,0.8)', fontSize: 12.5, fontWeight: 600, textDecoration: 'none' }}>🗂️ With Capital Rooms</a>
               </div>
               <div style={{ borderTop: '1px solid rgba(246,243,236,0.15)', paddingTop: 14, fontSize: 12, color: 'rgba(246,243,236,0.55)', display: 'flex', justifyContent: 'space-between' }}>
@@ -393,7 +393,7 @@ export default function ContractorDashboard() {
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
 
           {/* Dark hero */}
-          <div style={{ background: '#181614', color: '#F6F3EC', padding: '26px 32px 22px' }}>
+          <div style={{ background: 'var(--cr-ink)', color: 'var(--cr-ivory)', padding: '26px 32px 22px' }}>
             <div>
               <h1 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, margin: '0 0 3px', fontWeight: 800 }}>Hi {firstName} 👋</h1>
               <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,243,236,0.6)' }}>
@@ -413,7 +413,7 @@ export default function ContractorDashboard() {
                   onClick={onClick}
                   style={{ background: 'rgba(246,243,236,0.07)', borderRadius: 14, padding: '14px 16px', cursor: 'pointer', textAlign: 'left', border: 'none' }}
                 >
-                  <div style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, fontWeight: 700, color: numColor ?? '#F6F3EC' }}>{num}</div>
+                  <div style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 24, fontWeight: 700, color: numColor ?? 'var(--cr-ivory)' }}>{num}</div>
                   <div style={{ fontSize: 11, color: 'rgba(246,243,236,0.55)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{label}</div>
                 </button>
               ))}
@@ -422,28 +422,28 @@ export default function ContractorDashboard() {
 
           {/* Expandable "Need booking" panel */}
           {desktopPanelOpen && needsAttention > 0 && (
-            <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E7E1D4', maxHeight: 380, overflowY: 'auto' }}>
+            <div style={{ background: '#FFFFFF', borderBottom: '1px solid var(--cr-line)', maxHeight: 380, overflowY: 'auto' }}>
               <div style={{ padding: '16px 32px' }}>
                 {[...overdue, ...toSchedule].map(job => {
                   const isScheduling = schedulingId === job.id
                   return (
-                    <div key={job.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: '#F6F3EC', border: '1px solid #E7E1D4', borderRadius: 12, marginBottom: 8, gap: 16 }}>
+                    <div key={job.id} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--cr-ivory)', border: '1px solid var(--cr-line)', borderRadius: 12, marginBottom: 8, gap: 16 }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <b style={{ fontSize: 13, display: 'block' }}>{job.properties?.name}</b>
-                        <span style={{ fontSize: 11.5, color: '#59544C', display: 'block', marginTop: 1 }}>{String(job.category || 'General').replace(/-/g, ' ')}</span>
+                        <span style={{ fontSize: 11.5, color: 'var(--cr-muted)', display: 'block', marginTop: 1 }}>{String(job.category || 'General').replace(/-/g, ' ')}</span>
                         {overdue.find(o => o.id === job.id) && (
                           <span style={{ fontSize: 10, fontWeight: 700, color: '#B4472F', display: 'block', marginTop: 2 }}>⚠️ Overdue</span>
                         )}
                         {/* Inline slot picker */}
                         {isScheduling && (
-                          <div style={{ marginTop: 10, padding: '10px', background: '#fff', border: '1px solid #E7E1D4', borderRadius: 10 }}>
+                          <div style={{ marginTop: 10, padding: '10px', background: '#fff', border: '1px solid var(--cr-line)', borderRadius: 10 }}>
                             {schedulePhase === 'submitting' ? (
-                              <p style={{ fontSize: 12, color: '#59544C' }}>Saving…</p>
+                              <p style={{ fontSize: 12, color: 'var(--cr-muted)' }}>Saving…</p>
                             ) : schedulePhase === 'done' ? (
                               <p style={{ fontSize: 12, color: '#4B6358', fontWeight: 600 }}>{scheduleMsg}</p>
                             ) : (
                               <>
-                                <p style={{ fontSize: 11, fontWeight: 700, color: '#181614', marginBottom: 6 }}>
+                                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 6 }}>
                                   {schedulePhase === 'fallback' ? 'Fallback slot (≥ 24h from now required)' : 'Pick a date & time'}
                                 </p>
                                 <div style={{ display: 'flex', gap: 8 }}>
@@ -451,13 +451,13 @@ export default function ContractorDashboard() {
                                     type="date"
                                     value={schedulePhase === 'fallback' ? pickFallbackDate : pickDate}
                                     onChange={e => schedulePhase === 'fallback' ? setPickFallbackDate(e.target.value) : setPickDate(e.target.value)}
-                                    style={{ fontSize: 12, padding: '4px 8px', border: '1px solid #E7E1D4', borderRadius: 7, flex: 1 }}
+                                    style={{ fontSize: 12, padding: '4px 8px', border: '1px solid var(--cr-line)', borderRadius: 7, flex: 1 }}
                                   />
                                   <input
                                     type="time"
                                     value={schedulePhase === 'fallback' ? pickFallbackTime : pickTime}
                                     onChange={e => schedulePhase === 'fallback' ? setPickFallbackTime(e.target.value) : setPickTime(e.target.value)}
-                                    style={{ fontSize: 12, padding: '4px 8px', border: '1px solid #E7E1D4', borderRadius: 7, width: 90 }}
+                                    style={{ fontSize: 12, padding: '4px 8px', border: '1px solid var(--cr-line)', borderRadius: 7, width: 90 }}
                                   />
                                   <button
                                     onClick={async () => {
@@ -495,7 +495,7 @@ export default function ContractorDashboard() {
                                   >
                                     {schedulePhase === 'fallback' ? 'Confirm' : 'Book'}
                                   </button>
-                                  <button onClick={() => setSchedulingId(null)} style={{ background: 'transparent', border: '1.5px solid #E7E1D4', borderRadius: 9, padding: '7px 10px', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', color: '#181614' }}>✕</button>
+                                  <button onClick={() => setSchedulingId(null)} style={{ background: 'transparent', border: '1.5px solid var(--cr-line)', borderRadius: 9, padding: '7px 10px', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', color: 'var(--cr-ink)' }}>✕</button>
                                 </div>
                                 {schedulePhase === 'fallback' && (
                                   <p style={{ fontSize: 10.5, color: '#B4472F', marginTop: 6 }}>{scheduleMsg}</p>
@@ -507,7 +507,7 @@ export default function ContractorDashboard() {
                       </div>
                       {!isScheduling && (
                         <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
-                          <Link href={`/contractor/job/${job.id}${asId ? `?as=${asId}` : ''}`} style={{ padding: '7px 12px', borderRadius: 9, border: '1.5px solid #E7E1D4', background: 'transparent', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', color: '#181614', textDecoration: 'none' }}>
+                          <Link href={`/contractor/job/${job.id}${asId ? `?as=${asId}` : ''}`} style={{ padding: '7px 12px', borderRadius: 9, border: '1.5px solid var(--cr-line)', background: 'transparent', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', color: 'var(--cr-ink)', textDecoration: 'none' }}>
                             View details
                           </Link>
                           <button
@@ -561,8 +561,8 @@ export default function ContractorDashboard() {
               return (
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: '#181614' }}>Diary</h2>
-                    <div style={{ fontSize: 12, color: '#59544C' }}>
+                    <h2 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 18, margin: 0, color: 'var(--cr-ink)' }}>Diary</h2>
+                    <div style={{ fontSize: 12, color: 'var(--cr-muted)' }}>
                       {diaryJobs.length === 0 ? 'No jobs scheduled this week' : `${diaryJobs.length} job${diaryJobs.length !== 1 ? 's' : ''}`}
                     </div>
                   </div>
@@ -573,7 +573,7 @@ export default function ContractorDashboard() {
                     todayISO={today}
                   />
                   {diaryJobs.length === 0 && toSchedule.length === 0 && (
-                    <p style={{ marginTop: 24, fontSize: 12, color: '#59544C', textAlign: 'center' }}>No jobs in the diary yet. Click "Need booking ▾" above to schedule jobs.</p>
+                    <p style={{ marginTop: 24, fontSize: 12, color: 'var(--cr-muted)', textAlign: 'center' }}>No jobs in the diary yet. Click "Need booking ▾" above to schedule jobs.</p>
                   )}
                 </div>
               )
@@ -704,13 +704,13 @@ export default function ContractorDashboard() {
               {/* Coming up */}
               {upcomingWithDates.length > 0 && (
                 <div style={{ marginTop: 18 }}>
-                  <h3 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#59544C', margin: '0 0 10px' }}>Coming Up</h3>
+                  <h3 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--cr-muted)', margin: '0 0 10px' }}>Coming Up</h3>
                   {upcomingWithDates.slice(0, 4).map(job => (
                     <Link key={job.id} href={`/contractor/job/${job.id}${asId ? `?as=${asId}` : ''}`}>
-                      <div style={{ background: '#FFFFFF', border: '1px solid #E7E1D4', borderRadius: 12, padding: '10px 12px', marginBottom: 8 }}>
-                        <div style={{ fontWeight: 700, fontSize: 12, color: '#181614', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.properties?.name}</div>
-                        <div style={{ fontSize: 11, color: '#59544C', marginTop: 1 }}>{String(job.category || 'General').replace(/-/g, ' ')}</div>
-                        <div style={{ fontSize: 10.5, color: '#59544C', marginTop: 3 }}>📅 {formatDateUK(job.booked_date!)}{job.booked_slot ? ` · ${String(job.booked_slot).slice(0,5)}` : ''}</div>
+                      <div style={{ background: '#FFFFFF', border: '1px solid var(--cr-line)', borderRadius: 12, padding: '10px 12px', marginBottom: 8 }}>
+                        <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--cr-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.properties?.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--cr-muted)', marginTop: 1 }}>{String(job.category || 'General').replace(/-/g, ' ')}</div>
+                        <div style={{ fontSize: 10.5, color: 'var(--cr-muted)', marginTop: 3 }}>📅 {formatDateUK(job.booked_date!)}{job.booked_slot ? ` · ${String(job.booked_slot).slice(0,5)}` : ''}</div>
                       </div>
                     </Link>
                   ))}
