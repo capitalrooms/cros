@@ -90,6 +90,8 @@ export default function JobDetailPage() {
   const [quoteOnly, setQuoteOnly] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notes, setNotes] = useState('')
+  // what they charge for the job (26 Oct 2026) — it prices the job on their invoice; the quote fills it in
+  const [price, setPrice] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [bookDate, setBookDate] = useState('')
   const [bookSlot, setBookSlot] = useState('')
@@ -155,6 +157,7 @@ export default function JobDetailPage() {
         // the key safe code comes from the server, and only for a booked job (lib/access/keySafe)
         adminFetch(`/api/contractor/key-safe?jobId=${jobId}`).then(r => r.ok ? r.json() : null).then(d => setKeySafe(d?.keySafe ?? null)).catch(() => {})
         setNotes((jobData as any).notes || '')
+        { const jd = jobData as any; const p = jd.final_price ?? jd.quote_amount; setPrice(p != null ? Number(p).toFixed(2) : '') }
         setBookDate((jobData as any).booked_date || '')
         setBookSlot((jobData as any).booked_slot || '')
 
@@ -423,12 +426,13 @@ export default function JobDetailPage() {
     if (officeNote(job.admin_note)) {
       if (!window.confirm(`Before you finish — did you sort this?\n\n"${officeNote(job.admin_note)}"`)) return
     }
+    if (!price && !window.confirm('No price for this job yet — finish anyway? You can add it later, before you invoice.')) return
     setBusy('complete')
     try {
       // logged afterwards: completed on the day of the visit, not the day it was written up
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       const visitDay = job.arrived_at ? new Date(job.arrived_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : today
-      await patch({ status: 'completed', completed_at: visitDay < today ? `${visitDay}T16:00:00.000Z` : new Date().toISOString() })
+      await patch({ status: 'completed', completed_at: visitDay < today ? `${visitDay}T16:00:00.000Z` : new Date().toISOString(), ...(price ? { final_price: Number(price) } : {}) })
 
       // Get notification details
       const res = await fetch('/api/notify-job-completed', {
@@ -504,8 +508,8 @@ export default function JobDetailPage() {
   async function saveNotes() {
     setSavingNotes(true)
     try {
-      await patch({ notes })
-      alert('Notes saved')
+      await patch({ notes, ...(!(job as any)?.supplier_invoice_id ? { final_price: price ? Number(price) : null } : {}) })
+      alert('Saved')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -1330,13 +1334,18 @@ export default function JobDetailPage() {
 
             {/* Notes */}
             {!quoteOnly && <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
+              <label className="mb-md block text-sm font-bold text-neutral-900">Your price for this job (£)
+                <input inputMode="decimal" value={price} disabled={!!(job as any).supplier_invoice_id} onChange={e => setPrice(e.target.value.replace(/[^\d.]/g, ''))}
+                  placeholder="e.g. 85.00" className="mt-xs block w-full rounded-lg border border-neutral-300 px-lg py-md text-sm font-normal disabled:bg-neutral-50" />
+                <span className="mt-xs block text-xs font-normal text-neutral-500">{(job as any).supplier_invoice_id ? 'This job is on an invoice, so its price is fixed.' : 'Goes on your invoice for this job — you can change it until you invoice.'}</span>
+              </label>
               <h3 className="font-bold text-neutral-900 mb-md">Your notes</h3>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={5}
                 placeholder="Work done, parts used, anything to flag…"
                 className="w-full rounded-lg border border-neutral-300 px-lg py-md text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
               <button onClick={saveNotes} disabled={savingNotes}
                 className="mt-md w-full rounded-lg border border-neutral-400 py-md text-sm font-bold text-neutral-900 disabled:opacity-40">
-                {savingNotes ? 'Saving…' : 'Save notes'}
+                {savingNotes ? 'Saving…' : 'Save price and notes'}
               </button>
             </div>}
           </div>
