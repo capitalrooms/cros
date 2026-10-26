@@ -14,6 +14,7 @@ import { TenantDashboardSkeleton } from '@/app/components/SkeletonLoading'
 import ViewAsBanner from '@/app/components/ViewAsBanner'
 import TenantOnboarding from '@/app/components/TenantOnboarding'
 import Link from 'next/link'
+import GIcon from '@/app/components/garden/GIcon'
 
 interface Tenancy {
   start_date: string
@@ -194,6 +195,7 @@ export default function TenantDashboard() {
   const [revealed, setRevealed] = useState<Set<number>>(new Set())
   const [messages, setMessages] = useState<any[]>([])
   const [viewingAs, setViewingAs] = useState<{ id: string; name: string; role: string } | null>(null)
+  const [firstName, setFirstName] = useState('')   // the greeting (Garden Square, 26 Oct 2026)
   const [guides, setGuides] = useState<Array<{ id: string; slug: string; title: string; emoji: string; acknowledged: boolean; acknowledgment_required: boolean }>>([])
   const [guidesLoaded, setGuidesLoaded] = useState(false)
   const [noticesSummary, setNoticesSummary] = useState<{ count: number; taskCount: number; latest: Array<{ notice_type: string; ai_text: string | null; raw_text: string }> } | null>(null)
@@ -267,6 +269,7 @@ export default function TenantDashboard() {
         if (!target || target.role !== 'tenant') { router.push('/admin/people'); return }
         setUser(data!.user)
         setViewingAs({ id: resolvedAs, name: displayName(target), role: target.role })
+        setFirstName(target.first_name ?? '')
         effectiveId = resolvedAs
         // Persist so sub-page back-navigations don't lose the context
         try { sessionStorage.setItem('cros-view-as', resolvedAs) } catch { /* noop */ }
@@ -278,6 +281,7 @@ export default function TenantDashboard() {
       } else {
         setUser(data.user)
         effectiveId = (data.assignment as any)?.id
+        setFirstName((data.assignment as any)?.first_name ?? '')
         // Show onboarding if not yet seen on this device
         try {
           if (!localStorage.getItem('cros-onboarded-tenant')) { setShowOnboarding(true); setTourThisVisit(true) }
@@ -557,44 +561,36 @@ export default function TenantDashboard() {
       <main className="mx-auto max-w-lg px-lg pb-2xl">
 
         {/* ── Dark tenancy pill ─────────────────────────────────────────── */}
+        {/* the green header (Garden Square, 26 Oct 2026): a greeting, the home, the rent pill */}
         <section
-          className="-mb-3xl bg-neutral-900 pb-3xl text-white"
-          style={{ marginInline: '-16px', paddingInline: '16px' }}
+          className="cr-hero bg-neutral-900 pb-xl text-white"
+          style={{ marginInline: '-16px', paddingInline: '20px' }}
         >
-          <div className="flex items-start justify-between gap-md pt-lg">
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium uppercase tracking-widest text-white/40">Your tenancy</p>
-              <p className="mt-xs text-xl font-bold leading-tight">
-                {tenancy?.rooms?.name ? `${tenancy.rooms.name}, ` : ''}
-                {tenancy?.properties?.name ?? 'No active tenancy'}
-              </p>
-              <p className="text-sm text-white/50">{tenancy?.properties?.address}</p>
-            </div>
+          <div className="pt-lg">
+            <p className="text-[15px] text-white/70">{(() => { const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' })); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening' })()}{firstName ? `, ${firstName}` : ''}</p>
+            <h1 className="mt-xs text-[27px] font-semibold leading-tight">
+              {tenancy?.rooms?.name ? `${tenancy.rooms.name}, ` : ''}
+              {tenancy?.properties?.name ?? 'No active tenancy'}
+            </h1>
+            <p className="text-sm text-white/70">{tenancy?.properties?.address}</p>
             {/* the inbox bell is in the top bar (it used to be here as well — two bells, both with the count) */}
           </div>
 
           {tenancy && (
-            <div className="mt-lg grid grid-cols-3 gap-md border-t border-white/15 pt-lg">
-              <Stat
-                label="Rent"
-                value={tenancy.rent_amount != null ? `£${Number(tenancy.rent_amount).toLocaleString('en-GB')}` : '—'}
-                sub="per month"
-              />
-              <Stat
-                label="Next due"
-                value={rentDate ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
-                sub={rentIn === 0 ? 'today' : rentIn != null ? `in ${rentIn} days` : ''}
-              />
-              <Stat
-                label="Started"
-                value={tenancy.start_date ? new Date(`${tenancy.start_date.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
-                sub="periodic tenancy · you give 2 months’ notice"
-              />
+            <div className="mt-lg flex items-center justify-between gap-md rounded-[20px] bg-white/10 px-lg py-md">
+              <div className="min-w-0">
+                <p className="text-xs text-white/70">Next rent · {tenancy.rent_amount != null ? `£${Number(tenancy.rent_amount).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</p>
+                <p className="text-[17px] font-semibold" style={{ fontFamily: 'var(--font-sora), var(--font-nunito), sans-serif' }}>{rentDate ? rentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}</p>
+              </div>
+              {rentIn != null && <span className="shrink-0 rounded-full px-md py-1.5 text-[13px] font-bold text-neutral-900" style={{ background: 'var(--cr-gold)' }}>{rentIn === 0 ? 'today' : `in ${rentIn} day${rentIn === 1 ? '' : 's'}`}</span>}
             </div>
+          )}
+          {tenancy?.start_date && (
+            <p className="mt-sm text-xs text-white/60">Since {new Date(`${tenancy.start_date.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} · periodic tenancy, you give 2 months’ notice</p>
           )}
 
           {/* Single merged next-visit line — no repeated empty states */}
-          <p className="mt-lg border-t border-white/15 pt-md text-sm text-white/50">
+          <p className="mt-md border-t border-white/15 pt-md text-sm text-white/70">
             {vLine ?? 'Nothing booked at your property right now.'}
           </p>
 
@@ -660,8 +656,28 @@ export default function TenantDashboard() {
           })()}
         </section>
 
-        {/* ── Below dark band ───────────────────────────────────────────── */}
-        <div className="mt-3xl pt-lg space-y-md">
+        {/* ── Below the header: the four things tenants come for, as tiles (Garden Square) ── */}
+        <div className="pt-xl space-y-md">
+          <div className="grid grid-cols-2 gap-md">
+            <button type="button" onClick={() => setShowReportSheet(true)}
+              className="flex h-[116px] flex-col justify-between rounded-[22px] bg-neutral-900 p-lg text-left text-white active:scale-[0.98] transition-transform">
+              <GIcon name="wrench" size={26} color="var(--cr-gold)" />
+              <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Report a repair</span>
+            </button>
+            <Link href="/tenant/inbox" className="flex h-[116px] flex-col justify-between rounded-[22px] bg-white p-lg text-neutral-900 active:scale-[0.98] transition-transform">
+              <GIcon name="inbox" size={26} />
+              <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Inbox</span>
+            </Link>
+            <Link href="/tenant/requests" className="flex h-[116px] flex-col justify-between rounded-[22px] bg-white p-lg text-neutral-900 active:scale-[0.98] transition-transform">
+              <GIcon name="list" size={26} />
+              <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>My requests</span>
+            </Link>
+            <Link href="/tenant/emergency" className="flex h-[116px] flex-col justify-between rounded-[22px] bg-red-50 p-lg text-red-800 active:scale-[0.98] transition-transform">
+              <GIcon name="alert" size={26} />
+              <span className="text-base font-semibold" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>Emergency</span>
+            </Link>
+          </div>
+
           <EnableNotifications />
 
           {/* Humidity today — sits at top like a weather widget */}
@@ -674,7 +690,7 @@ export default function TenantDashboard() {
                 : 'border-neutral-200 bg-white'
             }`}>
               <div className="flex items-start gap-sm">
-                <span className="text-xl mt-0.5">💧</span>
+                <GIcon name="droplet" size={20} className="mt-0.5 shrink-0 text-amber-700" />
                 <div className="flex-1">
                   <p className="font-semibold text-neutral-900 text-sm">Humidity today</p>
                   <p className="text-sm text-neutral-600 mt-xs leading-snug">
@@ -689,14 +705,13 @@ export default function TenantDashboard() {
           {/* Notice Board */}
           <Link
             href="/tenant/notices"
-            className="block rounded-2xl border border-neutral-200 bg-white overflow-hidden hover:border-neutral-400 transition-colors"
+            className="block rounded-[20px] bg-white overflow-hidden transition-colors"
           >
-            <div className="h-0.5 bg-gradient-to-r from-blue-400 to-amber-400 w-full" />
             <div className="px-lg py-md flex items-center justify-between gap-md">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-sm mb-xs">
-                  <span className="text-base">📋</span>
-                  <p className="font-bold text-neutral-900">Notice Board</p>
+                  <GIcon name="board" size={18} />
+                  <p className="font-bold text-neutral-900">Notice board</p>
                   {noticesSummary && noticesSummary.taskCount > 0 && (
                     <span className="rounded-full bg-amber-400 px-sm py-0.5 text-xs font-extrabold text-neutral-900">
                       {noticesSummary.taskCount} task{noticesSummary.taskCount !== 1 ? 's' : ''}
@@ -707,7 +722,7 @@ export default function TenantDashboard() {
                   <div className="space-y-xs">
                     {noticesSummary.latest.map((n, i) => (
                       <p key={i} className="text-sm text-neutral-600 truncate">
-                        <span className="font-medium">{n.notice_type === 'task' ? '✅' : n.notice_type === 'house_reminder' ? '🏠' : '📢'}</span>{' '}
+                        <span className={`mr-sm inline-block h-2 w-2 rounded-full align-middle ${n.notice_type === 'task' ? 'bg-amber-500' : 'bg-neutral-300'}`} />
                         {(n.ai_text || n.raw_text).slice(0, 70)}{(n.ai_text || n.raw_text).length > 70 ? '…' : ''}
                       </p>
                     ))}
@@ -727,13 +742,13 @@ export default function TenantDashboard() {
 
           {/* House Info accordion */}
           {houseInfo.length > 0 && (
-            <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden">
+            <div className="rounded-[20px] bg-white overflow-hidden">
               <button
                 onClick={() => setHouseInfoOpen(v => !v)}
                 className="flex w-full items-start justify-between gap-md px-lg py-md text-left hover:bg-neutral-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-neutral-900">🏠 House Info</p>
+                  <p className="flex items-center gap-sm font-bold text-neutral-900"><GIcon name="home" size={18} />House info</p>
                   <p className="text-sm text-neutral-500 mt-xs truncate">
                     {houseInfo.slice(0, 3).map(i => `${i.icon} ${i.label}`).join(' · ')}
                     {houseInfo.length > 3 ? ` · +${houseInfo.length - 3} more` : ''}
@@ -789,19 +804,7 @@ export default function TenantDashboard() {
             </div>
           )}
 
-          {/* Emergencies — straight to the quick report (lib/emergencies), then the usual Report an issue */}
-          <Link href="/tenant/emergency"
-            className="block w-full rounded-2xl bg-red-700 py-md text-center text-base font-bold text-white hover:bg-red-600 transition-colors active:scale-[0.98]">
-            🚨 Report an emergency
-          </Link>
-
-          {/* Report an issue — moved to bottom now screen has more content above */}
-          <button
-            onClick={() => setShowReportSheet(true)}
-            className="w-full rounded-2xl bg-neutral-800 py-md text-center text-base font-bold text-white hover:bg-neutral-700 transition-colors active:scale-[0.98]"
-          >
-            ⚠️ Report an issue
-          </button>
+          {/* Report a repair and Emergency are the tiles at the top now (Garden Square) */}
 
           {/* ── Everything else ─ collapsed accordions ─────────────────── */}
           <div>
@@ -1043,16 +1046,6 @@ export default function TenantDashboard() {
 }
 
 // ── Helper components ─────────────────────────────────────────────────────────
-
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div>
-      <p className="text-xs uppercase tracking-wide text-white/40">{label}</p>
-      <p className="mt-xs text-base font-semibold">{value}</p>
-      {sub && <p className="text-xs text-white/40">{sub}</p>}
-    </div>
-  )
-}
 
 function SafetyBadge({ title, expiry }: { title: string; expiry?: string | null }) {
   const inDate = !!expiry && new Date(expiry) >= new Date()
