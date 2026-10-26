@@ -29,8 +29,9 @@ function push(p: { personId?: string; role?: string; title: string; body: string
  *     marked arrived — they tap through to confirm or reschedule (which notifies
  *     tenants of the new time).
  *  2. Compliance reminder to admins, ~every 3rd day, for certs due within 14 days.
- *  3. Cleans not logged: the cleaner is asked "did you do it?"; the office gets one email listing cleans 2+ days
- *     overdue and houses with a cleaning schedule but nothing booked (only when there's something to say).
+ *  3. Cleans and repair visits not logged: the cleaner / contractor is asked "did you do it?"; the office gets one
+ *     email listing ones 2+ days overdue and houses with a cleaning schedule but nothing booked (only when there's
+ *     something to say; test accounts left out).
  */
 export async function GET(req: Request) {
   if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -111,27 +112,51 @@ export async function GET(req: Request) {
     })
     nudged++
   }
+  // Repair visits the same (26 Oct 2026): booked, the day gone by, not logged — the contractor is asked, and the office
+  // email below lists any two days or more late
+  const { data: missedVisits } = await supabase
+    .from('maintenance_tickets')
+    .select('id, title, booked_date, contractor_id, properties(name)')
+    .lt('booked_date', today)
+    .gte('booked_date', new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10))
+    .eq('status', 'assigned')
+    .is('arrived_at', null)
+    .is('completed_at', null)
+    .not('contractor_id', 'is', null)
+  for (const j of (missedVisits ?? []) as any[]) {
+    await push({
+      personId: j.contractor_id,
+      title: 'Did you go?',
+      body: `${j.title || 'A job'} at ${String(j.properties?.name ?? '').split('\n')[0]} was booked for ${new Date(`${j.booked_date}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' })}. Tap to log the visit — or rebook it.`,
+      url: `/contractor/job/${j.id}`,
+      tag: `missed-visit-${j.id}`,
+    })
+    nudged++
+  }
+
   let cleaningAlert = 0
   {
     const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     // test cleaners' cleans (made-up accounts) aren't the office's business
-    const { data: cleaners } = await supabase.from('people').select('id, email').eq('role', 'cleaner')
-    const testIds = new Set(((cleaners ?? []) as any[]).filter(p => isTestEmail(p.email)).map(p => p.id))
+    const { data: workers } = await supabase.from('people').select('id, email').in('role', ['cleaner', 'contractor'])
+    const testIds = new Set(((workers ?? []) as any[]).filter(p => isTestEmail(p.email)).map(p => p.id))
     const late = ((overdueCleans ?? []) as any[]).filter(c => c.clean_date <= twoDaysAgo && !testIds.has(c.cleaner_id))
+    const lateVisits = ((missedVisits ?? []) as any[]).filter(j => j.booked_date <= twoDaysAgo && !testIds.has(j.contractor_id))
     const { data: houses, error: hErr } = await supabase.from('properties').select('id, name, clean_day, clean_time, clean_frequency_weeks').not('clean_day', 'is', null)
     const { data: ahead } = await supabase.from('cleans').select('property_id').gte('clean_date', today).not('status', 'in', '("completed","cancelled")')
     const booked = new Set(((ahead ?? []) as any[]).map(a => a.property_id))
     const lateHouses = new Set(late.map(c => c.property_id))
     const unbooked = hErr ? [] : ((houses ?? []) as any[]).filter(h => h.clean_time && h.clean_frequency_weeks && !booked.has(h.id) && !lateHouses.has(h.id))
-    cleaningAlert = late.length + unbooked.length
+    cleaningAlert = late.length + unbooked.length + lateVisits.length
     if (cleaningAlert) {
       const name = (n: unknown) => String(n ?? '').split('\n')[0]
       const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
       const html = await buildEmail(
         (late.length ? `<p><strong>Cleans not logged</strong> — booked, the day has gone, and the cleaner hasn’t said it was done. The next clean at these houses isn’t booked until it is.</p><ul>${late.map(c => `<li>${name(c.properties?.name)} — ${day(c.clean_date)}</li>`).join('')}</ul>` : '')
         + (unbooked.length ? `<p><strong>No clean booked</strong> — these houses have a cleaning schedule but nothing in the diary.</p><ul>${unbooked.map(h => `<li>${name(h.name)}</li>`).join('')}</ul>` : '')
-        + officeButton('/admin/cleaner-jobs', 'Open Cleaning'), { signature: false })
-      await deliverEmail({ to: OFFICE_ALERT_EMAIL, subject: `Cleaning: ${[late.length && `${late.length} clean${late.length === 1 ? '' : 's'} not logged`, unbooked.length && `${unbooked.length} house${unbooked.length === 1 ? '' : 's'} with nothing booked`].filter(Boolean).join(', ')}`, html }).catch(() => null)
+        + (late.length || unbooked.length ? officeButton('/admin/cleaner-jobs', 'Open Cleaning') : '')
+        + (lateVisits.length ? `<p style="margin-top:24px"><strong>Repair visits not logged</strong> — booked, the day has gone, and the contractor hasn’t logged it or rebooked.</p><ul>${lateVisits.map(j => `<li>${j.title || 'A job'} — ${name(j.properties?.name)} — ${day(j.booked_date)}</li>`).join('')}</ul>${officeButton('/admin/maintenance', 'Open Maintenance')}` : ''), { signature: false })
+      await deliverEmail({ to: OFFICE_ALERT_EMAIL, subject: `Needs a look: ${[late.length && `${late.length} clean${late.length === 1 ? '' : 's'} not logged`, unbooked.length && `${unbooked.length} house${unbooked.length === 1 ? '' : 's'} with no clean booked`, lateVisits.length && `${lateVisits.length} repair visit${lateVisits.length === 1 ? '' : 's'} not logged`].filter(Boolean).join(', ')}`, html }).catch(() => null)
     }
   }
 
