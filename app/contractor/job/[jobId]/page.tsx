@@ -96,6 +96,8 @@ export default function JobDetailPage() {
   const [busy, setBusy] = useState('')
   const [showCompletion, setShowCompletion] = useState(false)
   const [completionMessage, setCompletionMessage] = useState<string | null>(null)
+  // a visit logged afterwards: the day they actually came (26 Oct 2026 — it assumed the booked day)
+  const [pastDay, setPastDay] = useState('')
   const [accessLog, setAccessLog] = useState<string[]>([])
   const [showQuickNotify, setShowQuickNotify] = useState(false)
   // Reschedule flow (upcoming + past visits)
@@ -216,8 +218,10 @@ export default function JobDetailPage() {
 
   async function patch(fields: Record<string, any>) {
     const supabase = createClient()
-    const { error } = await supabase.from('maintenance_tickets').update(fields).eq('id', jobId)
+    const { data: saved, error } = await supabase.from('maintenance_tickets').update(fields).eq('id', jobId).select('id')
     if (error) throw error
+    // nothing changed and no error: the job isn't this person's to change (it used to look saved — 26 Oct 2026)
+    if (!saved?.length) throw new Error('This job couldn’t be updated — it may have been moved to someone else. Ask the office.')
     setJob((j) => (j ? { ...j, ...fields } : j))
   }
 
@@ -259,7 +263,7 @@ export default function JobDetailPage() {
           : `The repair visit at your property has moved to ${when}, ${slotLabel(bookSlot)}.`
       )
       setShowReschedule(false)
-      alert('✅ Rescheduled — the tenants have been notified.')
+      alert('Rescheduled — the tenants have been notified.')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -288,7 +292,7 @@ export default function JobDetailPage() {
           month: 'long', year: 'numeric'
         })}, ${slotLabel(bookSlot)}.`
       )
-      alert('✅ Visit booked — the tenants have been notified.')
+      alert('Visit booked — the tenants have been notified.')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -301,10 +305,13 @@ export default function JobDetailPage() {
   // time. Logging it records the visit day, tells nobody, and opens the completion form below.
   async function handleLogPast() {
     if (!job?.booked_date) return
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    const day = pastDay || job.booked_date.slice(0, 10)
+    if (day > today) { alert('Pick the day you came — today or earlier.'); return }
     setBusy('arrive')
     try {
       const startHour = Number(String(job.booked_slot ?? '').split('-')[0]) || 9
-      await patch({ arrived_at: new Date(`${job.booked_date.slice(0, 10)}T${String(startHour).padStart(2, '0')}:00:00`).toISOString() })
+      await patch({ arrived_at: new Date(`${day}T${String(startHour).padStart(2, '0')}:00:00`).toISOString() })
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -320,7 +327,7 @@ export default function JobDetailPage() {
         await patch({ arrived_at: new Date().toISOString() })
         notify('/api/notify-booking')
         pushTenants('Your contractor has arrived at the property.')
-        alert(`✅ Marked as arrived — the tenants have been told you're here.`)
+        alert('Marked as arrived.')
       } catch (err) {
         alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
       } finally {
@@ -386,7 +393,7 @@ export default function JobDetailPage() {
       await patch({ before_photo: url, status: 'in_progress' })
       notify('/api/notify-booking')
       pushTenants('Work has started on a repair at your property.')
-      alert('✅ Work started — before photo saved and the tenants have been updated.')
+      alert('Work started — before photo saved and the tenants have been updated.')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -418,7 +425,10 @@ export default function JobDetailPage() {
     }
     setBusy('complete')
     try {
-      await patch({ status: 'completed', completed_at: new Date().toISOString() })
+      // logged afterwards: completed on the day of the visit, not the day it was written up
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+      const visitDay = job.arrived_at ? new Date(job.arrived_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : today
+      await patch({ status: 'completed', completed_at: visitDay < today ? `${visitDay}T16:00:00.000Z` : new Date().toISOString() })
 
       // Get notification details
       const res = await fetch('/api/notify-job-completed', {
@@ -432,16 +442,16 @@ export default function JobDetailPage() {
         const summary = data.notificationSummary
 
         // Build notification message
-        let msg = '✅ Job completed\n\n'
-        if (summary?.adminNotified) msg += `📧 Property manager notified\n`
-        if (summary?.tenantInRoomNotified) msg += `📧 Tenant notified of repair completion\n`
-        if ((summary?.otherTenantsNotified ?? 0) > 0) msg += `📧 ${summary.otherTenantsNotified} other tenant(s) notified\n`
-        if (!summary || (summary.total ?? 0) === 0) msg += `⚠️ No notifications sent (check notification preferences)\n`
+        let msg = 'Job completed\n\n'
+        if (summary?.adminNotified) msg += `Property manager notified\n`
+        if (summary?.tenantInRoomNotified) msg += `Tenant notified of repair completion\n`
+        if ((summary?.otherTenantsNotified ?? 0) > 0) msg += `${summary.otherTenantsNotified} other tenant(s) notified\n`
+        if (!summary || (summary.total ?? 0) === 0) msg += `No notifications sent (check notification preferences)\n`
 
         setCompletionMessage(msg.trim())
         alert(msg.trim())
       } else {
-        alert('✅ Job completed — notification status unknown')
+        alert('Job completed — notification status unknown')
       }
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
@@ -470,7 +480,7 @@ export default function JobDetailPage() {
         notify('/api/notify-booking')
         const when = new Date(returnDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
         pushTenants(`Your contractor needs to come back to finish the repair: ${when}, ${slotLabel(returnSlot)}.`)
-        alert('✅ Return visit booked — the tenants have been told.')
+        alert('Return visit booked — the tenants have been told.')
       }
       setShowReturnFlow(false)
     } catch (err) {
@@ -495,7 +505,7 @@ export default function JobDetailPage() {
     setSavingNotes(true)
     try {
       await patch({ notes })
-      alert('✅ Notes saved')
+      alert('Notes saved')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -508,10 +518,11 @@ export default function JobDetailPage() {
     setTickingTask(taskId)
     try {
       const supabase = createClient()
-      await supabase
+      const { data: saved, error } = await supabase
         .from('property_tasks')
         .update({ status: nowDone ? 'completed' : 'converted', completed_at: nowDone ? new Date().toISOString() : null })
-        .eq('id', taskId)
+        .eq('id', taskId).select('id')
+      if (error || !saved?.length) throw new Error('not saved')
       setTasks(ts => ts.map(t => t.id === taskId ? { ...t, status: nowDone ? 'completed' : 'converted', completed_at: nowDone ? new Date().toISOString() : null } : t))
     } catch {
       alert('Could not update task. Please try again.')
@@ -540,14 +551,15 @@ export default function JobDetailPage() {
         if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Error submitting quote')
       } else {
       const supabase = createClient()
-      const { error: qErr } = await supabase.from('maintenance_tickets').update({
+      const { data: qSaved, error: qErr } = await supabase.from('maintenance_tickets').update({
         quote_amount:       quoteAmount ? parseFloat(quoteAmount) : null,
         quote_notes:        quoteNotes.trim() || null,
         quote_site_visit:   quoteSiteVisit,
         quote_visit_date:   quoteSiteVisit ? quoteVisitDate : null,
         quote_submitted_at: new Date().toISOString(),
-      }).eq('id', jobId)
+      }).eq('id', jobId).select('id')
       if (qErr) throw qErr
+      if (!qSaved?.length) throw new Error('Your quote couldn’t be saved — this job may have been moved. Ask the office.')
       }
       setJob(j => j ? { ...j,
         quote_amount: quoteAmount ? parseFloat(quoteAmount) : null,
@@ -557,8 +569,8 @@ export default function JobDetailPage() {
         quote_submitted_at: new Date().toISOString(),
       } : j)
       alert(quoteSiteVisit
-        ? '✅ Site visit request sent — the office will confirm the date.'
-        : '✅ Quote submitted — the office will review it.')
+        ? 'Site visit request sent — the office will confirm the date.'
+        : 'Quote submitted — the office will review it.')
     } catch (e) {
       alert(e instanceof Error && e.message ? e.message : 'Error submitting quote. Please try again.')
     } finally {
@@ -723,7 +735,7 @@ export default function JobDetailPage() {
               </>
             ) : (
               <>
-                <p className="text-xs font-bold uppercase tracking-wide text-blue-800 mb-xs">📋 Quote requested</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-blue-800 mb-xs">Quote requested</p>
                 <p className="text-sm text-blue-900 mb-md">
                   The office has requested a quote for this job. Review the details, then either submit a price or flag that you need to visit first.
                 </p>
@@ -784,8 +796,8 @@ export default function JobDetailPage() {
                   {submittingQuote
                     ? 'Sending…'
                     : quoteSiteVisit
-                    ? '📍 Request site visit'
-                    : '💬 Submit quote'}
+                    ? 'Request site visit'
+                    : 'Submit quote'}
                 </button>
               </>
             )}
@@ -886,11 +898,11 @@ export default function JobDetailPage() {
             {quoteOnly ? null : isDone ? (
               <>
                 <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
-                  <h3 className="font-bold text-green-800">✅ Completed</h3>
+                  <h3 className="font-bold text-green-800">Completed</h3>
                   <p className="mt-xs text-sm text-green-700">This job is done and everyone's been notified.</p>
                 </div>
                 {!(job as any).supplier_invoice_id && (
-                  <a href={`/contractor/invoices?job=${job.id}${searchParams.get('as') ? `&as=${searchParams.get('as')}` : ''}`} className="flex items-center justify-between rounded-2xl bg-neutral-900 px-lg py-md text-sm font-bold text-white">🧾 Invoice this job — ready in a minute<span aria-hidden="true">›</span></a>
+                  <a href={`/contractor/invoices?job=${job.id}${searchParams.get('as') ? `&as=${searchParams.get('as')}` : ''}`} className="flex items-center justify-between rounded-2xl bg-neutral-900 px-lg py-md text-sm font-bold text-white">Invoice this job — ready in a minute<span aria-hidden="true">›</span></a>
                 )}
                 {completionMessage && (
                   <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-lg">
@@ -927,7 +939,7 @@ export default function JobDetailPage() {
                 </div>
                 <button onClick={handleBook} disabled={busy === 'book' || !bookDate || !bookSlot}
                   className="mt-md w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40">
-                  {busy === 'book' ? 'Booking…' : '📅 Book this visit'}
+                  {busy === 'book' ? 'Booking…' : 'Book this visit'}
                 </button>
               </div>
             ) : !hasArrived ? (
@@ -942,12 +954,16 @@ export default function JobDetailPage() {
                       })}
                     </strong>.{' If you attended, log it below — or reschedule if you did not make it.'}
                   </p>
+                  <label className="block text-xs font-semibold text-amber-900">Day you came
+                    <input type="date" max={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })} value={pastDay || job.booked_date!.slice(0, 10)}
+                      onChange={e => setPastDay(e.target.value)} className="mt-xs w-full rounded-lg border border-amber-300 bg-white px-md py-sm text-sm font-normal text-neutral-900" />
+                  </label>
                   <button
                     onClick={handleLogPast}
                     disabled={busy === 'arrive'}
                     className="w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40"
                   >
-                    {busy === 'arrive' ? 'Updating…' : '✅ I attended this visit — log & complete'}
+                    {busy === 'arrive' ? 'Updating…' : 'I came — log it and finish the job'}
                   </button>
                   <button
                     onClick={async () => {
@@ -964,7 +980,7 @@ export default function JobDetailPage() {
                       try {
                         await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
                         notify('/api/notify-booking')
-                        alert('✅ Rescheduled — tenants have been updated.')
+                        alert('Rescheduled — tenants have been updated.')
                       } catch (err) {
                         alert('Error: ' + (err instanceof Error ? err.message : 'Unknown'))
                       } finally {
@@ -1011,7 +1027,7 @@ export default function JobDetailPage() {
                     </p>
                     <button onClick={handleArrive} disabled={busy === 'arrive'}
                       className="mt-md w-full rounded-lg bg-neutral-900 text-white font-bold py-md hover:bg-neutral-800 disabled:opacity-40">
-                      {busy === 'arrive' ? 'Checking location…' : '📍 I\'ve arrived'}
+                      {busy === 'arrive' ? 'Checking location…' : 'I\'ve arrived'}
                     </button>
                   </div>
 
@@ -1107,7 +1123,7 @@ export default function JobDetailPage() {
                           : 'bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50'
                       }`}
                     >
-                      {accessLog.includes('doorbell') ? '✓ Rang doorbell' : '🔔 Rang doorbell'}
+                      {accessLog.includes('doorbell') ? '✓ Rang doorbell' : 'Rang doorbell'}
                     </button>
                     <button
                       onClick={() => {
@@ -1127,7 +1143,7 @@ export default function JobDetailPage() {
                           : 'bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50'
                       }`}
                     >
-                      {accessLog.includes('knock') ? '✓ Knocked on door' : '🚪 Knocked on door'}
+                      {accessLog.includes('knock') ? '✓ Knocked on door' : 'Knocked on door'}
                     </button>
                     <button
                       onClick={() => {
@@ -1162,7 +1178,7 @@ export default function JobDetailPage() {
                   ) : (
                     <button onClick={() => beforeInput.current?.click()} disabled={busy === 'before'}
                       className="w-full rounded-lg border-2 border-dashed border-neutral-400 py-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40">
-                      {busy === 'before' ? 'Uploading…' : '📷 Take before photo'}
+                      {busy === 'before' ? 'Uploading…' : 'Take before photo'}
                     </button>
                   )}
                   <input ref={beforeInput} type="file" accept="image/*" capture="environment" className="hidden"
@@ -1178,7 +1194,7 @@ export default function JobDetailPage() {
                   ) : (
                     <button onClick={() => afterInput.current?.click()} disabled={busy === 'after'}
                       className="w-full rounded-lg border-2 border-dashed border-neutral-400 py-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40">
-                      {busy === 'after' ? 'Uploading…' : '📷 Take after photo'}
+                      {busy === 'after' ? 'Uploading…' : 'Take after photo'}
                     </button>
                   )}
                   <input ref={afterInput} type="file" accept="image/*" capture="environment" className="hidden"
@@ -1191,7 +1207,7 @@ export default function JobDetailPage() {
                     {/* Path A: Mark complete (once there's a before photo) */}
                     {job.before_photo && <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
                       className="w-full rounded-lg bg-green-700 text-white font-bold py-md hover:bg-green-800 disabled:opacity-40">
-                      {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
+                      {busy === 'complete' ? 'Completing…' : 'Mark job complete'}
                     </button>}
                     {job.before_photo && !job.after_photo && !notes.trim() && (
                       <p className="text-center text-xs text-neutral-400">Take an after photo or add notes first.</p>
@@ -1293,7 +1309,7 @@ export default function JobDetailPage() {
                       <p className="text-xs font-semibold text-amber-800 mb-sm">Ready to finish now?</p>
                       <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
                         className="w-full rounded-lg bg-green-700 text-white font-bold py-sm hover:bg-green-800 disabled:opacity-40 text-sm">
-                        {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
+                        {busy === 'complete' ? 'Completing…' : 'Mark job complete'}
                       </button>
                     </div>
                   </div>
@@ -1303,7 +1319,7 @@ export default function JobDetailPage() {
                 {!job.before_photo && !job.return_needed && (
                   <button onClick={handleComplete} disabled={busy === 'complete' || (!job.after_photo && !notes.trim())}
                     className="w-full rounded-lg bg-green-700 text-white font-bold py-md hover:bg-green-800 disabled:opacity-40">
-                    {busy === 'complete' ? 'Completing…' : '✅ Mark job complete'}
+                    {busy === 'complete' ? 'Completing…' : 'Mark job complete'}
                   </button>
                 )}
                 {!job.after_photo && !notes.trim() && (
