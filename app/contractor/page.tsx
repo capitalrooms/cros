@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import PoppingByVisit from '@/app/components/PoppingByVisit'
-import { useRoleRail } from '@/app/components/role/RoleShell'
+import { useRoleRail, DeskGreeting } from '@/app/components/role/RoleShell'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
@@ -359,10 +359,7 @@ export default function ContractorDashboard() {
           {/* Dark hero */}
           <div style={{ background: 'var(--cr-ink)', color: 'var(--cr-ivory)', padding: '26px 32px 22px' }}>
             <div>
-              <h1 style={{ fontFamily: 'var(--font-sora), sans-serif', fontSize: 24, margin: '0 0 3px', fontWeight: 700 }}>Hi {firstName}</h1>
-              <p style={{ margin: 0, fontSize: 13, color: 'rgba(246,243,236,0.6)' }}>
-                {today ? `Here's what's on today, ${new Date(today + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.` : ''}
-              </p>
+              <DeskGreeting name={firstName} title="Your jobs" />
             </div>
             {/* Stat tiles */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginTop: 20 }}>

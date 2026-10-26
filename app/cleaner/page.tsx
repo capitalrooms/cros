@@ -16,7 +16,7 @@ import DesktopRightRail from '@/app/components/DesktopRightRail'
 import { isDatePast, isDateToday, isDateFuture, formatDateUK, getDaysUntil } from '@/lib/dateUtils'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { withNames } from '@/lib/peopleDirectory'
-import { useRoleRail } from '@/app/components/role/RoleShell'
+import { useRoleRail, DeskGreeting } from '@/app/components/role/RoleShell'
 
 interface ComplianceLog {
   id: string
@@ -469,8 +469,7 @@ export default function CleanerDashboard() {
         <main style={{ overflowY: 'auto' }}>
           {/* Dark stats header */}
           <div style={{ background: 'var(--cr-ink)', padding: '28px 28px 20px' }}>
-            <p style={{ fontSize: '14px', color: 'rgba(246,243,236,0.65)' }}>{greetingNow()}, {firstName}</p>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--cr-ivory)', margin: '2px 0 16px', fontFamily: 'var(--font-sora), sans-serif' }}>Your cleans</h1>
+            <DeskGreeting name={firstName} title="Your cleans" />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {([
                 { value: overdueCleans.length, label: 'Overdue', color: overdueCleans.length > 0 ? '#f87171' : 'var(--cr-ivory)' },
@@ -1131,8 +1130,3 @@ function HouseOptions({ houses }: { houses: any[] }) {
   </>)
 }
 
-/** "Good morning" / "Good afternoon" / "Good evening", London time — the same greeting as the tenant home. */
-function greetingNow() {
-  const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' }))
-  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
-}
