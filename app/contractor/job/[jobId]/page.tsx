@@ -666,7 +666,7 @@ export default function JobDetailPage() {
               onClick={() => setShowQuickNotify(true)}
               className="w-full px-lg py-md font-semibold text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition border border-blue-500"
             >
-              📢 Quick Notify Tenants
+              Quick Notify Tenants
             </button>
           </div>
         )}
@@ -816,7 +816,7 @@ export default function JobDetailPage() {
         {isBooked && keySafe && (
           <div className="mb-lg rounded-2xl border-2 border-neutral-800 bg-neutral-900 text-white p-lg flex items-center justify-between gap-lg">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-white/60 mb-xs">🔐 Key Safe Code</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-white/60 mb-xs">Key Safe Code</p>
               <p className="text-3xl font-bold tracking-widest">{keySafe}</p>
               <p className="text-xs text-white/50 mt-xs">House key safe · front of property · opens the house only — never go into a tenant’s room unless this job is in it</p>
             </div>
@@ -895,7 +895,7 @@ export default function JobDetailPage() {
                 </div>
                 {tasks.every(t => t.status === 'completed') && (
                   <div className="mt-md rounded-xl bg-green-50 border border-green-200 px-md py-sm text-center">
-                    <p className="text-sm font-bold text-green-800">All tasks done 🎉</p>
+                    <p className="text-sm font-bold text-green-800">All tasks done</p>
                     <p className="text-xs text-green-600">Add your after photo and mark the job complete below.</p>
                   </div>
                 )}
@@ -988,7 +988,7 @@ export default function JobDetailPage() {
                       try {
                         await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
                         notify('/api/notify-booking')
-                        alert('Rescheduled — tenants have been updated.')
+                        alert('Rescheduled — the office has been told.')
                       } catch (err) {
                         alert('Error: ' + (err instanceof Error ? err.message : 'Unknown'))
                       } finally {
@@ -998,7 +998,7 @@ export default function JobDetailPage() {
                     disabled={busy === 'book'}
                     className="w-full rounded-lg border-2 border-neutral-300 bg-white font-semibold py-md text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
                   >
-                    🗓 Reschedule this visit
+                    Reschedule this visit
                   </button>
                   {/* Inline reschedule pickers */}
                   <div className="grid gap-md sm:grid-cols-2 pt-xs">
@@ -1045,7 +1045,7 @@ export default function JobDetailPage() {
                       onClick={() => { setShowReschedule(true); setBookDate(job.booked_date || ''); setBookSlot(job.booked_slot || '') }}
                       className="w-full rounded-lg border border-neutral-300 py-md text-sm font-bold text-neutral-700 hover:bg-neutral-50"
                     >
-                      🗓 Running late / Reschedule
+                      Running late / Reschedule
                     </button>
                   ) : (
                     <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md space-y-md">
@@ -1171,7 +1171,7 @@ export default function JobDetailPage() {
                           : 'bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50'
                       }`}
                     >
-                      {accessLog.includes('announced') ? '✓ Announced arrival' : '📢 Announced arrival'}
+                      {accessLog.includes('announced') ? '✓ Announced arrival' : 'Announce arrival'}
                     </button>
                   </div>
                   <p className="text-xs text-neutral-500 mt-sm">Tenants appreciate the courtesy — this log is shown to them</p>
@@ -1229,7 +1229,7 @@ export default function JobDetailPage() {
                         if (suggested) setReturnReason(suggested)
                       }}
                         className="w-full rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-900 font-semibold py-md hover:bg-amber-100 transition text-sm">
-                        🔄 Need to come back
+                        Need to come back
                       </button>
                     ) : (
                       <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-lg space-y-md">
@@ -1299,7 +1299,7 @@ export default function JobDetailPage() {
 
                         <button onClick={handleNeedToReturn} disabled={savingReturn}
                           className="w-full rounded-lg bg-amber-500 text-white font-bold py-md hover:bg-amber-600 disabled:opacity-40 text-sm">
-                          {savingReturn ? 'Saving…' : returnUncertain ? '🔄 Log return visit needed' : '🔄 Book return visit & tell tenants'}
+                          {savingReturn ? 'Saving…' : returnUncertain ? 'Log return visit needed' : 'Book return visit & tell tenants'}
                         </button>
                       </div>
                     )}
@@ -1309,7 +1309,7 @@ export default function JobDetailPage() {
                 {/* Already flagged as return needed */}
                 {job.return_needed && (
                   <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-lg">
-                    <p className="font-bold text-amber-900 text-sm mb-xs">🔄 In progress — return visit needed</p>
+                    <p className="font-bold text-amber-900 text-sm mb-xs">In progress — return visit needed</p>
                     {job.return_reason && <p className="text-xs text-amber-800 mb-xs">Reason: {job.return_reason}</p>}
                     {job.return_date && <p className="text-xs text-amber-800 mb-xs">Return date: {new Date(job.return_date).toLocaleDateString('en-GB')}</p>}
                     {!job.return_date && <p className="text-xs text-amber-600">Return date: not yet booked — use “Need to come back” to book it</p>}
