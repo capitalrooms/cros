@@ -28,8 +28,8 @@ interface ComplianceLog {
 }
 
 const checkTypeLabels: Record<string, string> = {
-  fire_door: '🚪 Fire Door',
-  smoke_alarm: '🔔 Smoke Alarm',
+  fire_door: 'Fire Door',
+  smoke_alarm: 'Smoke Alarm',
 }
 
 const sixMonthsAgo = () => {
@@ -94,7 +94,7 @@ function CleanCard({ c, onClick }: { c: any; onClick: () => void }) {
           </span>
         )}
         {today && !overdue && (
-          <span className="rounded-full bg-blue-100 text-blue-700 text-xs font-bold px-sm py-xs">Today</span>
+          <span className="rounded-full bg-amber-100 text-amber-900 text-xs font-bold px-sm py-xs">Today</span>
         )}
         {!today && !overdue && (
           <span className="text-xs text-neutral-400 font-semibold">
@@ -292,7 +292,7 @@ export default function CleanerDashboard() {
     setBooking(false)
     const propName = properties.find((p) => p.id === propertyId)?.name || 'the property'
     const when = new Date(cleanDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    setBookedNotice(`✅ Clean booked for ${propName} on ${when}${cleanTime ? ` at ${cleanTime}` : ''}.`)
+    setBookedNotice(`Clean booked for ${propName} on ${when}${cleanTime ? ` at ${cleanTime}` : ''}.`)
     setShowBookCleanModal(false)
   }
 
@@ -378,7 +378,7 @@ export default function CleanerDashboard() {
       setComplianceForm({ check_type: 'fire_door', date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
       setShowAddComplianceModal(false)
       await loadComplianceLogs(compliancePropertyId)
-      alert('✅ Check logged')
+      alert('Check logged')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown'))
     } finally { setSavingCompliance(false) }
@@ -556,7 +556,7 @@ export default function CleanerDashboard() {
                   : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {complianceLogs.slice(0, 10).map((log) => (
                         <div key={log.id} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', border: '1px solid var(--cr-line)' }}>
-                          <div style={{ fontWeight: 700, color: 'var(--cr-ink)', fontSize: '14px' }}>{log.check_type === 'fire_door' ? '🚪 Fire Door' : '🔊 Smoke Alarm'}</div>
+                          <div style={{ fontWeight: 700, color: 'var(--cr-ink)', fontSize: '14px' }}>{log.check_type === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}</div>
                           <div style={{ fontSize: '12px', color: 'rgb(var(--n-500))', marginTop: 2 }}>{formatDateUK(log.checked_date)}{log.notes ? ` · ${log.notes}` : ''}</div>
                         </div>
                       ))}
@@ -582,7 +582,7 @@ export default function CleanerDashboard() {
                   >
                     <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--cr-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.properties?.name || 'Clean'}</div>
                     <div style={{ fontSize: 10.5, color: 'var(--cr-muted)', marginTop: 2 }}>
-                      📅 {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : c.status !== 'completed' ? ' · time to confirm' : ''}
+                      {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : c.status !== 'completed' ? ' · time to confirm' : ''}
                     </div>
                   </div>
                 </a>
@@ -611,7 +611,7 @@ export default function CleanerDashboard() {
             label="Overdue"
             valueColor={overdueCleans.length > 0 ? 'text-red-400' : 'text-white'}
           />
-          <StatTile value={todayCleans.length} label="Today" valueColor="text-blue-400" />
+          <StatTile value={todayCleans.length} label="Today" valueColor="text-[color:var(--cr-gold)]" />
           <StatTile value={upcomingCleans.length} label="Upcoming" />
         </div>
 
@@ -687,11 +687,11 @@ export default function CleanerDashboard() {
             <div className="mt-sm grid grid-cols-2 gap-sm">
               {/* booking and logging cleans live here now — a floating + covered the Accept/Decline buttons (25 Oct 2026) */}
               <button type="button" onClick={() => { setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
-                className="rounded-xl bg-neutral-950 px-md py-sm text-center text-xs font-bold text-white">🧹 Book a clean</button>
+                className="rounded-xl bg-neutral-950 px-md py-sm text-center text-xs font-bold text-white">Book a clean</button>
               <button type="button" onClick={() => { setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' }); setShowLogPastCleanModal(true) }}
-                className="rounded-xl border border-neutral-900 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">📝 Log a past clean</button>
-              <a href="/planner" className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">🗂️ Notes with Capital Rooms</a>
-              <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">🧾 Invoice your cleans</a>
+                className="rounded-xl border border-neutral-900 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Log a past clean</button>
+              <a href="/planner" className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Notes with Capital Rooms</a>
+              <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Invoice your cleans</a>
             </div>
           </div>
         )}
@@ -706,7 +706,7 @@ export default function CleanerDashboard() {
                 {assignedJobs.length > 0 && (
                   <div>
                     <h2 className="text-sm font-bold text-neutral-500 uppercase tracking-wide mb-sm">
-                      📌 Assigned — need booking
+                      Assigned — need booking
                     </h2>
                     <div className="space-y-sm">
                       {assignedJobs.map(job => (
@@ -722,7 +722,7 @@ export default function CleanerDashboard() {
                             {job.notes && <p className="text-sm text-neutral-600 mt-xs">{String(job.notes).replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (_: string, y: string, m: string, d: string) => new Date(`${y}-${m}-${d}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }))}</p>}
                             {job.due_date && job.due_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) && <p className="text-xs font-semibold text-red-700 mt-xs">The move-out date has passed — please book this in or let the office know</p>}
                             <p className="text-xs text-amber-700 font-semibold mt-xs">
-                              {job.task_type === 'asap' ? '🚨 ASAP' : job.task_type === 'urgent' ? '⚠️ Urgent' : '📌 Normal'}
+                              {job.task_type === 'asap' ? 'ASAP' : job.task_type === 'urgent' ? 'Urgent' : 'Normal'}
                             </p>
                           </div>
                           <div className="flex flex-col gap-xs shrink-0">
@@ -749,7 +749,7 @@ export default function CleanerDashboard() {
                 {overdueCleans.length > 0 && (
                   <div>
                     <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">
-                      ⚠️ Overdue
+                      Overdue
                     </h2>
                     <div className="space-y-sm">
                       {overdueCleans.map(c => (
@@ -762,8 +762,8 @@ export default function CleanerDashboard() {
                 {/* Today's cleans */}
                 {todayCleans.length > 0 && (
                   <div>
-                    <h2 className="text-sm font-bold text-blue-600 uppercase tracking-wide mb-sm">
-                      📍 Today
+                    <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wide mb-sm">
+                      Today
                     </h2>
                     <div className="space-y-sm">
                       {todayCleans.map(c => (
@@ -930,7 +930,7 @@ export default function CleanerDashboard() {
       {showBookCleanModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0">
           <div className="w-full max-w-md rounded-t-3xl bg-white p-lg" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
-            <h2 className="text-xl font-bold text-neutral-900 mb-md">🧹 Book a Clean</h2>
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">Book a clean</h2>
             <div className="space-y-md">
               <div>
                 <label className="block text-sm font-bold text-neutral-900 mb-sm">Property</label>
@@ -965,7 +965,7 @@ export default function CleanerDashboard() {
       {showLogPastCleanModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
           <div className="w-full max-w-md rounded-t-3xl bg-white p-lg" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
-            <h2 className="text-xl font-bold text-neutral-900 mb-md">📝 Log Past Clean</h2>
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">Log a past clean</h2>
             <div className="space-y-md">
               <div>
                 <label className="block text-sm font-bold text-neutral-900 mb-sm">Property</label>
@@ -1047,7 +1047,7 @@ export default function CleanerDashboard() {
       {showAcceptJobModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
           <div className="w-full max-w-md rounded-3xl bg-white p-lg">
-            <h2 className="text-xl font-bold text-neutral-900 mb-md">Accept & Book Clean</h2>
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">Accept and book the clean</h2>
             <div className="space-y-md">
               <div>
                 <label className="block text-sm font-bold text-neutral-900 mb-sm">Date</label>
@@ -1060,7 +1060,7 @@ export default function CleanerDashboard() {
               {error && <div className="rounded-xl bg-red-50 p-md text-sm text-red-800 font-semibold">{error}</div>}
               <div className="flex gap-sm">
                 <button onClick={() => acceptJob(showAcceptJobModal!)} disabled={acceptingJob} className="flex-1 rounded-xl bg-neutral-950 py-sm font-bold text-white disabled:opacity-50">
-                  {acceptingJob ? 'Accepting…' : 'Accept & Book'}
+                  {acceptingJob ? 'Accepting…' : 'Accept and book'}
                 </button>
                 <button onClick={() => setShowAcceptJobModal(null)} className="flex-1 rounded-xl border border-neutral-300 py-sm font-semibold text-neutral-700">
                   Cancel

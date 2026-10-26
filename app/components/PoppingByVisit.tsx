@@ -61,7 +61,7 @@ export default function PoppingByVisit({ className = '', label = 'Need to visit 
   return (
     <>
       {!hideButton && <button type="button" onClick={() => setOpen(true)} className={className || 'rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-bold text-neutral-900 hover:bg-neutral-50'}>
-        🔑 {label}
+        {label}
       </button>}
 
       {open && (
