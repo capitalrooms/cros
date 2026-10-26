@@ -2,6 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Colour variables (26 Oct 2026) ───────────────────────────────────────────
+   Tailwind's neutral greys read these (tailwind.config.ts). Everywhere they are the stone greys CROS has always used,
+   so admin and lettings look exactly as before. The tenant, contractor and cleaner apps sit inside .garden ("Garden
+   Square", the look Harry chose): the same names become greens and sages, with the brand gold as the highlight. */
+:root {
+  --n-50: 250 250 249;
+  --n-100: 245 245 244;
+  --n-200: 231 229 228;
+  --n-300: 214 211 209;
+  --n-400: 168 162 158;
+  --n-500: 120 113 111;
+  --n-600: 87 83 78;
+  --n-700: 68 64 60;
+  --n-800: 41 37 36;
+  --n-900: 28 25 23;
+  --n-950: 15 15 14;
+  --cr-ink: #181614;      /* dark headers, primary buttons */
+  --cr-ivory: #F6F3EC;    /* text on the dark */
+  --cr-line: #E7E1D4;
+  --cr-muted: #59544C;
+  --cr-gold: #C4922A;     /* the brand gold */
+  --cr-bar: #181614;      /* the top bar */
+}
+.garden {
+  --n-50: 246 248 245;
+  --n-100: 238 242 236;
+  --n-200: 221 229 222;
+  --n-300: 195 208 198;
+  --n-400: 143 161 151;
+  --n-500: 95 114 104;
+  --n-600: 74 93 83;
+  --n-700: 54 74 65;
+  --n-800: 34 58 48;
+  --n-900: 23 51 43;
+  --n-950: 15 38 31;
+  --cr-ink: #17332B;
+  --cr-ivory: #F1F5EE;
+  --cr-line: #DDE5DE;
+  --cr-muted: #4E6158;
+  --cr-bar: #17332B;
+  /* text: Nunito Sans; headings: Sora (app/components/GardenTheme loads them). Screens that name Baloo 2 get Nunito. */
+  --font-baloo-2: var(--font-nunito), system-ui, sans-serif;
+  font-family: var(--font-nunito), system-ui, sans-serif;
+}
+.garden h1, .garden h2, .garden h3 { font-family: var(--font-sora), var(--font-nunito), system-ui, sans-serif; letter-spacing: -0.01em; }
+html.garden, html.garden body { background-color: #17332B; }
+/* the rounded green header (DarkHeroHeader and the tenant home hero carry .cr-hero) */
+.garden .cr-hero { border-bottom-left-radius: 32px; border-bottom-right-radius: 32px; }
+/* the bottom tab bar: a floating green bar, the current tab in gold */
+.garden .cr-tabbar { left: 12px !important; right: 12px !important; bottom: max(env(safe-area-inset-bottom), 12px) !important; border-radius: 24px; background: #17332B !important; border: 0 !important; box-shadow: 0 10px 30px rgba(15, 38, 31, 0.25); overflow: hidden; }
+.garden .cr-tabbar a, .garden .cr-tabbar button { color: #B9CBBF !important; }
+.garden .cr-tabbar [aria-current="page"], .garden .cr-tabbar [data-active="true"] { color: var(--cr-gold) !important; }
+
 * {
   margin: 0;
   padding: 0;

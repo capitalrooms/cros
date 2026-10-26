@@ -449,16 +449,16 @@ export default function CleanerDashboard() {
       )}
 
       {/* ── DESKTOP 3-column shell (lg+) ──────────────────────────────────── */}
-      <div className="hidden lg:grid lg:min-h-screen" style={{ gridTemplateColumns: '220px 1fr 300px', background: '#F6F3EC' }}>
+      <div className="hidden lg:grid lg:min-h-screen" style={{ gridTemplateColumns: '220px 1fr 300px', background: 'var(--cr-ivory)' }}>
 
         {/* Left sidebar */}
-        <aside style={{ background: '#181614', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
+        <aside style={{ background: 'var(--cr-ink)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
           <div style={{ padding: '28px 20px 20px' }}>
-            <div style={{ fontWeight: 800, fontSize: '12px', letterSpacing: '0.14em', color: '#F6F3EC', textTransform: 'uppercase' }}>Capital Rooms</div>
+            <div style={{ fontWeight: 800, fontSize: '12px', letterSpacing: '0.14em', color: 'var(--cr-ivory)', textTransform: 'uppercase' }}>Capital Rooms</div>
             <div style={{ fontSize: '11px', color: '#4B6358', fontWeight: 700, marginTop: 2 }}>Cleaner</div>
           </div>
           <div style={{ padding: '0 20px 20px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#F6F3EC' }}>Hi {firstName} 👋</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--cr-ivory)' }}>Hi {firstName} 👋</div>
           </div>
           <nav style={{ flex: 1, padding: '0 10px' }}>
             {TABS.map(({ key, label }) => (
@@ -470,7 +470,7 @@ export default function CleanerDashboard() {
                   padding: '9px 12px', borderRadius: 10, marginBottom: 3,
                   fontSize: '13px', fontWeight: 600,
                   background: activeTab === key ? '#4B6358' : 'transparent',
-                  color: activeTab === key ? '#F6F3EC' : '#9ca3af',
+                  color: activeTab === key ? 'var(--cr-ivory)' : 'rgb(var(--n-400))',
                   border: 'none', cursor: 'pointer',
                 }}
               >
@@ -481,7 +481,7 @@ export default function CleanerDashboard() {
           <div style={{ padding: '20px' }}>
             <button
               onClick={async () => { await signOut(); router.push('/login') }}
-              style={{ fontSize: '12px', color: '#9ca3af', background: 'none', border: '1px solid #374151', borderRadius: '6px', cursor: 'pointer', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
+              style={{ fontSize: '12px', color: 'rgb(var(--n-400))', background: 'none', border: '1px solid rgb(var(--n-700))', borderRadius: '6px', cursor: 'pointer', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
             >
               <svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="M3 1.5h5.5a.5.5 0 0 1 .5.5v2h1V2A1.5 1.5 0 0 0 8.5.5H3A1.5 1.5 0 0 0 1.5 2v11A1.5 1.5 0 0 0 3 14.5h5.5A1.5 1.5 0 0 0 10 13v-2H9v2a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V2A.5.5 0 0 1 3 1.5z" fill="currentColor"/><path d="M6 7.5a.5.5 0 0 1 .5-.5H13a.5.5 0 0 1 0 1H6.5A.5.5 0 0 1 6 7.5zm5.146-2.646a.5.5 0 0 1 .708.708L9.707 7.5l2.147 2.146a.5.5 0 0 1-.708.708l-2.5-2.5a.5.5 0 0 1 0-.708l2.5-2.5z" fill="currentColor"/></svg>
               Log out
@@ -492,17 +492,17 @@ export default function CleanerDashboard() {
         {/* Main */}
         <main style={{ overflowY: 'auto' }}>
           {/* Dark stats header */}
-          <div style={{ background: '#181614', padding: '28px 28px 20px' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#F6F3EC', marginBottom: 16 }}>Cleans</h1>
+          <div style={{ background: 'var(--cr-ink)', padding: '28px 28px 20px' }}>
+            <h1 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--cr-ivory)', marginBottom: 16 }}>Cleans</h1>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               {([
-                { value: overdueCleans.length, label: 'Overdue', color: overdueCleans.length > 0 ? '#f87171' : '#F6F3EC' },
+                { value: overdueCleans.length, label: 'Overdue', color: overdueCleans.length > 0 ? '#f87171' : 'var(--cr-ivory)' },
                 { value: todayCleans.length,   label: 'Today',   color: '#60a5fa' },
-                { value: upcomingCleans.length, label: 'Upcoming', color: '#F6F3EC' },
+                { value: upcomingCleans.length, label: 'Upcoming', color: 'var(--cr-ivory)' },
               ] as { value: number; label: string; color: string }[]).map(({ value, label, color }) => (
                 <div key={label} style={{ background: '#1f2937', borderRadius: 14, padding: '14px 12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '26px', fontWeight: 800, color }}>{value}</div>
-                  <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: 3 }}>{label}</div>
+                  <div style={{ fontSize: '11px', color: 'rgb(var(--n-400))', marginTop: 3 }}>{label}</div>
                 </div>
               ))}
             </div>
@@ -510,7 +510,7 @@ export default function CleanerDashboard() {
 
           {/* Diary */}
           <div style={{ padding: '20px 28px' }}>
-            <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Diary</p>
+            <p style={{ fontSize: '12px', fontWeight: 700, color: 'rgb(var(--n-500))', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Diary</p>
             <MultiDayDiaryGrid jobs={diaryJobs} startHour={8} endHour={19} />
           </div>
 
@@ -518,14 +518,14 @@ export default function CleanerDashboard() {
           <div style={{ padding: '4px 28px 40px' }}>
             {activeTab === 'today' && (
               <div>
-                <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Today</p>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: 'rgb(var(--n-500))', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Today</p>
                 {dayCleans.length === 0
-                  ? <p style={{ fontSize: '14px', color: '#9ca3af' }}>No cleans scheduled for today.</p>
+                  ? <p style={{ fontSize: '14px', color: 'rgb(var(--n-400))' }}>No cleans scheduled for today.</p>
                   : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {dayCleans.map((c: any) => (
-                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid #E7E1D4' }}>
-                          <div style={{ fontWeight: 700, color: '#181614', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
-                          {c.clean_time && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: 2 }}>{c.clean_time}</div>}
+                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid var(--cr-line)' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--cr-ink)', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
+                          {c.clean_time && <div style={{ fontSize: '12px', color: 'rgb(var(--n-500))', marginTop: 2 }}>{c.clean_time}</div>}
                         </a>
                       ))}
                     </div>
@@ -534,14 +534,14 @@ export default function CleanerDashboard() {
             )}
             {activeTab === 'upcoming' && (
               <div>
-                <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Upcoming</p>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: 'rgb(var(--n-500))', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Upcoming</p>
                 {upcomingCleans.length === 0
-                  ? <p style={{ fontSize: '14px', color: '#9ca3af' }}>No upcoming cleans.</p>
+                  ? <p style={{ fontSize: '14px', color: 'rgb(var(--n-400))' }}>No upcoming cleans.</p>
                   : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {upcomingCleans.map((c: any) => (
-                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid #E7E1D4' }}>
-                          <div style={{ fontWeight: 700, color: '#181614', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
-                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: 2 }}>{formatDateUK(c.clean_date)}</div>
+                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid var(--cr-line)' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--cr-ink)', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
+                          <div style={{ fontSize: '12px', color: 'rgb(var(--n-500))', marginTop: 2 }}>{formatDateUK(c.clean_date)}</div>
                         </a>
                       ))}
                     </div>
@@ -550,14 +550,14 @@ export default function CleanerDashboard() {
             )}
             {activeTab === 'done' && (
               <div>
-                <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Done</p>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: 'rgb(var(--n-500))', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Done</p>
                 {doneCleans.length === 0
-                  ? <p style={{ fontSize: '14px', color: '#9ca3af' }}>No completed cleans yet.</p>
+                  ? <p style={{ fontSize: '14px', color: 'rgb(var(--n-400))' }}>No completed cleans yet.</p>
                   : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {doneCleans.map((c: any) => (
-                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid #E7E1D4' }}>
-                          <div style={{ fontWeight: 700, color: '#181614', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
-                          <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: 2 }}>{formatDateUK(c.clean_date)} · Completed</div>
+                        <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid var(--cr-line)' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--cr-ink)', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
+                          <div style={{ fontSize: '12px', color: 'rgb(var(--n-400))', marginTop: 2 }}>{formatDateUK(c.clean_date)} · Completed</div>
                         </a>
                       ))}
                     </div>
@@ -567,7 +567,7 @@ export default function CleanerDashboard() {
             {activeTab === 'compliance' && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Compliance</p>
+                  <p style={{ fontSize: '12px', fontWeight: 700, color: 'rgb(var(--n-500))', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Compliance</p>
                   <button
                     onClick={() => setShowAddComplianceModal(true)}
                     style={{ fontSize: '12px', fontWeight: 700, color: '#4B6358', background: '#DCE6DE', border: 'none', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
@@ -576,12 +576,12 @@ export default function CleanerDashboard() {
                   </button>
                 </div>
                 {complianceLogs.length === 0
-                  ? <p style={{ fontSize: '14px', color: '#9ca3af' }}>No compliance checks logged recently.</p>
+                  ? <p style={{ fontSize: '14px', color: 'rgb(var(--n-400))' }}>No compliance checks logged recently.</p>
                   : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {complianceLogs.slice(0, 10).map((log) => (
-                        <div key={log.id} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', border: '1px solid #E7E1D4' }}>
-                          <div style={{ fontWeight: 700, color: '#181614', fontSize: '14px' }}>{log.check_type === 'fire_door' ? '🚪 Fire Door' : '🔊 Smoke Alarm'}</div>
-                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: 2 }}>{formatDateUK(log.checked_date)}{log.notes ? ` · ${log.notes}` : ''}</div>
+                        <div key={log.id} style={{ background: '#fff', borderRadius: 14, padding: '14px 16px', border: '1px solid var(--cr-line)' }}>
+                          <div style={{ fontWeight: 700, color: 'var(--cr-ink)', fontSize: '14px' }}>{log.check_type === 'fire_door' ? '🚪 Fire Door' : '🔊 Smoke Alarm'}</div>
+                          <div style={{ fontSize: '12px', color: 'rgb(var(--n-500))', marginTop: 2 }}>{formatDateUK(log.checked_date)}{log.notes ? ` · ${log.notes}` : ''}</div>
                         </div>
                       ))}
                     </div>
@@ -595,17 +595,17 @@ export default function CleanerDashboard() {
         <DesktopRightRail dateCounts={dateCounts} alerts={railAlerts} alertsHeading="Your Cleans">
           {comingUpCleans.length > 0 && (
             <div style={{ marginTop: 18 }}>
-              <h3 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', margin: '0 0 8px', fontWeight: 700 }}>
+              <h3 style={{ fontFamily: 'var(--font-baloo-2,system-ui)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'rgb(var(--n-400))', margin: '0 0 8px', fontWeight: 700 }}>
                 Coming Up
               </h3>
               {comingUpCleans.map((c: any) => (
                 <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ textDecoration: 'none' }}>
-                  <div style={{ background: '#FFFFFF', border: '1px solid #E7E1D4', borderRadius: 12, padding: '10px 12px', marginBottom: 7, cursor: 'pointer' }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = '#F6F3EC' }}
+                  <div style={{ background: '#FFFFFF', border: '1px solid var(--cr-line)', borderRadius: 12, padding: '10px 12px', marginBottom: 7, cursor: 'pointer' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--cr-ivory)' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#FFFFFF' }}
                   >
-                    <div style={{ fontWeight: 700, fontSize: 12, color: '#181614', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.properties?.name || 'Clean'}</div>
-                    <div style={{ fontSize: 10.5, color: '#59544C', marginTop: 2 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--cr-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.properties?.name || 'Clean'}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--cr-muted)', marginTop: 2 }}>
                       📅 {formatDateUK(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : c.status !== 'completed' ? ' · time to confirm' : ''}
                     </div>
                   </div>

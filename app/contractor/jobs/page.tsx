@@ -895,8 +895,8 @@ export default function ContractorJobs() {
                 <div className="space-y-sm">
                   <label className="flex items-center gap-md p-md border-2 border-neutral-200 rounded-xl cursor-pointer hover:bg-neutral-50"
                     style={{
-                      borderColor: completionData.fixQuality === 'long-term' ? '#171717' : undefined,
-                      backgroundColor: completionData.fixQuality === 'long-term' ? '#f5f5f5' : undefined,
+                      borderColor: completionData.fixQuality === 'long-term' ? 'var(--cr-ink)' : undefined,
+                      backgroundColor: completionData.fixQuality === 'long-term' ? 'rgb(var(--n-100))' : undefined,
                     }}
                   >
                     <input
@@ -915,8 +915,8 @@ export default function ContractorJobs() {
 
                   <label className="flex items-center gap-md p-md border-2 border-neutral-200 rounded-xl cursor-pointer hover:bg-neutral-50"
                     style={{
-                      borderColor: completionData.fixQuality === 'temporary' ? '#171717' : undefined,
-                      backgroundColor: completionData.fixQuality === 'temporary' ? '#f5f5f5' : undefined,
+                      borderColor: completionData.fixQuality === 'temporary' ? 'var(--cr-ink)' : undefined,
+                      backgroundColor: completionData.fixQuality === 'temporary' ? 'rgb(var(--n-100))' : undefined,
                     }}
                   >
                     <input

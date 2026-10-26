@@ -23,7 +23,7 @@ export default function TopBar({ left, right, homeHref = '/home', position = 'st
 }) {
   const pos = position === 'fixed' ? 'fixed inset-x-0 top-0 z-50' : position === 'sticky' ? 'sticky top-0 z-50' : 'flex-shrink-0 z-40'
   return (
-    <header className={`${pos} border-b border-white/5 bg-[#181614] text-white`}
+    <header className={`${pos} border-b border-white/5 bg-[var(--cr-bar)] text-white`}
       style={{ paddingTop: 'env(safe-area-inset-top)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}>
       <div className="mx-auto grid h-14 px-3 md:px-6" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
         <div className="flex min-w-0 items-center">{left}</div>

@@ -285,9 +285,9 @@ function Chip({ label, selected, onClick }: { label: string; selected: boolean; 
       onClick={onClick}
       style={{
         padding: '9px 18px', borderRadius: 24,
-        border: selected ? '2px solid #181614' : '1.5px solid #D4D4D4',
-        background: selected ? '#181614' : '#FAFAF9',
-        color: selected ? '#fff' : '#374151',
+        border: selected ? '2px solid var(--cr-ink)' : '1.5px solid #D4D4D4',
+        background: selected ? 'var(--cr-ink)' : 'rgb(var(--n-50))',
+        color: selected ? '#fff' : 'rgb(var(--n-700))',
         fontSize: 14, fontWeight: selected ? 600 : 400,
         cursor: 'pointer', transition: 'all 0.12s ease', whiteSpace: 'nowrap',
       }}
@@ -553,14 +553,14 @@ function ReportWizardContent() {
   // ── Shared styles ─────────────────────────────────────────────────────────
 
   const card: React.CSSProperties = {
-    background: '#fff', borderRadius: 20, border: '1px solid #E5E7EB',
+    background: '#fff', borderRadius: 20, border: '1px solid rgb(var(--n-200))',
     maxWidth: 540, margin: '0 auto', overflow: 'hidden',
   };
   const section: React.CSSProperties = { padding: '20px 20px' };
-  const label12: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'block' };
+  const label12: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: 'rgb(var(--n-400))', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10, display: 'block' };
   const nextBtn: React.CSSProperties = {
     width: '100%', padding: '14px 0', borderRadius: 12,
-    background: '#181614', color: '#fff', border: 'none',
+    background: 'var(--cr-ink)', color: '#fff', border: 'none',
     fontSize: 15, fontWeight: 600, cursor: 'pointer',
   };
 
@@ -590,7 +590,7 @@ function ReportWizardContent() {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F9FAFB' }}>
+    <div style={{ minHeight: '100vh', background: 'rgb(var(--n-50))' }}>
       <AppBar
         left={<BackButton
           href={step === 'form' ? '/tenant/maintenance' : undefined}
@@ -605,12 +605,12 @@ function ReportWizardContent() {
       />
 
       {/* what they're reporting — the top bar has no room for it */}
-      {step !== 'done' && <p style={{ margin: 0, padding: '14px 20px 0', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6B7280' }}>Report an issue · {categoryLabel}</p>}
+      {step !== 'done' && <p style={{ margin: 0, padding: '14px 20px 0', fontSize: 13, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgb(var(--n-500))' }}>Report an issue · {categoryLabel}</p>}
 
       {/* Progress bar */}
       {step !== 'done' && (
-        <div style={{ height: 3, background: '#E5E7EB' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: '#181614', transition: 'width 0.3s ease' }} />
+        <div style={{ height: 3, background: 'rgb(var(--n-200))' }}>
+          <div style={{ height: '100%', width: `${progress}%`, background: 'var(--cr-ink)', transition: 'width 0.3s ease' }} />
         </div>
       )}
 
@@ -643,8 +643,8 @@ function ReportWizardContent() {
                 onChange={e => setLocation(e.target.value)}
                 style={{
                   width: '100%', padding: '11px 12px', borderRadius: 10,
-                  border: '1.5px solid #E5E7EB', fontSize: 14,
-                  background: '#fff', fontFamily: 'inherit', color: '#181614',
+                  border: '1.5px solid rgb(var(--n-200))', fontSize: 14,
+                  background: '#fff', fontFamily: 'inherit', color: 'var(--cr-ink)',
                 }}
               >
                 {LOCATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
@@ -663,10 +663,10 @@ function ReportWizardContent() {
                 autoFocus={!catDef}
                 rows={3}
                 style={{
-                  width: '100%', borderRadius: 10, border: '1.5px solid #E5E7EB',
+                  width: '100%', borderRadius: 10, border: '1.5px solid rgb(var(--n-200))',
                   padding: '11px 14px', fontSize: 14, resize: 'none',
                   fontFamily: 'inherit', lineHeight: 1.5, boxSizing: 'border-box',
-                  outline: 'none', color: '#181614',
+                  outline: 'none', color: 'var(--cr-ink)',
                 }}
               />
             </div>
@@ -679,7 +679,7 @@ function ReportWizardContent() {
                   {visibleFollowUps.map(q => (
                     <div key={q.id}>
                       <label style={label12}>{q.label}</label>
-                      {q.hint && <p style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 8, marginTop: -6 }}>{q.hint}</p>}
+                      {q.hint && <p style={{ fontSize: 12, color: 'rgb(var(--n-400))', marginBottom: 8, marginTop: -6 }}>{q.hint}</p>}
 
                       {q.type === 'chips' && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -711,8 +711,8 @@ function ReportWizardContent() {
                             placeholder={q.hint || ''}
                             style={{
                               width: '100%', padding: '11px 12px', borderRadius: 10,
-                              border: '1.5px solid #E5E7EB', fontSize: 14,
-                              fontFamily: 'inherit', boxSizing: 'border-box', color: '#181614',
+                              border: '1.5px solid rgb(var(--n-200))', fontSize: 14,
+                              fontFamily: 'inherit', boxSizing: 'border-box', color: 'var(--cr-ink)',
                             }}
                           />
 
@@ -723,7 +723,7 @@ function ReportWizardContent() {
                                 <button type="button" onClick={handleErrorCodeLookup} disabled={errorLookupLoading}
                                   style={{
                                     padding: '8px 14px', borderRadius: 8,
-                                    background: errorLookupLoading ? '#9CA3AF' : '#181614',
+                                    background: errorLookupLoading ? 'rgb(var(--n-400))' : 'var(--cr-ink)',
                                     color: '#fff', border: 'none', fontSize: 13, fontWeight: 600,
                                     cursor: errorLookupLoading ? 'not-allowed' : 'pointer',
                                   }}
@@ -745,19 +745,19 @@ function ReportWizardContent() {
                                      errorLookupResult.severity === 'moderate' ? '⚠️ May need professional help' :
                                      errorLookupResult.severity === 'serious' ? '🚨 Needs a professional' : '🔍 Code looked up'}
                                   </p>
-                                  <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, margin: 0 }}>{errorLookupResult.explanation}</p>
+                                  <p style={{ fontSize: 13, color: 'rgb(var(--n-700))', lineHeight: 1.6, margin: 0 }}>{errorLookupResult.explanation}</p>
                                   {errorLookupResult.self_fix_steps && (
                                     <ol style={{ paddingLeft: 18, marginTop: 10, marginBottom: 0 }}>
                                       {errorLookupResult.self_fix_steps.map((s, i) => (
-                                        <li key={i} style={{ fontSize: 13, color: '#374151', marginBottom: 4, lineHeight: 1.5 }}>{s}</li>
+                                        <li key={i} style={{ fontSize: 13, color: 'rgb(var(--n-700))', marginBottom: 4, lineHeight: 1.5 }}>{s}</li>
                                       ))}
                                     </ol>
                                   )}
                                   {errorLookupResult.escalate_reason && (
-                                    <p style={{ fontSize: 12, color: '#6B7280', marginTop: 10, fontStyle: 'italic' }}>{errorLookupResult.escalate_reason}</p>
+                                    <p style={{ fontSize: 12, color: 'rgb(var(--n-500))', marginTop: 10, fontStyle: 'italic' }}>{errorLookupResult.escalate_reason}</p>
                                   )}
                                   <button type="button" onClick={() => setErrorLookupResult(null)}
-                                    style={{ marginTop: 10, fontSize: 12, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                    style={{ marginTop: 10, fontSize: 12, color: 'rgb(var(--n-400))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                                     Look up again
                                   </button>
                                 </div>
@@ -811,8 +811,8 @@ function ReportWizardContent() {
           <div style={card}>
             <div style={{ ...section, paddingBottom: 0 }}>
               <div style={{ fontSize: 32, marginBottom: 10 }}>💡</div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#181614', marginBottom: 8 }}>You might be able to fix this yourself</h2>
-              <p style={{ fontSize: 14, color: '#374151', lineHeight: 1.6, margin: 0 }}>{triageResult.tip}</p>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 8 }}>You might be able to fix this yourself</h2>
+              <p style={{ fontSize: 14, color: 'rgb(var(--n-700))', lineHeight: 1.6, margin: 0 }}>{triageResult.tip}</p>
             </div>
 
             <div style={section}>
@@ -823,7 +823,7 @@ function ReportWizardContent() {
               {triageExpanded && (
                 <ol style={{ paddingLeft: 20, margin: '8px 0 0', lineHeight: 1.9 }}>
                   {triageResult.steps.map((s, i) => (
-                    <li key={i} style={{ fontSize: 14, color: '#374151', marginBottom: 4 }}>{s}</li>
+                    <li key={i} style={{ fontSize: 14, color: 'rgb(var(--n-700))', marginBottom: 4 }}>{s}</li>
                   ))}
                 </ol>
               )}
@@ -831,12 +831,12 @@ function ReportWizardContent() {
 
             <Divider />
             <div style={section}>
-              <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 12 }}>Tried it and still need help?</p>
+              <p style={{ fontSize: 13, color: 'rgb(var(--n-400))', marginBottom: 12 }}>Tried it and still need help?</p>
               <button type="button" onClick={() => setStep('photos')} style={nextBtn}>
                 I still need a repair →
               </button>
               <button type="button" onClick={() => router.push('/tenant')}
-                style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: '#9CA3AF', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
+                style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: 'rgb(var(--n-400))', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
                 Back to home
               </button>
             </div>
@@ -847,8 +847,8 @@ function ReportWizardContent() {
         {step === 'photos' && (
           <div style={card}>
             <div style={section}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#181614', marginBottom: 6 }}>Add photos</h2>
-              <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 6 }}>Add photos</h2>
+              <p style={{ fontSize: 13, color: 'rgb(var(--n-400))', marginBottom: 20 }}>
                 Optional — but they really help. The contractor arrives prepared, which means a faster fix.
               </p>
 
@@ -856,7 +856,7 @@ function ReportWizardContent() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
                 {photos.map((p, i) => (
                   <div key={i} style={{ position: 'relative', width: 88, height: 88 }}>
-                    <img src={p.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10, border: '1px solid #E5E7EB' }} />
+                    <img src={p.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10, border: '1px solid rgb(var(--n-200))' }} />
                     <button type="button" onClick={() => removePhoto(i)}
                       style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, background: '#EF4444', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       ×
@@ -865,7 +865,7 @@ function ReportWizardContent() {
                 ))}
                 {photos.length < 4 && (
                   <button type="button" onClick={() => photoInputRef.current?.click()}
-                    style={{ width: 88, height: 88, borderRadius: 10, border: '2px dashed #D1D5DB', background: '#F9FAFB', color: '#9CA3AF', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    style={{ width: 88, height: 88, borderRadius: 10, border: '2px dashed #D1D5DB', background: 'rgb(var(--n-50))', color: 'rgb(var(--n-400))', fontSize: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     +
                   </button>
                 )}
@@ -903,7 +903,7 @@ function ReportWizardContent() {
                           </>
                         )}
                         <button type="button" onClick={() => { setLabelPhoto(null); setLabelData({}); setLabelScanState('idle'); }}
-                          style={{ marginTop: 8, fontSize: 12, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          style={{ marginTop: 8, fontSize: 12, color: 'rgb(var(--n-400))', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                           Remove
                         </button>
                       </div>
@@ -917,7 +917,7 @@ function ReportWizardContent() {
             <div style={section}>
               <button style={nextBtn} onClick={() => setStep('urgency')}>Continue →</button>
               <button type="button" onClick={() => setStep('urgency')}
-                style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: '#9CA3AF', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
+                style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: 'rgb(var(--n-400))', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
                 Skip photos
               </button>
             </div>
@@ -928,20 +928,20 @@ function ReportWizardContent() {
         {step === 'urgency' && (
           <div style={card}>
             <div style={section}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#181614', marginBottom: 18 }}>How urgent is this?</h2>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 18 }}>How urgent is this?</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {URGENCY_OPTIONS.map(opt => (
                   <button key={opt.id} type="button" onClick={() => setUrgency(opt.id)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                      borderRadius: 12, border: urgency === opt.id ? `2px solid ${opt.color}` : '1.5px solid #E5E7EB',
+                      borderRadius: 12, border: urgency === opt.id ? `2px solid ${opt.color}` : '1.5px solid rgb(var(--n-200))',
                       background: urgency === opt.id ? `${opt.color}10` : '#fff',
                       cursor: 'pointer', textAlign: 'left',
                     }}>
                     <div style={{ width: 14, height: 14, borderRadius: 7, border: `2px solid ${opt.color}`, background: urgency === opt.id ? opt.color : 'transparent', flexShrink: 0 }} />
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#181614' }}>{opt.label}</div>
-                      <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{opt.sub}</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--cr-ink)' }}>{opt.label}</div>
+                      <div style={{ fontSize: 12, color: 'rgb(var(--n-500))', marginTop: 2 }}>{opt.sub}</div>
                     </div>
                   </button>
                 ))}
@@ -959,11 +959,11 @@ function ReportWizardContent() {
                   </ol>
                   {emInfo.trade && (
                     <div style={{ marginTop: 14 }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: '#181614', marginBottom: 8 }}>Right now, is it under control?</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 8 }}>Right now, is it under control?</p>
                       {([[true, 'Yes — it’s contained until morning'], [false, 'No — it’s still happening / not safe']] as const).map(([v, l]) => (
                         <button key={String(v)} type="button" onClick={() => setControlled(v)}
                           style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 14px', marginBottom: 6, borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                            border: controlled === v ? '2px solid #B91C1C' : '1.5px solid #FECACA', background: controlled === v ? '#fff' : '#FFF7F7', color: '#181614' }}>
+                            border: controlled === v ? '2px solid #B91C1C' : '1.5px solid #FECACA', background: controlled === v ? '#fff' : '#FFF7F7', color: 'var(--cr-ink)' }}>
                           {l}
                         </button>
                       ))}
@@ -982,7 +982,7 @@ function ReportWizardContent() {
               )}
 
               <button
-                style={{ ...nextBtn, marginTop: 20, background: loading ? '#9CA3AF' : '#181614', cursor: loading ? 'not-allowed' : 'pointer' }}
+                style={{ ...nextBtn, marginTop: 20, background: loading ? 'rgb(var(--n-400))' : 'var(--cr-ink)', cursor: loading ? 'not-allowed' : 'pointer' }}
                 onClick={handleSubmit}
                 disabled={loading || (urgency === 'emergency' && needsControlAnswer)}
               >
@@ -996,8 +996,8 @@ function ReportWizardContent() {
         {step === 'done' && (
           <div style={{ ...card, textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#181614', marginBottom: 8 }}>{emStatus && emStatus !== 'failed' ? 'We’re on it' : 'Report submitted'}</h2>
-            <p style={{ fontSize: 14, color: '#6B7280', lineHeight: 1.6, marginBottom: 32 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 8 }}>{emStatus && emStatus !== 'failed' ? 'We’re on it' : 'Report submitted'}</h2>
+            <p style={{ fontSize: 14, color: 'rgb(var(--n-500))', lineHeight: 1.6, marginBottom: 32 }}>
               {emStatus === 'collecting' ? 'We’re sorry you’re dealing with this. We’re texting our emergency contractors now and will let you know who is coming and when — usually within 15 minutes. Keep following the steps until they arrive.'
                 : emStatus === 'morning' ? 'Thanks for making it safe. We’ll arrange someone first thing in the morning. If it gets worse, report it again as “still happening”.'
                 : emStatus === 'call_999' ? `${emInfo?.callServices ?? 'Please call the emergency services.'} We’ve told the office.`
@@ -1009,7 +1009,7 @@ function ReportWizardContent() {
               Follow it in My requests
             </button>
             <button type="button" onClick={() => router.push('/tenant')}
-              style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: '#6B7280', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
+              style={{ display: 'block', textAlign: 'center', marginTop: 12, fontSize: 13, color: 'rgb(var(--n-500))', cursor: 'pointer', background: 'none', border: 'none', width: '100%' }}>
               Back to home
             </button>
           </div>
@@ -1023,8 +1023,8 @@ function ReportWizardContent() {
 export default function ReportPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F9FAFB' }}>
-        <div style={{ color: '#9CA3AF' }}>Loading…</div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgb(var(--n-50))' }}>
+        <div style={{ color: 'rgb(var(--n-400))' }}>Loading…</div>
       </div>
     }>
       <ReportWizardContent />

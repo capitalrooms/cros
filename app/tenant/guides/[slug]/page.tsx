@@ -114,7 +114,7 @@ function ScrollHint({ visible }: { visible: boolean }) {
         style={{ animation: visible ? 'bounce-hint 1.4s ease-in-out infinite' : 'none' }}
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M5 8l5 5 5-5" stroke="#374151" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M5 8l5 5 5-5" stroke="rgb(var(--n-700))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
     </div>
