@@ -708,9 +708,9 @@ export default function CleanerDashboard() {
             <EnableNotifications />
             <div className="mt-sm grid grid-cols-2 gap-sm">
               {/* booking and logging cleans live here now — a floating + covered the Accept/Decline buttons (25 Oct 2026) */}
-              <button type="button" onClick={() => { setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
+              <button type="button" onClick={() => { setError(''); setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
                 className="rounded-xl bg-neutral-950 px-md py-sm text-center text-xs font-bold text-white">Book a clean</button>
-              <button type="button" onClick={() => { setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '', hours: '' }); setShowLogPastCleanModal(true) }}
+              <button type="button" onClick={() => { setError(''); setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '', hours: '' }); setShowLogPastCleanModal(true) }}
                 className="rounded-xl border border-neutral-900 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Log a past clean</button>
               <a href="/planner" className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Notes with Capital Rooms</a>
               <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Invoice your cleans</a>
@@ -749,7 +749,7 @@ export default function CleanerDashboard() {
                           </div>
                           <div className="flex flex-col gap-xs shrink-0">
                             <button
-                              onClick={() => { setAcceptJobForm({ cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), cleanTime: '10:00' }); setShowAcceptJobModal(job.id) }}
+                              onClick={() => { setError(''); setAcceptJobForm({ cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), cleanTime: '10:00' }); setShowAcceptJobModal(job.id) }}
                               className="rounded-full bg-neutral-950 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
                             >
                               Accept
@@ -830,7 +830,7 @@ export default function CleanerDashboard() {
               <div className="rounded-2xl border-2 border-dashed border-neutral-200 bg-white py-2xl text-center">
                 <p className="text-sm font-medium text-neutral-400">No cleans scheduled yet</p>
                 <button
-                  onClick={() => setShowBookCleanModal(true)}
+                  onClick={() => { setError(''); setShowBookCleanModal(true) }}
                   className="mt-md inline-flex items-center gap-xs rounded-full bg-neutral-950 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 transition-colors"
                 >
                   + Book a clean
