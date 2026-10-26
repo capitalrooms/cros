@@ -14,8 +14,11 @@ export interface SignaturePerson {
 }
 
 export const SIGNATURE_ASSET_BASE = 'https://cros-sigma.vercel.app'
-const F = "Lato,'Helvetica Neue',Arial,sans-serif"
-const MONO = "'SF Mono','SFMono-Regular',Menlo,Consolas,'Roboto Mono','Liberation Mono',monospace"
+// The first font in each list is one every computer has (26 Oct 2026): Outlook doesn't try the rest of the list — when
+// the first font was missing (Lato, SF Mono) it drew the signature in Times New Roman, which is how it looked broken
+// when quoted back in a reply.
+const F = "Arial,'Helvetica Neue',Helvetica,sans-serif"
+const MONO = "Consolas,Menlo,Monaco,'Courier New',monospace"
 const BG = '#0d0d0d'
 const ADDRESS = 'Capital Rooms Ltd &nbsp;·&nbsp; Hoxton Mix, 66 Paul Street, London EC2A 4NA'
 
@@ -30,6 +33,9 @@ export function signatureNameUrl(name: string, tone: 'light' | 'ink' = 'light', 
   return `${base}/api/brand/signature-name?n=${encodeURIComponent(name.trim().toUpperCase())}&t=${tone}`
 }
 
+/** A link whose colour survives: Outlook and Gmail repaint <a> blue and underlined unless the text inside carries its own colour. */
+const link = (href: string, text: string, color: string) =>
+  `<a href="${href}" style="color:${color};text-decoration:none;"><span style="color:${color};text-decoration:none;">${text}</span></a>`
 const img = (src: string, w: number, alt: string) =>
   `<img src="${src}" width="${w}" alt="${esc(alt)}" style="display:block;border:0;outline:none;width:${w}px;max-width:100%;height:auto;">`
 const rule = (c: string) => `<div style="border-top:1px solid ${c};font-size:0;line-height:0;height:1px;">&nbsp;</div>`
@@ -61,15 +67,15 @@ export function fullSignatureHtml(p: SignaturePerson, nameWidth: number, base = 
       <div style="height:4px;font-size:0;line-height:0;">&nbsp;</div>
       ${mono(esc(p.title), '#8d8a84', 10.5, '.18em')}
       <div style="font-family:${MONO};font-size:12.5px;line-height:1.7;margin-top:8px;color:#d6d3cd;">
-        <a href="tel:${telHref(p.phone)}" style="color:#d6d3cd;text-decoration:none;">${tel}</a><br>
-        <a href="mailto:${mail}" style="color:#d6d3cd;text-decoration:none;">${mail}</a>
+        ${link(`tel:${telHref(p.phone)}`, tel, '#d6d3cd')}<br>
+        ${link(`mailto:${mail}`, mail, '#d6d3cd')}
       </div>
     </td>
   </tr>
   <tr><td colspan="2" style="padding:0 22px;">${rule('#222120')}</td></tr>
   <tr><td colspan="2" style="padding:16px 22px 6px;"><div style="font-size:0;line-height:0;">${creds}</div></td></tr>
   <tr><td colspan="2" style="padding:0 22px 18px;">
-    <div style="font-family:${MONO};font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;line-height:1.8;"><a href="https://www.capitalrooms.co.uk" style="color:#9a978f;text-decoration:none;">www.capitalrooms.co.uk</a></div>
+    <div style="font-family:${MONO};font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;line-height:1.8;">${link('https://www.capitalrooms.co.uk', 'www.capitalrooms.co.uk', '#9a978f')}</div>
     ${mono(`© ${new Date().getFullYear()} ${ADDRESS}`, '#57554f', 8, '.12em')}
   </td></tr>
 </table>${opts.disclaimer === false ? '' : `
@@ -83,8 +89,16 @@ export function replySignatureHtml(p: SignaturePerson, nameWidth: number, base =
   <td valign="middle" width="70" style="width:70px;min-width:70px;padding:10px 10px 10px 12px;">${img(`${base}/brand/disc-small.png`, 52, 'Capital Rooms')}</td>
   <td valign="middle" style="padding:10px 18px 10px 12px;border-left:1px solid #262523;">
     ${img(signatureNameUrl(p.name, 'light', base), Math.round(nameWidth * 0.82), p.name)}
-    <div style="font-family:${MONO};font-size:12px;color:#a7a39b;margin-top:5px;line-height:1.5;"><a href="tel:${telHref(p.phone)}" style="color:#d6d3cd;text-decoration:none;">${tel}</a> &nbsp;<span style="color:#4a4845;">/</span>&nbsp; <a href="mailto:${mail}" style="color:#d6d3cd;text-decoration:none;">${mail}</a><br><a href="https://www.capitalrooms.co.uk" style="color:#8d8a84;text-decoration:none;">capitalrooms.co.uk</a></div>
+    <div style="font-family:${MONO};font-size:12px;color:#a7a39b;margin-top:5px;line-height:1.5;">${link(`tel:${telHref(p.phone)}`, tel, '#d6d3cd')} &nbsp;<span style="color:#4a4845;">/</span>&nbsp; ${link(`mailto:${mail}`, mail, '#d6d3cd')}<br>${link('https://www.capitalrooms.co.uk', 'capitalrooms.co.uk', '#8d8a84')}</div>
   </td></tr></table>`
+}
+
+/**
+ * The reply signature as one picture (lib/brand/signatureCard; 26 Oct 2026) — nothing in it can be split, typed into
+ * or re-fonted by a mail app. It links to the website; the words are in its description for apps that hide pictures.
+ */
+export function pictureReplyHtml(p: SignaturePerson, url: string): string {
+  return `<a href="https://www.capitalrooms.co.uk" style="text-decoration:none;"><img src="${esc(url)}" width="480" height="84" alt="${esc(`${p.name} · Capital Rooms · ${p.phone} · ${p.email}`)}" style="display:block;border:0;outline:none;width:480px;max-width:100%;height:auto;"></a>`
 }
 
 /** Plain-text fallback for the clipboard. */

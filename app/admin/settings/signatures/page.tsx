@@ -5,8 +5,9 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 import {
-  fullSignatureHtml, replySignatureHtml, signatureText, signatureNameUrl,
+  fullSignatureHtml, replySignatureHtml, pictureReplyHtml, signatureText, signatureNameUrl,
   SIGNATURE_ASSET_BASE, type SignaturePerson,
 } from '@/lib/brand/signature'
 
@@ -61,16 +62,28 @@ export default function SignaturesPage() {
   }, [person.name])
 
   const ready = !!(nameWidth && person.name.trim() && person.email.trim() && person.phone.trim())
+  // the reply bar as one picture — its sealed address comes from the server (lib/brand/signatureCard)
+  const [pictureUrl, setPictureUrl] = useState<string | null>(null)
+  useEffect(() => {
+    setPictureUrl(null)
+    if (!ready) return
+    const t = setTimeout(() => {
+      adminFetch('/api/admin/signature-card', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(person) })
+        .then(r => r.ok ? r.json() : null).then(d => setPictureUrl(d?.url ?? null)).catch(() => null)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [ready, person])
   // Preview loads images from this site; the copied signature always points at the live site Gmail can reach
   const previewBase = typeof window !== 'undefined' ? window.location.origin : SIGNATURE_ASSET_BASE
   const preview = useMemo(() => ready ? {
     full: fullSignatureHtml(person, nameWidth!, previewBase),
     reply: replySignatureHtml(person, nameWidth!, previewBase),
-  } : null, [ready, person, nameWidth, previewBase])
+    picture: pictureUrl ? pictureReplyHtml(person, pictureUrl) : '',
+  } : null, [ready, person, nameWidth, previewBase, pictureUrl])
 
-  async function copy(kind: 'full' | 'reply', asHtml: boolean) {
-    if (!ready) return
-    const html = kind === 'full' ? fullSignatureHtml(person, nameWidth!) : replySignatureHtml(person, nameWidth!)
+  async function copy(kind: 'full' | 'reply' | 'picture', asHtml: boolean) {
+    if (!ready || (kind === 'picture' && !pictureUrl)) return
+    const html = kind === 'full' ? fullSignatureHtml(person, nameWidth!) : kind === 'picture' ? pictureReplyHtml(person, pictureUrl!) : replySignatureHtml(person, nameWidth!)
     try {
       if (asHtml) await navigator.clipboard.writeText(html)
       else await navigator.clipboard.write([new ClipboardItem({
@@ -117,23 +130,23 @@ export default function SignaturesPage() {
           </section>
 
           <section className="space-y-md">
-            {(['full', 'reply'] as const).map(kind => (
+            {(['full', 'picture', 'reply'] as const).map(kind => (
               <div key={kind} className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-md px-lg py-md border-b border-neutral-100">
                   <div>
-                    <p className="text-sm font-bold text-neutral-900">{kind === 'full' ? 'New emails' : 'Replies'}</p>
-                    <p className="text-xs text-neutral-500">{kind === 'full' ? 'Full signature with credentials' : 'Slim dark bar that keeps reply chains tidy'}</p>
+                    <p className="text-sm font-bold text-neutral-900">{kind === 'full' ? 'New emails' : kind === 'picture' ? 'Replies — as one picture (recommended)' : 'Replies — as text'}</p>
+                    <p className="text-xs text-neutral-500">{kind === 'full' ? 'Full signature with credentials' : kind === 'picture' ? 'Can’t break up, be typed into or change font in anyone’s mail app. Opens the website when clicked.' : 'Slim dark bar with tappable phone and email — but mail apps can re-draw it'}</p>
                   </div>
                   <div className="flex gap-sm">
-                    <button type="button" disabled={!ready} onClick={() => copy(kind, false)}
+                    <button type="button" disabled={!ready || (kind === 'picture' && !pictureUrl)} onClick={() => copy(kind, false)}
                       className="rounded-lg bg-neutral-900 text-white px-md py-xs text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40">Copy for Gmail</button>
-                    <button type="button" disabled={!ready} onClick={() => copy(kind, true)}
+                    <button type="button" disabled={!ready || (kind === 'picture' && !pictureUrl)} onClick={() => copy(kind, true)}
                       className="rounded-lg border border-neutral-300 px-md py-xs text-sm font-semibold text-neutral-900 hover:bg-neutral-50 disabled:opacity-40">Copy HTML</button>
                   </div>
                 </div>
                 <div className="p-lg overflow-x-auto">
                   <p className="text-sm text-neutral-800 mb-md" style={{ fontFamily: 'Arial, sans-serif' }}>Kind regards,</p>
-                  {preview
+                  {preview && preview[kind]
                     ? <div dangerouslySetInnerHTML={{ __html: preview[kind] }} />
                     : <p className="text-sm text-neutral-400">{person.name.trim() ? 'Preparing…' : 'Choose a person to see their signature.'}</p>}
                 </div>
@@ -146,7 +159,7 @@ export default function SignaturesPage() {
               <ol className="list-decimal pl-lg space-y-xs text-neutral-600">
                 <li>Press <b>Copy for Gmail</b> on “New emails”.</li>
                 <li>In Gmail: cog → <b>See all settings</b> → <b>General</b> → <b>Signature</b> → <b>Create new</b>, and paste.</li>
-                <li>Do the same with “Replies” as a second signature.</li>
+                <li>Do the same with “Replies — as one picture” as a second signature (or the text one, if you want the phone number tappable).</li>
                 <li>Under <b>Signature defaults</b> choose the full one for new emails and the reply one for replies, then <b>Save changes</b> at the bottom.</li>
                 <li>In the Gmail phone app, turn off <b>Mobile signature</b> so it uses this one.</li>
               </ol>
