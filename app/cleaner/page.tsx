@@ -315,10 +315,11 @@ export default function CleanerDashboard() {
         completed_at: pastCleanForm.cleanDate === todayIso ? new Date().toISOString() : `${pastCleanForm.cleanDate}T12:00:00.000Z`,
         notes: pastCleanForm.notes || null,
       }
-      // a clean already booked here around then that was never finished: finish that one, rather than adding a second
+      // a clean already booked here around then (up to today — never one still to come) that was never finished: finish
+      // that one, rather than adding a second
       const near = (d: number) => { const x = new Date(`${pastCleanForm.cleanDate}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10) }
       const { data: open } = await supabase.from('cleans').select('id, clean_date').eq('property_id', pastCleanForm.propertyId).eq('cleaner_id', personId)
-        .gte('clean_date', near(-14)).lte('clean_date', near(14)).not('status', 'in', '("completed","cancelled")').order('clean_date').limit(1)
+        .gte('clean_date', near(-14)).lte('clean_date', near(14) < todayIso ? near(14) : todayIso).not('status', 'in', '("completed","cancelled")').order('clean_date').limit(1)
       const save = (f: Record<string, unknown>) => open?.[0]
         ? supabase.from('cleans').update({ ...f, admin_note: open[0].clean_date !== pastCleanForm.cleanDate ? `Logged as done afterwards — booked for ${formatDateUK(open[0].clean_date)}.` : 'Logged as done afterwards.' }).eq('id', open[0].id).select('id').single()
         : supabase.from('cleans').insert({ ...f, property_id: pastCleanForm.propertyId, cleaner_id: personId }).select('id').single()
