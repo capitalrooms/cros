@@ -8,6 +8,7 @@ import { activeTenantIds, insertNotifications, dispatchChannels } from '@/lib/se
 import { deliverEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
 import { dearLine } from '@/lib/people'
+import { extrasLine } from '@/lib/cleans/deepTasks'
 
 export type CleanUpdate = 'booked' | 'moved' | 'late' | 'arrived' | 'done' | 'cancelled'
 export type CleanChannel = 'email' | 'app' | 'app_email' | 'off'
@@ -34,13 +35,13 @@ const time = (t: string | null | undefined) => {
 const when = (date: string, t?: string | null) => `${day(date)}${t ? ` at ${time(t)}` : ''}`
 
 /** The words for each event — the same in the email and the app notification. */
-function words(kind: CleanUpdate, house: string, c: { clean_date: string; clean_time: string | null }, extra: { note?: string; nextDate?: string | null; nextTime?: string | null }) {
+function words(kind: CleanUpdate, house: string, c: { clean_date: string; clean_time: string | null }, extra: { note?: string; nextDate?: string | null; nextTime?: string | null; extras?: string }) {
   switch (kind) {
     case 'booked': return { title: `Clean booked — ${day(c.clean_date)}`, body: `The shared areas at ${house} will be cleaned on ${when(c.clean_date, c.clean_time)}. A tidy kitchen and bathroom help the cleaner do a better job — thank you.` }
     case 'moved': return { title: `Clean moved — ${day(c.clean_date)}`, body: `The clean at ${house} has moved to ${when(c.clean_date, c.clean_time)}.${extra.note ? ` ${extra.note}` : ''}` }
     case 'late': return { title: 'Cleaner running late', body: `Your cleaner is running late today — the clean at ${house} is now expected ${c.clean_time ? `around ${time(c.clean_time)}` : 'later today'}.` }
     case 'arrived': return { title: 'Your cleaner has arrived', body: `Your cleaner has arrived at ${house}.` }
-    case 'done': return { title: 'Clean finished', body: `The clean at ${house} is finished.${extra.nextDate ? ` The next one is ${when(extra.nextDate, extra.nextTime)}.` : ''}${extra.note ? `\n\nFrom your cleaner: ${extra.note}` : ''}` }
+    case 'done': return { title: 'Clean finished', body: `The clean at ${house} is finished.${extra.extras ? ` Extra jobs done today: ${extra.extras}.` : ''}${extra.nextDate ? ` The next one is ${when(extra.nextDate, extra.nextTime)}.` : ''}${extra.note ? `\n\nFrom your cleaner: ${extra.note}` : ''}` }
     case 'cancelled': return { title: 'Clean cancelled', body: `The clean at ${house} on ${when(c.clean_date, c.clean_time)} won’t go ahead.${extra.note ? ` ${extra.note}` : ''} We’ll let you know the next one.` }
   }
 }
@@ -50,7 +51,7 @@ export async function tellTenantsAboutClean(s: SupabaseClient, cleanId: string, 
   : Promise<{ sent: number; channel: CleanChannel; skipped?: string }> {
   const channel = await cleanChannel(s)
   if (channel === 'off') return { sent: 0, channel, skipped: 'tenant updates about cleans are off' }
-  const { data: c } = await s.from('cleans').select('id, property_id, clean_date, clean_time, notify_tenants, status, properties(name, address)').eq('id', cleanId).maybeSingle()
+  const { data: c } = await s.from('cleans').select('id, property_id, clean_date, clean_time, notify_tenants, status, special_jobs, properties(name, address)').eq('id', cleanId).maybeSingle()
   if (!c?.property_id) return { sent: 0, channel, skipped: 'clean not found' }
   if ((c as any).notify_tenants === false) return { sent: 0, channel, skipped: 'this clean is set not to tell the tenants' }
   const house = (c as any).properties?.name || (c as any).properties?.address || 'your house'
@@ -61,7 +62,7 @@ export async function tellTenantsAboutClean(s: SupabaseClient, cleanId: string, 
       .not('status', 'in', '("completed","cancelled")').order('clean_date').limit(1).maybeSingle()
     next = data as any
   }
-  const msg = words(kind, house, c as any, { note: extra.note, nextDate: next?.clean_date ?? null, nextTime: next?.clean_time ?? null })
+  const msg = words(kind, house, c as any, { note: extra.note, nextDate: next?.clean_date ?? null, nextTime: next?.clean_time ?? null, extras: kind === 'done' ? extrasLine((c as any).special_jobs ?? []) : '' })
   const ids = await activeTenantIds(s, c.property_id, null)
   if (!ids.length) return { sent: 0, channel, skipped: 'nobody lives there now' }
 

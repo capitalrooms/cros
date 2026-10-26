@@ -1,13 +1,14 @@
 'use client'
 
 // A cleaner's page for one house (17 Oct 2026): the usual visit, one list of "notes for this house" shared with the
-// office (add one, tick one off), and past cleans with what was noted. Opened from a clean. The office sees and adds
+// office (add one, tick one off), the deep-clean record (26 Oct 2026), and past cleans with what was noted. Opened from a clean. The office sees and adds
 // the same notes on Property notes. Data: /api/cleaner/house.
 import { use, useCallback, useEffect, useState } from 'react'
 import { RoleTabBar, type CleanerTab } from '@/app/components/RoleTabBar'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import DeepCleanRecord from '@/app/components/cleaning/DeepCleanRecord'
 
 const day = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -74,13 +75,15 @@ export default function CleanerHouse({ params }: { params: Promise<{ propertyId:
       {d.done.length > 0 && <details className="mt-sm text-xs text-neutral-500"><summary className="cursor-pointer">Done recently ({d.done.length})</summary><ul className="mt-xs space-y-xs">{d.done.map((n: any) => <li key={n.id}>✓ {n.note_content || n.note_title}</li>)}</ul></details>}
     </section>
 
+    <DeepCleanRecord deep={d.deep} />
+
     <section className="rounded-2xl bg-white p-lg">
       <h2 className="text-sm font-bold text-neutral-900">Cleans here</h2>
       <ul className="mt-sm divide-y divide-neutral-100">
         {d.cleans.map((c: any) => (
           <li key={c.id} className="py-sm text-sm">
             <Link href={`/cleaner/clean/${c.id}`} className="flex justify-between gap-md"><span className="font-semibold text-neutral-900">{day(c.clean_date)}{c.clean_time ? ` · ${String(c.clean_time).slice(0, 5)}` : ''}</span><span className={`text-xs font-semibold ${c.status === 'completed' ? 'text-emerald-700' : c.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'text-amber-700' : 'text-neutral-500'}`}>{c.status === 'completed' ? 'Done' : c.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) ? 'Not marked done' : 'Booked'}</span></Link>
-            {[c.admin_note && `Office: ${c.admin_note}`, c.cleaner_note && `You: ${c.cleaner_note}`, c.notes].filter(Boolean).map((t: string, i: number) => <p key={i} className="mt-0.5 text-xs text-neutral-600">{t}</p>)}
+            {[c.special_jobs?.length && `Extra jobs: ${c.special_jobs.map((j: string) => j.replace(/^Other: /, '')).join(', ')}`, c.admin_note && `Office: ${c.admin_note}`, c.cleaner_note && `You: ${c.cleaner_note}`, c.notes].filter(Boolean).map((t: string, i: number) => <p key={i} className="mt-0.5 text-xs text-neutral-600">{t}</p>)}
           </li>
         ))}
       </ul>
