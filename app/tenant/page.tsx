@@ -47,7 +47,7 @@ function dayLabel(iso: string) {
 }
 
 function liveStatus(item: any): string | null {
-  if (item?.status === 'in_progress') return '🔨 Work underway'
+  if (item?.status === 'in_progress') return 'Work underway'
   if (item?.arrived_at)
     return `✓ Arrived ${new Date(item.arrived_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
   return null
@@ -135,7 +135,7 @@ function ReportSheet({ isHmo, onClose }: { isHmo: boolean; onClose: () => void }
           onClick={onClose}
           className="flex items-start gap-md rounded-2xl border-2 border-neutral-200 p-md hover:border-neutral-400 transition-colors mb-md"
         >
-          <span className="text-2xl mt-xs">🔧</span>
+          <GIcon name="wrench" size={24} className="mt-xs shrink-0 text-neutral-700" />
           <div>
             <p className="font-bold text-neutral-900">Maintenance issue</p>
             <p className="text-sm text-neutral-500">Something broken, not working, or needs fixing</p>
@@ -147,7 +147,7 @@ function ReportSheet({ isHmo, onClose }: { isHmo: boolean; onClose: () => void }
             onClick={onClose}
             className="flex items-start gap-md rounded-2xl border-2 border-neutral-200 p-md hover:border-neutral-400 transition-colors mb-lg"
           >
-            <span className="text-2xl mt-xs">🏠</span>
+            <GIcon name="home" size={24} className="mt-xs shrink-0 text-neutral-700" />
             <div>
               <p className="font-bold text-neutral-900">Trouble with a housemate</p>
               <p className="text-sm text-neutral-500">Having a difficult time with someone you live with</p>
@@ -602,7 +602,7 @@ export default function TenantDashboard() {
               href={`/tenant/visit/${req.id}`}
               className="mt-lg block rounded-2xl bg-white p-lg text-neutral-900 shadow-lg hover:shadow-xl transition-shadow"
             >
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-600">⚠️ Your approval needed</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-600">Your approval needed</p>
               <p className="mt-sm text-3xl font-bold leading-tight">{dayLabel(req.booked_date)}</p>
               <p className="text-xl font-semibold text-neutral-700">{slotLabel(req.booked_slot)}</p>
               <p className="mt-lg border-t border-neutral-200 pt-md text-sm">
@@ -765,7 +765,7 @@ export default function TenantDashboard() {
                   {/* Heating schedule — shown first if set */}
                   {heatingSchedule?.on && (
                     <div className="flex items-start gap-md pb-md border-b border-neutral-100 mb-xs">
-                      <span className="text-xl shrink-0">🌡️</span>
+                      <GIcon name="thermo" size={20} className="shrink-0 text-neutral-700" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Heating</p>
                         <p className="mt-xs text-sm font-semibold text-neutral-900">
@@ -781,7 +781,7 @@ export default function TenantDashboard() {
                     const isRevealed = revealed.has(idx)
                     return (
                       <div key={idx} className="flex items-center gap-md">
-                        <span className="text-xl shrink-0">{item.icon || '📌'}</span>
+                        <GIcon name="pin" size={20} className="shrink-0 text-neutral-700" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{item.label}</p>
                           {item.sensitive && !isRevealed ? (
@@ -905,7 +905,7 @@ export default function TenantDashboard() {
                   ))}
                   <Link href="/tenant/safety-checks" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">🔥</span>
+                      <GIcon name="flame" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">Monthly safety checks</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
@@ -923,42 +923,42 @@ export default function TenantDashboard() {
                 <div className="space-y-sm">
                   <Link href="/tenant/documents" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">🗂️</span>
+                      <GIcon name="folder" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">Your documents</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
                   </Link>
                   <Link href="/tenant/property-info" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">📄</span>
+                      <GIcon name="doc" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">Property documents</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
                   </Link>
                   <Link href="/tenant/acknowledgment-notes" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">📩</span>
+                      <GIcon name="inbox" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">Important notices</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
                   </Link>
                   <Link href="/tenant/housemates" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">👥</span>
+                      <GIcon name="people" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">Meet your housemates</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
                   </Link>
                   <Link href="/tenant/profile" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">👤</span>
+                      <GIcon name="user" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">Your profile</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
                   </Link>
                   <Link href="/tenant/icebreaker" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">😊</span>
+                      <GIcon name="smile" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">Housemate profile</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
@@ -966,7 +966,7 @@ export default function TenantDashboard() {
                   {/* House contributions */}
                   <Link href="/tenant/contributions" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">🎉</span>
+                      <GIcon name="spark" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">House contributions</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
@@ -974,7 +974,7 @@ export default function TenantDashboard() {
                   {/* My maintenance requests */}
                   <Link href="/tenant/requests" className="flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors">
                     <div className="flex items-center gap-sm">
-                      <span className="text-xl">🔧</span>
+                      <GIcon name="wrench" size={20} className="shrink-0 text-neutral-700" />
                       <p className="text-sm font-bold text-neutral-900">My maintenance requests</p>
                     </div>
                     <span className="text-neutral-400 text-base">›</span>
@@ -1062,7 +1062,7 @@ function SafetyBadge({ title, expiry }: { title: string; expiry?: string | null 
 
 function PropertyNoteCard({ note, isForMyRoom }: { note: PropertyNote; isForMyRoom?: boolean }) {
   const typeColors = { cleaner: 'bg-green-50 border-green-100', agent: 'bg-blue-50 border-blue-100', admin: 'bg-purple-50 border-purple-100' }
-  const typeLabels = { cleaner: '🧹 Cleaner note', agent: '🏠 Agent note', admin: '⚙️ Admin update' }
+  const typeLabels = { cleaner: 'Cleaner note', agent: 'Agent note', admin: 'Office update' }
   return (
     <div className={`rounded-xl border p-md ${typeColors[note.note_type]}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
