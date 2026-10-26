@@ -3,6 +3,7 @@
 // One recipient's email in invoices-only mode: preview their invoice PDFs and the email exactly as they
 // will receive it (branded Capital Rooms email), then send it — CC Harry by default.
 
+import PdfView from '@/components/PdfView'
 import { useEffect, useRef, useState } from 'react'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -126,7 +127,7 @@ export default function RecipientSend({ name, to, docs, total, suggestedSubject,
                   </button>
                 ))}
               </div>
-              {current?.url ? <iframe key={current.url} src={current.url} title={current.label} className="w-full h-[60vh] rounded-lg border border-neutral-200 bg-white" />
+              {current?.url ? <PdfView key={current.url} src={current.url} title={current.label} className="h-[60dvh] rounded-lg border border-neutral-200 bg-white" />
                 : current?.error ? <p className="text-sm text-red-700">{current.error}</p> : null}
             </div>
           )}

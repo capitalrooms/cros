@@ -11,6 +11,7 @@
  * On confirm → rent_charges row is marked paid with the received amount.
  */
 
+import PdfView from '@/components/PdfView'
 import { useState, useEffect, useCallback } from 'react'
 import { paymentFit, FIT_CLASS } from '@/lib/payments/fit'
 import { useRouter } from 'next/navigation'
@@ -513,7 +514,7 @@ export default function ReconciliationPage() {
                   <button type="button" onClick={() => setPreview(null)} className="text-xl leading-none text-neutral-400 hover:text-neutral-900">×</button>
                 </span>
               </div>
-              {preview.url ? <iframe src={preview.url} title={preview.title} className="flex-1 bg-neutral-100" />
+              {preview.url ? <PdfView src={preview.url} title={preview.title} className="flex-1 bg-neutral-100" />
                 : <p className="p-lg text-sm text-neutral-600">{preview.error || 'Loading the statement…'}</p>}
             </div>
           </div>

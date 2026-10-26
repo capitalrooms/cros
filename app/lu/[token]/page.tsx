@@ -4,6 +4,7 @@
 // tenant's documents to open in a quick viewer (or all of them as one PDF report), and — on an offer sent for review —
 // "Happy to go ahead" / "Not this one".
 // The link stops working after 7 days. Look: the shared public frame (components/public/PublicShell, design "C").
+import PdfView from '@/components/PdfView'
 import { use, useEffect, useState } from 'react'
 import PublicShell from '@/components/public/PublicShell'
 
@@ -149,7 +150,7 @@ export default function LandlordUpdatePage({ params }: { params: Promise<{ token
       {viewing != null && v.docs[viewing] && (() => {
         const d = v.docs[viewing], src = `/api/lu/${token}/file/${d.id}`
         return (
-          <div role="dialog" aria-modal="true" aria-label={d.label} className="fixed inset-0 z-50 flex flex-col" style={{ background: '#141312' }}>
+          <div role="dialog" aria-modal="true" aria-label={d.label} className="fixed inset-0 z-50 flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', background: '#141312' }}>
             <div className="flex flex-wrap items-center gap-3 px-4 py-3 md:px-8" style={{ color: '#F3F0EA' }}>
               <div className="min-w-0 flex-1">
                 <p className="pub-eyebrow m-0" style={{ color: '#C9C4BA' }}>{viewing + 1} of {v.docs.length}</p>
@@ -165,7 +166,7 @@ export default function LandlordUpdatePage({ params }: { params: Promise<{ token
             </div>
             <div className="flex min-h-0 flex-1 items-center justify-center px-2 pb-2 md:px-8 md:pb-6">
               {d.kind === 'pdf' ? (
-                <iframe key={d.id} src={src} title={d.label} className="h-full w-full max-w-5xl border-0 bg-white" />
+                <PdfView key={d.id} src={src} title={d.label} className="h-full w-full max-w-5xl bg-white" />
               ) : d.kind === 'image' ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img key={d.id} src={src} alt={d.label} className="max-h-full max-w-full object-contain" />

@@ -3,6 +3,7 @@
 // Letters & Invoices: write what you want in your own words and the assistant turns it into a formal letter
 // on the Capital Rooms letterhead signed by you, or an invoice in the standard layout; check, download or email it.
 
+import PdfView from '@/components/PdfView'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
@@ -919,7 +920,7 @@ export default function DocumentGenerator() {
                 {saveNote && <p className="text-xs text-green-700 mb-sm">{saveNote}</p>}
                 {previewErr && <p className="text-sm text-red-700 mb-sm">{previewErr}</p>}
                 {previewUrl
-                  ? <iframe title="Preview" src={previewUrl} className="w-full flex-1 min-h-[720px] rounded border border-neutral-200" />
+                  ? <PdfView title="Preview" src={previewUrl} className="flex-1 min-h-[720px] rounded border border-neutral-200" />
                   : <div className="flex-1 min-h-[720px] rounded border border-dashed border-neutral-200 flex items-center justify-center text-sm text-neutral-400">Preparing preview…</div>}
               </div>
             </div>
