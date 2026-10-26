@@ -57,6 +57,11 @@ export async function PUT(
       return NextResponse.json({ error: 'That job isn’t yours to accept.' }, { status: 403 })
     }
 
+    // once only: accepting again made a second clean (26 Oct 2026)
+    if (job.status !== 'pending') {
+      return NextResponse.json({ error: job.status === 'accepted' ? 'You’ve already accepted this one — it’s in your diary.' : 'This job isn’t open any more.' }, { status: 409 })
+    }
+
     // Create a clean entry
     const { data: clean, error: cleanError } = await supabase
       .from('cleans')

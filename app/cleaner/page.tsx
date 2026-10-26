@@ -277,8 +277,14 @@ export default function CleanerDashboard() {
   // ── Actions ───────────────────────────────────────────────────────────────
   async function bookClean() {
     if (!propertyId || !cleanDate || booking) return
-    setError(''); setBookedNotice(''); setBooking(true)
+    setError(''); setBookedNotice('')
+    const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    if (cleanDate < todayIso) return setError('That day has gone — use “Log a past clean” for a clean you’ve already done.')
+    setBooking(true)
     const supabase = createClient()
+    // one clean per house per day: a second booking used to go straight in
+    const { data: same } = await supabase.from('cleans').select('id').eq('property_id', propertyId).eq('clean_date', cleanDate).not('status', 'eq', 'cancelled').limit(1)
+    if (same?.length) { setBooking(false); return setError('There’s already a clean booked at this house that day.') }
     const { data: made, error: err } = await supabase.from('cleans').insert({
       property_id: propertyId,
       cleaner_id: personId,
@@ -359,7 +365,7 @@ export default function CleanerDashboard() {
         headers: h,
         body: JSON.stringify({ clean_date: acceptJobForm.cleanDate, clean_time: acceptJobForm.cleanTime }),
       })
-      if (!res.ok) throw new Error('Failed to accept job')
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || 'The job couldn’t be accepted — try again')
       setShowAcceptJobModal(null)
       await loadAssignedJobs()
       await loadCleans(personId, cleansDisplayLimit)
@@ -960,9 +966,10 @@ export default function CleanerDashboard() {
                   <input type="time" value={cleanTime} onChange={e => setCleanTime(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
                 </div>
               </div>
+              {error && <p className="text-sm font-semibold text-red-700">{error}</p>}
               <div className="flex gap-sm pt-sm">
                 <button onClick={bookClean} disabled={booking} className="flex-1 rounded-xl bg-neutral-950 py-sm font-bold text-white disabled:opacity-50 hover:bg-neutral-700 transition-colors">
-                  {booking ? 'Booking…' : 'Book Clean'}
+                  {booking ? 'Booking…' : 'Book the clean'}
                 </button>
                 <button onClick={() => setShowBookCleanModal(false)} className="flex-1 rounded-xl border border-neutral-300 py-sm font-semibold text-neutral-700">
                   Cancel

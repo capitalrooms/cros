@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       .from('assigned_jobs')
       .select('*, properties(name, address), rooms(name)')
       .eq('cleaner_id', cleaner.id)
-      .in('status', ['pending', 'accepted'])
+      .eq('status', 'pending')   // accepted ones already have their clean in the diary — listing them offered Accept twice (26 Oct 2026)
       .order('task_type', { ascending: false })
       .order('created_at', { ascending: false })
 
