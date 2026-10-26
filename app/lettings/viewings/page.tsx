@@ -427,7 +427,7 @@ export default function ViewingsDiary() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-md">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-md">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 mb-xs">Date <span className="text-red-500">*</span></label>
                   <input
@@ -538,7 +538,7 @@ export default function ViewingsDiary() {
             </div>
 
             <div className="space-y-md">
-              <div className="grid grid-cols-2 gap-md">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-md">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 mb-xs">Date</label>
                   <input

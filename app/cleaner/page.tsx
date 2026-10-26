@@ -962,7 +962,7 @@ export default function CleanerDashboard() {
                   <HouseOptions houses={properties} />
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-sm">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-sm">
                 <div>
                   <label className="block text-sm font-bold text-neutral-900 mb-sm">Date</label>
                   <input type="date" value={cleanDate} onChange={e => setCleanDate(e.target.value)} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />

@@ -228,7 +228,7 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
               </div>
             )}
             {aPreset === 'moved' && (
-              <div className="grid grid-cols-2 gap-md">
+              <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-md">
                 <div><label className={lbl}>New date</label><input type="date" className={field} value={newDate} onChange={e => setNewDate(e.target.value)} /></div>
                 <div><label className={lbl}>New time</label><input type="time" className={field} value={newTime} onChange={e => setNewTime(e.target.value)} /></div>
               </div>
