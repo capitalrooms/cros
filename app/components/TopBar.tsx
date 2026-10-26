@@ -28,7 +28,7 @@ export default function TopBar({ left, right, homeHref = '/home', position = 'st
       <div className="mx-auto grid h-14 px-3 md:px-6" style={{ gridTemplateColumns: '1fr auto 1fr' }}>
         <div className="flex min-w-0 items-center">{left}</div>
         <div className="flex items-center justify-center">
-          <Link href={homeHref} aria-label="Home" className="block transition-opacity hover:opacity-80">
+          <Link href={homeHref} aria-label="Home" className="cr-topbar-logo block transition-opacity hover:opacity-80">
             <Logo variant="emblem" height={32} invert priority />
           </Link>
         </div>
