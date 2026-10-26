@@ -16,6 +16,7 @@ import BackButton from '@/app/components/BackButton'
 import { localISO } from '@/lib/dateUtils'
 import { jobPlace } from '@/lib/repairs/where'
 import BookingLinkPanel from './BookingLinkPanel'
+import JobDetailsPanel from './JobDetailsPanel'
 
 interface Ticket {
   id: string;
@@ -919,23 +920,9 @@ export default function MaintenanceDashboard() {
               </div>
 
               <div className="space-y-md">
-                <div>
-                  <h3 className="font-medium text-neutral-900">Description</h3>
-                  <p className="mt-xs whitespace-pre-line text-sm text-neutral-600">{selectedTicket.description}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-md">
-                  <div>
-                    <h3 className="font-medium text-neutral-900">Category</h3>
-                    <p className="mt-xs text-sm text-neutral-600">{selectedTicket.category}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-neutral-900">Priority</h3>
-                    <p className={`mt-xs text-sm font-medium ${PRIORITY_COLORS[selectedTicket.priority]}`}>
-                      {selectedTicket.priority.toUpperCase()}
-                    </p>
-                  </div>
-                </div>
+                {/* description, category, priority, where, room and photos — editable after the job is made (26 Oct 2026) */}
+                <JobDetailsPanel key={selectedTicket.id} ticketId={selectedTicket.id}
+                  onSaved={(patch) => { setSelectedTicket(t => (t ? ({ ...t, ...patch } as any) : t)); fetchTickets() }} />
 
                 <div>
                   <h3 className="font-medium text-neutral-900">Status</h3>
