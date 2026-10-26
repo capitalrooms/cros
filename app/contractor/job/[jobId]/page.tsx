@@ -432,7 +432,8 @@ export default function JobDetailPage() {
       // logged afterwards: completed on the day of the visit, not the day it was written up
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
       const visitDay = job.arrived_at ? new Date(job.arrived_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) : today
-      await patch({ status: 'completed', completed_at: visitDay < today ? `${visitDay}T16:00:00.000Z` : new Date().toISOString(), ...(price ? { final_price: Number(price) } : {}) })
+      // the notes go with it — finishing needed notes (or an after photo) but didn't save them (26 Oct 2026)
+      await patch({ status: 'completed', completed_at: visitDay < today ? `${visitDay}T16:00:00.000Z` : new Date().toISOString(), notes: notes.trim() || null, ...(price ? { final_price: Number(price) } : {}) })
 
       // Get notification details
       const res = await fetch('/api/notify-job-completed', {
@@ -476,11 +477,11 @@ export default function JobDetailPage() {
     setSavingReturn(true)
     try {
       if (returnUncertain) {
-        await patch({ return_needed: true, return_reason: reason, return_date: null, status: 'in_progress' })
+        await patch({ return_needed: true, return_reason: reason, return_date: null, status: 'in_progress', ...(notes.trim() ? { notes: notes.trim() } : {}) })
         alert('Logged — the office can see it. The job stays open until you book the return visit.')
       } else {
         // a fresh visit: booked, and they'll tap "I've arrived" again on the day
-        await patch({ return_needed: true, return_reason: reason, return_date: returnDate, booked_date: returnDate, booked_slot: returnSlot, arrived_at: null, status: 'assigned' })
+        await patch({ return_needed: true, return_reason: reason, return_date: returnDate, booked_date: returnDate, booked_slot: returnSlot, arrived_at: null, status: 'assigned', ...(notes.trim() ? { notes: notes.trim() } : {}) })
         notify('/api/notify-booking')
         const when = new Date(returnDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
         pushTenants(`Your contractor needs to come back to finish the repair: ${when}, ${slotLabel(returnSlot)}.`)
