@@ -237,7 +237,7 @@ function CleanerNew({ data, post, done }: { data: any; post: (b: Record<string, 
     <div className="space-y-4">
       <div className="rounded-2xl bg-white p-4 ring-1 ring-neutral-200 space-y-3">
         <p className="text-sm text-neutral-700">One invoice for all your cleans in a period, sent to Capital Rooms. Cleans already on an invoice don’t show — each one can only be paid once.</p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2">
           <label className="text-xs text-neutral-600">From<input type="date" className={`${input} mt-1`} value={from} onChange={e => setFrom(e.target.value)} /></label>
           <label className="text-xs text-neutral-600">To<input type="date" className={`${input} mt-1`} value={to} max={today()} onChange={e => setTo(e.target.value)} /></label>
         </div>

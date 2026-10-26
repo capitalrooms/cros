@@ -137,7 +137,7 @@ export default function ViewingSheet({ viewing, senderName, onClose, onChanged, 
           </div>
         ) : (
           <div className="space-y-md">
-            <div className="grid grid-cols-2 gap-md">
+            <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-md">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wide text-neutral-700 mb-xs">Date</label>
                 <input type="date" className={field} value={date} onChange={e => setDate(e.target.value)} />

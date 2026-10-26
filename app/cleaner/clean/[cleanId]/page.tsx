@@ -525,7 +525,7 @@ export default function CleanDetailPage() {
               ) : (
                 <div id="change-day" className="rounded-xl border border-neutral-200 p-md space-y-md">
                   <p className="text-sm font-bold">Change the time</p>
-                  <div className="grid grid-cols-2 gap-md">
+                  <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-md">
                     <input type="date" value={reDate} onChange={(e) => setReDate(e.target.value)}
                       className="rounded-lg border border-neutral-300 px-md py-sm text-sm" />
                     <input type="time" value={reTime} onChange={(e) => setReTime(e.target.value)}
@@ -700,11 +700,12 @@ function VisitFields({ visitDate, setVisitDate, hours, setHours, rate }: { visit
   const h = Number(hours)
   return (
     <div className="mt-sm space-y-sm">
-      <div className="grid grid-cols-2 gap-md">
+      {/* side by side from 360px; stacked on the smallest phones, where the date was cut off */}
+      <div className="grid grid-cols-1 gap-md min-[360px]:grid-cols-2">
         <label className="block min-w-0 text-xs text-neutral-600">Day you cleaned
-          <input type="date" max={today} value={visitDate} onChange={e => setVisitDate(e.target.value)} className="mt-xs w-full rounded-lg border border-neutral-300 px-md py-sm text-sm text-neutral-900" /></label>
+          <input type="date" max={today} value={visitDate} onChange={e => setVisitDate(e.target.value)} className="mt-xs h-11 w-full rounded-lg border border-neutral-300 bg-white px-md text-sm text-neutral-900" /></label>
         <label className="block min-w-0 text-xs text-neutral-600">Hours you were there
-          <select value={hours} onChange={e => setHours(e.target.value)} className="mt-xs w-full rounded-lg border border-neutral-300 bg-white px-md py-sm text-sm text-neutral-900">
+          <select value={hours} onChange={e => setHours(e.target.value)} className="mt-xs h-11 w-full rounded-lg border border-neutral-300 bg-white px-md text-sm text-neutral-900">
             <option value="">Choose…</option>
             {Array.from({ length: 24 }, (_, i) => (i + 1) / 2).map(v => <option key={v} value={String(v)}>{hoursLabel(v)}</option>)}
           </select></label>
