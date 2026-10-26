@@ -280,29 +280,9 @@ export default function CleanDetailPage() {
         extra_charge_note: extraChargeNote || null,
         products_cost: productsCost ? Number(productsCost) : null,
       })
-      // Pencil in the next clean at the house's usual gap (its cleaning frequency; two weeks if none is set), at the same
-      // time and length as this one — unless one is already booked. Nothing is sent to tenants for a pencilled clean.
-      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
-      // (not this clean itself, nor one already done — finishing a clean dated tomorrow used to count as "one ahead")
-      const { data: ahead } = await supabase.from('cleans').select('id').eq('property_id', clean.property_id)
-        .gt('clean_date', today).neq('id', clean.id).not('status', 'in', '("cancelled","completed")').limit(1)
-      if (!ahead?.length) {
-        const weeks = Number(clean.clean_frequency_weeks || clean.properties?.clean_frequency_weeks || 2)
-        const from = new Date(`${visitDate || clean.clean_date || today}T12:00:00`)
-        const next = new Date(from); next.setDate(from.getDate() + 7 * weeks)
-        while (next.toISOString().slice(0, 10) <= today) next.setDate(next.getDate() + 7 * weeks)   // a late write-up
-        await supabase.from('cleans').insert({
-          property_id: clean.property_id,
-          cleaner_id: clean.cleaner_id,
-          clean_date: next.toISOString().split('T')[0],
-          clean_time: clean.clean_time || null,
-          duration_hours: clean.duration_hours ?? null,
-          clean_type: clean.clean_type || 'routine',
-          clean_frequency_weeks: clean.clean_frequency_weeks ?? null,
-          status: 'scheduled',
-          admin_note: `Pencilled in ${weeks === 1 ? 'a week' : `${weeks} weeks`} after the last clean${clean.clean_time ? `, same time (${String(clean.clean_time).slice(0, 5)})` : ''} — change it if that doesn’t suit.`,
-        })
-      }
+      // the next clean at the house (lib/cleans/nextClean): from its schedule if one is set (and the tenants are told),
+      // otherwise pencilled in at its usual gap — unless one is already booked, or this was a room's move-out clean
+      await fetch(`/api/cleans/${clean.id}/next`, { method: 'POST' }).catch(() => null)
       if (nextTime.trim()) {
         await fetch('/api/cleaner/reminder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cleanId: clean.id, text: nextTime }) }).catch(() => null)
       }

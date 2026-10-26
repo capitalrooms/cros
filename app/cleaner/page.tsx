@@ -319,10 +319,12 @@ export default function CleanerDashboard() {
       const near = (d: number) => { const x = new Date(`${pastCleanForm.cleanDate}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10) }
       const { data: open } = await supabase.from('cleans').select('id, clean_date').eq('property_id', pastCleanForm.propertyId).eq('cleaner_id', personId)
         .gte('clean_date', near(-14)).lte('clean_date', near(14)).not('status', 'in', '("completed","cancelled")').order('clean_date').limit(1)
-      const { error: err } = open?.[0]
-        ? await supabase.from('cleans').update({ ...done, admin_note: open[0].clean_date !== pastCleanForm.cleanDate ? `Logged as done afterwards — booked for ${formatDateUK(open[0].clean_date)}.` : 'Logged as done afterwards.' }).eq('id', open[0].id)
-        : await supabase.from('cleans').insert({ ...done, property_id: pastCleanForm.propertyId, cleaner_id: personId })
+      const { data: logged, error: err } = open?.[0]
+        ? await supabase.from('cleans').update({ ...done, admin_note: open[0].clean_date !== pastCleanForm.cleanDate ? `Logged as done afterwards — booked for ${formatDateUK(open[0].clean_date)}.` : 'Logged as done afterwards.' }).eq('id', open[0].id).select('id').single()
+        : await supabase.from('cleans').insert({ ...done, property_id: pastCleanForm.propertyId, cleaner_id: personId }).select('id').single()
       if (err) throw err
+      // and the next clean at the house goes in the diary, as when a clean is finished (lib/cleans/nextClean)
+      if (logged?.id) await fetch(`/api/cleans/${logged.id}/next`, { method: 'POST' }).catch(() => null)
       setPastCleanForm({ propertyId: '', cleanDate: todayIso, notes: '', hours: '' })
       setShowLogPastCleanModal(false)
       await loadCleans(personId, cleansDisplayLimit)

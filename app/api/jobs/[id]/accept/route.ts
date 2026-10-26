@@ -67,6 +67,7 @@ export async function PUT(
       .from('cleans')
       .insert({
         property_id: job.property_id,
+        room_id: job.room_id ?? null,   // a room's move-out clean — a one-off, so no regular clean follows it (lib/cleans/nextClean)
         cleaner_id: job.cleaner_id,
         clean_date,
         clean_time: clean_time || null,

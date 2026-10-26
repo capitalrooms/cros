@@ -91,8 +91,17 @@ export async function POST(req: NextRequest) {
   }
   // a full schedule and nothing booked: put the next clean in the cleaner's diary, and tell the tenants
   if (cleanerId && (h as any)?.clean_frequency_weeks && (h as any)?.clean_day && (h as any)?.clean_time) {
-    const { data: ahead } = await s.from('cleans').select('id').eq('property_id', propertyId).gte('clean_date', today()).not('status', 'in', '("completed","cancelled")').limit(1)
-    if (!ahead?.length) {
+    const { data: ahead } = await s.from('cleans').select('id, clean_date, admin_note, accepted_at').eq('property_id', propertyId).gte('clean_date', today()).not('status', 'in', '("completed","cancelled")').order('clean_date').limit(1)
+    // the next one was only pencilled in (lib/cleans/nextClean, before the house had a schedule): put it on the
+    // schedule's day and time that week, make it firm and tell the tenants
+    const p0 = ahead?.[0] as any
+    if (p0 && /^Pencilled in/.test(p0.admin_note ?? '')) {
+      const d = new Date(`${p0.clean_date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + (Number((h as any).clean_day) - (((d.getUTCDay() + 6) % 7) + 1)))
+      let date = d.toISOString().slice(0, 10)
+      if (date <= today()) date = new Date(d.getTime() + 7 * 86_400_000).toISOString().slice(0, 10)
+      const { error: mvErr } = await s.from('cleans').update({ clean_date: date, clean_time: (h as any).clean_time, cleaner_id: cleanerId, clean_frequency_weeks: (h as any).clean_frequency_weeks, admin_note: 'Booked from the house’s cleaning schedule.' }).eq('id', p0.id)
+      if (!mvErr) { booked = date; await tellTenantsAboutClean(s, p0.id, 'booked', {}, req).catch(() => null) }
+    } else if (!ahead?.length) {
       const { data: made } = await s.from('cleans').insert({
         property_id: propertyId, cleaner_id: cleanerId, clean_date: nextOn((h as any).clean_day), clean_time: (h as any).clean_time,
         clean_type: 'routine', status: 'scheduled', clean_frequency_weeks: (h as any).clean_frequency_weeks,
