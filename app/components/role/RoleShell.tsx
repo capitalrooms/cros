@@ -153,3 +153,21 @@ function RoleRail({ role, override }: { role: Role; override: Override | null })
     </aside>
   )
 }
+
+/** "Good morning", "Good afternoon" or "Good evening", London time — every role app greets the same way. */
+export function greetingNow() {
+  const h = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' }))
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
+}
+
+/** The top of a role home on a computer: the greeting, what the screen is, and today's date. */
+export function DeskGreeting({ name, title }: { name?: string | null; title: string }) {
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })
+  return (
+    <div className="mb-4">
+      <p className="text-sm text-white/65">{greetingNow()}{name ? `, ${name}` : ''}</p>
+      <h1 className="mt-0.5 text-2xl font-semibold text-white" style={{ fontFamily: 'var(--font-sora), sans-serif' }}>{title}</h1>
+      <p className="mt-0.5 text-[13px] text-white/55">{today}</p>
+    </div>
+  )
+}

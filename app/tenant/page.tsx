@@ -785,7 +785,7 @@ export default function TenantDashboard() {
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{item.label}</p>
                           {item.sensitive && !isRevealed ? (
-                            <button onClick={() => setRevealed(prev => new Set([...prev, idx]))} className="mt-xs text-sm font-semibold text-blue-600 hover:text-blue-800">
+                            <button onClick={() => setRevealed(prev => new Set([...prev, idx]))} className="mt-xs text-sm font-semibold text-neutral-900 underline-offset-2 hover:underline">
                               Tap to reveal
                             </button>
                           ) : (
@@ -820,7 +820,7 @@ export default function TenantDashboard() {
                 onToggle={() => toggleAcc('messages')}
                 badge={
                   messages.some(m => !m.read)
-                    ? <span className="ml-xs rounded-full bg-blue-600 px-sm py-0.5 text-xs font-bold text-white">{messages.filter(m => !m.read).length} new</span>
+                    ? <span className="ml-xs rounded-full px-sm py-0.5 text-xs font-bold text-neutral-900" style={{ background: 'var(--cr-gold)' }}>{messages.filter(m => !m.read).length} new</span>
                     : undefined
                 }
               >
@@ -836,18 +836,18 @@ export default function TenantDashboard() {
                     {messages.slice(0, 5).map((m) => (
                       <div
                         key={m.id}
-                        className={`rounded-xl border p-md ${m.read ? 'border-neutral-100 bg-neutral-50' : 'border-blue-200 bg-blue-50'}`}
+                        className={`rounded-xl border p-md ${m.read ? 'border-neutral-100 bg-neutral-50' : 'border-amber-200 bg-amber-50'}`}
                       >
                         <div className="flex items-start justify-between gap-sm">
                           <p className="text-sm font-bold text-neutral-900">{m.title}</p>
-                          {!m.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />}
+                          {!m.read && <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--cr-gold)' }} />}
                         </div>
                         {m.body && <p className="mt-xs text-sm text-neutral-700 whitespace-pre-wrap">{m.body}</p>}
                         <p className="mt-sm text-xs text-neutral-400">
                           {new Date(m.created_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })} at {new Date(m.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
                         </p>
                         {m.link && (
-                          <Link href={m.link} className="mt-sm inline-block text-xs font-semibold text-blue-600 hover:underline">
+                          <Link href={m.link} className="mt-sm inline-block text-xs font-semibold text-neutral-900 underline-offset-2 hover:underline">
                             View →
                           </Link>
                         )}
