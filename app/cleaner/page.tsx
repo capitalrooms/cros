@@ -132,7 +132,7 @@ export default function CleanerDashboard() {
   // compliance modal
   const [showAddComplianceModal, setShowAddComplianceModal] = useState(false)
   const [savingCompliance, setSavingCompliance]             = useState(false)
-  const [complianceForm, setComplianceForm] = useState({ check_type: 'fire_door' as const, date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
+  const [complianceForm, setComplianceForm] = useState({ check_type: 'fire_door' as 'fire_door' | 'smoke_alarm', date: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
   const [compliancePropertyId, setCompliancePropertyId]    = useState('')
 
   // log past clean modal
@@ -319,9 +319,12 @@ export default function CleanerDashboard() {
       const near = (d: number) => { const x = new Date(`${pastCleanForm.cleanDate}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10) }
       const { data: open } = await supabase.from('cleans').select('id, clean_date').eq('property_id', pastCleanForm.propertyId).eq('cleaner_id', personId)
         .gte('clean_date', near(-14)).lte('clean_date', near(14)).not('status', 'in', '("completed","cancelled")').order('clean_date').limit(1)
-      const { data: logged, error: err } = open?.[0]
-        ? await supabase.from('cleans').update({ ...done, admin_note: open[0].clean_date !== pastCleanForm.cleanDate ? `Logged as done afterwards — booked for ${formatDateUK(open[0].clean_date)}.` : 'Logged as done afterwards.' }).eq('id', open[0].id).select('id').single()
-        : await supabase.from('cleans').insert({ ...done, property_id: pastCleanForm.propertyId, cleaner_id: personId }).select('id').single()
+      const save = (f: Record<string, unknown>) => open?.[0]
+        ? supabase.from('cleans').update({ ...f, admin_note: open[0].clean_date !== pastCleanForm.cleanDate ? `Logged as done afterwards — booked for ${formatDateUK(open[0].clean_date)}.` : 'Logged as done afterwards.' }).eq('id', open[0].id).select('id').single()
+        : supabase.from('cleans').insert({ ...f, property_id: pastCleanForm.propertyId, cleaner_id: personId }).select('id').single()
+      let { data: logged, error: err } = await save(done)
+      // before migration 247 there's no hours column: log the clean anyway
+      if (err && /hours_worked/.test(err.message)) { const { hours_worked: _h, ...rest } = done; ({ data: logged, error: err } = await save(rest)) }
       if (err) throw err
       // and the next clean at the house goes in the diary, as when a clean is finished (lib/cleans/nextClean)
       if (logged?.id) await fetch(`/api/cleans/${logged.id}/next`, { method: 'POST' }).catch(() => null)
