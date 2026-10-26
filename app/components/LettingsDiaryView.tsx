@@ -172,7 +172,7 @@ function RescheduleSheet({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white px-6 py-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white px-6 py-6 shadow-2xl max-h-[85dvh] overflow-y-auto">
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-neutral-300" />
         <h3 className="text-base font-bold text-neutral-900 mb-0.5">Reschedule</h3>
         <p className="text-sm text-neutral-500 mb-5 truncate">{appt.title || appt.property_name || 'Viewing'}</p>
@@ -398,7 +398,7 @@ export default function LettingsDiaryView({
         </div>
 
         {/* Scrollable time grid */}
-        <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: '65vh' }}>
+        <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: '65dvh' }}>
           <div className="relative" style={{ height: `${totalHeight}px` }}>
 
             {/* Hour grid lines + labels */}

@@ -98,7 +98,7 @@ export default function EditPersonModal({ person, isOpen, onClose, onSave }: Edi
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-      <div className="bg-white rounded-2xl max-w-md w-full p-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-md w-full p-lg max-h-[90dvh] overflow-y-auto">
         <h2 className="text-2xl font-bold text-neutral-900 mb-lg">Edit Person</h2>
 
         <div className="space-y-md">

@@ -162,7 +162,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
       {/* Detail modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => setSelected(null)}>
-          <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white border border-neutral-200 p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-2xl max-h-[85dvh] overflow-y-auto rounded-2xl bg-white border border-neutral-200 p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-md mb-md">
               <div>
                 <h3 className="text-lg font-bold text-neutral-900">{selected.title || 'Untitled job'}</h3>

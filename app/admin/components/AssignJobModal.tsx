@@ -65,7 +65,7 @@ export default function AssignJobModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
+      <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
         <h2 className="text-xl font-bold text-neutral-900 mb-md">📌 Assign Cleaning Task</h2>
 
         <div className="space-y-md">

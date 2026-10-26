@@ -707,7 +707,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
       {/* ── Send Certificates modal ───────────────────────────────────────── */}
       {sendModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-white rounded-2xl shadow-2xl p-xl max-w-md w-full space-y-md max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl p-xl max-w-md w-full space-y-md max-h-[90dvh] overflow-y-auto">
             {sendResult ? (
               <>
                 <div className="text-center py-md">

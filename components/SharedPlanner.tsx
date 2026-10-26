@@ -322,7 +322,7 @@ function ImportPanel({ people, preselect, post, onClose, onDone }: {
               <button type="button" className="text-blue-700 hover:underline" onClick={() => setTicked(new Set())}>Untick all</button>
             </div>
           </div>
-          <div className="max-h-[50vh] space-y-md overflow-y-auto rounded-xl border border-neutral-200 p-md">
+          <div className="max-h-[50dvh] space-y-md overflow-y-auto rounded-xl border border-neutral-200 p-md">
             {groups.map(g => (
               <div key={g}>
                 <p className="mb-xs text-xs font-bold uppercase tracking-wide text-neutral-500">{g}</p>

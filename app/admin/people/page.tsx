@@ -1041,7 +1041,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
                 <button type="button" onClick={() => setAccessDraft(new Set(ALL_AREAS))} className="rounded-full border border-neutral-300 px-sm py-0.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Everything</button>
                 <button type="button" onClick={() => setAccessDraft(new Set())} className="rounded-full border border-neutral-300 px-sm py-0.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Nothing</button>
               </div>
-              <ul className="mt-md max-h-[50vh] space-y-xs overflow-y-auto">
+              <ul className="mt-md max-h-[50dvh] space-y-xs overflow-y-auto">
                 {AREAS.map(a => (
                   <li key={a.key}>
                     <label className="flex cursor-pointer items-start gap-sm rounded-xl border border-neutral-200 px-md py-sm hover:bg-neutral-50">

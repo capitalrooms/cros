@@ -85,7 +85,7 @@ export default function StatementSend({ statementId, label, sentAt, onSent }: { 
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md" onClick={() => !sending && setOpen(false)}>
-          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white" onClick={e => e.stopPropagation()}>
+          <div className="flex max-h-[92dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-neutral-200 px-lg py-md">
               <h2 className="font-bold text-neutral-900">Email statement {label}</h2>
               <button onClick={() => setOpen(false)} className="text-neutral-400 hover:text-neutral-700" aria-label="Close">✕</button>

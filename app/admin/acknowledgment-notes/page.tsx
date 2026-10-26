@@ -373,7 +373,7 @@ export default function AcknowledgmentNotesPage() {
         {/* Create Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="rounded-3xl bg-white p-lg max-w-2xl w-full mx-lg max-h-[90vh] overflow-y-auto">
+            <div className="rounded-3xl bg-white p-lg max-w-2xl w-full mx-lg max-h-[90dvh] overflow-y-auto">
               <h2 className="text-xl font-bold text-neutral-900 mb-lg">Create Acknowledgment Note</h2>
 
               <div className="space-y-md mb-lg">

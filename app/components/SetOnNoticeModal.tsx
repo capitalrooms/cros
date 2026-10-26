@@ -576,7 +576,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], 
 function Modal({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-md">
-      <div className="rounded-2xl bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="rounded-2xl bg-white w-full max-w-2xl max-h-[90dvh] overflow-y-auto">
         <div className="p-lg">{children}</div>
       </div>
     </div>

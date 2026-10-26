@@ -63,7 +63,7 @@ export default function ChaseContractors() {
 
       {open && jobs && (
         <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !busy && setOpen(false)}>
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-lg text-neutral-900 shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-2xl max-h-[90dvh] overflow-y-auto rounded-2xl bg-white p-lg text-neutral-900 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="mb-md flex items-start justify-between gap-md">
               <div>
                 <h2 className="text-xl font-bold">Ask contractors for an update</h2>

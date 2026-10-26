@@ -308,7 +308,7 @@ export default function AppointmentsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-lg" onClick={() => setShowCreateForm(false)}>
             <div className="absolute inset-0 bg-black/50" />
             <div
-              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-xl max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl p-xl max-h-[90dvh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-lg">

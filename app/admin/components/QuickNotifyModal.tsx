@@ -202,7 +202,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
   if (!mounted) return null
   return createPortal(
     <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 md:items-center md:p-lg" role="dialog" aria-modal="true" aria-label="Quick Notify">
-      <div className="flex w-full flex-col overflow-hidden bg-neutral-50 shadow-2xl md:max-h-[92vh] md:max-w-3xl md:rounded-2xl">
+      <div className="flex w-full flex-col overflow-hidden bg-neutral-50 shadow-2xl md:max-h-[92dvh] md:max-w-3xl md:rounded-2xl">
         {/* header: the house it's going to */}
         <div className="flex items-start justify-between gap-md bg-[#181614] px-lg py-md text-white">
           <div className="min-w-0">

@@ -115,7 +115,7 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 md:items-center" onClick={() => !busy && setOpen(null)}>
-          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-lg shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>
+          <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-lg shadow-xl md:rounded-2xl" onClick={e => e.stopPropagation()}>
             <div className="mb-md flex items-baseline justify-between gap-md">
               <h3 className="text-lg font-bold text-neutral-900">{LABEL[open]} · {d.tenant || d.place}</h3>
               <button type="button" onClick={() => setOpen(null)} className="text-sm font-semibold text-neutral-500">Close</button>
