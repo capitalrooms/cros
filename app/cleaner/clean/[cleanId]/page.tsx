@@ -194,7 +194,7 @@ export default function CleanDetailPage() {
       try {
         await patch({ arrived_at: new Date().toISOString() })
         tellTenants('arrived')
-        alert('✅ Marked as arrived — the tenants have been told you’re here.')
+        alert('Marked as arrived. When you finish, your hours are worked out from now.')
       } catch (err) {
         alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
       } finally {
@@ -585,7 +585,15 @@ export default function CleanDetailPage() {
 
             {/* Finish */}
             {!showFinish ? (
-              <button onClick={() => setShowFinish(true)}
+              <button onClick={() => {
+                // arrived today in the app: the hours are the time since, to the nearest half hour
+                const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+                if (clean.arrived_at && new Date(clean.arrived_at).toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) === todayIso && visitDate === todayIso) {
+                  const h = Math.min(12, Math.max(0.5, Math.round((Date.now() - new Date(clean.arrived_at).getTime()) / 1_800_000) / 2))
+                  setHours(String(h))
+                }
+                setShowFinish(true)
+              }}
                 className="w-full rounded-xl bg-green-700 py-lg text-sm font-bold text-white hover:bg-green-800">
                 Finish this clean
               </button>
