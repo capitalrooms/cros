@@ -265,7 +265,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     }
 
     try {
-      const { error: err } = await supabase.from('people').insert([
+      const { data: added, error: err } = await supabase.from('people').insert([
         {
           email: formData.email.trim().toLowerCase(),   // a stray space or capital stopped people signing in
           ...nameFields(formData.first_name, formData.last_name, formData.role === 'tenant' ? formData.middle_name : undefined),
@@ -278,9 +278,10 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
           role: formData.role,
           property_id: formData.property_id || null,
         },
-      ])
+      ]).select('id').single()
 
       if (err) throw err
+      const addedRole = formData.role, addedEmail = formData.email.trim().toLowerCase()
 
       setSuccess(`User ${formData.email} added successfully`)
       setEmergencyNm(emptyName()); setGuarantorNm(emptyName())
@@ -298,6 +299,9 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
       // Refresh
       const { data } = await supabase.from('people').select('*').order('created_at', { ascending: false })
       setPeople(data || [])
+      // a new cleaner, contractor or office member: send the invite now (it says how to put the app on their phone)
+      if (added?.id && ['cleaner', 'contractor', 'lettings', 'administrator'].includes(addedRole))
+        await accountAction('send', [added.id], `Added. Email ${addedEmail} the invite to set up their sign-in${addedRole === 'cleaner' || addedRole === 'contractor' ? ' and put the app on their phone' : ''} now?`)
     } catch (err) {
       // Supabase errors aren't Error objects — show their message rather than a bare "Failed to add user"
       const msg = (err as any)?.message ?? (err instanceof Error ? err.message : '')

@@ -56,6 +56,27 @@ const button = (href: string, label: string) =>
 const para = (t: string) => `<p style="margin:0 0 14px;font-size:15px;color:#1c1917;line-height:1.6;">${t}</p>`
 const note = (t: string, last = false) => `<p style="margin:0 0 ${last ? 0 : 8}px;font-size:13px;color:#57534e;line-height:1.5;">${t}</p>`
 
+/** What each app is for, and how to put it on the phone's home screen (26 Oct 2026, Harry: "send her an email saying how
+ *  to download the app and save it as a web app"). Only the phone apps — office logins don't need it. */
+const USES: Record<string, string[]> = {
+  cleaner: ['See the houses and cleans you’ve been booked for', 'Book a clean, or move one — the tenants are told for you', 'Tap “Arrived” and “Finished”, add photos and notes for the office', 'Pick your finished cleans and send Capital Rooms one invoice for them'],
+  contractor: ['See the jobs you’ve been sent, with photos and access details', 'Book the visit — the tenants are told for you', 'Finish the job with before and after photos'],
+  tenant: ['Report a repair, with photos', 'See when visits and cleans are booked', 'Messages from the office in one place'],
+}
+function appGuide(role?: string | null): string {
+  const uses = USES[role ?? '']
+  if (!uses) return ''
+  const li = (t: string) => `<li style="margin:0 0 6px;">${t}</li>`
+  return `<div style="margin:6px 0 22px;padding:16px 18px;border:1px solid #e7e5e4;border-radius:12px;">`
+    + `<p style="margin:0 0 8px;font-size:15px;font-weight:700;color:#1c1917;">Put the app on your phone</p>`
+    + `<p style="margin:0 0 10px;font-size:14px;color:#44403c;line-height:1.55;">There’s nothing to download from an app store. After you’ve chosen your password, open <strong>${PORTAL_URL.replace(/^https?:\/\//, '')}</strong> on your phone, then:</p>`
+    + `<ul style="margin:0 0 12px;padding-left:20px;font-size:14px;color:#44403c;line-height:1.55;">`
+    + li('<strong>iPhone</strong> — in Safari, tap the Share button (the square with an arrow), then <strong>Add to Home Screen</strong>, then <strong>Add</strong>.')
+    + li('<strong>Android</strong> — in Chrome, tap the ⋮ menu, then <strong>Add to Home screen</strong> or <strong>Install app</strong>.')
+    + `</ul><p style="margin:0 0 6px;font-size:14px;color:#44403c;line-height:1.55;">It then opens like any other app. Allow notifications when it asks, so you hear about new work straight away. With it you can:</p>`
+    + `<ul style="margin:0;padding-left:20px;font-size:14px;color:#44403c;line-height:1.55;">${uses.map(li).join('')}</ul></div>`
+}
+
 type AccountPerson = { email: string; role?: string | null; salutation?: string | null; first_name?: string | null; last_name?: string | null }
 
 /** "Dear Mr Smith," — titles always (Harry, 14 Oct 2026); first name only when there's no title on file. */
@@ -101,6 +122,7 @@ export async function sendAccountEmail(s: SupabaseClient, person: AccountPerson,
         ? `You asked to sign in to ${app}, but your account hasn’t been set up yet. Tap below to sign in and choose your password.`
         : `You’ve been given access to ${app}. Tap below to sign in and choose your password.`)
       + button(link, 'Set up my account')
+      + appGuide(person.role)
       + note(`The link works once. If it has expired, go to ${PORTAL_URL}/login and use “Forgot password?”.`)
       + note('Your browser or phone can save the password for you, so you never need to remember it.', true), { req, signature: false })
     return r.ok ? { ok: true, sent: 'invite' } : { ok: false, error: r.error }

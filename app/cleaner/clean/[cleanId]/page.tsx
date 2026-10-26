@@ -145,13 +145,15 @@ export default function CleanDetailPage() {
     setClean((c: any) => ({ ...c, ...fields }))
   }
 
-  function pushTenants(body: string) {
-    if (!clean) return
-    fetch('/api/push/send', {
+  // the tenants hear about the clean by email or the app, as set on the Cleaning screen (lib/cleans/tenantUpdates,
+  // 26 Oct 2026) — it used to be an app notification only, which tenants not on the app never got
+  function tellTenants(kind: 'arrived' | 'late' | 'moved' | 'done' | 'cancelled', note?: string) {
+    if (!clean) return Promise.resolve()
+    return fetch(`/api/cleans/${clean.id}/tell-tenants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyId: clean.property_id, title: 'Capital Rooms', body, url: '/tenant' }),
-    }).catch(() => {})
+      body: JSON.stringify({ kind, note }),
+    }).then(() => undefined).catch(() => undefined)
   }
 
   async function markNoteCompleted(noteId: string) {
@@ -181,7 +183,7 @@ export default function CleanDetailPage() {
     const finish = async () => {
       try {
         await patch({ arrived_at: new Date().toISOString() })
-        pushTenants('Your cleaner has arrived at the property.')
+        tellTenants('arrived')
         alert('✅ Marked as arrived — the tenants have been told you’re here.')
       } catch (err) {
         alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
@@ -211,11 +213,8 @@ export default function CleanDetailPage() {
       await patch({ clean_date: reDate, clean_time: reTime || null })
       const when = `${new Date(reDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${reTime ? ` at ${reTime}` : ''}`
       const isSameDay = /Running late/.test(reReason)
-      pushTenants(
-        isSameDay
-          ? `Your cleaner is running late — the clean is now expected ${reTime ? `around ${reTime}` : 'later today'}.`
-          : `The clean at your property has moved to ${when}${/emergency/i.test(reReason) ? ' (unavoidable change).' : '.'}`
-      )
+      void when
+      await tellTenants(isSameDay ? 'late' : 'moved', !isSameDay && /emergency/i.test(reReason) ? 'It’s an unavoidable change — sorry.' : undefined)
       setShowReschedule(false)
       alert('✅ Updated — the tenants have been notified of the new time.')
     } catch (err) {
@@ -306,6 +305,7 @@ export default function CleanDetailPage() {
         // "goes straight to the property manager" — it used to make the job without telling anyone
         if (raised?.id) await fetch('/api/notify-job-raised', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticketId: raised.id }) }).catch(() => null)
       }
+      await tellTenants('done')   // "clean finished", with the next one (pencilled in above)
       setShowExitReminder(true)
       // Will navigate after reminder is dismissed
     } catch (err) {
