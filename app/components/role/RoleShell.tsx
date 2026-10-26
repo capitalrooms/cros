@@ -130,9 +130,8 @@ function RoleRail({ role, override }: { role: Role; override: Override | null })
 
   return (
     <aside aria-label={`${nav.label} sections`} className="sticky top-0 hidden h-screen flex-col overflow-y-auto bg-[var(--cr-bar)] px-3 pb-4 pt-6 text-white lg:flex">
-      <Link href={withAs(nav.home.href)} aria-label="Home" className="mb-1 flex flex-col items-start gap-2 px-3">
-        <Logo variant="emblem" height={30} invert />
-        <Logo variant="wordmark" height={22} invert />
+      <Link href={withAs(nav.home.href)} aria-label="Home" className="mb-3 block px-3">
+        <Logo variant="full" className="h-[92px] w-auto" invert priority />
       </Link>
       <p className="mb-5 px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">{nav.label}</p>
       {nav.primary && (
