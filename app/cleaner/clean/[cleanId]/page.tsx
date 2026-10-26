@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import DeepCleanRecord from '@/app/components/cleaning/DeepCleanRecord'
+import { AREAS, DEEP_TASKS, otherJob } from '@/lib/cleans/deepTasks'
 import PropertyExitReminder from '@/app/components/PropertyExitReminder'
 
 const TENANT_TODOS: Record<string, string[]> = {
@@ -28,12 +30,6 @@ const TENANT_TODOS: Record<string, string[]> = {
   ],
   Bedrooms: ['Leave the door open if you want it cleaned', 'Clear the floor before the clean'],
 }
-
-const SPECIAL_JOBS = [
-  'Swept front yard', 'Cleaned external windows', 'Cleaned oven', 'Cleaned inside cupboards',
-  'Descaled shower head', 'Cleaned inside fridge', 'Washed bins out', 'Dusted skirting boards',
-  'Cleaned behind appliances', 'Defrosted freezer',
-]
 
 const RESCHEDULE_REASONS = [
   'Running late — same day',
@@ -77,6 +73,9 @@ export default function CleanDetailPage() {
   const [openArea, setOpenArea] = useState<string | null>(null)
   const [todos, setTodos] = useState<string[]>([])
   const [specials, setSpecials] = useState<string[]>([])
+  const [otherJobText, setOtherJobText] = useState('')
+  // the house's deep-clean record — what's due, and when each extra job was last done (lib/cleans/deepTasks)
+  const [deep, setDeep] = useState<any>(null)
   const [notes, setNotes] = useState('')
   const [issue, setIssue] = useState('')
   // a reminder the cleaner leaves for their next visit — kept with the house (property_cleaning_notes), shown at the
@@ -115,6 +114,8 @@ export default function CleanDetailPage() {
         setProductsCost((c as any).products_cost != null ? String((c as any).products_cost) : '')
         setReDate((c as any).clean_date || '')
         setReTime((c as any).clean_time ? String((c as any).clean_time).slice(0, 5) : '')
+
+        fetch(`/api/cleaner/house?propertyId=${(c as any).property_id}`).then(r => r.ok ? r.json() : null).then(j => j?.deep && setDeep(j.deep)).catch(() => null)
 
         // Load property-level cleaning notes (not tied to specific clean)
         const { data: notes } = await supabase
@@ -258,7 +259,7 @@ export default function CleanDetailPage() {
         status: 'completed',
         completed_at: new Date().toISOString(),
         tenant_todos: todos,
-        special_jobs: specials,
+        special_jobs: [...specials, ...(otherJobText.trim() ? [otherJob(otherJobText)] : [])],
         notes: notes || null,
         cleaner_note: cleanerNote || null,
         extra_charge: extraCharge ? Number(extraCharge) : null,
@@ -371,6 +372,8 @@ export default function CleanDetailPage() {
           )}
         </div>
 
+        {!isDone && <DeepCleanRecord deep={deep} dueOnly />}
+
         {/* Admin note */}
         {clean.admin_note && (
           <div className="rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-lg">
@@ -446,7 +449,7 @@ export default function CleanDetailPage() {
                 ✅ Completed{clean.completed_at ? ` · ${new Date(clean.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}
               </h3>
               {clean.special_jobs?.length ? (
-                <p className="mt-sm text-sm text-green-900">Extra jobs: {clean.special_jobs.join(', ')}</p>
+                <p className="mt-sm text-sm text-green-900">Extra jobs: {clean.special_jobs.map((j: string) => j.replace(/^Other: /, '')).join(', ')}</p>
               ) : null}
               {clean.notes ? (
                 <p className="mt-sm text-sm text-green-900 whitespace-pre-wrap">Notes: {clean.notes}</p>
@@ -584,12 +587,30 @@ export default function CleanDetailPage() {
                   ))}
                 </div>
 
-                <h3 className="font-bold">Extra jobs done today</h3>
-                <div className="flex flex-wrap gap-xs">
-                  {SPECIAL_JOBS.map((job) => (
-                    <button key={job} onClick={() => toggle(specials, setSpecials, job)}
-                      className={`rounded-full border px-md py-sm text-xs font-medium ${specials.includes(job) ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300'}`}>{job}</button>
-                  ))}
+                <div>
+                  <h3 className="font-bold">Extra jobs done today</h3>
+                  <p className="text-xs text-neutral-500">Tick anything beyond the usual clean — it builds the house’s record of when each was last done.</p>
+                  <div className="mt-sm space-y-sm">
+                    {AREAS.map(area => (
+                      <div key={area}>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">{area}</p>
+                        <div className="mt-xs flex flex-wrap gap-xs">
+                          {DEEP_TASKS.filter(t => t.area === area).map(t => {
+                            const row = deep?.rows?.find((r: any) => r.label === t.label)
+                            const on = specials.includes(t.label)
+                            return (
+                              <button key={t.label} type="button" aria-pressed={on} onClick={() => toggle(specials, setSpecials, t.label)}
+                                className={`rounded-full border px-md py-sm text-xs font-medium ${on ? 'border-neutral-900 bg-neutral-900 text-white' : row?.status === 'due' ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-neutral-300'}`}>
+                                {t.label}{!on && row?.status === 'due' ? ' · due' : ''}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    <input value={otherJobText} onChange={e => setOtherJobText(e.target.value)} placeholder="Something else? e.g. Cleaned the shed windows"
+                      className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+                  </div>
                 </div>
 
                 <div>

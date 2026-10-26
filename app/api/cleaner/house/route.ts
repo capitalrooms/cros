@@ -2,13 +2,15 @@
 // interact with the office"). One list of "notes for this house" shared with the office (property_cleaning_notes —
 // the office adds them on Property notes; the cleaner adds and ticks them here or at the end of a clean), the usual
 // rhythm worked out from the cleans themselves, and past visits with their notes.
-//   GET   ?propertyId=          → { house, usual, notes, done, cleans }
+//   GET   ?propertyId=          → { house, usual, notes, done, cleans, deep (the deep-clean record) }
 //   POST  { propertyId, text }  → add a note for this house
 //   PATCH { noteId }            → tick a note off
 // Cleaners (they work across the portfolio) and the office.
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireSignedIn, isStaff } from '@/lib/portalAuth'
+
+import { deepRecord } from '@/lib/cleans/deepTasks'
 
 export const dynamic = 'force-dynamic'
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -27,7 +29,7 @@ export async function GET(req: NextRequest) {
   const [{ data: open }, { data: done }, { data: cleans }] = await Promise.all([
     s.from('property_cleaning_notes').select('id, note_title, note_content, cleaning_type, created_at, created_by').eq('property_id', propertyId).eq('is_completed', false).eq('is_deleted', false).order('created_at'),
     s.from('property_cleaning_notes').select('id, note_title, note_content, completed_at').eq('property_id', propertyId).eq('is_completed', true).eq('is_deleted', false).order('completed_at', { ascending: false }).limit(8),
-    s.from('cleans').select('id, clean_date, clean_time, duration_hours, status, notes, cleaner_note, admin_note, completed_at').eq('property_id', propertyId).neq('status', 'cancelled').order('clean_date', { ascending: false }).limit(12),
+    s.from('cleans').select('id, clean_date, clean_time, duration_hours, status, notes, cleaner_note, admin_note, completed_at, special_jobs').eq('property_id', propertyId).neq('status', 'cancelled').order('clean_date', { ascending: false }).limit(12),
   ])
   // the usual visit: the most common weekday and time of the recent cleans
   const recent = ((cleans ?? []) as any[]).filter(c => c.clean_time).slice(0, 6)
@@ -38,7 +40,10 @@ export async function GET(req: NextRequest) {
     hours: mode(((cleans ?? []) as any[]).filter(c => c.duration_hours).map(c => String(c.duration_hours))),
     everyWeeks: (house as any).clean_frequency_weeks ?? null,
   }
-  return NextResponse.json({ house, usual, notes: open ?? [], done: done ?? [], cleans: cleans ?? [] })
+  // the deep-clean record (lib/cleans/deepTasks): each extra job's last date here, from a year of finished cleans
+  const { data: finished } = await s.from('cleans').select('clean_date, completed_at, status, special_jobs').eq('property_id', propertyId).eq('status', 'completed')
+    .gte('clean_date', new Date(Date.now() - 400 * 86_400_000).toISOString().slice(0, 10)).order('clean_date', { ascending: false }).limit(300)
+  return NextResponse.json({ house, usual, notes: open ?? [], done: done ?? [], cleans: cleans ?? [], deep: deepRecord((finished ?? []) as any[]) })
 }
 
 export async function POST(req: NextRequest) {

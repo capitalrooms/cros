@@ -14,6 +14,7 @@ import UnitsTab from './components/UnitsTab'
 import RemoveProperty from './components/RemoveProperty'
 import PeopleTab from './components/PeopleTab'
 import MaintenanceTab from './components/MaintenanceTab'
+import DeepCleanRecord from '@/app/components/cleaning/DeepCleanRecord'
 import LettingsTab from './components/LettingsTab'
 import ComplianceTab from './components/ComplianceTab'
 import CommunicationsTab from './components/CommunicationsTab'
@@ -39,7 +40,7 @@ type TabType = 'details' | 'units' | 'people' | 'maintenance' | 'lettings' | 'co
 
 // Sub-tab types for merged tabs
 type PeopleSubTab = 'tenants' | 'housemates' | 'messages'
-type MaintenanceSubTab = 'jobs' | 'purchases' | 'tasks'
+type MaintenanceSubTab = 'jobs' | 'purchases' | 'tasks' | 'cleaning'
 type ComplianceSubTab = 'compliance' | 'communications'
 type DocumentsSubTab = 'documents' | 'photos' | 'financials'
 
@@ -356,7 +357,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           {activeTab === 'maintenance' && (
             <div>
               <div className="flex gap-xs px-lg pt-lg pb-0 border-b border-neutral-100">
-                {([['jobs', 'Jobs'], ['purchases', 'Purchases'], ['tasks', 'Tasks']] as [MaintenanceSubTab, string][]).map(([key, label]) => (
+                {([['cleaning', 'Cleaning'], ['jobs', 'Jobs'], ['purchases', 'Purchases'], ['tasks', 'Tasks']] as [MaintenanceSubTab, string][]).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setMaintenanceSubTab(key)}
@@ -372,6 +373,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 {maintenanceSubTab === 'jobs' && <MaintenanceTab propertyId={id} tickets={tickets} />}
                 {maintenanceSubTab === 'purchases' && <PurchasesTab propertyId={id} />}
                 {maintenanceSubTab === 'tasks' && <TasksTab propertyId={id} />}
+                {/* the house's deep-clean record — the extra jobs ticked as cleans are finished (26 Oct 2026) */}
+                {maintenanceSubTab === 'cleaning' && <DeepCleanRecord propertyId={id} />}
               </div>
             </div>
           )}
