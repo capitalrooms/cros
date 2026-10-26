@@ -904,7 +904,7 @@ export default function CleanerDashboard() {
                 onClick={() => setShowAddComplianceModal(true)}
                 className="rounded-full bg-neutral-950 px-md py-sm text-xs font-bold text-white hover:bg-neutral-700 transition-colors"
               >
-                + Add Check
+                + Add a check
               </button>
             </div>
 

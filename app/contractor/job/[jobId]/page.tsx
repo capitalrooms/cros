@@ -250,7 +250,11 @@ export default function JobDetailPage() {
     if (!job || !bookDate || !bookSlot) return
     // a new day needs the usual notice (24h for bedroom access); running late on the same day doesn't
     const earliest = earliestBookableDate(jobPlace(job), job.priority)
-    if (reReason !== 'Running late — same day' && bookDate !== job.booked_date && bookDate < earliest) {
+    const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    // "running late" is only the same day as booked, today — it used to follow the reason picked, so a move to another
+    // day with "Running late" still selected skipped the notice and told the tenants they were coming today (26 Oct 2026)
+    const lateToday = bookDate === todayIso && job.booked_date === todayIso
+    if (!lateToday && bookDate !== job.booked_date && bookDate < earliest) {
       alert(`${bookingLeadTimeNote(jobPlace(job), job.priority)} The earliest new date is ${new Date(earliest).toLocaleDateString('en-GB')}.`)
       return
     }
@@ -258,15 +262,14 @@ export default function JobDetailPage() {
     try {
       await patch({ booked_date: bookDate, booked_slot: bookSlot, status: 'assigned' })
       const when = new Date(bookDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-      const isSameDay = reReason === 'Running late — same day'
       notify('/api/notify-booking')
       pushTenants(
-        isSameDay
+        lateToday
           ? `Your contractor is running late — they're still coming today (${slotLabel(bookSlot)}).`
           : `The repair visit at your property has moved to ${when}, ${slotLabel(bookSlot)}.`
       )
       setShowReschedule(false)
-      alert('Rescheduled — the tenants have been notified.')
+      alert('Rescheduled — the office has been told.')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {

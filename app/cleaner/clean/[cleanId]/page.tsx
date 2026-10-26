@@ -164,13 +164,14 @@ export default function CleanDetailPage() {
 
   // the tenants hear about the clean by email or the app, as set on the Cleaning screen (lib/cleans/tenantUpdates,
   // 26 Oct 2026) — it used to be an app notification only, which tenants not on the app never got
-  function tellTenants(kind: 'arrived' | 'late' | 'moved' | 'done' | 'cancelled', note?: string) {
-    if (!clean) return Promise.resolve()
+  /** Tell the house's tenants; resolves to how many were told (0 if none, or updates are off). */
+  function tellTenants(kind: 'arrived' | 'late' | 'moved' | 'done' | 'cancelled', note?: string): Promise<number> {
+    if (!clean) return Promise.resolve(0)
     return fetch(`/api/cleans/${clean.id}/tell-tenants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kind, note }),
-    }).then(() => undefined).catch(() => undefined)
+    }).then(r => r.ok ? r.json() : null).then(d => Number(d?.sent ?? 0)).catch(() => 0)
   }
 
   async function markNoteCompleted(noteId: string) {
@@ -225,15 +226,17 @@ export default function CleanDetailPage() {
 
   async function handleReschedule() {
     if (!clean || !reDate) return
+    const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    if (reDate < todayIso) { alert('That day has gone — pick today or later. If you did the clean, use “Yes, I did it” instead.'); return }
     setBusy('reschedule')
     try {
       await patch({ clean_date: reDate, clean_time: reTime || null })
-      const when = `${new Date(reDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${reTime ? ` at ${reTime}` : ''}`
-      const isSameDay = /Running late/.test(reReason)
-      void when
-      await tellTenants(isSameDay ? 'late' : 'moved', !isSameDay && /emergency/i.test(reReason) ? 'It’s an unavoidable change — sorry.' : undefined)
+      // what the tenants hear follows what changed (26 Oct 2026 — it followed the reason picked, so moving a clean to
+      // another day while "Running late" was still selected told them she was running late today)
+      const lateToday = reDate === todayIso && clean.clean_date === todayIso
+      const told = await tellTenants(lateToday ? 'late' : 'moved', !lateToday && /emergency/i.test(reReason) ? 'It’s an unavoidable change — sorry.' : undefined)
       setShowReschedule(false)
-      alert('Updated — the tenants have been notified of the new time.')
+      alert(told ? `Updated — ${told === 1 ? 'the tenant has' : `${told} tenants have`} been told.` : 'Updated.')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {
@@ -526,7 +529,7 @@ export default function CleanDetailPage() {
                 <div id="change-day" className="rounded-xl border border-neutral-200 p-md space-y-md">
                   <p className="text-sm font-bold">Change the time</p>
                   <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-md">
-                    <input type="date" value={reDate} onChange={(e) => setReDate(e.target.value)}
+                    <input type="date" min={new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" })} value={reDate} onChange={(e) => setReDate(e.target.value)}
                       className="rounded-lg border border-neutral-300 px-md py-sm text-sm" />
                     <input type="time" value={reTime} onChange={(e) => setReTime(e.target.value)}
                       className="rounded-lg border border-neutral-300 px-md py-sm text-sm" />
