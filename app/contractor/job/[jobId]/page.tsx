@@ -79,6 +79,11 @@ export default function JobDetailPage() {
   const jobId        = params.jobId as string
 
   const [job, setJob] = useState<Job | null>(null)
+  // the tenant's and the office's photos of the job (26 Oct 2026 — contractors only ever saw their own before/after)
+  const [jobPhotos, setJobPhotos] = useState<{ id: string; url: string; from: string }[]>([])
+  useEffect(() => {
+    fetch(`/api/jobs/${jobId}/photos`).then(r => r.ok ? r.json() : { photos: [] }).then(d => setJobPhotos(d.photos ?? [])).catch(() => {})
+  }, [jobId])
   const [keySafe, setKeySafe] = useState<string | null>(null)
   // Opened from a quote request (?quote=<id>): the job isn't theirs yet — price only, no booking/completion.
   const quoteId = searchParams.get('quote')
@@ -805,6 +810,21 @@ export default function JobDetailPage() {
               <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
                 <h3 className="font-bold text-neutral-900 mb-md">Details</h3>
                 <p className="text-sm text-neutral-700 whitespace-pre-wrap">{job.description}</p>
+              </div>
+            )}
+
+            {jobPhotos.length > 0 && (
+              <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
+                <h3 className="font-bold text-neutral-900 mb-md">Photos ({jobPhotos.length})</h3>
+                <div className="grid grid-cols-3 gap-sm">
+                  {jobPhotos.map(p => (
+                    <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="relative block aspect-square overflow-hidden rounded-lg bg-neutral-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={p.url} alt={`Photo from the ${p.from.toLowerCase()}`} className="h-full w-full object-cover" />
+                      <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white">{p.from}</span>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
 
