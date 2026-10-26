@@ -137,7 +137,7 @@ export default function CleanerDashboard() {
 
   // log past clean modal
   const [showLogPastCleanModal, setShowLogPastCleanModal] = useState(false)
-  const [pastCleanForm, setPastCleanForm] = useState({ propertyId: '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
+  const [pastCleanForm, setPastCleanForm] = useState({ propertyId: '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '', hours: '' })
   const [savingPastClean, setSavingPastClean] = useState(false)
 
   // book clean modal
@@ -297,20 +297,27 @@ export default function CleanerDashboard() {
   }
 
   async function logPastClean() {
+    const todayIso = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
     if (!pastCleanForm.propertyId || !pastCleanForm.cleanDate) { setError('Please fill in property and date'); return }
+    if (pastCleanForm.cleanDate > todayIso) { setError('A past clean can’t be in the future — use Book a clean instead.'); return }
+    if (!(Number(pastCleanForm.hours) > 0)) { setError('Say how long you were there.'); return }
     setSavingPastClean(true)
     try {
       const supabase = createClient()
-      const { error: err } = await supabase.from('cleans').insert({
-        property_id: pastCleanForm.propertyId,
-        cleaner_id: personId,
-        clean_date: pastCleanForm.cleanDate,
-        status: 'completed',
-        completed_at: new Date().toISOString(),
+      const done = {
+        clean_date: pastCleanForm.cleanDate, status: 'completed', hours_worked: Number(pastCleanForm.hours),
+        completed_at: pastCleanForm.cleanDate === todayIso ? new Date().toISOString() : `${pastCleanForm.cleanDate}T12:00:00.000Z`,
         notes: pastCleanForm.notes || null,
-      })
+      }
+      // a clean already booked here around then that was never finished: finish that one, rather than adding a second
+      const near = (d: number) => { const x = new Date(`${pastCleanForm.cleanDate}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10) }
+      const { data: open } = await supabase.from('cleans').select('id, clean_date').eq('property_id', pastCleanForm.propertyId).eq('cleaner_id', personId)
+        .gte('clean_date', near(-14)).lte('clean_date', near(14)).not('status', 'in', '("completed","cancelled")').order('clean_date').limit(1)
+      const { error: err } = open?.[0]
+        ? await supabase.from('cleans').update({ ...done, admin_note: open[0].clean_date !== pastCleanForm.cleanDate ? `Logged as done afterwards — booked for ${formatDateUK(open[0].clean_date)}.` : 'Logged as done afterwards.' }).eq('id', open[0].id)
+        : await supabase.from('cleans').insert({ ...done, property_id: pastCleanForm.propertyId, cleaner_id: personId })
       if (err) throw err
-      setPastCleanForm({ propertyId: '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' })
+      setPastCleanForm({ propertyId: '', cleanDate: todayIso, notes: '', hours: '' })
       setShowLogPastCleanModal(false)
       await loadCleans(personId, cleansDisplayLimit)
     } catch (err) {
@@ -436,7 +443,7 @@ export default function CleanerDashboard() {
     if (j.due_date) dateCounts[j.due_date] = (dateCounts[j.due_date] || 0) + 1
   })
   const railAlerts = [
-    ...(overdueCleans.length > 0 ? [{ title: `${overdueCleans.length} overdue clean${overdueCleans.length !== 1 ? 's' : ''}`, body: 'Tap to reschedule', variant: 'red' as const, onClick: () => setActiveTab('today') }] : []),
+    ...(overdueCleans.length > 0 ? [{ title: `${overdueCleans.length} overdue clean${overdueCleans.length !== 1 ? 's' : ''}`, body: 'Did you do it? Open it to log it or move it', variant: 'red' as const, onClick: () => setActiveTab('today') }] : []),
     ...(assignedJobs.length > 0 ? [{ title: `${assignedJobs.length} job${assignedJobs.length !== 1 ? 's' : ''} need accepting`, body: 'Tap to view & accept', variant: 'amber' as const, onClick: () => setActiveTab('today') }] : []),
     ...(todayCleans.length > 0 ? [{ title: `${todayCleans.length} clean${todayCleans.length !== 1 ? 's' : ''} today`, variant: 'sage' as const, onClick: () => setActiveTab('today') }] : []),
     ...(upcomingCleans.length > 0 ? [{ title: `${upcomingCleans.length} upcoming`, variant: 'default' as const, onClick: () => setActiveTab('upcoming') }] : []),
@@ -533,7 +540,10 @@ export default function CleanerDashboard() {
                       {doneCleans.map((c: any) => (
                         <a key={c.id} href={`/cleaner/clean/${c.id}`} style={{ display: 'block', background: '#fff', borderRadius: 14, padding: '14px 16px', textDecoration: 'none', border: '1px solid var(--cr-line)' }}>
                           <div style={{ fontWeight: 700, color: 'var(--cr-ink)', fontSize: '14px' }}>{c.properties?.name ?? 'Clean'}</div>
-                          <div style={{ fontSize: '12px', color: 'rgb(var(--n-400))', marginTop: 2 }}>{formatDateUK(c.clean_date)} · Completed</div>
+                          <div style={{ fontSize: '12px', color: 'rgb(var(--n-500))', marginTop: 2 }}>
+                            {formatDateUK(c.clean_date)}{c.hours_worked != null ? ` · ${Number(c.hours_worked)} hour${Number(c.hours_worked) === 1 ? '' : 's'}` : ''}{c.supplier_invoice_id ? ' · Invoiced' : ''}
+                            {c.hours_worked == null && !c.supplier_invoice_id && <span style={{ marginLeft: 8, fontWeight: 700, color: '#8a5a00', background: '#FDF1D6', borderRadius: 999, padding: '1px 8px' }}>Add hours</span>}
+                          </div>
                         </a>
                       ))}
                     </div>
@@ -688,7 +698,7 @@ export default function CleanerDashboard() {
               {/* booking and logging cleans live here now — a floating + covered the Accept/Decline buttons (25 Oct 2026) */}
               <button type="button" onClick={() => { setPropertyId(properties[0]?.id || ''); setShowBookCleanModal(true) }}
                 className="rounded-xl bg-neutral-950 px-md py-sm text-center text-xs font-bold text-white">Book a clean</button>
-              <button type="button" onClick={() => { setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '' }); setShowLogPastCleanModal(true) }}
+              <button type="button" onClick={() => { setPastCleanForm({ propertyId: properties[0]?.id || '', cleanDate: new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }), notes: '', hours: '' }); setShowLogPastCleanModal(true) }}
                 className="rounded-xl border border-neutral-900 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Log a past clean</button>
               <a href="/planner" className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Notes with Capital Rooms</a>
               <a href={`/cleaner/invoices${viewingAs ? `?as=${viewingAs.id}` : ''}`} className="rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Invoice your cleans</a>
@@ -845,12 +855,14 @@ export default function CleanerDashboard() {
                       <p className="font-bold text-neutral-900 truncate">{c.properties?.name}</p>
                       <p className="text-sm text-neutral-500">
                         {formatDateUK(c.clean_date)}
+                        {c.hours_worked != null ? ` · ${Number(c.hours_worked)} hour${Number(c.hours_worked) === 1 ? '' : 's'}` : ''}
                         {c.special_jobs?.length ? ` · ${c.special_jobs.length} extra job${c.special_jobs.length !== 1 ? 's' : ''}` : ''}
                       </p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-green-100 text-green-700 text-xs font-bold px-sm py-xs">
-                      Done ✓
-                    </span>
+                    {/* hours are what the invoice is priced from — a done clean without them asks for them */}
+                    {c.hours_worked == null && !c.supplier_invoice_id
+                      ? <span className="shrink-0 rounded-full bg-amber-100 text-amber-900 text-xs font-bold px-sm py-xs">Add hours</span>
+                      : <span className="shrink-0 rounded-full bg-green-100 text-green-700 text-xs font-bold px-sm py-xs">{c.supplier_invoice_id ? 'Invoiced' : 'Done'}</span>}
                   </button>
                 ))}
                 {doneCleans.length >= cleansDisplayLimit && (
@@ -975,16 +987,25 @@ export default function CleanerDashboard() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-neutral-900 mb-sm">Date Cleaned</label>
-                <input type="date" value={pastCleanForm.cleanDate} onChange={e => setPastCleanForm({ ...pastCleanForm, cleanDate: e.target.value })} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Day you cleaned</label>
+                <input type="date" max={new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })} value={pastCleanForm.cleanDate} onChange={e => setPastCleanForm({ ...pastCleanForm, cleanDate: e.target.value })} className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-neutral-900 mb-sm">Hours you were there</label>
+                <select value={pastCleanForm.hours} onChange={e => setPastCleanForm({ ...pastCleanForm, hours: e.target.value })} className="w-full rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm">
+                  <option value="">Choose…</option>
+                  {Array.from({ length: 24 }, (_, i) => (i + 1) / 2).map(v => <option key={v} value={String(v)}>{v} hour{v === 1 ? '' : 's'}</option>)}
+                </select>
+                <p className="mt-xs text-xs text-neutral-500">If this clean was booked and you didn’t finish it in the app, it’s marked done — not added twice.</p>
               </div>
               <div>
                 <label className="block text-sm font-bold text-neutral-900 mb-sm">Notes (optional)</label>
                 <textarea rows={2} value={pastCleanForm.notes} onChange={e => setPastCleanForm({ ...pastCleanForm, notes: e.target.value })} placeholder="e.g. Emergency clean, extra rooms" className="w-full rounded-xl border border-neutral-300 px-md py-sm text-sm resize-none" />
               </div>
+              {error && <p className="text-sm font-semibold text-red-700">{error}</p>}
               <div className="flex gap-sm">
                 <button onClick={logPastClean} disabled={savingPastClean} className="flex-1 rounded-xl bg-neutral-950 py-sm font-bold text-white disabled:opacity-50 hover:bg-neutral-700 transition-colors">
-                  {savingPastClean ? 'Saving…' : 'Log Clean'}
+                  {savingPastClean ? 'Saving…' : 'Log the clean'}
                 </button>
                 <button onClick={() => setShowLogPastCleanModal(false)} className="flex-1 rounded-xl border border-neutral-300 py-sm font-semibold text-neutral-700">
                   Cancel
