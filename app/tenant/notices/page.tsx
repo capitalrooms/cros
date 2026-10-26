@@ -435,7 +435,7 @@ function ResolveModal({ notice, onResolved, onClose }: { notice: Notice; onResol
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/60" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="mt-auto bg-white rounded-t-3xl px-6 pt-4 pb-10">
+      <div className="mt-auto bg-white rounded-t-3xl px-6 pt-4 pb-10 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
         <div className="flex justify-center mb-4"><div className="w-10 h-1 rounded-full bg-neutral-300" /></div>
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-3xl mx-auto mb-4">✅</div>
         <h2 className="notice-board text-xl font-bold text-center text-neutral-900 mb-2">Mark as done?</h2>

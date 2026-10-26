@@ -953,7 +953,7 @@ export default function CleanerDashboard() {
       {/* ── Book clean modal ───────────────────────────────────────────────── */}
       {showBookCleanModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0">
-          <div className="w-full max-w-md rounded-t-3xl bg-white p-lg" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
+          <div className="w-full max-w-md rounded-t-3xl bg-white p-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
             <h2 className="text-xl font-bold text-neutral-900 mb-md">Book a clean</h2>
             <div className="space-y-md">
               <div>
@@ -989,7 +989,7 @@ export default function CleanerDashboard() {
       {/* ── Log past clean modal ───────────────────────────────────────────── */}
       {showLogPastCleanModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-t-3xl bg-white p-lg" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
+          <div className="w-full max-w-md rounded-t-3xl bg-white p-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain" style={{ paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
             <h2 className="text-xl font-bold text-neutral-900 mb-md">Log a past clean</h2>
             <div className="space-y-md">
               <div>
@@ -1080,7 +1080,7 @@ export default function CleanerDashboard() {
       {/* ── Accept job modal ───────────────────────────────────────────────── */}
       {showAcceptJobModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-          <div className="w-full max-w-md rounded-3xl bg-white p-lg">
+          <div className="w-full max-w-md rounded-3xl bg-white p-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
             <h2 className="text-xl font-bold text-neutral-900 mb-md">Accept and book the clean</h2>
             <div className="space-y-md">
               <div>
@@ -1108,7 +1108,7 @@ export default function CleanerDashboard() {
       {/* ── Decline job modal ─────────────────────────────────────────────── */}
       {showDeclineModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-          <div className="w-full max-w-md rounded-3xl bg-white p-lg">
+          <div className="w-full max-w-md rounded-3xl bg-white p-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
             <h2 className="text-xl font-bold text-neutral-900 mb-xs">Decline this job?</h2>
             <p className="text-sm text-neutral-500 mb-md">Admin will be notified and the job will be reassigned to another cleaner.</p>
             <div className="space-y-md">
