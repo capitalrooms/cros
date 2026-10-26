@@ -45,7 +45,7 @@ export default function EnableNotifications() {
   if (state === 'ios_install') {
     return (
       <div className="rounded-xl border-2 border-neutral-900 bg-white px-lg py-md text-sm text-neutral-800">
-        <p className="font-bold">🔔 Get notifications on your iPhone</p>
+        <p className="font-bold">Get notifications on your iPhone</p>
         <p className="mt-xs text-xs text-neutral-600">
           Tap the Share button <span aria-hidden="true">(□↑)</span> in Safari, choose <strong>Add to Home Screen</strong>, then open
           Capital Rooms from your home screen and tap “Turn on notifications”.
@@ -56,7 +56,7 @@ export default function EnableNotifications() {
   if (state === 'denied') {
     return (
       <p className="rounded-xl bg-neutral-100 px-lg py-md text-xs text-neutral-500">
-        🔕 Notifications are blocked — turn them on in your browser/phone settings for this app.
+        Notifications are blocked — turn them on in your browser/phone settings for this app.
       </p>
     )
   }
@@ -66,7 +66,7 @@ export default function EnableNotifications() {
       disabled={state === 'busy'}
       className="w-full rounded-xl border-2 border-neutral-900 bg-white px-lg py-md text-sm font-bold text-neutral-900 hover:bg-neutral-50 disabled:opacity-50"
     >
-      {state === 'busy' ? 'Enabling…' : '🔔 Turn on notifications'}
+      {state === 'busy' ? 'Enabling…' : 'Turn on notifications'}
     </button>
   )
 }
