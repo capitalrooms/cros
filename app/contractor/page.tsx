@@ -96,7 +96,7 @@ function JobCard({ job, variant, asParam }: { job: Job; variant?: 'overdue' | 'w
           )}
           {job.booked_date && variant !== 'ongoing' && (
             <p className={`text-xs mt-xs font-semibold ${variant === 'overdue' ? 'text-red-600' : 'text-neutral-400'}`}>
-              {variant === 'overdue' ? '⚠️ ' : '📅 '}
+              {variant === 'overdue' ? '' : ''}
               {formatDateUK(job.booked_date)}
               {job.booked_slot ? ` · ${String(job.booked_slot).slice(0, 5)}` : ' · time TBC'}
             </p>
@@ -139,7 +139,7 @@ function QuoteCard({ job, asParam }: { job: Job; asParam?: string }) {
             </p>
           ) : job.quote_site_visit ? (
             <p className="text-xs text-amber-700 font-semibold mt-xs">
-              📍 Site visit needed{job.quote_visit_date ? ` · ${formatDateUK(job.quote_visit_date)}` : ''}
+              Site visit needed{job.quote_visit_date ? ` · ${formatDateUK(job.quote_visit_date)}` : ''}
             </p>
           ) : (
             <p className="text-xs text-blue-700 font-semibold mt-xs">Tap to submit your quote</p>
@@ -393,7 +393,7 @@ export default function ContractorDashboard() {
                         <b style={{ fontSize: 13, display: 'block' }}>{job.properties?.name}</b>
                         <span style={{ fontSize: 11.5, color: 'var(--cr-muted)', display: 'block', marginTop: 1 }}>{String(job.category || 'General').replace(/-/g, ' ')}</span>
                         {overdue.find(o => o.id === job.id) && (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#B4472F', display: 'block', marginTop: 2 }}>⚠️ Overdue</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#B4472F', display: 'block', marginTop: 2 }}>Overdue</span>
                         )}
                         {/* Inline slot picker */}
                         {isScheduling && (
@@ -545,7 +545,7 @@ export default function ContractorDashboard() {
               <div className="space-y-lg">
                 {pendingQuotes.length > 0 && (
                   <div>
-                    <h2 className="text-sm font-bold text-blue-700 uppercase tracking-wide mb-sm">📋 Awaiting your quote</h2>
+                    <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wide mb-sm">Awaiting your quote</h2>
                     <div className="rounded-xl border border-blue-200 bg-blue-50 px-md py-sm mb-md">
                       <p className="text-xs text-blue-800 font-semibold">Review each job — you can submit a price or flag that you need to visit first.</p>
                     </div>
@@ -591,14 +591,14 @@ export default function ContractorDashboard() {
               <div className="space-y-lg">
                 {overdue.length > 0 && (
                   <div>
-                    <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">⚠️ Overdue</h2>
+                    <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">Overdue</h2>
                     <div className="rounded-xl border border-red-200 bg-red-50 px-md py-sm mb-md"><p className="text-xs text-red-700">These visits have passed — open each to log or reschedule.</p></div>
                     <div className="space-y-sm">{overdue.map(job => <JobCard key={job.id} job={job} variant="overdue" asParam={asId} />)}</div>
                   </div>
                 )}
                 {toSchedule.length > 0 && (
                   <div>
-                    <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide mb-sm">📅 Need a date</h2>
+                    <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide mb-sm">Need a date</h2>
                     <div className="space-y-sm">{toSchedule.map(job => <JobCard key={job.id} job={job} variant="waiting" asParam={asId} />)}</div>
                   </div>
                 )}
@@ -671,7 +671,7 @@ export default function ContractorDashboard() {
                       <div style={{ background: '#FFFFFF', border: '1px solid var(--cr-line)', borderRadius: 12, padding: '10px 12px', marginBottom: 8 }}>
                         <div style={{ fontWeight: 700, fontSize: 12, color: 'var(--cr-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.properties?.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--cr-muted)', marginTop: 1 }}>{String(job.category || 'General').replace(/-/g, ' ')}</div>
-                        <div style={{ fontSize: 10.5, color: 'var(--cr-muted)', marginTop: 3 }}>📅 {formatDateUK(job.booked_date!)}{job.booked_slot ? ` · ${String(job.booked_slot).slice(0,5)}` : ''}</div>
+                        <div style={{ fontSize: 10.5, color: 'var(--cr-muted)', marginTop: 3 }}>{formatDateUK(job.booked_date!)}{job.booked_slot ? ` · ${String(job.booked_slot).slice(0,5)}` : ''}</div>
                       </div>
                     </Link>
                   ))}
@@ -702,16 +702,16 @@ export default function ContractorDashboard() {
           <div className="max-w-2xl mx-auto w-full">
             <div className="grid grid-cols-2 gap-sm mb-xl">
               <button onClick={() => goToTab('waiting')} className="text-left focus:outline-none">
-                <StatTile value={toSchedule.length} label="New jobs" valueColor={toSchedule.length > 0 ? 'text-green-400' : 'text-white'} />
+                <StatTile value={toSchedule.length} label="New jobs" valueColor={toSchedule.length > 0 ? 'text-[color:var(--cr-gold)]' : 'text-white'} />
               </button>
               <button onClick={() => goToTab('waiting')} className="text-left focus:outline-none">
                 <StatTile value={overdue.length} label="Overdue" valueColor={overdue.length > 0 ? 'text-red-400' : 'text-white'} />
               </button>
               <button onClick={() => goToTab('quotes')} className="text-left focus:outline-none">
-                <StatTile value={pendingQuotes.length} label="Quotes" valueColor={pendingQuotes.length > 0 ? 'text-blue-400' : 'text-white'} />
+                <StatTile value={pendingQuotes.length} label="Quotes" valueColor={pendingQuotes.length > 0 ? 'text-[color:var(--cr-gold)]' : 'text-white'} />
               </button>
               <button onClick={() => goToTab('today')} className="text-left focus:outline-none">
-                <StatTile value={dayJobs.length} label="Today" valueColor="text-blue-400" />
+                <StatTile value={dayJobs.length} label="Today" valueColor="text-[color:var(--cr-gold)]" />
               </button>
             </div>
 
@@ -795,13 +795,13 @@ export default function ContractorDashboard() {
           {activeTab === 'today' && (
             <div className="pt-sm space-y-sm">
               <div className="pt-sm pb-sm"><EnableNotifications /></div>
-              <a href="/planner" className="block rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">🗂️ Notes, jobs &amp; photos with Capital Rooms</a>
+              <a href="/planner" className="block rounded-xl border border-neutral-200 bg-white px-md py-sm text-center text-xs font-bold text-neutral-900">Notes, jobs &amp; photos with Capital Rooms</a>
               {/* visits that have passed (or still need a date) shouldn't hide behind another tab */}
               {needsAttention > 0 && (
                 <button type="button" onClick={() => goToTab('waiting')}
                   className="flex w-full items-center justify-between gap-md rounded-2xl border border-red-200 bg-red-50 px-lg py-md text-left">
                   <span className="text-sm font-bold text-red-800">
-                    ⚠️ {[overdue.length ? `${overdue.length} visit${overdue.length === 1 ? '' : 's'} need logging or rebooking` : '', toSchedule.length ? `${toSchedule.length} job${toSchedule.length === 1 ? '' : 's'} to book` : ''].filter(Boolean).join(' · ')}
+                    {[overdue.length ? `${overdue.length} visit${overdue.length === 1 ? '' : 's'} need logging or rebooking` : '', toSchedule.length ? `${toSchedule.length} job${toSchedule.length === 1 ? '' : 's'} to book` : ''].filter(Boolean).join(' · ')}
                   </span>
                   <span className="text-sm font-bold text-red-800">›</span>
                 </button>
@@ -820,7 +820,7 @@ export default function ContractorDashboard() {
             <div className="pt-lg space-y-lg">
               {pendingQuotes.length > 0 && (
                 <div>
-                  <h2 className="text-sm font-bold text-blue-700 uppercase tracking-wide mb-sm">📋 Awaiting your quote</h2>
+                  <h2 className="text-sm font-bold text-neutral-900 uppercase tracking-wide mb-sm">Awaiting your quote</h2>
                   <div className="rounded-xl border border-blue-200 bg-blue-50 px-md py-sm mb-md">
                     <p className="text-xs text-blue-800 font-semibold">Review each job and submit your price, or flag that you need to visit first.</p>
                   </div>
@@ -862,7 +862,7 @@ export default function ContractorDashboard() {
             <div className="pt-lg space-y-lg">
               {overdue.length > 0 && (
                 <div>
-                  <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">⚠️ Overdue</h2>
+                  <h2 className="text-sm font-bold text-red-600 uppercase tracking-wide mb-sm">Overdue</h2>
                   <div className="rounded-xl border border-red-200 bg-red-50 px-md py-sm mb-sm">
                     <p className="text-xs text-red-700">These visits have passed — tap to log or reschedule.</p>
                   </div>
@@ -871,7 +871,7 @@ export default function ContractorDashboard() {
               )}
               {toSchedule.length > 0 && (
                 <div>
-                  <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide mb-sm">📅 Need a date</h2>
+                  <h2 className="text-sm font-bold text-amber-700 uppercase tracking-wide mb-sm">Need a date</h2>
                   <div className="space-y-sm">{toSchedule.map(job => <JobCard key={job.id} job={job} variant="waiting" asParam={asId} />)}</div>
                 </div>
               )}

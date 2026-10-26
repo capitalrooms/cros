@@ -51,7 +51,7 @@ html.garden, html.garden body { background-color: #17332B; }
 /* the rounded green header (DarkHeroHeader and the tenant home hero carry .cr-hero) */
 .garden .cr-hero { border-bottom-left-radius: 32px; border-bottom-right-radius: 32px; }
 /* the bottom tab bar: a floating green bar, the current tab in gold */
-.garden .cr-tabbar { left: 12px !important; right: 12px !important; bottom: max(env(safe-area-inset-bottom), 12px) !important; border-radius: 24px; background: #17332B !important; border: 0 !important; box-shadow: 0 10px 30px rgba(15, 38, 31, 0.25); overflow: hidden; }
+.garden .cr-tabbar { left: 12px !important; right: 12px !important; bottom: max(env(safe-area-inset-bottom), 12px) !important; padding-bottom: 6px !important; border-radius: 24px; background: #17332B !important; border: 0 !important; box-shadow: 0 10px 30px rgba(15, 38, 31, 0.25); overflow: hidden; }
 .garden .cr-tabbar a, .garden .cr-tabbar button { color: #B9CBBF !important; }
 .garden .cr-tabbar [aria-current="page"], .garden .cr-tabbar [data-active="true"] { color: var(--cr-gold) !important; }
 
@@ -128,7 +128,13 @@ input[type="month"],
 input[type="week"] {
   min-width: 0;
   max-width: 100%;
+  /* iPhone Safari draws its own grey pill at a fixed width that still overflows a pop-up (26 Oct 2026, Accept & book):
+     drop the native look so the box takes our border and the width it's given; tapping still opens the picker */
+  -webkit-appearance: none;
+  appearance: none;
 }
+/* iPhone: the value sits left like every other field, and an empty date box keeps its height */
+input::-webkit-date-and-time-value { text-align: left; min-height: 1.4em; }
 
 input:focus,
 button:focus,

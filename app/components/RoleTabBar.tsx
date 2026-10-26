@@ -38,7 +38,7 @@ export function RoleTabBar<T extends string>({ role, active, onPick, badges = {}
   return (
     <>
       {/* room for the bar so the last thing on the screen isn't hidden behind it */}
-      {spacer && <div className="h-20 lg:hidden" aria-hidden="true" />}
+      {spacer && <div className="h-28 lg:hidden" aria-hidden="true" />}
       <PhoneTabBar fixed className="lg:hidden" label={role === 'contractor' ? 'Contractor sections' : 'Cleaner sections'} tabs={list.map(t => ({
         key: t.key, label: t.label, icon: t.icon, active: active === t.key, badge: badges[t.key],
         ...(onPick && inPage.includes(t.key) ? { onClick: () => { onPick(t.key); window.scrollTo({ top: 0 }) } } : { href: t.href }),
