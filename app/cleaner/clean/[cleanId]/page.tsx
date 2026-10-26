@@ -150,13 +150,15 @@ export default function CleanDetailPage() {
 
   async function patch(fields: Record<string, any>) {
     const supabase = createClient()
-    let { error } = await supabase.from('cleans').update(fields).eq('id', cleanId)
+    let { data: done, error } = await supabase.from('cleans').update(fields).eq('id', cleanId).select('id')
     // before migration 247 there's no hours column: save everything else rather than fail the clean
     if (error && /hours_worked/.test(error.message) && 'hours_worked' in fields) {
       const { hours_worked: _h, ...rest } = fields
-      ;({ error } = await supabase.from('cleans').update(rest).eq('id', cleanId))
+      ;({ data: done, error } = await supabase.from('cleans').update(rest).eq('id', cleanId).select('id'))
     }
     if (error) throw error
+    // nothing changed and no error: the clean isn't this person's to change (it used to look saved — 26 Oct 2026)
+    if (!done?.length) throw new Error('This clean couldn’t be updated — it may be booked for another cleaner. Ask the office.')
     setClean((c: any) => ({ ...c, ...fields }))
   }
 
@@ -334,6 +336,8 @@ export default function CleanDetailPage() {
   const freq = clean.properties?.clean_frequency_weeks
   const hasArrived = !!clean.arrived_at
   const isDone = clean.status === 'completed'
+  // another cleaner's clean (opened from the house page): theirs to update, not this cleaner's
+  const notMine = me?.role === 'cleaner' && !!clean.cleaner_id && clean.cleaner_id !== me.id
 
   return (
     <div className="min-h-screen bg-neutral-100 pb-3xl">
@@ -365,13 +369,13 @@ export default function CleanDetailPage() {
             )}
           </div>
           {/* a clean whose day has gone by and isn't finished (21 Oct 2026) */}
-          {clean.status !== 'completed' && clean.status !== 'cancelled' && clean.clean_date && clean.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) && (
+          {!notMine && clean.status !== 'completed' && clean.status !== 'cancelled' && clean.clean_date && clean.clean_date < new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }) && (
             <div className="mt-md rounded-xl bg-amber-400/15 px-md py-sm">
               <p className="text-sm font-semibold text-amber-100">This clean was due {longDay(clean.clean_date)}. Did you do it?</p>
               <div className="mt-sm flex flex-wrap gap-sm">
-                <button type="button" onClick={() => { setVisitDate(clean.clean_date); setShowFinish(true); setTimeout(() => document.getElementById('finish-clean')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }}
+                <button type="button" onClick={() => { setVisitDate(clean.clean_date); setShowFinish(true); setTimeout(() => scrollToId('finish-clean'), 120) }}
                   className="rounded-lg bg-white px-md py-sm text-sm font-bold text-neutral-900">Yes, I did it — log it</button>
-                <button type="button" onClick={() => { setShowReschedule(true); setTimeout(() => document.getElementById('change-day')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50) }}
+                <button type="button" onClick={() => { setShowReschedule(true); setTimeout(() => scrollToId('change-day'), 120) }}
                   className="rounded-lg border border-white/40 px-md py-sm text-sm font-bold text-white">No — move it</button>
               </div>
             </div>
@@ -448,7 +452,12 @@ export default function CleanDetailPage() {
           </div>
         )}
 
-        {isDone ? (
+        {notMine ? (
+          <div className="rounded-2xl border border-neutral-200 bg-white p-lg">
+            <p className="text-sm font-bold text-neutral-900">This clean is booked for another cleaner</p>
+            <p className="mt-xs text-sm text-neutral-600">You can see it here, but only they — or the office — can update it. If you’re doing it instead, ask the office to move it to you.</p>
+          </div>
+        ) : isDone ? (
           <>
             <div className="rounded-2xl border-2 border-green-300 bg-green-50 p-lg">
               <h3 className="font-bold text-green-800">
@@ -704,4 +713,10 @@ function VisitFields({ visitDate, setVisitDate, hours, setHours, rate }: { visit
       {rate == null && <p className="text-xs text-neutral-500">Add your hourly rate in <Link href="/cleaner/invoices" className="font-semibold underline">Invoices › My details</Link> and your invoices will price each clean from its hours.</p>}
     </div>
   )
+}
+
+/** Bring a section into view below the top bar (scrollIntoView was ignored on some phones). */
+function scrollToId(id: string) {
+  const el = document.getElementById(id)
+  if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 72, behavior: 'smooth' })
 }
