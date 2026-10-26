@@ -212,13 +212,13 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/60" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="mt-auto bg-white rounded-t-3xl overflow-hidden" style={{ maxHeight: '92vh' }}>
+      <div className="mt-auto bg-white rounded-t-3xl overflow-hidden" style={{ maxHeight: '92dvh' }}>
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-neutral-300" />
         </div>
 
         {step === 'jedi' ? (
-          <div className="px-6 pb-10 pt-2 overflow-y-auto" style={{ maxHeight: '88vh' }}>
+          <div className="px-6 pb-10 pt-2 overflow-y-auto" style={{ maxHeight: '88dvh' }}>
             <button onClick={() => setStep('type')} className="text-sm text-neutral-500 hover:text-neutral-900 mb-4 block">← Back</button>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-2xl">⚡</span>
@@ -245,7 +245,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
             <p className="text-xs text-center text-neutral-400 mt-3">You'll be able to review and edit before posting.</p>
           </div>
         ) : step === 'type' ? (
-          <div className="px-6 pb-10 pt-2 overflow-y-auto" style={{ maxHeight: '88vh' }}>
+          <div className="px-6 pb-10 pt-2 overflow-y-auto" style={{ maxHeight: '88dvh' }}>
             <h2 className="notice-board text-2xl font-bold text-neutral-900 mb-1">New notice</h2>
             <p className="text-sm text-neutral-500 mb-4">What would you like to post?</p>
 
@@ -304,7 +304,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
             <button onClick={onClose} className="w-full text-center text-sm text-neutral-400 hover:text-neutral-700 py-2">Cancel</button>
           </div>
         ) : (
-          <div className="px-6 pb-10 pt-2 overflow-y-auto" style={{ maxHeight: '88vh' }}>
+          <div className="px-6 pb-10 pt-2 overflow-y-auto" style={{ maxHeight: '88dvh' }}>
             <div className="flex items-center gap-3 mb-4">
               <button onClick={() => setStep('type')} className="text-sm text-neutral-500 hover:text-neutral-900">← Back</button>
               <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${badge.pill}`}>

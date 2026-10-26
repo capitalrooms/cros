@@ -100,7 +100,7 @@ export default function LettingsViewingNotifyModal({ viewing, onClose, onSuccess
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/50 p-sm sm:p-lg" onClick={() => !sending && onClose()}>
-      <div className="w-full max-w-lg rounded-2xl bg-neutral-900 p-lg border border-neutral-700 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg rounded-2xl bg-neutral-900 p-lg border border-neutral-700 max-h-[90dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-lg">
           <div>
             <h3 className="text-lg font-semibold text-white">Notify the house</h3>

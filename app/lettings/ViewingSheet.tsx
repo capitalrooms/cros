@@ -111,7 +111,7 @@ export default function ViewingSheet({ viewing, senderName, onClose, onChanged, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !saving && onClose()}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-lg shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-lg shadow-2xl max-h-[90dvh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-md mb-md">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-neutral-900 truncate">{viewing.visitor_name || 'Viewing'}</h2>

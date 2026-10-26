@@ -373,7 +373,7 @@ export default function TenanciesManagementPage() {
       {/* ── Add Tenancy Modal ── */}
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-          <div className="rounded-2xl bg-white w-full max-w-lg max-h-[92vh] overflow-y-auto">
+          <div className="rounded-2xl bg-white w-full max-w-lg max-h-[92dvh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-neutral-100 px-6 pt-5 pb-4 z-10">
               <h2 className="text-lg font-bold text-neutral-900">New Tenancy</h2>
               <p className="text-xs text-neutral-500 mt-0.5">Link a room, tenant, and agreement details</p>

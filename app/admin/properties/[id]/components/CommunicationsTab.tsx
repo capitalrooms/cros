@@ -302,7 +302,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
       {/* Message Detail Modal */}
       {selectedMessage && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-200 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-start justify-between gap-lg mb-lg">
               <div>
                 <h3 className="text-lg font-semibold text-neutral-900">{selectedMessage.title}</h3>

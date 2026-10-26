@@ -327,7 +327,7 @@ export default function ExpensesPage() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-md" onClick={() => !saving && setShowForm(false)}>
-          <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-lg" onClick={e => e.stopPropagation()}>
+          <div className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-lg" onClick={e => e.stopPropagation()}>
             <div className="mb-md flex items-center justify-between">
               <h2 className="text-lg font-bold text-neutral-900">Add expense</h2>
               <button onClick={() => setShowForm(false)} className="text-2xl leading-none text-neutral-400 hover:text-neutral-700" aria-label="Close">×</button>

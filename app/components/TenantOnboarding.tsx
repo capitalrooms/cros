@@ -415,7 +415,7 @@ export default function TenantOnboarding({ onComplete }: { onComplete: () => voi
       }}>
         <div style={{
           width: 320, maxWidth: '92vw',
-          height: 620, maxHeight: '88vh',
+          height: 620, maxHeight: '88dvh',
           background: '#f5f5f4',
           borderRadius: 44,
           overflow: 'hidden',

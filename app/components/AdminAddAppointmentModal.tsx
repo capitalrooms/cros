@@ -255,7 +255,7 @@ export default function AdminAddAppointmentModal({
   if (step === 'type') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-lg">
-        <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-neutral-950 p-xl">
+        <div className="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-neutral-950 p-xl">
           <h2 className="text-xl font-bold text-white mb-xs">Select Appointment Type</h2>
           <p className="text-sm text-neutral-400 mb-xl">Choose the type of visit to schedule</p>
 
@@ -292,7 +292,7 @@ export default function AdminAddAppointmentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-lg">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
+      <div className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-lg">
         <h2 className="text-xl font-bold text-neutral-900 mb-md">{selectedTypeLabel}</h2>
         <p className="text-sm text-neutral-600 mb-lg">Schedule appointment details</p>
 

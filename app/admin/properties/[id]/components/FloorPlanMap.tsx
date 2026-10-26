@@ -118,7 +118,7 @@ export default function FloorPlanMap({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !saving && onClose()}>
-      <div className="w-full max-w-xl max-h-[85vh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-700 p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-xl max-h-[85dvh] overflow-y-auto rounded-2xl bg-neutral-900 border border-neutral-700 p-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-md">
           <h3 className="text-lg font-bold text-white">Floor plan scan</h3>
           <button onClick={() => !saving && onClose()} className="text-neutral-500 hover:text-white text-2xl leading-none">×</button>

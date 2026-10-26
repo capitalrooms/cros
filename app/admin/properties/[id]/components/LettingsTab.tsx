@@ -584,7 +584,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       {/* Add Viewing Modal */}
       {isAddingViewing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
-          <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full max-h-[90vh] overflow-y-auto border border-neutral-200">
+          <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full max-h-[90dvh] overflow-y-auto border border-neutral-200">
             <h3 className="text-lg font-semibold text-neutral-900 mb-lg">Schedule New Viewing</h3>
 
             <div className="space-y-lg">

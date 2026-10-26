@@ -131,7 +131,7 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
 
   return (<BodyPortal>
     <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !sending && onClose()}>
-      <div className="w-full max-w-2xl rounded-2xl bg-white p-lg shadow-2xl max-h-[92vh] overflow-y-auto text-neutral-900" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-2xl rounded-2xl bg-white p-lg shadow-2xl max-h-[92dvh] overflow-y-auto text-neutral-900" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-md mb-md">
           <div>
             <h2 className="text-xl font-bold">💷 Holding deposit received</h2>

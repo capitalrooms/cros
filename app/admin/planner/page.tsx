@@ -477,7 +477,7 @@ export default function PlannerPage() {
       {/* ── Mobile board picker overlay ── */}
       {showMobileSidebar && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,.4)' }} onClick={() => setShowMobileSidebar(false)}>
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#f2f0ec', borderRadius: '16px 16px 0 0', maxHeight: '70vh', overflowY: 'auto', padding: '16px 0 32px' }} onClick={e => e.stopPropagation()}>
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#f2f0ec', borderRadius: '16px 16px 0 0', maxHeight: '70dvh', overflowY: 'auto', padding: '16px 0 32px' }} onClick={e => e.stopPropagation()}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: '#b5b0a8', padding: '0 16px 8px' }}>Landlords</p>
             {landlordBoards.map(b => (
               <button key={b.id} onClick={() => { setActiveBoardId(b.id); setSelectedItemId(null); setShowMobileSidebar(false) }}
@@ -1043,7 +1043,7 @@ export default function PlannerPage() {
       {showCompile && compileItem && activeBoard && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
           onClick={e => { if (e.target === e.currentTarget) setShowCompile(false) }}>
-          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
             {/* Modal header */}
             <div style={{ height: 3, background: `linear-gradient(90deg,${activeBoard.colorA},${activeBoard.colorB})`, flexShrink: 0 }} />
             <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #eeebe6', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0 }}>

@@ -66,7 +66,7 @@ export default function PoppingByVisit({ className = '', label = 'Need to visit 
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={close}>
-          <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-lg text-neutral-900 shadow-xl sm:rounded-2xl" onClick={e => e.stopPropagation()}>
+          <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-lg text-neutral-900 shadow-xl sm:rounded-2xl" onClick={e => e.stopPropagation()}>
             {!done ? (
               <div className="space-y-md">
                 <div>

@@ -140,7 +140,7 @@ function EmailSupplierModal({ cert, contractors, onClose }: EmailModalProps) {
             </button>
           </div>
         ) : (
-          <div className="p-lg space-y-md max-h-[70vh] overflow-y-auto">
+          <div className="p-lg space-y-md max-h-[70dvh] overflow-y-auto">
             {/* Supplier picker */}
             <div>
               <label className="text-xs font-bold uppercase tracking-wide text-neutral-500 block mb-xs">Send to</label>
