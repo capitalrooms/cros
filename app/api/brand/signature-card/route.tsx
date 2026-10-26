@@ -13,13 +13,13 @@ export const runtime = 'nodejs'
 const W = 480, H = 84
 const X = 2
 
-// the logo and Lato sit beside the house font (lib/brand/fonts) — read the same way as the name image, which the
+// the logo and Geist (Lato's tables are beyond the picture engine) sit beside the house font (lib/brand/fonts) — read the same way as the name image, which the
 // server bundles; files in public/ aren't on the server's disk
-let lato: Buffer | null = null, disc: string | null = null
+let body: Buffer | null = null, disc: string | null = null
 function assets() {
-  if (!lato) lato = fs.readFileSync(path.join(process.cwd(), 'lib/brand/fonts/Lato-Regular.ttf'))
+  if (!body) body = fs.readFileSync(path.join(process.cwd(), 'lib/brand/fonts/Geist-Regular.ttf'))
   if (!disc) disc = `data:image/png;base64,${fs.readFileSync(path.join(process.cwd(), 'lib/brand/fonts/disc-small.png')).toString('base64')}`
-  return { lato, disc }
+  return { body, disc }
 }
 const buf = (b: Buffer) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer
 
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const p = readSignatureCard(searchParams.get('d'), searchParams.get('s'))
   if (!p) return new Response('Not found', { status: 404 })
-  const { lato, disc } = assets()
+  const { body, disc } = assets()
   const { data: grotesk } = houseFont()
   return new ImageResponse(
     (
@@ -37,10 +37,10 @@ export async function GET(req: Request) {
         <div style={{ width: X, height: 60 * X, background: '#262523', marginRight: 14 * X }} />
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontFamily: 'Space Grotesk', fontSize: 16 * X, letterSpacing: 0.08 * 16 * X, color: '#f1efea', lineHeight: 1.15 }}>{p.name.toUpperCase()}</div>
-          <div style={{ display: 'flex', fontFamily: 'Lato', fontSize: 12.5 * X, color: '#d6d3cd', marginTop: 5 * X }}>
+          <div style={{ display: 'flex', fontFamily: 'Geist', fontSize: 12.5 * X, color: '#d6d3cd', marginTop: 5 * X }}>
             <span>{p.phone}</span><span style={{ color: '#4a4845', margin: `0 ${8 * X}px` }}>/</span><span>{p.email}</span>
           </div>
-          <div style={{ fontFamily: 'Lato', fontSize: 12 * X, color: '#8d8a84', marginTop: 2 * X }}>capitalrooms.co.uk</div>
+          <div style={{ fontFamily: 'Geist', fontSize: 12 * X, color: '#8d8a84', marginTop: 2 * X }}>capitalrooms.co.uk</div>
         </div>
       </div>
     ),
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
       width: W * X, height: H * X,
       fonts: [
         { name: 'Space Grotesk', data: buf(grotesk!), weight: 700, style: 'normal' },
-        { name: 'Lato', data: buf(lato), weight: 400, style: 'normal' },
+        { name: 'Geist', data: buf(body!), weight: 400, style: 'normal' },
       ],
       headers: { 'Cache-Control': 'public, max-age=86400' },
     },
