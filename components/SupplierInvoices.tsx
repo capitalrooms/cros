@@ -101,7 +101,7 @@ function Lines({ lines, setLines, post, role }: { lines: Line[]; setLines: (l: L
             </div>
           </div>
           {l.partsPaid && (
-            <label className="block text-xs text-neutral-600">{l.receipt ? '✅ Receipt added' : busy === l.key ? 'Uploading…' : 'Add the receipt photo (optional) — say which items were for this job above'}
+            <label className="block text-xs text-neutral-600">{l.receipt ? 'Receipt added' : busy === l.key ? 'Uploading…' : 'Add the receipt photo (optional) — say which items were for this job above'}
               <input type="file" accept="image/*" className="mt-1 block text-xs" onChange={e => receipt(l.key, e.target.files?.[0])} />
             </label>
           )}
