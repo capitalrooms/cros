@@ -177,7 +177,7 @@ export default function PropertyAuditPage() {
           <div className="flex items-center justify-between mb-sm">
             <p className="text-sm font-semibold text-neutral-900">
               {allDone
-                ? '🎉 All properties confirmed!'
+                ? 'All properties confirmed!'
                 : `${confirmed} of ${total} confirmed`}
             </p>
             <p className="text-sm font-bold text-neutral-700">{pct}%</p>
@@ -248,7 +248,7 @@ export default function PropertyAuditPage() {
                         ? 'bg-green-100 text-green-800'
                         : 'bg-amber-100 text-amber-800'
                     }`}>
-                      {isConfirmed ? '✓ Confirmed' : '⚠ Needs review'}
+                      {isConfirmed ? '✓ Confirmed' : 'Needs review'}
                     </span>
                     <svg
                       className={`h-4 w-4 text-neutral-400 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}
@@ -297,7 +297,7 @@ export default function PropertyAuditPage() {
                     {/* Lookup result summary (shown after admin accepts the modal) */}
                     {result && (
                       <div className="rounded-xl bg-blue-50 border border-blue-200 p-md text-xs space-y-xs">
-                        <p className="font-semibold text-blue-900">📍 Lookup accepted</p>
+                        <p className="font-semibold text-blue-900">Lookup accepted</p>
                         {result.postcode    && <p className="text-blue-800">Postcode: <span className="font-mono font-semibold">{result.postcode}</span></p>}
                         {result.council_name && <p className="text-blue-800">Council: {result.council_name}</p>}
                         {result.lat != null && (

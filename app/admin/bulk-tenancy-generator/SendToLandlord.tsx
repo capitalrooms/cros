@@ -256,7 +256,7 @@ export default function SendToLandlord(props: Props) {
               <p><span className="text-neutral-400">From</span> {fromLine || '…'}</p>
               <p><span className="text-neutral-400">To</span> {toList.join(', ') || '—'}{ccList.length ? <> · <span className="text-neutral-400">Cc</span> {ccList.join(', ')}</> : null}</p>
               <p className="font-semibold text-neutral-900">{subject || '(no subject)'}</p>
-              <p className="text-neutral-400">📎 {agreements.length + (withInvoice ? 1 : 0)} attachments</p>
+              <p className="text-neutral-400">{agreements.length + (withInvoice ? 1 : 0)} attachments</p>
             </div>
             {emailErr ? <p className="p-md text-sm text-red-700">{emailErr}</p>
               : <iframe title="Email preview" srcDoc={emailHtml} sandbox="" className="w-full h-[640px] bg-white" />}

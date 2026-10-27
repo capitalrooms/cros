@@ -74,12 +74,12 @@ function generateRescheduleMessage(
   const prop = propertyName || 'your property'
 
   if (role === 'cleaner')
-    return `🧹 The clean at ${prop} has been rescheduled to ${d}${at}. Please ensure communal areas are accessible at the new time. Apologies for any inconvenience.`
+    return `The clean at ${prop} has been rescheduled to ${d}${at}. Please ensure communal areas are accessible at the new time. Apologies for any inconvenience.`
   if (role === 'contractor')
-    return `🔧 A maintenance visit at ${prop} has been rescheduled to ${d}${at}. Please ensure the property is accessible at this time.`
+    return `A maintenance visit at ${prop} has been rescheduled to ${d}${at}. Please ensure the property is accessible at this time.`
   if (role === 'lettings')
-    return `🔑 A viewing at ${prop} has been rescheduled to ${d}${at}. We will have a management set of keys for access. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.`
-  return `📋 An appointment at ${prop} has been rescheduled to ${d}${at}.`
+    return `A viewing at ${prop} has been rescheduled to ${d}${at}. We will have a management set of keys for access. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.`
+  return `An appointment at ${prop} has been rescheduled to ${d}${at}.`
 }
 
 // ── Notification preview panel (shared between sheets) ────────────────────────
@@ -121,7 +121,7 @@ function NotificationPreview({
         <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">
-              📨 Tenant notification preview
+              Tenant notification preview
             </p>
             {customised && (
               <button
@@ -144,16 +144,16 @@ function NotificationPreview({
           <div className="rounded-lg bg-white border border-blue-200 px-3 py-2 space-y-2">
             <p className="text-xs font-semibold text-neutral-700">This will be sent to:</p>
             <p className="text-xs text-neutral-600">
-              👥 All current tenants at{' '}
+              All current tenants at{' '}
               <span className="font-semibold">{propertyName || 'the property'}</span>
             </p>
             <p className="text-xs font-semibold text-neutral-700 pt-1">Via:</p>
             <div className="flex flex-wrap gap-2">
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
-                📱 Push notification
+                Push notification
               </span>
               <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
-                💬 In-app message
+                In-app message
               </span>
             </div>
           </div>

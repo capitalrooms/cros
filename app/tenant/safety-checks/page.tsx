@@ -270,7 +270,7 @@ export default function TenantSafetyChecksPage() {
                         : 'border-neutral-200 hover:border-neutral-300'
                     }`}
                   >
-                    <p className="font-semibold text-neutral-900">⚠️ There's an issue</p>
+                    <p className="font-semibold text-neutral-900">There's an issue</p>
                     <p className="text-xs text-neutral-600 mt-xs">I've found something that needs attention</p>
                   </button>
                 </div>

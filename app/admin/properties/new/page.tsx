@@ -327,7 +327,7 @@ export default function NewPropertyPage() {
                 return (
                   <div className="md:col-span-2 rounded-xl border border-neutral-200 bg-neutral-50 p-md">
                     <p className="text-xs font-semibold text-neutral-500 mb-sm">
-                      🔍 Quick lookups{pc ? ` for ${pc}` : ''}
+                      Quick lookups{pc ? ` for ${pc}` : ''}
                     </p>
                     <div className="flex flex-wrap gap-sm mb-sm">
                       <a
@@ -421,7 +421,7 @@ export default function NewPropertyPage() {
                         <p className="text-sm text-neutral-600">{selectedLandlord.email}</p>
                         {selectedLandlord.phone
                           ? <p className="text-sm text-neutral-400">{selectedLandlord.phone}</p>
-                          : <p className="text-xs text-amber-400 mt-xs">⚠ No phone number — add to their profile after setup</p>
+                          : <p className="text-xs text-amber-400 mt-xs">No phone number — add to their profile after setup</p>
                         }
                       </div>
                       <button
@@ -743,7 +743,7 @@ export default function NewPropertyPage() {
                     disabled={loading}
                     className="w-full py-sm bg-green-600 text-white rounded-lg font-bold text-sm hover:bg-green-700 disabled:opacity-50 transition"
                   >
-                    {loading ? '⏳ Creating property…' : '✅ Create Property'}
+                    {loading ? 'Creating property…' : 'Create Property'}
                   </button>
                 </div>
               )}

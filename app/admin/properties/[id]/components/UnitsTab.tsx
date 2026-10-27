@@ -1742,7 +1742,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
 
             {/* Room summary */}
             <div className="rounded-lg bg-amber-50 border border-amber-200 px-md py-sm mb-lg">
-              <p className="text-xs font-semibold text-amber-800">📋 On notice — {quickEditNotice.unit_code || quickEditNotice.name}</p>
+              <p className="text-xs font-semibold text-amber-800">On notice — {quickEditNotice.unit_code || quickEditNotice.name}</p>
               <p className="text-xs text-amber-700 mt-0.5">{quickEditNotice.currentTenant?.name}</p>
             </div>
 
@@ -1873,7 +1873,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                   placeholder="e.g. CR-001-R1"
                   className="w-full px-md py-sm border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 text-neutral-900"
                 />
-                <p className="text-xs text-amber-600 mt-xs">⚠ Only update if essential — unit codes rarely change.</p>
+                <p className="text-xs text-amber-600 mt-xs">Only update if essential — unit codes rarely change.</p>
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-sm block">Room type</label>

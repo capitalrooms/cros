@@ -294,21 +294,21 @@ export default function AgencyDiaryPage() {
                   href="/admin/agency-diary/book-maintenance"
                   className="block px-lg py-md hover:bg-neutral-50 border-b border-neutral-200 rounded-t-lg transition-colors"
                 >
-                  <div className="font-semibold text-neutral-900">🔧 Book Maintenance Job</div>
+                  <div className="font-semibold text-neutral-900">Book Maintenance Job</div>
                   <div className="text-xs text-neutral-600 mt-xs">Select from approved jobs</div>
                 </Link>
                 <Link
                   href="/admin/agency-diary/book-clean"
                   className="block px-lg py-md hover:bg-neutral-50 border-b border-neutral-200 transition-colors"
                 >
-                  <div className="font-semibold text-neutral-900">🧹 Book Cleaner</div>
+                  <div className="font-semibold text-neutral-900">Book Cleaner</div>
                   <div className="text-xs text-neutral-600 mt-xs">Assign cleaning jobs</div>
                 </Link>
                 <Link
                   href="/admin/agency-diary/book-appointment"
                   className="block px-lg py-md hover:bg-neutral-50 rounded-b-lg transition-colors"
                 >
-                  <div className="font-semibold text-neutral-900">📋 Other Appointment</div>
+                  <div className="font-semibold text-neutral-900">Other Appointment</div>
                   <div className="text-xs text-neutral-600 mt-xs">Viewings, inspections, etc.</div>
                 </Link>
               </div>
@@ -319,7 +319,7 @@ export default function AgencyDiaryPage() {
           {/* Read-only badge for lettings staff */}
           {!canBook && (
             <span className="inline-flex items-center gap-sm px-lg py-sm rounded-lg bg-neutral-100 border border-neutral-300 text-neutral-600 font-semibold text-sm">
-              👀 Read-only — timing view
+              Read-only — timing view
             </span>
           )}
 
@@ -362,7 +362,7 @@ export default function AgencyDiaryPage() {
         {/* Outstanding Jobs Drawer */}
         {showOutstanding && outstandingJobs.length > 0 && (
           <div className="mb-3xl p-lg rounded-lg bg-white border border-neutral-200 shadow-md">
-            <h3 className="font-bold text-neutral-900 mb-md">⚠️ {outstandingJobs.length} Jobs Waiting to Be Booked</h3>
+            <h3 className="font-bold text-neutral-900 mb-md">{outstandingJobs.length} Jobs Waiting to Be Booked</h3>
             <div className="space-y-sm max-h-48 overflow-y-auto">
               {outstandingJobs.map((job) => (
                 <div key={job.id} className="p-sm rounded-lg bg-neutral-50 border border-neutral-300 flex items-start justify-between">
@@ -391,7 +391,7 @@ export default function AgencyDiaryPage() {
 
         {/* Map View */}
         <div className="mb-3xl">
-          <h2 className="text-lg font-bold text-slate-900 mb-md">📍 Map View</h2>
+          <h2 className="text-lg font-bold text-slate-900 mb-md">Map View</h2>
           <div className="bg-white rounded-lg border border-slate-300 shadow-md p-lg">
             <AgencyDiaryMap
               events={[
@@ -467,8 +467,8 @@ export default function AgencyDiaryPage() {
                         }`}
                       >
                         <div className="font-semibold truncate">
-                          {event.type === 'maintenance' && `🔧 ${whoName((event as any).contractor)}`}
-                          {event.type === 'clean' && `🧹 ${whoName((event as any).cleaner)}`}
+                          {event.type === 'maintenance' && `${whoName((event as any).contractor)}`}
+                          {event.type === 'clean' && `${whoName((event as any).cleaner)}`}
                           {event.type === 'appointment' && `${APPOINTMENT_TYPE_ICONS[(event as Appointment).appointment_type] || '📋'} ${(event as Appointment).visitor_name}`}
                         </div>
                         <div className="text-xs opacity-80 truncate mt-xs">
@@ -511,7 +511,7 @@ export default function AgencyDiaryPage() {
 
         {/* Upcoming Appointments List */}
         <div className="mt-3xl">
-          <h2 className="text-lg font-bold text-slate-900 mb-md">📅 All Upcoming Appointments</h2>
+          <h2 className="text-lg font-bold text-slate-900 mb-md">All Upcoming Appointments</h2>
           <div className="bg-white rounded-lg border border-slate-300 shadow-md overflow-hidden">
             <div className="divide-y divide-slate-200 max-h-96 overflow-y-auto">
               {(() => {
@@ -584,7 +584,7 @@ export default function AgencyDiaryPage() {
                             </div>
                             <div className="text-sm text-slate-600 ml-7">{event.property?.name || 'Unknown property'}</div>
                             <div className="text-xs text-slate-500 ml-7">
-                              ⏰ {event.time} • {event.title}
+                              {event.time} • {event.title}
                             </div>
                           </div>
                         </div>

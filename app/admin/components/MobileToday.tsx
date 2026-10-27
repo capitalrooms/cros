@@ -62,7 +62,7 @@ export default function MobileToday() {
 
       {/* photograph post, a room or a safety-check sheet — filed from the Capture inbox */}
       <Link href="/admin/capture" className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-neutral-200">
-        <span><span className="block text-sm font-bold text-neutral-950">📷 Capture</span><span className="block text-xs text-neutral-500">Photo of post, a room or a check sheet → filed</span></span>
+        <span><span className="block text-sm font-bold text-neutral-950">Capture</span><span className="block text-xs text-neutral-500">Photo of post, a room or a check sheet → filed</span></span>
         <span className="text-neutral-400">›</span>
       </Link>
 

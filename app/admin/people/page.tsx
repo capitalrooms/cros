@@ -78,7 +78,7 @@ function NotifyBadge({ on }: { on: boolean }) {
       }`}
       title={on ? 'Notifications on' : 'Notifications off'}
     >
-      {on ? '🔔 On' : '🔕 Off'}
+      {on ? 'On' : 'Off'}
     </span>
   )
 }
@@ -522,7 +522,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
     const [label, cls, title] = st.off ? ['Sign-in off', 'bg-red-50 text-red-700', 'The office turned their sign-in off']
       : !st.hasLogin ? ['No login', 'bg-neutral-100 text-neutral-500', 'Not invited yet — ⋯ › Send sign-in invite']
       : !st.confirmed ? ['Invited', 'bg-amber-50 text-amber-800', st.invitedAt ? `Invited ${new Date(st.invitedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })} — not signed in yet` : 'Not signed in yet']
-      : [`${st.twoStep ? '🔐 ' : ''}Last signed in${st.lastSignIn ? ` ${new Date(st.lastSignIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })}` : ''}`, 'bg-green-50 text-green-800', st.twoStep ? 'Has a login, with two-step sign-in' : 'Has a login']
+      : [`${st.twoStep ? '' : ''}Last signed in${st.lastSignIn ? ` ${new Date(st.lastSignIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London' })}` : ''}`, 'bg-green-50 text-green-800', st.twoStep ? 'Has a login, with two-step sign-in' : 'Has a login']
     return <span className={`hidden lg:inline-block rounded-full px-sm py-0.5 text-[11px] font-semibold ${cls}`} title={title}>{label}</span>
   }
   const AccountMenu = (p: Person) => {
@@ -1005,7 +1005,7 @@ export default function PeopleManagement({ searchParams }: { searchParams: PageS
             extra: (
               <label className={`hidden sm:flex cursor-pointer items-center gap-xs rounded-full border px-sm py-0.5 text-[11px] font-semibold ${ecOn(p.id) ? 'border-red-300 bg-red-50 text-red-800' : 'border-neutral-200 text-neutral-500'}`} title="CROS may text them for out-of-hours emergencies">
                 <input type="checkbox" className="h-3 w-3" disabled={ecBusy === p.id} checked={ecOn(p.id)} onChange={e => toggleEmergency(p.id, e.target.checked)} />
-                🚨 Emergency call-outs
+                Emergency call-outs
               </label>
             ),
           })), 'No contractors yet.')

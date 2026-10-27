@@ -121,7 +121,7 @@ export default function UpcomingList({
                           <p className="truncate text-xs text-neutral-500 mt-0.5">{item.sublabel}</p>
                         )}
                         {item.time && (
-                          <p className="text-xs font-semibold text-neutral-400 mt-0.5">⏰ {item.time}</p>
+                          <p className="text-xs font-semibold text-neutral-400 mt-0.5">{item.time}</p>
                         )}
                       </div>
 

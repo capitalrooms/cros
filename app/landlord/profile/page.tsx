@@ -168,7 +168,7 @@ export default function LandlordProfilePage() {
 
         {/* Notice about sensitive fields */}
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-lg py-md mb-xl text-sm text-amber-800">
-          <p className="font-semibold mb-xs">📋 About name & address changes</p>
+          <p className="font-semibold mb-xs">About name & address changes</p>
           <p className="text-amber-700 text-xs">Phone updates apply immediately. Changes to your name, company, or address are sent to your property manager for review — they'll confirm once checked.</p>
         </div>
 
@@ -179,7 +179,7 @@ export default function LandlordProfilePage() {
             status.type === 'request' ? 'bg-blue-50 text-blue-800 border border-blue-200' :
                                         'bg-red-50 text-red-800 border border-red-200'
           }`} style={{ whiteSpace: 'pre-line' }}>
-            {status.type === 'ok' && '✓ '}{status.type === 'request' && '📨 '}{status.msg}
+            {status.type === 'ok' && '✓ '}{status.type === 'request' && ''}{status.msg}
           </div>
         )}
 
@@ -248,7 +248,7 @@ export default function LandlordProfilePage() {
           </div>
           <div className="px-xl pb-xl">
             {hasPendingChanges && (
-              <p className="text-xs text-amber-700 mb-md">⚠ Some changes shown will be sent for admin approval, not applied directly.</p>
+              <p className="text-xs text-amber-700 mb-md">Some changes shown will be sent for admin approval, not applied directly.</p>
             )}
             <button onClick={handleSave} disabled={saving}
               className="w-full py-sm rounded-xl bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700 disabled:opacity-40 transition">

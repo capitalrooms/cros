@@ -97,7 +97,7 @@ export default function PhotoReview({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={previewUrl} alt={file.name} className="h-24 w-24 shrink-0 rounded-lg border border-neutral-200 object-cover" />
         <div className="min-w-0 flex-1">
-          <span className="inline-block rounded bg-teal-100 px-sm py-0.5 text-xs font-semibold text-teal-800">📷 Photo</span>
+          <span className="inline-block rounded bg-teal-100 px-sm py-0.5 text-xs font-semibold text-teal-800">Photo</span>
           <p className="mt-xs truncate text-sm font-semibold text-neutral-900">{file.name}</p>
           <p className="text-xs text-neutral-500">Confirm which property this belongs to. You can set the room now or later on the Photos tab.</p>
         </div>

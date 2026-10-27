@@ -24,14 +24,14 @@ interface SafetyCheckResponse {
 }
 
 const checkTypeLabels: Record<string, string> = {
-  fire_door: '🚪 Fire Door',
-  smoke_alarm: '🔔 Smoke Alarm',
+  fire_door: 'Fire Door',
+  smoke_alarm: 'Smoke Alarm',
 }
 
 const responseLabels: Record<string, { label: string; color: string }> = {
   confirmed_ok: { label: '✓ All good', color: 'bg-green-100 text-green-800' },
-  issue_reported: { label: '⚠️ Issue found', color: 'bg-red-100 text-red-800' },
-  no_response: { label: '⏳ Awaiting response', color: 'bg-yellow-100 text-yellow-800' },
+  issue_reported: { label: 'Issue found', color: 'bg-red-100 text-red-800' },
+  no_response: { label: 'Awaiting response', color: 'bg-yellow-100 text-yellow-800' },
 }
 
 export default function TenantSafetyChecksAdminPage() {
@@ -177,8 +177,8 @@ export default function TenantSafetyChecksAdminPage() {
                     'bg-yellow-100 text-yellow-800'
                   }`}>
                     {check.response_received_at 
-                      ? (check.tenant_response === 'issue_reported' ? '⚠️ Issue' : '✓ OK') 
-                      : '⏳ Pending'}
+                      ? (check.tenant_response === 'issue_reported' ? 'Issue' : '✓ OK') 
+                      : 'Pending'}
                   </span>
                 </div>
 

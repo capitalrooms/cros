@@ -284,7 +284,7 @@ export default function BankImportPage() {
               {preview.warnings.length > 0 && (
                 <div className="mt-lg rounded-xl bg-amber-50 border border-amber-200 px-lg py-md space-y-xs">
                   {preview.warnings.map((w, i) => (
-                    <p key={i} className="text-xs text-amber-700">⚠ {w}</p>
+                    <p key={i} className="text-xs text-amber-700">{w}</p>
                   ))}
                 </div>
               )}
@@ -333,7 +333,7 @@ export default function BankImportPage() {
                         <p className="text-xs text-neutral-500 mt-xs">This month’s rent will be raised when you confirm, then this payment put against it.</p>
                       )}
                       {row.category === 'possible_dupe' && (
-                        <p className="text-xs text-amber-600 font-semibold mt-xs">⚠ This charge is already marked as paid — held for manual review</p>
+                        <p className="text-xs text-amber-600 font-semibold mt-xs">This charge is already marked as paid — held for manual review</p>
                       )}
                     </div>
                     <div className="text-right shrink-0">

@@ -16,17 +16,17 @@ import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 // All notification categories available to landlords
 const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
-  { key: 'urgent',               label: '🚨 Urgent issues',            description: 'Emergency maintenance, gas/fire/flood — always on', mandatory: true },
-  { key: 'job_approval',         label: '✅ Job approvals',             description: 'Large or costly jobs requiring your sign-off' },
-  { key: 'job_updates',          label: '🔧 Job updates',               description: 'Contractor booked, job completed, photos ready' },
-  { key: 'rent_received',        label: '💷 Rent received',             description: 'Monthly rent payment confirmed' },
-  { key: 'rent_arrears',         label: '⚠️ Rent arrears',              description: 'Tenant is late or in arrears' },
-  { key: 'financial_statements', label: '📄 Monthly statements',        description: 'Statement available to view and download' },
-  { key: 'compliance_expiry',    label: '📋 Compliance expiry',         description: 'Certificates expiring within 60 days' },
-  { key: 'compliance_breach',    label: '🔴 Compliance breach',         description: 'Issue found requiring attention' },
-  { key: 'tenant_changes',       label: '🏠 Tenant changes',            description: 'New tenant, notice given, move-out confirmed' },
-  { key: 'cleaner_visits',       label: '🧹 Cleaner visits',            description: 'Cleaning scheduled and completion reports' },
-  { key: 'viewings',             label: '👀 Viewings',                  description: 'Viewing booked at your property' },
+  { key: 'urgent',               label: 'Urgent issues',            description: 'Emergency maintenance, gas/fire/flood — always on', mandatory: true },
+  { key: 'job_approval',         label: 'Job approvals',             description: 'Large or costly jobs requiring your sign-off' },
+  { key: 'job_updates',          label: 'Job updates',               description: 'Contractor booked, job completed, photos ready' },
+  { key: 'rent_received',        label: 'Rent received',             description: 'Monthly rent payment confirmed' },
+  { key: 'rent_arrears',         label: 'Rent arrears',              description: 'Tenant is late or in arrears' },
+  { key: 'financial_statements', label: 'Monthly statements',        description: 'Statement available to view and download' },
+  { key: 'compliance_expiry',    label: 'Compliance expiry',         description: 'Certificates expiring within 60 days' },
+  { key: 'compliance_breach',    label: 'Compliance breach',         description: 'Issue found requiring attention' },
+  { key: 'tenant_changes',       label: 'Tenant changes',            description: 'New tenant, notice given, move-out confirmed' },
+  { key: 'cleaner_visits',       label: 'Cleaner visits',            description: 'Cleaning scheduled and completion reports' },
+  { key: 'viewings',             label: 'Viewings',                  description: 'Viewing booked at your property' },
 ]
 
 interface Landlord {
@@ -423,15 +423,15 @@ export default function LandlordsPage() {
                         <div>
                           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-md">Contact</p>
                           <div className="space-y-sm text-sm text-neutral-700 mb-md">
-                            <p>📧 {landlord.email}</p>
-                            {landlord.phone && <p>📞 {landlord.phone}</p>}
+                            <p>{landlord.email}</p>
+                            {landlord.phone && <p>{landlord.phone}</p>}
                             <p className="text-neutral-400 text-xs">Added {fmtDate(new Date(landlord.created_at))}</p>
                           </div>
 
                           {/* App invite section */}
                           <div className={`rounded-xl p-md border ${isRegistered ? 'bg-blue-50 border-blue-200' : 'bg-neutral-50 border-neutral-200'}`}>
                             <p className="text-xs font-semibold text-neutral-700 mb-xs">
-                              {isRegistered ? '📱 Landlord is active on the app' : '📱 Invite to app'}
+                              {isRegistered ? 'Landlord is active on the app' : 'Invite to app'}
                             </p>
                             {!isRegistered && (
                               <p className="text-xs text-neutral-500 mb-sm">
@@ -448,7 +448,7 @@ export default function LandlordsPage() {
                               disabled={invitingApp === landlord.id}
                               className="w-full rounded-xl bg-neutral-900 text-white py-sm text-xs font-semibold hover:bg-neutral-700 transition disabled:opacity-40"
                             >
-                              {invitingApp === landlord.id ? 'Sending…' : isRegistered ? '↻ Re-send invite email' : '✉ Send invite to app'}
+                              {invitingApp === landlord.id ? 'Sending…' : isRegistered ? '↻ Re-send invite email' : 'Send invite to app'}
                             </button>
                           </div>
                         </div>
@@ -497,7 +497,7 @@ export default function LandlordsPage() {
                               ? 'Sending…'
                               : aml.lastCompleted
                                 ? '↻ Request AML Re-verification'
-                                : '✉ Send AML Verification Request'}
+                                : 'Send AML Verification Request'}
                           </button>
                           <p className="text-xs text-neutral-400 mb-sm text-center">
                             Sends a secure, unique form link via email

@@ -204,7 +204,7 @@ export default function PropertyComplianceDashboard() {
         // Send notifications to tenants (via canonical notifications table schema)
         const messages = tenancies.map((t: any) => ({
           user_id: t.person_id,
-          title: `📸 Photo Request: ${bulkRequestType === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}`,
+          title: `Photo Request: ${bulkRequestType === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}`,
           body: `Please send a photo of your ${bulkRequestType === 'fire_door' ? 'fire door' : 'smoke alarm'} by ${new Date(
             bulkRequestDeadline
           ).toLocaleDateString('en-GB')}. Instructions: Check that it's working properly and takes a photo.`,
@@ -217,7 +217,7 @@ export default function PropertyComplianceDashboard() {
         if (error) console.error('Photo request notification failed:', error);
       }
 
-      alert(`✅ Photo request sent to ${tenancies?.length || 0} tenants`);
+      alert(`Photo request sent to ${tenancies?.length || 0} tenants`);
       setShowBulkRequest(false);
       setBulkRequestDeadline('');
       loadComplianceData();
@@ -266,13 +266,13 @@ export default function PropertyComplianceDashboard() {
                   <div className="text-right">
                     <div className="flex gap-sm text-xs font-bold">
                       <span className="rounded-lg bg-green-100 px-sm py-xs text-green-900">
-                        ✅ {prop.checks_ok}
+                        {prop.checks_ok}
                       </span>
                       <span className="rounded-lg bg-orange-100 px-sm py-xs text-orange-900">
-                        ⚠️ {prop.issues_reported}
+                        {prop.issues_reported}
                       </span>
                       <span className="rounded-lg bg-red-100 px-sm py-xs text-red-900">
-                        ⏳ {prop.checks_pending}
+                        {prop.checks_pending}
                       </span>
                     </div>
                     {prop.last_check_sent && (
@@ -296,7 +296,7 @@ export default function PropertyComplianceDashboard() {
                 onClick={() => setShowBulkRequest(true)}
                 className="rounded-lg bg-orange-600 px-md py-xs text-sm font-bold text-white hover:bg-orange-700"
               >
-                📸 Request Photos
+                Request Photos
               </button>
             </div>
 
@@ -307,12 +307,12 @@ export default function PropertyComplianceDashboard() {
                   <tr className="border-b-2 border-neutral-200 bg-neutral-50">
                     <th className="px-md py-sm text-left text-xs font-bold text-neutral-600">Room</th>
                     <th className="px-md py-sm text-left text-xs font-bold text-neutral-600">Tenant</th>
-                    <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">🚪 Fire Door</th>
+                    <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">Fire Door</th>
                     <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">Month</th>
-                    <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">📸 Photo</th>
-                    <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">🚨 Smoke Alarm</th>
+                    <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">Photo</th>
+                    <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">Smoke Alarm</th>
                     <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">Month</th>
-                    <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">📸 Photo</th>
+                    <th className="px-md py-sm text-center text-xs font-bold text-neutral-600">Photo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-200">
@@ -325,17 +325,17 @@ export default function PropertyComplianceDashboard() {
                       <td className="px-md py-sm text-center text-sm">
                         {room.fire_door_status === 'ok' && (
                           <span className="inline-block rounded-lg bg-green-100 px-md py-xs text-xs font-bold text-green-900">
-                            ✅ OK
+                            OK
                           </span>
                         )}
                         {room.fire_door_status === 'issue' && (
                           <span className="inline-block rounded-lg bg-orange-100 px-md py-xs text-xs font-bold text-orange-900">
-                            ⚠️ Issue
+                            Issue
                           </span>
                         )}
                         {room.fire_door_status === 'pending' && (
                           <span className="inline-block rounded-lg bg-red-100 px-md py-xs text-xs font-bold text-red-900">
-                            ⏳ Pending
+                            Pending
                           </span>
                         )}
                         {room.fire_door_status === 'none' && (
@@ -359,17 +359,17 @@ export default function PropertyComplianceDashboard() {
                       <td className="px-md py-sm text-center text-sm">
                         {room.smoke_alarm_status === 'ok' && (
                           <span className="inline-block rounded-lg bg-green-100 px-md py-xs text-xs font-bold text-green-900">
-                            ✅ OK
+                            OK
                           </span>
                         )}
                         {room.smoke_alarm_status === 'issue' && (
                           <span className="inline-block rounded-lg bg-orange-100 px-md py-xs text-xs font-bold text-orange-900">
-                            ⚠️ Issue
+                            Issue
                           </span>
                         )}
                         {room.smoke_alarm_status === 'pending' && (
                           <span className="inline-block rounded-lg bg-red-100 px-md py-xs text-xs font-bold text-red-900">
-                            ⏳ Pending
+                            Pending
                           </span>
                         )}
                         {room.smoke_alarm_status === 'none' && (
@@ -422,8 +422,8 @@ export default function PropertyComplianceDashboard() {
                     onChange={(e) => setBulkRequestType(e.target.value as any)}
                     className="w-full rounded-lg border-2 border-neutral-200 px-md py-xs text-sm mt-xs"
                   >
-                    <option value="fire_door">🚪 Fire Door Photo</option>
-                    <option value="smoke_alarm">🚨 Smoke Alarm Photo</option>
+                    <option value="fire_door">Fire Door Photo</option>
+                    <option value="smoke_alarm">Smoke Alarm Photo</option>
                   </select>
                 </div>
 
@@ -453,7 +453,7 @@ export default function PropertyComplianceDashboard() {
                   disabled={submittingBulk || !bulkRequestDeadline}
                   className="flex-1 rounded-lg bg-orange-600 px-md py-sm text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50"
                 >
-                  {submittingBulk ? '⏳ Sending...' : '📸 Send Photo Request'}
+                  {submittingBulk ? 'Sending...' : 'Send Photo Request'}
                 </button>
                 <button
                   onClick={() => setShowBulkRequest(false)}

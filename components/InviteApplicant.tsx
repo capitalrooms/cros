@@ -139,9 +139,9 @@ export default function InviteApplicant({ target, initialMode = 'apply', onSent 
       {result && (result.emailSent || result.smsSent || result.emailError || result.smsError) && (
         <div className="space-y-xs rounded-lg border border-neutral-200 bg-neutral-50 p-md text-sm">
           {result.emailSent && <p className="font-semibold text-green-700">✓ Email sent to {p?.to}{result.cc?.length ? ` (copy to ${result.cc.join(', ')})` : ''}</p>}
-          {result.emailError && <p className="font-medium text-amber-700">⚠ Email: {result.emailError}</p>}
+          {result.emailError && <p className="font-medium text-amber-700">Email: {result.emailError}</p>}
           {result.smsSent && <p className="font-semibold text-green-700">✓ Text sent to {p?.phone}</p>}
-          {result.smsError && <p className="font-medium text-amber-700">⚠ Text: {result.smsError}</p>}
+          {result.smsError && <p className="font-medium text-amber-700">Text: {result.smsError}</p>}
           {result.link && (
             <div className="flex items-center gap-sm border-t border-neutral-200 pt-xs">
               <p className="min-w-0 flex-1 break-all rounded border border-neutral-200 bg-white px-sm py-xs text-xs text-neutral-600">{result.link}</p>

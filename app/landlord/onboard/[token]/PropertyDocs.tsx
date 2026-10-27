@@ -90,7 +90,7 @@ export default function PropertyDocs({ token, properties, docs, onChange, upload
         <p className="text-xs text-neutral-500 mb-4">Choose several at once if you like · photo or PDF · up to 20 MB each</p>
         <button type="button" onClick={() => inputRef.current?.click()}
           className="rounded-xl bg-neutral-900 text-white px-6 py-3 text-sm font-semibold hover:bg-neutral-700 transition">
-          📎 Choose files
+          Choose files
         </button>
         <input ref={inputRef} type="file" multiple className="hidden"
           accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,image/*,application/pdf"
@@ -101,7 +101,7 @@ export default function PropertyDocs({ token, properties, docs, onChange, upload
         <ul className="mt-5 space-y-2">
           {pending.map(p => (
             <li key={p.id} className={`rounded-xl border px-4 py-3 text-sm ${p.error ? 'border-red-200 bg-red-50 text-red-700' : 'border-neutral-200 text-neutral-500'}`}>
-              {p.error ? <>⚠ {p.name}: {p.error} <button type="button" className="underline ml-1" onClick={() => setPending(x => x.filter(y => y.id !== p.id))}>Dismiss</button></> : <>⏳ Uploading {p.name}…</>}
+              {p.error ? <>{p.name}: {p.error} <button type="button" className="underline ml-1" onClick={() => setPending(x => x.filter(y => y.id !== p.id))}>Dismiss</button></> : <>Uploading {p.name}…</>}
             </li>
           ))}
           {mine.map(d => {
@@ -111,7 +111,7 @@ export default function PropertyDocs({ token, properties, docs, onChange, upload
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     {!d.scanned ? (
-                      <p className="text-sm font-semibold text-violet-700">✨ Reading this document…</p>
+                      <p className="text-sm font-semibold text-violet-700">Reading this document…</p>
                     ) : (
                       <p className="text-sm font-semibold text-neutral-900">{d.label || (d.type ? propertyDocLabel(d.type) : 'We couldn’t read this one — please choose what it is')}</p>
                     )}

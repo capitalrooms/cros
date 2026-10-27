@@ -147,7 +147,7 @@ export default function RoomCommunicationsModal({
         {/* Header */}
         <div className="bg-neutral-900 p-lg flex items-start justify-between sticky top-0 border-b border-neutral-700">
           <div>
-            <h2 className="text-xl font-semibold text-white">🏠 {roomName}</h2>
+            <h2 className="text-xl font-semibold text-white">{roomName}</h2>
             <p className="text-sm text-neutral-400 mt-xs">Communications by tenant</p>
           </div>
           <button

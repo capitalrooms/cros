@@ -100,7 +100,7 @@ export default function TodayAppointmentsMap() {
     <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-lg py-md text-white font-bold">
-        📍 Today's Visits ({events.length})
+        Today's Visits ({events.length})
       </div>
 
       {/* Map Area (Placeholder - Shows address cards instead of actual map) */}
@@ -125,8 +125,8 @@ export default function TodayAppointmentsMap() {
 
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-slate-900 text-sm">{event.person_name}</div>
-                  <div className="text-xs text-slate-600 mt-xs truncate">📍 {event.property.address}</div>
-                  <div className="text-xs text-slate-500 mt-xs">⏰ {event.time}</div>
+                  <div className="text-xs text-slate-600 mt-xs truncate">{event.property.address}</div>
+                  <div className="text-xs text-slate-500 mt-xs">{event.time}</div>
                 </div>
               </div>
             </button>
@@ -161,9 +161,9 @@ export default function TodayAppointmentsMap() {
             <div>
               <div className="text-xs font-bold text-blue-900 uppercase">Type</div>
               <div className="text-sm text-blue-900 font-semibold mt-xs">
-                {selectedEvent.type === 'maintenance' && `🔧 ${selectedEvent.title}`}
-                {selectedEvent.type === 'clean' && '🧹 Cleaning Service'}
-                {selectedEvent.type === 'appointment' && `📋 ${selectedEvent.title}`}
+                {selectedEvent.type === 'maintenance' && `${selectedEvent.title}`}
+                {selectedEvent.type === 'clean' && 'Cleaning Service'}
+                {selectedEvent.type === 'appointment' && `${selectedEvent.title}`}
               </div>
             </div>
 
@@ -175,7 +175,7 @@ export default function TodayAppointmentsMap() {
               }}
               className="w-full mt-md px-md py-sm rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
             >
-              📍 Open in Google Maps
+              Open in Google Maps
             </button>
           </div>
         </div>

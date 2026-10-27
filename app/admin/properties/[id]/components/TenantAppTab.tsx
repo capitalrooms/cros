@@ -256,7 +256,7 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
         <div className="rounded-xl border border-neutral-100 bg-neutral-50 divide-y divide-neutral-100">
           <label className="flex items-center justify-between gap-md p-md cursor-pointer">
             <div>
-              <p className="text-sm font-semibold text-neutral-900">🚪 Fire door guide</p>
+              <p className="text-sm font-semibold text-neutral-900">Fire door guide</p>
               <p className="text-xs text-neutral-500">Show the fire door maintenance guide (HMOs with fire doors)</p>
             </div>
             <input
@@ -289,7 +289,7 @@ export default function TenantAppTab({ propertyId, property, onUpdate }: Props) 
       {/* ── Admin notices ────────────────────────────────────────────────── */}
       {noticesAllowed && (
       <section className="border-t border-neutral-100 pt-2xl">
-        <h3 className="text-base font-bold text-neutral-900 mb-xs">📢 Admin Notices</h3>
+        <h3 className="text-base font-bold text-neutral-900 mb-xs">Admin Notices</h3>
         <p className="text-sm text-neutral-500 mb-md">
           Post notices to the tenant notice board as admin. These appear alongside tenant-posted notices.
         </p>

@@ -635,7 +635,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
             {/* Key safe code + Management fee */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">🔐 Key Safe Code</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Key Safe Code</label>
                 <input
                   type="text"
                   value={formData.key_safe_code}

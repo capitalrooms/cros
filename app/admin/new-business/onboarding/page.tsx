@@ -300,7 +300,7 @@ export default function OnboardingPage() {
 
               {addResult ? (
                 <div className={`rounded-xl p-md mb-lg text-sm ${addResult.ok ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
-                  {addResult.ok ? '✓ ' : '⚠ '}{addResult.msg}
+                  {addResult.ok ? '✓ ' : ''}{addResult.msg}
                 </div>
               ) : null}
 
@@ -490,13 +490,13 @@ export default function OnboardingPage() {
               <div>
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Timeline</p>
                 <div className="space-y-xs text-xs text-neutral-500">
-                  {selected.created_at && <p>📌 Enquiry added · {fmt(selected.created_at)}</p>}
-                  {selected.welcome_sent_at && <p>✉️ Welcome pack sent · {fmt(selected.welcome_sent_at)}</p>}
-                  {selected.docs_received_at && <p>📂 Docs received · {fmt(selected.docs_received_at)}</p>}
-                  {selected.verified_at && <p>✅ Verified · {fmt(selected.verified_at)}</p>}
-                  {selected.approval_sent_at && <p>📧 Approval email sent · {fmt(selected.approval_sent_at)}</p>}
-                  {selected.agreement_sent_at && <p>✍️ Agreement sent · {fmt(selected.agreement_sent_at)}</p>}
-                  {selected.onboarded_at && <p>🎉 Onboarded · {fmt(selected.onboarded_at)}</p>}
+                  {selected.created_at && <p>Enquiry added · {fmt(selected.created_at)}</p>}
+                  {selected.welcome_sent_at && <p>Welcome pack sent · {fmt(selected.welcome_sent_at)}</p>}
+                  {selected.docs_received_at && <p>Docs received · {fmt(selected.docs_received_at)}</p>}
+                  {selected.verified_at && <p>Verified · {fmt(selected.verified_at)}</p>}
+                  {selected.approval_sent_at && <p>Approval email sent · {fmt(selected.approval_sent_at)}</p>}
+                  {selected.agreement_sent_at && <p>Agreement sent · {fmt(selected.agreement_sent_at)}</p>}
+                  {selected.onboarded_at && <p>Onboarded · {fmt(selected.onboarded_at)}</p>}
                 </div>
               </div>
 
@@ -602,13 +602,13 @@ export default function OnboardingPage() {
                 {/* the form link again (and the agreement, if one was sent) — this used to only move the stage on */}
                 {selected.stage <= 2 && (
                   <button onClick={() => resendForm(selected.id, selected.email)} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
-                    {advancing ? '…' : '✉ Send the form link again'}
+                    {advancing ? '…' : 'Send the form link again'}
                   </button>
                 )}
 
                 {selected.stage === 2 && (
                   <button onClick={() => advanceStage(selected.id, 3, { docs_received: true })} disabled={advancing} className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40">
-                    {advancing ? '…' : '📂 Mark documents received'}
+                    {advancing ? '…' : 'Mark documents received'}
                   </button>
                 )}
 
@@ -618,7 +618,7 @@ export default function OnboardingPage() {
                     disabled={advancing || verifyChecks.length < VERIFICATION_CHECKS.length}
                     className="w-full rounded-xl bg-green-700 text-white py-sm text-sm font-semibold hover:bg-green-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {advancing ? '…' : verifyChecks.length < VERIFICATION_CHECKS.length ? `Tick all ${VERIFICATION_CHECKS.length} checks to verify` : '✅ Mark verified & send approval email'}
+                    {advancing ? '…' : verifyChecks.length < VERIFICATION_CHECKS.length ? `Tick all ${VERIFICATION_CHECKS.length} checks to verify` : 'Mark verified & send approval email'}
                   </button>
                 )}
 
@@ -645,19 +645,19 @@ export default function OnboardingPage() {
                           href={`/admin/new-business/management-agreement?${qs.toString()}`}
                           className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition flex items-center justify-center gap-sm"
                         >
-                          📋 Generate Management Agreement
+                          Generate Management Agreement
                         </a>
                       )
                     })()}
                     <button onClick={() => advanceStage(selected.id, 5)} disabled={advancing} className="w-full rounded-xl border border-neutral-200 py-sm text-sm font-semibold text-neutral-600 hover:bg-neutral-50 transition disabled:opacity-40">
-                      {advancing ? '…' : '✍️ Mark agreement sent (Adobe Sign)'}
+                      {advancing ? '…' : 'Mark agreement sent (Adobe Sign)'}
                     </button>
                   </>
                 )}
 
                 {selected.stage === 5 && (
                   <button onClick={() => advanceStage(selected.id, 6)} disabled={advancing} className="w-full rounded-xl bg-green-700 text-white py-sm text-sm font-semibold hover:bg-green-800 transition disabled:opacity-40">
-                    {advancing ? '…' : '🎉 Mark fully onboarded'}
+                    {advancing ? '…' : 'Mark fully onboarded'}
                   </button>
                 )}
 
@@ -696,7 +696,7 @@ export default function OnboardingPage() {
 
                         {convertResult && (
                           <div className={`rounded-lg p-xs mb-sm text-xs font-semibold ${convertResult.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                            {convertResult.ok ? '✓ ' : '⚠ '}{convertResult.msg}
+                            {convertResult.ok ? '✓ ' : ''}{convertResult.msg}
                             {convertResult.ok && convertResult.profileId && (
                               <a href={`/admin/landlord/${convertResult.profileId}`} className="ml-sm underline">
                                 View profile →
@@ -711,7 +711,7 @@ export default function OnboardingPage() {
                             disabled={converting}
                             className="w-full rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40"
                           >
-                            {converting ? 'Creating profile…' : '👤 Create landlord profile'}
+                            {converting ? 'Creating profile…' : 'Create landlord profile'}
                           </button>
                         )}
                       </div>

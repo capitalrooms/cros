@@ -118,7 +118,7 @@ export default function ShareTargetPage() {
         {hasFile && (
           <div className="space-y-lg">
             <div>
-              <h1 className="text-xl font-bold text-neutral-900">📎 File shared</h1>
+              <h1 className="text-xl font-bold text-neutral-900">File shared</h1>
               <p className="text-sm text-neutral-500 mt-xs truncate">{fileName}</p>
             </div>
 
@@ -148,7 +148,7 @@ export default function ShareTargetPage() {
                   onClick={handleSendToAI}
                   className="w-full rounded-2xl bg-neutral-950 text-white font-bold py-md px-lg text-sm hover:bg-neutral-800 transition"
                 >
-                  ✨ Process with AI → Upload
+                  Process with AI → Upload
                 </button>
                 <p className="text-xs text-neutral-400 text-center">
                   AI will extract property, tenancy, or invoice data from this file
@@ -166,7 +166,7 @@ export default function ShareTargetPage() {
         {hasText && !hasFile && (
           <div className="space-y-lg">
             <div>
-              <h1 className="text-xl font-bold text-neutral-900">💬 Shared text</h1>
+              <h1 className="text-xl font-bold text-neutral-900">Shared text</h1>
               {sharedTitle && <p className="text-sm font-semibold text-neutral-700 mt-xs">{sharedTitle}</p>}
             </div>
 

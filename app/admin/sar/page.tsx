@@ -133,7 +133,7 @@ export default function SarPage() {
         {/* Warning banner */}
         <div className="mb-xl rounded-2xl bg-amber-50 border border-amber-200 p-md">
           <p className="text-sm text-amber-800 leading-relaxed">
-            <strong>⚠ Tipping-off warning:</strong> Once a SAR has been made, disclosing its existence to any person involved or suspected to be involved constitutes a
+            <strong>Tipping-off warning:</strong> Once a SAR has been made, disclosing its existence to any person involved or suspected to be involved constitutes a
             tipping-off offence under Section 333A POCA 2002, carrying a maximum penalty of 5 years' imprisonment.
             Do not discuss any report with anyone other than the MLRO.
           </p>

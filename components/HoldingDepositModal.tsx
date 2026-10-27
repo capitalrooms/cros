@@ -91,11 +91,11 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(d.error ?? 'Could not record the holding deposit')
-      const parts = [d.recorded ? `✅ Holding deposit ${d.holdNo} recorded — receipt filed in Letters & Invoices` : `✅ ${d.holdNo}`]
+      const parts = [d.recorded ? `Holding deposit ${d.holdNo} recorded — receipt filed in Letters & Invoices` : `${d.holdNo}`]
       if (d.receipt) parts.push(`receipt emailed to ${d.receipt}`)
       if (d.landlord) parts.push(`landlord emailed (${d.landlord})`)
       if (d.housemates) parts.push(`${d.housemates} told`)
-      onDone(`${parts.join(' · ')}${d.errors?.length ? ` · ⚠️ ${d.errors.join('; ')}` : ''}`, d.recorded ? d.tenancyId : undefined)
+      onDone(`${parts.join(' · ')}${d.errors?.length ? ` · ${d.errors.join('; ')}` : ''}`, d.recorded ? d.tenancyId : undefined)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not record the holding deposit')
     } finally {
@@ -134,7 +134,7 @@ export default function HoldingDepositModal({ applicantId, onClose, onDone }: Pr
       <div className="w-full max-w-2xl rounded-2xl bg-white p-lg shadow-2xl max-h-[92dvh] overflow-y-auto text-neutral-900" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-md mb-md">
           <div>
-            <h2 className="text-xl font-bold">💷 Holding deposit received</h2>
+            <h2 className="text-xl font-bold">Holding deposit received</h2>
             {draft && <p className="text-sm text-neutral-600">{draft.applicant.name} · {draft.applicant.room}, {draft.applicant.property}</p>}
           </div>
           <button onClick={onClose} className="text-2xl leading-none text-neutral-400 hover:text-neutral-900">×</button>

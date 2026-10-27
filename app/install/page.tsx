@@ -123,7 +123,7 @@ export default function InstallPage() {
           </div>
           <div className="mt-md rounded-xl bg-amber-950/60 border border-amber-800/40 px-md py-sm">
             <p className="text-xs text-amber-300 font-semibold">
-              ⚠️ Must use Safari on iPhone — Chrome and other browsers don't support Add to Home Screen on iOS
+              Must use Safari on iPhone — Chrome and other browsers don't support Add to Home Screen on iOS
             </p>
           </div>
         </div>
@@ -142,7 +142,7 @@ export default function InstallPage() {
           </div>
           <div className="mt-md rounded-xl bg-blue-950/60 border border-blue-800/40 px-md py-sm">
             <p className="text-xs text-blue-300 font-semibold">
-              💡 Chrome may also show an "Install" banner automatically at the bottom of the screen
+              Chrome may also show an "Install" banner automatically at the bottom of the screen
             </p>
           </div>
         </div>

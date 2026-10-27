@@ -58,7 +58,7 @@ export default function TenantEmergencyPage() {
       if (!home?.propertyId) { setError('We couldn’t find your home on file — please call the office.'); return }
       const { data: t, error: tErr } = await sb.from('maintenance_tickets').insert([{
         reporter_id: u.assignment?.id ?? u.user.id,
-        title: `🚨 ${info.label}`,
+        title: `${info.label}`,
         description: [details.trim(), controlled === true ? 'Tenant says it’s under control until morning.' : controlled === false ? 'Tenant says it’s still happening / not safe.' : ''].filter(Boolean).join('\n\n') || info.label,
         category: 'Emergency',
         location: 'Reported as an emergency',
@@ -104,7 +104,7 @@ export default function TenantEmergencyPage() {
                 : status === 'call_999' ? `${info?.callServices ?? 'Please call the emergency services.'} We’ve told the office.`
                 : 'We couldn’t start the emergency call-out automatically, but the office has your report. If it isn’t safe, call us.'}
             </p>
-            {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="mt-md block rounded-xl bg-red-700 py-md text-center text-base font-bold text-white">📞 Call {phone}</a>}
+            {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="mt-md block rounded-xl bg-red-700 py-md text-center text-base font-bold text-white">Call {phone}</a>}
             {info && <ol className="mt-md list-decimal space-y-xs pl-lg text-sm text-neutral-800">{info.steps.map(s => <li key={s}>{s}</li>)}</ol>}
             <Link href="/tenant" className="mt-lg block rounded-xl border border-neutral-300 py-sm text-center text-sm font-semibold text-neutral-800">Back to home</Link>
           </section>
@@ -129,7 +129,7 @@ export default function TenantEmergencyPage() {
                 <button type="button" onClick={() => setKind(null)} className="shrink-0 text-xs font-semibold text-red-800 underline">Change</button>
               </div>
               {info!.callServices && <p className="mt-sm text-sm font-bold text-red-900">{info!.callServices}</p>}
-              {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="mt-sm block rounded-xl bg-red-700 py-md text-center text-base font-bold text-white">📞 Call {phone}</a>}
+              {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="mt-sm block rounded-xl bg-red-700 py-md text-center text-base font-bold text-white">Call {phone}</a>}
               <p className="mt-md text-xs font-bold uppercase tracking-wider text-red-800">Do this now</p>
               <ol className="mt-xs list-decimal space-y-xs pl-lg text-sm text-red-900">{info!.steps.map(s => <li key={s}>{s}</li>)}</ol>
             </section>

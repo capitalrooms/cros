@@ -189,7 +189,7 @@ function TwoStepCard({ sb, factors, staff, required = false, onChange }: { sb: R
         <ul className="mt-md divide-y divide-neutral-100 rounded-xl border border-neutral-200">
           {factors.map(f => (
             <li key={f.id} className="flex items-center justify-between gap-sm px-md py-sm text-sm">
-              <span className="text-neutral-800">{f.factor_type === 'webauthn' ? '🔐 ' : '🔢 '}{f.friendly_name || (f.factor_type === 'totp' ? 'Authenticator app' : 'Passkey')}</span>
+              <span className="text-neutral-800">{f.factor_type === 'webauthn' ? '' : ''}{f.friendly_name || (f.factor_type === 'totp' ? 'Authenticator app' : 'Passkey')}</span>
               <button type="button" onClick={() => remove(f)} disabled={!!busy} className="text-xs font-semibold text-neutral-500 underline hover:text-neutral-800 disabled:opacity-40">Remove</button>
             </li>
           ))}

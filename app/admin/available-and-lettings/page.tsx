@@ -91,13 +91,13 @@ export default function LettingsPage() {
       })
       const json = await res.json()
       if (json.ok) {
-        setTourResult(`✅ Sent to ${json.sent} tenant${json.sent !== 1 ? 's' : ''}${json.failed ? ` · ${json.failed} failed` : ''}`)
+        setTourResult(`Sent to ${json.sent} tenant${json.sent !== 1 ? 's' : ''}${json.failed ? ` · ${json.failed} failed` : ''}`)
         setTimeout(() => { setShowTourModal(false); setTourResult(null); setTourRooms(new Set()) }, 3000)
       } else {
-        setTourResult(`⚠️ ${json.error || 'Could not send'}`)
+        setTourResult(`Couldn’t send: ${json.error || 'please try again'}`)
       }
     } catch {
-      setTourResult('⚠️ Network error — please try again')
+      setTourResult('Couldn’t send — check the connection and try again')
     } finally {
       setTourSending(false)
     }
@@ -272,7 +272,7 @@ export default function LettingsPage() {
                 onClick={() => { setShowTourModal(true); setTourResult(null) }}
                 className="rounded-xl border border-amber-500 bg-amber-50 px-md py-sm text-sm font-semibold text-amber-800 hover:bg-amber-100 transition-colors"
               >
-                📍 Area viewing notice
+                Area viewing notice
               </button>
               <button
                 onClick={() => setShowAddLetOnly(true)}
@@ -355,12 +355,12 @@ export default function LettingsPage() {
                           <div className="flex flex-wrap gap-xs">
                             {room.status === 'on_notice' && (
                               <span className="inline-block px-sm py-xs text-xs font-semibold bg-amber-100 text-amber-800 rounded">
-                                📋 On Notice
+                                On Notice
                               </span>
                             )}
                             {room.is_let_only && (
                               <span className="inline-block px-sm py-xs text-xs font-semibold bg-purple-100 text-purple-700 rounded">
-                                🔑 Let-only
+                                Let-only
                               </span>
                             )}
                           </div>
@@ -394,7 +394,7 @@ export default function LettingsPage() {
           {/* Legend */}
           {availableRooms.some(r => r.is_let_only) && (
             <p className="mt-sm text-xs text-neutral-400">
-              🔑 Let-only rooms are landlord-marketed — Capital Rooms runs viewings only, not full management.
+              Let-only rooms are landlord-marketed — Capital Rooms runs viewings only, not full management.
             </p>
           )}
         </div>
@@ -423,7 +423,7 @@ export default function LettingsPage() {
           <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="border-b border-neutral-200 px-xl py-lg flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-neutral-900">📍 Area Viewing Notice</h2>
+                <h2 className="text-lg font-bold text-neutral-900">Area Viewing Notice</h2>
                 <p className="text-xs text-neutral-500 mt-xs">SMS all current tenants in selected rooms with a heads-up</p>
               </div>
               <button onClick={() => setShowTourModal(false)} className="text-neutral-400 hover:text-neutral-700 text-xl leading-none">✕</button>
@@ -506,7 +506,7 @@ export default function LettingsPage() {
               )}
 
               {tourResult && (
-                <p className={`text-sm font-semibold ${tourResult.startsWith('✅') ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-sm font-semibold ${tourResult.startsWith('Sent') ? 'text-green-600' : 'text-red-600'}`}>
                   {tourResult}
                 </p>
               )}

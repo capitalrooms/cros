@@ -328,9 +328,9 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
             senderName: 'Capital Rooms',
           }),
         }).then((r) => r.json()).then((json) => {
-          if (json.success) setSmsResult(`✅ Confirmation text sent to ${formData.visitor_name}`)
-          else setSmsResult(`⚠️ Applicant SMS not sent: ${json.error || 'unknown error'}`)
-        }).catch(() => setSmsResult('⚠️ Could not send applicant confirmation text'))
+          if (json.success) setSmsResult(`Confirmation text sent to ${formData.visitor_name}`)
+          else setSmsResult(`Applicant SMS not sent: ${json.error || 'unknown error'}`)
+        }).catch(() => setSmsResult('Could not send applicant confirmation text'))
       }
 
       // 2. Tell the people living there — only those the admin ticked when booking
@@ -411,10 +411,10 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      setCalResult('✅ Calendar file downloaded — open it to add the viewing.')
+      setCalResult('Calendar file downloaded — open it to add the viewing.')
       setTimeout(() => { setCalOffer(null); setCalResult(null) }, 3000)
     } catch {
-      setCalResult('⚠️ Could not create the calendar file.')
+      setCalResult('Could not create the calendar file.')
     }
   }
 
@@ -520,13 +520,13 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       {noneToLet ? (
         <div className="p-lg rounded-lg bg-neutral-50 border border-neutral-200">
           <p className="text-sm text-neutral-600">
-            🏠 No rooms currently available at this property — every room is occupied.
+            No rooms currently available at this property — every room is occupied.
           </p>
         </div>
       ) : (
         <div className="p-lg rounded-lg bg-neutral-50 border border-neutral-200 flex flex-wrap gap-lg">
           {availableCount > 0 && (
-            <span className="text-sm font-semibold text-green-700">🟢 {availableCount} available now</span>
+            <span className="text-sm font-semibold text-green-700">{availableCount} available now</span>
           )}
           {onNoticeCount > 0 && (
             <span className="text-sm font-semibold text-amber-700">{onNoticeCount} {onNoticeCount === 1 ? 'room has' : 'rooms have'} notice received and no incoming tenancy</span>
@@ -575,7 +575,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
               onClick={handleAddToCalendar}
               className="px-lg py-sm rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
             >
-              📅 Add to my calendar
+              Add to my calendar
             </button>
           </div>
         </div>
@@ -951,7 +951,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                 </div>
 
                 {viewing.room && (
-                  <p className="text-xs text-neutral-500 mb-md">📍 {viewing.room.name}</p>
+                  <p className="text-xs text-neutral-500 mb-md">{viewing.room.name}</p>
                 )}
 
                 <div className="flex flex-wrap gap-md text-xs mb-md">
@@ -961,7 +961,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                       className="text-blue-600 hover:text-blue-700 font-semibold"
                       title="Click to copy"
                     >
-                      📧 {viewing.visitor_email}
+                      {viewing.visitor_email}
                     </button>
                   )}
                   {viewing.visitor_phone && (
@@ -970,13 +970,13 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                       className="text-blue-600 hover:text-blue-700 font-semibold"
                       title="Click to copy"
                     >
-                      📱 {viewing.visitor_phone}
+                      {viewing.visitor_phone}
                     </button>
                   )}
                 </div>
 
                 {viewing.feedback && (
-                  <p className="text-xs text-neutral-500 mb-md italic">💬 {viewing.feedback}</p>
+                  <p className="text-xs text-neutral-500 mb-md italic">{viewing.feedback}</p>
                 )}
 
                 <div className="flex gap-sm flex-wrap">
@@ -987,7 +987,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
                     }}
                     className="text-xs font-semibold text-green-700 hover:text-green-800"
                   >
-                    📢 Notify Tenants
+                    Notify Tenants
                   </button>
                   <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">
                     Update Status
@@ -1006,7 +1006,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       {completedViewings.length > 0 && (
         <div>
           <h3 className="text-sm font-bold uppercase text-neutral-400 mb-lg pb-lg border-b border-neutral-100">
-            ✅ Completed ({completedViewings.length})
+            Completed ({completedViewings.length})
           </h3>
 
           <div className="space-y-md">
@@ -1031,7 +1031,7 @@ export default function LettingsTab({ propertyId, rooms, propertyName, propertyA
       {showNotifyModal && selectedViewingForNotify && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
           <div className="bg-white rounded-xl shadow-lg p-lg max-w-md w-full border border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-900 mb-lg">📢 Notify Tenants</h3>
+            <h3 className="text-lg font-semibold text-neutral-900 mb-lg">Notify Tenants</h3>
 
             <div className="space-y-lg mb-lg">
               <div>

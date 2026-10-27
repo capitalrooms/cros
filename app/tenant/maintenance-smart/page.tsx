@@ -271,9 +271,9 @@ export default function SmartTroubleshootingPage() {
                 : 'border-orange-200 bg-orange-50'
             }`}>
               <h2 className="text-base font-bold text-neutral-900 mb-md">
-                {diagnosis.recommendation === 'diy'                 && '💡 Try This First'}
-                {diagnosis.recommendation === 'maybe_diy'           && '⚠️ Could be DIY'}
-                {diagnosis.recommendation === 'professional_needed' && '👷 Professional Recommended'}
+                {diagnosis.recommendation === 'diy'                 && 'Try This First'}
+                {diagnosis.recommendation === 'maybe_diy'           && 'Could be DIY'}
+                {diagnosis.recommendation === 'professional_needed' && 'Professional Recommended'}
               </h2>
               <p className="text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed">{diagnosis.guidance}</p>
             </div>

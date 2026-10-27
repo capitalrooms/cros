@@ -270,7 +270,7 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
               {warnings.length > 0 && (
                 <div className="space-y-xs">
                   {warnings.map(w => (
-                    <div key={w} className="text-xs font-semibold px-md py-xs rounded-full bg-amber-50 text-amber-800 border border-amber-200">⚠ {w}</div>
+                    <div key={w} className="text-xs font-semibold px-md py-xs rounded-full bg-amber-50 text-amber-800 border border-amber-200">{w}</div>
                   ))}
                 </div>
               )}

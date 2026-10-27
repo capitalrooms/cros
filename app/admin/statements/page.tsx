@@ -260,7 +260,7 @@ export default function AdminStatementsPage() {
       if (dr.unpaid.length) notes.push(`Not yet received: ${dr.unpaid.map((u: any) => `${u.room}${u.tenant ? ` (${u.tenant})` : ''} £${(u.due - u.received).toFixed(2)}`).join(', ')}. It will go on the statement for the month it's paid.`)
       if (dr.existingId) notes.push(`A ${dr.reference} statement already exists for this property — saving updates it.`)
       if (!dr.tracksRemitted) notes.push('Run migration 185 so late payments carry onto the next statement automatically.')
-      if (dr.feeWarnings?.length) notes.push(`⚠ ${dr.feeWarnings.join('; ')}.`)
+      if (dr.feeWarnings?.length) notes.push(`${dr.feeWarnings.join('; ')}.`)
       setMatchNote(notes.join(' '))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not build the statement')
@@ -434,7 +434,7 @@ export default function AdminStatementsPage() {
       <main className="mx-auto max-w-6xl px-lg py-lg">
 
         {error && <div className="mt-lg rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{error}</div>}
-        {notice && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">✅ {notice}</div>}
+        {notice && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">{notice}</div>}
 
         <a href="/admin/statements/import" className="flex items-center justify-between gap-md rounded-[10px] bg-neutral-900 px-md py-sm text-white hover:bg-neutral-800">
           <span><span className="block font-bold">Upload a month of statements</span><span className="block text-xs text-neutral-300">Several PDFs at once, one per property — each checked before it’s saved</span></span>

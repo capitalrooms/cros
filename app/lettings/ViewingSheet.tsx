@@ -98,7 +98,7 @@ export default function ViewingSheet({ viewing, senderName, onClose, onChanged, 
       }
       if (await notifyLetOnlyContacts(viewing.room_id, 'rescheduled', date, time, viewing.room_name, senderName)) told.push('let-only contacts')
 
-      onChanged(`✅ Viewing moved to ${niceDate(date)}${time ? ` at ${time}` : ''}${told.length ? ` — told ${told.join(', ')}` : ''}${notTold.length ? ` · not sent: ${notTold.join(', ')}` : ''}`)
+      onChanged(`Viewing moved to ${niceDate(date)}${time ? ` at ${time}` : ''}${told.length ? ` — told ${told.join(', ')}` : ''}${notTold.length ? ` · not sent: ${notTold.join(', ')}` : ''}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not move the viewing')
     } finally {
@@ -116,7 +116,7 @@ export default function ViewingSheet({ viewing, senderName, onClose, onChanged, 
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-neutral-900 truncate">{viewing.visitor_name || 'Viewing'}</h2>
             <p className="text-sm text-neutral-600">{[viewing.room_name, viewing.property_name].filter(Boolean).join(' · ')}</p>
-            <p className="text-sm text-neutral-600">📅 {niceDate(viewing.viewing_date)}{viewing.viewing_slot ? ` · ${hhmm(viewing.viewing_slot)}` : ''}</p>
+            <p className="text-sm text-neutral-600">{niceDate(viewing.viewing_date)}{viewing.viewing_slot ? ` · ${hhmm(viewing.viewing_slot)}` : ''}</p>
             {(viewing.visitor_phone || viewing.visitor_email) && (
               <p className="text-xs text-neutral-500 mt-xs">{[viewing.visitor_phone, viewing.visitor_email].filter(Boolean).join(' · ')}</p>
             )}
@@ -128,11 +128,11 @@ export default function ViewingSheet({ viewing, senderName, onClose, onChanged, 
 
         {!moving ? (
           <div className="space-y-sm">
-            <button className={btn} onClick={() => setMoving(true)}>📅 Change date or time</button>
+            <button className={btn} onClick={() => setMoving(true)}>Change date or time</button>
             <button className={btn} onClick={() => onQuickNotify('applicant')} disabled={!viewing.visitor_phone && !viewing.visitor_email}>
-              👤 Message {viewing.visitor_name?.split(' ')[0] || 'the applicant'}{!viewing.visitor_phone && !viewing.visitor_email ? ' — no contact details' : ''}
+              Message {viewing.visitor_name?.split(' ')[0] || 'the applicant'}{!viewing.visitor_phone && !viewing.visitor_email ? ' — no contact details' : ''}
             </button>
-            <button className={btn} onClick={() => onQuickNotify('tenants')} disabled={!viewing.property_id}>🏠 Notify tenants at the property</button>
+            <button className={btn} onClick={() => onQuickNotify('tenants')} disabled={!viewing.property_id}>Notify tenants at the property</button>
             <Link href="/lettings/viewings" className={`${btn} block text-center`}>All viewings →</Link>
           </div>
         ) : (

@@ -236,7 +236,7 @@ export default function LetOnlyDetailPage() {
                               disabled={!!generating}
                               className="text-xs text-purple-600 hover:text-purple-800 font-semibold disabled:opacity-50"
                             >
-                              {generating === `${room.id}:listing` ? '✨ Drafting…' : '✨ Advert'}
+                              {generating === `${room.id}:listing` ? 'Drafting…' : 'Advert'}
                             </button>
                             <span className="text-neutral-300 text-xs">|</span>
                             <button
@@ -244,7 +244,7 @@ export default function LetOnlyDetailPage() {
                               disabled={!!generating}
                               className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold disabled:opacity-50"
                             >
-                              {generating === `${room.id}:group` ? '✨ Drafting…' : '✨ Group post'}
+                              {generating === `${room.id}:group` ? 'Drafting…' : 'Group post'}
                             </button>
                           </div>
                         </div>

@@ -172,10 +172,10 @@ export default function InviteToApplyPage() {
                       </div>
                       <div className="flex gap-xs">
                         {v.visitor_email && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-xs py-0.5 rounded">✉ email</span>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-xs py-0.5 rounded">email</span>
                         )}
                         {v.visitor_phone && (
-                          <span className="text-xs bg-green-100 text-green-700 px-xs py-0.5 rounded">📱 SMS</span>
+                          <span className="text-xs bg-green-100 text-green-700 px-xs py-0.5 rounded">SMS</span>
                         )}
                       </div>
                     </div>

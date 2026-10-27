@@ -523,7 +523,7 @@ export default function ValuationsPage() {
                 disabled={generating || !recipientName || !propertyAddress}
                 className="rounded-2xl bg-neutral-900 text-white px-2xl py-md text-sm font-bold hover:bg-neutral-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {generating ? '⏳ Generating…' : '✨ Preview Letter'}
+                {generating ? 'Generating…' : 'Preview Letter'}
               </button>
             </div>
           </div>
@@ -541,7 +541,7 @@ export default function ValuationsPage() {
                 disabled={generating}
                 className="rounded-xl bg-neutral-900 text-white px-xl py-sm text-sm font-bold hover:bg-neutral-700 transition disabled:opacity-40"
               >
-                {generating ? '⏳ Downloading…' : '⬇ Export PDF'}
+                {generating ? 'Downloading…' : '⬇ Export PDF'}
               </button>
               <button
                 onClick={handlePreview}

@@ -432,7 +432,7 @@ export default function CleanDetailPage() {
                 <div className="flex items-start justify-between gap-md">
                   <div className="flex-1">
                     <p className="text-xs font-bold uppercase tracking-wide text-blue-800">
-                      {note.cleaning_type === 'reminder' ? 'Your reminder' : note.cleaning_type ? `${note.cleaning_type.replace(/_/g, ' ')}` : '📋 Cleaning task'}
+                      {note.cleaning_type === 'reminder' ? 'Your reminder' : note.cleaning_type ? `${note.cleaning_type.replace(/_/g, ' ')}` : 'Cleaning task'}
                     </p>
                     {note.room_id && (
                       <p className="text-xs text-blue-700 mt-xs">Specific room attention needed</p>

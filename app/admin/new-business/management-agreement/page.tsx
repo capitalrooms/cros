@@ -349,7 +349,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
             <h2 className="text-sm font-bold text-neutral-900 mb-md">Agreement Type</h2>
             <div className="flex flex-col sm:flex-row gap-md">
               {/* the letting & rent collection version (Joe Rosen, Wings Properties) is the rent collection agreement in its other wording */}
-              {([['hmo', 'standard', '🏠 HMO / Multi-Let'], ['single', 'standard', '🏡 Single Let'], ['rent_collection', 'standard', '💷 Rent collection only'], ['rent_collection', 'letting', '🤝 Letting & rent collection — Joe Rosen final']] as [AgreementType, 'standard' | 'letting', string][]).map(([t, v, label]) => {
+              {([['hmo', 'standard', 'HMO / Multi-Let'], ['single', 'standard', 'Single Let'], ['rent_collection', 'standard', 'Rent collection only'], ['rent_collection', 'letting', 'Letting & rent collection — Joe Rosen final']] as [AgreementType, 'standard' | 'letting', string][]).map(([t, v, label]) => {
                 const on = agreementType === t && (t !== 'rent_collection' || rcTerms.version === v)
                 return (
                   <button
@@ -624,7 +624,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
           {/* ── Error / success ─────────────────────────────────────────────── */}
           {error && (
             <div className="rounded-xl bg-red-50 border border-red-200 px-md py-sm text-sm text-red-700">
-              ⚠ {error}
+              {error}
             </div>
           )}
           {success && (

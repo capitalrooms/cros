@@ -634,7 +634,7 @@ export default function DocReview({
         </select>
         {isPropInfo && (
           <p className="mt-xs text-xs text-neutral-500">
-            📌 This type is saved to <strong>Property Information</strong> — tenants can read it on their dashboard.
+            This type is saved to <strong>Property Information</strong> — tenants can read it on their dashboard.
           </p>
         )}
       </div>
@@ -690,7 +690,7 @@ export default function DocReview({
             {rankedProperties.length > 0 && (
               <div>
                 <p className="text-[10px] uppercase tracking-wider font-semibold text-neutral-400 mb-xs">
-                  {rankedProperties[0].score >= 0.85 ? '🤖 AI matched' : '🤖 Closest matches — tick to select'}
+                  {rankedProperties[0].score >= 0.85 ? 'AI matched' : 'Closest matches — tick to select'}
                 </p>
                 <div className="flex flex-wrap gap-sm">
                   {rankedProperties.map(p => (
@@ -788,7 +788,7 @@ export default function DocReview({
                 </select>
                 {targetApplicant && (
                   <p className="mt-xs text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-sm py-xs">
-                    📎 Will be saved to this applicant and automatically carried across when they become a tenant.
+                    Will be saved to this applicant and automatically carried across when they become a tenant.
                   </p>
                 )}
               </div>
@@ -840,7 +840,7 @@ export default function DocReview({
           {!houseInfoPreview ? (
             <div className="flex items-center justify-between gap-md">
               <div>
-                <p className="text-sm font-semibold text-neutral-900">🏠 Populate House Info?</p>
+                <p className="text-sm font-semibold text-neutral-900">Populate House Info?</p>
                 <p className="text-xs text-neutral-500 mt-xs">
                   Extract WiFi details, bin day, heating instructions etc. directly into the property's House Info card — visible to tenants on their dashboard.
                 </p>
@@ -851,13 +851,13 @@ export default function DocReview({
                 disabled={houseInfoExtracting}
                 className="shrink-0 rounded-lg border border-neutral-300 bg-white px-md py-sm text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
               >
-                {houseInfoExtracting ? '⚡ Reading…' : '⚡ Extract fields'}
+                {houseInfoExtracting ? 'Reading…' : 'Extract fields'}
               </button>
             </div>
           ) : (
             <div>
               <div className="flex items-center justify-between gap-md mb-sm">
-                <p className="text-sm font-bold text-neutral-900">⚡ {houseInfoPreview.length} fields extracted</p>
+                <p className="text-sm font-bold text-neutral-900">{houseInfoPreview.length} fields extracted</p>
                 <div className="flex gap-sm">
                   <button onClick={() => setHouseInfoPreview(null)} className="text-xs text-neutral-500 hover:text-neutral-900">Cancel</button>
                   <button
@@ -890,7 +890,7 @@ export default function DocReview({
       )}
       {houseInfoSaved && (
         <div className="mx-lg mb-md rounded-xl border border-green-200 bg-green-50 px-md py-sm text-sm font-semibold text-green-800">
-          ✅ House Info updated — tenants will see these fields on their dashboard.
+          House Info updated — tenants will see these fields on their dashboard.
         </div>
       )}
 

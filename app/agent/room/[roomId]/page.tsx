@@ -113,7 +113,7 @@ export default function RoomDetailPage() {
       if (error) throw error
 
       setRoom({ ...room, current_asking_rent: parseFloat(newAskingRent) })
-      alert('✅ Rent updated')
+      alert('Rent updated')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
     } finally {

@@ -52,14 +52,14 @@ export default function PropertyNotesPage() {
   const [cleaningType, setCleaningType] = useState('')
 
   const cleaningTypes = [
-    { value: 'deep_clean', label: '🧹 Deep Clean - Full property' },
-    { value: 'spot_clean', label: '⚡ Spot Clean - Quick tidy' },
-    { value: 'deep_kitchen', label: '🍽️ Kitchen Focus - Deep clean' },
-    { value: 'deep_bathroom', label: '🚿 Bathroom Focus - Deep clean' },
-    { value: 'deep_bedrooms', label: '🛏️ Bedrooms Focus - Deep clean' },
-    { value: 'post_viewing', label: '👁️ Post-Viewing Clean - Between showings' },
-    { value: 'move_out', label: '📦 Move-Out Clean - Full deep' },
-    { value: 'post_maintenance', label: '🔧 Post-Maintenance - Dust & clean' },
+    { value: 'deep_clean', label: 'Deep Clean - Full property' },
+    { value: 'spot_clean', label: 'Spot Clean - Quick tidy' },
+    { value: 'deep_kitchen', label: 'Kitchen Focus - Deep clean' },
+    { value: 'deep_bathroom', label: 'Bathroom Focus - Deep clean' },
+    { value: 'deep_bedrooms', label: 'Bedrooms Focus - Deep clean' },
+    { value: 'post_viewing', label: 'Post-Viewing Clean - Between showings' },
+    { value: 'move_out', label: 'Move-Out Clean - Full deep' },
+    { value: 'post_maintenance', label: 'Post-Maintenance - Dust & clean' },
   ]
 
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function PropertyNotesPage() {
         // Add room info if specified
         if (cleaningRoom) {
           const roomName = propertyRooms.find(r => r.id === cleaningRoom)?.name || 'Room'
-          noteContent += `📍 Location: ${roomName}\n\n`
+          noteContent += `Location: ${roomName}\n\n`
         }
 
         // Add cleaning type context
@@ -196,7 +196,7 @@ export default function PropertyNotesPage() {
           setCleaningRoom('')
           setCleaningType('')
           alert(
-            `✅ Tasks added to the cleaner's next visit (${new Date(
+            `Tasks added to the cleaner's next visit (${new Date(
               nextClean.clean_date
             ).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })})`
           )
@@ -223,7 +223,7 @@ export default function PropertyNotesPage() {
         setCleaningRoom('')
         setCleaningType('')
         alert(
-          '✅ Cleaning note saved. It will appear on the cleaner\'s next visit to this property.'
+          'Cleaning note saved. It will appear on the cleaner\'s next visit to this property.'
         )
         setPosting(false)
         return
@@ -256,8 +256,8 @@ export default function PropertyNotesPage() {
       await loadNotes(selectedProperty)
       alert(
         audience === 'internal'
-          ? '✅ Internal note saved (only visible to admin)'
-          : '✅ Note posted'
+          ? 'Internal note saved (only visible to admin)'
+          : 'Note posted'
       )
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))
@@ -447,7 +447,7 @@ export default function PropertyNotesPage() {
                     </div>
                     {selectedTasks.length > 0 && (
                       <p className="text-xs text-neutral-500 mt-md">
-                        📋 {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''} selected
+                        {selectedTasks.length} task{selectedTasks.length !== 1 ? 's' : ''} selected
                       </p>
                     )}
                   </div>

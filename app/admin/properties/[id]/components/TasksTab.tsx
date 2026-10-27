@@ -112,7 +112,7 @@ export default function TasksTab({ propertyId }: { propertyId: string }) {
     const data = await res.json()
     if (res.ok) {
       await load()
-      alert(`✅ Maintenance ticket raised. You can find it in the Maintenance tab.`)
+      alert(`Maintenance ticket raised. You can find it in the Maintenance tab.`)
     } else {
       alert(data.error || 'Could not convert task')
     }
@@ -387,12 +387,12 @@ function TaskRow({
                 disabled={converting}
                 className="text-xs font-semibold px-sm py-xs rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 transition"
               >
-                {converting ? '…' : '🔧 Make ticket'}
+                {converting ? '…' : 'Make ticket'}
               </button>
             )}
             {task.ticket_id && (
               <span className="text-xs font-semibold px-sm py-xs rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
-                🔧 Ticket raised
+                Ticket raised
               </span>
             )}
             {/* Placeholder for Feature 6: Request quote */}
@@ -402,7 +402,7 @@ function TaskRow({
                 title="Quoting coming soon"
                 className="text-xs font-semibold px-sm py-xs rounded-lg border border-neutral-100 text-neutral-300 cursor-not-allowed"
               >
-                📋 Request quote
+                Request quote
               </button>
             )}
             <button

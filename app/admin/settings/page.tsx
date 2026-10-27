@@ -75,12 +75,12 @@ export default function AdminSettingsPage() {
         type: 'ok',
         text: key === 'comms_live'
           ? newValue === 'true'
-            ? '✅ Notifications are now LIVE — tenants and landlords will receive messages.'
-            : '🔕 Notifications paused — no messages will be sent to tenants or landlords.'
+            ? 'Notifications are now LIVE — tenants and landlords will receive messages.'
+            : 'Notifications paused — no messages will be sent to tenants or landlords.'
           : key === 'elected_comms_live'
             ? newValue === 'true'
-              ? '✅ Messages you send yourself can go out again.'
-              : '🔕 Messages you send yourself are switched off too.'
+              ? 'Messages you send yourself can go out again.'
+              : 'Messages you send yourself are switched off too.'
             : `${key} set to ${newValue}`
       })
     } catch (e: any) {
@@ -138,7 +138,7 @@ export default function AdminSettingsPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-sm">
                 <p className="font-semibold text-neutral-900">
-                  {commsLive ? '🟢 Notifications live' : '🔕 Notifications paused'}
+                  {commsLive ? 'Notifications live' : 'Notifications paused'}
                 </p>
                 {saving === 'comms_live' && <span className="text-xs text-neutral-400">Saving…</span>}
               </div>
@@ -165,7 +165,7 @@ export default function AdminSettingsPage() {
             </button>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-sm">
-                <p className="font-semibold text-neutral-900">{electedLive ? '🟢 Messages you send yourself: on' : '🔕 Messages you send yourself: off'}</p>
+                <p className="font-semibold text-neutral-900">{electedLive ? 'Messages you send yourself: on' : 'Messages you send yourself: off'}</p>
                 {saving === 'elected_comms_live' && <span className="text-xs text-neutral-400">Saving…</span>}
               </div>
               <p className="text-xs text-neutral-500 mt-xs">

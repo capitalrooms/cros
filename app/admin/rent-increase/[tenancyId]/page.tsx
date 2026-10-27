@@ -261,7 +261,7 @@ export default function RentIncreasePage() {
 
         {/* Legal notice */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-md mb-xl">
-          <p className="text-xs font-semibold text-amber-900 mb-xs">⚖️ Legal requirements</p>
+          <p className="text-xs font-semibold text-amber-900 mb-xs">Legal requirements</p>
           <ul className="text-xs text-amber-800 space-y-xs list-disc list-inside">
             <li>Minimum <strong>2 months' notice</strong> before effective date (post-Renters' Rights Act, May 2026)</li>
             <li>At least <strong>52 weeks</strong> since tenancy start or last Section 13 notice</li>
@@ -420,7 +420,7 @@ export default function RentIncreasePage() {
         </div>
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-md mb-xl">
-          <p className="text-xs font-semibold text-amber-900">⚠️ Review carefully before sending</p>
+          <p className="text-xs font-semibold text-amber-900">Review carefully before sending</p>
           <p className="text-xs text-amber-800 mt-xs">
             Once sent, this is a legally binding notice under s.13 of the Housing Act 1988.
             Check all dates, figures, names, and addresses are correct in both documents.
@@ -488,7 +488,7 @@ export default function RentIncreasePage() {
               disabled={sending}
               className="flex-1 rounded-xl bg-blue-700 px-lg py-md text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {sending ? 'Sending…' : '📨 Send Section 13 notice'}
+              {sending ? 'Sending…' : 'Send Section 13 notice'}
             </button>
           </div>
         </div>
@@ -514,7 +514,7 @@ export default function RentIncreasePage() {
 
         {sendWarning && (
           <div className="mb-xl rounded-xl bg-amber-50 border border-amber-200 p-md text-left">
-            <p className="text-sm text-amber-800">⚠️ {sendWarning}</p>
+            <p className="text-sm text-amber-800">{sendWarning}</p>
           </div>
         )}
 

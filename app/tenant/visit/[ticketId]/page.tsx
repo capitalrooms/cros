@@ -234,7 +234,7 @@ export default function VisitDetailPage() {
         {needsShortNoticeApproval && (
           <div className="rounded-2xl bg-amber-50 border-2 border-amber-300 p-lg">
             <p className="text-xs font-bold uppercase tracking-widest text-amber-700 mb-sm">
-              ⚠️ Your approval needed
+              Your approval needed
             </p>
             <p className="text-2xl font-extrabold text-neutral-900 leading-tight">
               {ticket.booked_date ? fmtDate(ticket.booked_date) : 'Short notice'}
@@ -280,7 +280,7 @@ export default function VisitDetailPage() {
         {ticket.short_notice && ticket.short_notice_tenant_approved_at && (
           <div className="rounded-2xl bg-green-50 border border-green-200 p-lg">
             <p className="text-sm font-semibold text-green-800">
-              ✅ You approved access for this visit.
+              You approved access for this visit.
             </p>
           </div>
         )}
@@ -378,7 +378,7 @@ export default function VisitDetailPage() {
 
             {requestDone ? (
               <div className="rounded-xl bg-green-50 border border-green-200 p-md text-sm font-semibold text-green-800">
-                ✅ Request sent — Capital Rooms will review and let you know.
+                Request sent — Capital Rooms will review and let you know.
               </div>
             ) : (
               <>
@@ -426,7 +426,7 @@ export default function VisitDetailPage() {
                       : r.status === 'declined' ? 'bg-neutral-200 text-neutral-600'
                       : 'bg-amber-200 text-amber-800'
                     }`}>
-                      {r.status === 'approved' ? '✅ Approved' : r.status === 'declined' ? 'Declined' : '⏳ Pending'}
+                      {r.status === 'approved' ? 'Approved' : r.status === 'declined' ? 'Declined' : 'Pending'}
                     </span>
                   </div>
                   {r.admin_response && (

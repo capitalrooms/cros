@@ -92,20 +92,20 @@ export default function TenantCardBody({
             isOnNotice ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
           }`}
         >
-          {isOnNotice ? '📋 On notice' : '🏠 Active'}
+          {isOnNotice ? 'On notice' : 'Active'}
         </span>
 
         {/* Move-in date */}
         {startDate && (
           <span className="px-sm py-xs bg-neutral-100 rounded text-neutral-600">
-            📅 Since {formatDate(startDate)}
+            Since {formatDate(startDate)}
           </span>
         )}
 
         {/* Move-out date (on notice) — or, without notice, just when a fixed term ends */}
         {endDate && isOnNotice && (
           <span className="px-sm py-xs bg-amber-100 text-amber-800 rounded font-semibold">
-            🚚 Moving out {formatDate(endDate)}
+            Moving out {formatDate(endDate)}
           </span>
         )}
         {endDate && !isOnNotice && (
@@ -133,10 +133,10 @@ export default function TenantCardBody({
       {showPreferences && optIns && (
         <div className="mt-sm text-xs text-neutral-500">
           {[
-            optIns.maintenance  && '🔧 Maintenance',
-            optIns.viewings     && '👁️ Viewings',
-            optIns.appointments && '📅 Appointments',
-            optIns.cleaning     && '🧹 Cleaning',
+            optIns.maintenance  && 'Maintenance',
+            optIns.viewings     && 'Viewings',
+            optIns.appointments && 'Appointments',
+            optIns.cleaning     && 'Cleaning',
           ]
             .filter(Boolean)
             .join(' · ') || null}

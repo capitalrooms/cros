@@ -147,7 +147,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
           </span>
           {isReadOnly && (
             <span className="shrink-0 text-xs text-amber-900 bg-amber-300 px-sm py-xs rounded-full font-semibold hidden sm:inline">
-              🔒 Read only
+              Read only
             </span>
           )}
         </div>
@@ -180,7 +180,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
           <div className="mt-lg pt-md border-t border-neutral-100 flex items-center justify-between gap-md">
             <div>
               <p className="text-sm font-semibold text-neutral-900">
-                {isReadOnly ? '✅ Using the app directly' : '⏳ Not yet using the app'}
+                {isReadOnly ? 'Using the app directly' : 'Not yet using the app'}
               </p>
               <p className="text-xs text-neutral-500 mt-xs">
                 {isReadOnly
@@ -218,7 +218,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
                 href={dashboardUrl}
                 className="inline-flex items-center gap-sm rounded-xl bg-amber-400 hover:bg-amber-300 px-lg py-md text-sm font-bold text-amber-900 transition-colors"
               >
-                👁 Open their {person.role} screen →
+                Open their {person.role} screen →
               </Link>
             </div>
           )

@@ -182,7 +182,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
   async function saveCerts() {
     setCertSaving(true)
     const { error } = await supabase.from('properties').update(certEdits).eq('id', property.id)
-    if (error) { showToast('❌ ' + error.message); setCertSaving(false); return }
+    if (error) { showToast('' + error.message); setCertSaving(false); return }
 
     // Write history entries for certs where expiry actually changed
     const historyInserts = CERT_DEFS
@@ -238,7 +238,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
     }
     const patch = Object.fromEntries(Object.entries(edits).map(([k, v]) => [k, v === '' ? null : v]))
     const { error } = await supabase.from('properties').update(patch).eq('id', property.id)
-    if (error) { showToast('❌ ' + error.message); setHmoSaving(false); return }
+    if (error) { showToast('' + error.message); setHmoSaving(false); return }
 
     // Write history if expiry or number changed
     const expiryChanged = hmoEdits.license_expiry !== originalHmo.license_expiry
@@ -286,7 +286,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
     setInsSaving(true)
     const { error } = await supabase.from('properties').update(insEdits).eq('id', property.id)
     setInsSaving(false)
-    if (error) { showToast('❌ ' + error.message); return }
+    if (error) { showToast('' + error.message); return }
     onUpdate?.(insEdits)
     setInsDirty(false)
     setInsSaved(true)
@@ -304,7 +304,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
     })
     const json = await res.json()
     setPolicySaving(false)
-    if (!res.ok) { showToast('❌ ' + json.error); return }
+    if (!res.ok) { showToast('' + json.error); return }
     setPolicies(p => [...p, json.policy])
     setAddingPolicy(false)
     setPolicyForm({ policy_type: 'appliance', appliance_type: '', provider_name: '', policy_number: '', monthly_cost: '0', renewal_date: '' })
@@ -314,7 +314,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
   async function deletePolicy(id: string) {
     if (!confirm('Delete this policy?')) return
     const res = await fetch(`/api/admin/property-policies?id=${id}`, { method: 'DELETE' })
-    if (!res.ok) { showToast('❌ Delete failed'); return }
+    if (!res.ok) { showToast('Delete failed'); return }
     setPolicies(p => p.filter(x => x.id !== id))
     showToast('✓ Policy removed')
   }
@@ -348,7 +348,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
       if (!res.ok) throw new Error(json.error || 'Send failed')
       setSendResult({ sent: json.sent, recipients: json.recipients })
     } catch (e: any) {
-      showToast('❌ ' + e.message)
+      showToast('' + e.message)
     } finally {
       setSending(false)
     }
@@ -364,7 +364,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
       Object.assign(document.createElement('a'), { href: url, target: '_blank' }).click()
       URL.revokeObjectURL(url)
-    } catch { showToast('❌ Export failed') }
+    } catch { showToast('Export failed') }
     setExporting(false)
   }
 
@@ -547,7 +547,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
             const cls = st.state === 'applied' ? 'text-blue-700' : st.state === 'expired' ? 'text-red-600' : st.state === 'soon' ? 'text-amber-600' : 'text-green-600'
             return (
               <p className={`text-xs font-semibold mb-sm ${cls}`}>
-                {st.state === 'applied' ? '⏳ ' : st.state === 'valid' ? '✓ ' : '⚠️ '}{st.state === 'applied' ? st.label : `Licence ${st.label.toLowerCase()}`}
+                {st.state === 'applied' ? '' : st.state === 'valid' ? '✓ ' : ''}{st.state === 'applied' ? st.label : `Licence ${st.label.toLowerCase()}`}
                 {st.appliedLate && <span className="block font-normal text-amber-700">The application was made after the old licence expired — the property wasn’t covered between those dates.</span>}
               </p>
             )
@@ -619,7 +619,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
 
         {policiesAvailable === false && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm">
-            <p className="text-xs font-semibold text-amber-800">⚠️ Policy tracking requires migration 053 — run it in Supabase SQL Editor to enable this section.</p>
+            <p className="text-xs font-semibold text-amber-800">Policy tracking requires migration 053 — run it in Supabase SQL Editor to enable this section.</p>
           </div>
         )}
 
@@ -766,7 +766,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
                         onClick={() => setSendRecipient(r)}
                         className={`flex-1 rounded-xl border py-sm text-sm font-semibold transition capitalize ${sendRecipient === r ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'}`}
                       >
-                        {r === 'both' ? 'Both' : r === 'landlord' ? '🏠 Landlord' : '🏡 Tenants'}
+                        {r === 'both' ? 'Both' : r === 'landlord' ? 'Landlord' : 'Tenants'}
                       </button>
                     ))}
                   </div>

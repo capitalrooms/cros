@@ -86,7 +86,7 @@ function Capture({ initialTab }: { initialTab: Tab }) {
         subtitle="Photos, paperwork and emailed invoices in one list: check what CROS thinks each is, and file it. Nothing becomes an expense until you file it here."
         stats={[{ label: 'To file', value: items.length, tone: items.length ? 'warn' : undefined }, { label: 'Emailed invoices waiting', value: items.filter((i: any) => i.source === 'email').length }, { label: 'Company expenses', value: (data?.company ?? []).filter((c: any) => c.amount && !c.voided_at).length }]}
         actions={<>
-          <HeroButton primary onClick={() => camRef.current?.click()}>📷 Take a photo</HeroButton>
+          <HeroButton primary onClick={() => camRef.current?.click()}>Take a photo</HeroButton>
           <HeroButton onClick={() => pickRef.current?.click()}>Choose photos or files</HeroButton>
         </>}
         tabs={([['inbox', `To file${items.length ? ` · ${items.length}` : ''}`], ['company', 'Company post & expenses'], ['iphone', 'Email & iPhone']] as [Tab, string][]).map(([k, l]) => ({ key: k, label: l, active: tab === k, onClick: () => setTab(k) }))}
@@ -104,7 +104,7 @@ function Capture({ initialTab }: { initialTab: Tab }) {
           items.length ? items.map(it => <Item key={it.id} it={it} data={data} reload={load} />) : (
             <div className={`${card} p-xl text-center`}>
               <p className="text-sm text-neutral-600">Nothing waiting. Take a photo of a letter, a room or a safety-check sheet — or share one from your camera roll.</p>
-              <div className="mt-md flex justify-center gap-sm"><button type="button" className={btnDark} onClick={() => camRef.current?.click()}>📷 Take a photo</button><button type="button" className={btn} onClick={() => pickRef.current?.click()}>Choose files</button></div>
+              <div className="mt-md flex justify-center gap-sm"><button type="button" className={btnDark} onClick={() => camRef.current?.click()}>Take a photo</button><button type="button" className={btn} onClick={() => pickRef.current?.click()}>Choose files</button></div>
             </div>
           )
         )}
@@ -162,7 +162,7 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
     setBusy('file'); setMsg('')
     try {
       const d = await post({ action: 'file', kind, propertyId: propertyId || null, roomId: roomId || null, title, rows, bill })
-      setMsg(`✅ Filed: ${d.filedTo}`)
+      setMsg(`Filed: ${d.filedTo}`)
       setTimeout(reload, 1200)
     } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not file it') } finally { setBusy('') }
   }
@@ -238,7 +238,7 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
               : ((kind === 'bill' || kind === 'receipt') && mode !== 'document') ? null
               : <button type="button" className={btnDark} disabled={!canFile || !!busy} onClick={file}>{busy === 'file' ? 'Filing…' : 'File it'}</button>}
             <button type="button" className={btn} disabled={!!busy} onClick={async () => { if (confirm('Discard this? It won’t be filed anywhere.')) { await post({ action: 'discard' }); reload() } }}>Discard</button>
-            {msg && <span className={`text-sm ${msg.startsWith('✅') ? 'text-green-700' : 'text-red-700'}`}>{msg}</span>}
+            {msg && <span className={`text-sm ${msg.startsWith('Filed') ? 'text-green-700' : 'text-red-700'}`}>{msg}</span>}
           </div>
         </div>
       </div>
@@ -299,7 +299,7 @@ function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reloa
       const d = await r.json().catch(() => ({}))
       if (r.status === 409 && d.duplicates) { setDups(d.duplicates); setMsg('Looks like one already on record — check below.'); return }
       if (!r.ok) throw new Error(d.error ?? 'Could not file it')
-      setMsg(`✅ ${d.filedTo}`); setTimeout(reload, 1500)
+      setMsg(`Filed: ${d.filedTo}`); setTimeout(reload, 1500)
     } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not file it') } finally { setBusy(false) }
   }
 
@@ -308,7 +308,7 @@ function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reloa
   return (
     <div className="space-y-sm rounded-xl border border-neutral-200 bg-neutral-50 p-sm">
       {read?.reason && <p className="text-xs text-neutral-600">CROS suggests <b>{read.belongs_to === 'landlord' ? 'a landlord expense' : read.belongs_to === 'company' ? 'a company expense' : 'checking this'}</b> — {read.reason}{read.confidence != null ? ` (${Math.round(read.confidence * 100)}% sure)` : ''}</p>}
-      {read?.duplicate && <p className="rounded-lg bg-amber-100 px-sm py-xs text-xs font-semibold text-amber-900">⚠ {read.duplicate}</p>}
+      {read?.duplicate && <p className="rounded-lg bg-amber-100 px-sm py-xs text-xs font-semibold text-amber-900">{read.duplicate}</p>}
       {read?.doc_type === 'credit_note' && <p className="rounded-lg bg-amber-100 px-sm py-xs text-xs font-semibold text-amber-900">This is a credit note (money back), not a cost. File it as a document and adjust the original by hand.</p>}
       <div className="flex flex-wrap gap-xs">
         {([['landlord', 'Landlord expense'], ['company', 'Company expense'], ['document', 'Just file the document']] as const).map(([k, l]) => (
@@ -373,7 +373,7 @@ function ExpensePanel({ it, data, read, propertyId, roomId, mode, setMode, reloa
       {mode !== 'document' && (
         <div className="flex flex-wrap items-center gap-sm">
           <button type="button" className={btnDark} disabled={busy || !ready} onClick={() => go(false)}>{busy ? 'Filing…' : mode === 'landlord' ? `Add ${amount ? gbp(Number(amount)) : ''} to the property’s expenses` : `Add ${amount ? gbp(Number(amount)) : ''} as a company expense`}</button>
-          {msg && <span className={`text-sm ${msg.startsWith('✅') ? 'text-green-700' : 'text-red-700'}`}>{msg}</span>}
+          {msg && <span className={`text-sm ${msg.startsWith('Filed') ? 'text-green-700' : 'text-red-700'}`}>{msg}</span>}
         </div>
       )}
     </div>

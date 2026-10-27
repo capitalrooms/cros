@@ -601,12 +601,12 @@ export default function ApplicantsPage() {
                           <p className="font-semibold">
                             {isConverted
                               ? 'Marked let agreed, but the holding deposit was never recorded — so there’s no tenancy or letting file yet.'
-                              : '🔒 The letting file starts once the holding deposit is recorded.'}
+                              : 'The letting file starts once the holding deposit is recorded.'}
                           </p>
                           <div className="mt-xs flex flex-wrap items-center gap-sm">
                             <button type="button" onClick={() => setDepositFor(applicant.id)}
                               className="rounded-lg border border-green-700 bg-green-700 px-md py-xs font-semibold text-white hover:bg-green-600">
-                              💷 Holding deposit received
+                              Holding deposit received
                             </button>
                             <span className="text-neutral-500">creates the tenancy and opens its letting file ·</span>
                             <a href={`/admin/applicants/${applicant.id}/create-tenancy`}
@@ -812,11 +812,11 @@ export default function ApplicantsPage() {
                       {/* Actions */}
                       <div className="flex flex-wrap gap-sm pt-xs border-t border-neutral-100">
                         {/* Links */}
-                        <a href={`mailto:${applicant.email}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">✉ Email</a>
+                        <a href={`mailto:${applicant.email}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">Email</a>
                         <CopyButton label="Copy email" value={applicant.email} />
                         {applicant.phone && (
                           <>
-                            <a href={`tel:${applicant.phone}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">📱 Call</a>
+                            <a href={`tel:${applicant.phone}`} className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50">Call</a>
                             <CopyButton label={`Copy ${applicant.phone}`} value={applicant.phone} />
                           </>
                         )}
@@ -859,7 +859,7 @@ export default function ApplicantsPage() {
                         {!isConverted && (
                           <button type="button" onClick={() => setInviteFor({ a: applicant, mode: applicant.pipeline_stage === 'invited' ? 'fasttrack' : applicant.pipeline_stage === 'applied' ? 'reserve' : 'apply' })}
                             className="text-xs font-semibold border border-neutral-300 bg-white text-neutral-800 rounded-lg px-md py-sm hover:bg-neutral-50">
-                            ✉️ Email / invite…
+                            Email / invite…
                           </button>
                         )}
                         {(applicant.pipeline_stage === 'invited' || applicant.pipeline_stage === 'applied' || applicant.pipeline_stage === 'offer_sent') && (
@@ -980,7 +980,7 @@ function CopyButton({ label, value }: { label: string; value: string }) {
       }}
       className="text-xs font-semibold border border-neutral-300 rounded-lg px-md py-sm hover:bg-neutral-50"
     >
-      {copied ? '✓ Copied' : `📋 ${label}`}
+      {copied ? '✓ Copied' : `${label}`}
     </button>
   )
 }

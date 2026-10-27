@@ -110,7 +110,7 @@ export default function IcebreakerPage() {
         <p className="text-xs font-medium uppercase tracking-widest text-neutral-400">
           Meet your housemates
         </p>
-        <h1 className="mt-xs text-3xl font-bold text-neutral-900">Say hello 👋</h1>
+        <h1 className="mt-xs text-3xl font-bold text-neutral-900">Say hello</h1>
         <p className="mt-sm text-sm text-neutral-600">
           A few light questions so your housemates can get to know you.
           Nothing here is compulsory — answer what you like, skip the rest. You can change or

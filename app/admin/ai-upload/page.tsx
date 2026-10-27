@@ -198,7 +198,7 @@ export default function AIUploadPage() {
       } else {
         setResults(analyzed)
         if (errors.length > 0) {
-          setError(`✅ Scanned ${analyzed.length} file(s)\n\n⚠️ Issues:\n${errors.join('\n')}`)
+          setError(`Scanned ${analyzed.length} file(s)\n\nIssues:\n${errors.join('\n')}`)
         }
       }
     } catch (err) {
@@ -228,7 +228,7 @@ export default function AIUploadPage() {
           <div>
           </div>
           <Link href="/admin/inbox" className="shrink-0 rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold hover:bg-neutral-50">
-            📥 Inbox
+            Inbox
           </Link>
         </div>
 
@@ -236,7 +236,7 @@ export default function AIUploadPage() {
           <div className="mt-lg whitespace-pre-wrap rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{error}</div>
         )}
         {applied && (
-          <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">✅ {applied}</div>
+          <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">{applied}</div>
         )}
 
         {results.length === 0 && (
@@ -276,7 +276,7 @@ export default function AIUploadPage() {
           <div className="mt-lg space-y-lg">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-neutral-700">
-                📋 {results.length} file{results.length > 1 ? 's' : ''} to review
+                {results.length} file{results.length > 1 ? 's' : ''} to review
               </p>
               <button
                 onClick={() => { setResults([]); setError(''); setApplied('') }}

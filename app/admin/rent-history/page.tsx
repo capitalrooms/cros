@@ -168,7 +168,7 @@ export default function RentHistoryPage() {
 
         {/* Info banner */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-md mb-lg">
-          <p className="text-sm font-semibold text-blue-900 mb-xs">📋 How this works</p>
+          <p className="text-sm font-semibold text-blue-900 mb-xs">How this works</p>
           <ul className="text-xs text-blue-800 space-y-xs list-disc list-inside">
             <li><strong>Last rent change date</strong> — when rent was last raised. Section 13 notices can't be effective until 52 weeks after this date (if no formal notice exists yet).</li>
             <li><strong>Previous rent</strong> — what rent was before the change. Optional — for your records only.</li>

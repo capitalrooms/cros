@@ -183,7 +183,7 @@ export default function JobCompletion({ jobId, onComplete, onCancel }: JobComple
           {/* Before Photo */}
           <div className="space-y-sm">
             <label className="text-sm font-bold text-neutral-900">
-              📸 Before photo (optional)
+              Before photo (optional)
             </label>
             <input
               type="file"
@@ -199,7 +199,7 @@ export default function JobCompletion({ jobId, onComplete, onCancel }: JobComple
           {/* After Photo */}
           <div className="space-y-sm">
             <label className="text-sm font-bold text-neutral-900">
-              📸 After photo (optional)
+              After photo (optional)
             </label>
             <input
               type="file"
@@ -216,7 +216,7 @@ export default function JobCompletion({ jobId, onComplete, onCancel }: JobComple
           <div className="grid grid-cols-2 gap-md">
             <div className="space-y-sm">
               <label className="text-sm font-bold text-neutral-900">
-                💷 Cost (optional)
+                Cost (optional)
               </label>
               <input
                 type="number"
@@ -317,7 +317,7 @@ export default function JobCompletion({ jobId, onComplete, onCancel }: JobComple
           {/* Reassuring Message */}
           <div className="rounded-2xl border-2 border-green-200 bg-green-50 p-md">
             <p className="text-sm text-green-900">
-              ✅ <strong>Great work!</strong> The tenant will be notified that this work is complete
+              <strong>Great work!</strong> The tenant will be notified that this work is complete
               {returnVisitNeeded ? ` and to expect you back on ${returnVisitDate}` : ''}.
             </p>
           </div>
@@ -329,7 +329,7 @@ export default function JobCompletion({ jobId, onComplete, onCancel }: JobComple
               disabled={submitting}
               className="flex-1 rounded-lg bg-green-600 px-md py-sm text-sm font-bold text-white hover:bg-green-700 disabled:opacity-50"
             >
-              {submitting ? '⏳ Marking complete...' : '✅ Mark Job Complete'}
+              {submitting ? 'Marking complete...' : 'Mark Job Complete'}
             </button>
             <button
               onClick={onCancel}

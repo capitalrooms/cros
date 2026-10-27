@@ -131,7 +131,7 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
     <div className="mt-3xl border-t border-neutral-200 pt-xl">
       <div className="flex items-center justify-between gap-md mb-md">
         <div>
-          <h3 className="text-base font-bold text-neutral-900">🏠 House Info</h3>
+          <h3 className="text-base font-bold text-neutral-900">House Info</h3>
           <p className="text-xs text-neutral-500 mt-xs">
             Static facts shown permanently to all tenants at this property — wifi, bins, heating, etc.
           </p>
@@ -150,14 +150,14 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
             disabled={importing}
             className="rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
           >
-            {importing ? '⚡ Reading…' : '📄 Import from PDF'}
+            {importing ? 'Reading…' : 'Import from PDF'}
           </button>
           <button
             onClick={save}
             disabled={saving}
             className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : saved ? '✅ Saved' : 'Save'}
+            {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
           </button>
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
         <div className="mb-md rounded-xl border-2 border-neutral-900 bg-white overflow-hidden">
           <div className="px-lg py-md border-b border-neutral-100 flex items-center justify-between gap-md">
             <div>
-              <p className="text-sm font-bold text-neutral-900">⚡ AI extracted {importPreview.length} fields</p>
+              <p className="text-sm font-bold text-neutral-900">AI extracted {importPreview.length} fields</p>
               <p className="text-xs text-neutral-500 mt-xs">Tick the ones to import — already-existing labels are pre-deselected.</p>
             </div>
             <div className="flex items-center gap-sm shrink-0">

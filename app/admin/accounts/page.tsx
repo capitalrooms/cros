@@ -109,10 +109,10 @@ const STATUS_STYLE: Record<string, string> = {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  paid: '✅ Paid',
-  pending: '⏳ Pending',
+  paid: 'Paid',
+  pending: 'Pending',
   partial: '◑ Partial',
-  overdue: '🔴 Overdue',
+  overdue: 'Overdue',
   waived: '○ Waived',
   vacant: '— Vacant',
   not_billed: '○ Not billed',
@@ -627,10 +627,10 @@ export default function AccountsPage() {
         <div className="mb-lg flex gap-xs border-b border-neutral-200">
           {(
             [
-              { id: 'rent-roll', label: '📋 Rent Roll' },
-              { id: 'landlord-accounts', label: '🏠 Landlord Accounts' },
-              { id: 'agency-income', label: '💰 Agency Income' },
-              { id: 'arrears', label: `🔴 Arrears${arrears.length ? ` (${arrears.length})` : ''}` },
+              { id: 'rent-roll', label: 'Rent Roll' },
+              { id: 'landlord-accounts', label: 'Landlord Accounts' },
+              { id: 'agency-income', label: 'Agency Income' },
+              { id: 'arrears', label: `Arrears${arrears.length ? ` (${arrears.length})` : ''}` },
             ] as { id: Tab; label: string }[]
           ).map((t) => (
             <button
@@ -823,7 +823,7 @@ export default function AccountsPage() {
                         onClick={() => setRemittanceLandlord(landlord)}
                         className="mt-sm rounded-xl border border-white/30 px-md py-xs text-xs font-semibold text-white hover:bg-white/10"
                       >
-                        📄 Remittance Statement
+                        Remittance Statement
                       </button>
                     </div>
                   </div>
@@ -897,7 +897,7 @@ export default function AccountsPage() {
             {unassigned.length > 0 && (
               <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-lg">
                 <p className="text-sm font-semibold text-amber-800 mb-sm">
-                  ⚠️ {unassigned.length} propert{unassigned.length === 1 ? 'y has' : 'ies have'} no landlord assigned
+                  {unassigned.length} propert{unassigned.length === 1 ? 'y has' : 'ies have'} no landlord assigned
                 </p>
                 <ul className="text-xs text-amber-700 space-y-xs">
                   {unassigned.map((p) => (
@@ -1088,7 +1088,7 @@ export default function AccountsPage() {
                                     href={`mailto:${tenant.email}?subject=Rent%20overdue%20at%20${encodeURIComponent(prop.name)}&body=Hi%20${encodeURIComponent(tenant.first_name || '')}%2C%0A%0AYour%20rent%20of%20${encodeURIComponent(GBP(outstanding, 2))}%20is%20currently%20outstanding.%0A%0APlease%20get%20in%20touch%20to%20resolve%20this.%0A%0ACapital%20Rooms`}
                                     className="rounded-lg border border-neutral-300 px-sm py-xs text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
                                   >
-                                    ✉ Email
+                                    Email
                                   </a>
                                 )}
                                 <button type="button"

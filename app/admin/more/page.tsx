@@ -49,7 +49,7 @@ export default function AdminMorePage() {
         <Group title="You" items={mine(EXTRA)} />
         <button type="button" onClick={signOut}
           className="w-full rounded-2xl bg-white px-3.5 py-3 text-left text-[15px] font-medium text-red-600 active:bg-red-50">
-          🚪 Sign out
+          Sign out
         </button>
       </div>
     </div>

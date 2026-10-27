@@ -213,9 +213,9 @@ export default function BookMaintenancePage() {
                         <div className="font-semibold text-neutral-900">{job.title}</div>
 
                         <div className="text-sm text-neutral-600 mt-xs space-y-xs">
-                          <div>📍 {job.property?.name}</div>
-                          {job.room && <div>🚪 Room: {job.room.name}</div>}
-                          {job.contractor && <div>👤 Assigned to: {job.contractor.name}</div>}
+                          <div>{job.property?.name}</div>
+                          {job.room && <div>Room: {job.room.name}</div>}
+                          {job.contractor && <div>Assigned to: {job.contractor.name}</div>}
                         </div>
 
                         {job.description && <div className="text-sm text-neutral-600 mt-sm">{job.description}</div>}

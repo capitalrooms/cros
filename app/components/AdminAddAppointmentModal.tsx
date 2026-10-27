@@ -54,29 +54,29 @@ function generateDefaultMessage(
 
   const messages: Record<string, string> = {
     inspection:
-      `🔍 Please be aware that an inspection has been scheduled at ${prop} on ${d}${at}. Our team will require access to communal areas and may need to check individual rooms. Please ensure you or a housemate is available or has made access arrangements.`,
+      `Please be aware that an inspection has been scheduled at ${prop} on ${d}${at}. Our team will require access to communal areas and may need to check individual rooms. Please ensure you or a housemate is available or has made access arrangements.`,
     communal_visit:
-      `🏢 A visit to the communal areas is planned at ${prop} on ${d}${at}. This will cover shared spaces including the kitchen, bathrooms, and hallways. No access to individual rooms is required.`,
+      `A visit to the communal areas is planned at ${prop} on ${d}${at}. This will cover shared spaces including the kitchen, bathrooms, and hallways. No access to individual rooms is required.`,
     maintenance:
-      `🔧 A maintenance visit has been arranged at ${prop} on ${d}${at}. Our team will carry out repairs in communal areas. If access to your room is needed, you will be contacted separately in advance.`,
+      `A maintenance visit has been arranged at ${prop} on ${d}${at}. Our team will carry out repairs in communal areas. If access to your room is needed, you will be contacted separately in advance.`,
     lettings:
-      `🔑 A lettings viewing is taking place at ${prop} on ${d}${at}. A prospective new tenant will be shown around the communal areas. We appreciate your understanding and ask that shared spaces are kept tidy.`,
+      `A lettings viewing is taking place at ${prop} on ${d}${at}. A prospective new tenant will be shown around the communal areas. We appreciate your understanding and ask that shared spaces are kept tidy.`,
     landlord:
-      `👤 Your landlord will be visiting ${prop} on ${d}${at}. This is a routine visit. Please ensure communal areas are accessible.`,
+      `Your landlord will be visiting ${prop} on ${d}${at}. This is a routine visit. Please ensure communal areas are accessible.`,
     cleaner:
-      `🧹 A cleaner is scheduled to visit ${prop} on ${d}${at}. Please ensure communal areas are accessible and any personal items in shared spaces are moved out of the way.`,
+      `A cleaner is scheduled to visit ${prop} on ${d}${at}. Please ensure communal areas are accessible and any personal items in shared spaces are moved out of the way.`,
     contractor:
-      `⚡ A contractor is scheduled to visit ${prop} on ${d}${at} to carry out works. They will require access to communal areas. Please ensure the property is accessible at this time.`,
+      `A contractor is scheduled to visit ${prop} on ${d}${at} to carry out works. They will require access to communal areas. Please ensure the property is accessible at this time.`,
     utility:
-      `🚰 A utility or gas engineer is visiting ${prop} on ${d}${at}. They may need access to meters, boilers, or appliances in communal areas. Please ensure access is available.`,
+      `A utility or gas engineer is visiting ${prop} on ${d}${at}. They may need access to meters, boilers, or appliances in communal areas. Please ensure access is available.`,
     pest_control:
-      `🐛 A pest control visit has been arranged at ${prop} on ${d}${at}. The technician will require access to communal areas. Please keep food stored securely beforehand.`,
+      `A pest control visit has been arranged at ${prop} on ${d}${at}. The technician will require access to communal areas. Please keep food stored securely beforehand.`,
     fire_safety:
-      `🔥 A fire safety inspection is scheduled at ${prop} on ${d}${at}. The engineer will check fire doors, smoke alarms, and emergency lighting throughout the property. Please ensure access to all areas.`,
+      `A fire safety inspection is scheduled at ${prop} on ${d}${at}. The engineer will check fire doors, smoke alarms, and emergency lighting throughout the property. Please ensure access to all areas.`,
     manager_visit:
-      `📋 Your property manager will be visiting ${prop} on ${d}${at}. This is a routine visit to check on the property and address any concerns. No specific action is needed from you.`,
+      `Your property manager will be visiting ${prop} on ${d}${at}. This is a routine visit to check on the property and address any concerns. No specific action is needed from you.`,
     insurance:
-      `🛡️ An insurance inspection is scheduled at ${prop} on ${d}${at}. The inspector will need access to communal areas. Please ensure these are accessible at the time of the visit.`,
+      `An insurance inspection is scheduled at ${prop} on ${d}${at}. The inspector will need access to communal areas. Please ensure these are accessible at the time of the visit.`,
   }
 
   return messages[type] || `An appointment has been scheduled at ${prop} on ${d}${at}.`
@@ -189,7 +189,7 @@ export default function AdminAddAppointmentModal({
       const supabase = createClient()
 
       const isCustom = property === '__custom__'
-      const locationNote = isCustom ? `📍 Location: ${customAddress.trim()}` : null
+      const locationNote = isCustom ? `Location: ${customAddress.trim()}` : null
       const combinedNotes = [locationNote, notes || null].filter(Boolean).join('\n') || null
 
       // Store window as "09:00-17:00" in the time column
@@ -321,7 +321,7 @@ export default function AdminAddAppointmentModal({
                     : 'border-neutral-300 text-neutral-500 hover:border-neutral-500'
                 }`}
               >
-                {timeWindow ? '⏱ Window on' : '⏱ Add window'}
+                {timeWindow ? 'Window on' : 'Add window'}
               </button>
             </div>
 
@@ -363,7 +363,7 @@ export default function AdminAddAppointmentModal({
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
-              <option value="__custom__">📍 Other / custom address…</option>
+              <option value="__custom__">Other / custom address…</option>
             </select>
 
             {/* Custom address input — shown when "Other" is selected */}
@@ -378,7 +378,7 @@ export default function AdminAddAppointmentModal({
                   className="w-full rounded-lg border border-amber-300 bg-amber-50 px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
                 <p className="text-xs text-amber-700 mt-xs">
-                  ⚠ Tenant notifications are not available for off-system locations.
+                  Tenant notifications are not available for off-system locations.
                 </p>
               </div>
             )}
@@ -448,7 +448,7 @@ export default function AdminAddAppointmentModal({
               {/* Header */}
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">
-                  📨 Tenant notification preview
+                  Tenant notification preview
                 </p>
                 {messageCustomised && (
                   <button
@@ -474,16 +474,16 @@ export default function AdminAddAppointmentModal({
               <div className="rounded-lg bg-white border border-blue-200 px-md py-sm space-y-xs">
                 <p className="text-xs font-semibold text-neutral-700">This will be sent to:</p>
                 <p className="text-xs text-neutral-600">
-                  👥 All current tenants at{' '}
+                  All current tenants at{' '}
                   <span className="font-semibold">{selectedPropertyName || 'the selected property'}</span>
                 </p>
                 <p className="text-xs font-semibold text-neutral-700 pt-xs">Via:</p>
                 <div className="flex flex-wrap gap-sm">
                   <span className="rounded-full bg-blue-100 px-sm py-xs text-xs font-semibold text-blue-800">
-                    📱 Push notification
+                    Push notification
                   </span>
                   <span className="rounded-full bg-blue-100 px-sm py-xs text-xs font-semibold text-blue-800">
-                    💬 In-app message
+                    In-app message
                   </span>
                 </div>
                 <p className="text-xs text-neutral-500 pt-xs">

@@ -362,7 +362,7 @@ export default function SendWelcomePage() {
                     className={`text-left rounded-xl border-2 p-md transition ${propType === t ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 hover:border-neutral-300'}`}
                   >
                     <p className="text-sm font-bold text-neutral-900 mb-xs">
-                      {t === 'hmo' ? '🏘 HMO / Multi-let' : '🏠 Single let'}
+                      {t === 'hmo' ? 'HMO / Multi-let' : 'Single let'}
                     </p>
                     <p className="text-xs text-neutral-500">
                       {t === 'hmo' ? `${FEE_DEFAULTS.hmo.managementFee}% management · ${FEE_DEFAULTS.hmo.letFee} let fee` : `${FEE_DEFAULTS.single.managementFee}% management · ${FEE_DEFAULTS.single.letFee} let fee`}
@@ -473,7 +473,7 @@ export default function SendWelcomePage() {
                 {(['individual', 'company'] as EntityType[]).map(t => (
                   <button key={t} onClick={() => setEntityType(t)}
                     className={`rounded-xl border-2 px-lg py-xs text-sm font-semibold transition ${entityType === t ? 'border-neutral-900 bg-neutral-50 text-neutral-900' : 'border-neutral-200 text-neutral-500 hover:border-neutral-300'}`}>
-                    {t === 'individual' ? '👤 Individual' : '🏢 Company'}
+                    {t === 'individual' ? 'Individual' : 'Company'}
                   </button>
                 ))}
               </div>
@@ -599,7 +599,7 @@ export default function SendWelcomePage() {
 
           {sendError && (
             <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm px-md py-sm mb-lg">
-              ⚠ {sendError}
+              {sendError}
             </div>
           )}
 
@@ -622,7 +622,7 @@ export default function SendWelcomePage() {
             >
               {sending
                 ? <><span className="animate-spin">⏳</span> Generating &amp; sending…</>
-                : '📨 Generate PDF & send welcome email →'}
+                : 'Generate PDF & send welcome email →'}
             </button>
             </div>
           </div>
@@ -649,9 +649,9 @@ export default function SendWelcomePage() {
 
           {sendResult && (
             <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-md text-left mb-xl text-sm text-neutral-600 space-y-xs">
-              <p>📋 <strong>Agreement:</strong> {sendResult.filename}</p>
-              <p>🗓 <strong>Commencement:</strong> {fmtDate(commenceDate)}</p>
-              <p>💷 {isRC ? <><strong>Service fee:</strong> {rcTerms.serviceFee}</> : <><strong>Management fee:</strong> {managementFee}% · Let fee: {letFee}</>}</p>
+              <p><strong>Agreement:</strong> {sendResult.filename}</p>
+              <p><strong>Commencement:</strong> {fmtDate(commenceDate)}</p>
+              <p>{isRC ? <><strong>Service fee:</strong> {rcTerms.serviceFee}</> : <><strong>Management fee:</strong> {managementFee}% · Let fee: {letFee}</>}</p>
             </div>
           )}
 

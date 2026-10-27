@@ -254,7 +254,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
                 href={`/admin/view-as/${person.id}`}
                 className="text-sm font-semibold text-amber-400 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 px-md py-sm rounded-lg transition-colors"
               >
-                👁 View as
+                View as
               </Link>
             </div>
           </div>

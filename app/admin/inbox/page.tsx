@@ -95,14 +95,14 @@ export default function InboxPage() {
     const supabase = createClient()
     await supabase.from('inbox_documents').update({ status: 'filed' }).eq('id', id)
     setOpenId(null)
-    setFlash('✅ ' + msg)
+    setFlash('' + msg)
     await loadDocs()
   }
 
   async function dismiss(id: string) {
     const supabase = createClient()
     const { error } = await supabase.from('inbox_documents').update({ status: 'dismissed' }).eq('id', id)
-    if (error) { setFlash('❌ Could not dismiss: ' + error.message); return }
+    if (error) { setFlash('Could not dismiss: ' + error.message); return }
     setOpenId(null)
     setDocs(prev => prev.filter(d => d.id !== id))
   }
@@ -114,10 +114,10 @@ export default function InboxPage() {
       await supabase.storage.from('inbox-docs').remove([doc.storage_path])
     }
     const { error } = await supabase.from('inbox_documents').delete().eq('id', id)
-    if (error) { setFlash('❌ Could not delete: ' + error.message); return }
+    if (error) { setFlash('Could not delete: ' + error.message); return }
     setOpenId(null)
     setDocs(prev => prev.filter(d => d.id !== id))
-    setFlash('🗑️ Document deleted')
+    setFlash('Document deleted')
     setTimeout(() => setFlash(''), 3000)
   }
 
@@ -132,9 +132,9 @@ export default function InboxPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Rescan failed')
       setDocs(prev => prev.map(d => d.id === id ? { ...d, ...(json.doc || {}), ai_result: json.ai_result, ai_error: json.ai_error } : d))
-      setFlash(json.ai_result ? '✅ AI scan complete — fields updated below' : '⚠️ Rescan done but AI couldn\'t classify — fill in manually')
+      setFlash(json.ai_result ? 'AI scan complete — fields updated below' : 'Rescan done but AI couldn\'t classify — fill in manually')
     } catch (e: any) {
-      setFlash('❌ Rescan failed: ' + e.message)
+      setFlash('Rescan failed: ' + e.message)
     } finally {
       setRescanning(null)
       setTimeout(() => setFlash(''), 4000)
@@ -147,17 +147,17 @@ export default function InboxPage() {
       const res = await fetch(`/api/applicants/${applicantId}/convert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
       const j = await res.json()
       if (!res.ok) {
-        setFlash(`❌ Convert failed: ${j.error}`)
+        setFlash(`Convert failed: ${j.error}`)
       } else {
         // Mark the inbox doc as filed now that the applicant is converted
         const supabase = createClient()
         await supabase.from('inbox_documents').update({ status: 'filed' }).eq('id', docId)
-        setFlash(`✅ ${j.message}`)
+        setFlash(`${j.message}`)
         await loadDocs()
         setOpenId(null)
       }
     } catch {
-      setFlash('❌ Network error')
+      setFlash('Network error')
     }
     setConverting(null)
   }
@@ -251,7 +251,7 @@ export default function InboxPage() {
                           disabled={rescanning === d.id}
                           className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50"
                         >
-                          {rescanning === d.id ? '⏳ Rescanning…' : '🔄 Rescan'}
+                          {rescanning === d.id ? 'Rescanning…' : 'Rescan'}
                         </button>
                         <button onClick={() => dismiss(d.id)} className="text-xs text-neutral-400 hover:text-neutral-700">
                           Dismiss
@@ -324,7 +324,7 @@ export default function InboxPage() {
                         if (matchedTenant && !overrideMode) {
                           return (
                             <div className="mb-md rounded-xl bg-green-50 border border-green-200 p-md">
-                              <p className="text-sm font-semibold text-green-900 mb-xs">✅ Matched to existing tenant</p>
+                              <p className="text-sm font-semibold text-green-900 mb-xs">Matched to existing tenant</p>
                               <p className="text-sm text-green-800">
                                 <strong>{[matchedTenant.salutation, matchedTenant.first_name, matchedTenant.last_name].filter(Boolean).join(' ') || matchedTenant.full_name}</strong>
                                 {' '}— matched by email
@@ -347,7 +347,7 @@ export default function InboxPage() {
                         if (matchedApplicant && !overrideMode) {
                           return (
                             <div className="mb-md rounded-xl bg-blue-50 border border-blue-200 p-md">
-                              <p className="text-sm font-semibold text-blue-900 mb-xs">📋 Matched to applicant</p>
+                              <p className="text-sm font-semibold text-blue-900 mb-xs">Matched to applicant</p>
                               <p className="text-sm text-blue-800 mb-sm">
                                 <strong>{displayName(matchedApplicant)}</strong>
                                 {matchedApplicant.rooms?.name ? ` · ${matchedApplicant.rooms.name}` : ''}
@@ -379,7 +379,7 @@ export default function InboxPage() {
                         return (
                           <div className="mb-md rounded-xl bg-amber-50 border border-amber-200 p-md">
                             <p className="text-sm font-semibold text-amber-900 mb-xs">
-                              {overrideMode ? `🔄 Override ${docLabel} match` : `⚠️ ${docLabel} — no match found`}
+                              {overrideMode ? `Override ${docLabel} match` : `${docLabel} — no match found`}
                             </p>
                             {!overrideMode && (
                               <p className="text-sm text-amber-800 mb-sm">

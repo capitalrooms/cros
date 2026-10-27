@@ -43,7 +43,7 @@ export default function ChaseContractors() {
     if (!r.ok) { setError(d.error ?? 'Could not send'); return }
     const emailed = (d.results ?? []).filter((x: any) => x.email).length
     const errs = (d.results ?? []).filter((x: any) => x.error).map((x: any) => `${x.contractor}: ${x.error}`)
-    setResult(`✅ Asked for ${d.sent} update${d.sent === 1 ? '' : 's'}${emailed ? ` · ${emailed} emailed` : ''}${errs.length ? ` · ⚠️ ${errs.join('; ')}` : ''}`)
+    setResult(`Asked for ${d.sent} update${d.sent === 1 ? '' : 's'}${emailed ? ` · ${emailed} emailed` : ''}${errs.length ? ` · ${errs.join('; ')}` : ''}`)
     setOpen(false); setPicked(new Set()); setNote('')
     load()
   }

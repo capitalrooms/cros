@@ -95,7 +95,7 @@ export default function CreateAcknowledgmentNotePage() {
 
       if (error) throw error
 
-      alert('✅ Acknowledgment note created successfully!')
+      alert('Acknowledgment note created successfully!')
       router.push('/admin/acknowledgment-notes')
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'Unknown error'))

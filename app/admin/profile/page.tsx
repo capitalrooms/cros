@@ -217,7 +217,7 @@ export default function AdminProfilePage() {
       })
       if (!res.ok) throw new Error('Could not save subscription')
       setPushStatus('subscribed')
-      setPushMsg('✅ Push notifications enabled on this device!')
+      setPushMsg('Notifications are on for this device.')
     } catch (e: any) {
       setPushMsg(e.message || 'Failed to enable push')
     } finally {
@@ -473,7 +473,7 @@ export default function AdminProfilePage() {
                 </div>
               )}
               {pushMsg && (
-                <p className={`text-xs rounded-lg px-md py-sm border mt-md ${pushMsg.startsWith('✅') ? 'bg-green-50 border-green-100 text-green-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                <p className={`text-xs rounded-lg px-md py-sm border mt-md ${pushMsg.startsWith('Notifications are on') ? 'bg-green-50 border-green-100 text-green-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
                   {pushMsg}
                 </p>
               )}
@@ -488,7 +488,7 @@ export default function AdminProfilePage() {
           )}
           {saved && (
             <div className="rounded-xl border border-green-200 bg-green-50 px-lg py-md text-sm text-green-700 font-medium">
-              ✅ Profile saved successfully.
+              Profile saved successfully.
             </div>
           )}
 

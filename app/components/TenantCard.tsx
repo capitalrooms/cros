@@ -169,7 +169,7 @@ export default function TenantCard({
                     disabled={inviting}
                     className="rounded-lg border border-neutral-200 px-md py-xs text-xs font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 transition"
                   >
-                    {inviting ? 'Sending…' : '✉ Send invite'}
+                    {inviting ? 'Sending…' : 'Send invite'}
                   </button>
                 )}
               </div>

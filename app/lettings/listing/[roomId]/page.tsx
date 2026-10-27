@@ -187,7 +187,7 @@ export default function ListingEditor({ params }: { params: Promise<{ roomId: st
             {c.enabled ? '✓ ' : ''}{c.label}{!c.available ? ' · soon' : ''}
           </button>
         ))}
-        {data.shareUrl && <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(data.shareUrl!); setNotice('Share link copied') } catch { window.prompt('Copy the link', data.shareUrl!) } }} className="ml-auto rounded-full border border-neutral-300 bg-white px-sm py-0.5 text-[11px] font-semibold">🔗 Copy share link</button>}
+        {data.shareUrl && <button type="button" onClick={async () => { try { await navigator.clipboard.writeText(data.shareUrl!); setNotice('Share link copied') } catch { window.prompt('Copy the link', data.shareUrl!) } }} className="ml-auto rounded-full border border-neutral-300 bg-white px-sm py-0.5 text-[11px] font-semibold">Copy share link</button>}
         {data.shareUrl && <a href={`https://wa.me/?text=${encodeURIComponent(`${l.headline || title}${l.rent ? ` — ${gbp(l.rent)} pcm` : ''}: ${data.shareUrl}`)}`} target="_blank" rel="noreferrer" className="rounded-full border border-neutral-300 bg-white px-sm py-0.5 text-[11px] font-semibold">WhatsApp</a>}
       </div>
     </div>

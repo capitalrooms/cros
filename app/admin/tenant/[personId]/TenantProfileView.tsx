@@ -828,7 +828,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
     const res  = await fetch('/api/invite-tenant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId }) })
     const json = await res.json()
     setInviting(false)
-    setInviteMsg(res.ok ? `✓ Invite sent to ${json.sentTo}` : `⚠ ${json.error}`)
+    setInviteMsg(res.ok ? `✓ Invite sent to ${json.sentTo}` : `${json.error}`)
     setTimeout(() => setInviteMsg(null), 6000)
   }
 
@@ -1317,7 +1317,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
         {activeTab === 'reference' && (
           <div className="space-y-xl">
             {importSuccess && <div className="rounded-xl bg-green-50 border border-green-200 p-md text-sm font-semibold text-green-800">✓ Reference imported and profile updated.</div>}
-            {importError  && <div className="rounded-xl bg-red-50 border border-red-200 p-md text-sm font-semibold text-red-800">⚠ {importError}</div>}
+            {importError  && <div className="rounded-xl bg-red-50 border border-red-200 p-md text-sm font-semibold text-red-800">{importError}</div>}
 
             {!extractedData && (
               <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
@@ -1347,7 +1347,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                   )}
                   <button onClick={handleExtract} disabled={!uploadedFiles.length || extracting}
                     className="w-full rounded-xl bg-neutral-900 hover:bg-neutral-700 disabled:opacity-40 px-lg py-md text-sm font-bold text-white transition">
-                    {extracting ? '⏳ Extracting…' : `🔍 Extract from ${uploadedFiles.length} file${uploadedFiles.length !== 1 ? 's' : ''}`}
+                    {extracting ? 'Extracting…' : `Extract from ${uploadedFiles.length} file${uploadedFiles.length !== 1 ? 's' : ''}`}
                   </button>
                 </div>
               </div>
@@ -1386,7 +1386,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">{mf.label}</p>
                             <p className="text-sm font-semibold text-neutral-900 mt-xs">{formatted}</p>
-                            {currentFmt && <p className={`text-xs mt-xs ${hasConflict ? 'text-amber-600' : 'text-neutral-400'}`}>{hasConflict ? '⚠ Replaces: ' : '✓ Matches: '}{currentFmt}</p>}
+                            {currentFmt && <p className={`text-xs mt-xs ${hasConflict ? 'text-amber-600' : 'text-neutral-400'}`}>{hasConflict ? 'Replaces: ' : '✓ Matches: '}{currentFmt}</p>}
                             {!currentFmt && <p className="text-xs text-green-600 mt-xs">→ Will fill empty field</p>}
                           </div>
                         </label>

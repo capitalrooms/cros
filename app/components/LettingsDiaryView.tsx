@@ -80,7 +80,7 @@ function generateRescheduleMsg(propertyName: string, newDate: string, newTime: s
   })
   const t = fmt12(newTime)
   const prop = propertyName || 'the property'
-  return `🔑 A viewing at ${prop} has been rescheduled to ${d} at ${t}. We will have a management set of keys for access. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.`
+  return `A viewing at ${prop} has been rescheduled to ${d} at ${t}. We will have a management set of keys for access. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.`
 }
 
 // ── Overlap detection ─────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ function RescheduleSheet({
             </div>
             {notify && (
               <>
-                <p className="text-xs font-bold uppercase tracking-wide text-blue-700">📨 Tenant notification preview</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Tenant notification preview</p>
                 <textarea
                   value={message}
                   onChange={e => { setMessage(e.target.value); setCustomised(true) }}

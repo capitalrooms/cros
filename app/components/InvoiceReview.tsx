@@ -130,7 +130,7 @@ export default function InvoiceReview({
 
   return (
     <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
-      <span className="inline-block rounded bg-amber-100 px-sm py-0.5 text-xs font-semibold text-amber-800">🧾 Contractor invoice</span>
+      <span className="inline-block rounded bg-amber-100 px-sm py-0.5 text-xs font-semibold text-amber-800">Contractor invoice</span>
       <p className="mt-xs text-sm font-semibold text-neutral-900">{initial.summary || file?.name || 'Invoice'}</p>
       <p className="text-xs text-neutral-500">
         {initial.provider && <>From <strong>{initial.provider}</strong> · </>}

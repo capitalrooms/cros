@@ -40,7 +40,7 @@ interface Notice {
 const GUEST_PRESET = {
   type: 'update' as NoticeType,
   subtype: 'Guest staying over',
-  text: 'Heads up — I have a guest staying over for a couple of nights. Just letting you know! 🏠',
+  text: 'Heads up — I have a guest staying over for a couple of nights. Just letting you know!',
   expiresHours: 48,
 }
 
@@ -240,7 +240,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
               disabled={!jediInput.trim() || jediLoading}
               className="w-full rounded-2xl bg-neutral-900 py-4 text-sm font-bold text-white disabled:opacity-40 transition-colors notice-board"
             >
-              {jediLoading ? '⚡ Drafting…' : '⚡ Draft with AI'}
+              {jediLoading ? 'Drafting…' : 'Draft with AI'}
             </button>
             <p className="text-xs text-center text-neutral-400 mt-3">You'll be able to review and edit before posting.</p>
           </div>
@@ -372,7 +372,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
             {noticeType === 'update' && (
               <p className="mt-2 text-xs text-neutral-400">
                 {subtype === 'Guest staying over'
-                  ? '🛌 Auto-expires after 2 nights.'
+                  ? 'Auto-expires after 2 nights.'
                   : 'Updates disappear automatically after a few days.'}
               </p>
             )}
@@ -381,7 +381,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
             {aiText ? (
               <div className="mt-3 rounded-2xl border-2 border-neutral-900 bg-neutral-50 p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold text-neutral-500 uppercase tracking-wide">✨ AI polished</p>
+                  <p className="text-xs font-bold text-neutral-500 uppercase tracking-wide">AI polished</p>
                   <button onClick={() => setAiText('')} className="text-xs text-neutral-400 hover:text-neutral-700">Use original</button>
                 </div>
                 <p className="text-sm text-neutral-900 leading-relaxed">{aiText}</p>
@@ -392,7 +392,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
                 disabled={rewriting}
                 className="mt-3 flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-neutral-900 disabled:opacity-50"
               >
-                {rewriting ? '✨ Polishing…' : '✨ Polish with AI'}
+                {rewriting ? 'Polishing…' : 'Polish with AI'}
               </button>
             ) : null}
 
@@ -446,7 +446,7 @@ function ResolveModal({ notice, onResolved, onClose }: { notice: Notice; onResol
         {error && <p className="text-sm text-red-600 mb-4 text-center">{error}</p>}
         <button onClick={handleResolve} disabled={resolving}
           className="w-full rounded-2xl bg-green-600 py-4 text-base font-bold text-white hover:bg-green-700 disabled:opacity-40 notice-board mb-3">
-          {resolving ? 'Marking done…' : '✅ Mark as done'}
+          {resolving ? 'Marking done…' : 'Mark as done'}
         </button>
         <button onClick={onClose} className="w-full text-center text-sm text-neutral-400 hover:text-neutral-700 py-2">Cancel</button>
       </div>
@@ -484,7 +484,7 @@ function NoticeCard({ notice, personId, onResolve, onWithdraw }: { notice: Notic
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${isResolved ? 'bg-green-50 text-green-700' : badge.pill}`}>
-              {isResolved ? '✅ Done' : `${badge.emoji} ${badge.label}`}
+              {isResolved ? 'Done' : `${badge.emoji} ${badge.label}`}
               {notice.subtype && !isResolved && ` · ${notice.subtype}`}
             </span>
             {isOverdue && (
@@ -502,7 +502,7 @@ function NoticeCard({ notice, personId, onResolve, onWithdraw }: { notice: Notic
         {/* Deadline */}
         {isTask && notice.deadline && !isResolved && (
           <p className={`text-xs font-semibold mb-2 ${isOverdue ? 'text-red-600' : 'text-neutral-500'}`}>
-            📅 By {new Date(notice.deadline + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            By {new Date(notice.deadline + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         )}
 
@@ -521,7 +521,7 @@ function NoticeCard({ notice, personId, onResolve, onWithdraw }: { notice: Notic
         <div className="flex items-center justify-between gap-3 pt-2 border-t border-neutral-100">
           <p className="text-xs text-neutral-400">
             {isResolved && notice.resolved_by_person
-              ? `✅ Done by ${authorName(notice.resolved_by_person, false)}${notice.resolved_at ? ` · ${timeAgo(notice.resolved_at)}` : ''}`
+              ? `Done by ${authorName(notice.resolved_by_person, false)}${notice.resolved_at ? ` · ${timeAgo(notice.resolved_at)}` : ''}`
               : `${authorName(notice.created_by_person, isHouseReminder, isMaintenance)} · ${new Date(notice.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
             }
           </p>
@@ -631,7 +631,7 @@ export default function NoticesPage() {
       <main className="mx-auto max-w-xl px-4 pb-24 pt-4">
 
         <div className="mb-5">
-          <h1 className="notice-board text-3xl font-extrabold text-neutral-900 leading-tight">📋 Notice Board</h1>
+          <h1 className="notice-board text-3xl font-extrabold text-neutral-900 leading-tight">Notice Board</h1>
           <p className="mt-1 text-sm text-neutral-500">Updates, tasks, and reminders for your house.</p>
         </div>
 
@@ -661,7 +661,7 @@ export default function NoticesPage() {
                 filter === f ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
               }`}
             >
-              {f === 'tasks' && <>✅ Tasks{taskCount > 0 && <span className="ml-1.5 rounded-full bg-amber-400 text-neutral-900 px-1.5 py-0.5 text-xs font-extrabold">{taskCount}</span>}</>}
+              {f === 'tasks' && <>Tasks{taskCount > 0 && <span className="ml-1.5 rounded-full bg-amber-400 text-neutral-900 px-1.5 py-0.5 text-xs font-extrabold">{taskCount}</span>}</>}
               {(f === 'all' || f === 'resolved') && (label as string)}
             </button>
           ))}

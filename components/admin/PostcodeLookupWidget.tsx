@@ -138,7 +138,7 @@ export default function PostcodeLookupWidget({
             disabled={loading || !value.trim()}
             className={buttonClassName || defaultButton}
           >
-            {loading ? 'Looking up…' : '🔍 Look up'}
+            {loading ? 'Looking up…' : 'Look up'}
           </button>
         )}
       </div>

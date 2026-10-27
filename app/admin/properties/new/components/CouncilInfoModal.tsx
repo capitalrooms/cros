@@ -58,7 +58,7 @@ export default function CouncilInfoModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-lg">
       <div className="bg-white rounded-lg max-w-lg w-full p-lg">
-        <h2 className="text-lg font-bold text-neutral-900 mb-xs">📍 Here&apos;s what we found</h2>
+        <h2 className="text-lg font-bold text-neutral-900 mb-xs">Here&apos;s what we found</h2>
         <p className="text-sm text-neutral-600 mb-md">
           Tick the details you want to keep — untick anything that looks wrong or you&apos;d rather leave out.
         </p>

@@ -36,12 +36,12 @@ export default function SeedPage() {
 
       const data = await response.json()
       if (response.ok) {
-        setMessage(`✅ Success! ${data.message}`)
+        setMessage(`Success! ${data.message}`)
       } else {
-        setMessage(`❌ Error: ${data.error}`)
+        setMessage(`Error: ${data.error}`)
       }
     } catch (error) {
-      setMessage(`❌ Error: ${String(error)}`)
+      setMessage(`Error: ${String(error)}`)
     } finally {
       setLoading(false)
     }
@@ -71,7 +71,7 @@ export default function SeedPage() {
           </p>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-md mb-lg">
-            <p className="text-sm font-bold text-blue-900">📋 What will be seeded:</p>
+            <p className="text-sm font-bold text-blue-900">What will be seeded:</p>
             <ul className="text-sm text-blue-900 mt-xs space-y-xs ml-md">
               <li>✓ 15 complete statements with accurate financial data</li>
               <li>✓ Each statement shows Gross Rent, Fees, Charges, and Net amounts</li>

@@ -300,7 +300,7 @@ function StatementCardUI({
   if (status === 'error') {
     return (
       <div className="rounded-2xl bg-red-50 border border-red-200 px-lg py-md">
-        <p className="text-sm font-semibold text-red-700">❌ {error}</p>
+        <p className="text-sm font-semibold text-red-700">{error}</p>
         <p className="text-xs text-red-400 mt-xs">{fileName}</p>
       </div>
     )
@@ -310,7 +310,7 @@ function StatementCardUI({
   if (status === 'duplicate') {
     return (
       <div className="rounded-2xl bg-amber-50 border border-amber-200 px-lg py-md">
-        <p className="text-sm font-semibold text-amber-700">⚠️ Already imported</p>
+        <p className="text-sm font-semibold text-amber-700">Already imported</p>
         <p className="text-xs text-amber-500 mt-xs">{error}</p>
       </div>
     )
@@ -323,10 +323,10 @@ function StatementCardUI({
       <div className="rounded-2xl bg-emerald-50 border border-emerald-200 px-lg py-md flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-emerald-700">
-            ✅ Imported — {s?.statement_reference} · {fmtDate(s?.statement_date || '')}
+            Imported — {s?.statement_reference} · {fmtDate(s?.statement_date || '')}
           </p>
           <p className="text-xs text-emerald-500">{prop?.name || prop?.address || fileName}</p>
-          {error && <p className="text-xs font-semibold text-amber-700 mt-xs">⚠ {error}</p>}
+          {error && <p className="text-xs font-semibold text-amber-700 mt-xs">{error}</p>}
         </div>
         <a
           href="/admin/statements"

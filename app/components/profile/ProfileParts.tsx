@@ -20,7 +20,7 @@ export function SignOffPreview({ smsSignOff, letterName, jobTitle, phone }: { sm
         <div className="flex justify-end">
           <div className="max-w-xs rounded-2xl rounded-br-sm bg-neutral-800 px-md py-sm text-sm leading-relaxed text-white">…Please get in touch if you have any questions. <span className="text-neutral-300">-{smsSignOff}</span></div>
         </div>
-        {!phone?.trim() && <p className="mt-sm text-xs text-amber-600">⚠ No mobile set — your email address is used instead. Add a number so people can text back.</p>}
+        {!phone?.trim() && <p className="mt-sm text-xs text-amber-600">No mobile set — your email address is used instead. Add a number so people can text back.</p>}
       </div>
       <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-md">
         <p className="mb-sm text-xs font-semibold uppercase tracking-wide text-neutral-500">Letters are signed</p>

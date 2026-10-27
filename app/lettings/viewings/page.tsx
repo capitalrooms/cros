@@ -363,13 +363,13 @@ export default function ViewingsDiary() {
                     )}
                     <p className="font-semibold text-white mt-md">{viewing.rooms?.name || 'Whole property'}</p>
                     {viewing.visitor_name && (
-                      <p className="text-sm text-white/70 mt-sm">👤 {viewing.visitor_name}</p>
+                      <p className="text-sm text-white/70 mt-sm">{viewing.visitor_name}</p>
                     )}
                     {viewing.visitor_email && (
-                      <p className="text-sm text-white/70">✉️ {viewing.visitor_email}</p>
+                      <p className="text-sm text-white/70">{viewing.visitor_email}</p>
                     )}
                     {viewing.visitor_phone && (
-                      <p className="text-sm text-white/70">📞 {viewing.visitor_phone}</p>
+                      <p className="text-sm text-white/70">{viewing.visitor_phone}</p>
                     )}
                     {viewing.feedback && (
                       <p className="text-sm text-white/60 mt-sm italic">&ldquo;{viewing.feedback}&rdquo;</p>
@@ -383,7 +383,7 @@ export default function ViewingsDiary() {
                       onClick={(e) => { e.stopPropagation(); setNotifying(viewing); }}
                       className="rounded-full border border-white/30 px-md py-xs text-xs font-semibold text-white hover:bg-white/10 whitespace-nowrap"
                     >
-                      🔔 Notify house
+                      Notify house
                     </button>
                     <span className="text-xs font-semibold text-white/50">Edit ›</span>
                   </div>
