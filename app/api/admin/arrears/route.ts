@@ -4,6 +4,7 @@
 //   legal       ≥ 3 months' rent owed — the Ground 8 threshold (get advice before serving notice)
 //   approaching ≥ 2 months' rent owed
 //   watch       anything less
+import { rentDueDate } from '@/lib/rent/dueDate'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
@@ -80,8 +81,7 @@ export async function GET(req: NextRequest) {
     const t = (c.tenancy_id ? ((tenancies ?? []) as any[]).find(x => x.id === c.tenancy_id) : null) ?? tenancyFor(c.room_id, month)
     const key = t?.id ?? `room-${c.room_id}`
     const p = t?.people
-    const dueDay = Math.min(Math.max(Number(t?.rent_due_day) || 1, 1), 28)
-    const dueDate = `${month.slice(0, 7)}-${String(dueDay).padStart(2, '0')}`
+    const dueDate = rentDueDate(month, t?.rent_due_day)
     const g: ArrearsRow = groups.get(key) ?? {
       key, tenancyId: t?.id ?? null, personId: p?.id ?? null,
       tenant: [p?.salutation, p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.full_name || 'Unknown tenant',

@@ -4,6 +4,7 @@
 // punctuality"); in the import period (before CROS collects rent — client_ledger_start) a month CROS never marked paid
 // is read from the imported landlord statement that shows it collected, so it isn't shown as owed (Danielo Maglente's
 // September was, though LS1040 shows it paid).
+import { rentDueDate } from '@/lib/rent/dueDate'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ledgerStart } from '@/lib/clientLedger'
 import { importedRentFor } from '@/lib/finance/importedRent'
@@ -59,7 +60,7 @@ export async function tenantAccount(s: SupabaseClient, tenancyId: string): Promi
   const { data: txns } = txnIds.length ? await s.from('bank_transactions').select('id, txn_no, transaction_date').in('id', txnIds) : { data: [] as any[] }
   const txn = new Map(((txns ?? []) as any[]).map(x => [x.id, x]))
 
-  const dueDay = Math.min(Math.max(Number(tt.rent_due_day) || 1, 1), 28)
+  const dueDay = Math.min(Math.max(Number(tt.rent_due_day) || 1, 1), 31)
   const roomNo = String(tt.rooms?.name ?? '').match(/(\d+[A-Za-z]?)/)?.[1] ?? ''
   const importedCache = new Map(imported)
   const importedFor = async (m: string) => importedCache.get(m) ?? []
@@ -72,7 +73,7 @@ export async function tenantAccount(s: SupabaseClient, tenancyId: string): Promi
   const months: RentMonth[] = []
   for (const c of live) {
     const m = String(c.charge_month).slice(0, 7)
-    const due = tt.start_date > `${m}-${String(dueDay).padStart(2, '0')}` ? tt.start_date : `${m}-${String(dueDay).padStart(2, '0')}`
+    const due = tt.start_date > rentDueDate(m, dueDay) ? tt.start_date : rentDueDate(m, dueDay)
     const amount = r2(Number(c.amount_due))
     events.push({ date: due, order: 0, details: `Rent ${monthName(c.charge_month)}${c.amount_due_note ? ` (${c.amount_due_note})` : ''}`, reference: c.txn_no ?? '', charged: amount, paid: null })
     const pays = ((audit ?? []) as any[]).filter(a => a.rent_charge_id === c.id)

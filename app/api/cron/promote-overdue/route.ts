@@ -17,6 +17,7 @@
  * all use a configurable grace period before flagging overdue.
  */
 
+import { rentDueDate } from '@/lib/rent/dueDate'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ledgerStart, rentGraceDays } from '@/lib/clientLedger'
@@ -60,8 +61,7 @@ export async function POST(req: NextRequest) {
     const t = (c.tenancy_id ? ((tens ?? []) as any[]).find(x => x.id === c.tenancy_id) : null)
       ?? ((tens ?? []) as any[]).filter(t => t.room_id === c.room_id && (!t.start_date || t.start_date <= `${m}-31`) && (!t.end_date || t.end_date >= `${m}-01`))
         .sort((a, b) => String(b.start_date).localeCompare(String(a.start_date)))[0]
-    const day = Math.min(Math.max(Number(t?.rent_due_day) || 1, 1), 28)
-    const due = `${m}-${String(day).padStart(2, '0')}`
+    const due = rentDueDate(m, t?.rent_due_day)
     return t?.start_date && t.start_date > due ? String(t.start_date).slice(0, 10) : due   // first, part month: due on move-in
   }
   const charges = (fetched ?? []).filter((c: any) => !c.voided && dueDate(c) <= cutoffIso && Number(c.amount_received || 0) < Number(c.amount_due) - 0.005)
