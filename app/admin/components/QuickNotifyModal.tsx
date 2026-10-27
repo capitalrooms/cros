@@ -9,6 +9,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import { useAdminAccess } from '@/lib/admin-context'
 import PeoplePicker, { type Recipient } from '@/app/components/notify/PeoplePicker'
 import { PURPOSES, TENANT_MESSAGES, SLOTS, VISIT_PURPOSES, fillMessage, unfilled, type Purpose, type TenantMessage } from '@/lib/notify/tenantMessages'
+import LineIcon from '@/components/LineIcon'
 
 interface QuickNotifyModalProps {
   propertyId: string
@@ -314,7 +315,7 @@ export default function QuickNotifyModal({ propertyId, onClose, onSuccess, initi
                   {house.guides.map(g => (
                     <button key={g.slug} onClick={() => g.sections && chooseGuide(g)} disabled={!g.sections}
                       className={`rounded-lg border px-md py-sm text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${link === `/tenant/guides/${g.slug}` ? 'border-blue-600 bg-blue-50 text-blue-900' : 'border-neutral-200 bg-white text-neutral-800 hover:border-neutral-400'}`}>
-                      <span className="font-semibold">{g.emoji} {g.title}</span>
+                      <span className="font-semibold">{<LineIcon glyph={g.emoji} />} {g.title}</span>
                       {!g.sections && <span className="block text-[11px] text-neutral-500">No pages written yet — can’t be sent</span>}
                     </button>
                   ))}

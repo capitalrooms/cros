@@ -189,7 +189,7 @@ export function housemateMessage(ctx: DepositContext, bio: string): { title: str
     ? new Date(`${ctx.startDate.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })
     : ''
   return {
-    title: 'A new housemate is on the way 🏡',
+    title: 'A new housemate is on the way ',
     message: `Good news — we've found someone to join you at ${ctx.propertyName || 'the house'}.${bio.trim() ? ` ${bio.trim()}` : ''}${month ? ` They're due to move in around ${month}.` : ''} Please give them a warm welcome!`,
   }
 }

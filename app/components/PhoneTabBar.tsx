@@ -5,6 +5,7 @@
 // `fixed`: pinned to the bottom of a normally-scrolling page (the role apps); admin's shell places it itself.
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import LineIcon from '@/components/LineIcon'
 
 export interface PhoneTab { key: string; label: string; icon: ReactNode; href?: string; onClick?: () => void; active: boolean; /** a count shown as a small badge on the icon (never in the label) */ badge?: number }
 
@@ -32,7 +33,7 @@ export default function PhoneTabBar({ tabs, label = 'Sections', fixed = false, c
   const item = (active: boolean) => `flex flex-1 flex-col items-center gap-0.5 pt-2 pb-1 text-[10px] font-bold ${active ? 'text-neutral-950' : 'text-neutral-400'}`
   const glyph = (t: PhoneTab) => t.icon === null
     ? <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
-    : <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth={t.active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">{t.icon}</svg>
+    : <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth={t.active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">{<LineIcon glyph={t.icon} />}</svg>
   const svg = (t: PhoneTab) => (
     <span className="relative">
       {glyph(t)}

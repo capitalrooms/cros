@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import LineIcon from '@/components/LineIcon'
 
 const GREETING_PRESETS = [
   'I hope this email finds you well.',
@@ -101,7 +102,7 @@ export default function AcquisitionEmailPage() {
 
         {step === 'sent' ? (
           <div className="bg-white rounded-2xl border border-neutral-200 p-2xl text-center max-w-6xl mx-auto">
-            <div className="text-4xl mb-md">✅</div>
+            <div className="text-4xl mb-md"><LineIcon glyph="✅" /></div>
             <h2 className="text-xl font-bold text-neutral-900 mb-sm">Email sent!</h2>
             <p className="text-sm text-neutral-500 mb-xl">
               The acquisition email has been delivered to <strong>{email}</strong>. The reply-to is set to management@capitalrooms.co.uk so any response comes straight to Harry.

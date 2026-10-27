@@ -15,6 +15,7 @@ import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { displayName } from '@/lib/people'
+import LineIcon from '@/components/LineIcon'
 
 type Tab = 'certificates' | 'monthly-checks'
 // Older links use the names of the screens these tabs replaced.
@@ -371,7 +372,7 @@ function CertUploadDrawer({
         <div className="flex items-start justify-between px-lg py-md border-b border-neutral-200 shrink-0">
           <div>
             <p className="text-xs text-neutral-400 font-semibold uppercase tracking-widest mb-xs">{panel.propertyName}</p>
-            <h2 className="text-lg font-bold text-neutral-900">{info.icon} {info.label}</h2>
+            <h2 className="text-lg font-bold text-neutral-900">{<LineIcon glyph={info.icon} />} {info.label}</h2>
             {panel.currentExpiry ? (
               <p className="text-xs text-neutral-500 mt-xs">
                 Expires: {new Date(panel.currentExpiry).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -406,7 +407,7 @@ function CertUploadDrawer({
                   </div>
                   {/* File name + download */}
                   <div className="flex items-center gap-md rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm">
-                    <span className="text-lg">📎</span>
+                    <span className="text-lg"><LineIcon glyph="📎" /></span>
                     <p className="text-sm text-neutral-700 font-medium flex-1 truncate">{existingDoc.file_name}</p>
                     <a
                       href={docLink ?? undefined}
@@ -420,7 +421,7 @@ function CertUploadDrawer({
                 </>
               ) : (
                 <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-lg py-xl text-center">
-                  <p className="text-2xl mb-sm">📋</p>
+                  <p className="text-2xl mb-sm"><LineIcon glyph="📋" /></p>
                   <p className="text-sm font-semibold text-neutral-700">Dates recorded, no file stored</p>
                   <p className="text-xs text-neutral-400 mt-xs">The expiry date was entered manually. Upload the actual certificate below.</p>
                 </div>
@@ -492,7 +493,7 @@ function CertUploadDrawer({
                     dragging ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-300 hover:border-neutral-500 hover:bg-neutral-50'
                   }`}
                 >
-                  <span className="text-3xl">📄</span>
+                  <span className="text-3xl"><LineIcon glyph="📄" /></span>
                   <p className="text-sm font-semibold text-neutral-700">Drop the certificate here</p>
                   <p className="text-xs text-neutral-400">PDF, JPG or PNG — AI will read the dates</p>
                   <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
@@ -526,7 +527,7 @@ function CertUploadDrawer({
 
                   {/* File chip */}
                   <div className="flex items-center gap-md rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm">
-                    <span className="text-lg">📎</span>
+                    <span className="text-lg"><LineIcon glyph="📎" /></span>
                     <p className="text-sm text-neutral-700 font-medium flex-1 truncate">{file.name}</p>
                     <button onClick={() => { setFile(null); setPreUploadedUrl(null); setAiResult(null); setForm({ issueDate: '', expiryDate: '' }); setError(null) }}
                       className="text-xs text-neutral-400 hover:text-neutral-700">✕ change</button>

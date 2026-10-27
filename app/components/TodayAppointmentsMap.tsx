@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import LineIcon from '@/components/LineIcon'
 
 interface MapEvent {
   id: string
@@ -89,7 +90,7 @@ export default function TodayAppointmentsMap() {
     return (
       <div className="h-64 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl mb-sm">📅</div>
+          <div className="text-2xl mb-sm"><LineIcon glyph="📅" /></div>
           <div className="text-slate-600">No appointments scheduled for today</div>
         </div>
       </div>
@@ -118,9 +119,9 @@ export default function TodayAppointmentsMap() {
             >
               <div className="flex items-start gap-md">
                 <div className="text-lg mt-sm">
-                  {event.type === 'maintenance' && '🔧'}
-                  {event.type === 'clean' && '🧹'}
-                  {event.type === 'appointment' && '📋'}
+                  {<LineIcon glyph={event.type === 'maintenance' && '🔧'} />}
+                  {<LineIcon glyph={event.type === 'clean' && '🧹'} />}
+                  {<LineIcon glyph={event.type === 'appointment' && '📋'} />}
                 </div>
 
                 <div className="flex-1 min-w-0">

@@ -6,6 +6,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
 import { StoredImg } from '@/components/StoredImg'
+import LineIcon from '@/components/LineIcon'
 
 async function authHeaders() {
   const supabase = createClient()
@@ -221,7 +222,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
           <div className="px-6 pb-10 pt-2 overflow-y-auto" style={{ maxHeight: '88dvh' }}>
             <button onClick={() => setStep('type')} className="text-sm text-neutral-500 hover:text-neutral-900 mb-4 block">← Back</button>
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-2xl">⚡</span>
+              <span className="text-2xl"><LineIcon glyph="⚡" /></span>
               <h2 className="notice-board text-xl font-bold text-neutral-900">AI draft</h2>
             </div>
             <p className="text-sm text-neutral-500 mb-5">Just describe what you want to post — AI will pick the type, write it properly, and even set a deadline if you mention one.</p>
@@ -254,7 +255,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
               onClick={() => setStep('jedi')}
               className="w-full flex items-start gap-4 rounded-2xl border-2 border-neutral-900 bg-neutral-900 p-4 text-left hover:bg-neutral-800 transition-colors mb-4"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-2xl shrink-0">⚡</div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-2xl shrink-0"><LineIcon glyph="⚡" /></div>
               <div>
                 <p className="font-bold text-white notice-board">Let AI write it</p>
                 <p className="text-sm text-white/60 mt-0.5">Describe what you need in plain English — AI picks the type, writes it properly, and sets deadlines.</p>
@@ -271,7 +272,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
               }}
               className="w-full flex items-start gap-4 rounded-2xl border-2 border-green-300 bg-green-50 p-4 text-left hover:border-green-500 transition-colors mb-3"
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-100 text-2xl shrink-0">🛌</div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-100 text-2xl shrink-0"><LineIcon glyph="🛌" /></div>
               <div>
                 <p className="font-bold text-green-900 notice-board">Guest staying over</p>
                 <p className="text-sm text-green-700 mt-0.5">Quick one-tap notice. Auto-disappears after 2 nights.</p>
@@ -287,7 +288,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
                   onClick={() => { setNoticeType(opt.type); setStep('write') }}
                   className="w-full flex items-start gap-4 rounded-2xl border-2 border-neutral-200 bg-white p-4 text-left hover:border-neutral-900 transition-colors"
                 >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-50 text-2xl shrink-0">{opt.emoji}</div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-neutral-50 text-2xl shrink-0">{<LineIcon glyph={opt.emoji} />}</div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-neutral-900 notice-board">{opt.title}</p>
                     <p className="text-sm text-neutral-500 mt-0.5">{opt.desc}</p>
@@ -308,7 +309,7 @@ function ComposeModal({ propertyId, personId, onPosted, onClose, initialPreset }
             <div className="flex items-center gap-3 mb-4">
               <button onClick={() => setStep('type')} className="text-sm text-neutral-500 hover:text-neutral-900">← Back</button>
               <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${badge.pill}`}>
-                {badge.emoji} {badge.label}
+                {<LineIcon glyph={badge.emoji} />} {badge.label}
               </div>
             </div>
 
@@ -437,7 +438,7 @@ function ResolveModal({ notice, onResolved, onClose }: { notice: Notice; onResol
     <div className="fixed inset-0 z-50 flex flex-col bg-black/60" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="mt-auto bg-white rounded-t-3xl px-6 pt-4 pb-10 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
         <div className="flex justify-center mb-4"><div className="w-10 h-1 rounded-full bg-neutral-300" /></div>
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-3xl mx-auto mb-4">✅</div>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-3xl mx-auto mb-4"><LineIcon glyph="✅" /></div>
         <h2 className="notice-board text-xl font-bold text-center text-neutral-900 mb-2">Mark as done?</h2>
         <p className="text-sm text-center text-neutral-500 mb-6">Let your housemates know this has been taken care of.</p>
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4 mb-6">
@@ -641,7 +642,7 @@ export default function NoticesPage() {
             onClick={() => { setGuestPreset(true); setComposing(true) }}
             className="w-full flex items-center gap-3 rounded-2xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-bold text-green-800 hover:bg-green-100 transition-colors mb-5"
           >
-            <span>🛌</span>
+            <span><LineIcon glyph="🛌" /></span>
             <span>Guest staying over</span>
             <span className="ml-auto text-xs font-normal text-green-600">One tap →</span>
           </button>
@@ -672,7 +673,7 @@ export default function NoticesPage() {
           <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-28 rounded-2xl bg-neutral-100 animate-pulse" />)}</div>
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-neutral-300 py-16 text-center">
-            <p className="text-3xl mb-3">{filter === 'tasks' ? '✅' : filter === 'resolved' ? '📦' : '🏡'}</p>
+            <p className="text-3xl mb-3">{<LineIcon glyph={filter === 'tasks' ? '✅' : filter === 'resolved' ? '📦' : '🏡'} />}</p>
             <p className="notice-board font-bold text-neutral-700">
               {filter === 'tasks' ? 'No open tasks' : filter === 'resolved' ? 'Nothing done yet' : 'All quiet'}
             </p>

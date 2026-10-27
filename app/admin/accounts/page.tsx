@@ -10,6 +10,7 @@ import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import FinancialTrail from '@/app/components/FinancialTrail'
 import { downloadPdf } from '@/lib/adminFetch'
+import LineIcon from '@/components/LineIcon'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Person {
@@ -1012,7 +1013,7 @@ export default function AccountsPage() {
           <div>
             {arrears.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-emerald-300 bg-emerald-50 p-xl text-center">
-                <p className="text-2xl mb-sm">✅</p>
+                <p className="text-2xl mb-sm"><LineIcon glyph="✅" /></p>
                 <p className="text-sm font-semibold text-emerald-800">No rooms flagged for arrears</p>
                 <p className="text-xs text-emerald-700 mt-xs">
                   Use the Rent Roll to flag rooms as overdue or partial.

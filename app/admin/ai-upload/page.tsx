@@ -15,6 +15,7 @@ import PhotoReview from '@/app/components/PhotoReview'
 import PurchaseReview from '@/app/components/PurchaseReview'
 import InvoiceReview from '@/app/components/InvoiceReview'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import LineIcon from '@/components/LineIcon'
 // A scanned file is treated as a marketing photo (not a document) when it's an
 // image the AI didn't recognise as any specific document type. Check the file
 // extension as well as the MIME type — drag-dropped phone photos often arrive
@@ -257,7 +258,7 @@ export default function AIUploadPage() {
               onChange={(e) => handleFiles(e.target.files)}
               disabled={busy}
             />
-            <p className="text-4xl">{busy ? '⚡' : '⚡'}</p>
+            <p className="text-4xl">{<LineIcon glyph={busy ? '⚡' : '⚡'} />}</p>
             {busy ? (
               <>
                 <p className="font-bold text-neutral-900">{busyLabel}</p>
@@ -307,7 +308,7 @@ export default function AIUploadPage() {
               {recentFiles.map((f, i) => (
                 <div key={i} className="flex items-center gap-md px-lg py-sm">
                   <span className="text-lg shrink-0">
-                    {f.kind === 'photo' ? '📷' : f.kind === 'purchase' ? '🧾' : '📄'}
+                    {<LineIcon glyph={f.kind === 'photo' ? '📷' : f.kind === 'purchase' ? '🧾' : '📄'} />}
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-neutral-900 truncate">{f.label}</p>

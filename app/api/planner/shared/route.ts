@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
       links: cleanLinks(b.links), photos: cleanPhotos(b.photos, board.id), created_by: caller.personId,
     }).select('id').single()
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    await tell(s, caller, board, isOffice(caller) ? '🗂️ New from Capital Rooms' : `🗂️ New from ${who}`, title)
+    await tell(s, caller, board, isOffice(caller) ? 'New from Capital Rooms' : `New from ${who}`, title)
     return NextResponse.json({ entryId: data.id })
   }
 
@@ -219,14 +219,14 @@ export async function POST(req: NextRequest) {
       if (b.dueDate !== undefined) patch.due_date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.dueDate ?? '')) ? b.dueDate : null
       const { error } = await s.from('planner_shared_entries').update(patch).eq('id', entry.id)
       if (error) return NextResponse.json({ error: /stage|responsible|due_note|schema cache/.test(error.message) ? 'Run migration 223 in Supabase first' : error.message }, { status: 400 })
-      if (b.stage === 'done') await tell(s, caller, board, `✅ ${who} ticked off`, entry.title)
+      if (b.stage === 'done') await tell(s, caller, board, `${who} ticked off`, entry.title)
       return NextResponse.json({ ok: true })
     }
     if (b.action === 'status') {
       const done = b.status === 'done'
       const { error } = await s.from('planner_shared_entries').update({ status: done ? 'done' : 'open', done_at: done ? new Date().toISOString() : null, done_by: done ? caller.personId : null, updated_at: new Date().toISOString() }).eq('id', entry.id)
       if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-      if (done) await tell(s, caller, board, `✅ ${who} ticked off`, entry.title)
+      if (done) await tell(s, caller, board, `${who} ticked off`, entry.title)
       return NextResponse.json({ ok: true })
     }
     const body = String(b.body ?? '').trim().slice(0, 4000)
@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
     const { error } = await s.from('planner_shared_replies').insert({ entry_id: entry.id, author_id: caller.personId, body, links, photos })
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
     await s.from('planner_shared_entries').update({ updated_at: new Date().toISOString() }).eq('id', entry.id)
-    await tell(s, caller, board, `💬 ${who} replied`, `${entry.title}: ${body || (photos.length ? 'a photo' : 'a link')}`.slice(0, 180))
+    await tell(s, caller, board, `${who} replied`, `${entry.title}: ${body || (photos.length ? 'a photo' : 'a link')}`.slice(0, 180))
     return NextResponse.json({ ok: true })
   }
 

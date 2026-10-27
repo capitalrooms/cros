@@ -24,6 +24,7 @@ import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import FinancialTrail from '@/app/components/FinancialTrail'
 import { statementMonth, monthPeriod, monthLabel } from '@/lib/finance/statementMonth'
+import LineIcon from '@/components/LineIcon'
 
 interface LSRRow {
   id: string
@@ -535,7 +536,7 @@ export default function ReconciliationPage() {
 
             {!unmatchedLoading && unmatchedTxns.length === 0 && (
               <div className="rounded-xl border border-neutral-200 bg-white px-xl py-2xl text-center">
-                <p className="text-2xl mb-sm">✅</p>
+                <p className="text-2xl mb-sm"><LineIcon glyph="✅" /></p>
                 <p className="text-sm font-semibold text-neutral-700">No unmatched payments</p>
                 <p className="text-xs text-neutral-400 mt-xs">All imported bank transactions have been allocated.</p>
               </div>

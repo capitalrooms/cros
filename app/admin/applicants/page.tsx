@@ -19,6 +19,7 @@ import HouseSearch from '@/app/components/HouseSearch'
 import { displayName } from '@/lib/people'
 import LandlordUpdates from '@/app/components/LandlordUpdates'
 import { parseApplicantSheet } from '@/lib/applicants/parseSheet'
+import LineIcon from '@/components/LineIcon'
 
 const STAGES = [
   { key: 'invited',            label: 'Invited',            color: 'bg-neutral-100 text-neutral-600',  dot: 'bg-neutral-400' },
@@ -487,7 +488,7 @@ export default function ApplicantsPage() {
 
         {/* Search */}
         <div className="mb-md relative">
-          <span className="absolute left-md top-1/2 -translate-y-1/2 text-neutral-400 text-sm pointer-events-none">🔍</span>
+          <span className="absolute left-md top-1/2 -translate-y-1/2 text-neutral-400 text-sm pointer-events-none"><LineIcon glyph="🔍" /></span>
           <input
             type="text"
             placeholder="Search by name, email, phone, or property…"

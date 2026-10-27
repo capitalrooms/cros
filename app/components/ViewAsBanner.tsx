@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 function clearViewAs() {
   try { sessionStorage.removeItem('cros-view-as') } catch { /* noop */ }
@@ -24,12 +25,12 @@ export default function ViewAsBanner({ name, role, personId }: Props) {
   return (
     <div className="sticky top-0 z-50 flex items-center justify-between gap-md border-b-2 border-amber-500 bg-amber-400 px-lg py-sm">
       <div className="flex items-center gap-sm min-w-0">
-        <span className="text-lg shrink-0">👁</span>
+        <span className="text-lg shrink-0"><LineIcon glyph="👁" /></span>
         <span className="font-bold text-amber-900 text-sm truncate">
           Viewing as {name}
         </span>
         <span className="shrink-0 text-xs font-bold bg-amber-200 text-amber-900 px-sm py-xs rounded-full">
-          {ROLE_EMOJI[role] || '👤'} {role}
+          {<LineIcon glyph={ROLE_EMOJI[role] || '👤'} />} {role}
         </span>
         <span className="shrink-0 text-xs text-amber-800 hidden sm:inline">— admin preview only</span>
       </div>

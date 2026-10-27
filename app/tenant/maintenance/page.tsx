@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { MAINTENANCE_CATEGORIES } from './categories';
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import LineIcon from '@/components/LineIcon'
 
 export default function MaintenanceHub() {
   return (
@@ -22,7 +23,7 @@ export default function MaintenanceHub() {
           {MAINTENANCE_CATEGORIES.map((category) => (
             <li key={category.id}>
               <Link href={`/tenant/maintenance/report?category=${category.id}`} className="flex items-center gap-md px-lg py-md hover:bg-neutral-50">
-                <span className="text-2xl" aria-hidden="true">{category.icon}</span>
+                <span className="text-2xl" aria-hidden="true">{<LineIcon glyph={category.icon} />}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold text-neutral-900">{category.title}</span>
                   <span className="block truncate text-xs text-neutral-500">{category.description}</span>

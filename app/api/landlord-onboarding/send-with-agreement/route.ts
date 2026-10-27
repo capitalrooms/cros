@@ -255,7 +255,7 @@ function welcomeWithAgreementHtml(
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
   <tr>
     <td style="background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px;">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;">📋 Your ${Agreement} — Key Terms</p>
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;">Your ${Agreement} — Key Terms</p>
       <p style="margin:0;font-size:13px;color:#444;line-height:1.8">
         <strong>${details.propertyLabel ?? 'Property'}:</strong> ${details.propertyAddress}<br>
         <strong>${details.feeLabel ?? 'Management fee'}:</strong> ${details.managementFee}<br>

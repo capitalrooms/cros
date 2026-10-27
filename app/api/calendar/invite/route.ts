@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
   const html = await buildEmail(`
     <h2 style="margin:0 0 8px;color:#86284a;">${title}</h2>
     <p style="color:#3f3f46;margin:0 0 4px;">${when}</p>
-    ${location ? `<p style="color:#78716c;margin:0 0 12px;">📍 ${location}</p>` : ''}
+    ${location ? `<p style="color:#78716c;margin:0 0 12px;">${location}</p>` : ''}
     ${description ? `<p style="color:#3f3f46;">${description}</p>` : ''}
     <p style="color:#a8a29e;font-size:13px;margin-top:16px;">Open the attached invite to add this to your calendar.</p>
   `, { req: request })
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   const calTpl = await getTemplate('staff-calendar-invite')
   const calSubject = calTpl?.subject_line
     ? render(calTpl.subject_line, { title, when })
-    : `📅 ${title} — ${when}`
+    : `${title} — ${when}`
 
   try {
     const res = await deliverEmail({

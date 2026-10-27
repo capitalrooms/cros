@@ -120,7 +120,7 @@ async function amlRefreshHtml(name: string, formUrl: string, req?: Request): Pro
   const dear = dearFromText(name)   // "Mr Page" (lib/people)
   const body = `
 <p style="margin:0 0 6px;font-size:11px;color:#666;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;background:#fafaf9;border-bottom:1px solid #e8e8e8;padding:10px 0;">
-  🔒 Anti-Money Laundering · Periodic Re-verification
+  Anti-Money Laundering · Periodic Re-verification
 </p>
 
 <p style="margin:20px 0;font-size:15px;color:#333;line-height:1.6">Dear ${dear},</p>

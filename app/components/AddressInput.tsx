@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
+import LineIcon from '@/components/LineIcon'
 
 export interface AddressValue {
   line1:    string
@@ -203,7 +204,7 @@ export default function AddressInput({
                   onMouseDown={e => { e.preventDefault(); handleSelect(addr) }}
                   className="w-full text-left px-3 py-2.5 text-sm text-neutral-800 hover:bg-neutral-50 transition border-b border-neutral-100 last:border-0 flex items-start gap-2"
                 >
-                  <span className="mt-0.5 text-neutral-300 shrink-0">📍</span>
+                  <span className="mt-0.5 text-neutral-300 shrink-0"><LineIcon glyph="📍" /></span>
                   <span>
                     <span className="font-medium text-neutral-900">{main || parts[0]}</span>
                     {sub && <span className="block text-xs text-neutral-400 mt-0.5">{sub}</span>}

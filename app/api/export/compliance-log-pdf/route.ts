@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     })
 
     const checkTypeLabel = (type: string) =>
-      type === 'fire_door' ? '🚪 Fire Door' : '🔔 Smoke Alarm'
+      type === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'
 
     const html = `
 <!DOCTYPE html>

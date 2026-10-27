@@ -8,6 +8,7 @@ import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromOnboarding } from '@/app/components/LandlordCard'
 import { adminFetch } from '@/lib/adminFetch'
 import { onboardingName } from '@/lib/people'
+import LineIcon from '@/components/LineIcon'
 
 // ── Stage definitions ──────────────────────────────────────────────────────────
 
@@ -537,7 +538,7 @@ export default function OnboardingPage() {
                         const url = docUrls[path]
                         return (
                           <div key={`${docType}-${i}`} className="flex items-center gap-sm bg-neutral-50 border border-neutral-200 rounded-lg px-sm py-xs">
-                            <span className="text-sm">📄</span>
+                            <span className="text-sm"><LineIcon glyph="📄" /></span>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-semibold text-neutral-700">{label}</p>
                               <p className="text-xs text-neutral-400 truncate">{filename.replace(/_\d+\./, '.')}</p>

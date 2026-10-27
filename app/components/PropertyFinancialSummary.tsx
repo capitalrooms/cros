@@ -15,6 +15,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { UNMATCHED_SLUG, categoryLabel, categoryEmoji } from '@/lib/expense-categories'
+import LineIcon from '@/components/LineIcon'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -253,7 +254,7 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
             onClick={() => setExpandedCat(isOpen ? null : id)}
           >
             <div className="flex items-center gap-sm">
-              <span className="text-lg leading-none">{emoji}</span>
+              <span className="text-lg leading-none">{<LineIcon glyph={emoji} />}</span>
               <div>
                 <p className="text-sm font-semibold text-neutral-900">{title}</p>
                 <p className="text-xs text-neutral-400">{itemCount} line item{itemCount !== 1 ? 's' : ''}</p>
@@ -335,7 +336,7 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
                           onClick={() => setExpandedExpKey(isSubOpen ? null : subKey)}
                         >
                           <div className="flex items-center gap-sm">
-                            <span className="text-base leading-none">{emoji}</span>
+                            <span className="text-base leading-none">{<LineIcon glyph={emoji} />}</span>
                             <div>
                               <p className="text-sm text-neutral-800">{label}</p>
                               <p className="text-xs text-neutral-400">{grp.items.length} item{grp.items.length !== 1 ? 's' : ''}</p>
@@ -457,7 +458,7 @@ export default function PropertyFinancialSummary({ propertyId }: { propertyId: s
       {/* Statement list — filtered to the selected period */}
       {statements.length === 0 ? (
         <div className="rounded-xl bg-white border border-neutral-200 px-lg py-3xl text-center">
-          <p className="text-3xl mb-md">💷</p>
+          <p className="text-3xl mb-md"><LineIcon glyph="💷" /></p>
           <p className="text-sm font-semibold text-neutral-600">No statements yet</p>
           <p className="text-xs text-neutral-400 mt-xs">Statements will appear here once imported.</p>
         </div>

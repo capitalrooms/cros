@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
+import LineIcon from '@/components/LineIcon'
 
 // Returns the current user's access token from the Supabase session (stored in localStorage).
 async function getAuthToken(): Promise<string | null> {
@@ -198,7 +199,7 @@ function HeroCover({
           className="absolute inset-0 flex flex-col items-center justify-center"
           style={{ background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%)' }}
         >
-          <p className="text-7xl mb-6">{guide.emoji}</p>
+          <p className="text-7xl mb-6">{<LineIcon glyph={guide.emoji} />}</p>
           <h1
             className="text-3xl font-black text-white text-center px-xl leading-tight"
             style={{ fontFamily: "'Lato', system-ui, sans-serif", fontWeight: 900 }}

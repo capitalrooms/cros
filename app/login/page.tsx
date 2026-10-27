@@ -6,6 +6,7 @@ import { signIn, getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import Logo from '@/components/Logo'
 import TwoStepCode, { needsTwoStep } from '@/components/TwoStepCode'
+import LineIcon from '@/components/LineIcon'
 
 const ROLE_NAME: Record<string, string> = { administrator: 'Office', admin: 'Office', lettings: 'Lettings', tenant: 'Tenant', contractor: 'Contractor', cleaner: 'Cleaner', landlord: 'Landlord', agent: 'Agent' }
 function roleHome(role: string | null | undefined): string {
@@ -204,7 +205,7 @@ function LoginForm() {
           /* ── Magic link sent confirmation ── */
           ) : magicSent ? (
             <div className="text-center space-y-lg">
-              <p className="text-4xl">✉️</p>
+              <p className="text-4xl"><LineIcon glyph="✉️" /></p>
               <p className="text-white font-semibold">Check your email</p>
               <p className="text-sm text-white/50 leading-relaxed">
                 We&apos;ve sent a sign-in link to<br />

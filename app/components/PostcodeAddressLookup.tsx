@@ -209,7 +209,7 @@ export default function PostcodeAddressLookup({
       )}
       {mode === 'partial' && !hasFullLookup && (
         <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs">
-          ℹ️ Address lookup not configured — town auto-filled from postcode. Enter the street address below.
+          Address lookup not configured — town auto-filled from postcode. Enter the street address below.
           {' '}<a href="https://osdatahub.os.uk/" target="_blank" rel="noreferrer" className="underline font-semibold">Add a free OS DataHub key</a> for full dropdown lookup.
         </p>
       )}

@@ -1051,7 +1051,7 @@ Respond with JSON only in this exact shape:
       if (primaryAdmin) {
         await supabase.from('notifications').insert({
           user_id: primaryAdmin.id,
-          title: `📊 ${inserted} expense${inserted > 1 ? 's' : ''} imported — ${property!.name || property!.address}`,
+          title: `${inserted} expense${inserted > 1 ? 's' : ''} imported — ${property!.name || property!.address}`,
           body: `AutoLedger: statement from ${landlordName}.${duplicates ? ` ${duplicates} duplicate${duplicates > 1 ? 's' : ''} skipped.` : ''}`,
           type: 'statement',
           link: '/admin/expense-review',
@@ -1067,7 +1067,7 @@ Respond with JSON only in this exact shape:
   // Email notification (shared wrapper applied via buildEmail)
   try {
     const notifyBody = `
-<h2 style="color:#111;margin:0 0 12px;">⚡ AutoLedger ran</h2>
+<h2 style="color:#111;margin:0 0 12px;">AutoLedger ran</h2>
 <p style="color:#555;margin:0 0 16px;">Statement from <strong>${landlordName}</strong> processed automatically.</p>
 <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
   <tr><td style="padding:8px;color:#555">Property</td><td style="padding:8px;font-weight:bold">${property!.name || property!.address}</td></tr>
@@ -1078,7 +1078,7 @@ ${inserted > 0 ? `<a href="https://cros-sigma.vercel.app/admin/expense-review" s
     const notifyHtml = await buildEmail(notifyBody)
     await deliverEmail({
       to: ['harry@capitalrooms.co.uk'],
-      subject: oneLine(`⚡ AutoLedger: ${inserted} expenses imported — ${property!.name || property!.address}`),
+      subject: oneLine(`AutoLedger: ${inserted} expenses imported — ${property!.name || property!.address}`),
       html: notifyHtml,
     })
   } catch (e) {

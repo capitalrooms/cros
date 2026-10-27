@@ -34,7 +34,7 @@ function buildBriefHtml(params: {
     ? '<p style="color:#9ca3af;font-style:italic;">No notes recorded.</p>'
     : updates.map(u => {
         const linkRows = (u.links || []).map(l =>
-          `<div style="margin-top:4px;"><a href="${l}" style="color:#2563eb;font-size:13px;text-decoration:none;">🔗 ${l}</a></div>`
+          `<div style="margin-top:4px;"><a href="${l}" style="color:#2563eb;font-size:13px;text-decoration:none;">${l}</a></div>`
         ).join('')
         const imgRow = u.images && u.images.length
           ? `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">${u.images.map((img, i) =>

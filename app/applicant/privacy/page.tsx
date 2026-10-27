@@ -219,7 +219,7 @@ export default function PrivacyPolicy() {
                 <p className="font-medium mb-sm">Capital Rooms Ltd</p>
                 <p>Hoxton Mix | 66 Paul Street | London | EC2A 4NA</p>
                 <p className="mt-sm">
-                  📧{" "}
+                  <LineIcon glyph="📧" />{" "}
                   <a
                     href="mailto:management@capitalrooms.co.uk"
                     className="font-medium hover:underline"
@@ -228,7 +228,7 @@ export default function PrivacyPolicy() {
                   </a>
                 </p>
                 <p>
-                  📞{" "}
+                  <LineIcon glyph="📞" />{" "}
                   <a href="tel:02071129163" className="font-medium hover:underline">
                     0207 112 9163
                   </a>
@@ -291,3 +291,5 @@ export default function PrivacyPolicy() {
     </div>
   )
 }
+
+import LineIcon from '@/components/LineIcon'

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 /**
  * Install the app — PWA install guide.
@@ -31,7 +32,7 @@ export default function InstallPage() {
         <div className="mb-3xl">
           <div className="flex items-center gap-md mb-lg">
             <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center text-3xl shadow-lg">
-              📲
+              <LineIcon glyph="📲" />
             </div>
             <div>
               <h1 className="text-2xl font-black tracking-tight">Install the app</h1>
@@ -182,7 +183,7 @@ function FeatureCard({
 }) {
   return (
     <div className="flex items-start gap-md rounded-2xl border border-white/10 bg-white/5 p-md">
-      <span className="text-2xl leading-none mt-xs shrink-0">{icon}</span>
+      <span className="text-2xl leading-none mt-xs shrink-0">{<LineIcon glyph={icon} />}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-sm flex-wrap">
           <p className="font-bold text-white text-sm">{title}</p>

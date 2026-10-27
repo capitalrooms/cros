@@ -15,7 +15,7 @@ export default function RoleGreeting({
   return (
     <div className="mb-3xl">
       <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-lg">{role}</p>
-      <h1 className="text-3xl font-bold text-neutral-900">Hello {name || 'there'} 👋</h1>
+      <h1 className="text-3xl font-bold text-neutral-900">Hello {name || 'there'}</h1>
       {subtitle && <p className="mt-sm text-neutral-600">{subtitle}</p>}
     </div>
   )

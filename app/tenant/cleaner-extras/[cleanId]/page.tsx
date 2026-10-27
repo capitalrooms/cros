@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import LineIcon from '@/components/LineIcon'
 
 // Curated list of extras tenants can request the cleaner does if time allows.
 // These are tasks tenants shouldn't be expected to do themselves.
@@ -125,7 +126,7 @@ export default function CleanerExtrasPage() {
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <div className="mx-auto max-w-lg px-lg py-3xl text-center">
-          <p className="text-5xl">🧹</p>
+          <p className="text-5xl"><LineIcon glyph="🧹" /></p>
           <h1 className="mt-lg text-2xl font-bold text-neutral-900">Request sent!</h1>
           <p className="mt-sm text-neutral-600">
             We've let the cleaner and admin know. They'll do their best to fit in your requests if time allows.
@@ -135,7 +136,7 @@ export default function CleanerExtrasPage() {
             <ul className="mt-md space-y-xs">
               {EXTRAS.filter(e => selected.has(e.id)).map(e => (
                 <li key={e.id} className="flex items-center gap-sm text-sm text-neutral-700">
-                  <span>{e.icon}</span> {e.label}
+                  <span>{<LineIcon glyph={e.icon} />}</span> {e.label}
                 </li>
               ))}
             </ul>
@@ -213,7 +214,7 @@ export default function CleanerExtrasPage() {
                     : 'border-neutral-200 bg-white text-neutral-700'
                 }`}
               >
-                <span className="text-xl">{extra.icon}</span>
+                <span className="text-xl">{<LineIcon glyph={extra.icon} />}</span>
                 <div className="flex-1">
                   <p className="font-medium leading-snug">{extra.label}</p>
                   <p className={`text-xs ${isSelected ? 'text-neutral-400' : 'text-neutral-400'}`}>{extra.area}</p>

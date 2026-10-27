@@ -35,6 +35,6 @@ export async function POST(req: NextRequest) {
     if (!error) count++
   }
   await s.from('capture_keys').update({ last_used_at: new Date().toISOString() }).eq('id', k.id)
-  if (count) await sendServerPush({ personId: k.person_id, title: '📥 Ready to file', body: `${count} item${count === 1 ? '' : 's'} in your capture inbox`, url: '/admin/capture', tag: 'capture' })
+  if (count) await sendServerPush({ personId: k.person_id, title: 'Ready to file', body: `${count} item${count === 1 ? '' : 's'} in your capture inbox`, url: '/admin/capture', tag: 'capture' })
   return NextResponse.json({ ok: true, count })
 }

@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
   const { data: staff } = await s.from('people').select('id').in('role', STAFF_ROLES)
   const staffIds = (staff ?? []).map((p: any) => p.id)
   if (staffIds.length) {
-    const title = '💷 Holding deposit received'
+    const title = 'Holding deposit received'
     const body = `${ctx.applicant.full_name} — ${ctx.roomName}, ${ctx.propertyName} · ${gbp(Number(rec.amount))} (${rec.hold_no}). Offer completed; referencing next.`
     const link = result.tenancyId ? `/admin/lettings/${result.tenancyId}` : '/admin/applicants'
     await insertNotifications(s, staffIds, { title, body, type: 'lettings', link })

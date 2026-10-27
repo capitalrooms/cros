@@ -18,7 +18,7 @@ export async function alertLettingsRoomUp(s: SupabaseClient, roomId: string, opt
     if (!ids.length) return
     const where = [room.name, String(room.properties?.name ?? '').split('\n')[0]].filter(Boolean).join(', ')
     const from = opts.availableFrom ? `available from ${day(opts.availableFrom)}` : 'available now'
-    const title = opts.availableFrom ? '🔔 Room coming up' : '🔑 Room available'
+    const title = opts.availableFrom ? 'Room coming up' : 'Room available'
     const body = `${where} — ${from}${room.current_asking_rent ? ` · £${Number(room.current_asking_rent).toLocaleString('en-GB')} pcm` : ''}. ${opts.why}`
     await insertNotifications(s, ids, { title, body, type: 'lettings', link: '/lettings?tab=available' }, { propertyId: room.property_id, roomId: room.id })
     await sendServerPush({ personIds: ids, title, body, url: '/lettings?tab=available', tag: `room-up-${room.id}` })

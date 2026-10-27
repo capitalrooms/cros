@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
   // Build a brief, friendly notice text
   const locationLabel = location.replace(' (ground floor)', '').replace(' (first floor)', '')
   const categoryLabel = category || 'Maintenance'
-  const noticeText = `🔧 ${categoryLabel} issue reported in the ${locationLabel}. Our team has been notified and will arrange a visit — we'll update everyone when it's resolved. [ref:${ticketId}]`
+  const noticeText = `${categoryLabel} issue reported in the ${locationLabel}. Our team has been notified and will arrange a visit — we'll update everyone when it's resolved. [ref:${ticketId}]`
 
   const { error: insertErr } = await sb.from('communal_notices').insert({
     property_id: propertyId,

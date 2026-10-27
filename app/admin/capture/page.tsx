@@ -13,6 +13,7 @@ import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { createClient } from '@/lib/supabase'
 import { one, type PageSearchParams } from '@/lib/pageSearchParams'
+import LineIcon from '@/components/LineIcon'
 
 type Tab = 'inbox' | 'company' | 'iphone'
 const card = 'rounded-2xl border border-neutral-200 bg-white'
@@ -177,7 +178,7 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
     <section className={`${card} p-md`}>
       <div className="grid gap-md sm:grid-cols-[160px_minmax(0,1fr)]">
         <a href={it.url ?? '#'} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl bg-neutral-100">
-          {isImage && it.url ? <img src={it.url} alt="" className="h-40 w-full object-cover" /> : <div className="flex h-40 items-center justify-center text-3xl">📄</div>}
+          {isImage && it.url ? <img src={it.url} alt="" className="h-40 w-full object-cover" /> : <div className="flex h-40 items-center justify-center text-3xl"><LineIcon glyph="📄" /></div>}
         </a>
         <div className="min-w-0 space-y-sm">
           <p className="text-xs text-neutral-500">{it.file_name} · {it.source === 'email' ? `emailed${it.email_from ? ` by ${it.email_from}` : ''}${it.email_subject ? ` — “${it.email_subject}”` : ''}` : it.source === 'shortcut' ? 'shared from iPhone' : 'from your phone'} · {new Date(it.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' })}</p>

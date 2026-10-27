@@ -18,6 +18,7 @@ import { fullDatesIn } from '@/lib/fullDates'
 import DepositReturnPanel from '@/app/components/DepositReturnPanel'
 import TenancyFeeEditor from '@/app/components/TenancyFeeEditor'
 import { localISO } from '@/lib/dateUtils'
+import LineIcon from '@/components/LineIcon'
 
 /* ── Types ── */
 
@@ -1328,7 +1329,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                   <p className="text-sm text-neutral-500 mb-lg">Upload any documents — reference report, credit report, right to rent certificate, passport, driving licence. AI extracts all available fields.</p>
                   <label className="block w-full rounded-xl border-2 border-dashed border-neutral-200 hover:border-neutral-400 transition cursor-pointer p-xl text-center mb-md">
                     <input type="file" multiple accept=".pdf,image/*" className="hidden" onChange={handleFileChange} />
-                    <p className="text-2xl mb-sm">📄</p>
+                    <p className="text-2xl mb-sm"><LineIcon glyph="📄" /></p>
                     <p className="text-sm font-semibold text-neutral-700">Click to select files</p>
                     <p className="text-xs text-neutral-400 mt-xs">PDF, JPG, PNG — multiple files accepted</p>
                   </label>
@@ -1337,7 +1338,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                       {uploadedFiles.map((f, i) => (
                         <div key={i} className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm">
                           <div className="flex items-center gap-sm">
-                            <span>{f.type === 'application/pdf' ? '📄' : '🖼'}</span>
+                            <span>{<LineIcon glyph={f.type === 'application/pdf' ? '📄' : '🖼'} />}</span>
                             <div><p className="text-sm font-semibold text-neutral-900">{f.name}</p><p className="text-xs text-neutral-400">{(f.size / 1024).toFixed(0)} KB</p></div>
                           </div>
                           <button onClick={() => removeFile(i)} className="text-neutral-400 hover:text-red-500 text-lg">×</button>

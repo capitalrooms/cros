@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
     const firstLine = String(property?.name || property?.address || 'the property').split('\n')[0]
     const out = await tellContractor(contractor, contractor.id, {
       text: `CAPITAL ROOMS: new job for you — ${heading}. Please open it to confirm and book a date: ${PORTAL_URL}/contractor/jobs`,
-      title: '🔧 New job from Capital Rooms', body: heading.slice(0, 120) || firstLine,
+      title: 'New job from Capital Rooms', body: heading.slice(0, 120) || firstLine,
       url: '/contractor/jobs', link: `${PORTAL_URL}/contractor/jobs`, tag: `job-${ticketId}`,
       emailSubject: subject, emailBodyHtml: body,
     })
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
   ].filter(Boolean).join(' — ')
   sendServerPush({
     role: 'administrator',
-    title: '🔧 New maintenance ticket',
+    title: 'New maintenance ticket',
     body: pushBody || ticket.title || 'A new ticket has been raised',
     url: '/admin/maintenance',
     tag: `ticket-${ticketId}`,

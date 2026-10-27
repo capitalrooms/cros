@@ -7,6 +7,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
 import { slotLabel } from '@/lib/booking'
+import LineIcon from '@/components/LineIcon'
 
 interface Ticket {
   id: string
@@ -214,7 +215,7 @@ export default function VisitDetailPage() {
       <div className="min-h-screen bg-neutral-50">
         <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <main className="mx-auto max-w-xl px-lg pt-xl text-center">
-          <p className="text-4xl mb-md">🔍</p>
+          <p className="text-4xl mb-md"><LineIcon glyph="🔍" /></p>
           <p className="font-bold text-neutral-700">{error || 'Visit not found'}</p>
           <Link href="/tenant" className="mt-lg inline-block text-sm font-semibold text-neutral-500 underline">
             Back to home
@@ -302,7 +303,7 @@ export default function VisitDetailPage() {
           <div className="mt-lg space-y-sm border-t border-neutral-100 pt-md">
             {/* Job */}
             <div className="flex gap-sm">
-              <span className="text-base shrink-0">🔧</span>
+              <span className="text-base shrink-0"><LineIcon glyph="🔧" /></span>
               <div>
                 <p className="text-sm font-semibold text-neutral-900">{ticket.title}</p>
                 {ticket.description && (
@@ -314,7 +315,7 @@ export default function VisitDetailPage() {
             {/* Contractor */}
             {contractorName && (
               <div className="flex gap-sm items-center">
-                <span className="text-base shrink-0">👷</span>
+                <span className="text-base shrink-0"><LineIcon glyph="👷" /></span>
                 <p className="text-sm text-neutral-700">{contractorName}</p>
               </div>
             )}
@@ -322,7 +323,7 @@ export default function VisitDetailPage() {
             {/* Property */}
             {ticket.properties && (
               <div className="flex gap-sm items-center">
-                <span className="text-base shrink-0">🏠</span>
+                <span className="text-base shrink-0"><LineIcon glyph="🏠" /></span>
                 <p className="text-sm text-neutral-700">
                   {ticket.rooms?.name ? `${ticket.rooms.name} · ` : ''}{ticket.properties.name}
                 </p>
@@ -331,7 +332,7 @@ export default function VisitDetailPage() {
 
             {/* Status */}
             <div className="flex gap-sm items-center">
-              <span className="text-base shrink-0">📋</span>
+              <span className="text-base shrink-0"><LineIcon glyph="📋" /></span>
               <p className="text-sm text-neutral-700">
                 {ticket.arrived_at
                   ? `✓ Arrived ${new Date(ticket.arrived_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import LineIcon from '@/components/LineIcon'
 
 /**
  * Share Target landing page.
@@ -133,7 +134,7 @@ export default function ShareTargetPage() {
             {/* PDF badge */}
             {fileType === 'application/pdf' && (
               <div className="rounded-2xl border border-neutral-200 bg-white p-lg flex items-center gap-md">
-                <span className="text-4xl">📄</span>
+                <span className="text-4xl"><LineIcon glyph="📄" /></span>
                 <div>
                   <p className="font-semibold text-neutral-900 truncate">{fileName}</p>
                   <p className="text-xs text-neutral-500 mt-xs">PDF document</p>
@@ -172,7 +173,7 @@ export default function ShareTargetPage() {
 
             {saved ? (
               <div className="rounded-2xl bg-green-50 border border-green-200 p-lg text-center">
-                <p className="text-2xl mb-sm">✅</p>
+                <p className="text-2xl mb-sm"><LineIcon glyph="✅" /></p>
                 <p className="font-bold text-green-900">Saved as note</p>
                 <button
                   onClick={() => router.push(backHref)}
@@ -226,7 +227,7 @@ export default function ShareTargetPage() {
         {/* ── Nothing shared ───────────────────────────────────────────────── */}
         {!hasFile && !hasText && (
           <div className="text-center py-3xl">
-            <p className="text-4xl mb-md">🤔</p>
+            <p className="text-4xl mb-md"><LineIcon glyph="🤔" /></p>
             <p className="font-bold text-neutral-900">Nothing was shared</p>
             <p className="text-sm text-neutral-500 mt-sm">Try sharing a photo or text from another app.</p>
             <button

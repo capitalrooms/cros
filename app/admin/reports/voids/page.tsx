@@ -5,6 +5,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 const gbp = (n: number | null) => n == null ? '—' : `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2 })}`
 const fmtDate = (s: string | null) => s ? new Date(s.slice(0,10)+'T00:00:00').toLocaleDateString('en-GB') : '—'
@@ -73,7 +74,7 @@ export default function VoidsReport() {
           <div className="bg-white rounded-2xl border border-neutral-200 px-xl py-2xl text-center text-sm text-neutral-400">Loading…</div>
         ) : visible.length === 0 ? (
           <div className="bg-white rounded-2xl border border-neutral-200 px-xl py-2xl text-center">
-            <p className="text-2xl mb-md">🏠</p>
+            <p className="text-2xl mb-md"><LineIcon glyph="🏠" /></p>
             <p className="text-sm font-semibold text-neutral-700">No void rooms found</p>
             <p className="text-xs text-neutral-400 mt-xs">All rooms are currently occupied</p>
           </div>

@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { getCurrentUser } from '@/lib/auth'
 import { enablePush, pushPermission, pushSupported } from '@/lib/push'
+import LineIcon from '@/components/LineIcon'
 
 interface Step {
   id: string
@@ -46,7 +47,7 @@ function ScreenDashboard() {
       {/* Cards */}
       <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
         <div style={{ background: '#fff', borderRadius: 12, padding: '9px 11px', border: '1px solid #fde68a', display: 'flex', gap: 7 }}>
-          <span style={{ fontSize: 15 }}>💧</span>
+          <span style={{ fontSize: 15 }}><LineIcon glyph="💧" /></span>
           <div>
             <p style={{ fontSize: 11.5, fontWeight: 700, color: '#1c1917', marginBottom: 2 }}>Humidity today</p>
             <p style={{ fontSize: 10, color: '#374151', lineHeight: 1.5 }}>14°C · 68% — keep windows ajar when cooking or showering.</p>
@@ -98,7 +99,7 @@ function ScreenMaintenance() {
       </div>
       {[['✅','Bedroom light','Completed · 1 week ago','#f0fdf4'],['🕐','Boiler pressure low','Booked: Tuesday 3 November 2026 · 9am–12pm','#eff6ff']].map(([icon,title,sub,bg]) => (
         <div key={title as string} style={{ background: '#fff', borderRadius: 12, padding: '9px 12px', border: '1px solid #e5e7eb', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 9 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: bg as string, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{icon}</div>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: bg as string, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>{<LineIcon glyph={icon} />}</div>
           <div>
             <p style={{ fontSize: 11.5, fontWeight: 600, color: '#1c1917' }}>{title as string}</p>
             <p style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{sub as string}</p>
@@ -112,7 +113,7 @@ function ScreenMaintenance() {
         <p style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>Pick the closest match.</p>
         {[['🔧','Maintenance issue','Something broken or needs fixing'],['🏠','Trouble with a housemate','Having a difficult time with someone']].map(([icon,t,s]) => (
           <div key={t as string} style={{ display: 'flex', gap: 9, border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '8px 10px', marginBottom: 6 }}>
-            <span style={{ fontSize: 18, marginTop: 1 }}>{icon}</span>
+            <span style={{ fontSize: 18, marginTop: 1 }}>{<LineIcon glyph={icon} />}</span>
             <div>
               <p style={{ fontSize: 11.5, fontWeight: 700, color: '#1c1917' }}>{t as string}</p>
               <p style={{ fontSize: 10, color: '#6b7280' }}>{s as string}</p>
@@ -192,7 +193,7 @@ function ScreenProfile() {
           <span style={{ fontSize: 11, color: '#6b7280', textDecoration: 'underline' }}>Disable</span>
         </div>
         <div style={{ margin: '0 12px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '7px 9px', display: 'flex', gap: 6 }}>
-          <span style={{ fontSize: 11, flexShrink: 0 }}>⚠️</span>
+          <span style={{ fontSize: 11, flexShrink: 0 }}><LineIcon glyph="⚠️" /></span>
           <p style={{ fontSize: 10, color: '#92400e', lineHeight: 1.5 }}><strong>Heads up:</strong> Disabling means you won't receive alerts when contractors need access or there are important updates.</p>
         </div>
       </div>

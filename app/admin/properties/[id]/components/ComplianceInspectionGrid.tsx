@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import LineIcon from '@/components/LineIcon'
 
 interface InspectionLog {
   id: string
@@ -345,7 +346,7 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
                   <td className="px-lg py-md text-neutral-300">
                     <div className="flex items-center gap-xs">
                       <span className="text-xs px-2 py-1 rounded bg-neutral-800 text-neutral-400">
-                        {inspection.user_type === 'admin' ? '🔧' : inspection.user_type === 'tenant' ? '👤' : '🧹'}
+                        {<LineIcon glyph={inspection.user_type === 'admin' ? '🔧' : inspection.user_type === 'tenant' ? '👤' : '🧹'} />}
                       </span>
                       <span>{inspection.user_name}</span>
                     </div>

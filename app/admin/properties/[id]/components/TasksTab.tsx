@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import LineIcon from '@/components/LineIcon'
 
 interface Task {
   id: string
@@ -244,7 +245,7 @@ export default function TasksTab({ propertyId }: { propertyId: string }) {
       {/* Open tasks */}
       {open.length === 0 && !showAdd && (
         <div className="bg-white rounded-2xl border border-neutral-200 p-lg text-center">
-          <p className="text-2xl mb-sm">✅</p>
+          <p className="text-2xl mb-sm"><LineIcon glyph="✅" /></p>
           <p className="font-semibold text-neutral-700">No open tasks</p>
           <p className="text-sm text-neutral-500 mt-xs">Add a task to track internal to-dos for this property.</p>
         </div>
@@ -277,7 +278,7 @@ export default function TasksTab({ propertyId }: { propertyId: string }) {
           {converted.map(task => (
             <div key={task.id} className="bg-white rounded-2xl border border-neutral-200 p-md flex items-start gap-sm opacity-60">
               <div className="w-5 h-5 rounded flex-shrink-0 mt-0.5 bg-blue-100 flex items-center justify-content-center text-center text-xs">
-                🔧
+                <LineIcon glyph="🔧" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-neutral-600 line-through">{task.description}</p>

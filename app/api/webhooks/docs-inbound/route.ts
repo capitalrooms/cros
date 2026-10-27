@@ -297,7 +297,7 @@ export async function POST(req: NextRequest) {
 
         return `
           <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;margin-bottom:12px;background:#fff">
-            <p style="font-weight:bold;color:#111;margin:0 0 8px">📄 ${label} detected</p>
+            <p style="font-weight:bold;color:#111;margin:0 0 8px">${label} detected</p>
             <p style="color:#888;font-size:12px;margin:0 0 8px">File: <code style="background:#f3f4f6;padding:2px 6px;border-radius:4px">${r.filename}</code></p>
             ${rows ? `<table style="width:100%;border-collapse:collapse;margin-bottom:12px">${rows}</table>` : ''}
             <a href="https://cros-sigma.vercel.app/admin/ai-upload" style="display:inline-block;background:#111;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:bold">Review &amp; file in CROS →</a>
@@ -306,7 +306,7 @@ export async function POST(req: NextRequest) {
 
       await deliverEmail({
         to: ['harry@capitalrooms.co.uk'],
-        subject: `📄 ${storedResults.length} document${storedResults.length > 1 ? 's' : ''} received — ready to file`,
+        subject: `${storedResults.length} document${storedResults.length > 1 ? 's' : ''} received — ready to file`,
         html: await buildEmail(`
             <p><strong>New document${storedResults.length > 1 ? 's' : ''} received</strong></p>
             <p style="color:#78716c;font-size:13px;">From: <strong>${fromEmail}</strong><br>Subject: ${subject}</p>

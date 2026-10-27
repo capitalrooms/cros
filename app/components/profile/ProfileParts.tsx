@@ -4,6 +4,7 @@
 // contractor / lettings profile had drifted apart). One copy of each: the text and letter sign-off previews,
 // Password & sign-in, and Install the app.
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 /** "Jacob, Capital Rooms | 07…" — what texts end with (the same rule as getSmsSignOff in lib/auth) */
 export const smsSignOffText = (preferred: string, first: string, phone: string, email: string) => {
@@ -46,7 +47,7 @@ export function PasswordLink({ className = '' }: { className?: string }) {
 export function InstallAppLink({ className = '' }: { className?: string }) {
   return (
     <Link href="/install" className={`group flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-lg py-md transition hover:bg-neutral-50 ${className}`}>
-      <span className="flex items-center gap-md"><span className="text-2xl">📲</span><span><span className="block text-sm font-bold text-neutral-900">Install the app</span><span className="mt-xs block text-xs text-neutral-500">Add to Home Screen to unlock push notifications, Share Sheet and more</span></span></span>
+      <span className="flex items-center gap-md"><span className="text-2xl"><LineIcon glyph="📲" /></span><span><span className="block text-sm font-bold text-neutral-900">Install the app</span><span className="mt-xs block text-xs text-neutral-500">Add to Home Screen to unlock push notifications, Share Sheet and more</span></span></span>
       <span className="shrink-0 text-lg text-neutral-400 transition group-hover:text-neutral-700">›</span>
     </Link>
   )

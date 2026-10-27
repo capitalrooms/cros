@@ -224,7 +224,7 @@ export default function ExpenseReviewPage() {
                         <select value={current} disabled={saving === item.id}
                           onChange={e => { const [slug, roomId] = e.target.value.split('|'); const room = propertyRooms.find(r => r.id === roomId); saveCategory(item.id, slug, roomId || undefined, room ? (room.name || `Room ${room.room_number}`) : undefined) }}
                           className="w-full min-w-[170px] rounded border border-neutral-300 bg-white px-1 py-0.5 text-xs">
-                          {PROPERTY_WIDE_CATEGORIES.map(cat => <option key={cat.slug} value={cat.slug}>{cat.emoji} {cat.label}</option>)}
+                          {PROPERTY_WIDE_CATEGORIES.map(cat => <option key={cat.slug} value={cat.slug}>{cat.label}</option>)}
                           {propertyRooms.length > 0 && <optgroup label="A room">
                             {propertyRooms.flatMap(room => ROOM_SPECIFIC_CATEGORY_TYPES.slice(0, 2).map(rt => <option key={`${rt.slug}|${room.id}`} value={`${rt.slug}|${room.id}`}>{room.name || `Room ${room.room_number}`} – {rt.label}</option>))}
                           </optgroup>}

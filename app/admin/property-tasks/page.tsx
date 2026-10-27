@@ -12,6 +12,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import Link from 'next/link'
 import { pendingLicenceIds } from '@/lib/compliance/hmoLicence'
 import { localISO } from '@/lib/dateUtils'
+import LineIcon from '@/components/LineIcon'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -122,7 +123,7 @@ function EmailSupplierModal({ cert, contractors, onClose }: EmailModalProps) {
       <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="bg-neutral-950 px-lg py-md flex items-center gap-sm">
-          <span className="text-2xl">{CERT_CHECKS.find(c => c.label === cert.label)?.icon || '📋'}</span>
+          <span className="text-2xl">{<LineIcon glyph={CERT_CHECKS.find(c => c.label === cert.label)?.icon || '📋'} />}</span>
           <div>
             <p className="text-white font-bold text-sm">{cert.label}</p>
             <p className="text-neutral-400 text-xs">{cert.property_name} · {Math.abs(cert.days)} days {cert.days < 0 ? 'overdue' : 'remaining'}</p>
@@ -132,7 +133,7 @@ function EmailSupplierModal({ cert, contractors, onClose }: EmailModalProps) {
 
         {sent ? (
           <div className="p-xl text-center">
-            <p className="text-4xl mb-md">📧</p>
+            <p className="text-4xl mb-md"><LineIcon glyph="📧" /></p>
             <p className="font-bold text-lg">Email sent</p>
             <p className="text-neutral-500 text-sm mt-xs">Sent to {chosenContractor?.name || selected}</p>
             <button onClick={onClose} className="mt-lg bg-neutral-950 text-white font-bold px-xl py-sm rounded-xl">
@@ -288,7 +289,7 @@ function CompleteCertModal({ cert, onClose, onSaved }: {
       <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="bg-neutral-950 px-lg py-md flex items-center gap-sm">
-          <span className="text-2xl">{icon}</span>
+          <span className="text-2xl">{<LineIcon glyph={icon} />}</span>
           <div>
             <p className="text-white font-bold text-sm">{cert.label}</p>
             <p className="text-neutral-400 text-xs">{cert.property_name}</p>
@@ -732,7 +733,7 @@ export default function PropertyTasksPage() {
 
         {openTasks.length === 0 && filteredCerts.length === 0 && (
           <div className="bg-white rounded-2xl border border-neutral-200 p-xl text-center">
-            <p className="text-4xl mb-md">✅</p>
+            <p className="text-4xl mb-md"><LineIcon glyph="✅" /></p>
             <p className="font-bold text-lg">All clear</p>
             <p className="text-sm text-neutral-500 mt-xs">
               {filter === 'mine'      ? 'No tasks assigned to you.'  :
@@ -784,7 +785,7 @@ function CertRow({ cert, onEmail, onComplete }: { cert: CertAlert; onEmail: () =
   return (
     <div className={`bg-white rounded-2xl border p-md flex items-center gap-sm ${cert.days < 0 ? 'border-l-4 border-l-red-400 border-neutral-200' : cert.days <= 14 ? 'border-l-4 border-l-amber-400 border-neutral-200' : 'border-neutral-200'}`}>
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${cert.days < 0 ? 'bg-red-50' : 'bg-amber-50'}`}>
-        {icon}
+        {<LineIcon glyph={icon} />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-neutral-900">{cert.label}</p>
@@ -844,7 +845,7 @@ function GlobalTaskRow({ task, onToggle, onConvert, converting }: {
             disabled={converting}
             className="text-xs font-semibold px-sm py-xs rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 transition"
           >
-            {converting ? '…' : '🔧'}
+            {<LineIcon glyph={converting ? '…' : '🔧'} />}
           </button>
         )}
       </div>

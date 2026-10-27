@@ -6,6 +6,7 @@ import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { getCurrentUser } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
+import LineIcon from '@/components/LineIcon'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 type Status = 'discuss' | 'discussed' | 'progress' | 'done' | 'parked'
@@ -678,7 +679,7 @@ export default function PlannerPage() {
                                   {/* phones: who and when, under the title */}
                                   {(item.responsible || item.date || item.updates.length > 0) && (
                                     <p className="md:hidden" style={{ fontSize: 11, color: '#b5b0a8', margin: '3px 0 0' }}>
-                                      {[item.responsible, item.date].filter(Boolean).join(' · ')}{item.updates.length > 0 ? ` · ${item.updates.length}` : ''}{hasAttachments ? ' 📎' : ''}
+                                      {[item.responsible, item.date].filter(Boolean).join(' · ')}{item.updates.length > 0 ? ` · ${item.updates.length}` : ''}{<LineIcon glyph={hasAttachments ? ' 📎' : ''} />}
                                     </p>
                                   )}
                                 </td>
@@ -688,8 +689,8 @@ export default function PlannerPage() {
                                 <td className="hidden md:table-cell" style={{ padding: '9px 12px', fontSize: 12, color: '#78716c' }}>{item.responsible}</td>
                                 <td className="hidden md:table-cell" style={{ padding: '9px 12px', fontSize: 11, color: '#b5b0a8' }}>{item.date}</td>
                                 <td className="hidden md:table-cell" style={{ padding: '9px 8px', textAlign: 'center', fontSize: 11, color: '#d6d3cb', whiteSpace: 'nowrap' }}>
-                                  {item.updates.length > 0 && <span title="Has notes">💬</span>}
-                                  {hasAttachments && <span title="Has attachments" style={{ marginLeft: 2 }}>📎</span>}
+                                  {item.updates.length > 0 && <span title="Has notes"><LineIcon glyph="💬" /></span>}
+                                  {hasAttachments && <span title="Has attachments" style={{ marginLeft: 2 }}><LineIcon glyph="📎" /></span>}
                                 </td>
                               </tr>
                             )
@@ -827,7 +828,7 @@ export default function PlannerPage() {
                         {/* Compile button */}
                         <button onClick={() => openCompile(selectedItem.id)}
                           style={{ fontSize: 11, fontWeight: 600, color: '#fff', background: `linear-gradient(135deg,${activeBoard.colorA},${activeBoard.colorB})`, border: 'none', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <span>📋</span> Compile & Send Brief
+                          <span><LineIcon glyph="📋" /></span> Compile & Send Brief
                         </button>
                       </div>
 
@@ -967,11 +968,11 @@ export default function PlannerPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
                         <button onClick={() => setShowLinkInput(v => !v)} title="Attach link"
                           style={{ fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 5px', borderRadius: 5, color: showLinkInput ? '#2563eb' : '#b5b0a8', transition: 'color .1s' }}>
-                          🔗
+                          <LineIcon glyph="🔗" />
                         </button>
                         <button onClick={() => photoRef.current?.click()} title="Attach photo"
                           style={{ fontSize: 14, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 5px', borderRadius: 5, color: '#b5b0a8' }}>
-                          📷
+                          <LineIcon glyph="📷" />
                         </button>
                         <input ref={photoRef} type="file" accept="image/*" multiple onChange={addPhoto} style={{ display: 'none' }} />
                         <button onClick={saveUpdate}

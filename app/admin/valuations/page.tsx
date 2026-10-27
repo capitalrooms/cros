@@ -548,7 +548,7 @@ export default function ValuationsPage() {
                 disabled={generating}
                 className="rounded-xl border border-neutral-300 bg-white px-lg py-sm text-sm font-semibold hover:bg-neutral-50 disabled:opacity-40"
               >
-                {generating ? '⏳' : '↻ Refresh'}
+                {generating ? 'Refreshing…' : '↻ Refresh'}
               </button>
               {genError && <span className="text-sm text-red-600">{genError}</span>}
             </div>

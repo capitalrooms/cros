@@ -16,6 +16,7 @@ import QuickNotifyModal from '@/app/admin/components/QuickNotifyModal'
 import ArrangeWorks from './ArrangeWorks'
 import { useAdminAccess } from '@/lib/admin-context'
 import type { RoomOverview, Need, TimelineItem } from '@/lib/rooms/roomOverview'
+import LineIcon from '@/components/LineIcon'
 
 const gbp = (n: number | null | undefined) => n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const full = (iso: string | null | undefined) => iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
@@ -410,7 +411,7 @@ function Messages({ o, wide, composeRef, roomId, reload, onMessage }: { o: RoomO
               <li key={`${t.at}-${i}`}>
                 {head !== prev && <p className="pb-xs pt-md text-[11px] font-black uppercase tracking-[0.1em] text-neutral-400">{head}</p>}
                 <div className="grid grid-cols-[30px_1fr_auto] gap-sm border-t border-neutral-100 py-sm">
-                  <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs ${t.failed ? 'bg-red-100 text-red-800' : t.kind === 'email' || t.kind === 'offer' ? 'bg-blue-50 text-blue-900' : t.kind === 'money' ? 'bg-amber-50 text-amber-900' : t.kind === 'repair' ? 'bg-orange-50 text-orange-900' : 'bg-neutral-100 text-neutral-700'}`} aria-hidden>{KIND_ICON[t.kind]}</span>
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs ${t.failed ? 'bg-red-100 text-red-800' : t.kind === 'email' || t.kind === 'offer' ? 'bg-blue-50 text-blue-900' : t.kind === 'money' ? 'bg-amber-50 text-amber-900' : t.kind === 'repair' ? 'bg-orange-50 text-orange-900' : 'bg-neutral-100 text-neutral-700'}`} aria-hidden>{<LineIcon glyph={KIND_ICON[t.kind]} />}</span>
                   <div className="min-w-0">
                     {t.href ? <Link href={t.href} className="block text-sm font-bold text-neutral-900 hover:underline">{t.title}</Link> : <p className="text-sm font-bold text-neutral-900">{t.title}</p>}
                     {t.detail && <p className={`text-[13px] ${t.failed ? 'font-semibold text-red-700' : 'text-neutral-600'}`}>{t.detail}</p>}

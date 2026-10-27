@@ -184,7 +184,7 @@ export async function PATCH(req: NextRequest) {
 
   // Notify tenant
   await insertNotifications(service, [vr.tenant_person_id], {
-    title: '✅ Add-on request approved',
+    title: 'Add-on request approved',
     body: adminResponse
       ? `Your request has been approved and added to the visit. ${adminResponse}`
       : `Your request to add "${vr.request_text.slice(0, 60)}${vr.request_text.length > 60 ? '…' : ''}" to the visit has been approved.`,

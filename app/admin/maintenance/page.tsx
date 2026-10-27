@@ -17,6 +17,7 @@ import { localISO } from '@/lib/dateUtils'
 import { jobPlace } from '@/lib/repairs/where'
 import BookingLinkPanel from './BookingLinkPanel'
 import JobDetailsPanel from './JobDetailsPanel'
+import LineIcon from '@/components/LineIcon'
 
 interface Ticket {
   id: string;
@@ -1279,7 +1280,7 @@ export default function MaintenanceDashboard() {
             </div>
             {plannerAdded === addToPlannerTicket.id ? (
               <div className="p-6 text-center">
-                <p className="text-2xl mb-2">✅</p>
+                <p className="text-2xl mb-2"><LineIcon glyph="✅" /></p>
                 <p className="text-sm font-semibold text-neutral-800">Added to Planner</p>
               </div>
             ) : plannerBoards.length === 0 ? (

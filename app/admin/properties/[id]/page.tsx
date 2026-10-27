@@ -31,6 +31,7 @@ import BackButton from '@/app/components/BackButton'
 import TenantAppTab from './components/TenantAppTab'
 import { landlordFormalNames } from '@/lib/people'
 import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
+import LineIcon from '@/components/LineIcon'
 
 const fullDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
@@ -273,7 +274,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
             className="px-md py-md md:px-lg font-semibold text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition border border-blue-500 whitespace-nowrap shrink-0"
           >
             <span className="hidden md:inline">Quick Notify</span>
-            <span className="md:hidden">📢</span>
+            <span className="md:hidden"><LineIcon glyph="📢" /></span>
           </button>
         }
       />

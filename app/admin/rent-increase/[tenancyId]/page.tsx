@@ -9,6 +9,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { displayName } from '@/lib/people'
+import LineIcon from '@/components/LineIcon'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -502,7 +503,7 @@ export default function RentIncreasePage() {
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/tenancy-management" />} />
       <main className="mx-auto max-w-6xl px-lg py-xl text-center">
-        <div className="text-5xl mb-lg">📨</div>
+        <div className="text-5xl mb-lg"><LineIcon glyph="📨" /></div>
         <h1 className="text-2xl font-bold text-neutral-900">Section 13 notice sent</h1>
         <p className="text-sm text-neutral-600 mb-sm">
           Both documents have been emailed to <strong>{person?.email}</strong>.

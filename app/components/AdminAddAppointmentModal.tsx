@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import LineIcon from '@/components/LineIcon'
 interface AdminAddAppointmentModalProps {
   isOpen: boolean
   onClose: () => void
@@ -266,7 +267,7 @@ export default function AdminAddAppointmentModal({
                 onClick={() => handleTypeSelect(type.id)}
                 className="rounded-xl border border-neutral-800 bg-neutral-900 p-lg text-left hover:border-neutral-600 hover:bg-neutral-800 transition-all group"
               >
-                <div className="text-2xl mb-sm">{type.icon}</div>
+                <div className="text-2xl mb-sm">{<LineIcon glyph={type.icon} />}</div>
                 <div className="font-semibold text-white text-sm">{type.label}</div>
               </button>
             ))}

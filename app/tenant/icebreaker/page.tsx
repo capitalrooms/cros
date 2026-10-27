@@ -12,6 +12,7 @@ import {
   answeredCount,
   type IcebreakerAnswers,
 } from '@/lib/icebreaker'
+import LineIcon from '@/components/LineIcon'
 
 /**
  * Tenant-facing icebreaker questionnaire. A light, optional profile the tenant
@@ -121,7 +122,7 @@ export default function IcebreakerPage() {
           {ICEBREAKER_QUESTIONS.map((q) => (
             <div key={q.id} className="rounded-2xl border border-neutral-200 bg-white p-lg">
               <label className="block text-sm font-bold text-neutral-900">
-                <span className="mr-sm">{q.emoji}</span>
+                <span className="mr-sm">{<LineIcon glyph={q.emoji} />}</span>
                 {q.prompt}
               </label>
               <textarea

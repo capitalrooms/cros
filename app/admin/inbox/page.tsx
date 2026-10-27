@@ -16,6 +16,7 @@ import InvoiceReview from '@/app/components/InvoiceReview'
 import TenantPicker from '@/app/components/TenantPicker'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { displayName } from '@/lib/people'
+import LineIcon from '@/components/LineIcon'
 const BLANK: AIResult = {
   doc_type: 'other', confidence: 0, summary: '', issue_date: '', expiry_date: '', provider: '',
   policy_number: '', property_address: '', person_name: '', person_phone: '', person_email: '',
@@ -265,7 +266,7 @@ export default function InboxPage() {
                         const others = duplicateFilenames[d.filename].filter(x => x.id !== d.id)
                         return (
                           <div className="mb-md rounded-lg border border-amber-300 bg-amber-50 px-md py-sm flex items-start gap-sm">
-                            <span className="shrink-0 mt-xs">⚠️</span>
+                            <span className="shrink-0 mt-xs"><LineIcon glyph="⚠️" /></span>
                             <div>
                               <p className="text-sm font-semibold text-amber-900">Possible duplicate — same filename already in inbox</p>
                               <p className="text-xs text-amber-800 mt-xs">

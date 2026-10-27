@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       const propName = (clean.properties as any)?.name ?? 'a property'
       const taskList = tasks.slice(0, 3).join(', ') + (tasks.length > 3 ? ` +${tasks.length - 3} more` : '')
       await insertNotifications(service, admins.map((a: any) => a.id), {
-        title: `🧹 Cleaner extras request — ${propName}`,
+        title: `Cleaner extras request — ${propName}`,
         body: `${tenantName} has requested: ${taskList}`,
         type: 'cleaner_extras_request',
         link: `/admin/maintenance`,
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     // Notify the cleaner assigned to this clean
     if (clean.cleaner_id) {
       await insertNotifications(service, [clean.cleaner_id], {
-        title: '🧹 Extra cleaning requested',
+        title: 'Extra cleaning requested',
         body: `A tenant has requested extras for the ${(clean.properties as any)?.name ?? 'property'} clean: ${tasks.slice(0, 2).join(', ')}${tasks.length > 2 ? '…' : ''}`,
         type: 'cleaner_extras_request',
         link: `/cleaner`,

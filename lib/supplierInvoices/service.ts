@@ -167,7 +167,7 @@ export async function send(s: S, personId: string, role: 'contractor' | 'cleaner
   if (d.toCapitalRooms) {
     const { data: office } = await s.from('people').select('id').in('role', ['administrator', 'admin'])
     const ids = ((office ?? []) as any[]).map(p => p.id)
-    const title = `🧾 Invoice ${num} from ${sh.prof.tradingName}`, body = `£${sh.total.toFixed(2)}${sh.propertyLine ? ` · ${firstLine(sh.propertyLine)}` : sh.period ? ` · ${sh.period}` : ''} — to approve`
+    const title = `Invoice ${num} from ${sh.prof.tradingName}`, body = `£${sh.total.toFixed(2)}${sh.propertyLine ? ` · ${firstLine(sh.propertyLine)}` : sh.period ? ` · ${sh.period}` : ''} — to approve`
     await insertNotifications(s, ids, { title, body, type: 'finance', link: '/admin/supplier-invoices' })
     await sendServerPush({ personIds: ids, title, body, url: '/admin/supplier-invoices', tag: `inv-${inv.id}` })
   }

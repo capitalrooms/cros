@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { signIn } from '@/lib/auth'
 import { authenticateWithPasskey, isPasskeySupported } from '@/lib/webauthn'
+import LineIcon from '@/components/LineIcon'
 
 export default function EnhancedLoginPage() {
   const router = useRouter()
@@ -152,7 +153,7 @@ export default function EnhancedLoginPage() {
                   disabled={passkeyLoading}
                   className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold py-md hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 transition-all mb-lg flex items-center justify-center gap-md"
                 >
-                  <span>👤</span>
+                  <span><LineIcon glyph="👤" /></span>
                   {passkeyLoading ? 'Authenticating...' : 'Sign in with Face ID'}
                 </button>
               )}

@@ -8,6 +8,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
+import LineIcon from '@/components/LineIcon'
 
 interface Setting {
   key: string
@@ -227,7 +228,7 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="px-lg py-lg flex items-center gap-lg">
-            <div className="text-2xl">🎨</div>
+            <div className="text-2xl"><LineIcon glyph="🎨" /></div>
             <div className="flex-1">
               <p className="text-sm font-semibold text-neutral-900">Moved to Message Templates</p>
               <p className="text-xs text-neutral-500 mt-xs">

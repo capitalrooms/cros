@@ -11,6 +11,7 @@ import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { firstRentPayment } from '@/lib/tenancy/firstRent'
 import { fiveWeeksDeposit, oneWeekRent } from '@/lib/tenancy/deposit'
 import { resolveFee, describeFee } from '@/lib/fees/managementFee'
+import LineIcon from '@/components/LineIcon'
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -774,7 +775,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                             />
                           ) : (
                             <div className="hidden sm:flex w-10 h-10 rounded-md bg-neutral-100 items-center justify-center flex-shrink-0 text-neutral-300 text-xs">
-                              🖼
+                              <LineIcon glyph="🖼" />
                             </div>
                           )}
                           <div>
@@ -1008,7 +1009,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                     {/* Marketing rent — always visible */}
                     <div className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-md py-sm gap-md">
                       <div className="flex items-center gap-md min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-base flex-shrink-0">💰</div>
+                        <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-base flex-shrink-0"><LineIcon glyph="💰" /></div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-neutral-900">Marketing rent</p>
                           <p className="text-xs text-neutral-400">Shown to prospective tenants in lettings</p>
@@ -1114,7 +1115,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                       {/* the room's listing — photos, details, share link, SpareRoom import (17 Oct 2026) */}
                       <button onClick={() => router.push(`/lettings/listing/${selectedRoom.id}?from=${encodeURIComponent(`/admin/properties/${propertyId}?tab=units`)}`)}
                         className="flex items-center gap-xs rounded-lg border border-neutral-900 bg-neutral-900 px-sm py-xs text-xs font-semibold text-white hover:bg-neutral-700 transition">
-                        <span>🏷️</span>Listing
+                        <span><LineIcon glyph="🏷️" /></span>Listing
                       </button>
                       <button onClick={() => router.push(`/admin/properties/${propertyId}/rooms/${selectedRoom.id}`)}
                         className="flex items-center gap-xs rounded-lg border border-neutral-900 bg-white px-sm py-xs text-xs font-semibold text-neutral-900 hover:bg-neutral-50 transition">
@@ -1124,7 +1125,7 @@ export default function UnitsTab({ propertyId, propertyType, bedrooms, initialRo
                         <button key={label}
                           onClick={() => router.push(`/admin/properties/${propertyId}/rooms/${selectedRoom.id}/edit`)}
                           className="flex items-center gap-xs text-xs text-neutral-500 border border-neutral-200 bg-white rounded-lg px-sm py-xs hover:bg-neutral-50 transition">
-                          <span>{icon}</span>{label}
+                          <span>{<LineIcon glyph={icon} />}</span>{label}
                         </button>
                       ))}
                       <button

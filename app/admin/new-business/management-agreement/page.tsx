@@ -338,7 +338,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
 
         {onboardingId && (
           <div className="mb-lg rounded-xl bg-blue-50 border border-blue-200 px-md py-sm text-sm text-blue-700">
-            ℹ️ Pre-filled from onboarding record — review and adjust before generating.
+            Pre-filled from onboarding record — review and adjust before generating.
           </div>
         )}
 

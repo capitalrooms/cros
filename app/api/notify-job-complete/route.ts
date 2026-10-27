@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prepare notification message
-    let title = '✅ Work Complete';
+    let title = 'Work Complete';
     let body = `${ticket.title} at ${ticket.properties?.name} is now complete.`;
 
     if (hasReturnVisit && returnVisitDate) {

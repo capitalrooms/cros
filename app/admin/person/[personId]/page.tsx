@@ -12,6 +12,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import LineIcon from '@/components/LineIcon'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Person {
@@ -244,7 +245,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
           <div className="flex items-start justify-between gap-lg mb-lg">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-xs">
-                {meta.emoji} {meta.label}
+                {<LineIcon glyph={meta.emoji} />} {meta.label}
               </p>
               <h1 className="text-2xl font-extrabold text-white" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{name}</h1>
               <p className="text-sm text-neutral-400 mt-xs">{person.email}</p>
@@ -373,7 +374,7 @@ export default function PersonPage({ params }: { params: Promise<{ personId: str
 
             {/* Role badge */}
             <div className="bg-white rounded-2xl border border-neutral-200 px-lg py-md flex items-center gap-sm">
-              <span className={`text-xs font-bold px-md py-xs rounded-full ${meta.colour}`}>{meta.emoji} {meta.label}</span>
+              <span className={`text-xs font-bold px-md py-xs rounded-full ${meta.colour}`}>{<LineIcon glyph={meta.emoji} />} {meta.label}</span>
               <p className="text-xs text-neutral-400">Role determines what this person sees when they log in</p>
             </div>
           </div>
