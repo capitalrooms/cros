@@ -23,7 +23,7 @@ interface Data {
   context: {
     tenancyId: string; tenant: { name: string; email: string; emails?: string[]; formalName: string }; address: string; landlordName: string
     property: { id: string }; startDate: string | null; rentMonthly: number; rentDueDay: number; deposit: number; holdingDeposit: number
-    paymentRef: string; paymentRefStored: boolean; warnings: string[]; documents: Doc[]
+    paymentRef: string; paymentRefStored: boolean; warnings: string[]; documents: Doc[]; lettingType?: string | null
   }
   packs: Pack[]; commsLive: boolean; defaults: { subject: string; message: string }; setupNeeded: string | null
 }
@@ -237,7 +237,10 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
               <button onClick={() => previewDoc('agreement')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'agreement' ? 'Building…' : 'Preview agreement'}</button>
               <button onClick={() => previewDoc('check_in')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'check_in' ? 'Building…' : 'Preview check-in balance'}</button>
               {c.documents.some(d => d.key === 'prescribed_info') && <button onClick={() => previewDoc('prescribed_info')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'prescribed_info' ? 'Building…' : 'Preview deposit prescribed information'}</button>}
-              <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={parking} onChange={e => setParking(e.target.checked)} />Include parking clause</label>
+              {/* only Nigel's let-only agreement has a parking clause (27 Oct 2026) — managed packs use the Capital Rooms one */}
+              {c.lettingType === 'let_only'
+                ? <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={parking} onChange={e => setParking(e.target.checked)} />Nigel’s let-only agreement · include the parking clause</label>
+                : <span className="text-xs text-neutral-500">Capital Rooms agreement</span>}
             </div>
             {c.warnings.length > 0 && <ul className="list-disc space-y-xs pl-lg text-sm text-amber-800">{c.warnings.map(w => <li key={w}>{w}</li>)}</ul>}
           </section>
