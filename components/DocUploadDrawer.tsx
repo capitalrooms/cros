@@ -181,7 +181,7 @@ export default function DocUploadDrawer({
         <div className="flex items-start justify-between px-lg py-md border-b border-neutral-200 shrink-0">
           <div>
             <p className="text-xs text-neutral-400 font-semibold uppercase tracking-widest mb-xs">{title}</p>
-            <h2 className="text-lg font-bold text-neutral-900">📎 {subtitle || 'Upload document'}</h2>
+            <h2 className="text-lg font-bold text-neutral-900">{subtitle || 'Upload document'}</h2>
           </div>
           <button onClick={onClose} className="text-neutral-400 hover:text-neutral-900 text-2xl leading-none mt-xs">×</button>
         </div>

@@ -124,7 +124,7 @@ export default function HousematesPage() {
         {/* Nudge the tenant to fill in their own profile if they haven't. */}
         {myCount < 2 && (
           <div className="mt-lg rounded-2xl border-2 border-neutral-900 bg-white p-lg">
-            <p className="text-sm font-bold text-neutral-900">Your housemates can&apos;t see you yet 👋</p>
+            <p className="text-sm font-bold text-neutral-900">Your housemates can&apos;t see you yet</p>
             <p className="mt-xs text-sm text-neutral-600">
               Add a few lines about yourself so the house can say hello.
             </p>

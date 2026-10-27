@@ -160,7 +160,7 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
       {/* Header */}
       <div className="flex items-center justify-between gap-md">
         <div className="flex-1">
-          <h3 className="text-sm font-bold uppercase text-neutral-400">🔍 Inspection Log</h3>
+          <h3 className="text-sm font-bold uppercase text-neutral-400">Inspection Log</h3>
           <p className="text-xs text-neutral-500 mt-xs">Fire door & smoke alarm checks</p>
         </div>
         <div className="flex gap-sm">
@@ -187,7 +187,7 @@ export default function ComplianceInspectionGrid({ propertyId }: ComplianceInspe
               }}
               className="px-lg py-md bg-neutral-700 text-white rounded-lg font-semibold text-sm hover:bg-neutral-600 transition"
             >
-              📥 Export
+              Export
             </button>
           )}
           <button

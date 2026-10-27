@@ -102,7 +102,7 @@ export default function AcknowledgmentNotesPage() {
 
       if (updateError) throw updateError
 
-      alert('✅ Acknowledged. Thank you!')
+      alert('Acknowledged. Thank you!')
       setAcknowledgingId(null)
       setPhotoFile(null)
 
@@ -136,12 +136,12 @@ export default function AcknowledgmentNotesPage() {
       <AppBar left={<BackButton href="/tenant" label="Home" />} />
 
       <main className="mx-auto max-w-2xl px-lg py-2xl">
-        <h1 className="text-3xl font-bold text-neutral-900 mb-lg">📝 Important Notes</h1>
+        <h1 className="text-3xl font-bold text-neutral-900 mb-lg">Important Notes</h1>
 
         {/* Active Notes */}
         {activeNotes.length > 0 && (
           <section className="mb-3xl">
-            <h2 className="text-xl font-bold text-neutral-900 mb-md">⏰ Awaiting Your Acknowledgment</h2>
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">Awaiting Your Acknowledgment</h2>
             <div className="space-y-md">
               {activeNotes.map((note) => (
                 <div
@@ -160,7 +160,7 @@ export default function AcknowledgmentNotesPage() {
                       {note.photo_required && (
                         <div>
                           <label className="block text-sm font-semibold text-neutral-900 mb-sm">
-                            📸 Upload Photo Evidence
+                            Upload Photo Evidence
                           </label>
                           <input
                             type="file"
@@ -169,7 +169,7 @@ export default function AcknowledgmentNotesPage() {
                             className="block w-full text-sm text-neutral-600 file:px-md file:py-sm file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-600 hover:file:bg-blue-200"
                           />
                           {photoFile && (
-                            <p className="text-xs text-green-600 mt-xs">✅ {photoFile.name} selected</p>
+                            <p className="text-xs text-green-600 mt-xs">{photoFile.name} selected</p>
                           )}
                         </div>
                       )}
@@ -198,7 +198,7 @@ export default function AcknowledgmentNotesPage() {
                       onClick={() => setAcknowledgingId(note.id)}
                       className="w-full rounded-xl bg-blue-600 px-md py-sm text-sm font-semibold text-white hover:bg-blue-700"
                     >
-                      {note.photo_required ? '📸 Acknowledge with Photo' : '✓ Acknowledge'}
+                      {note.photo_required ? 'Acknowledge with Photo' : '✓ Acknowledge'}
                     </button>
                   )}
                 </div>
@@ -210,7 +210,7 @@ export default function AcknowledgmentNotesPage() {
         {/* Acknowledged Notes */}
         {acknowledgedNotes.length > 0 && (
           <section>
-            <h2 className="text-xl font-bold text-neutral-900 mb-md">✅ Acknowledged</h2>
+            <h2 className="text-xl font-bold text-neutral-900 mb-md">Acknowledged</h2>
             <div className="space-y-sm">
               {acknowledgedNotes.map((note) => (
                 <div

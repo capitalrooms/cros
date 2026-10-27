@@ -1206,12 +1206,12 @@ export default function RoomDashboardPage({
                     <div className="flex items-center gap-sm flex-wrap">
                       <span className="text-xs font-semibold text-neutral-500">Generate:</span>
                       <button onClick={() => generateAdvert('listing')} disabled={!!generatingAdvert} className="px-md py-xs rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition">
-                        {generatingAdvert === 'listing' ? '✨ Drafting…' : '✨ Advert'}
+                        {generatingAdvert === 'listing' ? 'Drafting…' : 'Advert'}
                       </button>
                       <button onClick={() => generateAdvert('group')} disabled={!!generatingAdvert} className="px-md py-xs rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 disabled:opacity-50 transition">
-                        {generatingAdvert === 'group' ? '✨ Drafting…' : '✨ Group post'}
+                        {generatingAdvert === 'group' ? 'Drafting…' : 'Group post'}
                       </button>
-                      {detectedChips.length > 0 && <span className="text-xs text-neutral-400">✨ Uses detected room features</span>}
+                      {detectedChips.length > 0 && <span className="text-xs text-neutral-400">Uses detected room features</span>}
                     </div>
                     <textarea value={advertDraft} onChange={e => setAdvertDraft(e.target.value)} rows={8} placeholder="Generate an advert listing or a quick group post above — then edit and save…" className="w-full rounded-lg border border-neutral-200 px-md py-sm text-sm text-neutral-900 resize-y focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none bg-white" />
                     {advertDraft !== (room.marketing_description || '') && (
@@ -1248,7 +1248,7 @@ export default function RoomDashboardPage({
                       disabled={aiScanning || uploadingPhotos}
                       className="px-md py-xs rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 disabled:opacity-50 transition"
                     >
-                      {aiScanning ? '✨ Scanning…' : '✨ AI Feature Scan'}
+                      {aiScanning ? 'Scanning…' : 'AI Feature Scan'}
                     </button>
                   )}
                   <button
@@ -1312,7 +1312,7 @@ export default function RoomDashboardPage({
 
               {photos.length > 0 && !room.detected_features && !pendingScanFeatures && (
                 <p className="text-xs text-neutral-400 mt-md">
-                  The first photo is used as the room hero image. ✨ AI Feature Scan detects features (flooring, windows, wardrobe) for advert copy.
+                  The first photo is used as the room hero image. AI Feature Scan detects features (flooring, windows, wardrobe) for advert copy.
                 </p>
               )}
 
@@ -1331,7 +1331,7 @@ export default function RoomDashboardPage({
                   <div className="mt-lg rounded-xl border border-purple-200 bg-purple-50 p-lg space-y-md">
                     <div className="flex items-start justify-between gap-md">
                       <div>
-                        <p className="text-sm font-semibold text-purple-900">✨ Features detected</p>
+                        <p className="text-sm font-semibold text-purple-900">Features detected</p>
                         <p className="text-xs text-purple-600 mt-xs">Remove anything that looks wrong, then save.</p>
                       </div>
                       <button onClick={() => setPendingScanFeatures(null)} className="text-xs text-purple-400 hover:text-purple-700 shrink-0">Dismiss</button>
@@ -1428,7 +1428,7 @@ export default function RoomDashboardPage({
                 return (
                   <div className="mt-xl pt-lg border-t border-neutral-100">
                     <div className="flex items-center justify-between gap-md mb-xs">
-                      <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">✨ AI-detected features</p>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">AI-detected features</p>
                       <button onClick={clearAllFeatures} className="text-xs text-neutral-400 hover:text-red-500 transition">
                         Clear all
                       </button>
@@ -1497,7 +1497,7 @@ export default function RoomDashboardPage({
                           : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
                       }`}
                     >
-                      {f === 'all' ? 'All' : f === 'fire_door' ? '🚪 Fire Door' : '🟢 Smoke Alarm'}
+                      {f === 'all' ? 'All' : f === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}
                     </button>
                   ))}
                 </div>
@@ -1530,7 +1530,7 @@ export default function RoomDashboardPage({
                             'bg-neutral-100 text-neutral-500'
                           }`}>
                             {check.tenant_response === 'confirmed_ok' ? '✓ All clear' :
-                             check.tenant_response === 'issue_reported' ? '⚠ Issue reported' :
+                             check.tenant_response === 'issue_reported' ? 'Issue reported' :
                              check.response_received_at ? 'Responded' : 'Awaiting response'}
                           </span>
                         </div>
@@ -1540,7 +1540,7 @@ export default function RoomDashboardPage({
                         {check.photo_attachment_id && /^https?:/.test(check.photo_attachment_id) && (
                           <StoredLink href={check.photo_attachment_id}
                             className="inline-flex items-center gap-xs mt-sm text-xs text-blue-600 hover:text-blue-800 font-medium">
-                            📷 View photo
+                            View photo
                           </StoredLink>
                         )}
                       </div>

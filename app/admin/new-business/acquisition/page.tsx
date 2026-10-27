@@ -309,7 +309,7 @@ export default function AcquisitionEmailPage() {
                   </div>
 
                   {sendError && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-700">⚠ {sendError}</div>
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-md text-sm text-red-700">{sendError}</div>
                   )}
 
                   <div className="flex gap-md">
@@ -321,7 +321,7 @@ export default function AcquisitionEmailPage() {
                       disabled={sending || !email.trim() || !firstName.trim()}
                       className="flex-1 rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40"
                     >
-                      {sending ? 'Sending…' : '✉ Send now'}
+                      {sending ? 'Sending…' : 'Send now'}
                     </button>
                   </div>
                 </>

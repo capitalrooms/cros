@@ -897,13 +897,13 @@ function CompliancePageInner({ tab }: { tab?: string }) {
               onClick={() => setActiveTab('certificates')}
               className={`px-lg py-md font-semibold transition ${activeTab === 'certificates' ? 'border-b-2 border-neutral-900 text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
             >
-              📋 Property Certificates
+              Property Certificates
             </button>
             <button
               onClick={() => setActiveTab('monthly-checks')}
               className={`px-lg py-md font-semibold transition relative ${activeTab === 'monthly-checks' ? 'border-b-2 border-neutral-900 text-neutral-900' : 'text-neutral-500 hover:text-neutral-700'}`}
             >
-              🔔 Monthly Checks
+              Monthly Checks
               {issuesCount > 0 && (
                 <span className="ml-sm inline-block rounded-full bg-red-600 text-white px-sm py-0 text-xs font-bold">{issuesCount}</span>
               )}
@@ -938,7 +938,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
                 {(['all', 'fire_door', 'smoke_alarm'] as const).map((t) => (
                   <button key={t} onClick={() => setChecksTypeFilter(t)}
                     className={`px-md py-sm text-sm font-semibold rounded-lg transition ${checksTypeFilter === t ? 'bg-neutral-900 text-white' : 'bg-white border border-neutral-300 text-neutral-700'}`}>
-                    {t === 'all' ? 'All types' : t === 'fire_door' ? '🚪 Fire Door' : '🔔 Smoke Alarm'}
+                    {t === 'all' ? 'All types' : t === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}
                   </button>
                 ))}
               </div>
@@ -957,12 +957,12 @@ function CompliancePageInner({ tab }: { tab?: string }) {
               if (tenantIssues.length === 0) return null
               return (
                 <div className="rounded-xl border-2 border-red-200 bg-red-50 p-lg">
-                  <p className="text-sm font-bold text-red-800 mb-md">⚠️ Tenant-reported issues ({tenantIssues.length})</p>
+                  <p className="text-sm font-bold text-red-800 mb-md">Tenant-reported issues ({tenantIssues.length})</p>
                   <div className="space-y-sm">
                     {tenantIssues.map(c => (
                       <div key={c.id} className="bg-white rounded-lg border border-red-200 p-md">
                         <p className="text-sm font-semibold text-neutral-900">{c.property_name} · {c.room_name}</p>
-                        <p className="text-xs text-neutral-600 mt-xs">{c.check_type === 'fire_door' ? '🚪 Fire Door' : '🔔 Smoke Alarm'} · reported by {c.tenant_name}</p>
+                        <p className="text-xs text-neutral-600 mt-xs">{c.check_type === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'} · reported by {c.tenant_name}</p>
                         {c.issue_description && <p className="text-xs text-red-700 mt-xs font-semibold">{c.issue_description}</p>}
                       </div>
                     ))}
@@ -991,7 +991,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-md flex-wrap">
-                          <p className="text-sm font-semibold text-neutral-900">{log.check_type === 'fire_door' ? '🚪 Fire Door' : '🔔 Smoke Alarm'}</p>
+                          <p className="text-sm font-semibold text-neutral-900">{log.check_type === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}</p>
                           <p className="text-xs text-neutral-500">{propById[log.property_id] || 'Unknown property'}</p>
                         </div>
                         <p className="text-xs text-neutral-500 mt-xs">
@@ -1028,7 +1028,7 @@ function CompliancePageInner({ tab }: { tab?: string }) {
                         {(['fire_door', 'smoke_alarm'] as const).map(t => (
                           <button key={t} type="button" onClick={() => setLogTab(t)}
                             className={`flex-1 py-sm rounded-lg text-sm font-semibold transition ${logTab === t ? 'bg-neutral-900 text-white' : 'border border-neutral-300 text-neutral-700'}`}>
-                            {t === 'fire_door' ? '🚪 Fire Door' : '🔔 Smoke Alarm'}
+                            {t === 'fire_door' ? 'Fire Door' : 'Smoke Alarm'}
                           </button>
                         ))}
                       </div>

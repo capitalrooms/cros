@@ -227,7 +227,7 @@ export default function LetOnlyPropertiesPage() {
                           <span className="text-base font-bold text-neutral-900">{prop.name}</span>
                           <span className="text-[11px] font-semibold px-sm py-0.5 rounded-full bg-purple-100 text-purple-800 tracking-wide">LET ONLY</span>
                           {!hasBankDetails && (
-                            <span className="text-[11px] font-semibold px-sm py-0.5 rounded-full bg-amber-100 text-amber-800">⚠ Bank details missing</span>
+                            <span className="text-[11px] font-semibold px-sm py-0.5 rounded-full bg-amber-100 text-amber-800">Bank details missing</span>
                           )}
                         </div>
                         <p className="text-xs text-neutral-500 mt-0.5 whitespace-pre-line">{blockAddress(prop.address)}</p>

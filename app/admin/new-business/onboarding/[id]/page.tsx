@@ -222,7 +222,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
           <p className="text-sm text-neutral-500">{row.email}{f.j_contact_email ? ` · ${f.j_contact_email}` : ''} · {submitted ? `Submitted ${fmt(f.__submitted_at ?? row.docs_received_at)}` : 'Form not yet submitted'}</p>
         </div>
         <div className="flex flex-wrap gap-sm">
-          {!submitted && <button onClick={resend} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-40">{busy === 'resend' ? 'Sending…' : '✉ Send the form link again'}</button>}
+          {!submitted && <button onClick={resend} disabled={!!busy} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-40">{busy === 'resend' ? 'Sending…' : 'Send the form link again'}</button>}
           {submitted && <button onClick={rerun} disabled={!!busy} className="rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-40">{busy === 'rerun' ? 'Running checks…' : '↻ Re-run checks'}</button>}
           {submitted && <button onClick={() => downloadPdf(`/api/landlord-onboarding/${id}/aml-report`, 'CDD-Record.pdf')} className="rounded-xl bg-neutral-900 px-md py-sm text-sm font-semibold text-white hover:bg-neutral-700">⬇ AML report (PDF)</button>}
         </div>

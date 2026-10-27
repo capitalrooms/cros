@@ -22,7 +22,7 @@ export function NotificationBanner({ notifications: initialNotifications }: { no
       const demoNotifications: Notification[] = [
         {
           id: '1',
-          title: '🧹 Your cleaning is scheduled',
+          title: 'Your cleaning is scheduled',
           message: 'A cleaning appointment has been scheduled for tomorrow at 10:00 AM.',
           type: 'info',
           link: '/tenant/maintenance',
@@ -30,7 +30,7 @@ export function NotificationBanner({ notifications: initialNotifications }: { no
         },
         {
           id: '2',
-          title: '👀 Viewing scheduled',
+          title: 'Viewing scheduled',
           message: 'A property viewing has been booked for your room. Please ensure it\'s accessible.',
           type: 'alert',
           link: '/tenant/viewings',

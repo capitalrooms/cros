@@ -272,7 +272,7 @@ export default function TenancyManagementPage() {
         {/* Active Tenancies */}
         <div className="mb-3xl">
           <h2 className="text-xl font-bold text-neutral-900 mb-lg">
-            🏠 Active Tenancies ({activeTenancies.length})
+            Active Tenancies ({activeTenancies.length})
           </h2>
 
           {activeTenancies.length === 0 ? (
@@ -314,7 +314,7 @@ export default function TenancyManagementPage() {
         {/* On Notice Tenancies */}
         <div>
           <h2 className="text-xl font-bold text-neutral-900 mb-lg">
-            ⏰ On Notice ({onNoticeTenancies.length})
+            On Notice ({onNoticeTenancies.length})
           </h2>
 
           {onNoticeTenancies.length === 0 ? (
@@ -361,13 +361,13 @@ export default function TenancyManagementPage() {
                         )}
                         {!tenancy.checkout_confirmation_sent_at && (
                           <p className="text-xs text-amber-700 font-semibold mt-xs">
-                            ⚠️ Checkout email not yet sent
+                            Checkout email not yet sent
                           </p>
                         )}
                         {hasRescindRequest && (
                           <div className="mt-sm rounded-lg bg-purple-100 border border-purple-300 p-sm">
                             <p className="text-xs font-bold text-purple-800">
-                              🔄 Rescind request — tenant wants to cancel notice
+                              Rescind request — tenant wants to cancel notice
                             </p>
                             {tenancy.rescind_note && (
                               <p className="text-xs text-purple-700 mt-xs">

@@ -92,7 +92,7 @@ export default function QuickNotifyPage() {
                   className="text-left rounded-xl border border-neutral-200 bg-white p-lg hover:border-neutral-300 hover:shadow-sm transition-all"
                 >
                   <h3 className="text-base font-semibold text-neutral-900 mb-xs whitespace-pre-line">
-                    📍 {blockAddress(property.name || property.address)}
+                    {blockAddress(property.name || property.address)}
                   </h3>
                   <p className="text-xs text-neutral-400">Click to send notifications</p>
                 </button>

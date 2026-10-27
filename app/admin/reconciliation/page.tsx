@@ -421,7 +421,7 @@ export default function ReconciliationPage() {
                 <span className="rounded bg-white px-1.5 py-px font-mono text-[11px] text-neutral-700 ring-1 ring-[#D6DCE3]">{stmtRef}</span>
                 {stmtRows.some(r => r.needs_review) && <span className="rounded bg-amber-100 px-1.5 py-px text-[10px] font-bold uppercase text-amber-800">Needs review</span>}
                 <span className="ml-auto flex items-center gap-sm">
-                  {/^LS\d/i.test(stmtRef) && <button type="button" onClick={() => previewStatement(stmtId, `${propName} · ${stmtRef}`)} className="rounded-md border border-[#C9D1DA] bg-white px-sm py-1 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">📄 View statement</button>}
+                  {/^LS\d/i.test(stmtRef) && <button type="button" onClick={() => previewStatement(stmtId, `${propName} · ${stmtRef}`)} className="rounded-md border border-[#C9D1DA] bg-white px-sm py-1 text-xs font-semibold text-neutral-800 hover:bg-neutral-50">View statement</button>}
                   {tab === 'pending' && open.length > 1 && (
                     <button type="button" onClick={() => confirmMany(open.map(r => r.id))} disabled={open.some(r => busy[r.id])} className="rounded-md bg-neutral-900 px-sm py-1 text-xs font-bold text-white disabled:opacity-50">Confirm all {open.length}</button>
                   )}
@@ -588,7 +588,7 @@ export default function ReconciliationPage() {
                         onClick={() => getFuzzySuggestion(txn.id)}
                         className="text-xs font-semibold rounded-lg border border-indigo-200 text-indigo-700 px-md py-sm hover:bg-indigo-50"
                       >
-                        🤖 Get AI suggestion
+                        Get AI suggestion
                       </button>
                     )}
 
@@ -601,7 +601,7 @@ export default function ReconciliationPage() {
                         <div className="flex items-start justify-between gap-md flex-wrap">
                           <div>
                             <p className="text-sm font-semibold text-neutral-900">
-                              🤖 AI suggests: {suggestion.suggestion.tenant_name}
+                              AI suggests: {suggestion.suggestion.tenant_name}
                               <span className={`ml-sm text-xs font-bold px-sm py-xs rounded-full ${suggestion.confidence === 'high' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                                 {suggestion.confidence} confidence
                               </span>
@@ -657,7 +657,7 @@ export default function ReconciliationPage() {
 
                     {suggestion && !suggestion.loading && !suggestion.suggestion && (
                       <p className="text-xs text-neutral-500 bg-neutral-50 rounded-lg px-md py-sm border border-neutral-200">
-                        🤖 {suggestion.reason}
+                        {suggestion.reason}
                       </p>
                     )}
 

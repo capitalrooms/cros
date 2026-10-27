@@ -47,17 +47,17 @@ const DOCUMENT_TYPES = [
 ]
 
 const NOTIF_CATEGORIES = [
-  { key: 'urgent',               label: '🚨 Urgent issues' },
-  { key: 'job_approval',         label: '✅ Job approvals' },
-  { key: 'job_updates',          label: '🔧 Job updates' },
-  { key: 'rent_received',        label: '💷 Rent received' },
-  { key: 'rent_arrears',         label: '⚠️ Rent arrears' },
-  { key: 'financial_statements', label: '📄 Monthly statements' },
-  { key: 'compliance_expiry',    label: '📋 Compliance expiry' },
-  { key: 'compliance_breach',    label: '🔴 Compliance breach' },
-  { key: 'tenant_changes',       label: '🏠 Tenant changes' },
-  { key: 'cleaner_visits',       label: '🧹 Cleaner visits' },
-  { key: 'viewings',             label: '👀 Viewings' },
+  { key: 'urgent',               label: 'Urgent issues' },
+  { key: 'job_approval',         label: 'Job approvals' },
+  { key: 'job_updates',          label: 'Job updates' },
+  { key: 'rent_received',        label: 'Rent received' },
+  { key: 'rent_arrears',         label: 'Rent arrears' },
+  { key: 'financial_statements', label: 'Monthly statements' },
+  { key: 'compliance_expiry',    label: 'Compliance expiry' },
+  { key: 'compliance_breach',    label: 'Compliance breach' },
+  { key: 'tenant_changes',       label: 'Tenant changes' },
+  { key: 'cleaner_visits',       label: 'Cleaner visits' },
+  { key: 'viewings',             label: 'Viewings' },
 ]
 
 const MGMT_TYPES = [
@@ -236,7 +236,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
     const res  = await fetch('/api/invite-landlord', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId }) })
     const json = await res.json()
     setInviting(false)
-    setInviteMsg(res.ok ? `✓ Invite sent to ${json.sentTo}` : `⚠ ${json.error}`)
+    setInviteMsg(res.ok ? `✓ Invite sent to ${json.sentTo}` : `${json.error}`)
     setTimeout(() => setInviteMsg(null), 6000)
   }
 
@@ -490,7 +490,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
             actions={
               <button onClick={handleInvite} disabled={inviting}
                 className="rounded-lg border border-neutral-200 px-md py-xs text-xs font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 transition">
-                {inviting ? 'Sending…' : '✉ Send invite'}
+                {inviting ? 'Sending…' : 'Send invite'}
               </button>
             }
           />
@@ -517,7 +517,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                 {person.home_address && <Field label="Address" value={person.home_address} />}
                 {person.company && <Field label="Company" value={`${person.company}${person.company_number ? ` (${person.company_number})` : ''}`} />}
                 {person.nationality && <Field label="Nationality" value={person.nationality} />}
-                {person.is_nrl && <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs inline-block">⚠ Non-Resident Landlord</div>}
+                {person.is_nrl && <div className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-sm py-xs inline-block">Non-Resident Landlord</div>}
               </div>
             </div>
 
@@ -1068,7 +1068,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                       setAmlRequest(r.ok ? { ok: !!d.emailSent, text: d.emailSent ? `Sent to ${person.email}. Their answers come back to New business → Onboarding, where you accept the update.` : `The form was made but the email didn’t send: ${d.emailError ?? 'unknown error'}` } : { ok: false, text: d.error ?? 'Not sent' })
                     }}
                     className="text-sm font-semibold border border-neutral-300 bg-white text-neutral-900 px-lg py-sm rounded-xl hover:bg-neutral-50 transition disabled:opacity-40">
-                    {amlRequest?.busy ? 'Sending…' : '✉️ Request an AML update'}
+                    {amlRequest?.busy ? 'Sending…' : 'Request an AML update'}
                   </button>
                   <button onClick={() => setShowNewAml(true)}
                     className="text-sm font-semibold bg-neutral-900 text-white px-lg py-sm rounded-xl hover:bg-neutral-700 transition">
@@ -1231,7 +1231,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                                         {files.filter(x => x.group === g).map(x => (
                                           <button key={x.path} type="button" onClick={() => openStoredFile({ bucket: 'landlord-docs', path: x.path })}
                                             className="flex items-center justify-between gap-sm px-md py-sm rounded-lg border border-neutral-200 bg-white text-left text-sm hover:border-neutral-400">
-                                            <span className="text-neutral-800 font-medium truncate">📄 {x.name}</span>
+                                            <span className="text-neutral-800 font-medium truncate">{x.name}</span>
                                             <span className="text-xs font-semibold text-blue-600 shrink-0">Open →</span>
                                           </button>
                                         ))}

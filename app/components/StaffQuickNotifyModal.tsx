@@ -62,17 +62,17 @@ export default function StaffQuickNotifyModal({
           options: [
             {
               value: 'running_late' as NotificationType,
-              label: '⏰ Running Late',
+              label: 'Running Late',
               desc: 'Tell tenants you\'re delayed'
             },
             {
               value: 'complication' as NotificationType,
-              label: '⚠️ Complication Found',
+              label: 'Complication Found',
               desc: 'Found an issue you\'re working through'
             },
             {
               value: 'almost_done' as NotificationType,
-              label: '✅ Almost Done',
+              label: 'Almost Done',
               desc: 'Let them know you\'re finishing up'
             },
             {
@@ -93,17 +93,17 @@ export default function StaffQuickNotifyModal({
           options: [
             {
               value: 'running_late' as NotificationType,
-              label: '⏰ Running Late',
+              label: 'Running Late',
               desc: 'Tell tenants you\'re delayed'
             },
             {
               value: 'issue_found' as NotificationType,
-              label: '⚠️ Issue Found',
+              label: 'Issue Found',
               desc: 'Notify about a maintenance problem discovered'
             },
             {
               value: 'schedule_change' as NotificationType,
-              label: '📋 Schedule Change',
+              label: 'Schedule Change',
               desc: 'Announce a reschedule'
             },
             {
@@ -124,12 +124,12 @@ export default function StaffQuickNotifyModal({
           options: [
             {
               value: 'running_late' as NotificationType,
-              label: '⏰ Running Late',
+              label: 'Running Late',
               desc: 'Tell applicant you\'re delayed'
             },
             {
               value: 'time_shift' as NotificationType,
-              label: '⏱️ Time Change',
+              label: 'Time Change',
               desc: 'Adjust the viewing time'
             },
             {
@@ -387,9 +387,9 @@ export default function StaffQuickNotifyModal({
             <label className="text-sm font-semibold text-white mb-sm block">How to deliver:</label>
             <div className="grid grid-cols-3 gap-sm">
               {([
-                { value: 'push_email', label: '📲 Push + Email' },
-                { value: 'push_only', label: '📲 Push only' },
-                { value: 'email_only', label: '✉️ Email only' },
+                { value: 'push_email', label: 'Push + Email' },
+                { value: 'push_only', label: 'Push only' },
+                { value: 'email_only', label: 'Email only' },
               ] as const).map(opt => (
                 <button
                   key={opt.value}
@@ -421,7 +421,7 @@ export default function StaffQuickNotifyModal({
               disabled={sending}
               className="flex-1 px-lg py-md bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
             >
-              {sending ? '⏳ Sending...' : '📤 Send'}
+              {sending ? 'Sending...' : 'Send'}
             </button>
           </div>
         )}

@@ -185,7 +185,7 @@ export default function AdminEarlyMoveOutPage() {
                     </p>
                     <p className="text-sm text-neutral-500 mt-xs">
                       Wants out by {new Date(r.requested_move_out_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      {' · '}{r.track === 'find_replacement' ? '🤝 Finding own replacement' : '📋 Standard exit'}
+                      {' · '}{r.track === 'find_replacement' ? 'Finding own replacement' : 'Standard exit'}
                     </p>
                     {r.reason && <p className="text-xs text-neutral-400 mt-xs italic">"{r.reason}"</p>}
                   </div>
@@ -223,7 +223,7 @@ export default function AdminEarlyMoveOutPage() {
                     {STATUS_LABEL[selected.status]}
                   </span>
                   <span className="text-xs bg-neutral-100 text-neutral-600 font-semibold px-sm py-xs rounded-full">
-                    {selected.track === 'find_replacement' ? '🤝 Finding replacement' : '📋 Standard exit'}
+                    {selected.track === 'find_replacement' ? 'Finding replacement' : 'Standard exit'}
                   </span>
                 </div>
               </div>
@@ -340,7 +340,7 @@ export default function AdminEarlyMoveOutPage() {
                     </div>
                     {(refundDays || refundOverride) && (
                       <p className="text-xs text-amber-700 mt-sm">
-                        ⚠️ Displayed to tenant as an estimate. Payment is manual — do not transfer automatically.
+                        Displayed to tenant as an estimate. Payment is manual — do not transfer automatically.
                       </p>
                     )}
                   </div>

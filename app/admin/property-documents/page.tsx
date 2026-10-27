@@ -122,7 +122,7 @@ export default function PropertyDocumentsPage() {
                             className="inline-block rounded px-sm py-xs text-xs font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition truncate max-w-[120px]"
                             title={d.file_name}
                           >
-                            📄 {d.document_type?.replace(/_/g, ' ')}
+                            {d.document_type?.replace(/_/g, ' ')}
                           </button>
                         ))}
                         {propDocs.length > 3 && (

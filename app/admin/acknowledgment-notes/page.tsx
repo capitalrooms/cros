@@ -185,7 +185,7 @@ export default function AcknowledgmentNotesPage() {
       setInternalNote('');
       setShowCreateModal(false);
       await loadNotes(selectedProperty);
-      alert('✅ Acknowledgment note created');
+      alert('Acknowledgment note created');
     } catch (error) {
       alert('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
@@ -204,7 +204,7 @@ export default function AcknowledgmentNotesPage() {
       if (error) throw error;
 
       await loadNotes(selectedProperty);
-      alert('✅ Note filed');
+      alert('Note filed');
     } catch (error) {
       alert('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
@@ -243,7 +243,7 @@ export default function AcknowledgmentNotesPage() {
             onClick={() => setShowCreateModal(true)}
             className="px-lg py-md bg-neutral-900 text-white rounded-xl font-semibold hover:bg-neutral-800 transition-colors"
           >
-            ➕ Create Note
+            Create Note
           </button>
         </div>
 
@@ -427,7 +427,7 @@ export default function AcknowledgmentNotesPage() {
                     }`}
                   />
                   {validationErrors.title && (
-                    <p className="text-xs text-red-600 mt-xs">❌ {validationErrors.title}</p>
+                    <p className="text-xs text-red-600 mt-xs">{validationErrors.title}</p>
                   )}
                 </div>
 
@@ -445,7 +445,7 @@ export default function AcknowledgmentNotesPage() {
                     rows={4}
                   />
                   {validationErrors.content && (
-                    <p className="text-xs text-red-600 mt-xs">❌ {validationErrors.content}</p>
+                    <p className="text-xs text-red-600 mt-xs">{validationErrors.content}</p>
                   )}
                 </div>
 

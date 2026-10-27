@@ -228,7 +228,7 @@ export default function ExpenseReviewPage() {
                           {propertyRooms.length > 0 && <optgroup label="A room">
                             {propertyRooms.flatMap(room => ROOM_SPECIFIC_CATEGORY_TYPES.slice(0, 2).map(rt => <option key={`${rt.slug}|${room.id}`} value={`${rt.slug}|${room.id}`}>{room.name || `Room ${room.room_number}`} – {rt.label}</option>))}
                           </optgroup>}
-                          <option value={UNMATCHED_SLUG}>📦 Other / not matched</option>
+                          <option value={UNMATCHED_SLUG}>Other / not matched</option>
                         </select>
                       </td>
                     </tr>

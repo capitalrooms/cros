@@ -160,8 +160,8 @@ export default function BookCleanPage() {
 
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-neutral-900">Cleaning Service</div>
-                        <div className="text-sm text-slate-600 mt-xs">📍 {job.property?.name}</div>
-                        {job.cleaner && <div className="text-sm text-slate-600">👤 Assigned to: {[job.cleaner.first_name, job.cleaner.last_name].filter(Boolean).join(' ') || job.cleaner.full_name}</div>}
+                        <div className="text-sm text-slate-600 mt-xs">{job.property?.name}</div>
+                        {job.cleaner && <div className="text-sm text-slate-600">Assigned to: {[job.cleaner.first_name, job.cleaner.last_name].filter(Boolean).join(' ') || job.cleaner.full_name}</div>}
                       </div>
                     </label>
                   ))}

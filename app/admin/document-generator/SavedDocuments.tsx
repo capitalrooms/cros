@@ -153,7 +153,7 @@ export default function SavedDocuments({ refreshKey, onEdit }: { refreshKey: num
                 <tr key={d.id} className="align-top">
                   <td className="py-sm pr-sm whitespace-nowrap text-neutral-600 tabular-nums">{when(d.created_at)}</td>
                   <td className="py-sm pr-sm">
-                    <p className="font-semibold text-neutral-900">{d.kind === 'letter' ? `✉️ ${d.title}` : `🧾 ${d.number}`}</p>
+                    <p className="font-semibold text-neutral-900">{d.kind === 'letter' ? `${d.title}` : `${d.number}`}</p>
                     {d.kind !== 'letter' && d.title && <p className="text-xs text-neutral-500">{d.title}</p>}
                   </td>
                   <td className="py-sm pr-sm text-neutral-700">{d.recipient_name}</td>

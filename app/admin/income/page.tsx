@@ -432,7 +432,7 @@ export default function IncomeDashboard() {
         {/* No imports banner */}
         {!hasImports && (
           <div className="mb-xl rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50 p-lg">
-            <p className="text-sm font-bold text-amber-800 mb-xs">📄 No statement data imported yet</p>
+            <p className="text-sm font-bold text-amber-800 mb-xs">No statement data imported yet</p>
             <p className="text-xs text-amber-700">
               Send 10ninety statements to <strong>docs@capitalrooms.co.uk</strong> to build your income history.
               Until then, the figures below are estimates based on current property data.

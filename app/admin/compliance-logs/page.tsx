@@ -198,7 +198,7 @@ export default function ComplianceLogsPage() {
                   : 'border-transparent text-neutral-600 hover:text-neutral-900'
               }`}
             >
-              {t === 'fire_door' ? '🚪 Fire Door Checks' : '🔔 Smoke Alarm Checks'}
+              {t === 'fire_door' ? 'Fire Door Checks' : 'Smoke Alarm Checks'}
             </button>
           ))}
         </div>

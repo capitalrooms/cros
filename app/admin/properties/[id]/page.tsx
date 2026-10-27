@@ -272,7 +272,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
             onClick={() => setShowQuickNotify(true)}
             className="px-md py-md md:px-lg font-semibold text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition border border-blue-500 whitespace-nowrap shrink-0"
           >
-            <span className="hidden md:inline">📢 Quick Notify</span>
+            <span className="hidden md:inline">Quick Notify</span>
             <span className="md:hidden">📢</span>
           </button>
         }

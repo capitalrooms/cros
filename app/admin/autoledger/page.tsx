@@ -105,7 +105,7 @@ export default function AutoLedgerPage() {
 
           <div className="space-y-md">
             <div>
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">⚡ AutoLedger — expenses &amp; statements</p>
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">AutoLedger — expenses &amp; statements</p>
               <div className="flex items-center gap-sm rounded-xl bg-neutral-50 border border-neutral-200 px-md py-sm">
                 <code className="flex-1 text-sm font-mono text-neutral-900">{BCC_ADDRESS}</code>
                 <button
@@ -119,7 +119,7 @@ export default function AutoLedgerPage() {
             </div>
 
             <div>
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">📄 Document inbox — certs, licences, photos</p>
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-xs">Document inbox — certs, licences, photos</p>
               <div className="flex items-center gap-sm rounded-xl bg-neutral-50 border border-neutral-200 px-md py-sm">
                 <code className="flex-1 text-sm font-mono text-neutral-900">{DOCS_ADDRESS}</code>
                 <button
@@ -276,7 +276,7 @@ export default function AutoLedgerPage() {
                     ? 'bg-green-50 text-green-700'
                     : 'bg-amber-50 text-amber-700'
                 }`}>
-                  {item.status === 'live' ? '✓ Live' : '⏳ Pending'}
+                  {item.status === 'live' ? '✓ Live' : 'Pending'}
                 </span>
               </div>
             ))}

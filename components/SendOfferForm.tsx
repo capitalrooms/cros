@@ -177,7 +177,7 @@ export default function SendOfferForm() {
 
   return (
     <div className="bg-neutral-900 rounded-2xl p-xl border-2 border-neutral-950 text-white">
-      <h2 className="text-2xl font-bold text-white mb-xs">📧 Send Offer Letter</h2>
+      <h2 className="text-2xl font-bold text-white mb-xs">Send Offer Letter</h2>
       <p className="text-sm text-white/60 mb-lg">Send a personalised application link to an applicant</p>
 
       {error   && <div className="mb-lg p-md rounded-lg bg-red-100  border border-red-300  text-red-900  text-sm">{error}</div>}
@@ -312,7 +312,7 @@ export default function SendOfferForm() {
                 {o.state !== 'paid' && o.applicantId && (
                   <button type="button" onClick={() => setDepositFor(o.applicantId)}
                     className="rounded-lg bg-green-600 hover:bg-green-700 px-sm py-xs text-xs font-bold text-white">
-                    💷 Holding deposit received
+                    Holding deposit received
                   </button>
                 )}
               </div>

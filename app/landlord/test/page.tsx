@@ -32,7 +32,7 @@ export default function TestPage() {
             onClick={() => setDateOpen(!dateOpen)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-md px-lg rounded mb-md"
           >
-            📅 Test Button 2 - Date Toggle
+            Test Button 2 - Date Toggle
           </button>
           {dateOpen && (
             <div className="bg-neutral-100 p-md rounded">

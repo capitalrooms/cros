@@ -141,7 +141,7 @@ function defaultNotifyMsg(propertyName: string, date: string, time: string) {
   const d = date ? isoToDate(date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : ''
   const t = time ? ` at ${time}` : ''
   const prop = propertyName || 'the property'
-  return `🔑 A viewing has been arranged at ${prop} on ${d}${t}. We will have a management set of keys for access. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.`
+  return `A viewing has been arranged at ${prop} on ${d}${t}. We will have a management set of keys for access. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.`
 }
 
 /** The tenants' message for photos / another visit */
@@ -150,8 +150,8 @@ function visitNotifyMsg(kind: string, what: string, propertyName: string, date: 
   const t = time ? ` at ${String(time).slice(0, 5)}` : ''
   const prop = propertyName || 'the property'
   return kind === 'photos'
-    ? `📷 We'll be visiting ${prop} on ${d}${t} to take photos${roomName ? ` of ${roomName}` : ''}. We'll use the management keys and won't go into anyone else's room. Thank you!`
-    : `🔑 We'll be visiting ${prop} on ${d}${t} (${what}). We'll use the management keys. Thank you!`
+    ? `We'll be visiting ${prop} on ${d}${t} to take photos${roomName ? ` of ${roomName}` : ''}. We'll use the management keys and won't go into anyone else's room. Thank you!`
+    : `We'll be visiting ${prop} on ${d}${t} (${what}). We'll use the management keys. Thank you!`
 }
 
 /** Monday of the ISO week containing `iso` */
@@ -484,7 +484,7 @@ export default function LettingsPage() {
       setSelectedDay(viewingForm.viewing_date)
       setActiveTab('viewings')
       await loadData()
-      setBanner(`✅ Viewing booked${told.length ? ` · ${told.join(' · ')}` : ''}${notTold}`)
+      setBanner(`Viewing booked${told.length ? ` · ${told.join(' · ')}` : ''}${notTold}`)
       setTimeout(() => setBanner(''), notTold ? 10000 : 5000)
     } catch (err) {
       setBanner(err instanceof Error ? err.message : 'Failed to book viewing')
@@ -532,7 +532,7 @@ export default function LettingsPage() {
       setSelectedDay(f.viewing_date)
       setActiveTab('viewings')
       await loadData()
-      setBanner(`✅ ${label} booked${told.length ? ` · ${told.join(' · ')}` : ''}${notTold}`)
+      setBanner(`${label} booked${told.length ? ` · ${told.join(' · ')}` : ''}${notTold}`)
       setTimeout(() => setBanner(''), notTold ? 10000 : 5000)
     } catch (err) {
       setBanner(err instanceof Error ? err.message : 'Could not book it')
@@ -558,7 +558,7 @@ export default function LettingsPage() {
     }))
     .concat(visits.map(a => ({
       id: a.id, date: a.appointment_date, time: a.appointment_time ? String(a.appointment_time).slice(0, 5) : null,
-      label: `${a.appointment_type === 'photos' ? '📷 Photos' : `🔑 ${a.notes || 'Visit'}`} · ${a.properties?.name ?? ''}`,
+      label: `${a.appointment_type === 'photos' ? 'Photos' : `${a.notes || 'Visit'}`} · ${a.properties?.name ?? ''}`,
       sublabel: [a.rooms?.name, a.visitor_name].filter(Boolean).join(' · '),
       isOverdue: false,
     })))
@@ -669,7 +669,7 @@ export default function LettingsPage() {
                     <button
                       onClick={() => setQuickNotify({ mode: 'tenants' })}
                       style={{ background: 'white', color: '#181614', border: '1px solid #D8D2C4', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                    >⚡ Quick Notify</button>
+                    >Quick Notify</button>
                     <button
                       onClick={() => { setViewingForm(blankViewingForm(todayISO())); setAddingViewing(true) }}
                       style={{ background: '#4B6358', color: 'white', border: 'none', borderRadius: 10, padding: '8px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
@@ -716,7 +716,7 @@ export default function LettingsPage() {
                           <div className="min-w-0 flex-1">
                             <p className="font-bold text-neutral-900">{room.name}</p>
                             <p className="text-sm text-neutral-500 mt-xs truncate">{room.property_address || room.property_name}</p>
-                            {room.tenant_name && <p className="text-xs text-neutral-400 mt-sm">👤 {room.tenant_name}</p>}
+                            {room.tenant_name && <p className="text-xs text-neutral-400 mt-sm">{room.tenant_name}</p>}
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-base font-black text-neutral-900">{room.rent ? `£${room.rent.toLocaleString()}` : '—'}</p>
@@ -768,7 +768,7 @@ export default function LettingsPage() {
                           {v.rooms?.properties?.name || v.property_name || ''}
                         </div>
                         <div style={{ fontSize: 10.5, color: '#59544C', marginTop: 2 }}>
-                          📅 {viewDate}{v.viewing_slot ? ` · ${String(v.viewing_slot).slice(0, 5)}` : ''}
+                          {viewDate}{v.viewing_slot ? ` · ${String(v.viewing_slot).slice(0, 5)}` : ''}
                         </div>
                       </div>
                     )
@@ -820,13 +820,13 @@ export default function LettingsPage() {
         <div className="relative mt-sm" data-quick-menu>
           <button type="button" onClick={() => setQuickMenu(m => !m)} aria-expanded={quickMenu}
             className="flex w-full items-center justify-between rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm font-bold text-neutral-900">
-            <span>⚡ Quick notify</span><span aria-hidden="true" className="text-neutral-400">{quickMenu ? '▴' : '▾'}</span>
+            <span>Quick notify</span><span aria-hidden="true" className="text-neutral-400">{quickMenu ? '▴' : '▾'}</span>
           </button>
           {quickMenu && (
             <div className="absolute left-0 right-0 top-full z-40 mt-1 overflow-hidden rounded-xl border border-neutral-200 bg-white text-sm shadow-lg">
-              <button type="button" onClick={() => { setQuickMenu(false); setQuickNotify({ mode: 'tenants' }) }} className="block w-full px-md py-sm text-left font-semibold hover:bg-neutral-50">✉️ Message the tenants at a house</button>
-              <button type="button" onClick={() => { setQuickMenu(false); setPopOpen(k => k + 1) }} className="block w-full border-t border-neutral-100 px-md py-sm text-left font-semibold hover:bg-neutral-50">🔑 Need to visit a property? (key safe)</button>
-              <a href="/planner" className="block border-t border-neutral-100 px-md py-sm font-semibold hover:bg-neutral-50">🗂️ Notes, jobs &amp; photos with Capital Rooms</a>
+              <button type="button" onClick={() => { setQuickMenu(false); setQuickNotify({ mode: 'tenants' }) }} className="block w-full px-md py-sm text-left font-semibold hover:bg-neutral-50">Message the tenants at a house</button>
+              <button type="button" onClick={() => { setQuickMenu(false); setPopOpen(k => k + 1) }} className="block w-full border-t border-neutral-100 px-md py-sm text-left font-semibold hover:bg-neutral-50">Need to visit a property? (key safe)</button>
+              <a href="/planner" className="block border-t border-neutral-100 px-md py-sm font-semibold hover:bg-neutral-50">Notes, jobs &amp; photos with Capital Rooms</a>
             </div>
           )}
         </div>
@@ -940,7 +940,7 @@ export default function LettingsPage() {
                           {slotVisits.map(a => (
                             <div key={a.id} style={{ background: '#F3E8D2', borderLeft: '3px solid #A9782F', borderRadius: 7, padding: '5px 8px', marginBottom: 3 }}>
                               <p style={{ fontSize: 12, fontWeight: 700, color: '#1f2937', margin: 0, lineHeight: 1.3 }}>
-                                {a.appointment_type === 'photos' ? '📷 Photos' : `🔑 ${a.notes || 'Visit'}`}{a.visitor_name ? ` · ${a.visitor_name}` : ''}
+                                {a.appointment_type === 'photos' ? 'Photos' : `${a.notes || 'Visit'}`}{a.visitor_name ? ` · ${a.visitor_name}` : ''}
                               </p>
                               <p style={{ fontSize: 11, color: '#7A5A22', margin: 0, lineHeight: 1.3 }}>{[a.rooms?.name, a.properties?.name].filter(Boolean).join(', ')}</p>
                             </div>
@@ -1045,7 +1045,7 @@ export default function LettingsPage() {
                         <p className="font-bold text-neutral-900">{room.name}</p>
                         <p className="text-sm text-neutral-500 mt-xs truncate">{room.property_address || room.property_name}</p>
                         {room.tenant_name && (
-                          <p className="text-xs text-neutral-400 mt-sm">👤 {room.tenant_name}</p>
+                          <p className="text-xs text-neutral-400 mt-sm">{room.tenant_name}</p>
                         )}
                       </div>
                       <div className="text-right shrink-0">
@@ -1367,7 +1367,7 @@ function BookViewingModal({ form, setForm, bookingRooms, saving, banner, onClose
 
         {/* What it's for — a viewing, photos, or anything else (never blocked: photos / other don't need a room) */}
         <div className="mb-md flex gap-xs" role="radiogroup" aria-label="Appointment type">
-          {([['viewing', 'Viewing'], ['photos', '📷 Photos'], ['other', 'Other']] as const).map(([k, l]) => (
+          {([['viewing', 'Viewing'], ['photos', 'Photos'], ['other', 'Other']] as const).map(([k, l]) => (
             <button key={k} type="button" role="radio" aria-checked={form.kind === k}
               onClick={() => setForm(f => ({ ...f, kind: k, notifyMessage: '' }))}
               className={`flex-1 rounded-xl border px-md py-sm text-sm font-bold ${form.kind === k ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 text-neutral-700'}`}>{l}</button>

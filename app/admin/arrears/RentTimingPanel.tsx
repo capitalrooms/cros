@@ -71,7 +71,7 @@ export default function RentTimingPanel() {
               <div key={l as string} className="rounded-lg bg-neutral-50 px-md py-sm"><p className="text-xs text-neutral-500">{l}</p><p className={`text-xl font-bold tabular-nums ${c}`}>{n}</p></div>
             ))}
           </div>
-          {chase.length === 0 ? <p className="text-sm text-green-800">Everyone due so far has paid on time. 🎉</p> : <>
+          {chase.length === 0 ? <p className="text-sm text-green-800">Everyone due so far has paid on time.</p> : <>
             <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-200">
               {chase.map(r => (
                 <li key={r.tenancyId} className="px-md py-sm text-sm">

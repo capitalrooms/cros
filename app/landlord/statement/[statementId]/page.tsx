@@ -252,7 +252,7 @@ export default function StatementDetail() {
                     </div>
                   ) : (
                     <div className="rounded-2xl bg-blue-50 border border-blue-200 p-lg">
-                      <p className="text-sm text-blue-900 mb-md"><strong>📊 Statement summary</strong></p>
+                      <p className="text-sm text-blue-900 mb-md"><strong>Statement summary</strong></p>
                       <div className="grid grid-cols-2 gap-md text-sm">
                         <div>
                           <p className="text-blue-800 font-bold">Total rent collected</p>

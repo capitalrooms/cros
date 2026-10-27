@@ -56,13 +56,13 @@ function ScreenDashboard() {
           <div style={{ height: 2, background: 'linear-gradient(to right, #60a5fa, #f59e0b)' }} />
           <div style={{ padding: '9px 11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>📋 Notice Board</p>
-              <p style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>📢 Bin collections move to Friday from 1 November 2026</p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#111827' }}>Notice Board</p>
+              <p style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>Bin collections move to Friday from 1 November 2026</p>
             </div>
             <span style={{ color: '#9ca3af', fontSize: 13 }}>›</span>
           </div>
         </div>
-        <button style={{ width: '100%', background: '#1f2937', color: '#fff', border: 'none', borderRadius: 12, padding: '11px', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit' }}>⚠️ Report an issue</button>
+        <button style={{ width: '100%', background: '#1f2937', color: '#fff', border: 'none', borderRadius: 12, padding: '11px', fontSize: 12.5, fontWeight: 700, fontFamily: 'inherit' }}>Report an issue</button>
         <p style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#9ca3af' }}>EVERYTHING ELSE</p>
         {['Messages','Guides & safety','Property info & housemates'].map(t => (
           <div key={t} style={{ background: '#fff', borderRadius: 12, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', border: '1px solid #e5e7eb' }}>
@@ -83,7 +83,7 @@ function ScreenMaintenance() {
       <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb', marginBottom: 7 }}>
         <div style={{ background: '#1c1917', padding: '10px 12px' }}>
           <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>In progress</p>
-          <p style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>🔧 Leaking tap — Kitchen</p>
+          <p style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>Leaking tap — Kitchen</p>
           <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>Room 3 · raised 3 days ago</p>
         </div>
         <div style={{ padding: '8px 12px' }}>
@@ -128,17 +128,17 @@ function ScreenNotices() {
   return (
     <div className="flex-1 overflow-hidden" style={{ background: '#f5f5f4', padding: '12px 12px 0' }}>
       <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '9px 11px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#15803d' }}>🛎 Guest staying over</span>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: '#15803d' }}>Guest staying over</span>
         <span style={{ fontSize: 10, color: '#16a34a' }}>One tap →</span>
       </div>
       <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
-        {['All active','✅ Tasks','🏠 House 1','Done'].map((p,i) => (
+        {['All active','Tasks','House 1','Done'].map((p,i) => (
           <span key={p} style={{ padding: '5px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 600, background: i===0?'#111827':'#fff', color: i===0?'#fff':'#374151', border: i===0?'none':'1px solid #e5e7eb' }}>{p}</span>
         ))}
       </div>
       {[
-        { bar: '#f59e0b', type: '✅ Task', typeCol: '#d97706', title: 'Check your smoke alarm this month', body: 'Press and hold the test button until it beeps. Takes 30 seconds.', task: true },
-        { bar: '#3b82f6', type: '📢 Announcement', typeCol: '#2563eb', title: 'Bin collections moving to Friday from 1 November 2026', body: 'Tower Hamlets Council updated the schedule. Bins out by 7am on Fridays.', task: false },
+        { bar: '#f59e0b', type: 'Task', typeCol: '#d97706', title: 'Check your smoke alarm this month', body: 'Press and hold the test button until it beeps. Takes 30 seconds.', task: true },
+        { bar: '#3b82f6', type: 'Announcement', typeCol: '#2563eb', title: 'Bin collections moving to Friday from 1 November 2026', body: 'Tower Hamlets Council updated the schedule. Bins out by 7am on Fridays.', task: false },
       ].map(n => (
         <div key={n.title} style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', border: '1px solid #e5e7eb', marginBottom: 7 }}>
           <div style={{ height: 3, background: n.bar }} />
@@ -223,7 +223,7 @@ function AppBar({ back }: { back?: boolean }) {
           />
         </div>
       </div>
-      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{back ? '' : '👋 Sign out'}</span>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)' }}>{back ? '' : 'Sign out'}</span>
     </div>
   )
 }
@@ -256,7 +256,7 @@ function PushAsk({ onNext }: { onNext: () => void }) {
   if (state === 'none') return null
   return (
     <button onClick={turnOn} disabled={state === 'busy'} style={{ width: '100%', marginBottom: 12, background: '#c4922a', color: '#1c1917', border: 'none', borderRadius: 12, padding: 11, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: state === 'busy' ? 0.6 : 1 }}>
-      {state === 'busy' ? 'Turning on…' : '🔔 Turn on notifications'}
+      {state === 'busy' ? 'Turning on…' : 'Turn on notifications'}
     </button>
   )
 }

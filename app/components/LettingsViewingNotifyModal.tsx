@@ -114,8 +114,8 @@ export default function LettingsViewingNotifyModal({ viewing, onClose, onSuccess
 
         <div className="space-y-sm mb-lg">
           {[
-            { value: 'running_late' as NotifyType, label: '⏰ Running late', desc: 'The viewing is delayed' },
-            { value: 'moved' as NotifyType, label: '📋 Appointment moved', desc: 'The viewing time has changed' },
+            { value: 'running_late' as NotifyType, label: 'Running late', desc: 'The viewing is delayed' },
+            { value: 'moved' as NotifyType, label: 'Appointment moved', desc: 'The viewing time has changed' },
             { value: 'custom' as NotifyType, label: '✏️ Custom message', desc: 'Write your own' },
           ].map((o) => (
             <button
@@ -181,7 +181,7 @@ export default function LettingsViewingNotifyModal({ viewing, onClose, onSuccess
         <div className="flex gap-md">
           <button onClick={onClose} disabled={sending} className="flex-1 rounded-lg border border-neutral-700 px-lg py-md text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50">Cancel</button>
           <button onClick={send} disabled={sending} className="flex-1 rounded-lg bg-blue-600 px-lg py-md text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
-            {sending ? 'Sending…' : '📤 Notify tenants'}
+            {sending ? 'Sending…' : 'Notify tenants'}
           </button>
         </div>
       </div>

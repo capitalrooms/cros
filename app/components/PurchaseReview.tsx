@@ -106,7 +106,7 @@ export default function PurchaseReview({
 
   return (
     <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg">
-      <span className="inline-block rounded bg-blue-100 px-sm py-0.5 text-xs font-semibold text-blue-800">🧾 Purchase receipt</span>
+      <span className="inline-block rounded bg-blue-100 px-sm py-0.5 text-xs font-semibold text-blue-800">Purchase receipt</span>
       <p className="mt-xs text-sm font-semibold text-neutral-900">{initial.summary || file?.name || 'Purchase'}</p>
       <p className="text-xs text-neutral-500">Confirm the details and which property this is for — it&apos;ll be saved to Purchases.</p>
 

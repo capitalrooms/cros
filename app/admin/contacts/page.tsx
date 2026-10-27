@@ -327,7 +327,7 @@ export default function ContactsPage() {
                           onClick={e => e.stopPropagation()}
                           className="text-blue-600 hover:underline font-medium"
                         >
-                          📍 {contact.properties.name}
+                          {contact.properties.name}
                         </a>
                       ) : '—'}
                     </td>
@@ -339,7 +339,7 @@ export default function ContactsPage() {
                           title="View as this person"
                           className="text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-sm py-xs rounded-lg transition-colors whitespace-nowrap"
                         >
-                          👁 View as
+                          View as
                         </a>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteContact(contact.id) }}

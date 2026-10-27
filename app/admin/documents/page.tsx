@@ -170,7 +170,7 @@ export default function DocumentsPage() {
       } else {
         setUploadResults(analyzed)
         if (errors.length > 0) {
-          setUploadError(`✅ Scanned ${analyzed.length} file(s)\n\n⚠️ Issues:\n${errors.join('\n')}`)
+          setUploadError(`Scanned ${analyzed.length} file(s)\n\nIssues:\n${errors.join('\n')}`)
         }
       }
     } catch (err) {
@@ -201,7 +201,7 @@ export default function DocumentsPage() {
   async function markInboxFiled(id: string, msg: string) {
     await supabase.from('inbox_documents').update({ status: 'filed' }).eq('id', id)
     setInboxOpenId(null)
-    setInboxFlash('✅ ' + msg)
+    setInboxFlash('' + msg)
     await loadInboxDocs()
   }
 
@@ -220,10 +220,10 @@ export default function DocumentsPage() {
       const res = await fetch(`/api/inbox/rescan/${id}`, { method: 'POST', headers })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Rescan failed')
-      setInboxFlash('🔄 Rescan complete — document updated')
+      setInboxFlash('Rescan complete — document updated')
       await loadInboxDocs()
     } catch (e: any) {
-      setInboxFlash('❌ Rescan failed: ' + e.message)
+      setInboxFlash('Rescan failed: ' + e.message)
     } finally {
       setRescanning(null)
     }
@@ -262,12 +262,12 @@ export default function DocumentsPage() {
         .update({ status: 'filed', filed_at: new Date().toISOString() })
         .eq('id', doc.id)
 
-      setInboxFlash('✅ Document filed!')
+      setInboxFlash('Document filed!')
       setPendingSelected(null)
       setPendingPropertyId(null)
       await loadPendingDocs()
     } catch (err: any) {
-      setInboxFlash('❌ ' + err.message)
+      setInboxFlash('' + err.message)
     } finally {
       setPendingFiling(false)
     }
@@ -322,7 +322,7 @@ export default function DocumentsPage() {
                   : 'text-neutral-500 hover:text-neutral-700'
               }`}
             >
-              📥 Inbox
+              Inbox
               {(inboxDocs?.length || 0) > 0 && (
                 <span className="ml-sm inline-block rounded-full bg-neutral-900 text-white px-sm py-0 text-xs font-bold">
                   {inboxDocs.length}
@@ -337,7 +337,7 @@ export default function DocumentsPage() {
                   : 'text-neutral-500 hover:text-neutral-700'
               }`}
             >
-              ✅ Pending Review
+              Pending Review
               {(pendingDocs?.length || 0) > 0 && (
                 <span className="ml-sm inline-block rounded-full bg-neutral-900 text-white px-sm py-0 text-xs font-bold">
                   {pendingDocs.length}
@@ -361,7 +361,7 @@ export default function DocumentsPage() {
               <div className="mt-lg whitespace-pre-wrap rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{uploadError}</div>
             )}
             {uploadApplied && (
-              <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">✅ {uploadApplied}</div>
+              <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">{uploadApplied}</div>
             )}
 
             {uploadResults.length === 0 && (
@@ -401,7 +401,7 @@ export default function DocumentsPage() {
               <div className="mt-lg space-y-lg">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-neutral-700">
-                    📋 {uploadResults.length} document{uploadResults.length > 1 ? 's' : ''} identified
+                    {uploadResults.length} document{uploadResults.length > 1 ? 's' : ''} identified
                   </p>
                   <button
                     onClick={() => { setUploadResults([]); setUploadError(''); setUploadApplied('') }}
@@ -485,7 +485,7 @@ export default function DocumentsPage() {
                               disabled={rescanning === d.id}
                               className="text-xs font-semibold text-blue-700 border border-blue-200 rounded-lg px-sm py-xs hover:bg-blue-50 disabled:opacity-50"
                             >
-                              {rescanning === d.id ? '⏳ Rescanning…' : '🔄 Rescan'}
+                              {rescanning === d.id ? 'Rescanning…' : 'Rescan'}
                             </button>
                             <button onClick={() => dismissInboxDoc(d.id)} className="text-xs text-neutral-400 hover:text-red-600 ml-auto">
                               Dismiss
@@ -493,7 +493,7 @@ export default function DocumentsPage() {
                           </div>
                           {d.ai_error && !ai && (
                             <p className="mb-md rounded-lg bg-amber-50 border border-amber-200 p-sm text-xs text-amber-800">
-                              ⚠️ AI couldn't read this ({d.ai_error}). Try Rescan above, or pick the type manually below.
+                              AI couldn't read this ({d.ai_error}). Try Rescan above, or pick the type manually below.
                             </p>
                           )}
                           <DocReview
@@ -551,8 +551,8 @@ export default function DocumentsPage() {
                       <div className="text-xs font-bold text-neutral-500 uppercase">{doc.document_type}</div>
                       <div className="mt-xs text-sm font-semibold text-neutral-900">{doc.summary || '(no summary)'}</div>
                       <div className="mt-sm flex items-center gap-sm text-xs text-neutral-600">
-                        <span>📍 {doc.property_address_extracted || 'No address'}</span>
-                        <span className="ml-auto">🎯 {(doc.confidence * 100).toFixed(0)}%</span>
+                        <span>{doc.property_address_extracted || 'No address'}</span>
+                        <span className="ml-auto">{(doc.confidence * 100).toFixed(0)}%</span>
                       </div>
                     </button>
                   ))}
@@ -596,7 +596,7 @@ export default function DocumentsPage() {
                         disabled={!pendingPropertyId || pendingFiling}
                         className="flex-1 rounded bg-green-600 px-lg py-md text-white font-bold hover:bg-green-700 disabled:opacity-50"
                       >
-                        {pendingFiling ? 'Filing...' : '✅ File Document'}
+                        {pendingFiling ? 'Filing...' : 'File Document'}
                       </button>
                       <button
                         onClick={() => setPendingSelected(null)}

@@ -102,7 +102,7 @@ export default function PropertyInfoPage() {
         <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <main className="mx-auto max-w-2xl px-lg py-2xl">
           <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-lg">
-            <p className="font-bold text-red-900">⚠️ {error || 'Could not load property information'}</p>
+            <p className="font-bold text-red-900">{error || 'Could not load property information'}</p>
           </div>
         </main>
       </div>
@@ -138,7 +138,7 @@ export default function PropertyInfoPage() {
 
         {/* Emergency callout — always at the top */}
         <div className="mt-lg rounded-2xl border-2 border-red-300 bg-red-50 p-lg">
-          <h2 className="font-bold text-red-900">🚨 In an emergency</h2>
+          <h2 className="font-bold text-red-900">In an emergency</h2>
           <ul className="mt-sm space-y-xs text-sm text-red-800">
             <li><strong>Fire, gas or break-in →</strong> call 999 immediately</li>
             <li><strong>Gas smell →</strong> National Gas Emergency: 0800 111 999</li>

@@ -36,9 +36,9 @@ interface Cleaner {
 type StatusFilter = 'all' | 'pending' | 'accepted' | 'completed' | 'declined'
 
 const TASK_TYPE_LABELS: Record<string, { label: string; bg: string; text: string }> = {
-  asap:    { label: '🚨 ASAP',   bg: 'bg-red-100',   text: 'text-red-800' },
-  urgent:  { label: '⚠️ Urgent', bg: 'bg-amber-100', text: 'text-amber-800' },
-  normal:  { label: '📌 Normal', bg: 'bg-neutral-100', text: 'text-neutral-700' },
+  asap:    { label: 'ASAP',   bg: 'bg-red-100',   text: 'text-red-800' },
+  urgent:  { label: 'Urgent', bg: 'bg-amber-100', text: 'text-amber-800' },
+  normal:  { label: 'Normal', bg: 'bg-neutral-100', text: 'text-neutral-700' },
 }
 
 const STATUS_LABELS: Record<string, { label: string; bg: string; text: string }> = {
@@ -237,7 +237,7 @@ export default function CleanerJobsPage() {
 
                       {/* Cleaner + date */}
                       <p className={`text-sm ${isUnassigned ? 'text-amber-700 font-semibold' : 'text-neutral-600'}`}>
-                        👤 {isUnassigned ? '⚠️ No cleaner assigned' : cleanerLabel}
+                        {isUnassigned ? 'No cleaner assigned' : cleanerLabel}
                         {job.due_date && ` · Due ${formatDate(job.due_date)}`}
                       </p>
 

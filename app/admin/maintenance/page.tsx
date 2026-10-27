@@ -719,7 +719,7 @@ export default function MaintenanceDashboard() {
               </button>
               {!finished && (
                 <>
-                  <button type="button" onClick={() => openAddToPlanner(ticket)} className="rounded-lg px-sm py-xs text-xs font-semibold text-neutral-500 hover:text-neutral-800">🗂️ Add to Planner</button>
+                  <button type="button" onClick={() => openAddToPlanner(ticket)} className="rounded-lg px-sm py-xs text-xs font-semibold text-neutral-500 hover:text-neutral-800">Add to Planner</button>
                   <button type="button" onClick={() => setCancelFor(ticket)} className="rounded-lg px-sm py-xs text-xs font-semibold text-neutral-400 hover:text-red-600">Cancel job</button>
                 </>
               )}
@@ -766,7 +766,7 @@ export default function MaintenanceDashboard() {
           </select>
           <span className="flex-1" />
           <Link href="/admin/maintenance/job-sheet" className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-50">
-            📋 Job sheet
+            Job sheet
           </Link>
           <Link href="/admin/maintenance/new" className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700">
             + Single job
@@ -799,7 +799,7 @@ export default function MaintenanceDashboard() {
                   return (
                     <section key={col.key} className={`flex min-w-0 flex-col self-start overflow-hidden rounded-xl border bg-white ${hot ? 'border-red-300' : 'border-neutral-200'}`}>
                       <header className={`flex items-center justify-between gap-sm px-md py-sm ${hot ? 'bg-red-600 text-white' : needsYou ? 'bg-neutral-100 text-neutral-600' : 'bg-neutral-800 text-white'}`}>
-                        <span className="text-[13px] font-semibold leading-tight">{hot && '⚠️ '}{col.title}</span>
+                        <span className="text-[13px] font-semibold leading-tight">{hot && ''}{col.title}</span>
                         <span className={`shrink-0 rounded-full px-sm text-xs font-bold ${hot ? 'bg-white/25' : needsYou ? 'bg-neutral-200' : 'bg-white/15'}`}>{items.length}</span>
                       </header>
                       {/* held work is grouped by property so a batch can go out together */}
@@ -1063,7 +1063,7 @@ export default function MaintenanceDashboard() {
                 {/* ── Tenant add-on requests ───────────────────────────── */}
                 {(loadingRequests || visitRequests.length > 0) && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-md">
-                    <h3 className="font-bold text-amber-900 mb-sm">🔔 Tenant add-on requests</h3>
+                    <h3 className="font-bold text-amber-900 mb-sm">Tenant add-on requests</h3>
                     {loadingRequests ? (
                       <div className="h-8 bg-amber-100 rounded animate-pulse" />
                     ) : visitRequests.map((vr: any) => (
@@ -1081,7 +1081,7 @@ export default function MaintenanceDashboard() {
                             onClick={() => handleVisitRequestDecision(vr.id, 'approved')}
                             className="flex-1 rounded-lg bg-neutral-900 py-sm text-xs font-bold text-white disabled:opacity-40"
                           >
-                            {requestDecision[vr.id] === 'saving' ? 'Saving…' : '✅ Approve + add to visit'}
+                            {requestDecision[vr.id] === 'saving' ? 'Saving…' : 'Approve + add to visit'}
                           </button>
                           <button
                             disabled={requestDecision[vr.id] === 'saving'}
@@ -1105,7 +1105,7 @@ export default function MaintenanceDashboard() {
                   {/* Show which property this job is at so context is clear */}
                   {selectedTicket.properties && (
                     <p className="text-xs font-medium text-neutral-700 mb-sm">
-                      📍 {selectedTicket.properties.name}{selectedTicket.properties.address ? ` — ${selectedTicket.properties.address}` : ''}
+                      {selectedTicket.properties.name}{selectedTicket.properties.address ? ` — ${selectedTicket.properties.address}` : ''}
                       {' '}· only jobs at this property are shown below
                     </p>
                   )}

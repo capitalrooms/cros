@@ -461,7 +461,7 @@ export default function PlannerPage() {
 
       <div className="flex-shrink-0">
         <PageHero title="Planner" subtitle="Your boards — landlords and the workspace"
-          actions={<HeroButton href="/admin/planner/shared" primary>🤝 Shared planner</HeroButton>} />
+          actions={<HeroButton href="/admin/planner/shared" primary>Shared planner</HeroButton>} />
       </div>
 
       {/* ── Mobile top bar ── */}
@@ -678,7 +678,7 @@ export default function PlannerPage() {
                                   {/* phones: who and when, under the title */}
                                   {(item.responsible || item.date || item.updates.length > 0) && (
                                     <p className="md:hidden" style={{ fontSize: 11, color: '#b5b0a8', margin: '3px 0 0' }}>
-                                      {[item.responsible, item.date].filter(Boolean).join(' · ')}{item.updates.length > 0 ? ` · 💬 ${item.updates.length}` : ''}{hasAttachments ? ' 📎' : ''}
+                                      {[item.responsible, item.date].filter(Boolean).join(' · ')}{item.updates.length > 0 ? ` · ${item.updates.length}` : ''}{hasAttachments ? ' 📎' : ''}
                                     </p>
                                   )}
                                 </td>
@@ -884,7 +884,7 @@ export default function PlannerPage() {
                                           style={{ fontSize: 11, color: '#2563eb', display: 'flex', alignItems: 'center', gap: 4, textDecoration: 'none' }}
                                           onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
                                           onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>
-                                          🔗 {domainOf(link)}
+                                          {domainOf(link)}
                                         </a>
                                       ))}
                                     </div>
@@ -923,7 +923,7 @@ export default function PlannerPage() {
                         <div style={{ marginBottom: 8, padding: '7px 10px', background: '#f2f0ec', borderRadius: 8, border: '1px solid #e5e2db' }}>
                           {draftLinks.map((l, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                              <span style={{ fontSize: 11, color: '#2563eb' }}>🔗 {domainOf(l)}</span>
+                              <span style={{ fontSize: 11, color: '#2563eb' }}>{domainOf(l)}</span>
                               <button onClick={() => setDraftLinks(p => p.filter((_, j) => j !== i))} style={{ fontSize: 10, color: '#a8a29e', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}>✕</button>
                             </div>
                           ))}
@@ -1068,7 +1068,7 @@ export default function PlannerPage() {
                       <div key={u.id} style={{ borderLeft: '2px solid #e5e2db', paddingLeft: 10 }}>
                         <p style={{ fontSize: 10, color: '#a8a29e', margin: '0 0 2px' }}>{u.author} · {u.when}</p>
                         {u.body && <p style={{ fontSize: 12, color: '#57534e', margin: 0, lineHeight: 1.5 }}>{u.body}</p>}
-                        {u.links?.map((l, i) => <p key={i} style={{ fontSize: 11, color: '#2563eb', margin: '3px 0 0' }}>🔗 {l}</p>)}
+                        {u.links?.map((l, i) => <p key={i} style={{ fontSize: 11, color: '#2563eb', margin: '3px 0 0' }}>{l}</p>)}
                         {u.images && u.images.length > 0 && (
                           <div style={{ display: 'flex', gap: 4, marginTop: 5 }}>
                             {u.images.map((img, i) => <img key={i} src={img} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, border: '1px solid #d6d3cb' }} />)}
@@ -1123,7 +1123,7 @@ export default function PlannerPage() {
 
                 <button onClick={sendBrief} disabled={sending || !contractorEmail.trim()}
                   style={{ width: '100%', padding: '10px 0', background: sending || !contractorEmail.trim() ? '#d6d3cb' : `linear-gradient(135deg,${activeBoard.colorA},${activeBoard.colorB})`, color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: sending || !contractorEmail.trim() ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'opacity .15s' }}>
-                  {sending ? 'Sending…' : '📋 Send brief'}
+                  {sending ? 'Sending…' : 'Send brief'}
                 </button>
               </div>
             </div>

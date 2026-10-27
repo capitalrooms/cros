@@ -281,7 +281,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
         {/* PI scan buttons */}
         <div className="flex flex-wrap gap-sm rounded-xl border border-violet-200 bg-violet-50 p-sm">
           <div className="w-full px-xs pb-xs">
-            <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">✨ Property Insights</p>
+            <p className="text-xs font-semibold text-violet-700 uppercase tracking-wide">Property Insights</p>
           </div>
           <button
             onClick={() => handlePropertyInsightsScan('property')}
@@ -289,7 +289,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             className="px-md py-sm bg-violet-600 text-white rounded-lg font-semibold text-xs hover:bg-violet-700 disabled:opacity-50 transition"
             title="EPC, flood risk, broadband, planning, council tax"
           >
-            {scanning === 'property' ? '⟳ Scanning...' : '🏠 Property Scan (~5 credits)'}
+            {scanning === 'property' ? '⟳ Scanning...' : 'Property Scan (~5 credits)'}
           </button>
           <button
             onClick={() => handlePropertyInsightsScan('market')}
@@ -297,7 +297,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             className="px-md py-sm bg-violet-600 text-white rounded-lg font-semibold text-xs hover:bg-violet-700 disabled:opacity-50 transition"
             title="Crime, sold prices, area price trends"
           >
-            {scanning === 'market' ? '⟳ Scanning...' : '📊 Market Scan (~3 credits)'}
+            {scanning === 'market' ? '⟳ Scanning...' : 'Market Scan (~3 credits)'}
           </button>
           <button
             onClick={() => handlePropertyInsightsScan('full')}
@@ -305,7 +305,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             className="px-md py-sm bg-violet-800 text-white rounded-lg font-semibold text-xs hover:bg-violet-900 disabled:opacity-50 transition"
             title="Everything: property + market + schools + environmental risk"
           >
-            {scanning === 'full' ? '⟳ Scanning...' : '🔬 Full Scan (~10 credits)'}
+            {scanning === 'full' ? '⟳ Scanning...' : 'Full Scan (~10 credits)'}
           </button>
         </div>
 
@@ -314,14 +314,14 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
           disabled={refreshing}
           className="px-lg py-md bg-blue-600 text-white rounded-lg font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition"
         >
-          {refreshing ? '⟳ Rescanning...' : '🔄 Rescan Local Data'}
+          {refreshing ? '⟳ Rescanning...' : 'Rescan Local Data'}
         </button>
         <button
           onClick={() => handleExport('factsheet')}
           disabled={exporting === 'factsheet'}
           className="px-lg py-md bg-neutral-900 text-white rounded-lg font-semibold text-sm hover:bg-neutral-800 disabled:opacity-50 transition"
         >
-          {exporting === 'factsheet' ? 'Exporting...' : '📄 Export Fact Sheet'}
+          {exporting === 'factsheet' ? 'Exporting...' : 'Export Fact Sheet'}
         </button>
       </div>
 
@@ -336,7 +336,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Bins */}
             {(extended.bin_black_day || extended.bin_blue_day || extended.bin_green_day || extended.bin_food_day) && (
               <div className="p-md bg-neutral-50 rounded">
-                <p className="font-semibold text-sm mb-sm">🗑️ Waste Management</p>
+                <p className="font-semibold text-sm mb-sm">Waste Management</p>
                 <div className="space-y-xs text-sm text-neutral-600">
                   {extended.bin_black_day && <p>Black bin: <span className="font-mono">{extended.bin_black_day}</span></p>}
                   {extended.bin_blue_day && <p>Blue bin: <span className="font-mono">{extended.bin_blue_day}</span></p>}
@@ -349,7 +349,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* GP */}
             {extended.nearest_gp_name && (
               <div className="p-md bg-neutral-50 rounded">
-                <p className="font-semibold text-sm mb-sm">🏥 Local GP</p>
+                <p className="font-semibold text-sm mb-sm">Local GP</p>
                 <div className="space-y-xs text-sm text-neutral-600">
                   <p><strong>{extended.nearest_gp_name}</strong></p>
                   {extended.nearest_gp_phone && <p>Phone: {extended.nearest_gp_phone}</p>}
@@ -361,7 +361,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Police */}
             {extended.police_force_name && (
               <div className="p-md bg-neutral-50 rounded">
-                <p className="font-semibold text-sm mb-sm">🚔 Police</p>
+                <p className="font-semibold text-sm mb-sm">Police</p>
                 <div className="space-y-xs text-sm text-neutral-600">
                   <p><strong>{extended.police_force_name}</strong></p>
                   {extended.police_station_name && <p>Station: {extended.police_station_name}</p>}
@@ -372,7 +372,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Council */}
             {(extended.council_tax_band || extended.council_contact_phone) && (
               <div className="p-md bg-neutral-50 rounded">
-                <p className="font-semibold text-sm mb-sm">🏛️ Council</p>
+                <p className="font-semibold text-sm mb-sm">Council</p>
                 <div className="space-y-xs text-sm text-neutral-600">
                   {extended.council_tax_band && <p>Tax Band: <span className="font-mono">{extended.council_tax_band}</span></p>}
                   {extended.council_contact_phone && <p>Contact: {extended.council_contact_phone}</p>}
@@ -383,7 +383,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Valuations */}
             {(extended.single_let_rental_value || extended.hmo_total_value) && (
               <div className="p-md bg-neutral-50 rounded">
-                <p className="font-semibold text-sm mb-sm">💷 Valuation</p>
+                <p className="font-semibold text-sm mb-sm">Valuation</p>
                 <div className="space-y-xs text-sm text-neutral-600">
                   {extended.single_let_rental_value && <p>Est. Rental: £{extended.single_let_rental_value}/month</p>}
                   {extended.hmo_total_value && <p>Total Value: £{extended.hmo_total_value}</p>}
@@ -405,7 +405,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
       {extended?.property_insights_last_synced && (
         <div className="rounded-lg border border-violet-200 bg-violet-50 p-lg">
           <div className="flex items-center justify-between mb-lg">
-            <h3 className="font-bold text-lg text-violet-900">✨ Property Insights</h3>
+            <h3 className="font-bold text-lg text-violet-900">Property Insights</h3>
             <span className="text-xs text-violet-500">
               Scanned {new Date(extended.property_insights_last_synced).toLocaleDateString('en-GB')}
             </span>
@@ -492,13 +492,13 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
                 <p className="text-sm font-semibold">{extended.planning_constraints_count} constraint{extended.planning_constraints_count !== 1 ? 's' : ''}</p>
                 <div className="space-y-xs mt-xs">
                   {extended.planning_has_conservation_area && (
-                    <p className="text-xs text-amber-700 font-medium">🏛 Conservation area</p>
+                    <p className="text-xs text-amber-700 font-medium">Conservation area</p>
                   )}
                   {extended.planning_has_listed_building && (
-                    <p className="text-xs text-amber-700 font-medium">📜 Listed building nearby</p>
+                    <p className="text-xs text-amber-700 font-medium">Listed building nearby</p>
                   )}
                   {extended.planning_has_article4 && (
-                    <p className="text-xs text-red-700 font-medium">⚠️ Article 4 direction</p>
+                    <p className="text-xs text-red-700 font-medium">Article 4 direction</p>
                   )}
                   {!extended.planning_has_conservation_area && !extended.planning_has_listed_building && !extended.planning_has_article4 && (
                     <p className="text-xs text-green-600">No major restrictions</p>
@@ -533,7 +533,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Crime */}
             {extended.crime_data && (
               <div className="p-md bg-white rounded-lg border border-violet-100">
-                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">🔴 Crime</p>
+                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">Crime</p>
                 {extended.crime_data.totalCrimes != null && (
                   <p className="text-2xl font-black text-neutral-900">
                     {extended.crime_data.totalCrimes}
@@ -569,7 +569,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Sold Prices */}
             {extended.sold_prices_data && (
               <div className="p-md bg-white rounded-lg border border-violet-100">
-                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">💰 Recent Sales</p>
+                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">Recent Sales</p>
                 {extended.sold_prices_data.averagePrice != null && (
                   <p className="text-lg font-black text-neutral-900">
                     £{Number(extended.sold_prices_data.averagePrice).toLocaleString()}
@@ -602,7 +602,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Area Price Trends */}
             {extended.area_prices_data && (
               <div className="p-md bg-white rounded-lg border border-violet-100">
-                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">📈 Area Prices</p>
+                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">Area Prices</p>
                 {extended.area_prices_data.averagePrice != null && (
                   <div className="flex items-baseline gap-sm mb-xs">
                     <p className="text-lg font-black text-neutral-900">£{Number(extended.area_prices_data.averagePrice).toLocaleString()}</p>
@@ -629,7 +629,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Schools */}
             {extended.schools_data && (
               <div className="p-md bg-white rounded-lg border border-violet-100">
-                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">🏫 Schools</p>
+                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">Schools</p>
                 {Array.isArray(extended.schools_data.schools) && (
                   <div className="space-y-sm">
                     {extended.schools_data.schools.slice(0, 3).map((s: any, i: number) => (
@@ -657,7 +657,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
             {/* Environmental Risk */}
             {extended.environmental_risk_data && (
               <div className="p-md bg-white rounded-lg border border-violet-100">
-                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">🌱 Environmental</p>
+                <p className="font-semibold text-xs text-neutral-500 mb-sm uppercase tracking-wide">Environmental</p>
                 {extended.environmental_risk_data.overallRisk && (
                   <span className={`inline-block px-sm py-xs rounded-full text-xs font-bold uppercase mb-xs ${
                     extended.environmental_risk_data.overallRisk === 'low' ? 'bg-green-100 text-green-700' :
@@ -690,7 +690,7 @@ export default function ExtendedDetailsTab({ propertyId, propertyType }: Extende
       {pendingSuggestions.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-lg">
           <h3 className="font-bold text-lg mb-lg text-amber-900">
-            ⚠️ Pending Suggestions ({pendingSuggestions.length})
+            Pending Suggestions ({pendingSuggestions.length})
           </h3>
 
           <div className="space-y-md">

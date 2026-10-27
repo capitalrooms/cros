@@ -156,7 +156,7 @@ export default function RentSortOut({ tenancyId, onClose, onChanged }: { tenancy
             {/* tell the tenant */}
             {data.message && (
               <section className="rounded-xl border border-neutral-200 p-md space-y-sm">
-                <h3 className="text-sm font-bold text-neutral-900">📨 Tell the tenant what’s due</h3>
+                <h3 className="text-sm font-bold text-neutral-900">Tell the tenant what’s due</h3>
                 <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg bg-neutral-50 p-sm text-xs text-neutral-800">{data.message.sms}</pre>
                 <textarea className={inp} rows={2} placeholder="Add a line of your own (optional)" value={tell.extra} onChange={e => setTell({ ...tell, extra: e.target.value })} />
                 <div className="flex flex-wrap items-center gap-md text-sm">
@@ -171,7 +171,7 @@ export default function RentSortOut({ tenancyId, onClose, onChanged }: { tenancy
 
             {/* payment plan */}
             <section className="rounded-xl border border-neutral-200 p-md space-y-sm">
-              <h3 className="text-sm font-bold text-neutral-900">🗓 Payment plan</h3>
+              <h3 className="text-sm font-bold text-neutral-900">Payment plan</h3>
               {plan ? <>
                 <p className="text-sm">Agreed {day(plan.created_at)}: <b>{gbp(plan.arrears)}</b> owed, paid off at <b>{gbp(plan.instalment)} a month</b> on top of the rent from {day(plan.starts_on)}.{plan.note ? ` ${plan.note}` : ''}</p>
                 <div className="flex flex-wrap gap-xs">

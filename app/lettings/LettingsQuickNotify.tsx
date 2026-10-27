@@ -78,7 +78,7 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
       case 'viewing_today':
         return {
           subject: 'A viewing at your home today',
-          message: `🔑 Quick heads-up — we have a viewing at ${propName || 'your property'} today${tTime ? ` at around ${tTime}` : ''}. We will use a management set of keys. Thank you for your hospitality, and we will try not to disturb you for long.`,
+          message: `Quick heads-up — we have a viewing at ${propName || 'your property'} today${tTime ? ` at around ${tTime}` : ''}. We will use a management set of keys. Thank you for your hospitality, and we will try not to disturb you for long.`,
         }
       case 'running_late':
         return {
@@ -127,14 +127,14 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
           parts.push(`${alsoTell.length} other${alsoTell.length === 1 ? '' : 's'}`)
           if (o.failed.length) notSent += ` — not sent: ${o.failed.map(f => f.who).join(', ')}`
         }
-        onSent(`✅ Sent to ${parts.join(' and ')}${notSent}`)
+        onSent(`Sent to ${parts.join(' and ')}${notSent}`)
       } else {
         const message = applicantMsg()
         if (!people.length) throw new Error('Choose who to send it to — search, type an email or mobile, or paste them')
         if (!message.trim()) throw new Error('Write a message')
         const d = await toContacts(people, place.trim() ? `Your viewing at ${place.trim()}` : 'A message from Capital Rooms', message, bySms, byEmail)
         const sent = [d.texted && `${d.texted} text${d.texted === 1 ? '' : 's'}`, d.emailed && `${d.emailed} email${d.emailed === 1 ? '' : 's'}`].filter(Boolean).join(' and ')
-        onSent(`✅ Sent ${sent}${d.failed.length ? ` — not sent: ${d.failed.map(f => `${f.who} (${f.text && f.text !== 'sent' ? f.text : f.email})`).join(', ')}` : ''}`)
+        onSent(`Sent ${sent}${d.failed.length ? ` — not sent: ${d.failed.map(f => `${f.who} (${f.text && f.text !== 'sent' ? f.text : f.email})`).join(', ')}` : ''}`)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send')
@@ -153,13 +153,13 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 p-lg" onClick={() => !sending && onClose()}>
       <div className="w-full max-w-lg rounded-2xl bg-white p-lg shadow-2xl max-h-[90dvh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-md">
-          <h2 className="text-xl font-bold text-neutral-900">⚡ Quick Notify</h2>
+          <h2 className="text-xl font-bold text-neutral-900">Quick Notify</h2>
           <button onClick={onClose} className="text-2xl leading-none text-neutral-400 hover:text-neutral-900">×</button>
         </div>
 
         <div className="grid grid-cols-2 gap-xs mb-lg">
-          <button type="button" className={chip(mode === 'tenants')} onClick={() => setMode('tenants')}>🏠 Tenants at a property</button>
-          <button type="button" className={chip(mode === 'applicant')} onClick={() => setMode('applicant')}>👤 Applicants &amp; anyone else</button>
+          <button type="button" className={chip(mode === 'tenants')} onClick={() => setMode('tenants')}>Tenants at a property</button>
+          <button type="button" className={chip(mode === 'applicant')} onClick={() => setMode('applicant')}>Applicants &amp; anyone else</button>
         </div>
 
         {error && <div className="mb-md rounded-xl border border-red-200 bg-red-50 px-md py-sm text-sm text-red-800">{error}</div>}
@@ -174,8 +174,8 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
               </select>
             </div>
             <div className="flex flex-wrap gap-sm">
-              <button type="button" className={chip(tPreset === 'viewing_today')} onClick={() => setTPreset('viewing_today')}>🔑 Viewing today</button>
-              <button type="button" className={chip(tPreset === 'running_late')} onClick={() => setTPreset('running_late')}>⏰ Running late</button>
+              <button type="button" className={chip(tPreset === 'viewing_today')} onClick={() => setTPreset('viewing_today')}>Viewing today</button>
+              <button type="button" className={chip(tPreset === 'running_late')} onClick={() => setTPreset('running_late')}>Running late</button>
               <button type="button" className={chip(tPreset === 'custom')} onClick={() => setTPreset('custom')}>✏️ Custom</button>
             </div>
             {tPreset !== 'custom' ? (
@@ -217,9 +217,9 @@ export default function LettingsQuickNotify({ properties, viewings, initialMode 
               <AddressField value={place} onChange={setPlace} className={field} placeholder="e.g. 95 Rope Street" />
             </div>
             <div className="flex flex-wrap gap-sm">
-              <button type="button" className={chip(aPreset === 'running_late')} onClick={() => setAPreset('running_late')}>⏰ Running late</button>
-              <button type="button" className={chip(aPreset === 'outside')} onClick={() => setAPreset('outside')}>📍 I’m outside</button>
-              <button type="button" className={chip(aPreset === 'moved')} onClick={() => setAPreset('moved')}>📅 Time changed</button>
+              <button type="button" className={chip(aPreset === 'running_late')} onClick={() => setAPreset('running_late')}>Running late</button>
+              <button type="button" className={chip(aPreset === 'outside')} onClick={() => setAPreset('outside')}>I’m outside</button>
+              <button type="button" className={chip(aPreset === 'moved')} onClick={() => setAPreset('moved')}>Time changed</button>
               <button type="button" className={chip(aPreset === 'custom')} onClick={() => setAPreset('custom')}>✏️ Custom</button>
             </div>
             {aPreset === 'running_late' && (

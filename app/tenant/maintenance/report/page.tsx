@@ -217,7 +217,7 @@ const URGENCY_OPTIONS: Array<{ id: UrgencyLevel; label: string; sub: string; col
   { id: 'routine', label: 'Not urgent', sub: 'Whenever suits — next few weeks is fine', color: '#4B6358' },
   { id: 'soon', label: 'Soon please', sub: 'Within the next week', color: '#6B6B30' },
   { id: 'urgent', label: 'As soon as possible', sub: 'It\'s affecting my daily life', color: '#C25F00' },
-  { id: 'emergency', label: '🚨 Emergency', sub: 'Safety risk or urgent flooding / no heat', color: '#B91C1C' },
+  { id: 'emergency', label: 'Emergency', sub: 'Safety risk or urgent flooding / no heat', color: '#B91C1C' },
 ];
 
 // ── Tenant responsibility notes ───────────────────────────────────────────────
@@ -728,7 +728,7 @@ function ReportWizardContent() {
                                     cursor: errorLookupLoading ? 'not-allowed' : 'pointer',
                                   }}
                                 >
-                                  {errorLookupLoading ? '⏳ Looking up…' : '🤖 What does this code mean?'}
+                                  {errorLookupLoading ? 'Looking up…' : 'What does this code mean?'}
                                 </button>
                               )}
                               {errorLookupResult && (
@@ -741,9 +741,9 @@ function ReportWizardContent() {
                                     fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6,
                                     color: errorLookupResult.severity === 'easy' ? '#166534' : errorLookupResult.severity === 'moderate' ? '#92400E' : '#B91C1C',
                                   }}>
-                                    {errorLookupResult.severity === 'easy' ? '✅ Possibly fixable yourself' :
-                                     errorLookupResult.severity === 'moderate' ? '⚠️ May need professional help' :
-                                     errorLookupResult.severity === 'serious' ? '🚨 Needs a professional' : '🔍 Code looked up'}
+                                    {errorLookupResult.severity === 'easy' ? 'Possibly fixable yourself' :
+                                     errorLookupResult.severity === 'moderate' ? 'May need professional help' :
+                                     errorLookupResult.severity === 'serious' ? 'Needs a professional' : 'Code looked up'}
                                   </p>
                                   <p style={{ fontSize: 13, color: 'rgb(var(--n-700))', lineHeight: 1.6, margin: 0 }}>{errorLookupResult.explanation}</p>
                                   {errorLookupResult.self_fix_steps && (
@@ -777,7 +777,7 @@ function ReportWizardContent() {
               <>
                 <Divider />
                 <div style={{ ...section, paddingTop: 14, paddingBottom: 14, background: '#FFFBEB' }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>📋 {tenantNote.clause}</p>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#92400E', marginBottom: 4 }}>{tenantNote.clause}</p>
                   <p style={{ fontSize: 13, color: '#78350F', lineHeight: 1.6, margin: 0 }}>{tenantNote.note}</p>
                 </div>
               </>
@@ -788,7 +788,7 @@ function ReportWizardContent() {
               <>
                 <Divider />
                 <div style={{ ...section, paddingTop: 14, paddingBottom: 14, background: '#FEF3C7' }}>
-                  <p style={{ fontSize: 13, color: '#92400E', margin: 0 }}>⚡ Based on your answers, we'll flag this as urgent.</p>
+                  <p style={{ fontSize: 13, color: '#92400E', margin: 0 }}>Based on your answers, we'll flag this as urgent.</p>
                 </div>
               </>
             )}
@@ -879,7 +879,7 @@ function ReportWizardContent() {
                 <Divider />
                 <div style={{ ...section, background: '#F0FDF4' }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: '#166534', marginBottom: 4 }}>
-                    📋 Got access to the appliance label?
+                    Got access to the appliance label?
                   </p>
                   <p style={{ fontSize: 12, color: '#4B7C5E', marginBottom: 12 }}>
                     Usually inside the door or on the back. We'll read the make, model & serial — helps order the right part before we arrive.
@@ -887,13 +887,13 @@ function ReportWizardContent() {
                   {!labelPhoto ? (
                     <button type="button" onClick={() => labelInputRef.current?.click()}
                       style={{ padding: '8px 16px', borderRadius: 10, background: '#166534', color: '#fff', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                      📷 Scan appliance label
+                      Scan appliance label
                     </button>
                   ) : (
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                       <img src={labelPhoto.preview} alt="Label" style={{ width: 70, height: 70, objectFit: 'cover', borderRadius: 8, border: '1px solid #BBF7D0' }} />
                       <div style={{ fontSize: 13, color: '#166534' }}>
-                        {labelScanState === 'scanning' && <p>🔍 Reading label…</p>}
+                        {labelScanState === 'scanning' && <p>Reading label…</p>}
                         {labelScanState === 'done' && (
                           <>
                             {labelData.make && <div>Make: <strong>{labelData.make}</strong></div>}
@@ -949,7 +949,7 @@ function ReportWizardContent() {
 
               {urgency === 'emergency' && emInfo && (
                 <div style={{ marginTop: 16, padding: '16px', borderRadius: 12, background: '#FEF2F2', border: '1px solid #FECACA' }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#B91C1C', marginBottom: 8 }}>🚨 {emInfo.label}</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#B91C1C', marginBottom: 8 }}>{emInfo.label}</p>
                   {emInfo.callServices && <p style={{ fontSize: 14, fontWeight: 700, color: '#7F1D1D', marginBottom: 8 }}>{emInfo.callServices}</p>}
                   <p style={{ fontSize: 12, fontWeight: 600, color: '#B91C1C', marginBottom: 4 }}>Do this now:</p>
                   <ol style={{ paddingLeft: 18, margin: 0 }}>

@@ -178,7 +178,7 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
           .maybeSingle()
 
         if (newPhoto?.file_url) {
-          setUploadMsg('✨ Scanning room photo for features…')
+          setUploadMsg('Scanning room photo for features…')
           try {
             const res = await fetch('/api/rooms/scan-photo', {
               method: 'POST',
@@ -325,7 +325,7 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
         <div className="rounded-xl border border-purple-200 bg-purple-50 p-lg">
           <div className="flex items-start justify-between gap-md mb-md">
             <div>
-              <p className="text-sm font-bold text-purple-900">✨ Features detected in {scanResult.roomName}</p>
+              <p className="text-sm font-bold text-purple-900">Features detected in {scanResult.roomName}</p>
               <p className="text-xs text-purple-600 mt-xs">Uncheck anything that doesn't look right, then save.</p>
             </div>
             <button onClick={() => setScanResult(null)} className="text-purple-500 hover:text-purple-700 text-xs">Dismiss</button>
@@ -480,7 +480,7 @@ export default function PhotosTab({ propertyId }: PhotosTabProps) {
                         : 'text-neutral-400 hover:text-amber-500 cursor-pointer'
                     }`}
                   >
-                    {savingFeatured === p.id ? '⏳ Saving…' : p.is_featured ? '⭐ Featured' : '⭐ Set featured'}
+                    {savingFeatured === p.id ? 'Saving…' : p.is_featured ? 'Featured' : 'Set featured'}
                   </button>
                   <button onClick={() => handleDelete(p)} className="text-xs text-neutral-500 hover:text-red-400">Delete</button>
                 </div>

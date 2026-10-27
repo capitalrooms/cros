@@ -399,7 +399,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], 
             <ul className="mt-sm space-y-xs">
               {pendingJobs.map((j, i) => (
                 <li key={i} className="flex items-center justify-between gap-sm rounded-lg bg-amber-50 border border-amber-200 px-md py-xs text-sm text-neutral-800">
-                  <span>🔧 {j}</span>
+                  <span>{j}</span>
                   <button
                     type="button"
                     onClick={() => setPendingJobs(jobs => jobs.filter((_, idx) => idx !== i))}
@@ -539,7 +539,7 @@ export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], 
 
       <div className="space-y-lg">
         <div className="rounded-lg bg-yellow-50 border border-yellow-300 p-md text-sm text-yellow-900">
-          📧 This will be sent to <strong>{tenancy.person?.email}</strong>
+          This will be sent to <strong>{tenancy.person?.email}</strong>
         </div>
 
         <div className="border border-neutral-300 rounded-lg overflow-hidden">

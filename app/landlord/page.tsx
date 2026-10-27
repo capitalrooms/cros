@@ -15,17 +15,17 @@ import { landlordSections, type LandlordSection } from '@/lib/access/landlordSec
 
 // Notification categories the landlord can self-manage
 const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
-  { key: 'urgent',               label: '🚨 Urgent issues',            description: 'Emergency maintenance at your property', mandatory: true },
-  { key: 'job_approval',         label: '✅ Job approvals',             description: 'Large or costly jobs needing your sign-off' },
-  { key: 'job_updates',          label: '🔧 Job updates',               description: 'Contractor visits booked, jobs completed' },
-  { key: 'rent_received',        label: '💷 Rent received',             description: 'Monthly rent payment confirmed' },
-  { key: 'rent_arrears',         label: '⚠️ Rent arrears',              description: 'Tenant is late or in arrears' },
-  { key: 'financial_statements', label: '📄 Monthly statements',        description: 'New statement ready to view' },
-  { key: 'compliance_expiry',    label: '📋 Compliance expiry',         description: 'Certificates expiring within 60 days' },
-  { key: 'compliance_breach',    label: '🔴 Compliance breach',         description: 'Issue requiring attention' },
-  { key: 'tenant_changes',       label: '🏠 Tenant changes',            description: 'Move-in, move-out, or notice given' },
-  { key: 'cleaner_visits',       label: '🧹 Cleaner visits',            description: 'Scheduled cleans and completion reports' },
-  { key: 'viewings',             label: '👀 Viewings',                  description: 'Viewing appointments at your property' },
+  { key: 'urgent',               label: 'Urgent issues',            description: 'Emergency maintenance at your property', mandatory: true },
+  { key: 'job_approval',         label: 'Job approvals',             description: 'Large or costly jobs needing your sign-off' },
+  { key: 'job_updates',          label: 'Job updates',               description: 'Contractor visits booked, jobs completed' },
+  { key: 'rent_received',        label: 'Rent received',             description: 'Monthly rent payment confirmed' },
+  { key: 'rent_arrears',         label: 'Rent arrears',              description: 'Tenant is late or in arrears' },
+  { key: 'financial_statements', label: 'Monthly statements',        description: 'New statement ready to view' },
+  { key: 'compliance_expiry',    label: 'Compliance expiry',         description: 'Certificates expiring within 60 days' },
+  { key: 'compliance_breach',    label: 'Compliance breach',         description: 'Issue requiring attention' },
+  { key: 'tenant_changes',       label: 'Tenant changes',            description: 'Move-in, move-out, or notice given' },
+  { key: 'cleaner_visits',       label: 'Cleaner visits',            description: 'Scheduled cleans and completion reports' },
+  { key: 'viewings',             label: 'Viewings',                  description: 'Viewing appointments at your property' },
 ]
 
 interface Statement {
@@ -310,7 +310,7 @@ export default function LandlordDashboard() {
               className="flex items-center justify-between w-full rounded-2xl bg-neutral-900 px-lg py-md text-left"
             >
               <div>
-                <p className="text-sm font-bold text-white">🔔 Notification preferences</p>
+                <p className="text-sm font-bold text-white">Notification preferences</p>
                 <p className="text-xs text-white/40 mt-xs">Choose which updates you receive from Capital Rooms</p>
               </div>
               <span className="text-white/40 text-lg ml-md">{showNotifPrefs ? '▲' : '▼'}</span>

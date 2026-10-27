@@ -151,7 +151,7 @@ export default function RecipientSend({ name, to, docs, total, suggestedSubject,
                   <p><span className="text-neutral-400">From</span> {fromLine || '…'}</p>
                   <p><span className="text-neutral-400">To</span> {toList.join(', ') || '—'}{ccList.length ? <> · <span className="text-neutral-400">Cc</span> {ccList.join(', ')}</> : null}</p>
                   <p className="font-semibold text-neutral-900">{subject}</p>
-                  <p className="text-neutral-400">📎 {docs.length} attachment{docs.length === 1 ? '' : 's'}</p>
+                  <p className="text-neutral-400">{docs.length} attachment{docs.length === 1 ? '' : 's'}</p>
                 </div>
                 <iframe title={`Email to ${name}`} srcDoc={html} sandbox="" className="w-full h-[480px] bg-white" />
               </div>

@@ -197,7 +197,7 @@ function EmailSupplierModal({ cert, contractors, onClose }: EmailModalProps) {
                 disabled={!selected || sending}
                 className="flex-1 bg-neutral-950 text-white font-bold py-sm rounded-xl hover:bg-neutral-800 disabled:opacity-50 transition"
               >
-                {sending ? 'Sending…' : '📧 Send email'}
+                {sending ? 'Sending…' : 'Send email'}
               </button>
               <button onClick={onClose} className="px-lg border border-neutral-200 rounded-xl font-semibold text-sm hover:bg-neutral-50 transition">
                 Cancel
@@ -322,11 +322,11 @@ function CompleteCertModal({ cert, onClose, onSaved }: {
                 onClick={() => fileRef.current?.click()}
                 className="w-full border-2 border-dashed border-neutral-200 rounded-xl p-md text-sm text-neutral-500 hover:border-neutral-400 hover:bg-neutral-50 transition text-center"
               >
-                📎 Click to attach certificate PDF or photo
+                Click to attach certificate PDF or photo
               </button>
             ) : (
               <div className="flex items-center gap-sm bg-green-50 border border-green-200 rounded-xl p-sm">
-                <span className="text-green-700 text-sm font-semibold flex-1 truncate">📄 {file.name}</span>
+                <span className="text-green-700 text-sm font-semibold flex-1 truncate">{file.name}</span>
                 <button
                   type="button"
                   onClick={() => setFile(null)}
@@ -652,7 +652,7 @@ export default function PropertyTasksPage() {
 
         {/* Filter bar */}
         <div className="bg-white rounded-2xl border border-neutral-200 p-xs flex gap-xs">
-          {([['all','All'],['mine','My tasks'],['deadlines','⚠ Deadlines']] as const).map(([v,l]) => (
+          {([['all','All'],['mine','My tasks'],['deadlines','Deadlines']] as const).map(([v,l]) => (
             <button
               key={v}
               onClick={() => setFilter(v)}
@@ -796,7 +796,7 @@ function CertRow({ cert, onEmail, onComplete }: { cert: CertAlert; onEmail: () =
           onClick={onEmail}
           className="text-xs font-semibold px-sm py-xs rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition whitespace-nowrap"
         >
-          📧 Book
+          Book
         </button>
         <button
           onClick={onComplete}

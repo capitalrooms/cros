@@ -657,7 +657,7 @@ export default function DocumentGenerator() {
 
             <div className="bg-white rounded-xl border border-neutral-200 p-lg">
               <div className="inline-flex rounded-lg border border-neutral-200 p-0.5 mb-md bg-neutral-50">
-                {([['letter', '✉️ Letter'], ['invoice', '🧾 Invoice']] as [DocType, string][]).map(([val, lbl]) => (
+                {([['letter', 'Letter'], ['invoice', 'Invoice']] as [DocType, string][]).map(([val, lbl]) => (
                   <button key={val} type="button" onClick={() => { setDocType(val); setStep('write') }}
                     className={`rounded-md px-md py-xs text-sm font-semibold ${docType === val ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:text-neutral-900'}`}>
                     {lbl}

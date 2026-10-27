@@ -170,10 +170,10 @@ export default function RentChargesPage() {
       })
       const json = await res.json()
       if (json.ok) {
-        setGenerateResult(`✅ ${json.created} charge${json.created !== 1 ? 's' : ''} created (${json.total} tenancies found)`)
+        setGenerateResult(`${json.created} charge${json.created !== 1 ? 's' : ''} created (${json.total} tenancies found)`)
         await load()
       } else {
-        setGenerateResult(`❌ ${json.error}`)
+        setGenerateResult(`Couldn’t create charges: ${json.error}`)
       }
     } finally {
       setGenerating(false)
@@ -273,7 +273,7 @@ export default function RentChargesPage() {
               disabled={generating}
               className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50"
             >
-              {generating ? 'Generating…' : `⚡ Generate ${monthLabel(chargeMonth)} charges`}
+              {generating ? 'Generating…' : `Generate ${monthLabel(chargeMonth)} charges`}
             </button>
           </div>
         </div>
@@ -281,7 +281,7 @@ export default function RentChargesPage() {
         {/* Generate result banner */}
         {generateResult && (
           <div className={`mb-lg rounded-xl px-lg py-md text-sm font-medium ${
-            generateResult.startsWith('✅') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+            !generateResult.startsWith('Couldn') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
           }`}>
             {generateResult}
           </div>
@@ -315,7 +315,7 @@ export default function RentChargesPage() {
               disabled={generating}
               className="rounded-xl bg-amber-700 px-xl py-md text-sm font-bold text-white hover:bg-amber-800 disabled:opacity-50"
             >
-              {generating ? 'Generating…' : '⚡ Generate charges now'}
+              {generating ? 'Generating…' : 'Generate charges now'}
             </button>
           </div>
         )}

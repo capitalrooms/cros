@@ -149,7 +149,7 @@ export default function WorksTab({ propertyId }: WorksTabProps) {
                         : <span className="text-xs italic text-neutral-500">cost not recorded</span>}
                     </td>
                     <td className="px-md py-sm text-right text-xs text-neutral-500">
-                      {pics.length > 0 && `📷 ${pics.length}`} ›
+                      {pics.length > 0 && `${pics.length}`} ›
                     </td>
                   </tr>
                 )

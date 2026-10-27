@@ -50,7 +50,7 @@ function Attachments({ links, photos }: { links: string[]; photos: Photo[] }) {
           ))}
         </div>
       )}
-      {links.map(l => <a key={l} href={l} target="_blank" rel="noreferrer" className="block truncate text-sm font-semibold text-blue-700 hover:underline">🔗 {l.replace(/^https?:\/\//, '')}</a>)}
+      {links.map(l => <a key={l} href={l} target="_blank" rel="noreferrer" className="block truncate text-sm font-semibold text-blue-700 hover:underline">{l.replace(/^https?:\/\//, '')}</a>)}
     </div>
   )
 }
@@ -100,7 +100,7 @@ function Composer({ boardId, placeholder, onSend, withTitle, properties }: {
       {err && <p className="text-xs text-red-700">{err}</p>}
       <div className="flex flex-wrap items-center gap-sm">
         <label className="cursor-pointer rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
-          📷 Add photos<input type="file" accept="image/*" multiple className="hidden" onChange={e => add(e.target.files)} />
+          Add photos<input type="file" accept="image/*" multiple className="hidden" onChange={e => add(e.target.files)} />
         </label>
         <button type="button" onClick={send} disabled={busy || (withTitle ? !title.trim() : !body.trim() && !links.trim() && !photos.length)}
           className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:opacity-40">{busy ? 'Sending…' : withTitle ? 'Post' : 'Reply'}</button>
