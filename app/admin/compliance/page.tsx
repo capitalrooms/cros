@@ -117,6 +117,9 @@ const CERT_DOC_TYPE: Partial<Record<CertKey, string>> = {
   license:           'hmo_licence',
 }
 
+// the general upload drawer saved these under other names before 27 Oct 2026
+const LEGACY_DOC_TYPE: Record<string, string[]> = { gas_safety_certificate: ['gas_safety'], electrical_eicr: ['electrical_cert', 'eicr'], hmo_licence: [], epc: [] }
+
 // ─── Quick Upload Drawer ─────────────────────────────────────────────────────
 // Tell the scan engine what type of cert this is — avoids full classification
 const CERT_SCAN_TYPE: Partial<Record<CertKey, string>> = {
@@ -231,7 +234,7 @@ function CertUploadDrawer({
       .from('property_documents')
       .select('storage_url, file_name')
       .eq('property_id', panel.propertyId)
-      .eq('document_type', docType)
+      .in('document_type', [docType, ...(LEGACY_DOC_TYPE[docType] ?? [])])   // older uploads used other names
       .order('uploaded_at', { ascending: false })
       .limit(1)
       .then(({ data }) => {

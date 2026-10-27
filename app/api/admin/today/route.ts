@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     s.from('viewings').select('id, viewing_date, viewing_slot, visitor_name, visitor_phone, rooms(name), properties(name, address)')
       .eq('viewing_date', today).neq('viewing_status', 'cancelled').order('viewing_slot'),
     s.from('admin_appointments').select('id, title, appointment_date, appointment_time, properties(name)').eq('appointment_date', today).order('appointment_time'),
-    s.from('properties').select(['id', 'name', 'address', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')),
+    s.from('properties').select(['id', 'name', 'address', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')).or('letting_type.is.null,letting_type.neq.let_only'),   // let-only houses aren't ours to keep certified (27 Oct 2026)
     s.from('tenancies').select('id, end_date, person_id, rooms(name), properties(name, address), people!person_id(salutation, first_name, last_name, full_name)')
       .not('notice_received_date', 'is', null).gte('end_date', today).lte('end_date', in14),
     // Prices back from the multi-contractor quote requests (table from migration 184 — empty until it's run)

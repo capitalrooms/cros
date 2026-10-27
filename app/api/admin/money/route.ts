@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     s.from('rooms').select('id, property_id, status'),
     s.from('tenancies').select('room_id').lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
     s.from('maintenance_tickets').select('id, property_id, status, approved_at, on_hold').not('status', 'in', `(${CLOSED.join(',')})`),
-    s.from('properties').select(['id', ...CERTS].join(', ')),
+    s.from('properties').select(['id', ...CERTS].join(', ')).or('letting_type.is.null,letting_type.neq.let_only'),   // let-only houses aren't ours to keep certified (27 Oct 2026)
   ])
   const failed = [charges, arrears, rooms, lets, jobs, props].find(r => r.error)
   if (failed) return NextResponse.json({ error: failed.error!.message }, { status: 500 })

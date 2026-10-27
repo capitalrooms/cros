@@ -1,5 +1,6 @@
 'use client'
 
+import { adminFetch } from '@/lib/adminFetch'
 import { useState, useEffect, use } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
 import { createClient } from '@/lib/supabase'
@@ -79,6 +80,8 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
   const initialTab: TabType = (legacyMap[rawTab] as TabType) || (rawTab as TabType) || 'units'
   const initialRoomId = searchParams.get('room') || undefined;
   // an old link to "the house, Units tab, this room" now means the room's own page
+  // certificates on file whose dates aren't on the house yet get read (lib/compliance/certFromDocument, 27 Oct 2026)
+  useEffect(() => { adminFetch('/api/admin/compliance/heal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: id }) }).catch(() => null) }, [id])
   useEffect(() => { if (initialRoomId && (rawTab === 'units' || !searchParams.get('tab'))) router.replace(`/admin/properties/${id}/rooms/${initialRoomId}`) }, [initialRoomId])   // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   // the header's figures: rooms let today, their rent, the next certificate to expire
