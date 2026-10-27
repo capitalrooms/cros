@@ -61,12 +61,24 @@ const P: Record<string, ReactNode> = {
   tag: <><path d="M20 12 12 20l-9-9V3h8z" /><circle cx="7.5" cy="7.5" r="1.5" /></>,
   book: <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5zM6.5 17H20v4H6.5" />,
   moon: <path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z" />,
+  compass: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5z" /></>,
+  chartDown: <path d="M3 7l6 6 4-4 8 8M21 11v6h-6" />,
+  robot: <><rect x="5" y="8" width="14" height="11" rx="2" /><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6" /></>,
+  inbox: <><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></>,
+  globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
+  sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
+  music: <><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></>,
+  leaf: <path d="M11 20A7 7 0 0 1 4 13c0-6 7-10 16-10 0 9-4 16-10 17zM4 21c4-5 7-8 11-11" />,
+  laptop: <><rect x="4" y="5" width="16" height="11" rx="1.5" /><path d="M2 19h20" /></>,
+  scales: <path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z" />,
+  tv: <><rect x="3" y="6" width="18" height="12" rx="2" /><path d="m8 3 4 3 4-3" /></>,
+  gift: <><rect x="3" y="8" width="18" height="4" /><path d="M5 12v9h14v-9M12 8v13M12 8C10 4 7 4 7 6s3 2 5 2M12 8c2-4 5-4 5-2s-3 2-5 2" /></>,
   dot: <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />,
 }
 
 /** Which icon each emoji becomes. */
 const MAP: Record<string, keyof typeof P> = {
-  '✅': 'check', '☑': 'check', '🏠': 'home', '🏡': 'home', '🏘': 'home', '🏢': 'building', '🏛': 'building', '🏦': 'building', '🏗': 'building',
+  '🎧': 'music', '☀': 'sun', '🧭': 'compass', '📉': 'chartDown', '🗂': 'folder', '🤖': 'robot', '📜': 'doc', '📥': 'inbox', '📚': 'book', '💸': 'money', '🧰': 'briefcase', '🏧': 'money', '⏰': 'clock', '👔': 'user', '🗳': 'box', '🌐': 'globe', '📰': 'doc', '🛏': 'bed', '🌿': 'leaf', '💻': 'laptop', '⚖': 'scales', '📺': 'tv', '🎁': 'gift', '✅': 'check', '☑': 'check', '🏠': 'home', '🏡': 'home', '🏘': 'home', '🏢': 'building', '🏛': 'building', '🏦': 'building', '🏗': 'building',
   '⚠': 'alert', '🚨': 'alert', '❗': 'alert', '🔴': 'dot', '🟢': 'dot', '⚡': 'bolt', '🔌': 'bolt', '🔧': 'wrench', '🛠': 'wrench', '👷': 'wrench', '🔨': 'wrench',
   '📋': 'clipboard', '📝': 'clipboard', '✍': 'clipboard', '📖': 'book', '🧹': 'spark', '🫧': 'spark', '✨': 'spark', '♻': 'spark', '🎉': 'star', '⭐': 'star', '★': 'star',
   '📄': 'doc', '🧾': 'doc', '📎': 'doc', '📤': 'doc', '📁': 'folder', '📂': 'folder', '🗄': 'folder', '📦': 'box', '🛋': 'box', '🪑': 'box', '🧱': 'box',
