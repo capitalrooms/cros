@@ -248,9 +248,9 @@ export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], 
             <input
               type="number"
               min={1}
-              max={28}
+              max={31}
               value={rentDueDay}
-              onChange={e => { setRentDueDay(Math.max(1, Math.min(28, Number(e.target.value)))); setProRataConfirmed(false) }}
+              onChange={e => { setRentDueDay(Math.max(1, Math.min(31, Number(e.target.value)))); setProRataConfirmed(false) }}
               className="w-20 rounded-lg border border-neutral-300 px-md py-sm text-sm"
             />
             <span className="text-sm text-neutral-600">of each month</span>

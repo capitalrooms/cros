@@ -49,7 +49,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
   }
   if ('rent_due_day' in b) {
     const d = num(b.rent_due_day)
-    if (d == null || d < 1 || d > 28 || !Number.isInteger(d)) return NextResponse.json({ error: 'Rent day must be between the 1st and the 28th.' }, { status: 400 })
+    // any day 1–31; in a shorter month rent falls on its last day (lib/rent/dueDate)
+    if (d == null || d < 1 || d > 31 || !Number.isInteger(d)) return NextResponse.json({ error: 'Rent day must be between the 1st and the 31st.' }, { status: 400 })
     update.rent_due_day = d
   }
   if ('payment_reference' in b) update.payment_reference = String(b.payment_reference || '').trim().toUpperCase() || null

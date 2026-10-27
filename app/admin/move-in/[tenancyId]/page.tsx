@@ -184,8 +184,9 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
               <label className="text-xs font-semibold text-neutral-700">Monthly rent (£)<input inputMode="decimal" className={input} value={form.rent_amount} onChange={set('rent_amount')} /></label>
               <label className="text-xs font-semibold text-neutral-700">Rent due on the
                 <select className={input} value={form.rent_due_day} onChange={set('rent_due_day')}>
-                  {Array.from({ length: 28 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}{d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : d === 21 ? 'st' : d === 22 ? 'nd' : d === 23 ? 'rd' : 'th'}</option>)}
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}{d === 1 || d === 21 || d === 31 ? 'st' : d === 2 || d === 22 ? 'nd' : d === 3 || d === 23 ? 'rd' : 'th'}</option>)}
                 </select>
+                {Number(form.rent_due_day) > 28 && <span className="mt-xs block font-normal text-neutral-500">In shorter months rent is due on the last day (e.g. 28 February).</span>}
               </label>
               <label className="text-xs font-semibold text-neutral-700">Payment reference<input className={input + ' uppercase'} value={form.payment_reference} onChange={set('payment_reference')} />
                 {!c.paymentRefStored && <span className="mt-xs block font-normal text-neutral-500">Suggested from the address — saved when you press Save.</span>}

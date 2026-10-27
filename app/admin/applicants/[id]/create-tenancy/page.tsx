@@ -370,8 +370,8 @@ export default function CreateTenancyPage() {
                 <label className="block text-xs text-neutral-500 mb-xs">Due day</label>
                 <select value={rentDueDay} onChange={e => setRentDueDay(e.target.value)}
                   className="w-full px-sm py-sm border border-neutral-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900">
-                  {Array.from({length: 28}, (_, i) => i + 1).map(d => (
-                    <option key={d} value={d}>{d}{d===1?'st':d===2?'nd':d===3?'rd':'th'}</option>
+                  {Array.from({length: 31}, (_, i) => i + 1).map(d => (
+                    <option key={d} value={d}>{d}{d === 1 || d === 21 || d === 31 ? 'st' : d === 2 || d === 22 ? 'nd' : d === 3 || d === 23 ? 'rd' : 'th'}</option>
                   ))}
                 </select>
               </div>

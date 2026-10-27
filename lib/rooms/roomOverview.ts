@@ -3,6 +3,7 @@
 // spend, safety, one timeline of messages and activity, and "Needs you" — worked out from those records, most urgent
 // first, each line gone once it's done. Wording follows Harry's rules: Current tenancy / Expired tenancies, full dates,
 // full names with titles.
+import { rentDueDate } from '@/lib/rent/dueDate'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { stageOf } from '@/lib/lettings/lettingFile'
 import { tenantAccount } from '@/lib/finance/tenantAccount'
@@ -125,8 +126,8 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
     const monthEnd = addDays(addMonths(monthStart, 1), -1)
     const from = t && t.start_date > monthStart ? t.start_date : monthStart
     const to = t?.end_date && t.end_date < monthEnd ? t.end_date : monthEnd
-    const dueDay = Math.min(Math.max(Number(t?.rent_due_day) || 1, 1), 28)
-    const dueOn = t && t.start_date > `${month}-${String(dueDay).padStart(2, '0')}` ? t.start_date : `${month}-${String(dueDay).padStart(2, '0')}`
+    const dueStd = rentDueDate(month, t?.rent_due_day)
+    const dueOn = t && t.start_date > dueStd ? t.start_date : dueStd
     const due = r2(Number(c.amount_due)), received = r2(Number(c.amount_received || 0))
     const beforeCros = monthStart < takeover
     const state = c.status === 'paid' || received >= due - 0.004 ? 'paid' : received > 0 ? 'part' : dueOn < today ? (beforeCros ? 'statement' : 'overdue') : 'due'

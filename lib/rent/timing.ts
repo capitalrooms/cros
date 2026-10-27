@@ -2,6 +2,7 @@
 // month arrived 3rd — shall we send an email or push notification to tenants: thanks for the rent but a kind reminder it
 // is due on the 1st"). Only months CROS collects (from client_ledger_start); demo houses left out. The paid date is the
 // day it reached our bank where we have it (a matched bank line), else the date recorded on the charge.
+import { rentDueDate } from '@/lib/rent/dueDate'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ledgerStart } from '@/lib/clientLedger'
 import { demoPropertyIds } from '@/lib/demoProperties'
@@ -42,8 +43,7 @@ export async function rentTiming(s: SupabaseClient, month: string): Promise<{ ro
   for (const c of live) {
     const t = ((lets ?? []) as any[]).find(x => x.id === c.tenancy_id)
     if (!t?.people) continue
-    const dueDay = Math.min(Math.max(Number(t.rent_due_day) || 1, 1), 28)
-    const dueStd = `${month}-${String(dueDay).padStart(2, '0')}`
+    const dueStd = rentDueDate(month, t.rent_due_day)
     const due = t.start_date > dueStd ? t.start_date : dueStd
     const amount = Number(c.amount_due) || 0
     const paid = Number(c.amount_received || 0) >= amount - 0.004 && amount > 0
