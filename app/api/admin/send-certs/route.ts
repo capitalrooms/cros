@@ -47,11 +47,11 @@ function daysUntil(d: string | null): number | null {
 }
 
 function statusLabel(expiry: string | null): string {
-  if (!expiry) return '⚪ Not recorded'
+  if (!expiry) return 'Not recorded'
   const days = daysUntil(expiry)!
-  if (days < 0) return `🔴 Expired ${Math.abs(days)} days ago`
-  if (days <= 60) return `🟡 Expires in ${days} days`
-  return `🟢 Valid — ${days} days remaining`
+  if (days < 0) return `Expired ${Math.abs(days)} days ago`
+  if (days <= 60) return `Expires in ${days} days`
+  return `Valid — ${days} days remaining`
 }
 
 // POST /api/admin/send-certs

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import RoleGreeting from '@/app/components/RoleGreeting'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 interface Room {
   id: string
@@ -104,7 +105,7 @@ export default function AgentDashboard() {
             onClick={handleSignOut}
             className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
           >
-            <span>👋</span> Sign out
+            <span><LineIcon glyph="👋" /></span> Sign out
           </button>
         }
       />

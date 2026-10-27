@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import RoomCommunicationsModal from './RoomCommunicationsModal'
+import LineIcon from '@/components/LineIcon'
 
 interface Notification {
   id: string
@@ -203,7 +204,7 @@ export default function CommunicationsTab({ propertyId }: CommunicationsTabProps
         {/* Category Header */}
         <div className="bg-neutral-50 border-b border-neutral-200 p-lg flex items-center justify-between">
           <div className="flex items-center gap-md">
-            <span className="text-2xl">{getCategoryIcon(category)}</span>
+            <span className="text-2xl">{<LineIcon glyph={getCategoryIcon(category)} />}</span>
             <div>
               <h3 className="font-semibold text-neutral-900">{getCategoryLabel(category)}</h3>
               <p className="text-xs text-neutral-500 mt-xs">{messages.length} message{messages.length !== 1 ? 's' : ''}</p>

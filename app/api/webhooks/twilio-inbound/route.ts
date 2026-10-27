@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     await notifyAdmin(
       subject,
       await emailHtml(`
-        <h2 style="font-size:19px;color:#1c1917;font-weight:700;margin:0 0 8px;">Confirmed ✅</h2>
+        <h2 style="font-size:19px;color:#1c1917;font-weight:700;margin:0 0 8px;">Confirmed </h2>
         <p style="font-size:15px;color:#1c1917;margin:0 0 20px;">${context}</p>
         <p style="font-size:14px;color:#78716c;margin:0 0 20px;">
           ${isViewing ? 'The applicant' : 'The contractor'} replied <strong>Y</strong> — they are on their way.
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     await notifyAdmin(
       subject,
       await emailHtml(`
-        <h2 style="font-size:19px;color:#1c1917;font-weight:700;margin:0 0 8px;">Running late or issue ⚠️</h2>
+        <h2 style="font-size:19px;color:#1c1917;font-weight:700;margin:0 0 8px;">Running late or issue </h2>
         <p style="font-size:15px;color:#1c1917;margin:0 0 20px;">${context}</p>
         <p style="font-size:14px;color:#78716c;margin:0 0 20px;">
           ${isViewing ? 'The applicant' : 'The contractor'} replied <strong>N</strong>.

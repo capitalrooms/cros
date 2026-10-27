@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     ) {
       sections += `
     <div class="section">
-      <h3>🗑️ Waste Management</h3>
+      <h3>Waste Management</h3>
       <div class="details">
         ${extended.bin_black_day ? `<p><span class="label">Black bin:</span> ${extended.bin_black_day}</p>` : ''}
         ${extended.bin_blue_day ? `<p><span class="label">Blue bin:</span> ${extended.bin_blue_day}</p>` : ''}
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     if (extended?.nearest_gp_name) {
       sections += `
     <div class="section">
-      <h3>🏥 Local Services</h3>
+      <h3>Local Services</h3>
       <div class="details">
         <p><span class="label">GP Surgery:</span> ${extended.nearest_gp_name}</p>
         ${extended.nearest_gp_phone ? `<p><span class="label">Phone:</span> ${extended.nearest_gp_phone}</p>` : ''}
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     if (extended?.police_force_name) {
       sections += `
     <div class="section">
-      <h3>🚔 Emergency Services</h3>
+      <h3>Emergency Services</h3>
       <div class="details">
         <p><span class="label">Police Force:</span> ${extended.police_force_name}</p>
         ${extended.police_station_name ? `<p><span class="label">Nearest Station:</span> ${extended.police_station_name}</p>` : ''}
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     if (extended?.council_tax_band || extended?.council_contact_phone) {
       sections += `
     <div class="section">
-      <h3>🏛️ Council Information</h3>
+      <h3>Council Information</h3>
       <div class="details">
         ${extended.council_tax_band ? `<p><span class="label">Tax Band:</span> ${extended.council_tax_band}</p>` : ''}
         ${extended.council_contact_phone ? `<p><span class="label">Contact:</span> ${extended.council_contact_phone}</p>` : ''}
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     if (extended?.single_let_rental_value || extended?.hmo_total_value) {
       sections += `
     <div class="section">
-      <h3>💷 Valuation</h3>
+      <h3>Valuation</h3>
       <div class="details">
         ${extended.single_let_rental_value ? `<p><span class="label">Estimated Rental:</span> £${extended.single_let_rental_value}/month</p>` : ''}
         ${extended.hmo_total_value ? `<p><span class="label">Total Value:</span> £${extended.hmo_total_value}</p>` : ''}

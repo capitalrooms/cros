@@ -7,6 +7,7 @@ import {
   answeredCount,
   type IcebreakerAnswers,
 } from '@/lib/icebreaker'
+import LineIcon from '@/components/LineIcon'
 
 interface Resident {
   personId: string
@@ -180,7 +181,7 @@ export default function HousematesTab({ propertyId }: { propertyId: string }) {
                   {ICEBREAKER_QUESTIONS.map((q) => (
                     <div key={q.id}>
                       <label className="block text-xs font-bold text-neutral-700">
-                        {q.emoji} {q.prompt}
+                        {<LineIcon glyph={q.emoji} />} {q.prompt}
                       </label>
                       <textarea
                         value={draft[q.id] || ''}
@@ -222,7 +223,7 @@ export default function HousematesTab({ propertyId }: { propertyId: string }) {
                   {ICEBREAKER_QUESTIONS.filter((q) => (r.answers[q.id] || '').trim()).map((q) => (
                     <div key={q.id}>
                       <dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                        {q.emoji} {q.short}
+                        {<LineIcon glyph={q.emoji} />} {q.short}
                       </dt>
                       <dd className="mt-0.5 text-sm text-neutral-800">{r.answers[q.id]}</dd>
                     </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import LineIcon from '@/components/LineIcon'
 
 interface DateRangePickerProps {
   onRangeChange: (startDate: string, endDate: string) => void
@@ -56,7 +57,7 @@ export default function DateRangePicker({
         className="flex items-center gap-sm px-md py-xs bg-neutral-700 text-white rounded hover:bg-neutral-600 transition"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <span>📅</span>
+        <span><LineIcon glyph="📅" /></span>
         <span className="text-sm font-medium">{formatDisplayDate(initialStart || minDate)}</span>
         <span className="text-xs text-white/60">→</span>
         <span className="text-sm font-medium">{formatDisplayDate(initialEnd || maxDate)}</span>

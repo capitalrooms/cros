@@ -12,6 +12,7 @@ import PublicShell from '@/components/public/PublicShell'
 import LandlordDocuments from './LandlordDocuments'
 import { hiName } from '@/lib/people'
 import { landlordSections, type LandlordSection } from '@/lib/access/landlordSections'
+import LineIcon from '@/components/LineIcon'
 
 // Notification categories the landlord can self-manage
 const NOTIF_CATEGORIES: { key: string; label: string; description: string; mandatory?: boolean }[] = [
@@ -293,7 +294,7 @@ export default function LandlordDashboard() {
           ? <PropertyFinancialSummary propertyId={selectedProperty} />
           : (
             <div className="rounded-2xl bg-white border border-neutral-200 px-lg py-3xl text-center mb-3xl">
-              <p className="text-3xl mb-md">💷</p>
+              <p className="text-3xl mb-md"><LineIcon glyph="💷" /></p>
               <p className="text-sm font-semibold text-neutral-600">No monthly statements</p>
               <p className="text-xs text-neutral-400 mt-xs">Monthly statements appear here for houses we manage. Lettings statements for tenants we've found you are under Your documents below.</p>
             </div>

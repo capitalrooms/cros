@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { localISO } from '@/lib/dateUtils'
+import LineIcon from '@/components/LineIcon'
 type AppointmentType = 'landlord' | 'lettings' | 'contractor' | 'cleaner' | 'delivery' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 interface Appointment {
@@ -354,7 +355,7 @@ export default function AppointmentsPage() {
                   className="col-span-2 border border-neutral-300 rounded-lg px-md py-sm text-sm"
                 >
                   {Object.entries(APPOINTMENT_TYPES).map(([key, val]) => (
-                    <option key={key} value={key}>{val.icon} {val.label}</option>
+                    <option key={key} value={key}>{<LineIcon glyph={val.icon} />} {val.label}</option>
                   ))}
                 </select>
 
@@ -472,13 +473,13 @@ export default function AppointmentsPage() {
                         <li key={appt.id} className="flex gap-md px-lg py-sm">
                           <p className="w-12 shrink-0 text-sm font-bold tabular-nums text-neutral-900">{appt.appointment_time.slice(0, 5)}</p>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-neutral-900">{typeInfo.icon} {appt.visitor_name}</p>
+                            <p className="text-sm font-semibold text-neutral-900">{<LineIcon glyph={typeInfo.icon} />} {appt.visitor_name}</p>
                             <p className="truncate text-xs text-neutral-500">{typeInfo.label}{appt.property ? ` · ${appt.property.name}` : ''}{appt.duration_minutes ? ` · ${appt.duration_minutes} min` : ''}</p>
                             {appt.notes && <p className="mt-0.5 text-xs text-neutral-600 line-clamp-2">{appt.notes}</p>}
                           </div>
                           {appt.visitor_phone && (
                             <a href={`tel:${appt.visitor_phone}`} aria-label={`Call ${appt.visitor_name}`}
-                              className="self-center shrink-0 rounded-full border border-neutral-200 px-sm py-xs text-xs font-semibold text-neutral-700">📞</a>
+                              className="self-center shrink-0 rounded-full border border-neutral-200 px-sm py-xs text-xs font-semibold text-neutral-700"><LineIcon glyph="📞" /></a>
                           )}
                         </li>
                       )
@@ -548,7 +549,7 @@ export default function AppointmentsPage() {
                             className={`absolute left-0.5 right-0.5 top-0.5 p-1 text-xs rounded cursor-move hover:shadow-md transition ${typeInfo.bgColor} border ${typeInfo.borderColor}`}
                             style={{ height: `${heightRem}rem`, lineHeight: '1' }}
                           >
-                            <div className="font-bold truncate">{typeInfo.icon} {appt.visitor_name}</div>
+                            <div className="font-bold truncate">{<LineIcon glyph={typeInfo.icon} />} {appt.visitor_name}</div>
                             <div className="truncate text-neutral-600">{appt.appointment_time}</div>
                             {appt.property && <div className="truncate text-neutral-600 text-xs">{appt.property.name}</div>}
                           </div>

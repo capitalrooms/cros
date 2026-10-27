@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     await insertNotifications(service, admins.map((a: any) => a.id), {
-      title: `🏠 Housemate concern — ${tenantName}`,
+      title: `Housemate concern — ${tenantName}`,
       body: notifBody,
       type: 'housemate_concern',
       link: `/admin/people`,

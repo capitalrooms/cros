@@ -12,6 +12,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import DocReview, { AIResult, TYPE_LABELS } from '@/app/components/DocReview'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import LineIcon from '@/components/LineIcon'
 const BLANK: AIResult = {
   doc_type: 'other', confidence: 0, summary: '', issue_date: '', expiry_date: '', provider: '',
   policy_number: '', property_address: '', person_name: '', person_phone: '', person_email: '',
@@ -382,7 +383,7 @@ export default function DocumentsPage() {
                   onChange={(e) => handleFiles(e.target.files)}
                   disabled={busy}
                 />
-                <p className="text-4xl">{busy ? '⏳' : '📄'}</p>
+                <p className="text-4xl">{<LineIcon glyph={busy ? '⏳' : '📄'} />}</p>
                 {busy ? (
                   <>
                     <p className="font-bold text-neutral-900">{busyLabel}</p>

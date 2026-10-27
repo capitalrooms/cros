@@ -9,6 +9,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { categoryLabel, categoryEmoji } from '@/lib/expense-categories'
 import type { ExtractedStatement } from '@/lib/ai-statement'
+import LineIcon from '@/components/LineIcon'
 
 interface Property { id: string; name: string; address: string; landlord_id: string }
 
@@ -206,7 +207,7 @@ export default function StatementImportPage() {
           }`}
         >
           <div className="flex flex-col items-center justify-center py-3xl px-lg text-center">
-            <span className="text-4xl mb-md">📄</span>
+            <span className="text-4xl mb-md"><LineIcon glyph="📄" /></span>
             <p className="font-semibold text-neutral-700">Drop PDF statements here</p>
             <p className="text-sm text-neutral-400 mt-xs">or click to browse — multiple files supported</p>
           </div>
@@ -432,7 +433,7 @@ function StatementCardUI({
               {s.expenses.map((e, i) => (
                 <div key={i} className="flex items-center justify-between text-sm py-xs border-b border-neutral-50 last:border-0">
                   <div className="flex items-center gap-sm min-w-0">
-                    <span className="text-base leading-none shrink-0">{categoryEmoji(e.category)}</span>
+                    <span className="text-base leading-none shrink-0">{<LineIcon glyph={categoryEmoji(e.category)} />}</span>
                     <div className="min-w-0">
                       <p className="text-neutral-700 truncate">{e.description}</p>
                       <p className="text-xs text-neutral-400">

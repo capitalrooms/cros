@@ -11,6 +11,7 @@ import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton';
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading';
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import LineIcon from '@/components/LineIcon'
 interface Contact {
   id: string;
   email: string;
@@ -248,7 +249,7 @@ export default function ContactsPage() {
 
         {/* Search bar */}
         <div className="mb-md relative">
-          <span className="absolute left-md top-1/2 -translate-y-1/2 text-neutral-400 text-sm pointer-events-none">🔍</span>
+          <span className="absolute left-md top-1/2 -translate-y-1/2 text-neutral-400 text-sm pointer-events-none"><LineIcon glyph="🔍" /></span>
           <input
             type="text"
             placeholder="Search by name, email or phone…"

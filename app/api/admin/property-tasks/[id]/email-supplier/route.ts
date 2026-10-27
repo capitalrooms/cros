@@ -71,7 +71,7 @@ export async function POST(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-  const sentNote = `[${new Date().toLocaleDateString('en-GB')}] 📧 Booking email sent to ${supplier_name || supplier_email}`
+  const sentNote = `[${new Date().toLocaleDateString('en-GB')}] Booking email sent to ${supplier_name || supplier_email}`
 
   await s
     .from('property_tasks')

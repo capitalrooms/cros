@@ -7,6 +7,7 @@ import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 import { FEEDBACK_AREAS, SCORE_WORDS } from '@/lib/feedback/areas'
+import LineIcon from '@/components/LineIcon'
 
 export default function TenantFeedbackPage() {
   const [house, setHouse] = useState<string | null | undefined>(undefined)
@@ -39,7 +40,7 @@ export default function TenantFeedbackPage() {
     <div className="min-h-screen bg-neutral-50">
       <AppBar left={<BackButton href="/tenant" />} />
       <main className="mx-auto max-w-lg px-lg py-3xl text-center">
-        <div className="mb-lg text-5xl">🙏</div>
+        <div className="mb-lg text-5xl"><LineIcon glyph="🙏" /></div>
         <h1 className="mb-sm text-2xl font-bold text-neutral-900">Thank you</h1>
         <p className="mb-xl text-sm text-neutral-600">We read every answer and use them to decide what to improve at {house ?? 'the house'} first.</p>
         <a href="/tenant" className="inline-block rounded-xl bg-neutral-900 px-xl py-md text-sm font-bold text-white">Back to home</a>

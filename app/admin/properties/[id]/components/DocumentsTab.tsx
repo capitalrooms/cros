@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import DocUploadDrawer from '@/components/DocUploadDrawer'
 import DocViewDrawer from '@/components/DocViewDrawer'
 import { docTypeLabel, fullDatesIn } from '@/lib/documents/types'
+import LineIcon from '@/components/LineIcon'
 
 interface Doc {
   id: string
@@ -81,7 +82,7 @@ export default function DocumentsTab({ propertyId, propertyName }: DocumentsTabP
           onClick={() => setShowDrawer(true)}
           className="rounded-xl border-2 border-dashed border-neutral-300 bg-neutral-50 hover:border-neutral-500 hover:bg-white transition cursor-pointer p-xl text-center"
         >
-          <p className="text-2xl mb-sm">📎</p>
+          <p className="text-2xl mb-sm"><LineIcon glyph="📎" /></p>
           <p className="text-sm font-semibold text-neutral-700">
             {docs.length === 0 ? 'No documents yet — click to upload' : 'No results — click to upload a new document'}
           </p>

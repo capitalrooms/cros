@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 interface PropertyDocument {
   id: string
@@ -153,7 +154,7 @@ export default function PropertyInfoPage() {
             return (
               <section key={cat.key}>
                 <div className="flex items-center gap-sm mb-sm">
-                  <span className="text-xl">{cat.emoji}</span>
+                  <span className="text-xl">{<LineIcon glyph={cat.emoji} />}</span>
                   <div>
                     <h2 className="text-base font-bold text-neutral-900">{cat.label}</h2>
                     <p className="text-xs text-neutral-500">{cat.description}</p>
@@ -187,7 +188,7 @@ function DocCard({ doc }: { doc: PropertyDocument }) {
     <div className={`flex items-center gap-md rounded-xl border-2 bg-white p-md transition-all ${
       hasFile ? 'border-neutral-200 hover:border-neutral-900 cursor-pointer' : 'border-neutral-100'
     }`}>
-      <span className="text-2xl shrink-0">{hasFile ? '📄' : '📝'}</span>
+      <span className="text-2xl shrink-0">{<LineIcon glyph={hasFile ? '📄' : '📝'} />}</span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-neutral-900 truncate">{doc.file_name}</p>
         {doc.description && (

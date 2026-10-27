@@ -11,6 +11,7 @@ import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
+import LineIcon from '@/components/LineIcon'
 interface Property {
   id: string
   name: string
@@ -256,7 +257,7 @@ export default function BookAppointmentPage() {
                         : 'border-neutral-700 text-neutral-300 hover:border-neutral-500'
                     }`}
                   >
-                    <div className="text-lg">{icon}</div>
+                    <div className="text-lg">{<LineIcon glyph={icon} />}</div>
                     <div className="text-xs">{label}</div>
                   </button>
                 )

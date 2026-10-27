@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import ComplianceInspectionGrid from './ComplianceInspectionGrid'
 import { hmoLicenceState } from '@/lib/compliance/hmoLicence'
+import LineIcon from '@/components/LineIcon'
 
 interface ComplianceTabProps {
   property: any
@@ -711,13 +712,13 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
             {sendResult ? (
               <>
                 <div className="text-center py-md">
-                  <p className="text-3xl mb-sm">✅</p>
+                  <p className="text-3xl mb-sm"><LineIcon glyph="✅" /></p>
                   <h3 className="text-base font-bold text-neutral-900">Sent to {sendResult.sent} recipient{sendResult.sent !== 1 ? 's' : ''}</h3>
                 </div>
                 <div className="space-y-xs">
                   {sendResult.recipients.map((r: any, i: number) => (
                     <div key={i} className="flex items-center gap-sm rounded-xl border border-neutral-100 bg-neutral-50 px-md py-sm">
-                      <span className="text-xs">{r.type === 'landlord' ? '🏠' : '🏡'}</span>
+                      <span className="text-xs">{<LineIcon glyph={r.type === 'landlord' ? '🏠' : '🏡'} />}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-neutral-900">{r.name}</p>
                         <p className="text-xs text-neutral-500">{r.email}</p>
@@ -748,7 +749,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
                             onChange={e => setSendCertTypes(prev => e.target.checked ? [...prev, historyType] : prev.filter(t => t !== historyType))}
                             className="rounded"
                           />
-                          <span className="text-sm flex-1">{icon} {label}</span>
+                          <span className="text-sm flex-1">{<LineIcon glyph={icon} />} {label}</span>
                           {!hasData && <span className="text-xs text-neutral-400">No date set</span>}
                         </label>
                       )

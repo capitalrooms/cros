@@ -140,18 +140,18 @@ export async function startEmergency(s: S, opts: { ticketId: string; kind?: Emer
   await log(s, em.id, 'reported', `Reported by the tenant: ${info.label}${opts.controlled ? ' — they say it’s under control until morning' : ''}`, 'Tenant')
 
   if (status === 'call_999') {
-    await alertOffice(s, full, `🚨 ${info.label} at ${firstLine(full.properties?.name)}`, `The tenant has been told: ${info.callServices} No contractor sent — check in with them.`, true)
+    await alertOffice(s, full, `${info.label} at ${firstLine(full.properties?.name)}`, `The tenant has been told: ${info.callServices} No contractor sent — check in with them.`, true)
     return { id: em.id, status }
   }
   if (status === 'morning') {
-    await alertOffice(s, full, `⚠️ ${info.label} (contained) at ${firstLine(full.properties?.name)}`, 'The tenant says it’s under control until morning — book someone first thing.')
+    await alertOffice(s, full, `${info.label} (contained) at ${firstLine(full.properties?.name)}`, 'The tenant says it’s under control until morning — book someone first thing.')
     await tellHouse(s, full, 'We’ve got your report', 'Thanks for making it safe. We’ll arrange someone first thing in the morning — tell us straight away if it gets worse.')
     return { id: em.id, status }
   }
   const asked = await dispatchWave(s, full, 1)
   if (!asked) await dispatchWave(s, full, 2)
   await tellHouse(s, full, 'We’re on it', `We’re sorry you’re dealing with this. We’re contacting our emergency contractors now and will let you know who is coming and when.`)
-  await alertOffice(s, full, `🚨 Emergency: ${info.label} at ${firstLine(full.properties?.name)}`, 'Contractors are being texted. CROS will confirm the soonest in a few minutes — open it to watch or step in.')
+  await alertOffice(s, full, `Emergency: ${info.label} at ${firstLine(full.properties?.name)}`, 'Contractors are being texted. CROS will confirm the soonest in a few minutes — open it to watch or step in.')
   return { id: em.id, status }
 }
 
@@ -184,7 +184,7 @@ export async function dispatchWave(s: S, em: any, wave: number): Promise<number>
     const { error } = await s.from('emergency_responses').insert({ emergency_id: em.id, contractor_id: c.person_id, token: t, wave })
     if (error) continue
     const body = `CAPITAL ROOMS EMERGENCY: ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}. Can you attend? Tap to answer: ${link(t)}`
-    const sent = await tellContractor(c.people, c.person_id, { text: body, title: '🚨 Emergency — can you attend?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${t}`, tag: `emergency-${em.id}` })
+    const sent = await tellContractor(c.people, c.person_id, { text: body, title: 'Emergency — can you attend?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${t}`, tag: `emergency-${em.id}` })
     await s.from('emergency_responses').update({ texted: sent.via.some(v => v.startsWith('text')) }).eq('token', t)
     names.push(`${pname(c.people)}${reached(sent)}`)
   }
@@ -214,7 +214,7 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
   if (!set.auto) {
     await s.from('emergencies').update({ status: 'awaiting_office', updated_at: new Date().toISOString() }).eq('id', emId).eq('status', 'collecting')
     await log(s, emId, 'waiting', `${reason}: ${yes.length} can attend — automatic choosing is off, waiting for the office`)
-    await alertOffice(s, em, `🚨 Choose a contractor — ${firstLine(em.properties?.name)}`, `${yes.length} can attend. Open it to pick one.`, true)
+    await alertOffice(s, em, `Choose a contractor — ${firstLine(em.properties?.name)}`, `${yes.length} can attend. Open it to pick one.`, true)
     return
   }
   if (within.length) return choose(s, emId, soonest(within)[0].id, 'CROS', `${reason}: the soonest within the £${set.costLimit} limit`)
@@ -223,7 +223,7 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
     const moved = await s.from('emergencies').update({ status: 'awaiting_office', updated_at: new Date().toISOString() }).eq('id', emId).eq('status', 'collecting').select('id')
     if (!moved.data?.length) return
     await log(s, emId, 'waiting', `${reason}: the soonest is ${pname(best.people)} by ${ukWhen(best.eta_at)} for ${gbp(best.call_out_fee)} — over the £${set.costLimit} limit, so the office is asked${set.overLimit === 'send_after_15' ? ' (goes ahead in 15 minutes if no one answers)' : ''}`)
-    await alertOffice(s, em, `💷 Approve call-out — ${firstLine(em.properties?.name)}`, `${pname(best.people)} can come by ${ukWhen(best.eta_at)} for ${gbp(best.call_out_fee)} (over your £${set.costLimit} limit).${set.overLimit === 'send_after_15' ? ' Going ahead in 15 minutes unless you change it.' : ''}`, true)
+    await alertOffice(s, em, `Approve call-out — ${firstLine(em.properties?.name)}`, `${pname(best.people)} can come by ${ukWhen(best.eta_at)} for ${gbp(best.call_out_fee)} (over your £${set.costLimit} limit).${set.overLimit === 'send_after_15' ? ' Going ahead in 15 minutes unless you change it.' : ''}`, true)
     return
   }
   // no one can come yet
@@ -231,7 +231,7 @@ export async function decide(s: S, emId: string, reason = 'Answers closed') {
     const n = await dispatchWave(s, em, 2)
     if (n) {
       await log(s, emId, 'waiting', `${reason}: no one could come — asked the backups and general contractors too`)
-      await alertOffice(s, em, `⏳ No contractor yet — ${firstLine(em.properties?.name)}`, 'No one on the list could come. CROS has asked the backups; you may want to call round.', true)
+      await alertOffice(s, em, `No contractor yet — ${firstLine(em.properties?.name)}`, 'No one on the list could come. CROS has asked the backups; you may want to call round.', true)
       return
     }
   }
@@ -279,7 +279,7 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
     em.properties?.key_safe_code ? `Front door key safe: ${em.properties.key_safe_code}` : '',
     `Details & updates: ${link(r.token)}`,
   ].filter(Boolean)
-  const sms = await tellContractor(r.people, r.contractor_id, { text: lines.join('\n'), title: '✅ Emergency confirmed', body: `${addressOf(em)} — by ${ukWhen(r.eta_at)}`, url: `/e/${r.token}`, tag: `emergency-${emId}` })
+  const sms = await tellContractor(r.people, r.contractor_id, { text: lines.join('\n'), title: 'Emergency confirmed', body: `${addressOf(em)} — by ${ukWhen(r.eta_at)}`, url: `/e/${r.token}`, tag: `emergency-${emId}` })
   // everyone else asked: thanks, it's covered
   const { data: others } = await s.from('emergency_responses').select('id, token, answer, contractor_id, people!contractor_id(*)').eq('emergency_id', emId).neq('id', r.id).is('stood_down_at', null) as { data: any[] | null }
   for (const o of others ?? []) {
@@ -299,7 +299,7 @@ export async function choose(s: S, emId: string, responseId: string, by: string,
   }
   await log(s, emId, 'confirmed', `${pname(r.people)} confirmed — due by ${ukWhen(r.eta_at)}, call-out ${gbp(r.call_out_fee)}. ${why}${sms.via.length ? ` — sent by ${sms.via.join(', ')}` : ` (couldn’t reach them: ${sms.error} — call them)`}`, by)
   await tellHouse(s, em, 'Help is on the way', `A contractor is on the way and expected around ${ukWhen(r.eta_at)}. We’re sorry for the trouble — we’ll keep you posted.`)
-  await alertOffice(s, em, `✅ Emergency covered — ${firstLine(em.properties?.name)}`, `${pname(r.people)} due by ${ukWhen(r.eta_at)} for ${gbp(r.call_out_fee)}. CROS will check in at ${ukWhen(followup)}.`)
+  await alertOffice(s, em, `Emergency covered — ${firstLine(em.properties?.name)}`, `${pname(r.people)} due by ${ukWhen(r.eta_at)} for ${gbp(r.call_out_fee)}. CROS will check in at ${ukWhen(followup)}.`)
   return { ok: true }
 }
 
@@ -349,7 +349,7 @@ export async function respond(s: S, t: string, a: { answer: 'yes' | 'no'; etaAt?
       const { data: anyYes } = await s.from('emergency_responses').select('id').eq('emergency_id', em.id).eq('answer', 'yes').neq('id', r.id).limit(1)
       if (!anyYes?.length) await choose(s, em.id, r.id, 'CROS', 'First to answer after no one else could come')
     } else {
-      await alertOffice(s, em, `📩 New answer — ${firstLine(em.properties?.name)}`, `${pname(who)} can come by ${ukWhen(a.etaAt!)} for ${gbp(a.fee)}.`)
+      await alertOffice(s, em, `New answer — ${firstLine(em.properties?.name)}`, `${pname(who)} can come by ${ukWhen(a.etaAt!)} for ${gbp(a.fee)}.`)
     }
     return { ok: true }
   }
@@ -400,12 +400,12 @@ export async function report(s: S, t: string, a: {
     const reasked: string[] = []
     for (const o of before ?? []) {
       await s.from('emergency_responses').update({ answer: null, answered_at: null, eta_at: null, call_out_fee: null, stood_down_at: null, wave }).eq('id', o.id)
-      const sent = await tellContractor(o.people, o.contractor_id, { text: `CAPITAL ROOMS EMERGENCY: the contractor booked for ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)} can't make it now. Can you still come? Tap to answer: ${link(o.token)}`, title: '🚨 Can you still come?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${o.token}`, tag: `emergency-${em.id}` })
+      const sent = await tellContractor(o.people, o.contractor_id, { text: `CAPITAL ROOMS EMERGENCY: the contractor booked for ${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)} can't make it now. Can you still come? Tap to answer: ${link(o.token)}`, title: 'Can you still come?', body: `${KINDS[em.kind as EmergencyKind]?.label ?? em.title} near ${areaOf(em)}`, url: `/e/${o.token}`, tag: `emergency-${em.id}` })
       reasked.push(`${pname(o.people)}${reached(sent)}`)
     }
     if (reasked.length) await log(s, em.id, 'dispatch', `Asked again: ${reasked.join(', ')} (they said yes earlier)`)
     const fresh = await dispatchWave(s, await load(s, em.id), wave)
-    await alertOffice(s, em, `⚠️ Contractor dropped out — ${firstLine(em.properties?.name)}`, `${name} can’t make it. CROS has asked ${reasked.length + fresh ? `${reasked.length + fresh} contractor${reasked.length + fresh === 1 ? '' : 's'} again` : 'no one — there’s no one else on the list'}; it confirms the soonest in ${set.windowMin} minutes.`, true)
+    await alertOffice(s, em, `Contractor dropped out — ${firstLine(em.properties?.name)}`, `${name} can’t make it. CROS has asked ${reasked.length + fresh ? `${reasked.length + fresh} contractor${reasked.length + fresh === 1 ? '' : 's'} again` : 'no one — there’s no one else on the list'}; it confirms the soonest in ${set.windowMin} minutes.`, true)
     if (!reasked.length && !fresh) await decide(s, em.id, `${name} dropped out`)
     return { ok: true }
   }
@@ -423,7 +423,7 @@ export async function report(s: S, t: string, a: {
     if (em.ticket_id) await s.from('maintenance_tickets').update({ status: 'completed', completed_at: now, return_needed: false, admin_note: stamp(`Emergency fixed by ${name}${note ? ` — ${note}` : ''}`), updated_at: now }).eq('id', em.ticket_id)
     await log(s, em.id, 'fixed', `${name}: fixed${note ? ` — “${note}”` : ''}`, name)
     await tellHouse(s, em, 'Sorted', 'The problem has been fixed. Thanks for your patience — let us know if anything isn’t right.')
-    await alertOffice(s, em, `✅ Emergency fixed — ${firstLine(em.properties?.name)}`, `${name} has fixed it.${note ? ` ${note}` : ''}`)
+    await alertOffice(s, em, `Emergency fixed — ${firstLine(em.properties?.name)}`, `${name} has fixed it.${note ? ` ${note}` : ''}`)
     return { ok: true }
   }
   // made safe / not fixed → coming back
@@ -439,7 +439,7 @@ export async function report(s: S, t: string, a: {
   await log(s, em.id, a.outcome, `${name}: ${a.outcome === 'made_safe' ? 'made safe' : 'not fixed'}${a.part ? ` — needs ${a.part}` : ''}${a.fixCost != null ? `, proper fix ${gbp(a.fixCost)}` : ''}${back ? `, back ${back}` : ', return date to agree'}${note ? ` — “${note}”` : ''}`, name)
   await tellHouse(s, em, a.outcome === 'made_safe' ? 'Made safe for now' : 'Update on the repair',
     `${a.outcome === 'made_safe' ? 'It’s been made safe for now.' : 'It couldn’t be fully fixed tonight.'}${back ? ` They’ll be back on ${back} to finish.` : ' We’ll confirm when they’re coming back.'}`)
-  await alertOffice(s, em, `🔧 Needs a return visit — ${firstLine(em.properties?.name)}`, `${name}: ${a.part ? `needs ${a.part}. ` : ''}${a.fixCost != null ? `Proper fix ${gbp(a.fixCost)}. ` : ''}${back ? `Back ${back}.` : 'No return date yet.'}`, a.fixCost != null)
+  await alertOffice(s, em, `Needs a return visit — ${firstLine(em.properties?.name)}`, `${name}: ${a.part ? `needs ${a.part}. ` : ''}${a.fixCost != null ? `Proper fix ${gbp(a.fixCost)}. ` : ''}${back ? `Back ${back}.` : 'No return date yet.'}`, a.fixCost != null)
   return { ok: true }
 }
 
@@ -490,7 +490,7 @@ export async function tick(s: S) {
     const { data: r } = await s.from('emergency_responses').select('token, contractor_id, people!contractor_id(*)').eq('id', e.chosen_response_id).maybeSingle() as { data: any }
     if (r) await tellContractor(r.people, r.contractor_id, { text: `CAPITAL ROOMS: quick reminder — please tell us how the emergency went: ${link(r.token)}`, title: 'Reminder — how did it go?', body: 'Please tell us how the emergency went', url: `/e/${r.token}`, tag: `emergency-${e.id}` })
     await log(s, e.id, 'check_in', `No update from ${pname(r?.people)} yet — reminded them and told the office`)
-    await alertOffice(s, em, `⏰ No update from the contractor — ${firstLine(em.properties?.name)}`, `${pname(r?.people)} hasn’t said how it went. Worth a call.`, true)
+    await alertOffice(s, em, `No update from the contractor — ${firstLine(em.properties?.name)}`, `${pname(r?.people)} hasn’t said how it went. Worth a call.`, true)
     done.push(`reminded ${e.id}`)
   }
   return done

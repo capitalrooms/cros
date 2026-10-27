@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { withNames } from '@/lib/peopleDirectory'
+import LineIcon from '@/components/LineIcon'
 
 const CATEGORIES = [
   { id: 'cleaning_supplies', label: 'Cleaning supplies', icon: '🧹' },
@@ -121,14 +122,14 @@ export default function ContributionsPage() {
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/tenant/contributions" />} />
         <div className="mx-auto max-w-lg px-lg py-3xl text-center">
-          <div className="text-6xl mb-lg animate-bounce">🎉</div>
+          <div className="text-6xl mb-lg animate-bounce"><LineIcon glyph="🎉" /></div>
           <h1 className="text-2xl font-bold text-neutral-900">Thanks for contributing!</h1>
           <p className="mt-sm text-neutral-600">Every little bit makes the house a nicer place to live.</p>
           {newEntry && (
             <div className="mt-xl rounded-2xl border border-neutral-200 bg-white p-lg text-left">
               <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-sm">Logged</p>
               <p className="font-semibold text-neutral-900">
-                {CATEGORIES.find(c => c.id === newEntry.category)?.icon ?? '📌'}{' '}
+                {<LineIcon glyph={CATEGORIES.find(c => c.id === newEntry.category)?.icon ?? '📌'} />}{' '}
                 {newEntry.description}
               </p>
               {newEntry.amount && (
@@ -182,7 +183,7 @@ export default function ContributionsPage() {
                       : 'border-neutral-200 bg-white text-neutral-700'
                   }`}
                 >
-                  <span className="text-xl block mb-xs">{cat.icon}</span>
+                  <span className="text-xl block mb-xs">{<LineIcon glyph={cat.icon} />}</span>
                   <span className="text-xs font-semibold leading-tight">{cat.label}</span>
                 </button>
               ))}
@@ -258,14 +259,14 @@ export default function ContributionsPage() {
               <p className="text-xs font-bold uppercase tracking-widest text-green-700">Your contributions</p>
               <p className="text-xl font-extrabold text-green-900">{myCount} logged{myTotal > 0 ? ` · £${myTotal.toFixed(2)}` : ''}</p>
             </div>
-            <span className="text-3xl">⭐</span>
+            <span className="text-3xl"><LineIcon glyph="⭐" /></span>
           </div>
         )}
 
         {/* House history */}
         {contributions.length === 0 ? (
           <div className="rounded-2xl border border-neutral-200 bg-white p-xl text-center">
-            <p className="text-3xl mb-md">🏠</p>
+            <p className="text-3xl mb-md"><LineIcon glyph="🏠" /></p>
             <p className="font-bold text-neutral-900">Nothing logged yet</p>
             <p className="text-sm text-neutral-500 mt-xs">Be the first to log something for the house.</p>
           </div>
@@ -279,7 +280,7 @@ export default function ContributionsPage() {
                   key={c.id}
                   className={`rounded-2xl border p-md flex items-start gap-md ${isMe ? 'border-green-200 bg-green-50' : 'border-neutral-100 bg-white'}`}
                 >
-                  <span className="text-xl shrink-0 mt-0.5">{cat?.icon ?? '📌'}</span>
+                  <span className="text-xl shrink-0 mt-0.5">{<LineIcon glyph={cat?.icon ?? '📌'} />}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-sm">
                       <p className="font-semibold text-neutral-900 text-sm leading-snug">{c.description}</p>

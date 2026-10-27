@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/auth'
 import { KINDS, type EmergencyKind } from '@/lib/emergencies/guide'
 import { currentTenancy } from '@/lib/tenancy'
+import LineIcon from '@/components/LineIcon'
 
 const ORDER: EmergencyKind[] = ['gas', 'co', 'fire', 'flooding', 'ceiling_water', 'electrical', 'power', 'heating', 'security', 'window', 'toilet', 'appliance_leak', 'smoke_alarm', 'other']
 const ICON: Record<EmergencyKind, string> = {
@@ -115,7 +116,7 @@ export default function TenantEmergencyPage() {
               {ORDER.map(k => (
                 <button key={k} type="button" onClick={() => { setKind(k); setControlled(null) }}
                   className={`rounded-2xl border bg-white p-md text-left active:scale-[0.98] ${KINDS[k].trade ? 'border-neutral-200' : 'border-red-300'}`}>
-                  <span className="block text-2xl" aria-hidden>{ICON[k]}</span>
+                  <span className="block text-2xl" aria-hidden>{<LineIcon glyph={ICON[k]} />}</span>
                   <span className="mt-xs block text-sm font-semibold text-neutral-900">{KINDS[k].label}</span>
                 </button>
               ))}
@@ -125,7 +126,7 @@ export default function TenantEmergencyPage() {
           <>
             <section className="rounded-2xl border border-red-200 bg-red-50 p-lg">
               <div className="flex items-start justify-between gap-sm">
-                <p className="text-base font-bold text-red-800">{ICON[kind]} {info!.label}</p>
+                <p className="text-base font-bold text-red-800">{<LineIcon glyph={ICON[kind]} />} {info!.label}</p>
                 <button type="button" onClick={() => setKind(null)} className="shrink-0 text-xs font-semibold text-red-800 underline">Change</button>
               </div>
               {info!.callServices && <p className="mt-sm text-sm font-bold text-red-900">{info!.callServices}</p>}

@@ -37,3 +37,5 @@ export default function SignOutButton({ onSignOut }: Props) {
     </button>
   )
 }
+
+import LineIcon from '@/components/LineIcon'

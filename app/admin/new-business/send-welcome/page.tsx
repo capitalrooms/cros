@@ -15,6 +15,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import RentCollectionFields from '../RentCollectionFields'
 import { RENT_COLLECTION_DEFAULTS, rentCollectionProblems, rentCollectionTermsFrom, type RentCollectionTerms } from '@/lib/managementAgreement/rentCollectionTerms'
 import { DEFAULT_NOTICE_MONTHS, DEFAULT_MINIMUM_TERM_MONTHS, NOTICE_OPTIONS, TERM_OPTIONS, durationTermsFrom, durationSentence } from '@/lib/managementAgreement/durationTerms'
+import LineIcon from '@/components/LineIcon'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -455,7 +456,7 @@ export default function SendWelcomePage() {
 
           {/* Agreement preview banner */}
           <div className="bg-neutral-900 rounded-2xl p-lg mb-lg flex items-start gap-md">
-            <div className="text-3xl">📋</div>
+            <div className="text-3xl"><LineIcon glyph="📋" /></div>
             <div>
               <p className="text-white font-bold text-base mb-xs">{isRC ? 'Rent Collection' : 'Management'} Agreement — Review before sending</p>
               <p className="text-neutral-400 text-sm leading-relaxed">
@@ -621,7 +622,7 @@ export default function SendWelcomePage() {
               className="rounded-xl bg-neutral-900 text-white px-xl py-sm text-sm font-semibold hover:bg-neutral-700 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-sm"
             >
               {sending
-                ? <><span className="animate-spin">⏳</span> Generating &amp; sending…</>
+                ? <><span className="animate-spin"><LineIcon glyph="⏳" /></span> Generating &amp; sending…</>
                 : 'Generate PDF & send welcome email →'}
             </button>
             </div>
@@ -640,7 +641,7 @@ export default function SendWelcomePage() {
         <StepBar step={4} />
 
         <div className="bg-white rounded-2xl border border-neutral-200 p-2xl text-center">
-          <div className="text-5xl mb-lg">🎉</div>
+          <div className="text-5xl mb-lg"><LineIcon glyph="🎉" /></div>
           <h2 className="text-xl font-bold text-neutral-900 mb-sm">Welcome pack sent</h2>
           <p className="text-sm text-neutral-500 leading-relaxed mb-xl max-w-6xl mx-auto">
             The {isRC ? 'rent collection' : 'management'} agreement and AML registration form have been sent to <strong>{email}</strong>.{' '}

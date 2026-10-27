@@ -6,6 +6,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { createClient } from '@/lib/supabase'
+import LineIcon from '@/components/LineIcon'
 
 interface Notification {
   id: string
@@ -46,7 +47,7 @@ function ActionTile({ emoji, label, href }: { emoji: string; label: string; href
       href={href}
       className="flex flex-col items-center gap-sm rounded-2xl border border-neutral-200 bg-white px-md py-lg text-center hover:border-neutral-400 transition-colors"
     >
-      <span className="text-2xl">{emoji}</span>
+      <span className="text-2xl">{<LineIcon glyph={emoji} />}</span>
       <span className="text-xs font-bold text-neutral-700 leading-tight">{label}</span>
     </Link>
   )
@@ -223,7 +224,7 @@ export default function InboxPage() {
                       className="block rounded-2xl border border-neutral-200 bg-white p-lg hover:border-neutral-400 transition-colors"
                     >
                       <div className="flex items-start gap-sm">
-                        <span className="text-base shrink-0">{n.notice_type === 'task' ? '✅' : '📢'}</span>
+                        <span className="text-base shrink-0">{<LineIcon glyph={n.notice_type === 'task' ? '✅' : '📢'} />}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-neutral-800 line-clamp-2 leading-snug">
                             {(n.ai_text || n.raw_text).slice(0, 100)}{(n.ai_text || n.raw_text).length > 100 ? '…' : ''}
@@ -248,7 +249,7 @@ export default function InboxPage() {
             {/* ── Empty state ───────────────────────────────────────────── */}
             {notifications.length === 0 && notices.length === 0 && (
               <div className="rounded-2xl border border-dashed border-neutral-300 py-16 text-center">
-                <p className="text-4xl mb-md">📭</p>
+                <p className="text-4xl mb-md"><LineIcon glyph="📭" /></p>
                 <p className="font-bold text-neutral-700">All clear</p>
                 <p className="text-sm text-neutral-400 mt-xs">No messages or notices right now.</p>
               </div>

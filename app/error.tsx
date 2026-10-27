@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import LineIcon from '@/components/LineIcon'
 
 export default function Error({
   error,
@@ -18,7 +19,7 @@ export default function Error({
       <div className="w-full max-w-md">
         <div className="bg-white rounded-3xl p-lg md:p-2xl shadow-2xl">
           <div className="text-center mb-lg">
-            <p className="text-4xl mb-md">⚠️</p>
+            <p className="text-4xl mb-md"><LineIcon glyph="⚠️" /></p>
             <h2 className="text-2xl font-bold text-neutral-900">Something went wrong</h2>
           </div>
 

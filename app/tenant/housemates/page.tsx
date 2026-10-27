@@ -14,6 +14,7 @@ import {
   hasEnoughToShow,
   type IcebreakerAnswers,
 } from '@/lib/icebreaker'
+import LineIcon from '@/components/LineIcon'
 
 interface Housemate {
   personId: string
@@ -183,7 +184,7 @@ function HousemateCard({ mate }: { mate: Housemate }) {
           {shared.map((q) => (
             <div key={q.id}>
               <dt className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                {q.emoji} {q.short}
+                {<LineIcon glyph={q.emoji} />} {q.short}
               </dt>
               <dd className="mt-0.5 text-sm text-neutral-800">{mate.answers[q.id]}</dd>
             </div>

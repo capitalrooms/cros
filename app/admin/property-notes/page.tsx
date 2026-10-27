@@ -352,7 +352,7 @@ export default function PropertyNotesPage() {
                           : 'border-neutral-300 text-neutral-700'
                       }`}
                     >
-                      Internal admin notes 🔒
+                      Internal admin notes
                     </button>
                   </div>
                 </div>

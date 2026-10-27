@@ -13,6 +13,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 const BCC_ADDRESS = 'statements@capitalrooms.co.uk'
 const DOCS_ADDRESS = 'docs@capitalrooms.co.uk'
@@ -79,7 +80,7 @@ export default function AutoLedgerPage() {
         {/* Header */}
         <div>
           <div className="flex items-center gap-md mb-xs">
-            <span className="text-3xl">⚡</span>
+            <span className="text-3xl"><LineIcon glyph="⚡" /></span>
           </div>
           <p className="text-sm text-neutral-500">
             BCC any statement or expense email to <strong>{BCC_ADDRESS}</strong> and CROS automatically imports and categorises every line item — no manual entry needed.
@@ -89,7 +90,7 @@ export default function AutoLedgerPage() {
         {/* Status banner */}
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-xl">
           <div className="flex items-start gap-sm">
-            <span className="text-lg shrink-0 mt-0.5">🔧</span>
+            <span className="text-lg shrink-0 mt-0.5"><LineIcon glyph="🔧" /></span>
             <div className="space-y-xs">
               <p className="text-sm font-semibold text-amber-900">One step away from being live</p>
               <p className="text-sm text-amber-800">

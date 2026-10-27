@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
+import LineIcon from '@/components/LineIcon'
 
 interface HouseInfoItem {
   icon: string
@@ -196,7 +197,7 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
                   onChange={e => setImportPreview(prev => prev!.map((p, i) => i === idx ? { ...p, selected: e.target.checked } : p))}
                   className="mt-xs shrink-0"
                 />
-                <span className="text-lg shrink-0">{it.icon}</span>
+                <span className="text-lg shrink-0">{<LineIcon glyph={it.icon} />}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-neutral-900">{it.label}</p>
                   <p className="text-xs text-neutral-500 truncate whitespace-pre-line">
@@ -218,7 +219,7 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
               className="flex items-center gap-sm px-md py-sm cursor-pointer hover:bg-neutral-50 transition-colors"
               onClick={() => setEditingIdx(editingIdx === idx ? null : idx)}
             >
-              <span className="text-lg shrink-0">{item.icon || '📌'}</span>
+              <span className="text-lg shrink-0">{<LineIcon glyph={item.icon || '📌'} />}</span>
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-semibold text-neutral-900">{item.label || <span className="text-neutral-400">Untitled</span>}</span>
                 {item.value && (
@@ -303,7 +304,7 @@ export default function HouseInfoEditor({ propertyId, initialItems }: Props) {
                 onClick={() => addItem(q)}
                 className="rounded-lg border border-neutral-200 bg-white px-sm py-xs text-xs font-semibold text-neutral-700 hover:border-neutral-900 hover:bg-neutral-50 transition-colors"
               >
-                {q.icon} {q.label}
+                {<LineIcon glyph={q.icon} />} {q.label}
               </button>
             ))}
             <button

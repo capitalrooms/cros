@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase';
 import { currentTenancy } from '@/lib/tenancy';
 import AppBar from '@/components/AppBar';
 import BackButton from '@/app/components/BackButton';
+import LineIcon from '@/components/LineIcon'
 
 type DiagStep = 'category' | 'description' | 'questions' | 'diagnosis' | 'choice';
 
@@ -187,7 +188,7 @@ export default function SmartTroubleshootingPage() {
                       : 'border-neutral-200 bg-white text-neutral-900 hover:border-neutral-400'
                   }`}
                 >
-                  <div className="text-2xl mb-xs">{cat.icon}</div>
+                  <div className="text-2xl mb-xs">{<LineIcon glyph={cat.icon} />}</div>
                   <div className="text-sm font-semibold">{cat.label}</div>
                 </button>
               ))}
@@ -302,7 +303,7 @@ export default function SmartTroubleshootingPage() {
         {/* ── Choice confirmed (DIY) ────────────────────────────────────── */}
         {step === 'choice' && (
           <div className="text-center py-3xl">
-            <div className="text-5xl mb-lg">🛠️</div>
+            <div className="text-5xl mb-lg"><LineIcon glyph="🛠️" /></div>
             <h2 className="text-xl font-bold text-neutral-900 mb-sm">Good luck!</h2>
             <p className="text-sm text-neutral-500 mb-xl">
               If it doesn't sort it, you can always report it to the agent and we'll send someone out.

@@ -7,6 +7,7 @@ import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import LineIcon from '@/components/LineIcon'
 
 interface Guide {
   id: string
@@ -197,7 +198,7 @@ export default function AdminGuidesPage() {
                   {guide.hero_image_url ? (
                     <StoredImg src={guide.hero_image_url} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-2xl">{guide.emoji}</span>
+                    <span className="text-2xl">{<LineIcon glyph={guide.emoji} />}</span>
                   )}
                 </div>
 

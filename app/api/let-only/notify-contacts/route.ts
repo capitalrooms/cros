@@ -79,10 +79,10 @@ function buildEmailBody(params: {
     <p>Hi ${contact_name},</p>
     <p>${intro}</p>
     <div style="background:#f5f5f4;border-radius:8px;padding:16px;margin:16px 0;">
-      📍 <strong>${address}</strong><br>
-      ${room_name ? `🚪 ${room_name}<br>` : ''}
-      📅 ${dateStr}<br>
-      🕐 ${timeStr}
+      <strong>${address}</strong><br>
+      ${room_name ? `${room_name}<br>` : ''}
+      ${dateStr}<br>
+      ${timeStr}
     </div>
     <p>We will have a management set of keys for access — you do not need to be present. Thank you for your hospitality whilst we visit and we hope not to disturb you for too long.</p>
     <p>If you have any questions, please contact ${sender_name} at Capital Rooms.</p>

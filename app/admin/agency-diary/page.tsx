@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import AgencyDiaryMap from '@/app/components/AgencyDiaryMap'
 import { withContractors } from '@/lib/contractors'
+import LineIcon from '@/components/LineIcon'
 
 interface MaintenanceJob {
   id: string
@@ -329,7 +330,7 @@ export default function AgencyDiaryPage() {
             onClick={() => setShowOutstanding(!showOutstanding)}
             className="inline-flex items-center gap-sm px-lg py-sm rounded-lg bg-white border border-neutral-300 text-neutral-900 font-semibold hover:bg-neutral-50 transition-colors"
           >
-            <span className="text-lg">⚠️</span>
+            <span className="text-lg"><LineIcon glyph="⚠️" /></span>
             <span>{outstandingJobs.length} Outstanding</span>
           </button>
           )}
@@ -469,7 +470,7 @@ export default function AgencyDiaryPage() {
                         <div className="font-semibold truncate">
                           {event.type === 'maintenance' && `${whoName((event as any).contractor)}`}
                           {event.type === 'clean' && `${whoName((event as any).cleaner)}`}
-                          {event.type === 'appointment' && `${APPOINTMENT_TYPE_ICONS[(event as Appointment).appointment_type] || '📋'} ${(event as Appointment).visitor_name}`}
+                          {event.type === 'appointment' && `${(event as Appointment).visitor_name}`}
                         </div>
                         <div className="text-xs opacity-80 truncate mt-xs">
                           {event.type === 'maintenance' ? (event as MaintenanceJob).title : event.type === 'clean' ? 'Cleaning' : (event as Appointment).appointment_type}
@@ -567,11 +568,7 @@ export default function AgencyDiaryPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-sm mb-xs">
                               <span className="text-lg">
-                                {event.type === 'maintenance'
-                                  ? '🔧'
-                                  : event.type === 'clean'
-                                  ? '🧹'
-                                  : '📋'}
+                                <LineIcon glyph={event.type === 'maintenance' ? '🔧' : event.type === 'clean' ? '🧹' : '📋'} />
                               </span>
                               <div className="font-semibold text-slate-900">{event.person}</div>
                               <div className="text-xs text-slate-500">

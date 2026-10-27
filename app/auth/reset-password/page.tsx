@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import TwoStepCode, { needsTwoStep } from '@/components/TwoStepCode'
+import LineIcon from '@/components/LineIcon'
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -90,7 +91,7 @@ function ResetPasswordContent() {
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl p-lg md:p-2xl shadow-2xl">
             <div className="text-center mb-lg">
-              <div className="text-4xl mb-md">✅</div>
+              <div className="text-4xl mb-md"><LineIcon glyph="✅" /></div>
               <h2 className="text-2xl font-bold text-neutral-900">Password reset!</h2>
               <p className="text-sm text-neutral-600 mt-md">
                 Your password has been successfully reset. Redirecting to login...

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
+import LineIcon from '@/components/LineIcon'
 
 interface SafetyCheck {
   id: string
@@ -190,7 +191,7 @@ export default function TenantSafetyChecksPage() {
                   <div>
                     <div className="flex items-center gap-sm mb-sm">
                       <span className="text-3xl">
-                        {checkTypeLabels[check.check_type]?.icon}
+                        {<LineIcon glyph={checkTypeLabels[check.check_type]?.icon} />}
                       </span>
                       <div>
                         <h3 className="font-bold text-neutral-900">

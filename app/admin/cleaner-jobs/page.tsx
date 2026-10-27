@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { displayName } from '@/lib/people'
 import RegularCleaners from './RegularCleaners'
+import LineIcon from '@/components/LineIcon'
 
 interface CleanerJob {
   id: string
@@ -140,7 +141,7 @@ export default function CleanerJobsPage() {
         {/* Alert banner for unassigned jobs */}
         {unassignedCount > 0 && (
           <div className="mb-lg rounded-xl border border-amber-300 bg-amber-50 p-md flex items-start gap-md">
-            <span className="text-xl">👤</span>
+            <span className="text-xl"><LineIcon glyph="👤" /></span>
             <div className="flex-1">
               <p className="font-bold text-amber-900">
                 {unassignedCount} job{unassignedCount !== 1 ? 's' : ''} need a cleaner assigned
@@ -155,7 +156,7 @@ export default function CleanerJobsPage() {
         {/* Alert banner for declined jobs */}
         {declinedCount > 0 && (
           <div className="mb-lg rounded-xl border border-red-300 bg-red-50 p-md flex items-start gap-md">
-            <span className="text-xl">⚠️</span>
+            <span className="text-xl"><LineIcon glyph="⚠️" /></span>
             <div className="flex-1">
               <p className="font-bold text-red-900">
                 {declinedCount} job{declinedCount !== 1 ? 's' : ''} declined — need reassigning

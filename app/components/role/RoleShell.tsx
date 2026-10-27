@@ -12,6 +12,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import Logo from '@/components/Logo'
 import { ICONS } from '@/app/components/PhoneTabBar'
 import { signOut } from '@/lib/auth'
+import LineIcon from '@/components/LineIcon'
 
 export type Role = 'tenant' | 'contractor' | 'cleaner'
 type Item = { key: string; label: string; icon: ReactNode; href: string; tone?: 'alert' }
@@ -118,7 +119,7 @@ function RoleRail({ role, override }: { role: Role; override: Override | null })
     const cls = `group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[13.5px] font-semibold transition-colors ${on ? 'bg-white/10 text-white' : i.tone === 'alert' ? 'text-red-200 hover:bg-white/5' : 'text-white/65 hover:bg-white/5 hover:text-white'}`
     const inner = (
       <>
-        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke={on ? 'var(--cr-gold)' : 'currentColor'} strokeWidth={on ? 2.1 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{i.icon}</svg>
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke={on ? 'var(--cr-gold)' : 'currentColor'} strokeWidth={on ? 2.1 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{<LineIcon glyph={i.icon} />}</svg>
         <span className="flex-1 truncate">{i.label}</span>
         {!!badge && <span className="min-w-[20px] rounded-full px-1.5 text-center text-[11px] font-bold leading-5 text-neutral-900" style={{ background: 'var(--cr-gold)' }}>{badge > 99 ? '99+' : badge}</span>}
       </>
@@ -137,7 +138,7 @@ function RoleRail({ role, override }: { role: Role; override: Override | null })
       {nav.primary && (
         <Link href={withAs(nav.primary.href)} prefetch={false}
           className="mb-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-bold text-neutral-900 transition-opacity hover:opacity-90" style={{ background: 'var(--cr-gold)' }}>
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{nav.primary.icon}</svg>
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{<LineIcon glyph={nav.primary.icon} />}</svg>
           {nav.primary.label}
         </Link>
       )}

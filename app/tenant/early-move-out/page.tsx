@@ -8,6 +8,7 @@ import { currentTenancy } from '@/lib/tenancy'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 interface Tenancy {
   id: string
@@ -138,7 +139,7 @@ export default function EarlyMoveOutPage() {
       <div className="min-h-screen bg-neutral-50">
         <AppBar left={<BackButton href="/tenant" label="Home" />} />  {/* done → go home, not back into form */}
         <main className="mx-auto max-w-lg px-lg py-3xl text-center">
-          <div className="text-5xl mb-lg">✅</div>
+          <div className="text-5xl mb-lg"><LineIcon glyph="✅" /></div>
           <h1 className="text-2xl font-bold text-neutral-900 mb-sm">Request received</h1>
           <p className="text-sm text-neutral-600 mb-xl">
             We&apos;ll review your request and be in touch within 2 business days.

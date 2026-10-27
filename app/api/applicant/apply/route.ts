@@ -154,7 +154,7 @@ export async function POST(request: Request) {
       const { data: staff } = await supabase.from('people').select('id').in('role', STAFF_ROLES)
       const ids = (staff ?? []).map((p: any) => p.id)
       const below = data.rentOfferType === 'below_asking' && data.offeredRent ? ` — offering £${Number(data.offeredRent).toLocaleString('en-GB')} pcm` : ''
-      const title = existing ? '✏️ Application updated' : '📝 New offer received'
+      const title = existing ? '✏️ Application updated' : 'New offer received'
       const body = `${data.fullName} has ${existing ? 'updated their application' : 'applied'} for ${[room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'}${below}.`
       await insertNotifications(supabase, ids, { title, body, type: 'lettings', link: '/admin/applicants' }, { propertyId: data.propertyId ?? null, roomId: data.roomId })
       await tryPush(ids, title, body, '/admin/applicants')
@@ -170,7 +170,7 @@ export async function POST(request: Request) {
         const app = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
         const fast = data.fastTrack === true || (typeof data.offerToken === 'string' && !!(await supabase.from('offers').select('request_deposit').eq('application_token', data.offerToken).maybeSingle()).data?.request_deposit)
         const row = (k: string, v: unknown) => v ? `<tr><td style="padding:4px 0;color:#78716c;width:160px;">${k}</td><td style="padding:4px 0;">${esc(v)}</td></tr>` : ''
-        await sendEmail(to, `${existing ? '✏️ Offer updated' : '📝 New offer'} — ${data.fullName}, ${where}${fast ? ' (fast-track: reserving next)' : ''}`, `
+        await sendEmail(to, `${existing ? '✏️ Offer updated' : 'New offer'} — ${data.fullName}, ${where}${fast ? ' (fast-track: reserving next)' : ''}`, `
           <p>Hello,</p>
           <p><strong>${esc(data.fullName)}</strong> has ${existing ? 'updated their offer' : 'sent their offer'} for <strong>${esc(where)}</strong>${below ? esc(below) : ''}.</p>
           ${fast ? '<p>This was a <strong>fast-track</strong> invite, so they’re now being taken to pay the holding deposit. You’ll get a second email, “Holding deposit paid”, if they press I’ve paid.</p>' : '<p>Review it in Applicants, then send the reserve email if you accept.</p>'}

@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
       const back  = fmtSlot(fallbackDate, fallbackTime)
       await insertNotifications(service, tenantIds, {
         type:  'short_notice_access_request',
-        title: '⚠️ Short-notice access request',
+        title: 'Short-notice access request',
         body:  `A contractor needs access to your room at ${prop} on ${slot}. ` +
                `Please approve or decline. If we don't hear back, your booking will be moved to ${back}.`,
         link:  `/tenant/visit/${ticketId}`,
@@ -229,7 +229,7 @@ export async function PATCH(req: NextRequest) {
     if (c) {
       const out = await tellContractor(c, c.id, {
         text: `CAPITAL ROOMS: ${line} ${PORTAL_URL}/contractor/job/${ticketId}`,
-        title: decision === 'approve' ? '✅ Short-notice visit agreed' : '↩︎ Short-notice visit declined', body: line.slice(0, 160),
+        title: decision === 'approve' ? 'Short-notice visit agreed' : '↩︎ Short-notice visit declined', body: line.slice(0, 160),
         url: `/contractor/job/${ticketId}`, link: `${PORTAL_URL}/contractor/job/${ticketId}`, tag: `job-${ticketId}`,
       })
       told.push(out.via.length ? `contractor (${out.via.join(', ')})` : `contractor not reached: ${out.error}`)

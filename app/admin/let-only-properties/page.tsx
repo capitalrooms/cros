@@ -9,6 +9,7 @@ import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { blockAddress, inlineAddress } from '@/lib/formatAddress'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
+import LineIcon from '@/components/LineIcon'
 
 interface Tenancy {
   id: string
@@ -193,7 +194,7 @@ export default function LetOnlyPropertiesPage() {
         {/* ── Properties list ───────────────────────────────────────────── */}
         {letOnlyProperties.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-3xl text-center">
-            <p className="text-4xl mb-md">🔑</p>
+            <p className="text-4xl mb-md"><LineIcon glyph="🔑" /></p>
             <p className="text-base font-semibold text-neutral-700">No let-only properties yet</p>
             <p className="text-sm text-neutral-400 mt-xs max-w-6xl mx-auto">
               Add the address, the landlord and the rooms — then send offers, book viewings and draw up agreements as usual.
@@ -351,7 +352,7 @@ export default function LetOnlyPropertiesPage() {
                                           disabled={generatingBalance === t.id}
                                           className="flex items-center gap-xs rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 px-md py-sm transition disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-semibold text-blue-800 whitespace-nowrap"
                                         >
-                                          <span>{generatingBalance === t.id ? '⏳' : '💷'}</span>
+                                          <span>{<LineIcon glyph={generatingBalance === t.id ? '⏳' : '💷'} />}</span>
                                           {generatingBalance === t.id ? 'Generating…' : 'Balance demand'}
                                         </button>
                                       )}
@@ -362,7 +363,7 @@ export default function LetOnlyPropertiesPage() {
                                         title={!hasBankDetails ? 'Add bank details first' : undefined}
                                         className="flex items-center gap-xs rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 px-md py-sm transition disabled:opacity-40 disabled:cursor-not-allowed text-[11px] font-semibold text-neutral-700 whitespace-nowrap"
                                       >
-                                        <span>{generatingStatement === t.id ? '⏳' : '📄'}</span>
+                                        <span>{<LineIcon glyph={generatingStatement === t.id ? '⏳' : '📄'} />}</span>
                                         {generatingStatement === t.id ? 'Generating…' : `Statement ${fmtGBP(dueToLL)}`}
                                       </button>
                                     </div>

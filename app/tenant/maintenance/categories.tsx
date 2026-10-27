@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import LineIcon from '@/components/LineIcon'
 
 const CATEGORY_LIST = [
   {
@@ -103,7 +104,7 @@ export default function CategorySelection() {
                 <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-0 transition-opacity group-hover:opacity-5`} />
 
                 <div className="relative p-lg">
-                  <div className="text-4xl mb-md">{category.icon}</div>
+                  <div className="text-4xl mb-md">{<LineIcon glyph={category.icon} />}</div>
 
                   <h3 className="text-lg font-semibold text-neutral-900 mb-sm group-hover:text-neutral-950">
                     {category.title}

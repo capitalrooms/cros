@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
+import LineIcon from '@/components/LineIcon'
 
 interface Guide {
   id: string
@@ -159,7 +160,7 @@ function BlockEditor({
       >
         <span className="text-neutral-400 text-xs font-mono w-8 flex-shrink-0">{block.sort_order}</span>
         <span className="flex-1 text-sm font-semibold text-neutral-800 truncate">{heading || 'Untitled block'}</span>
-        {imageUrl && <span className="text-xs text-blue-400 flex-shrink-0">🖼</span>}
+        {imageUrl && <span className="text-xs text-blue-400 flex-shrink-0"><LineIcon glyph="🖼" /></span>}
         {saved && !expanded && <span className="text-xs text-green-600 flex-shrink-0">✓</span>}
         <svg
           width="14" height="14" viewBox="0 0 14 14" fill="none"

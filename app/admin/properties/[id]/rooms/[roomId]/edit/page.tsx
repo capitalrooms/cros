@@ -16,6 +16,7 @@ import { ICEBREAKER_QUESTIONS } from '@/lib/icebreaker'
 import { genTenancyRefs } from '@/lib/references'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { StoredLink } from '@/components/StoredImg'
+import LineIcon from '@/components/LineIcon'
 
 type TabType = 'overview' | 'tenant' | 'maintenance' | 'lettings' | 'photos' | 'compliance' | 'notes'
 type ComplianceFilter = 'all' | 'fire_door' | 'smoke_alarm'
@@ -815,7 +816,7 @@ export default function RoomDashboardPage({
 
               {detectedChips.length > 0 && (
                 <div>
-                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">AI-detected features <span className="text-purple-500">✨</span></h2>
+                  <h2 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-md">AI-detected features <span className="text-purple-500"><LineIcon glyph="✨" /></span></h2>
                   <div className="flex flex-wrap gap-sm">
                     {detectedChips.map((chip, i) => (
                       <span key={i} className="px-md py-xs rounded-full bg-purple-50 border border-purple-200 text-xs font-semibold text-purple-700">{chip}</span>
@@ -1032,7 +1033,7 @@ export default function RoomDashboardPage({
                   <div className="rounded-xl border border-neutral-200 bg-neutral-50 divide-y divide-neutral-200 overflow-hidden">
                     {ICEBREAKER_QUESTIONS.filter(q => icebreakerAnswers[q.id]?.trim()).map(q => (
                       <div key={q.id} className="flex items-start gap-md p-md">
-                        <span className="text-lg shrink-0 mt-0.5">{q.emoji}</span>
+                        <span className="text-lg shrink-0 mt-0.5">{<LineIcon glyph={q.emoji} />}</span>
                         <div>
                           <p className="text-xs font-semibold text-neutral-500 mb-xs">{q.short}</p>
                           <p className="text-sm text-neutral-900">{icebreakerAnswers[q.id]}</p>
@@ -1150,7 +1151,7 @@ export default function RoomDashboardPage({
 
               {tickets.length === 0 && (
                 <div className="text-center py-2xl text-neutral-400">
-                  <div className="text-3xl mb-sm opacity-40">🔧</div>
+                  <div className="text-3xl mb-sm opacity-40"><LineIcon glyph="🔧" /></div>
                   <p className="text-sm font-medium">No maintenance history for this room</p>
                 </div>
               )}
@@ -1284,7 +1285,7 @@ export default function RoomDashboardPage({
                         {url ? (
                           <img src={url} alt="Room photo" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-3xl opacity-30">📷</div>
+                          <div className="w-full h-full flex items-center justify-center text-3xl opacity-30"><LineIcon glyph="📷" /></div>
                         )}
                         <button
                           onClick={() => deletePhoto(p)}
@@ -1299,7 +1300,7 @@ export default function RoomDashboardPage({
                 </div>
               ) : (
                 <div className="text-center py-2xl text-neutral-400">
-                  <div className="text-3xl mb-sm opacity-40">📷</div>
+                  <div className="text-3xl mb-sm opacity-40"><LineIcon glyph="📷" /></div>
                   <p className="text-sm font-medium">No photos for this room yet</p>
                   <button
                     onClick={() => photoInputRef.current?.click()}
@@ -1512,7 +1513,7 @@ export default function RoomDashboardPage({
                   {filteredChecks.map(check => (
                     <div key={check.id} className="flex gap-md items-start rounded-xl border border-neutral-200 bg-neutral-50 p-md">
                       <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl shrink-0 ${check.check_type === 'fire_door' ? 'bg-red-50 border border-red-200' : 'bg-emerald-50 border border-emerald-200'}`}>
-                        {check.check_type === 'fire_door' ? '🚪' : '🟢'}
+                        {<LineIcon glyph={check.check_type === 'fire_door' ? '🚪' : '🟢'} />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-md flex-wrap">
@@ -1550,7 +1551,7 @@ export default function RoomDashboardPage({
               ) : (
                 <div className="text-center py-2xl text-neutral-400">
                   <div className="text-3xl mb-sm opacity-40">
-                    {complianceFilter === 'fire_door' ? '🚪' : complianceFilter === 'smoke_alarm' ? '🟢' : '✅'}
+                    {<LineIcon glyph={complianceFilter === 'fire_door' ? '🚪' : complianceFilter === 'smoke_alarm' ? '🟢' : '✅'} />}
                   </div>
                   <p className="text-sm font-medium">
                     No {complianceFilter === 'all' ? '' : complianceFilter === 'fire_door' ? 'fire door ' : 'smoke alarm '}checks recorded yet

@@ -14,6 +14,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 const LS_DISMISSED = 'admin_bell_dismissed_v2'
 
@@ -164,7 +165,7 @@ export default function AdminNotificationBell() {
         )}
         {!loading && activeItems.length === 0 && (
           <div className="px-4 py-10 text-center">
-            <div className="text-3xl mb-3">✅</div>
+            <div className="text-3xl mb-3"><LineIcon glyph="✅" /></div>
             <p className="text-sm font-semibold text-neutral-600">All clear!</p>
             <p className="text-xs text-neutral-400 mt-1">No pending notifications.</p>
           </div>
@@ -178,10 +179,10 @@ export default function AdminNotificationBell() {
             <div className={`relative flex gap-3 px-4 py-3 hover:bg-neutral-50 transition-colors ${isRewarding ? 'pointer-events-none' : ''}`}>
               {isRewarding && (
                 <div className="absolute inset-0 flex items-center justify-center bg-green-50/90 z-10">
-                  <span className="tick-burst text-4xl">✅</span>
+                  <span className="tick-burst text-4xl"><LineIcon glyph="✅" /></span>
                 </div>
               )}
-              <span className="text-xl leading-none shrink-0 mt-0.5">{meta.emoji}</span>
+              <span className="text-xl leading-none shrink-0 mt-0.5">{<LineIcon glyph={meta.emoji} />}</span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${meta.colour}`}>
@@ -255,7 +256,7 @@ export default function AdminNotificationBell() {
           aria-label={`Notifications${unreadCount ? ` (${unreadCount} to action)` : ''}`}
           className="relative flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/10 transition-colors"
         >
-          <span className="text-lg leading-none select-none">🔔</span>
+          <span className="text-lg leading-none select-none"><LineIcon glyph="🔔" /></span>
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-[4px] rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
               {unreadCount > 99 ? '99+' : unreadCount}

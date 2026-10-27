@@ -7,6 +7,7 @@ import BackButton from '@/app/components/BackButton'
 import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import { FACT_LABELS, propertyDocLabel, type PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
 import { onboardingName } from '@/lib/people'
+import LineIcon from '@/components/LineIcon'
 
 type Status = 'pass' | 'review' | 'fail'
 interface Check { area: string; label: string; status: Status; detail: string }
@@ -166,7 +167,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
             return (
               <div key={p} className="rounded-xl border border-neutral-200 overflow-hidden">
                 <div className="h-40 bg-neutral-50 flex items-center justify-center">
-                  {url && !isPdf ? <img src={url} alt={docLabel(type, i, paths.length)} className="max-h-40 w-full object-contain" /> : <span className="text-3xl">{isPdf ? '📄' : '⏳'}</span>}
+                  {url && !isPdf ? <img src={url} alt={docLabel(type, i, paths.length)} className="max-h-40 w-full object-contain" /> : <span className="text-3xl"><LineIcon glyph={isPdf ? '📄' : '⏳'} /></span>}
                 </div>
                 <div className="flex items-center justify-between gap-sm px-sm py-xs">
                   <p className="text-xs font-semibold text-neutral-800">{docLabel(type, i, paths.length)}</p>

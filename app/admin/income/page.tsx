@@ -18,6 +18,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -520,7 +521,7 @@ export default function IncomeDashboard() {
           ) : (
             <div className="h-48 flex items-center justify-center rounded-xl border-2 border-dashed border-neutral-200">
               <div className="text-center">
-                <p className="text-2xl mb-sm">📊</p>
+                <p className="text-2xl mb-sm"><LineIcon glyph="📊" /></p>
                 <p className="text-sm text-neutral-400">Chart populates as statements are imported</p>
               </div>
             </div>

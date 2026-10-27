@@ -9,6 +9,7 @@ import { displayName } from '@/lib/people'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import LineIcon from '@/components/LineIcon'
 interface Person {
   id: string
   first_name: string | null
@@ -138,7 +139,7 @@ export default function ViewAsPage({ params }: { params: Promise<{ personId: str
       {/* View As banner */}
       <div className="sticky top-0 z-50 bg-amber-400 border-b-2 border-amber-500 px-lg py-sm flex items-center justify-between gap-md">
         <div className="flex items-center gap-sm min-w-0">
-          <span className="text-lg shrink-0">👁</span>
+          <span className="text-lg shrink-0"><LineIcon glyph="👁" /></span>
           <span className="font-bold text-amber-900 text-sm truncate">
             Viewing as {name}
           </span>

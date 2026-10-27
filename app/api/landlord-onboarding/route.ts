@@ -100,7 +100,7 @@ function welcomePackBodyHtml(name: string, formUrl: string): string {
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px;">
   <tr>
     <td style="background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:20px 24px;">
-      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;">📋 Your Management Agreement</p>
+      <p style="margin:0 0 6px;font-size:13px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.08em;">Your Management Agreement</p>
       <p style="margin:0 0 12px;font-size:14px;color:#333;line-height:1.6">
         Our management agreement sets out the full scope of our services, your fees, and our mutual obligations.
         Please take the time to read it before completing the information below.

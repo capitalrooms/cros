@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 const LARGE_FILE_THRESHOLD = 4 * 1024 * 1024 // 4 MB — Vercel body limit
 
@@ -199,7 +200,7 @@ export default function DocUploadDrawer({
                 dragging ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-300 hover:border-neutral-500 hover:bg-neutral-50'
               }`}
             >
-              <span className="text-3xl">📄</span>
+              <span className="text-3xl"><LineIcon glyph="📄" /></span>
               <p className="text-sm font-semibold text-neutral-700">Drop the document here</p>
               <p className="text-xs text-neutral-400">PDF, JPG, PNG or DOCX</p>
               <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden"
@@ -212,7 +213,7 @@ export default function DocUploadDrawer({
             <>
               {/* File chip */}
               <div className="flex items-center gap-md rounded-lg border border-neutral-200 bg-neutral-50 px-md py-sm">
-                <span className="text-lg">📎</span>
+                <span className="text-lg"><LineIcon glyph="📎" /></span>
                 <p className="text-sm text-neutral-700 font-medium flex-1 truncate">{file.name}</p>
                 {processing
                   ? <span className="text-xs text-neutral-400">Reading…</span>

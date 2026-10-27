@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ZONES } from '@/lib/adminNav'
 import { useAdminAccess } from '@/lib/admin-context'
 import { createClient } from '@/lib/supabase'
+import LineIcon from '@/components/LineIcon'
 
 const EXTRA = [
   { emoji: '👤', label: 'My profile', href: '/admin/profile' },
@@ -22,7 +23,7 @@ function Group({ title, items }: { title: string; items: { emoji: string; label:
         {items.map(it => (
           <li key={it.href}>
             <Link href={it.href} className="flex items-center gap-3 px-3.5 py-3 active:bg-neutral-50">
-              <span className="w-6 text-center text-base" aria-hidden>{it.emoji}</span>
+              <span className="w-6 text-center text-base" aria-hidden>{<LineIcon glyph={it.emoji} />}</span>
               <span className="flex-1 text-[15px] font-medium text-neutral-900">{it.label}</span>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-neutral-300"><path d="M9 6l6 6-6 6" /></svg>
             </Link>

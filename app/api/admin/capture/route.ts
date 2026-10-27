@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
       if (fresh.length) {
         const { error: lErr } = await s.from('compliance_logs').insert(fresh.map(r => ({
           property_id: propertyId, check_type: r.check, checked_by: admin.personId, checked_by_role: 'sheet', checked_date: r.date, source_document_id: doc.id,
-          notes: [r.result === 'fault' ? '⚠ Fault noted' : r.result === 'unclear' ? 'Result unclear on the sheet' : 'OK', r.location, r.checked_by ? `checked by ${r.checked_by}` : '', r.notes, '(from a photographed sheet)'].filter(Boolean).join(' · '),
+          notes: [r.result === 'fault' ? 'Fault noted' : r.result === 'unclear' ? 'Result unclear on the sheet' : 'OK', r.location, r.checked_by ? `checked by ${r.checked_by}` : '', r.notes, '(from a photographed sheet)'].filter(Boolean).join(' · '),
         })))
         if (lErr) return NextResponse.json({ error: `The photo is filed, but the checks didn’t save: ${lErr.message}` }, { status: 400 })
       }

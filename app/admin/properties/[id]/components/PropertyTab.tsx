@@ -7,6 +7,7 @@ import { adminFetch } from '@/lib/adminFetch'
 import FloorPlanMap from './FloorPlanMap'
 import PostcodeLookupWidget, { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
 import { postcodesIn } from '@/lib/councils/london'
+import LineIcon from '@/components/LineIcon'
 
 interface PropertyTabProps {
   property: any
@@ -795,7 +796,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
             {/* Lat/lng warning */}
             {(!displayed.lat || !displayed.lng) && (
               <div className="flex items-start gap-sm rounded-lg border border-amber-300 bg-amber-50 px-md py-sm mb-lg">
-                <span className="text-amber-500 mt-0.5">⚠️</span>
+                <span className="text-amber-500 mt-0.5"><LineIcon glyph="⚠️" /></span>
                 <div>
                   <p className="text-sm font-semibold text-amber-900">Location not set</p>
                   <p className="text-xs text-amber-700 mt-0.5">Lat/lng missing — tenant humidity &amp; ventilation card won't appear. Edit and run the postcode lookup.</p>

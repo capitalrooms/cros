@@ -10,6 +10,7 @@ import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
+import LineIcon from '@/components/LineIcon'
 
 interface SystemStats {
   totalProperties: number
@@ -193,7 +194,7 @@ export default function OverviewPage() {
 function KPICard({ label, value, icon }: { label: string; value: number; icon: string }) {
   return (
     <div className="rounded-2xl border-2 border-neutral-200 bg-white p-lg text-center">
-      <p className="text-4xl mb-md">{icon}</p>
+      <p className="text-4xl mb-md">{<LineIcon glyph={icon} />}</p>
       <p className="text-3xl font-bold text-neutral-900">{value}</p>
       <p className="text-xs text-neutral-500 uppercase tracking-wide mt-md">{label}</p>
     </div>
@@ -224,7 +225,7 @@ function QuickActionCard({ href, icon, label }: { href: string; icon: string; la
   return (
     <a href={href}>
       <div className="rounded-lg border-2 border-neutral-200 bg-neutral-50 p-md hover:border-neutral-900 hover:shadow-md transition-all cursor-pointer text-center">
-        <p className="text-3xl mb-md">{icon}</p>
+        <p className="text-3xl mb-md">{<LineIcon glyph={icon} />}</p>
         <p className="text-sm font-bold text-neutral-900">{label}</p>
       </div>
     </a>

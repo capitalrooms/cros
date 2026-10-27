@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser, signOut } from '@/lib/auth'
 import AppBar from '@/components/AppBar'
 import { useEffect } from 'react'
+import LineIcon from '@/components/LineIcon'
 
 export default function SeedPage() {
   const router = useRouter()
@@ -58,7 +59,7 @@ export default function SeedPage() {
             }}
             className="shrink-0 transition-colors hover:opacity-80 flex items-center gap-sm"
           >
-            <span>👋</span> Sign out
+            <span><LineIcon glyph="👋" /></span> Sign out
           </button>
         }
       />

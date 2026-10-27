@@ -9,6 +9,7 @@ import { repairTarget } from '@/lib/repairs/targets';
 import BackButton from '@/app/components/BackButton';
 import { KINDS, kindFrom } from '@/lib/emergencies/guide';
 import { currentTenancy } from '@/lib/tenancy';
+import LineIcon from '@/components/LineIcon'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -810,7 +811,7 @@ function ReportWizardContent() {
         {step === 'triage' && triageResult && (
           <div style={card}>
             <div style={{ ...section, paddingBottom: 0 }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>💡</div>
+              <div style={{ fontSize: 32, marginBottom: 10 }}><LineIcon glyph="💡" /></div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 8 }}>You might be able to fix this yourself</h2>
               <p style={{ fontSize: 14, color: 'rgb(var(--n-700))', lineHeight: 1.6, margin: 0 }}>{triageResult.tip}</p>
             </div>
@@ -995,7 +996,7 @@ function ReportWizardContent() {
         {/* ── STEP: done ──────────────────────────────────────────────────── */}
         {step === 'done' && (
           <div style={{ ...card, textAlign: 'center', padding: '48px 24px' }}>
-            <div style={{ fontSize: 52, marginBottom: 16 }}>✅</div>
+            <div style={{ fontSize: 52, marginBottom: 16 }}><LineIcon glyph="✅" /></div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--cr-ink)', marginBottom: 8 }}>{emStatus && emStatus !== 'failed' ? 'We’re on it' : 'Report submitted'}</h2>
             <p style={{ fontSize: 14, color: 'rgb(var(--n-500))', lineHeight: 1.6, marginBottom: 32 }}>
               {emStatus === 'collecting' ? 'We’re sorry you’re dealing with this. We’re texting our emergency contractors now and will let you know who is coming and when — usually within 15 minutes. Keep following the steps until they arrive.'

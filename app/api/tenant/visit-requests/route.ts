@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       const propName = (ticket.properties as any)?.name ?? 'a property'
 
       await insertNotifications(service, adminIds, {
-        title: `🔧 Add-on request — ${propName}`,
+        title: `Add-on request — ${propName}`,
         body: `${tenantName} wants to add to an upcoming visit: "${requestText.trim().slice(0, 80)}${requestText.trim().length > 80 ? '…' : ''}"`,
         type: 'visit_addon_request',
         link: `/admin/maintenance?visitRequest=${visitRequest.id}`,

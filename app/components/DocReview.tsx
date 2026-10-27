@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { adminFetch } from '@/lib/adminFetch'
 import { parseStorageUrl } from '@/lib/files/paths'
 import TenantPicker from '@/app/components/TenantPicker'
+import LineIcon from '@/components/LineIcon'
 
 export interface AIResult {
   doc_type: string
@@ -714,7 +715,7 @@ export default function DocReview({
             {/* Duplicate cert warning */}
             {existingCertInfo && targetProperty && (
               <div className="rounded-lg border border-amber-300 bg-amber-50 px-md py-sm flex items-start gap-sm">
-                <span className="text-base shrink-0 mt-xs">⚠️</span>
+                <span className="text-base shrink-0 mt-xs"><LineIcon glyph="⚠️" /></span>
                 <div>
                   <p className="text-sm font-semibold text-amber-900">Certificate already on file</p>
                   <p className="text-xs text-amber-800 mt-xs">
@@ -874,7 +875,7 @@ export default function DocReview({
                     <input type="checkbox" checked={it.selected}
                       onChange={e => setHouseInfoPreview(prev => prev!.map((p, i) => i === idx ? { ...p, selected: e.target.checked } : p))}
                       className="shrink-0" />
-                    <span className="text-base shrink-0">{it.icon}</span>
+                    <span className="text-base shrink-0">{<LineIcon glyph={it.icon} />}</span>
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-semibold text-neutral-700">{it.label}</span>
                       <span className="text-xs text-neutral-500 ml-xs truncate">

@@ -124,7 +124,7 @@ export default function TenantCardBody({
         {/* Comms preference */}
         {showPreferences && communicationPreference && (
           <span className="px-sm py-xs bg-neutral-100 rounded text-neutral-600">
-            {communicationPreference === 'email' ? '📧' : '💬'} {communicationPreference}
+            {<LineIcon glyph={communicationPreference === 'email' ? '📧' : '💬'} />} {communicationPreference}
           </span>
         )}
       </div>
@@ -145,3 +145,5 @@ export default function TenantCardBody({
     </div>
   )
 }
+
+import LineIcon from '@/components/LineIcon'

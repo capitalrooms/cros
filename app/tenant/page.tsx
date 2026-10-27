@@ -15,6 +15,7 @@ import ViewAsBanner from '@/app/components/ViewAsBanner'
 import TenantOnboarding from '@/app/components/TenantOnboarding'
 import Link from 'next/link'
 import GIcon from '@/app/components/garden/GIcon'
+import LineIcon from '@/components/LineIcon'
 
 interface Tenancy {
   start_date: string
@@ -890,7 +891,7 @@ export default function TenantDashboard() {
                       href={`/tenant/guides/${guide.slug}`}
                       className="flex items-start gap-sm rounded-xl border border-neutral-100 bg-neutral-50 p-md hover:border-neutral-200 transition-colors"
                     >
-                      <span className="text-xl flex-shrink-0">{guide.emoji}</span>
+                      <span className="text-xl flex-shrink-0">{<LineIcon glyph={guide.emoji} />}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-neutral-900 leading-snug">{guide.title}</p>
                         {guide.acknowledgment_required && (

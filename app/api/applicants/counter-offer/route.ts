@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
     const baseUrl   = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
 
     const notifyBody = `
-      <p style="margin:0 0 8px;font-size:16px;font-weight:700;">🎉 Counter-offer accepted</p>
+      <p style="margin:0 0 8px;font-size:16px;font-weight:700;">Counter-offer accepted</p>
       <p style="margin:0 0 18px;line-height:1.75;">
         <strong>${displayName(applicant)}</strong> has agreed to match the asking rent for ${roomName}${address ? ` at ${address}` : ''}.
         Their application has been automatically re-activated.
@@ -159,7 +159,7 @@ export async function GET(req: NextRequest) {
 
     await deliverEmail({
         to: ['harry@capitalrooms.co.uk'],
-        subject: `🎉 Counter-offer: ${firstName} has matched the asking rent — ${roomName}`,
+        subject: `Counter-offer: ${firstName} has matched the asking rent — ${roomName}`,
         html: await emailHtml(notifyBody, { req: req }),
       }, { req: req }).catch(e => console.error('Counter-offer notify failed:', e))
   }

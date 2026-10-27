@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import AppBar from '@/components/AppBar'
 import BackButton from '@/app/components/BackButton'
+import LineIcon from '@/components/LineIcon'
 
 // ── Category definitions with tailored tips + example sentences ──────────────
 const HM_TIPS: Record<string, {
@@ -316,7 +317,7 @@ export default function HouseMateConcernPage() {
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/tenant" label="Home" />} />
         <div className="mx-auto max-w-lg px-lg py-3xl text-center">
-          <p className="text-5xl mb-lg">✅</p>
+          <p className="text-5xl mb-lg"><LineIcon glyph="✅" /></p>
           <h1 className="text-2xl font-bold text-neutral-900">Message sent to Capital Rooms</h1>
           <p className="mt-sm text-neutral-600">We'll look into this privately and be in touch.</p>
           <p className="mt-sm text-sm text-neutral-400">Your name is not shared with housemates.</p>
@@ -354,7 +355,7 @@ export default function HouseMateConcernPage() {
                   onClick={() => { setCategoryKey(key); setStep('tips') }}
                   className="flex w-full items-center gap-md rounded-2xl border border-neutral-200 bg-white p-md text-left hover:border-neutral-400 transition-colors"
                 >
-                  <span className="text-2xl">{cat.icon}</span>
+                  <span className="text-2xl">{<LineIcon glyph={cat.icon} />}</span>
                   <p className="flex-1 font-semibold text-neutral-900">{cat.label}</p>
                   <span className="text-neutral-400">›</span>
                 </button>
@@ -367,7 +368,7 @@ export default function HouseMateConcernPage() {
         {step === 'tips' && category && (
           <>
             <div className="mb-xl">
-              <p className="text-2xl mb-xs">{category.icon}</p>
+              <p className="text-2xl mb-xs">{<LineIcon glyph={category.icon} />}</p>
               <h1 className="text-xl font-bold text-neutral-900 mb-sm">{category.label}</h1>
               {category.tips.length > 0 && (
                 <div className="rounded-2xl border border-blue-100 bg-blue-50 p-md mb-md">

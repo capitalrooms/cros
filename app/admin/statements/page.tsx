@@ -17,6 +17,7 @@ import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import StatementSend from './StatementSend'
 import StatementEmails from './StatementEmails'
 import { statementDue } from '@/lib/finance/dates'
+import LineIcon from '@/components/LineIcon'
 
 const mon = (m: string) => new Date(`${m}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
 const monthsBetween = (a: string, b: string) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7)) + 1
@@ -447,7 +448,7 @@ export default function AdminStatementsPage() {
           <div className="border-t border-[#EDF0F3] px-md pb-md">
         <label className="mt-lg block cursor-pointer rounded-2xl border-2 border-dashed border-neutral-300 bg-white p-lg text-center hover:border-neutral-900">
           <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} disabled={aiBusy || busy} />
-          <p className="text-2xl">📄</p>
+          <p className="text-2xl"><LineIcon glyph="📄" /></p>
           <p className="mt-xs font-bold text-neutral-900">{aiBusy ? 'Reading the statement…' : 'Upload a statement PDF to auto-fill'}</p>
           <p className="mt-xs text-xs text-neutral-500">Or fill it in below</p>
         </label>

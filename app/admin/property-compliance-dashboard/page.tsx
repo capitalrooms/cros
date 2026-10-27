@@ -8,6 +8,7 @@ import Link from 'next/link';
 import PageHero from '@/components/PageHero'
 import { getCurrentUser } from '@/lib/auth';
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import LineIcon from '@/components/LineIcon'
 interface PropertyComplianceData {
   property_id: string;
   property_name: string;
@@ -349,7 +350,7 @@ export default function PropertyComplianceDashboard() {
                       </td>
                       <td className="px-md py-sm text-center text-sm">
                         {room.fire_door_photo ? (
-                          <span className="text-lg">📸</span>
+                          <span className="text-lg"><LineIcon glyph="📸" /></span>
                         ) : (
                           <span className="text-neutral-400">—</span>
                         )}
@@ -383,7 +384,7 @@ export default function PropertyComplianceDashboard() {
                       </td>
                       <td className="px-md py-sm text-center text-sm">
                         {room.smoke_alarm_photo ? (
-                          <span className="text-lg">📸</span>
+                          <span className="text-lg"><LineIcon glyph="📸" /></span>
                         ) : (
                           <span className="text-neutral-400">—</span>
                         )}
@@ -441,7 +442,7 @@ export default function PropertyComplianceDashboard() {
 
                 <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-md">
                   <p className="text-sm text-blue-900">
-                    ℹ️ <strong>All tenants</strong> at {selectedProp?.property_name} will receive a notification
+                    <strong>All tenants</strong> at {selectedProp?.property_name} will receive a notification
                     asking them to send a photo by the deadline.
                   </p>
                 </div>

@@ -6,6 +6,7 @@ import PageHero, { HeroButton } from '@/components/PageHero'
 import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { paymentFit, FIT_CLASS } from '@/lib/payments/fit'
+import LineIcon from '@/components/LineIcon'
 
 const gbp = (n: number) =>
   `£${Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -188,7 +189,7 @@ export default function BankImportPage() {
             <div className={`rounded-xl border px-lg py-md text-sm flex items-center justify-between gap-md flex-wrap ${colours[severity]}`}>
               <div>
                 <span className="font-semibold">
-                  {severity === 'red' ? '🔴' : severity === 'amber' ? '⚠️' : 'ℹ️'}{' '}
+                  {<LineIcon glyph={severity === 'red' ? '🔴' : severity === 'amber' ? '⚠️' : 'ℹ️'} />}{' '}
                   Last import covered to {fmtDate(lastBatch.period_to)} — {gapDays} day{gapDays !== 1 ? 's' : ''} uncovered
                 </span>
                 <span className="ml-sm opacity-70 hidden sm:inline">
@@ -229,7 +230,7 @@ export default function BankImportPage() {
                 </div>
               ) : (
                 <div className="space-y-sm">
-                  <div className="text-3xl">🏦</div>
+                  <div className="text-3xl"><LineIcon glyph="🏦" /></div>
                   <p className="text-sm font-semibold text-neutral-700"><span className="hidden sm:inline">Drop your bank CSV here or click to browse</span><span className="sm:hidden">Tap to choose your bank CSV</span></p>
                   <p className="text-xs text-neutral-400 sm:hidden">On your phone: download the statement as CSV in your banking app, save it to Files, then choose it here.</p>
                   <p className="text-xs text-neutral-400">Nothing is saved until you review and confirm</p>

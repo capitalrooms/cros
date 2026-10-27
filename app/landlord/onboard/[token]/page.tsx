@@ -8,6 +8,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { missingFor, missingAll, isJoint, isUkCountry, REQUIRED_SECTIONS, type SectionKey } from '@/lib/landlordOnboarding/requirements'
 import type { PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
 import PropertyDocs from './PropertyDocs'
+import LineIcon from '@/components/LineIcon'
 
 type EntityType    = 'individual' | 'company'
 type PropertyCount = 'single' | 'multiple'
@@ -441,13 +442,13 @@ function FileUpload({
 
       {scanning && (
         <div className="mb-3 flex items-center gap-2 text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2">
-          <span className="animate-spin">⚙️</span>
+          <span className="animate-spin"><LineIcon glyph="⚙️" /></span>
           <span>Reading document with AI — filling in your details…</span>
         </div>
       )}
       {scanDone && !scanning && (
         <div className="mb-3 flex items-center gap-2 text-xs text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-3 py-2">
-          <span>✨</span>
+          <span><LineIcon glyph="✨" /></span>
           <span>AI filled in some fields from this document — please check them below.</span>
         </div>
       )}
@@ -1130,7 +1131,7 @@ export default function LandlordOnboardPage() {
               </div>
 
               <div className="mt-5 flex items-start gap-3 bg-violet-50 border border-violet-100 rounded-xl px-4 py-3.5">
-                <span className="text-lg shrink-0">✨</span>
+                <span className="text-lg shrink-0"><LineIcon glyph="✨" /></span>
                 <p className="text-xs text-violet-700 leading-relaxed">
                   <strong>AI tip:</strong> Upload your passport or proof of address first — we'll read the document automatically and fill in your name, date of birth, nationality, and address for you. You can still edit everything once it's populated.
                 </p>
@@ -1349,7 +1350,7 @@ export default function LandlordOnboardPage() {
                 }}
               />
               <div className="mt-4 flex items-start gap-3 bg-violet-50 border border-violet-100 rounded-xl px-4 py-3.5">
-                <span className="text-lg shrink-0">✨</span>
+                <span className="text-lg shrink-0"><LineIcon glyph="✨" /></span>
                 <p className="text-xs text-violet-700 leading-relaxed">
                   <strong>AI tip:</strong> Upload your Land Registry title or council tax letter first — we'll read the property address from it automatically.
                 </p>

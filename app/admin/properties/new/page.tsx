@@ -13,6 +13,7 @@ import PostcodeLookupWidget from '@/components/admin/PostcodeLookupWidget'
 import type { PostcodeLookupResult } from '@/components/admin/PostcodeLookupWidget'
 import PostcodeAddressLookup from '@/app/components/PostcodeAddressLookup'
 import AddressInput, { type AddressValue, emptyAddress, toAddressString } from '@/app/components/AddressInput'
+import LineIcon from '@/components/LineIcon'
 
 type LetType = 'hmo' | 'single_let' | null
 
@@ -377,7 +378,7 @@ export default function NewPropertyPage() {
                       : 'border-neutral-200 hover:border-neutral-400 bg-neutral-50'
                   }`}
                 >
-                  <div className="text-3xl mb-sm">🏠</div>
+                  <div className="text-3xl mb-sm"><LineIcon glyph="🏠" /></div>
                   <p className="text-base font-bold text-neutral-900 mb-xs">HMO</p>
                   <p className="text-xs text-neutral-500 leading-relaxed">Multiple tenants, each with their own room. Shared kitchen, bathrooms and communal areas.</p>
                   {letType === 'hmo' && <p className="text-xs text-blue-400 font-semibold mt-sm">✓ Selected</p>}
@@ -393,7 +394,7 @@ export default function NewPropertyPage() {
                       : 'border-neutral-200 hover:border-neutral-400 bg-neutral-50'
                   }`}
                 >
-                  <div className="text-3xl mb-sm">🔑</div>
+                  <div className="text-3xl mb-sm"><LineIcon glyph="🔑" /></div>
                   <p className="text-base font-bold text-neutral-900 mb-xs">Single Let</p>
                   <p className="text-xs text-neutral-500 leading-relaxed">Whole property let to one household. One tenancy agreement, one set of keys.</p>
                   {letType === 'single_let' && <p className="text-xs text-green-400 font-semibold mt-sm">✓ Selected</p>}

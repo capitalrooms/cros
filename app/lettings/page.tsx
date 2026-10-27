@@ -22,6 +22,7 @@ import ViewingSheet, { notifyLetOnlyContacts } from './ViewingSheet'
 import LeadsTab from './LeadsTab'
 import StaffNotificationBell from '@/app/components/StaffNotificationBell'
 import EnableNotifications from '@/app/components/EnableNotifications'
+import LineIcon from '@/components/LineIcon'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1259,7 +1260,7 @@ function ViewingCard({ viewing }: { viewing: Viewing }) {
                 href={`mailto:${viewing.visitor_email}`}
                 className="inline-flex items-center gap-xs rounded-full bg-neutral-100 px-md py-xs text-xs font-medium text-neutral-700 hover:bg-neutral-200 transition-colors"
               >
-                <span>✉</span> {viewing.visitor_email}
+                <span><LineIcon glyph="✉" /></span> {viewing.visitor_email}
               </a>
             )}
             {viewing.visitor_phone && (
@@ -1267,7 +1268,7 @@ function ViewingCard({ viewing }: { viewing: Viewing }) {
                 href={`tel:${viewing.visitor_phone.replace(/\s+/g, '')}`}
                 className="inline-flex items-center gap-xs rounded-full bg-neutral-100 px-md py-xs text-xs font-medium text-neutral-700 hover:bg-neutral-200 transition-colors"
               >
-                <span>📞</span> {viewing.visitor_phone}
+                <span><LineIcon glyph="📞" /></span> {viewing.visitor_phone}
               </a>
             )}
           </div>
