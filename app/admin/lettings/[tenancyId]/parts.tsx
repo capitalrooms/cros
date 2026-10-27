@@ -155,6 +155,7 @@ function CopyRow({ name, value }: { name: string; value: string }) {
 // ── Progress ────────────────────────────────────────────────────────────────
 
 export function ProgressTab({ file, step, setStep, patch, reload }: { file: LettingFile; step: StepId; setStep: (s: StepId) => void; patch: Patch; reload: () => Promise<void> }) {
+  const [parkingClause, setParkingClause] = useState(false)   // Nigel's let-only agreement only (27 Oct 2026)
   const t = file.tenancy
   const [recordFor, setRecordFor] = useState<string | null>(null)
   const ended = file.stage === 'fell_through'
@@ -262,7 +263,8 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
               <h2 className="text-lg font-bold">Tenancy agreement</h2>
               <p className="text-sm text-neutral-600">{file.property.lettingType === 'let_only' ? 'Let-only agreement — rent to the landlord.' : 'Capital Rooms — APT room agreement · rent to the client account.'} The move-in pack sends it with the check-in balance and certificates for the tenant to read and confirm.</p>
               <div className="flex flex-wrap gap-sm">
-                <button type="button" className={btn} onClick={() => openPdf(`/api/admin/move-in/${t.id}/doc?key=agreement`)}>Preview agreement</button>
+                {file.property.lettingType === 'let_only' && <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={parkingClause} onChange={e => setParkingClause(e.target.checked)} />Include the parking clause</label>}
+                <button type="button" className={btn} onClick={() => openPdf(`/api/admin/move-in/${t.id}/doc?key=agreement${parkingClause && file.property.lettingType === 'let_only' ? '&parking=1' : ''}`)}>Preview agreement</button>
                 <Link href={`/admin/move-in/${t.id}`} className={btnDark}>Move-in pack →</Link>
               </div>
               {file.pack ? (
