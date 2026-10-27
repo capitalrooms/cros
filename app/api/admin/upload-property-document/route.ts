@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
+import { isCertType, applyCertDates, readCertDocument } from '@/lib/compliance/certFromDocument'
 import { createClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 /**
  * Upload a property document to Supabase Storage and record it in the
@@ -102,5 +104,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: dbErr.message }, { status: 500 })
   }
 
-  return NextResponse.json({ ok: true, document: doc, storage_url: storageUrl })
+  // a certificate sets the house's dates (lib/compliance/certFromDocument, 27 Oct 2026) — the dates given in the
+  // drawer, else read from the certificate; otherwise compliance kept showing it as missing
+  let certificate: any = null
+  if (resolvedPropertyId && isCertType(documentType)) {
+    const issue = String(formData.get('issue_date') || ''), expiry = String(formData.get('expiry_date') || ''), rating = String(formData.get('epc_rating') || '')
+    certificate = issue || expiry
+      ? await applyCertDates(serviceClient, resolvedPropertyId, documentType, { issue, expiry, rating })
+      : await readCertDocument(serviceClient, { property_id: resolvedPropertyId, document_type: documentType, storage_url: storageUrl, file_name: fileName }).catch((e: any) => ({ updated: false, why: e?.message }))
+  }
+
+  return NextResponse.json({ ok: true, document: doc, storage_url: storageUrl, certificate })
 }

@@ -12,8 +12,8 @@ import { dearName } from '@/lib/people'
 // expiry = the property's expiry column; done + months = when only the test date is recorded, the next due
 // date is that plus the usual interval (same rule as the Compliance certificates grid)
 export const HOUSE_DOCS: { key: string; label: string; types: string[]; expiry?: string; done?: string; months?: number }[] = [
-  { key: 'gas', label: 'Gas safety', types: ['gas_safety_certificate'], expiry: 'gas_safe_cert_expiry', done: 'gas_safe_cert_date', months: 12 },
-  { key: 'eicr', label: 'Electrical safety (EICR)', types: ['electrical_eicr', 'eicr', 'electrical_certificate'], expiry: 'electrical_cert_expiry', done: 'electrical_cert_date', months: 60 },
+  { key: 'gas', label: 'Gas safety', types: ['gas_safety_certificate', 'gas_safety'], expiry: 'gas_safe_cert_expiry', done: 'gas_safe_cert_date', months: 12 },
+  { key: 'eicr', label: 'Electrical safety (EICR)', types: ['electrical_eicr', 'eicr', 'electrical_certificate', 'electrical_cert'], expiry: 'electrical_cert_expiry', done: 'electrical_cert_date', months: 60 },
   { key: 'fire_alarm', label: 'Fire detection', types: ['fire_alarm_certificate', 'fire_detection_certificate'], expiry: 'fire_detection_expiry', done: 'fire_detection_test_date', months: 12 },
   { key: 'emergency_lighting', label: 'Emergency lighting', types: ['emergency_lighting_certificate'], expiry: 'emergency_lighting_expiry', done: 'emergency_lighting_test_date', months: 12 },
   { key: 'pat', label: 'PAT testing', types: ['pat_test'], expiry: 'pat_test_expiry', done: 'pat_test_date', months: 12 },

@@ -4,6 +4,7 @@
 import { openStoredFile } from '@/lib/files/openFile'
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import DocUploadDrawer from '@/components/DocUploadDrawer'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
@@ -64,6 +65,15 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not load this tenancy') }
   }, [tenancyId])
   useEffect(() => { load(true) }, [load])
+  // back from uploading somewhere else (another tab, the house's page, the phone): look again, so what was filed is
+  // there (27 Oct 2026, Harry: "when I come back from uploading they need to be there"). The form isn't reset.
+  useEffect(() => {
+    const again = () => { if (document.visibilityState === 'visible') load(false) }
+    window.addEventListener('focus', again); document.addEventListener('visibilitychange', again)
+    return () => { window.removeEventListener('focus', again); document.removeEventListener('visibilitychange', again) }
+  }, [load])
+  // a missing certificate can be uploaded from right here
+  const [uploadFor, setUploadFor] = useState<{ key: string; label: string } | null>(null)
 
   // Live figures from the form (same maths as the documents)
   const live = useMemo(() => {
@@ -249,8 +259,9 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                           <span className="flex-1">
                             <span className="text-neutral-900">{d.label}</span>
                             {!d.available && <span className="ml-sm rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-800">Missing</span>}
-                            {d.note && <span className="block text-xs text-neutral-500">{d.note}{!d.available && <> · <Link href={`/admin/properties/${c.property.id}?tab=documents`} className="underline">upload on the house’s Documents tab</Link></>}</span>}
+                            {d.note && <span className="block text-xs text-neutral-500">{d.note}</span>}
                           </span>
+                          {!d.available && d.group === 'Safety certificates' && <button type="button" onClick={() => setUploadFor({ key: d.key, label: d.label })} className="rounded-lg bg-neutral-900 px-sm py-1 text-xs font-bold text-white">Upload</button>}
                           {d.url && d.available && <button type="button" onClick={() => d.url!.startsWith('/') ? window.open(d.url, '_blank') : openStoredFile(d.url!)} className="text-xs font-semibold text-neutral-500 underline">Open</button>}
                         </li>
                       ))}
@@ -337,6 +348,11 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
           </section>
         )}
       </div>
+      {uploadFor && c && (
+        <DocUploadDrawer title="This house" subtitle={`Upload — ${uploadFor.label}`} propertyId={c.property.id}
+          defaultType={({ gas: 'gas_safety_certificate', eicr: 'electrical_eicr', epc: 'epc' } as Record<string, string>)[uploadFor.key] ?? 'other'}
+          onClose={() => setUploadFor(null)} onUploaded={() => { setUploadFor(null); load(false) }} />
+      )}
     </div>
   )
 }

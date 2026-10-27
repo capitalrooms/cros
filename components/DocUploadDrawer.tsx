@@ -48,8 +48,8 @@ export interface UploadedDoc {
 
 const DOC_TYPES = [
   { value: 'tenancy_agreement',        label: 'Tenancy Agreement' },
-  { value: 'gas_safety',               label: 'Gas Safety Certificate' },
-  { value: 'electrical_cert',          label: 'Electrical Safety (EICR)' },
+  { value: 'gas_safety_certificate',   label: 'Gas Safety Certificate' },
+  { value: 'electrical_eicr',          label: 'Electrical Safety (EICR)' },
   { value: 'epc',                      label: 'EPC' },
   { value: 'fire_risk_assessment',     label: 'Fire Risk Assessment' },
   { value: 'inventory',                label: 'Move-in Inventory' },
@@ -60,7 +60,7 @@ const DOC_TYPES = [
   { value: 'id_proof',                 label: 'ID Proof (Passport / Licence)' },
   { value: 'employment_letter',        label: 'Employment / Income Letter' },
   { value: 'floor_plan',               label: 'Floor Plan' },
-  { value: 'insurance_policy',         label: 'Insurance Policy' },
+  { value: 'insurance',                label: 'Insurance Policy' },
   { value: 'hmo_licence',              label: 'HMO Licence' },
   { value: 'management_agreement',     label: 'Management Agreement' },
   // filed for the landlord app's "Your documents" (21 Oct 2026) — e.g. statements and invoices from before CROS
@@ -68,6 +68,9 @@ const DOC_TYPES = [
   { value: 'landlord_invoice',         label: 'Invoice to the Landlord' },
   { value: 'other',                    label: 'Other' },
 ].sort((a, b) => (a.value === 'other' ? 1 : 0) - (b.value === 'other' ? 1 : 0) || a.label.localeCompare(b.label))   // alphabetical, Other last
+
+/** Certificates whose dates go on the house when filed. */
+const CERT_TYPES = ['gas_safety_certificate', 'electrical_eicr', 'epc', 'fire_risk_assessment', 'insurance', 'hmo_licence']
 
 export default function DocUploadDrawer({
   title,
@@ -87,6 +90,9 @@ export default function DocUploadDrawer({
   const [visibleToTenants, setVisibleToTenants] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [aiSuggested, setAiSuggested] = useState<string | null>(null)
+  // a certificate's dates go on the house (27 Oct 2026 — filing one here used to leave it "missing" in compliance)
+  const [issueDate, setIssueDate] = useState('')
+  const [expiryDate, setExpiryDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -105,10 +111,13 @@ export default function DocUploadDrawer({
       if (res.ok) {
         const json = await res.json()
         const result = json.result || {}
-        if (result.document_type) {
-          // Map AI document_type string to one of our values
-          const lower = result.document_type.toLowerCase()
-          const match = DOC_TYPES.find(d =>
+        // the reader answers with doc_type (this used to read document_type, so it never suggested anything)
+        const kind = String(result.doc_type || result.document_type || '')
+        if (/^\d{4}-\d{2}-\d{2}$/.test(result.issue_date || '')) setIssueDate(result.issue_date)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(result.expiry_date || '')) setExpiryDate(result.expiry_date)
+        if (kind) {
+          const lower = kind.toLowerCase()
+          const match = DOC_TYPES.find(d => d.value === lower) || DOC_TYPES.find(d =>
             lower.includes(d.label.toLowerCase().split(' ')[0]) ||
             lower.includes(d.value.replace(/_/g, ' '))
           )
@@ -137,6 +146,7 @@ export default function DocUploadDrawer({
         fd.append('file_name', file.name)
         fd.append('document_type', docType)
         if (description) fd.append('description', description)
+        if (CERT_TYPES.includes(docType)) { if (issueDate) fd.append('issue_date', issueDate); if (expiryDate) fd.append('expiry_date', expiryDate) }
         fd.append('visible_to_tenants', String(visibleToTenants))
         if (propertyId) fd.append('property_id', propertyId)
         if (tenancyId) fd.append('tenancy_id', tenancyId)
@@ -242,6 +252,15 @@ export default function DocUploadDrawer({
                     {DOC_TYPES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                   </select>
                 </div>
+                {CERT_TYPES.includes(docType) && (
+                  <div className="grid grid-cols-1 gap-md min-[360px]:grid-cols-2">
+                    <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider">Issued
+                      <input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} className="mt-sm w-full rounded-lg border border-neutral-200 px-md py-sm text-sm font-normal normal-case text-neutral-900" /></label>
+                    <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider">Expires
+                      <input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} className="mt-sm w-full rounded-lg border border-neutral-200 px-md py-sm text-sm font-normal normal-case text-neutral-900" /></label>
+                    <p className="col-span-full -mt-xs text-xs text-neutral-500">{processing ? 'Reading the dates from the certificate…' : 'Read from the certificate — check them. They update the property’s certificate dates; left blank, CROS reads them after saving.'}</p>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-sm">Description <span className="font-normal normal-case">(optional)</span></label>
                   <input type="text" value={description} onChange={e => setDescription(e.target.value)}

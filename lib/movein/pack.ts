@@ -3,6 +3,7 @@
 //   • the property's gas safety certificate, EICR and EPC — the latest uploaded to that property
 //   • the statutory and house guides — public/tenancy-pack/*
 // The tenant gets one link (/pack/<token>) to view or download each, and confirms they've read them.
+import { healPropertyCerts } from '@/lib/compliance/certFromDocument'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { firstRentPayment, parseTenancyDate, ukLongDate, type FirstRent } from '@/lib/tenancy/firstRent'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
@@ -48,8 +49,8 @@ const STATIC: Omit<PackDoc, 'available' | 'source'>[] = [
 ]
 
 const CERTS: { key: string; label: string; types: string[] }[] = [
-  { key: 'gas', label: 'Gas safety certificate', types: ['gas_safety_certificate'] },
-  { key: 'eicr', label: 'Electrical safety report (EICR)', types: ['electrical_eicr', 'eicr', 'electrical_certificate'] },
+  { key: 'gas', label: 'Gas safety certificate', types: ['gas_safety_certificate', 'gas_safety'] },   // gas_safety: the upload drawer's old name
+  { key: 'eicr', label: 'Electrical safety report (EICR)', types: ['electrical_eicr', 'eicr', 'electrical_certificate', 'electrical_cert'] },
   { key: 'epc', label: 'Energy performance certificate (EPC)', types: ['epc'] },
 ]
 const CERT_EXPIRY_COL: Record<string, string> = { gas: 'gas_safe_cert_expiry', eicr: 'electrical_cert_expiry', epc: 'epc_expiry' }
@@ -92,6 +93,8 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
     .select('id, start_date, rent_amount, rent_due_day, deposit_amount, holding_deposit_received, payment_reference, person_id, room_id, property_id, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email), co:people!co_tenant_id(id, salutation, first_name, middle_name, last_name, full_name, email), rooms(id, name)')
     .eq('id', tenancyId).maybeSingle()
   if (!t) return null
+  // certificates on file whose dates aren't on the house yet are read first (lib/compliance/certFromDocument)
+  await healPropertyCerts(s as any, (t as any).property_id, 4).catch(() => null)
   const { data: prop } = await s.from('properties').select('*').eq('id', (t as any).property_id).maybeSingle()
   const [{ data: landlord }, { data: docs }] = await Promise.all([
     prop?.landlord_id ? s.from('people').select('*').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
