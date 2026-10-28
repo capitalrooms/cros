@@ -9,7 +9,7 @@ Usage:
     python3 tag_music.py ~/Music/Swinsian --write    # writes the tags
     python3 tag_music.py ~/Music/Swinsian --write --overwrite   # replace existing values
 
-Supported formats: MP3 (ID3), M4A/AAC/ALAC (MP4), FLAC.
+Supported formats: WAV and AIFF (ID3 chunk), MP3 (ID3), M4A/AAC/ALAC (MP4), FLAC.
 """
 
 import argparse
@@ -19,11 +19,14 @@ from pathlib import Path
 import librosa
 import numpy as np
 from mutagen import File as MutagenFile
+from mutagen.aiff import AIFF
 from mutagen.flac import FLAC
 from mutagen.id3 import ID3, TBPM, TKEY, ID3NoHeaderError
 from mutagen.mp4 import MP4, MP4FreeForm
+from mutagen.wave import WAVE
 
-AUDIO_EXTENSIONS = {".mp3", ".m4a", ".flac"}
+AUDIO_EXTENSIONS = {".mp3", ".m4a", ".flac", ".wav", ".aif", ".aiff"}
+ID3_CONTAINERS = {".wav": WAVE, ".aif": AIFF, ".aiff": AIFF}
 MP4_KEY_ATOM = "----:com.apple.iTunes:initialkey"
 
 # Krumhansl-Schmuckler key profiles, index 0 = tonic.
@@ -82,6 +85,13 @@ def read_tags(path):
         bpm = tags.get("BPM")
         key = tags.get("INITIALKEY")
         return (bpm[0] if bpm else None), (key[0] if key else None)
+    if ext in ID3_CONTAINERS:
+        tags = ID3_CONTAINERS[ext](path).tags
+        if tags is None:
+            return None, None
+        bpm = tags.get("TBPM")
+        key = tags.get("TKEY")
+        return (str(bpm.text[0]) if bpm else None), (str(key.text[0]) if key else None)
     return None, None
 
 
@@ -107,6 +117,15 @@ def write_tags(path, bpm, key):
         flac["BPM"] = str(bpm)
         flac["INITIALKEY"] = key
         flac.save()
+    elif ext in ID3_CONTAINERS:
+        audio = ID3_CONTAINERS[ext](path)
+        if audio.tags is None:
+            audio.add_tags()
+        audio.tags.delall("TBPM")
+        audio.tags.add(TBPM(encoding=3, text=str(bpm)))
+        audio.tags.delall("TKEY")
+        audio.tags.add(TKEY(encoding=3, text=key))
+        audio.save()
 
 
 def iter_tracks(root):
