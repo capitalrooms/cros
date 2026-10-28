@@ -13,6 +13,7 @@
  * Role: any authenticated admin/lettings user.
  */
 
+import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireStaff } from '@/lib/portalAuth'
 import { createClient } from '@supabase/supabase-js'
@@ -107,10 +108,8 @@ export async function GET(
   const tenantNames = [primaryName, ...extraNames].filter(Boolean)
 
   // Property address: for HMO rooms include room name; for single-let just property address
-  const isHmo = property.letting_type !== 'let_only' && room.name
-  const propertyAddress = isHmo
-    ? `${room.name}, ${property.address}`
-    : property.address
+  // a whole home ("Whole Property") is just its address (27 Oct 2026 — it printed "Whole Property, …")
+  const propertyAddress = placeLabel(isWholeLet((property as any).property_type, room.name) || property.letting_type === 'let_only', room.name, property.address)
 
   // Bank details — fall back to Capital Rooms own account if no property bank set
   const bankName  = property.bank_account_name  || 'Capital Rooms Ltd'

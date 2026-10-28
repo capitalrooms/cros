@@ -10,6 +10,7 @@
 // Each step writes to emergency_events, so the office can open it late and see exactly where it stands.
 // Status changes are conditional updates, so two ticks running at once can never both confirm someone.
 
+import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import crypto from 'node:crypto'
 import { readKeySafe } from '@/lib/access/keySafe'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -76,7 +77,7 @@ const addressOf = (em: any) => {
   const addr = String(em.properties?.address ?? '').split(/\n|,\s*/).map(x => x.trim()).filter(x => x && x.toLowerCase() !== name.toLowerCase())
   const pc = String(em.properties?.postcode ?? '').replace(/\s+/g, '').toUpperCase()
   const hasPc = !!pc && addr.some(x => x.replace(/\s+/g, '').toUpperCase().includes(pc))
-  return [em.rooms?.name, name, ...addr, hasPc ? '' : em.properties?.postcode].filter(Boolean).join(', ')
+  return [isWholeLet(null, em.rooms?.name) ? '' : em.rooms?.name, name, ...addr, hasPc ? '' : em.properties?.postcode].filter(Boolean).join(', ')   // never "Whole Property, …"
 }
 // before someone is confirmed, contractors only see the street and postcode district
 const areaOf = (em: any) => {

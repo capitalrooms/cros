@@ -4,6 +4,7 @@
 // documents open as PDFs; nothing is sent from this page — sending happens in the move-in pack, Letters & Invoices
 // or the holding deposit, each with its own review.
 
+import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '@/lib/adminFetch'
@@ -237,7 +238,7 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
                 <CopyRow name="Email" value={file.tenant.email ?? ''} />
                 <CopyRow name="Mobile" value={file.tenant.phone ?? ''} />
                 <CopyRow name="Monthly rent · start" value={t.rent_amount ? `${gbp(t.rent_amount)} · ${day(t.start_date)}` : ''} />
-                <CopyRow name="Property" value={[file.room.name, file.property.address || file.property.name].filter(Boolean).join(', ')} />
+                <CopyRow name="Property" value={placeLabel(isWholeLet(null, file.room.name), file.room.name, file.property.address || file.property.name)} />
                 {file.applicant?.guarantor_name && <>
                   <CopyRow name="Guarantor" value={file.applicant.guarantor_name} />
                   <CopyRow name="Guarantor mobile" value={file.applicant.guarantor_phone ?? ''} />
@@ -247,7 +248,7 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
               {file.applicant?.guarantor_needed === 'not_sure' && !file.applicant?.guarantor_name && <p className="text-xs text-amber-800">They weren’t sure whether they need a guarantor — check before sending to Homeppl.</p>}
               <button type="button" className={btn} onClick={() => navigator.clipboard.writeText([
                 `Name: ${file.tenant.name}`, `Email: ${file.tenant.email ?? ''}`, `Mobile: ${file.tenant.phone ?? ''}`,
-                `Rent: ${gbp(t.rent_amount)} per month from ${day(t.start_date)}`, `Property: ${[file.room.name, file.property.address || file.property.name].filter(Boolean).join(', ')}`,
+                `Rent: ${gbp(t.rent_amount)} per month from ${day(t.start_date)}`, `Property: ${placeLabel(isWholeLet(null, file.room.name), file.room.name, file.property.address || file.property.name)}`,
                 ...(file.applicant?.guarantor_name ? [`Guarantor: ${file.applicant.guarantor_name}, ${file.applicant.guarantor_phone ?? ''}, ${file.applicant.guarantor_email ?? ''}`] : []),
               ].join('\n'))}>Copy all for Homeppl</button>
               <Tick title="Sent to Homeppl" step="referencing_sent" value={t.referencing_sent_at} patch={patch} disabled={ended} />

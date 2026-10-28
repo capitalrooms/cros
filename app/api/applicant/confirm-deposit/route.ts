@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import { insertNotifications, tryPush } from '@/lib/serverNotify'
 import { STAFF_ROLES } from '@/lib/portalAuth'
 import { sendEmail } from '@/lib/sendEmail'
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     if (offer?.status === 'deposit_claimed' || offer?.status === 'deposit_paid') return Response.json({ success: true, already: true })
 
     const room = applicant.rooms as any
-    const roomLabel = [room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'the room'
+    const roomLabel = [isWholeLet(null, room?.name) ? '' : room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'the room'
     const extra = typeof screenshotNote === 'string' ? screenshotNote.slice(0, 300).trim() : ''
     const note = `${new Date().toLocaleDateString('en-GB')}: applicant says they've paid the holding deposit${extra ? ` — "${extra}"` : ''}.`
 
