@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import { insertNotifications, tryPush } from '@/lib/serverNotify'
 import { STAFF_ROLES } from '@/lib/portalAuth'
 import { findApplicant, moveToRoom } from '@/lib/lettings/applicantRecord'
@@ -155,7 +156,7 @@ export async function POST(request: Request) {
       const ids = (staff ?? []).map((p: any) => p.id)
       const below = data.rentOfferType === 'below_asking' && data.offeredRent ? ` — offering £${Number(data.offeredRent).toLocaleString('en-GB')} pcm` : ''
       const title = existing ? '✏️ Application updated' : 'New offer received'
-      const body = `${data.fullName} has ${existing ? 'updated their application' : 'applied'} for ${[room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'}${below}.`
+      const body = `${data.fullName} has ${existing ? 'updated their application' : 'applied'} for ${[isWholeLet(null, room?.name) ? '' : room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'}${below}.`
       await insertNotifications(supabase, ids, { title, body, type: 'lettings', link: '/admin/applicants' }, { propertyId: data.propertyId ?? null, roomId: data.roomId })
       await tryPush(ids, title, body, '/admin/applicants')
 
@@ -166,7 +167,7 @@ export async function POST(request: Request) {
       const to = [...new Set(((office ?? []) as any[]).map(p => String(p.email).toLowerCase()))]
       if (to.length) {
         const esc = (v: unknown) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
-        const where = [room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'
+        const where = [isWholeLet(null, room?.name) ? '' : room?.name, room?.properties?.name].filter(Boolean).join(', ') || 'a room'
         const app = process.env.NEXT_PUBLIC_APP_URL || 'https://cros-sigma.vercel.app'
         const fast = data.fastTrack === true || (typeof data.offerToken === 'string' && !!(await supabase.from('offers').select('request_deposit').eq('application_token', data.offerToken).maybeSingle()).data?.request_deposit)
         const row = (k: string, v: unknown) => v ? `<tr><td style="padding:4px 0;color:#78716c;width:160px;">${k}</td><td style="padding:4px 0;">${esc(v)}</td></tr>` : ''

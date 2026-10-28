@@ -10,6 +10,7 @@
 //   reduceDue        — an agreed reduction or write-off of what's due
 //   agreePlan/endPlan — an arrangement to clear arrears (e.g. £50 a month on top of the rent)
 // Money already paid over to the landlord is never taken back here — those steps refuse and say why.
+import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { hiName } from '@/lib/people'
 import { ledgerStart } from '@/lib/clientLedger'
@@ -80,7 +81,7 @@ export function tenantMessage(pos: Awaited<ReturnType<typeof rentPosition>>, ext
   const lines = pos.months.filter(m => m.outstanding > 0.005)
   const rows = lines.map(m => `${monthName(m.month)}: ${gbp(m.due)} due, ${gbp(m.received)} received — ${gbp(m.outstanding)} still to pay`)
   const plan = (pos.plans as any[]).find(p => p.status === 'active')
-  const where = `${t.rooms?.name ?? 'your room'}, ${String(t.properties?.name || t.properties?.address || '').split('\n')[0]}`
+  const where = placeLabel(isWholeLet(null, t.rooms?.name), t.rooms?.name ?? 'your room', String(t.properties?.name || t.properties?.address || '').split('\n')[0])
   const pay = `Account: ${CLIENT_ACCOUNT.name} · Sort code ${CLIENT_ACCOUNT.sortCode} · Account ${CLIENT_ACCOUNT.accountNo} · Reference: ${t.payment_reference ?? 'your usual rent reference'}`
   const text = [
     `Hi ${first}, this is Capital Rooms about the rent for ${where}.`,

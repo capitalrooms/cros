@@ -3,6 +3,7 @@
 // Letters & Invoices: write what you want in your own words and the assistant turns it into a formal letter
 // on the Capital Rooms letterhead signed by you, or an invoice in the standard layout; check, download or email it.
 
+import { placeLabel, isWholeLet } from '@/lib/lettings/letWording'
 import PdfView from '@/components/PdfView'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -228,11 +229,11 @@ export default function DocumentGenerator() {
           const tt = t as any
           const p = ((data as Person[]) || []).find(x => x.id === tt?.person_id)
           if (p) pickPerson(p)
-          setForTenancy([tt?.rooms?.name, tt?.properties?.name].filter(Boolean).join(', '))
+          setForTenancy(placeLabel(isWholeLet(null, tt?.rooms?.name), tt?.rooms?.name, String(tt?.properties?.name ?? '').split('\n')[0]))
           const day = (iso?: string | null) => iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : undefined
           const n = Number(tt?.rent_due_day) || 1
           setFacts({
-            tenant: p ? formalName(p as any) : undefined, room: tt?.rooms?.name || undefined,
+            tenant: p ? formalName(p as any) : undefined, room: isWholeLet(null, tt?.rooms?.name) ? undefined : tt?.rooms?.name || undefined,   // a whole home has no room
             house: String(tt?.properties?.name ?? '').split('\n')[0] || undefined,
             address: [String(tt?.properties?.name ?? '').split('\n')[0], tt?.properties?.address, tt?.properties?.postcode].filter(Boolean).join(', ').replace(/\n/g, ', ') || undefined,
             rent: tt?.rent_amount ? money(Number(tt.rent_amount)) : undefined, payment_ref: tt?.payment_reference || undefined,
@@ -263,7 +264,7 @@ export default function DocumentGenerator() {
       // the property's name holds the street ("12 Saltwell Street"); its address field is often just town and postcode
       const street = String(prop?.name ?? '').split('\n')[0].trim()
       const rest = String(prop?.address ?? '').trim()
-      address = [room?.name, street && !rest.toLowerCase().includes(street.toLowerCase()) ? street : '', rest].filter(Boolean).join('\n')
+      address = [isWholeLet(null, room?.name) ? '' : room?.name, street && !rest.toLowerCase().includes(street.toLowerCase()) ? street : '', rest].filter(Boolean).join('\n')   // never "Whole Property"
     }
     // a landlord's copy-in list (accountant …) joins the CC line (migration 239)
     const copy = p.role === 'landlord' && Array.isArray((p as any).correspondence_cc) ? ((p as any).correspondence_cc as { email?: string }[]).map(c => String(c.email ?? '').trim()).filter(Boolean) : []
