@@ -7,6 +7,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { sealFields, openFields, openRows, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
+
+// sort code, account number and IBAN are stored encrypted (lib/crypto/fieldCrypt) — sealed on the way in, opened on the way out
+const F = BANK_FIELDS.landlord_bank_accounts
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -47,7 +51,7 @@ export async function GET(req: NextRequest) {
     .order('account_label')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ accounts: data || [] })
+  return NextResponse.json({ accounts: openRows(data as any[], F) })
 }
 
 export async function POST(req: NextRequest) {
@@ -71,12 +75,12 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await svc
     .from('landlord_bank_accounts')
-    .insert({ landlord_id, account_label, bank_name, account_name, sort_code, account_number, iban, swift, is_default: is_default ?? false })
+    .insert(sealFields({ landlord_id, account_label, bank_name, account_name, sort_code, account_number, iban, swift, is_default: is_default ?? false }, F))
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ account: data })
+  return NextResponse.json({ account: openFields(data as any, F) })
 }
 
 export async function PUT(req: NextRequest) {
@@ -99,13 +103,13 @@ export async function PUT(req: NextRequest) {
 
   const { data, error } = await svc
     .from('landlord_bank_accounts')
-    .update({ account_label, bank_name, account_name, sort_code, account_number, iban, swift, is_default, updated_at: new Date().toISOString() })
+    .update(sealFields({ account_label, bank_name, account_name, sort_code, account_number, iban, swift, is_default, updated_at: new Date().toISOString() }, F))
     .eq('id', id)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ account: data })
+  return NextResponse.json({ account: openFields(data as any, F) })
 }
 
 export async function DELETE(req: NextRequest) {

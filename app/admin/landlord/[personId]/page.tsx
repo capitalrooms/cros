@@ -201,7 +201,8 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
         supabase.from('properties').select('id, name, address, management_fee_pct, property_type, cc_emails').eq('landlord_id', personId).order('name'),
         supabase.from('landlord_onboarding').select('*').eq('landlord_people_id', personId).order('created_at', { ascending: false }),
         supabase.from('landlord_notification_prefs').select('category, enabled').eq('person_id', personId),
-        supabase.from('landlord_bank_accounts').select('*').eq('landlord_id', personId).order('is_default', { ascending: false }),
+        // bank details are encrypted at rest — the server opens them (lib/crypto/fieldCrypt)
+        adminFetch(`/api/admin/landlord-bank-accounts?landlord_id=${personId}`).then(r => r.json()).then(j => ({ data: j.accounts ?? [] })).catch(() => ({ data: [] })),
       ])
       setProperties(sortPropertiesNumerically(props || []))
       setAmlRecords(records || [])
@@ -379,35 +380,33 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
     // the label is just a nickname — default it so it never blocks saving
     if (!bankForm.account_label?.trim()) bankForm.account_label = `${bankForm.bank_name || 'Account'}${bankForm.account_number ? ` ••••${String(bankForm.account_number).slice(-4)}` : ''}`
     setSavingBank(true)
-    // only one default account per landlord (the payout run and property bank picker use it)
-    if (bankForm.is_default) await supabase.from('landlord_bank_accounts').update({ is_default: false }).eq('landlord_id', personId).neq('id', editingBankId || '00000000-0000-0000-0000-000000000000')
-    if (editingBankId) {
-      const { error } = await supabase.from('landlord_bank_accounts').update({ ...bankForm, updated_at: new Date().toISOString() }).eq('id', editingBankId)
-      if (!error) {
-        setBankAccounts(prev => prev.map(a => a.id === editingBankId ? { ...a, ...bankForm } : (bankForm.is_default ? { ...a, is_default: false } : a)))
-        setShowBankForm(false)
-      } else { alert(error.message) }
-    } else {
-      const { data, error } = await supabase.from('landlord_bank_accounts')
-        .insert({ ...bankForm, landlord_id: personId }).select().single()
-      if (!error && data) {
-        setBankAccounts(prev => bankForm.is_default ? prev.map(a => ({ ...a, is_default: false })).concat(data) : [...prev, data])
-        setShowBankForm(false)
-      } else { alert(error?.message || 'Error saving') }
-    }
+    // only one default account per landlord (the payout run and property bank picker use it) — the server clears the
+    // others and stores the numbers encrypted (app/api/admin/landlord-bank-accounts)
+    const res = await adminFetch('/api/admin/landlord-bank-accounts', {
+      method: editingBankId ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...bankForm, ...(editingBankId ? { id: editingBankId } : {}), landlord_id: personId }),
+    })
+    const j = await res.json().catch(() => ({}))
+    if (res.ok && j.account) {
+      setBankAccounts(prev => {
+        const rest = (bankForm.is_default ? prev.map(a => ({ ...a, is_default: false })) : prev).filter(a => a.id !== j.account.id)
+        return editingBankId ? prev.map(a => a.id === j.account.id ? j.account : (bankForm.is_default ? { ...a, is_default: false } : a)) : rest.concat(j.account)
+      })
+      setShowBankForm(false)
+    } else { alert(j.error || 'Could not save the bank account') }
     setSavingBank(false)
   }
 
   async function deleteBank(id: string) {
     if (!confirm('Delete this bank account?')) return
-    await supabase.from('landlord_bank_accounts').delete().eq('id', id)
-    setBankAccounts(prev => prev.filter(a => a.id !== id))
+    const res = await adminFetch(`/api/admin/landlord-bank-accounts?id=${id}`, { method: 'DELETE' })
+    if (res.ok) setBankAccounts(prev => prev.filter(a => a.id !== id))
+    else alert('Could not delete it — try again')
   }
 
   async function setDefaultBank(id: string) {
-    await supabase.from('landlord_bank_accounts').update({ is_default: false }).eq('landlord_id', personId)
-    await supabase.from('landlord_bank_accounts').update({ is_default: true }).eq('id', id)
-    setBankAccounts(prev => prev.map(a => ({ ...a, is_default: a.id === id })))
+    const res = await adminFetch('/api/admin/landlord-bank-accounts', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, landlord_id: personId, is_default: true }) })
+    if (res.ok) setBankAccounts(prev => prev.map(a => ({ ...a, is_default: a.id === id })))
   }
 
   /* ── Save new AML check ── */
