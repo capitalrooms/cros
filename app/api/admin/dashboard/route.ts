@@ -7,13 +7,13 @@ import { quietCertificates, PROPERTY_CERTIFICATES } from '@/lib/propertyCertific
 import { ledgerStart } from '@/lib/clientLedger'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { loadVoids, VOID_WINDOWS } from '@/lib/voids'
+import { propertyName } from '@/lib/properties/names'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const londonToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
 const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86400000).toISOString().slice(0, 10)
-const firstLine = (v: unknown) => String(v ?? '').split('\n')[0].trim()
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const in30 = addDays(today, 30), in7 = addDays(today, 7)
 
   const [propsR, roomsR, tenR, chargesR, appsR, viewsR, jobsR, holdR, start, voidsAll, captureR, amlR] = await Promise.all([
-    s.from('properties').select(['id', 'name', 'address', 'letting_type', 'is_demo', 'landlord_id', 'has_gas', 'licence_application_submitted_at', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')),
+    s.from('properties').select('*'),   // * so it still works before migration 248 (unavailable_from)
     s.from('rooms').select('id, property_id, name, status, is_let_only'),
     s.from('tenancies').select('id, room_id, property_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, deposit_amount, deposit_protected_at, deposit_protection_assumed, prescribed_info_served_at, last_rent_change_date, is_periodic'),
     s.from('rent_charges').select('property_id, charge_month, amount_due, amount_received, status, voided'),
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
   const mid = new Set(managed.map(p => p.id))
   const rooms = ((roomsR.data ?? []) as any[]).filter(r => mid.has(r.property_id) && !r.is_let_only)
   const roomIds = new Set(rooms.map(r => r.id))
-  const propName = new Map(managed.map(p => [p.id, firstLine(p.name || p.address).replace(/,.*$/, '')]))
+  const propName = new Map(managed.map(p => [p.id, propertyName(p)]))
 
   // ── Rooms: worked out from the records, not just the room's label ──
   // let / on notice = a current tenancy · empty = on the market · check = last tenancy ended but still marked let
@@ -56,9 +56,11 @@ export async function GET(req: NextRequest) {
   const current = tenancies.filter(t => roomIds.has(t.room_id) && (!t.start_date || t.start_date <= today) && (!t.end_date || t.end_date >= today))
   const curByRoom = new Map(current.map(t => [t.room_id, t]))
   const everLet = new Set(tenancies.filter(t => t.start_date && t.start_date <= today).map(t => t.room_id))
+  const offNow = new Set(managed.filter(p => p.unavailable_from && p.unavailable_from <= today).map(p => p.id))
   const state = (r: any): 'let' | 'notice' | 'empty' | 'check' | 'none' => {
     const t = curByRoom.get(r.id)
     if (t) return t.notice_received_date || r.status === 'on_notice' ? 'notice' : 'let'
+    if (offNow.has(r.property_id)) return 'none'   // house marked not available to let (e.g. subsidence) — not a void
     if (r.status === 'available') return 'empty'
     return everLet.has(r.id) ? 'check' : 'none'
   }

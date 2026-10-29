@@ -38,9 +38,11 @@ export function letWords(whole: boolean): LetWords {
     : { unit: 'room', theUnit: 'the room', thisUnit: 'this room', yourUnit: 'your room', ourUnits: 'our rooms', details: 'Room details', bills: ' (all bills included)', housemate: 'housemate' }
 }
 
-/** A property's short name: its first line, plus the street when the first line is only "Flat 4" / "Apartment 2". */
+/** A property's short name: its first line, plus the street when the first line is only "Flat 4" / "Apartment 2",
+ *  or the building when it's only a number ("315" → "315 Eden House"). */
 export function shortAddress(s?: string | null): string {
   const parts = String(s ?? '').split(/\s*[\r\n,]+\s*/).map(x => x.trim()).filter(Boolean)
   if (!parts.length) return ''
+  if (/^\d+[a-z]?$/i.test(parts[0]) && parts[1]) return `${parts[0]} ${parts[1]}`
   return /^(flat|apartment|apt|unit|studio|room)\s+\S+$/i.test(parts[0]) && parts[1] ? `${parts[0]}, ${parts[1]}` : parts[0]
 }

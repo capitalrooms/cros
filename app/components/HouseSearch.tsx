@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { splitAddress } from './AddressField'
 import { sameHouse } from '@/lib/letOnly/sameHouse'
+import { propertyName } from '@/lib/properties/names'
 
 export interface House { id: string; name?: string | null; address?: string | null; postcode?: string | null; letting_type?: string | null }
 
@@ -22,7 +23,6 @@ interface Props {
   className?: string
 }
 
-const first = (v?: string | null) => String(v ?? '').split(/[,\n]/)[0].trim()
 const words = (v: string) => v.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean)
 
 export default function HouseSearch({ houses, selectedId, onHouse, onNew, className = '' }: Props) {
@@ -33,16 +33,16 @@ export default function HouseSearch({ houses, selectedId, onHouse, onNew, classN
   const [busy, setBusy] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { if (selected) setQ(first(selected.name) || first(selected.address)) }, [selectedId])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (selected) setQ(propertyName(selected)) }, [selectedId])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const typed = q.trim()
   const ws = words(typed)
-  const onFile = ws.length && !(selected && typed === (first(selected.name) || first(selected.address)))
+  const onFile = ws.length && !(selected && typed === (propertyName(selected)))
     ? houses.filter(h => { const hay = words(`${h.name ?? ''} ${h.address ?? ''} ${h.postcode ?? ''}`).join(' '); return ws.every(w => hay.includes(w)) }).slice(0, 8)
     : []
 
   useEffect(() => {
-    if (typed.length < 4 || (selected && typed === (first(selected.name) || first(selected.address)))) { setFound([]); return }
+    if (typed.length < 4 || (selected && typed === (propertyName(selected)))) { setFound([]); return }
     let stale = false
     const t = setTimeout(async () => {
       setBusy(true)
@@ -68,7 +68,7 @@ export default function HouseSearch({ houses, selectedId, onHouse, onNew, classN
   const known = fresh.filter(x => x.house && !onFile.some(h => h.id === x.house!.id))
   const knownIds = [...new Set(known.map(x => x.house!.id))]
 
-  function chooseHouse(h: House) { setOpen(false); setQ(first(h.name) || first(h.address)); onHouse(h.id) }
+  function chooseHouse(h: House) { setOpen(false); setQ(propertyName(h)); onHouse(h.id) }
 
   const row = 'block w-full border-b border-neutral-100 px-3 py-2 text-left text-sm last:border-0 hover:bg-neutral-50'
   return (
@@ -82,7 +82,7 @@ export default function HouseSearch({ houses, selectedId, onHouse, onNew, classN
         <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-lg">
           {[...onFile, ...knownIds.map(id => houses.find(h => h.id === id)!)].map(h => (
             <button key={h.id} type="button" onMouseDown={e => { e.preventDefault(); chooseHouse(h) }} className={row}>
-              <span className="font-medium text-neutral-900">{first(h.name) || first(h.address)}</span>
+              <span className="font-medium text-neutral-900">{propertyName(h)}</span>
               <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-800">On file{h.letting_type === 'let_only' ? ' · let only' : ''}</span>
               <span className="block text-xs text-neutral-500">{String(h.address ?? h.postcode ?? '').replace(/\s*\n\s*/g, ', ')}</span>
             </button>

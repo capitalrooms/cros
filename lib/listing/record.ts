@@ -51,7 +51,7 @@ export function missingForReady(l: Partial<ListingRecord>, photoCount: number): 
 
 /** "Flat 4, 44 Claverton Street, London, SW1V 3AU" → "Claverton Street, SW1V" — what the public may see */
 export function displayAddressFrom(address: string | null | undefined, postcode: string | null | undefined): string {
-  const parts = String(address ?? '').split(/\s*[,\n]\s*/).map(p => p.replace(/^(flat|apartment|unit|room)\s*\w+$/i, '').replace(/^\d+[a-z]?\s+/i, '').trim())
+  const parts = String(address ?? '').split(/\s*[,\n]\s*/).map(p => p.replace(/^(flat|apartment|unit|room)\s*\w+$/i, '').replace(/^\d+[a-z]?(\s+|$)/i, '').trim())
     .filter(p => p && !/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(p) && !/^london$/i.test(p))
   const district = String(postcode ?? '').trim().toUpperCase().match(/^([A-Z]{1,2}\d[A-Z\d]?)/)?.[1]
   return [parts[0], district].filter(Boolean).join(', ')

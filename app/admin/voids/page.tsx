@@ -10,7 +10,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 
 type Win = 3 | 6 | 12
-type Seg = [number, number, 'let' | 'empty' | 'unknown' | 'check']
+type Seg = [number, number, 'let' | 'empty' | 'unknown' | 'check' | 'off']
 interface Group { id: string; name: string; rooms: number; counted: number; empty: number; lost: number; rate: number }
 interface Room { id: string; name: string; houseId: string; house: string; landlordId: string | null; landlord: string; knownFrom: string; rent: number | null; w: Record<Win, { counted: number; empty: number; lost: number; segments: Seg[] }> }
 interface Data {
@@ -20,7 +20,7 @@ interface Data {
   checks: { room: string; house: string; houseId: string; why: string }[]
 }
 
-const SEG: Record<Seg[2], string> = { let: '#2F6B4F', empty: '#C8372D', check: 'repeating-linear-gradient(135deg,#F6D58E 0 4px,#EBC46A 4px 6px)', unknown: 'repeating-linear-gradient(135deg,#F1EFEB 0 4px,#E6E2DC 4px 5px)' }
+const SEG: Record<Seg[2], string> = { let: '#2F6B4F', empty: '#C8372D', check: 'repeating-linear-gradient(135deg,#F6D58E 0 4px,#EBC46A 4px 6px)', unknown: 'repeating-linear-gradient(135deg,#F1EFEB 0 4px,#E6E2DC 4px 5px)', off: '#A8A39B' }
 const gbp = (n: number) => `£${Math.round(n).toLocaleString('en-GB')}`
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const card = 'rounded-[10px] border border-[#E4E1DB] bg-white'
@@ -117,7 +117,7 @@ export default function VoidsPage() {
             <div className="flex flex-wrap items-center justify-between gap-sm border-b border-[#E4E1DB] px-md py-sm">
               <h2 className="text-[11.5px] font-bold uppercase tracking-[0.06em] text-neutral-600">Every room · last {win} months</h2>
               <span className="flex flex-wrap gap-x-md gap-y-1 text-[11.5px] text-neutral-500">
-                {([['let', 'Let'], ['empty', 'Empty'], ['check', 'Records to check'], ['unknown', 'Not on record yet']] as const).map(([k, l]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block h-3 w-3 rounded-[3px]" style={{ background: SEG[k] }} />{l}</span>)}
+                {([['let', 'Let'], ['empty', 'Empty'], ['check', 'Records to check'], ['unknown', 'Not on record yet'], ['off', 'Not available to let']] as const).map(([k, l]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block h-3 w-3 rounded-[3px]" style={{ background: SEG[k] }} />{l}</span>)}
               </span>
             </div>
             <div className="overflow-x-auto px-md py-sm">
