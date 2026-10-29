@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         ${rentLine ? tableRow('Rent',  rentLine) : ''}
         ${weekly   ? tableRow('Holding deposit', `£${weekly.toLocaleString()} (1 week)`) : ''}
         ${applicant.profession    ? tableRow('Profession',   applicant.profession)    : ''}
-        ${applicant.salary        ? tableRow('Salary',       applicant.salary)        : ''}
+        ${applicant.salary        ? tableRow('Income',       [applicant.salary, (applicant as any).applicant_profile?.application?.income_details].filter(Boolean).join(' — '))        : ''}
         ${applicant.current_address ? tableRow('Current address', applicant.current_address) : ''}
         ${applicant.preferred_start_date ? tableRow('Move-in',  new Date(applicant.preferred_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) : ''}
         ${applicant.preferred_term ? tableRow('Planned stay', applicant.preferred_term) : ''}
