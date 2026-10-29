@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { getCurrentUser } from '@/lib/serverAuth'
+import { isCertColumn } from '@/lib/propertyCertificates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
     comms_live: v => v === 'true' || v === 'false',
     elected_comms_live: v => v === 'true' || v === 'false',
     rent_grace_days: v => /^\d{1,2}$/.test(v) && Number(v) <= 31,
+    cert_reminders_off: v => v === '' || v.split(',').every(isCertColumn),
   }
   if (!valid[key]) return NextResponse.json({ error: `${key} can’t be changed here` }, { status: 400 })
   if (!valid[key](String(value))) return NextResponse.json({ error: 'That value isn’t allowed' }, { status: 400 })

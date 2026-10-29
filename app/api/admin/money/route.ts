@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
-import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
+import { PROPERTY_CERTIFICATES, quietCertificates, chaseCert } from '@/lib/propertyCertificates'
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { ledgerStart } from '@/lib/clientLedger'
 import { statementsInMonths } from '@/lib/finance/statementMonth'
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     s.from('rooms').select('id, property_id, status'),
     s.from('tenancies').select('room_id').lte('start_date', today).or(`end_date.is.null,end_date.gte.${today}`),
     s.from('maintenance_tickets').select('id, property_id, status, approved_at, on_hold').not('status', 'in', `(${CLOSED.join(',')})`),
-    s.from('properties').select(['id', ...CERTS].join(', ')).or('letting_type.is.null,letting_type.neq.let_only'),   // let-only houses aren't ours to keep certified (27 Oct 2026)
+    s.from('properties').select(['id', 'licence_application_submitted_at', ...CERTS].join(', ')).or('letting_type.is.null,letting_type.neq.let_only'),   // let-only houses aren't ours to keep certified (27 Oct 2026)
   ])
   const failed = [charges, arrears, rooms, lets, jobs, props].find(r => r.error)
   if (failed) return NextResponse.json({ error: failed.error!.message }, { status: 500 })
@@ -74,9 +74,10 @@ export async function GET(req: NextRequest) {
   const empty = realRooms.length - occupied - noTenancy
   const openJobs = real(jobs.data as any[])
   let expired = 0, dueSoon = 0
+  const quiet = await quietCertificates(s)
   for (const p of (props.data ?? []) as any[]) if (!demo.has(p.id)) for (const col of CERTS) {
     const d = p[col] as string | null
-    if (!d) continue
+    if (!d || !chaseCert(p, col, quiet)) continue
     if (d < today) expired++
     else if (d <= in30) dueSoon++
   }

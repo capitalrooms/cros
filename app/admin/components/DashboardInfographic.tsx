@@ -109,6 +109,7 @@ function VoidTile({ v }: { v: NonNullable<DashboardData['voids']> }) {
 const CELL: Record<string, { bg: string; fg?: string; text: string }> = {
   valid: { bg: '#CFE6D9', text: '' }, due: { bg: '#F6D58E', fg: '#6B4600', text: 'due' }, expired: { bg: RED, fg: '#fff', text: 'exp' },
   missing: { bg: 'repeating-linear-gradient(135deg,#F1EFEB 0 4px,#E6E2DC 4px 5px)', text: '' }, na: { bg: 'transparent', fg: '#75706A', text: 'n/a' },
+  applied: { bg: '#DCE8F5', fg: '#1E4A7A', text: 'appl' },   // HMO licence application with the council
 }
 
 export default function DashboardInfographic({ d, name }: { d: DashboardData; name: string }) {
@@ -268,7 +269,7 @@ export default function DashboardInfographic({ d, name }: { d: DashboardData; na
         </div>
 
         <Tile title="Certificates · every house, every type" href="/admin/compliance?tab=certificates" wide
-          note={<span className="flex flex-wrap gap-x-md gap-y-1">{([['valid', 'Valid'], ['due', 'Due in 30 days'], ['expired', 'Expired'], ['missing', 'Not on file']] as const).map(([k, l]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block h-3 w-3 rounded-[3px]" style={{ background: CELL[k].bg }} />{l}</span>)}</span>}
+          note={<span className="flex flex-wrap gap-x-md gap-y-1">{([['valid', 'Valid'], ['due', 'Due in 30 days'], ['expired', 'Expired'], ['missing', 'Not on file'], ['applied', 'Licence applied for']] as const).map(([k, l]) => <span key={k} className="inline-flex items-center gap-1"><i className="inline-block h-3 w-3 rounded-[3px]" style={{ background: CELL[k].bg }} />{l}</span>)}</span>}
           foot={<><b>{d.certs.valid} valid</b> · {d.certs.expired || d.certs.due ? <Warn>{d.certs.expired} expired · {d.certs.due} due</Warn> : 'none expired'} · {d.certs.missing} not on file.</>}>
           <div className="overflow-x-auto px-sm pb-sm pt-xs">
             <table className="w-full border-separate text-[11.5px]" style={{ borderSpacing: 3 }}>
