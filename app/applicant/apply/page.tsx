@@ -92,6 +92,7 @@ export default function ApplicantForm() {
   const [currentAddress, setCurrentAddress] = useState('')
   const [profession, setProfession] = useState('')
   const [salary, setSalary] = useState('')
+  const [incomeDetails, setIncomeDetails] = useState('')   // several incomes, self-employed… (29 Oct 2026)
   const [linkedinUrl, setLinkedinUrl] = useState('')
 
   // Rental preferences
@@ -173,7 +174,7 @@ export default function ApplicantForm() {
       setSalutation(a.salutation ?? ''); setFirstName(a.first_name ?? ''); setMiddleName(a.middle_name ?? ''); setLastName(a.last_name ?? '')
       setEmail(a.email ?? ''); setPhone(a.phone ?? ''); setDateOfBirth(a.date_of_birth ?? ''); setCurrentAddress(a.current_address ?? '')
       setProfession(a.profession ?? ''); setSalary(a.salary ?? ''); setLinkedinUrl(a.linkedin_url ?? ''); setProfessionDescription(a.profession_description ?? '')
-      { const pr = a.applicant_profile?.application ?? {}; setCompany(pr.company ?? ''); if (pr.student) { setIsStudent(true); setUniversity(pr.university ?? ''); setCourseStudied(pr.course ?? ''); setStudyYear(pr.year ?? '') } }
+      { const pr = a.applicant_profile?.application ?? {}; setCompany(pr.company ?? ''); setIncomeDetails(pr.income_details ?? ''); if (pr.student) { setIsStudent(true); setUniversity(pr.university ?? ''); setCourseStudied(pr.course ?? ''); setStudyYear(pr.year ?? '') } }
       setPreferredStartDate(a.preferred_start_date ?? ''); setPreferredTerm(a.preferred_term ?? '')
       setBio(a.bio ?? ''); setInterests(a.interests ?? ''); setSociability(a.sociability ?? 'flexible')
       setHousePreferences(a.house_preferences ?? ''); setCommunicationStyle(a.communication_style ?? '')
@@ -220,13 +221,23 @@ export default function ApplicantForm() {
     setPreviousAddresses(previousAddresses.filter((_, i) => i !== index))
   }
 
-  // Parse the lower bound of a salary string like "£35,000 - £40,000" or "35000"
+  // A yearly figure from whatever they typed (29 Oct 2026: a developer testing the form had several incomes and it
+  // "all went wrong"). "£35,000 - £40,000" → the lower end; "35k" → 35,000; "£2,800 a month" → × 12; "£650 a week"
+  // → × 52; "£30k salary + £8k freelance" → added up. Anything it can't read is left to the team, never judged.
   const parseSalaryLow = (str: string): number | null => {
-    const cleaned = str.replace(/[£,\s]/g, '')
-    const match = cleaned.match(/(\d+)/)
-    if (!match) return null
-    const val = parseInt(match[1], 10)
-    return val < 1000 ? val * 1000 : val
+    const t = str.toLowerCase().replace(/,/g, '')
+    const amounts = [...t.matchAll(/£?\s*(\d+(?:\.\d+)?)\s*(k\b|thousand)?\s*(?:(?:a|per|\/|p)\s*(month|mth|m\b|week|wk|w\b|year|yr|annum|a\b))?/g)]
+      .map(m => {
+        let v = parseFloat(m[1]) * (m[2] ? 1000 : 1)
+        const per = m[3] ?? (/\b(a month|per month|monthly|pcm|pm)\b/.test(t) ? 'month' : /\b(a week|per week|weekly|pw)\b/.test(t) ? 'week' : '')
+        if (/^(month|mth|m)$/.test(per)) v *= 12
+        else if (/^(week|wk|w)$/.test(per)) v *= 52
+        else if (v < 1000) v *= 1000   // "35" means £35k
+        return v
+      }).filter(v => v >= 1000)
+    if (!amounts.length) return null
+    if (/\+|\bplus\b|\band\b/.test(t) && amounts.length > 1) return Math.round(amounts.reduce((a, b) => a + b, 0))
+    return Math.round(Math.min(...amounts))
   }
 
   const getAffordability = () => {
@@ -319,6 +330,7 @@ export default function ApplicantForm() {
           salary,
           linkedinUrl,
           company: company.trim(),
+          incomeDetails: incomeDetails.trim(),
           student: isStudent ? { university: university.trim(), course: courseStudied.trim(), year: studyYear } : null,
           professionDescription,
           preferredStartDate,
@@ -558,9 +570,15 @@ export default function ApplicantForm() {
                 </div>
               </>
             ) : (
-              <label className="pub-label">Salary (annual)
-                <input className="pub-input" type="text" value={salary} onChange={e => setSalary(e.target.value)} placeholder="e.g., £35,000 - £40,000" />
+              <>
+              <label className="pub-label">Total yearly income before tax
+                <input className="pub-input" type="text" value={salary} onChange={e => setSalary(e.target.value)} placeholder="e.g., £38,000 — or £2,800 a month" />
               </label>
+              <label className="pub-label">Where it comes from (optional)
+                <textarea className="pub-input min-h-[84px]" value={incomeDetails} onChange={e => setIncomeDetails(e.target.value.slice(0, 600))}
+                  placeholder="More than one income, self-employed, bonuses or savings? Tell us here — e.g. salary £30,000 at the NHS plus about £8,000 a year freelance." />
+              </label>
+              </>
             )}
             <label className="pub-label">LinkedIn profile (optional)
               <input className="pub-input" type="url" value={linkedinUrl} onChange={e => setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/in/yourprofile" />

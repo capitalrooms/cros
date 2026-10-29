@@ -1013,7 +1013,7 @@ function DetailsToCopy({ a, onSaved }: { a: Applicant; onSaved?: () => void }) {
     ['Mobile', a.phone ?? ''],
     ['Date of birth', dob],
     ['Current address', a.current_address ?? ''],
-    ['Work', [a.profession, (a as any).applicant_profile?.application?.company, a.salary ? `salary ${a.salary}` : ''].filter(Boolean).join(' · ')],
+    ['Work', [a.profession, (a as any).applicant_profile?.application?.company, a.salary ? `income ${a.salary}` : '', (a as any).applicant_profile?.application?.income_details ?? ''].filter(Boolean).join(' · ')],
     ['Study', (() => { const st = (a as any).applicant_profile?.application; return st?.student ? [st.university, st.course, st.year].filter(Boolean).join(' · ') : '' })()],
     ['Planned stay', (a as any).preferred_term ?? ''],
     ['LinkedIn', (a as any).linkedin_url ?? ''],
