@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { sendEmail } from '@/lib/sendEmail'
+import { openFields, openOnboardingRow, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 const svc = () =>
   createClient(
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ rows: data })
+  return NextResponse.json({ rows: (data ?? []).map(openOnboardingRow) })   // bank numbers in the form are stored encrypted
 }
 
 // ── POST /api/landlord-onboarding  → create + send welcome pack ────────────────

@@ -3,6 +3,7 @@ import { dearFromText } from '@/lib/people'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmail } from '@/lib/sendEmail'
+import { openFields, openOnboardingRow, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 const svc = () =>
   createClient(
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params
   const { data, error } = await svc().from('landlord_onboarding').select('*').eq('id', id).maybeSingle()
   if (error || !data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json({ row: data })
+  return NextResponse.json({ row: openOnboardingRow(data) })   // bank numbers in the form are stored encrypted
 }
 
 // ── PATCH /api/landlord-onboarding/[id]  → advance stage / update fields ──────

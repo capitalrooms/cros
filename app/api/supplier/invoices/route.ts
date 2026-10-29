@@ -12,6 +12,7 @@ import { requireSignedIn } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { gate, profileFor, shape, pdfFor, send, emailInvoice, BUCKET } from '@/lib/supplierInvoices/service'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
+import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
     if (acct && acct.length !== 8) return NextResponse.json({ error: 'An account number has 8 digits' }, { status: 400 })
     const { error } = await s.from('supplier_profiles').upsert({
       person_id: c.personId, trading_name: t(b.tradingName, 120), address: t(b.address, 400), phone: t(b.phone, 40), email: t(b.email, 200),
-      bank_account_name: t(b.bankName, 120), bank_sort_code: sort ? `${sort.slice(0, 2)}-${sort.slice(2, 4)}-${sort.slice(4)}` : null, bank_account_no: acct || null,
+      bank_account_name: t(b.bankName, 120), bank_sort_code: sort ? seal(`${sort.slice(0, 2)}-${sort.slice(2, 4)}-${sort.slice(4)}`) : null, bank_account_no: acct ? seal(acct) : null,   // stored encrypted
       vat_registered: !!b.vatRegistered, vat_number: t(b.vatNumber, 30), payment_days: Math.min(90, Math.max(0, Math.round(Number(b.paymentDays) || 14))),
       updated_at: new Date().toISOString(),
     }, { onConflict: 'person_id' })

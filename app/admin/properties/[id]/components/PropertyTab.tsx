@@ -22,6 +22,9 @@ interface Photo {
   is_featured: boolean
 }
 
+// bank numbers arrive encrypted on the property record — never show that; the real values load from the server
+const plain = (v: unknown) => (typeof v === 'string' && !v.startsWith('enc:') ? v : '')
+
 export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -32,6 +35,14 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
   // the key safe code comes from the server (it isn't on the property record any more — lib/access/keySafe)
   useEffect(() => {
     let live = true
+    // the landlord's bank numbers are stored encrypted — the server opens them (app/api/admin/properties/bank)
+    adminFetch(`/api/admin/properties/bank?ids=${property.id}`).then(r => r.ok ? r.json() : null).then(d => {
+      const b = d?.banks?.[property.id]
+      if (!b) return
+      const fields = { bank_account_name: b.bank_account_name ?? null, bank_sort_code: b.bank_sort_code ?? null, bank_account_number: b.bank_account_number ?? null, bank_iban: b.bank_iban ?? null, bank_swift: b.bank_swift ?? null, bank_payment_ref: b.bank_payment_ref ?? null }
+      setDisplayed((prev: any) => ({ ...prev, ...fields }))
+      setFormData((f: any) => ({ ...f, ...Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v ?? ''])) }))
+    }).catch(() => {})
     adminFetch(`/api/admin/key-safe?propertyId=${property.id}`).then(r => r.ok ? r.json() : null).then(d => {
       if (!live || !d) return
       setDisplayed((prev: any) => ({ ...prev, key_safe_code: d.keySafe ?? null }))
@@ -84,9 +95,9 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
     // Letting type & let-only bank details
     letting_type: p.letting_type || 'managed',
     bank_account_name: p.bank_account_name || '',
-    bank_sort_code: p.bank_sort_code || '',
-    bank_account_number: p.bank_account_number || '',
-    bank_iban: p.bank_iban || '',
+    bank_sort_code: plain(p.bank_sort_code),
+    bank_account_number: plain(p.bank_account_number),
+    bank_iban: plain(p.bank_iban),
     bank_swift: p.bank_swift || '',
     bank_payment_ref: p.bank_payment_ref || '',
     letting_fee_pct: p.letting_fee_pct != null ? String(p.letting_fee_pct) : '',
@@ -220,12 +231,6 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       lng: located ? located.lng : formData.lng ? parseFloat(formData.lng) : null,
       // Letting type & bank details
       letting_type: formData.letting_type,
-      bank_account_name: formData.bank_account_name.trim() || null,
-      bank_sort_code: formData.bank_sort_code.trim() || null,
-      bank_account_number: formData.bank_account_number.trim() || null,
-      bank_iban: formData.bank_iban.trim() || null,
-      bank_swift: formData.bank_swift.trim() || null,
-      bank_payment_ref: formData.bank_payment_ref.trim() || null,
       letting_fee_pct: formData.letting_fee_pct ? parseFloat(formData.letting_fee_pct) : null,
       letting_fee_flat: formData.letting_fee_flat ? parseFloat(formData.letting_fee_flat) : null,
       rent_due_preference: formData.rent_due_preference,
@@ -247,6 +252,17 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       .eq('id', property.id)
     // the key safe code is kept apart from the property record, so only the office can read it (lib/access/keySafe)
     let err = err0
+    // bank details go through the server, which stores the numbers encrypted (app/api/admin/properties/bank)
+    const bank = {
+      bank_account_name: formData.bank_account_name.trim() || null, bank_sort_code: formData.bank_sort_code.trim() || null,
+      bank_account_number: formData.bank_account_number.trim() || null, bank_iban: formData.bank_iban.trim() || null,
+      bank_swift: formData.bank_swift.trim() || null, bank_payment_ref: formData.bank_payment_ref.trim() || null,
+    }
+    if (!err && Object.entries(bank).some(([k, v]) => v !== ((displayed as any)[k] || null))) {
+      const r = await adminFetch('/api/admin/properties/bank', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: property.id, ...bank }) })
+      if (!r.ok) err = { message: 'bank details' } as any
+      else Object.assign(patch, bank)
+    }
     const code = formData.key_safe_code.trim() || null
     if (!err && code !== ((displayed as any).key_safe_code || null)) {
       const r = await adminFetch('/api/admin/key-safe', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ propertyId: property.id, code }) })
@@ -870,10 +886,10 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-2">Bank details</p>
                 {[
                   ['Account name', displayed.bank_account_name],
-                  ['Sort code', displayed.bank_sort_code],
-                  ['Account number', displayed.bank_account_number],
+                  ['Sort code', plain(displayed.bank_sort_code)],
+                  ['Account number', plain(displayed.bank_account_number)],
                   ['Payment ref base', displayed.bank_payment_ref],
-                  ['IBAN', displayed.bank_iban],
+                  ['IBAN', plain(displayed.bank_iban)],
                   ['SWIFT / BIC', displayed.bank_swift],
                 ].filter(([,v]) => v).map(([k, v]) => (
                   <div key={k as string} className="grid grid-cols-2 border-b border-neutral-100 py-1.5">

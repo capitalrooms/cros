@@ -74,3 +74,7 @@ export function openFields<R extends Row | null | undefined>(row: R, fields: rea
   return out as R
 }
 export const openRows = <R extends Row>(rows: R[] | null | undefined, fields: readonly string[]): R[] => (rows ?? []).map(r => openFields(r, fields))
+
+/** A landlord onboarding record with the bank details in its form opened (they're sealed inside form_data). */
+export const openOnboardingRow = <R extends { form_data?: unknown } | null | undefined>(row: R): R =>
+  row && row.form_data && typeof row.form_data === 'object' ? { ...row, form_data: openFields(row.form_data as Row, BANK_FIELDS.landlord_onboarding_form) } : row

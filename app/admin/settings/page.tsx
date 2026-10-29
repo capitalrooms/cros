@@ -9,6 +9,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import LineIcon from '@/components/LineIcon'
+import DataProtection from './components/DataProtection'
 
 interface Setting {
   key: string
@@ -203,6 +204,8 @@ export default function AdminSettingsPage() {
             {saving === 'rent_grace_days' && <span className="text-xs text-neutral-400">Saving…</span>}
           </div>
         </div>
+
+        <DataProtection />
 
         {/* ── Email signatures ── */}
         <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden mb-lg">

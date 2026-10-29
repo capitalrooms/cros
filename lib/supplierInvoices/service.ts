@@ -5,6 +5,7 @@ import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { sendEmail } from '@/lib/sendEmail'
 import { insertNotifications } from '@/lib/serverNotify'
 import { sendServerPush } from '@/lib/serverPush'
+import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 type S = SupabaseClient
 export const BUCKET = 'supplier-invoices'
@@ -24,7 +25,7 @@ export async function profileFor(s: S, personId: string) {
   return {
     exists: !!p, role: me?.role as string,
     tradingName: name, address: p?.address ?? me?.home_address ?? '', phone: p?.phone ?? me?.phone ?? '', email: p?.email ?? me?.email ?? '',
-    bankName: p?.bank_account_name ?? '', sortCode: p?.bank_sort_code ?? '', accountNo: p?.bank_account_no ?? '',
+    bankName: p?.bank_account_name ?? '', sortCode: open(p?.bank_sort_code) ?? '', accountNo: open(p?.bank_account_no) ?? '',   // stored encrypted
     vatRegistered: !!p?.vat_registered, vatNumber: p?.vat_number ?? '', paymentDays: p?.payment_days ?? 14,
     logoPath: p?.logo_path ?? null, colour: p?.logo_colour || colourFor(name), nextNumber: p?.next_number ?? 1001,
     invoicingEnabled: p ? p.invoicing_enabled !== false : true, cleanPrices: (p?.clean_prices ?? {}) as Record<string, number>,

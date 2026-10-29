@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { generateLettingsStatementPDF } from '@/lib/lettingsStatement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { inlineAddress } from '@/lib/formatAddress'
+import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string): Promise<{ buffer: Buffer; filename: string } | { error: string }> {
   const supabase = s
@@ -39,7 +40,7 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
   if (error || !tenancy) return { error: 'Tenancy not found' }
 
   const room     = (tenancy.rooms as any)
-  const property = room?.properties as any
+  const property = openFields(room?.properties as any, BANK_FIELDS.properties)   // bank numbers stored encrypted
   const landlord = property?.people as any
   const tenant   = (tenancy as any).people as any
 

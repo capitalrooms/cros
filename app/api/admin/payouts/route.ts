@@ -14,6 +14,7 @@ import { requireAdmin } from '@/lib/adminAuth'
 import { contentDisposition } from '@/lib/contentDisposition'
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { loadLedger, landlordBalances } from '@/lib/clientLedger'
+import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +36,7 @@ async function unpaid(s: SupabaseClient) {
     ids.length ? s.from('landlord_bank_accounts').select('landlord_id, account_name, sort_code, account_number, is_default').in('landlord_id', ids) : Promise.resolve({ data: [] as any[] }),
   ])
   const name = new Map((people ?? []).map((p: any) => [p.id, p.company || [p.salutation, p.first_name, p.last_name].filter(Boolean).join(' ') || p.full_name]))
-  const bankFor = (id: string) => ((banks ?? []) as any[]).filter(b => b.landlord_id === id).sort((a, b) => Number(b.is_default) - Number(a.is_default))[0] ?? null
+  const bankFor = (id: string) => openRows(banks as any[], BANK_FIELDS.landlord_bank_accounts).filter(b => b.landlord_id === id).sort((a, b) => Number(b.is_default) - Number(a.is_default))[0] ?? null
   return rows.map((x: any) => {
     const bank = x.landlord_id ? bankFor(x.landlord_id) : null
     const inLedger = String(x.statement_date || '') >= ledger.start
