@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import manifest from '@/lib/schema-manifest.json'
+import { foreignImages } from '@/lib/email/imageGuard'
+import { encryptionOn } from '@/lib/crypto/fieldCrypt'
 
 /**
  * Production health check. Runs the same contract the local `npm run doctor`
@@ -56,6 +58,15 @@ export async function GET(req: NextRequest) {
         const res = await fetch(`${URL}/rest/v1/`, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` }, cache: 'no-store' })
         add('service-role key authenticates', res.status === 200, 'error', res.status === 200 ? undefined : `HTTP ${res.status} — cron/generation routes will silently no-op`)
       } catch { add('service-role key authenticates', false, 'error', 'request failed') }
+      // email templates whose pictures live somewhere that isn't ours (an old logo address broke the offer emails —
+      // 30 Oct 2026). Emails are fixed as they're sent (lib/email/imageGuard); this says which templates to re-save.
+      try {
+        const r = await fetch(`${URL}/rest/v1/notification_templates?select=slug,template_text`, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` }, cache: 'no-store' })
+        const rows = r.ok ? await r.json() as { slug: string; template_text: string | null }[] : []
+        const bad = rows.filter(t => foreignImages(t.template_text ?? '', [new globalThis.URL(URL).host]).length).map(t => t.slug)
+        add('email templates: pictures on our own addresses', bad.length === 0, 'warn', bad.length ? `re-save on Message templates: ${[...new Set(bad)].join(', ')}` : undefined)
+      } catch { add('email templates: pictures on our own addresses', false, 'warn', 'could not read templates') }
+      add('bank details encrypted at rest', encryptionOn(), 'warn', encryptionOn() ? undefined : 'CROS_FIELD_KEY not set — bank numbers are stored readable')
     }
 
     // Tables + columns (catches missing tables and tenant_id-vs-person_id class)
