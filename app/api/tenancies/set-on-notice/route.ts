@@ -8,6 +8,7 @@ import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { buildEmail } from '@/lib/emailWrapper'
 import { getTemplate, render } from '@/lib/messageTemplate'
 import { regularCleanerId } from '@/lib/cleaners/regular'
+import { moveOutEmail, moveOutFormPdf, prepareMoveOut } from '@/lib/checkout/moveOut'
 
 
 const ukDay = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
@@ -37,7 +38,6 @@ export async function POST(request: Request) {
       emailTenant,
       tenantEmail,
       tenantName,
-      checkoutEmailHtml,
       emailCleaner,
       cleanerId,
       cleanerEmail,
@@ -123,47 +123,24 @@ export async function POST(request: Request) {
       if (jobsError) console.error('Error creating checkout jobs:', jobsError) // non-blocking
     }
 
-    // Load checkout templates (graceful fallback)
-    const [tenantCheckoutTpl, cleanerCheckoutTpl] = await Promise.all([
-      getTemplate('checkout-tenant-notice'),
-      getTemplate('checkout-cleaner-headsup'),
-    ])
+    // Load the cleaner's checkout template (graceful fallback)
+    const cleanerCheckoutTpl = await getTemplate('checkout-cleaner-headsup')
 
-    // 4. Send checkout email to tenant
+    // 4. The tenant's move-out email, with the fillable move-out form attached (lib/checkout/moveOut, 29 Oct 2026 —
+    //    the stored template was one line). A whole home (single let) gets the whole-property version.
     let tenantEmailSent = false
     if (emailTenant && tenantEmail) {
-      const tenantSubject = tenantCheckoutTpl?.subject_line
-        ? render(tenantCheckoutTpl.subject_line, { move_out_date: moveOutDate, tenant_name: tenantName || '' }, personFromText(tenantName))
-        : 'Your notice period has been recorded — Capital Rooms'
-
-      // Prefer DB template body (enables admin to edit heading/content via WYSIWYG)
-      // Fallback to pre-built checkoutEmailHtml from frontend
-      let tenantHtml: string | null = null
-      if (tenantCheckoutTpl?.template_text) {
-        const moveOutFormatted = new Date(moveOutDate + 'T12:00:00').toLocaleDateString('en-GB', {
-          weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-        })
-        const tplVars: Record<string, string> = {
-          heading: 'Sorry To See You Go!',
-          tenant_name: tenantName || '',
-          move_out_date: moveOutFormatted,
-          pro_rata_amount: proRataAmount != null ? `£${proRataAmount}` : '',
-        }
-        tenantHtml = await buildEmail(render(tenantCheckoutTpl.template_text, tplVars, personFromText(tenantName)), { req: request })
-      } else if (checkoutEmailHtml) {
-        // Already fully wrapped by buildCheckoutEmail() on the frontend
-        tenantHtml = checkoutEmailHtml
-      }
-
-      if (tenantHtml) {
-        tenantEmailSent = await sendEmail(tenantEmail, tenantSubject, tenantHtml, request)
-        // Mark confirmation email sent
-        if (tenantEmailSent) {
-          await supabase
-            .from('tenancies')
-            .update({ checkout_confirmation_sent_at: new Date().toISOString() })
-            .eq('id', tenancyId)
-        }
+      const m = await prepareMoveOut(supabase, { tenancyId, moveOutDate, tenantName, proRataAmount, proRataDays, roomName, propertyAddress })
+      const { subject, html } = moveOutEmail(m)
+      const form = await moveOutFormPdf(m).catch(e => { console.error('move-out form failed:', e); return null })
+      const res = await deliverEmail({
+        to: tenantEmail, subject, html: await buildEmail(html, { req: request }),
+        attachments: form ? [{ filename: 'Move-out form.pdf', content: form.toString('base64') }] : undefined,
+      }, { req: request })
+      tenantEmailSent = res.ok
+      if (!res.ok) console.error('Resend error:', await res.text().catch(() => ''))
+      if (tenantEmailSent) {
+        await supabase.from('tenancies').update({ checkout_confirmation_sent_at: new Date().toISOString() }).eq('id', tenancyId)
       }
     }
 
