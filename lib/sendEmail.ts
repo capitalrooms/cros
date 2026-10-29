@@ -19,7 +19,8 @@ import { buildEmail } from '@/lib/emailWrapper'
 import { senderFor, type EmailSender } from '@/lib/email/sender'
 import { oneLine } from '@/lib/lettings/letWording'
 import { SIGNATURE_ASSET_BASE } from '@/lib/brand/signature'
-import { HEADER_LOGO_CID, HEADER_LOGO_PNG_BASE64 } from '@/lib/brand/logoInline'
+import { HEADER_LOGO_CID, HEADER_LOGO_PNG_BASE64, DARK_LOGO_CID, DARK_LOGO_PNG_BASE64 } from '@/lib/brand/logoInline'
+import { guardEmailImages, LOGO_ON_DARK } from '@/lib/email/imageGuard'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -136,18 +137,27 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
   }
   // the header logo goes inside the email (inline, cid:) so it shows even when the reader's mail app blocks
   // downloaded images (29 Oct 2026); if the email service refuses that, the email still goes with the web logo
+  // first, no broken pictures: any image not on our own addresses becomes our logo or is taken out (lib/email/imageGuard)
+  const guarded = guardEmailImages(msg.html, [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://x.invalid').host])
+  if (guarded.fixed.length || guarded.removed.length) console.warn('[deliverEmail] images fixed in', JSON.stringify(String(msg.subject).slice(0, 60)), { fixed: guarded.fixed, removed: guarded.removed })
   const LOGO_URL = `${SIGNATURE_ASSET_BASE}/brand/lockup-ink-on-white.png`
-  const inlineLogo = msg.html.includes(LOGO_URL)
-  if (inlineLogo) payload.html = msg.html.split(LOGO_URL).join(`cid:${HEADER_LOGO_CID}`)
+  let html = guarded.html
+  const inlineLogo = html.includes(LOGO_URL), inlineDark = html.includes(LOGO_ON_DARK)
+  if (inlineLogo) html = html.split(LOGO_URL).join(`cid:${HEADER_LOGO_CID}`)
+  if (inlineDark) html = html.split(LOGO_ON_DARK).join(`cid:${DARK_LOGO_CID}`)
+  payload.html = html
   if (msg.text) payload.text = msg.text
   if (msg.cc?.length) payload.cc = msg.cc
   // a blind copy of everything to the office, unless it's already going there
   const everyone = [...(payload.to as string[]), ...(msg.cc ?? []), ...(msg.bcc ?? [])].map(a => String(a).toLowerCase())
   const bcc = [...(msg.bcc ?? []), ...(copyOn() && !msg.noCopy && !everyone.some(a => a.includes(COPY_TO.toLowerCase())) ? [COPY_TO] : [])]
   if (bcc.length) payload.bcc = bcc
-  const logoPart = { filename: 'capital-rooms.png', content: HEADER_LOGO_PNG_BASE64, content_type: 'image/png', content_id: HEADER_LOGO_CID }
+  const logoParts = [
+    ...(inlineLogo ? [{ filename: 'capital-rooms.png', content: HEADER_LOGO_PNG_BASE64, content_type: 'image/png', content_id: HEADER_LOGO_CID }] : []),
+    ...(inlineDark ? [{ filename: 'capital-rooms-white.png', content: DARK_LOGO_PNG_BASE64, content_type: 'image/png', content_id: DARK_LOGO_CID }] : []),
+  ]
   const extras = msg.attachments ?? []
-  if (inlineLogo || extras.length) payload.attachments = [...(inlineLogo ? [logoPart] : []), ...extras]
+  if (logoParts.length || extras.length) payload.attachments = [...logoParts, ...extras]
   try {
     const post = (p: Record<string, unknown>) => fetch(RESEND_ENDPOINT, {
       method: 'POST',
@@ -155,9 +165,9 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
       body: JSON.stringify(p),
     })
     let res = await post(payload)
-    if (!res.ok && inlineLogo && res.status >= 400 && res.status < 500) {
+    if (!res.ok && logoParts.length && res.status >= 400 && res.status < 500) {
       console.warn('[deliverEmail] inline logo refused — sending with the web logo instead')
-      res = await post({ ...payload, html: msg.html, attachments: extras.length ? extras : undefined })
+      res = await post({ ...payload, html: guarded.html, attachments: extras.length ? extras : undefined })
     }
     // every email is logged against its recipients (migration 242) so a tenant's or room's page can show what went
     if (!msg.noCopy) {

@@ -12,6 +12,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { dearName, hiName, type PersonLike } from '@/lib/people'
+import { guardEmailImages } from '@/lib/email/imageGuard'
 
 export interface TemplateParts {
   subject_line: string
@@ -59,7 +60,8 @@ export async function getTemplate(slug: string): Promise<TemplateParts | null> {
     if (misleading) console.warn(`[messageTemplate] "${slug}" calls the holding deposit non-refundable — using the built-in wording`)
 
     const result: TemplateParts | null = data && !misleading
-      ? { subject_line: data.subject_line ?? '', template_text: data.template_text ?? '' }
+      // no broken pictures — a logo on an address that isn't ours becomes our own (lib/email/imageGuard, 30 Oct 2026)
+      ? { subject_line: data.subject_line ?? '', template_text: guardEmailImages(data.template_text ?? '', [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://x.invalid').host]).html }
       : null
 
     _cache.set(slug, result)

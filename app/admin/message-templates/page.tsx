@@ -9,6 +9,7 @@ import PageHero from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { createClient } from '@/lib/supabase'
+import { guardEmailImages } from '@/lib/email/imageGuard'
 
 // ── Branding types ─────────────────────────────────────────────────────────────
 
@@ -552,7 +553,9 @@ export default function MessageTemplatesPage() {
 
   // ── Template save ─────────────────────────────────────────────────────────────
 
-  async function handleSave(id: string, subject: string, body: string) {
+  async function handleSave(id: string, subject: string, rawBody: string) {
+    // a picture pasted from somewhere else, or an old logo address, never gets saved (lib/email/imageGuard)
+    const body = guardEmailImages(rawBody, [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://x.invalid').host]).html
     const supabase = createClient()
     const { error } = await supabase
       .from('notification_templates')
