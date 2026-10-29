@@ -7,6 +7,7 @@ import { ZONES } from '@/lib/adminNav'
 import { useAdminAccess } from '@/lib/admin-context'
 import { createClient } from '@/lib/supabase'
 import LineIcon from '@/components/LineIcon'
+import { InlineFinder } from '../components/AdminFinder'
 
 const EXTRA = [
   { emoji: '👤', label: 'My profile', href: '/admin/profile' },
@@ -46,6 +47,7 @@ export default function AdminMorePage() {
     <div className="min-h-screen bg-neutral-100">
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-5">
         <h1 className="text-[26px] leading-tight font-bold text-neutral-950">More</h1>
+        <InlineFinder allowed={allowed} />
         {ZONES.map(z => ({ ...z, subnav: mine(z.subnav) })).filter(z => z.subnav.length).map(z => <Group key={z.id} title={z.label} items={z.subnav} />)}
         <Group title="You" items={mine(EXTRA)} />
         <button type="button" onClick={signOut}

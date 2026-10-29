@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { ZONES, type Zone } from '@/lib/adminNav'
 import { areasFor, canOpenPage, homeFor, isAdministrator, type AreaKey } from '@/lib/access/areas'
 import MobileTabBar from './components/MobileTabBar'
+import AdminFinder from './components/AdminFinder'
 import TopBar from '@/app/components/TopBar'
 import Footer from '@/app/components/Footer'
 import BackButton from '@/app/components/BackButton'
@@ -119,7 +120,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       {/* ── Desktop rail: every zone, with the current one opened up (the agreed look, 2 Oct 2026) ── */}
       <aside className="hidden md:flex w-56 flex-shrink-0 flex-col overflow-y-auto bg-[#181614] px-3 py-5 text-[#F6F3EC]" style={{ scrollbarWidth: 'thin' }}>
-        <p className="px-3 pb-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#F6F3EC]/45">Admin</p>
+        <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#F6F3EC]/45">Admin</p>
+        <AdminFinder allowed={allowed} />
         <nav className="flex flex-col gap-0.5">
           {zones.map(zone => {
             const open = railZone?.id === zone.id
