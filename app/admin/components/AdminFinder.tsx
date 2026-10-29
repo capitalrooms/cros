@@ -40,6 +40,8 @@ export function useFinder(allowed: (href: string) => boolean) {
         const res = await adminFetch(`/api/admin/search?q=${encodeURIComponent(term)}`)
         const d = await res.json().catch(() => ({}))
         if (mine !== seq.current) return
+        // people/houses/jobs are for administrators; anyone else still finds screens, without an error
+        if (res.status === 401 || res.status === 403) { setHits([]); setError(''); return }
         if (!res.ok) throw new Error(d.error || 'Search failed')
         setHits(d.hits); setError('')
       } catch (e) {

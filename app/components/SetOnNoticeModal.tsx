@@ -138,6 +138,8 @@ export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], 
     setError(null)
     try {
       const res = await adminFetch('/api/emails/checkout-preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        tenancyId:          tenancy.id,
+        proRataDays:        proRata.daysOccupied,
         tenantName:         displayName(tenancy.person) || 'Tenant',
         tenantEmail:        tenancy.person?.email || '',
         roomName:           tenancy.room?.name || 'Room',
@@ -535,11 +537,11 @@ export default function SetOnNoticeModal({ tenancy, cleaners, contractors = [], 
   // ── Step 3: Preview email ─────────────────────────────────────────────────
   if (step === 'preview' && checkoutEmailHtml) return (
     <Modal onClose={onClose}>
-      <ModalHeader title="Preview checkout email" onClose={() => setStep('confirm-rent')} />
+      <ModalHeader title="Preview move-out email" onClose={() => setStep('confirm-rent')} />
 
       <div className="space-y-lg">
         <div className="rounded-lg bg-yellow-50 border border-yellow-300 p-md text-sm text-yellow-900">
-          This will be sent to <strong>{tenancy.person?.email}</strong>
+          This will be sent to <strong>{tenancy.person?.email}</strong>, with the move-out form attached as a PDF they can fill in.
         </div>
 
         <div className="border border-neutral-300 rounded-lg overflow-hidden">
