@@ -16,6 +16,8 @@ export interface ReviewerDecision {
   risk_mitigation?: string
   identity_verified: boolean
   documents_viewed: boolean
+  /** met face to face (HMRC: not meeting a client is a higher-risk factor) */
+  met_in_person?: { date: string; by: string; originals_seen: boolean; note?: string }
   reviewer_name: string
   reviewed_at: string
 }
@@ -179,7 +181,7 @@ export async function generateOnboardingAMLReport(input: OnboardingReportInput):
       }
       checkRow(c)
     }
-    if (review.sanctions_list_date) para(`UK Sanctions List version screened: ${review.sanctions_list_date}.`, { colour: GREY, size: 8.5 })
+    if (review.sanctions_list_date) para(`UK Sanctions List (FCDO) version screened: ${fmt(review.sanctions_list_date.replace(/-/g, " "))}.`, { colour: GREY, size: 8.5 })
   } else para('Automated checks have not been run for this file.', { colour: GREY })
 
   // ── Declarations ─────────────────────────────────────────────────────
@@ -203,6 +205,7 @@ export async function generateOnboardingAMLReport(input: OnboardingReportInput):
     row('Reviewer’s reasoning', decision.risk_reason)
     if (decision.risk_mitigation) row('Mitigation / EDD', decision.risk_mitigation)
     row('Identity verified', decision.identity_verified ? 'Yes' : 'No')
+    row('Met in person', decision.met_in_person?.date ? `${fmt(decision.met_in_person.date)} by ${decision.met_in_person.by}${decision.met_in_person.originals_seen ? ' — original photo ID seen and confirmed as the client' : ' — original ID not seen'}${decision.met_in_person.note ? `. ${decision.met_in_person.note}` : ''}` : 'No — onboarded remotely')
     row('Originals viewed', decision.documents_viewed ? 'Reviewer confirms each uploaded document was opened and examined' : 'No')
   } else para('Awaiting reviewer confirmation.', { colour: RISK_COLOUR.medium })
 

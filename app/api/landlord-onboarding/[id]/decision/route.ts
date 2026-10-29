@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { svc } from '@/lib/landlordOnboarding/store'
 import type { ReviewerDecision } from '@/lib/aml/onboardingReport'
+import { deliveryCheck } from '@/lib/landlordOnboarding/review'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,17 +18,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (level !== 'low' && !String(b.risk_mitigation ?? '').trim()) return NextResponse.json({ error: 'Medium and high risk need the mitigation / enhanced checks recorded' }, { status: 400 })
   if (!b.documents_viewed) return NextResponse.json({ error: 'Confirm you have opened and examined each document' }, { status: 400 })
 
+  const m = b.met_in_person
+  const met = m && m.date ? { date: String(m.date).slice(0, 10), by: String(m.by ?? '').trim(), originals_seen: m.originals_seen === true, note: String(m.note ?? '').trim() || undefined } : undefined
+  if (met && (!/^\d{4}-\d{2}-\d{2}$/.test(met.date) || !met.by)) return NextResponse.json({ error: 'Say when you met them and who met them' }, { status: 400 })
+
   const { data: me } = await svc().from('people').select('salutation, first_name, last_name, full_name').eq('id', admin.personId).maybeSingle()
   const reviewer = [me?.first_name, me?.last_name].filter(Boolean).join(' ') || me?.full_name || admin.email
   const now = new Date().toISOString()
   const decision: ReviewerDecision = {
     risk_level: level, risk_reason: String(b.risk_reason).trim(), risk_mitigation: String(b.risk_mitigation ?? '').trim() || undefined,
-    identity_verified: b.identity_verified === true, documents_viewed: true, reviewer_name: reviewer, reviewed_at: now,
+    identity_verified: b.identity_verified === true, documents_viewed: true, met_in_person: met, reviewer_name: reviewer, reviewed_at: now,
   }
   const { data: row } = await svc().from('landlord_onboarding').select('form_data, landlord_people_id').eq('id', id).single()
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { error } = await svc().from('landlord_onboarding').update({
-    form_data: { ...(row.form_data ?? {}), __decision: decision },
+    // the review's "met in person" check follows what's recorded here (and the AML report with it)
+    form_data: { ...(row.form_data ?? {}), __decision: decision, ...((row.form_data as any)?.__review ? { __review: { ...(row.form_data as any).__review, checks: ((row.form_data as any).__review.checks ?? []).map((c: any) => c.area === 'Delivery channel' ? (([label, status, detail]) => ({ ...c, label, status, detail }))(deliveryCheck(met)) : c) } } : {}) },
     risk_level: level, risk_reason: decision.risk_reason, risk_mitigation: decision.risk_mitigation ?? null,
     identity_verified: decision.identity_verified, risk_assessed_by: admin.personId, risk_assessed_at: now,
     updated_at: now,

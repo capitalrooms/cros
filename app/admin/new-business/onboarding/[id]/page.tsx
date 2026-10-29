@@ -18,7 +18,7 @@ interface Review {
   checks: Check[]
   people: { role: string; name: string; screening?: { listDate: string; matches: { strength: string; entry: { name: string; id: string; regime: string; dob: string } }[] }; screeningError?: string }[]
 }
-interface Decision { risk_level: string; risk_reason: string; risk_mitigation?: string; identity_verified: boolean; reviewer_name: string; reviewed_at: string }
+interface Decision { risk_level: string; risk_reason: string; risk_mitigation?: string; identity_verified: boolean; met_in_person?: { date: string; by: string; originals_seen: boolean; note?: string }; reviewer_name: string; reviewed_at: string }
 interface Diff { key: string; field: string; inAgreement: string; fromLandlord: string; accepted: boolean }
 
 const RISK_STYLE: Record<string, string> = {
@@ -52,7 +52,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [diffs, setDiffs] = useState<Diff[] | null>(null)
   const [hasSnapshot, setHasSnapshot] = useState(true)
-  const [dec, setDec] = useState({ risk_level: '', risk_reason: '', risk_mitigation: '', identity_verified: false, documents_viewed: false })
+  const [dec, setDec] = useState({ risk_level: '', risk_reason: '', risk_mitigation: '', identity_verified: false, documents_viewed: false, met: false, met_in_person: { date: '', by: '', originals_seen: false, note: '' } })
 
   async function load() {
     const r = await adminFetch(`/api/landlord-onboarding/${id}`)
@@ -67,6 +67,8 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
       risk_mitigation: decision?.risk_mitigation ?? '',
       identity_verified: decision?.identity_verified ?? false,
       documents_viewed: !!decision,
+      met: !!decision?.met_in_person?.date,
+      met_in_person: { date: decision?.met_in_person?.date ?? '', by: decision?.met_in_person?.by ?? '', originals_seen: decision?.met_in_person?.originals_seen ?? false, note: decision?.met_in_person?.note ?? '' },
     })
     const paths = Object.values((fd.documents ?? {}) as Record<string, string[]>).flat()
     paths.forEach(async p => {
@@ -116,7 +118,7 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
 
   const rerun = () => act('rerun', () => adminFetch(`/api/landlord-onboarding/${id}/review`, { method: 'POST' }), 'Checks re-run')
   const saveDecision = () => act('decision', () => adminFetch(`/api/landlord-onboarding/${id}/decision`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dec),
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...dec, met_in_person: dec.met ? dec.met_in_person : null }),
   }), 'Decision recorded')
   async function approve() {
     const high = row?.form_data?.__decision?.risk_level === 'high'
@@ -332,6 +334,26 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
                 <label className={lbl}>Mitigation / enhanced checks *</label>
                 <textarea rows={3} value={dec.risk_mitigation} onChange={e => setDec(d => ({ ...d, risk_mitigation: e.target.value }))} className="w-full rounded-xl border border-neutral-200 px-sm py-xs text-sm mb-md" placeholder="e.g. Obtained mortgage completion statement; video call to confirm identity" />
               </>)}
+              <div className="mb-md rounded-xl border border-neutral-200 bg-neutral-50 p-sm">
+                <label className="flex items-start gap-sm text-sm font-semibold text-neutral-800">
+                  <input type="checkbox" checked={dec.met} onChange={e => setDec(d => ({ ...d, met: e.target.checked }))} className="mt-1" />
+                  We have met them face to face
+                </label>
+                {dec.met && (
+                  <div className="mt-sm grid gap-sm">
+                    <div className="grid grid-cols-2 gap-sm">
+                      <input type="date" value={dec.met_in_person.date} onChange={e => setDec(d => ({ ...d, met_in_person: { ...d.met_in_person, date: e.target.value } }))} className="rounded-lg border border-neutral-200 bg-white px-sm py-xs text-sm" aria-label="Date you met" />
+                      <input value={dec.met_in_person.by} onChange={e => setDec(d => ({ ...d, met_in_person: { ...d.met_in_person, by: e.target.value } }))} placeholder="Who met them" className="rounded-lg border border-neutral-200 bg-white px-sm py-xs text-sm" />
+                    </div>
+                    <label className="flex items-start gap-sm text-sm text-neutral-700">
+                      <input type="checkbox" checked={dec.met_in_person.originals_seen} onChange={e => setDec(d => ({ ...d, met_in_person: { ...d.met_in_person, originals_seen: e.target.checked } }))} className="mt-1" />
+                      Saw their original passport or licence and it is them
+                    </label>
+                    <input value={dec.met_in_person.note} onChange={e => setDec(d => ({ ...d, met_in_person: { ...d.met_in_person, note: e.target.value } }))} placeholder="Where, or anything else (optional)" className="rounded-lg border border-neutral-200 bg-white px-sm py-xs text-sm" />
+                  </div>
+                )}
+                <p className="mt-sm text-xs text-neutral-500">Meeting them and seeing their original ID settles who they are and removes HMRC’s “not met in person” risk factor. It doesn’t answer a sanctions name match or an old or mismatched proof of address — those need their own answer above.</p>
+              </div>
               <label className="flex items-start gap-sm text-sm text-neutral-700 mb-sm">
                 <input type="checkbox" checked={dec.identity_verified} onChange={e => setDec(d => ({ ...d, identity_verified: e.target.checked }))} className="mt-1" />
                 Identity of every landlord / beneficial owner verified

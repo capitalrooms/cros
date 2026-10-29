@@ -36,20 +36,35 @@ Return ONLY JSON:
 {"document_type": "Passport | Driving licence | National ID card | Not an identity document",
  "full_name": "full name as printed", "date_of_birth": "YYYY-MM-DD", "expiry_date": "YYYY-MM-DD",
  "document_number_last4": "last 4 characters only", "legible": true/false,
- "concerns": ["short notes on anything a compliance officer should question: signs of editing, photo of a screen, photocopy, cropped details, mismatched fonts, expired, not an ID document"]}
-Omit fields you cannot read. Use [] for concerns if none.`,
+ "concerns": ["e.g. Bottom of the photo page is cut off", "Photo looks pasted over — edges don't match the page"]}
+Omit fields you cannot read. Use [] for concerns if none.
+How to write "concerns": plain English for a busy letting agent, at most 3, each one short sentence (under 15 words), most important first.
+Only list something a careful compliance officer would actually want checked. Do NOT list: normal security features, holograms, glare,
+an official observations/endorsement page (UK passports often carry endorsements such as "THE HOLDER IS DR …" — this is standard),
+or ordinary compression. Only say a document may be edited when there is clear visible evidence, and say exactly where.
+A phone photo of a real document is fine; mention it once ("Photographed rather than scanned") only if it hides details.`,
   address: `This document was uploaded as proof of residential address for a UK anti-money-laundering check (acceptable: utility bill, bank statement, council tax bill, HMRC letter, dated within 3 months).
 Return ONLY JSON:
 {"document_type": "e.g. Utility bill / Bank statement / Council tax bill / Other", "issuer": "organisation",
  "names_on_document": ["each person named"], "address": "full address", "postcode": "UK postcode", "issue_date": "YYYY-MM-DD",
- "legible": true/false, "concerns": ["anything to question: not an acceptable document type, signs of editing, missing date, cropped"]}
-Omit fields you cannot read. Use [] for concerns if none.`,
+ "legible": true/false, "concerns": ["e.g. No date shown", "Mobile phone bill — not usually accepted"]}
+Omit fields you cannot read. Use [] for concerns if none.
+How to write "concerns": plain English for a busy letting agent, at most 3, each one short sentence (under 15 words), most important first.
+Only list something a careful compliance officer would actually want checked. Do NOT list: normal security features, holograms, glare,
+an official observations/endorsement page (UK passports often carry endorsements such as "THE HOLDER IS DR …" — this is standard),
+or ordinary compression. Only say a document may be edited when there is clear visible evidence, and say exactly where.
+A phone photo of a real document is fine; mention it once ("Photographed rather than scanned") only if it hides details.`,
   ownership: `This document was uploaded as proof of property ownership or right to let (e.g. Land Registry title, mortgage statement, council tax bill for the property, completion statement).
 Return ONLY JSON:
 {"document_type": "short description", "names_on_document": ["registered owners or account holders"], "property_address": "address of the property",
  "postcode": "postcode", "title_number": "if shown", "issue_date": "YYYY-MM-DD",
- "legible": true/false, "concerns": ["anything to question: names differ, document type does not show ownership, signs of editing"]}
-Omit fields you cannot read. Use [] for concerns if none.`,
+ "legible": true/false, "concerns": ["e.g. Owner's name differs from the landlord's", "Doesn't show who owns the property"]}
+Omit fields you cannot read. Use [] for concerns if none.
+How to write "concerns": plain English for a busy letting agent, at most 3, each one short sentence (under 15 words), most important first.
+Only list something a careful compliance officer would actually want checked. Do NOT list: normal security features, holograms, glare,
+an official observations/endorsement page (UK passports often carry endorsements such as "THE HOLDER IS DR …" — this is standard),
+or ordinary compression. Only say a document may be edited when there is clear visible evidence, and say exactly where.
+A phone photo of a real document is fine; mention it once ("Photographed rather than scanned") only if it hides details.`,
 }
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024

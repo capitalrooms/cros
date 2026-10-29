@@ -79,7 +79,7 @@ const norm = (s: string) => s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerC
 
 function close(a: string, b: string): boolean {
   if (a === b) return true
-  if (Math.abs(a.length - b.length) > 1 || a.length < 4) return false
+  if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 4) return false
   let i = 0, j = 0, edits = 0
   while (i < a.length && j < b.length) {
     if (a[i] === b[j]) { i++; j++; continue }
@@ -99,10 +99,29 @@ function dobMatches(listDob: string, isoDob: string): boolean | null {
   })
 }
 
+// Every part of the listed name must pair with a DIFFERENT part of the searched name (exact pairs first,
+// then one-letter slips). 28 Oct 2026: "Mohammad Rislan" was flagged against "Mohammad Mohammadi"
+// because both listed names were matched to the one "Mohammad" and the surname never compared.
+function paired(listed: string[], searched: string[]): Set<number> | null {
+  const used = new Set<number>()
+  const left: string[] = []
+  for (const x of listed) {
+    const k = searched.findIndex((y, i) => !used.has(i) && y === x)
+    if (k < 0) left.push(x); else used.add(k)
+  }
+  for (const x of left) {
+    const k = searched.findIndex((y, i) => !used.has(i) && close(x, y))
+    if (k < 0) return null
+    used.add(k)
+  }
+  return used
+}
+
 /**
- * Name screening. "strong": every token of the listed name matches the searched name (one-letter
- * slips allowed) and, where both have a DOB, it agrees. "possible": surname and first name match
- * but other names or the DOB are missing. Every match must be reviewed by a person.
+ * Name screening. "strong": every part of the listed name pairs with a different part of the searched
+ * name, the searched surname is one of them, and, where both have a DOB, it agrees. "possible": first
+ * name and surname both match but other names don't, or the searched surname wasn't among the pairs.
+ * Every match must be reviewed by a person.
  */
 export async function screenName(name: string, isoDob?: string): Promise<ScreeningResult> {
   const index = await loadSanctionsIndex()
@@ -114,12 +133,13 @@ export async function screenName(name: string, isoDob?: string): Promise<Screeni
     for (const e of index.entries) {
       const t = norm(e.name)
       if (!t.length || (t.length < 2 && e.type === 'Individual') || t.every(x => x.length < 3)) continue
-      const allListed = t.every(x => q.some(y => close(x, y)))
-      const firstLast = t.length >= 2 && close(t[0], q[0]) && close(t[t.length - 1], q[q.length - 1])
-      if (!allListed && !firstLast) continue
+      const used = paired(t, q)
+      const firstLast = t.length >= 2 && q.length >= 2 && close(t[0], q[0]) && close(t[t.length - 1], q[q.length - 1])
+      if (!used && !firstLast) continue
       const dob = e.type === 'Individual' && isoDob ? dobMatches(e.dob, isoDob) : null
       if (dob === false) continue
-      const strength = allListed && t.length >= 2 ? 'strong' : 'possible'
+      const surnamePaired = !!used && (e.type !== 'Individual' || used.has(q.length - 1))
+      const strength = used && t.length >= 2 && surnamePaired ? 'strong' : 'possible'
       const key = `${e.id}:${strength}`
       if (seen.has(key)) continue
       seen.add(key)

@@ -4,7 +4,7 @@
 // Risk factors follow HMRC AMLG3300 (letting agency businesses) and MLR 2017 regs 28, 33 and 35.
 import { svc } from '@/lib/landlordOnboarding/store'
 import { readDocument, type DocReading, type DocKind } from '@/lib/aml/docCheck'
-import { screenName, type ScreeningResult } from '@/lib/aml/sanctions'
+import { screenName, type ScreeningResult, type SanctionsEntry } from '@/lib/aml/sanctions'
 import { sendEmail } from '@/lib/sendEmail'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { onboardingName } from '@/lib/people'
@@ -12,7 +12,7 @@ import { isUkCountry } from '@/lib/landlordOnboarding/requirements'
 
 export type CheckStatus = 'pass' | 'review' | 'fail'
 export interface ReviewCheck { area: string; label: string; status: CheckStatus; detail: string }
-export interface ReviewPerson { role: string; name: string; dob?: string; nationality?: string; screening?: ScreeningResult; screeningError?: string }
+export interface ReviewPerson { role: string; name: string; title?: string; dob?: string; nationality?: string; screening?: ScreeningResult; screeningError?: string }
 export interface AutomatedReview {
   generated_at: string
   suggested_level: 'low' | 'medium' | 'high'
@@ -48,6 +48,10 @@ function nameMatches(typed: string, onDoc?: string | string[]): boolean | null {
   return docs.some(d => { const dt = tokens(d); return dt.includes(last) && (dt.includes(first) || dt.some(x => x[0] === first[0])) })
 }
 
+const fullDate = (d?: string) => { const iso = isoDate(d); const t = iso ? new Date(`${iso}T12:00:00Z`) : null; return t && !isNaN(t.getTime()) ? t.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : (d ?? '') }
+// the list's own date reads "27-Oct-2026"
+const listDay = (d?: string) => { const t = d ? new Date(d.replace(/-/g, ' ')) : null; return t && !isNaN(t.getTime()) ? t.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : (d ?? '') }
+const SANCTIONS_SEARCH = 'search-uk-sanctions-list.service.gov.uk'
 const daysBetween = (a: string, b: Date) => (b.getTime() - new Date(a).getTime()) / 86400000
 // Dates may arrive as YYYY-MM-DD or DD/MM/YYYY.
 function isoDate(d?: string): string | undefined {
@@ -55,6 +59,14 @@ function isoDate(d?: string): string | undefined {
   const m = d.trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/)
   if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`
   return d.trim().slice(0, 10)
+}
+
+// HMRC ("Understanding risks and taking action for letting agency businesses"; AMLG3300): taking a client on without meeting them
+// is a higher-risk factor, because it's harder to tell they are who they say. Meeting them and seeing their original ID answers that.
+export interface MetInPerson { date: string; by: string; originals_seen: boolean; note?: string }
+export function deliveryCheck(met?: MetInPerson | null): [string, CheckStatus, string] {
+  if (met?.date) return ['Met in person', met.originals_seen ? 'pass' : 'review', `Met face to face on ${fullDate(met.date)} by ${met.by}${met.originals_seen ? ', who saw their original photo ID and confirmed it is them' : ' — original ID not seen'}${met.note ? `. ${met.note}` : ''}`]
+  return ['Not met in person', 'review', 'HMRC treats taking on a landlord without meeting them as a higher-risk factor (harder to be sure they are who they say). If you have met them and seen their original ID, record it under Your decision.']
 }
 
 export async function runSubmissionReview(onboardingId: string): Promise<AutomatedReview> {
@@ -79,8 +91,8 @@ export async function runSubmissionReview(onboardingId: string): Promise<Automat
       people.push({ role: 'Director / beneficial owner', name: line })
     }
   } else {
-    people.push({ role: joint ? 'First landlord' : 'Landlord', name: `${str(f, 'first_name')} ${str(f, 'last_name')}`.trim(), dob: str(f, 'dob'), nationality: str(f, 'nationality') })
-    if (joint) people.push({ role: 'Second landlord', name: `${str(f, 'j_first_name')} ${str(f, 'j_last_name')}`.trim(), dob: str(f, 'j_dob'), nationality: str(f, 'j_nationality') })
+    people.push({ role: joint ? 'First landlord' : 'Landlord', name: `${str(f, 'first_name')} ${str(f, 'last_name')}`.trim(), title: str(f, 'salutation'), dob: str(f, 'dob'), nationality: str(f, 'nationality') })
+    if (joint) people.push({ role: 'Second landlord', name: `${str(f, 'j_first_name')} ${str(f, 'j_last_name')}`.trim(), title: str(f, 'j_salutation'), dob: str(f, 'j_dob'), nationality: str(f, 'j_nationality') })
   }
 
   // ── Documents: read in parallel ──────────────────────────────────────────
@@ -108,65 +120,66 @@ export async function runSubmissionReview(onboardingId: string): Promise<Automat
   }
 
   // ── Identity (reg 28(2)–(4)) ─────────────────────────────────────────────
+  const titled = (p: ReviewPerson) => [p.title, p.name].filter(Boolean).join(' ')
   const idChecks = company
-    ? [{ who: 'Directors', idType: 'director_id', addrType: 'director_address', name: '', dob: '', postcode: str(f, 'registered_office').split('\n').pop() ?? '' }]
+    ? [{ who: 'The directors', idType: 'director_id', addrType: 'director_address', name: '', dob: '', postcode: str(f, 'registered_office').split('\n').pop() ?? '' }]
     : [
-        { who: joint ? 'First landlord' : 'Landlord', idType: 'id_document', addrType: 'proof_of_address', name: people[0].name, dob: str(f, 'dob'), postcode: str(f, 'addr_postcode') },
-        ...(joint ? [{ who: 'Second landlord', idType: 'joint_id_document', addrType: 'joint_proof_of_address', name: people[1].name, dob: str(f, 'j_dob'), postcode: f.j_same_address === true ? str(f, 'addr_postcode') : str(f, 'j_addr_postcode') }] : []),
+        { who: titled(people[0]), idType: 'id_document', addrType: 'proof_of_address', name: people[0].name, dob: str(f, 'dob'), postcode: str(f, 'addr_postcode') },
+        ...(joint ? [{ who: titled(people[1]), idType: 'joint_id_document', addrType: 'joint_proof_of_address', name: people[1].name, dob: str(f, 'j_dob'), postcode: f.j_same_address === true ? str(f, 'addr_postcode') : str(f, 'j_addr_postcode') }] : []),
       ]
 
   for (const p of idChecks) {
     const ids = byType(p.idType)
-    if (!ids.length) { add('Identity', `${p.who}: photo ID`, 'fail', 'No identity document uploaded'); high.push(`${p.who} has not provided photo ID`); continue }
+    if (!ids.length) { add('Identity', `${p.who}: photo ID`, 'fail', 'No identity document uploaded'); high.push(`${p.who} hasn’t uploaded photo ID`); continue }
     const r = ids[0]
-    if (!r.ok) { add('Identity', `${p.who}: photo ID`, 'review', `Uploaded but could not be read automatically (${r.error}). Check by eye.`); medium.push(`${p.who}'s ID needs a manual check`) }
+    if (!r.ok) { add('Identity', `${p.who}: photo ID`, 'review', `Uploaded but could not be read automatically (${r.error}). Check by eye.`); medium.push(`${p.who}’s photo ID couldn’t be read automatically — check it by eye`) }
     else {
       const fd = r.fields
       const isId = fd.document_type && !/not an identity/i.test(fd.document_type)
       add('Identity', `${p.who}: photo ID type`, isId ? 'pass' : 'fail', fd.document_type ?? 'Could not tell what the document is')
-      if (!isId) high.push(`${p.who}'s upload does not appear to be an identity document`)
+      if (!isId) high.push(`${p.who}’s photo ID upload doesn’t look like an identity document`)
       if (p.name) {
         const m = nameMatches(p.name, fd.full_name)
         add('Identity', `${p.who}: name on ID`, m === true ? 'pass' : m === false ? 'fail' : 'review', `Form: ${p.name} · ID: ${fd.full_name ?? 'not read'}`)
-        if (m === false) high.push(`${p.who}'s name on the ID does not match the form`)
+        if (m === false) high.push(`${p.who}’s name on the ID (${fd.full_name}) doesn’t match the form`)
       }
       if (p.dob) {
         const same = fd.date_of_birth ? isoDate(fd.date_of_birth) === isoDate(p.dob) : null
         add('Identity', `${p.who}: date of birth`, same === true ? 'pass' : same === false ? 'fail' : 'review', `Form: ${p.dob} · ID: ${fd.date_of_birth ?? 'not read'}`)
-        if (same === false) high.push(`${p.who}'s date of birth on the ID does not match the form`)
+        if (same === false) high.push(`${p.who}’s date of birth on the ID (${fullDate(fd.date_of_birth)}) doesn’t match the form (${fullDate(p.dob)})`)
       }
       if (fd.expiry_date) {
         const expired = new Date(fd.expiry_date) < now
-        add('Identity', `${p.who}: ID in date`, expired ? 'fail' : 'pass', `Expires ${fd.expiry_date}`)
-        if (expired) medium.push(`${p.who}'s ID has expired`)
+        add('Identity', `${p.who}: ID in date`, expired ? 'fail' : 'pass', `${expired ? 'Expired' : 'Expires'} ${fullDate(fd.expiry_date)}`)
+        if (expired) medium.push(`${p.who}’s ID expired on ${fullDate(fd.expiry_date)}`)
       } else add('Identity', `${p.who}: ID in date`, 'review', 'Expiry date not read — check by eye')
-      if (fd.concerns?.length) { add('Identity', `${p.who}: document quality`, 'review', fd.concerns.join('; ')); medium.push(`${p.who}'s ID raised questions: ${fd.concerns.join('; ')}`) }
+      if (fd.concerns?.length) { add('Identity', `${p.who}: things to look at on the ID`, 'review', `${fd.concerns.join('. ')}. Seeing the original in person settles these.`); medium.push(`${p.who}’s photo ID: ${fd.concerns.length === 1 ? 'one thing' : `${fd.concerns.length} things`} to look at by eye (see Checks)`) }
     }
 
     const addrs = byType(p.addrType)
-    if (!addrs.length) { add('Address', `${p.who}: proof of address`, 'fail', 'No proof of address uploaded'); high.push(`${p.who} has not provided proof of address`); continue }
+    if (!addrs.length) { add('Address', `${p.who}: proof of address`, 'fail', 'No proof of address uploaded'); high.push(`${p.who} hasn’t uploaded proof of address`); continue }
     const a = addrs[0]
-    if (!a.ok) { add('Address', `${p.who}: proof of address`, 'review', `Could not be read automatically (${a.error}). Check by eye.`); medium.push(`${p.who}'s proof of address needs a manual check`); continue }
+    if (!a.ok) { add('Address', `${p.who}: proof of address`, 'review', `Could not be read automatically (${a.error}). Check by eye.`); medium.push(`${p.who}’s proof of address couldn’t be read automatically — check it by eye`); continue }
     const fa = a.fields
     const acceptable = /utility|gas|electric|water|bank|building society|council tax|hmrc|tax|broadband|phone|mortgage|tenancy/i.test(`${fa.document_type ?? ''} ${fa.issuer ?? ''}`)
     add('Address', `${p.who}: proof of address type`, acceptable ? 'pass' : 'review', [fa.document_type, fa.issuer].filter(Boolean).join(' — ') || 'Type not recognised')
-    if (!acceptable) medium.push(`${p.who}'s proof of address may not be an acceptable document type`)
+    if (!acceptable) medium.push(`${p.who}’s proof of address may not be an accepted type (${fa.document_type ?? 'not recognised'}) — we accept a utility bill, bank statement, council tax bill or HMRC letter`)
     if (p.postcode) {
       const same = fa.postcode ? pc(fa.postcode) === pc(p.postcode) : null
       add('Address', `${p.who}: postcode matches`, same === true ? 'pass' : same === false ? 'fail' : 'review', `Form: ${p.postcode} · Document: ${fa.postcode ?? 'not read'}`)
-      if (same === false) medium.push(`${p.who}'s proof of address shows a different postcode`)
+      if (same === false) medium.push(`${p.who}’s proof of address is for ${fa.postcode}, not the home postcode on the form (${p.postcode})`)
     }
     if (p.name) {
       const m = nameMatches(p.name, fa.names_on_document)
       add('Address', `${p.who}: name on proof of address`, m === true ? 'pass' : m === false ? 'fail' : 'review', `Named: ${(fa.names_on_document ?? []).join(', ') || 'not read'}`)
-      if (m === false) medium.push(`${p.who} is not named on their proof of address`)
+      if (m === false) medium.push(`${p.who} isn’t named on their proof of address (it names ${(fa.names_on_document ?? []).join(', ')})`)
     }
     if (fa.issue_date) {
       const age = daysBetween(fa.issue_date, now)
-      add('Address', `${p.who}: dated within 3 months`, age <= 92 ? 'pass' : 'fail', `Dated ${fa.issue_date}`)
-      if (age > 92) medium.push(`${p.who}'s proof of address is more than 3 months old`)
+      add('Address', `${p.who}: dated within 3 months`, age <= 92 ? 'pass' : 'fail', `Dated ${fullDate(fa.issue_date)}`)
+      if (age > 92) medium.push(`${p.who}’s proof of address is dated ${fullDate(fa.issue_date)} — older than the 3 months we accept`)
     } else add('Address', `${p.who}: dated within 3 months`, 'review', 'Date not read — check by eye')
-    if (fa.concerns?.length) { add('Address', `${p.who}: document quality`, 'review', fa.concerns.join('; ')); medium.push(`${p.who}'s proof of address raised questions`) }
+    if (fa.concerns?.length) { add('Address', `${p.who}: things to look at on the proof of address`, 'review', `${fa.concerns.join('. ')}.`); medium.push(`${p.who}’s proof of address: ${fa.concerns.length === 1 ? 'one thing' : `${fa.concerns.length} things`} to look at by eye (see Checks)`) }
   }
 
   // ── Ownership / right to let ─────────────────────────────────────────────
@@ -187,17 +200,27 @@ export async function runSubmissionReview(onboardingId: string): Promise<Automat
       add('Ownership', 'Property postcode matches', same ? 'pass' : 'review', `Form: ${propPc} · Document: ${fo.postcode}`)
       if (!same) medium.push('Ownership document postcode differs from the property given')
     }
-    if (fo.concerns?.length) { add('Ownership', 'Document quality', 'review', fo.concerns.join('; ')); medium.push('Ownership document raised questions') }
+    if (fo.concerns?.length) { add('Ownership', 'Things to look at on the ownership document', 'review', `${fo.concerns.join('. ')}.`); medium.push('Proof of ownership: things to look at by eye (see Checks)') }
   }
 
   // ── Sanctions (SAMLA 2018 / UK Sanctions List) ───────────────────────────
+  // Source: the UK Sanctions List (FCDO), downloaded daily. Each flag names the list entry and its reference so it can be
+  // looked up on the official search service and compared (date of birth, nationality) — most name matches are a different person.
+  const entryLine = (e: SanctionsEntry) => `${e.name} — list reference ${e.id}; ${e.regime}; nationality ${e.nationality || 'not given on the list'}; born ${e.dob ? e.dob.split('|').map(x => x.trim()).join(' or ') : '— not given on the list'}`
   for (const p of people) {
-    if (p.screeningError) { add('Sanctions', `${p.name || p.role}`, 'review', `Screening could not run: ${p.screeningError}`); medium.push('Sanctions screening needs re-running'); continue }
+    const who = titled(p) || p.role
+    const ours = [p.name, p.dob ? `born ${fullDate(p.dob)}` : '', p.nationality].filter(Boolean).join(', ')
+    if (p.screeningError) { add('Sanctions', who, 'review', `The check couldn’t run (${p.screeningError}). Press Re-run checks.`); medium.push(`${who}: the sanctions check couldn’t run — re-run the checks`); continue }
+    const listed = `UK Sanctions List (FCDO) as published ${listDay(p.screening?.listDate)}`
     const strong = p.screening?.matches.filter(m => m.strength === 'strong') ?? []
     const possible = p.screening?.matches.filter(m => m.strength === 'possible') ?? []
-    if (strong.length) { add('Sanctions', `${p.name}`, 'fail', `Strong match: ${strong.map(m => `${m.entry.name} (${m.entry.regime})`).join('; ')}`); high.push(`${p.name} closely matches the UK Sanctions List — do not proceed until resolved`) }
-    else if (possible.length) { add('Sanctions', `${p.name}`, 'review', `Possible match: ${possible.map(m => `${m.entry.name} (${m.entry.id})`).join('; ')} — confirm it is a different person`); medium.push(`${p.name} has a possible sanctions name match to rule out`) }
-    else add('Sanctions', `${p.name}`, 'pass', `No match on the UK Sanctions List (${p.screening?.listDate})`)
+    if (strong.length) {
+      add('Sanctions', who, 'fail', `Name matches ${strong.length === 1 ? 'an entry' : `${strong.length} entries`} on the ${listed}: ${strong.map(m => entryLine(m.entry)).join(' · ')}. Our landlord: ${ours}. Look the reference up at ${SANCTIONS_SEARCH} and compare date of birth and nationality; if they differ, record that it is a different person in your decision.`)
+      high.push(`${who}: name matches ${strong.map(m => `${m.entry.name} (ref ${m.entry.id})`).join(', ')} on the UK Sanctions List — compare their details before going ahead`)
+    } else if (possible.length) {
+      add('Sanctions', who, 'review', `Part of the name matches the ${listed}: ${possible.map(m => entryLine(m.entry)).join(' · ')}. Our landlord: ${ours}. Almost always a different person — confirm by comparing date of birth and nationality at ${SANCTIONS_SEARCH}.`)
+      medium.push(`${who}: partly matches a name on the UK Sanctions List (${possible.map(m => `ref ${m.entry.id}`).join(', ')}) — likely a different person, confirm`)
+    } else add('Sanctions', who, 'pass', `No match on the ${listed}`)
   }
 
   // ── PEPs (reg 35) ────────────────────────────────────────────────────────
@@ -256,7 +279,7 @@ export async function runSubmissionReview(onboardingId: string): Promise<Automat
   if (f.uk_resident === 'no') { add('Tax', 'Non-resident landlord', 'review', `NRL reference: ${str(f, 'nrl_ref') || 'not given'}`); medium.push('Non-resident landlord — NRL scheme applies') }
 
   // ── Delivery channel ─────────────────────────────────────────────────────
-  add('Delivery channel', 'Onboarded remotely (no face-to-face meeting)', 'review', 'HMRC treats remote onboarding as a higher-risk factor; mitigated by document checks and sanctions screening')
+  add('Delivery channel', ...deliveryCheck((f as any).__decision?.met_in_person))
 
   const suggested: AutomatedReview['suggested_level'] = high.length ? 'high' : medium.length ? 'medium' : 'low'
   const review: AutomatedReview = {
@@ -288,9 +311,9 @@ export async function notifyOfficeOfSubmission(onboardingId: string, review: Aut
     to,
     `AML form ${updated ? 'updated' : 'submitted'} — ${onboardingName(row)}${level ? ` (suggested ${level} risk)` : ''}`,
     `<p style="margin:0 0 14px;font-size:15px;color:#333">${onboardingName(row)} (${row.email}) has ${updated ? 'reopened, changed and re-sent' : 'submitted'} their landlord onboarding and AML form.</p>
-     ${level ? `<p style="margin:0 0 10px;font-size:15px"><strong>Suggested risk: <span style="color:${colour}">${level.toUpperCase()}</span></strong></p>` : '<p>The automatic checks could not run — open the record to run them.</p>'}
+     ${level ? `<p style="margin:0 0 4px;font-size:15px"><strong>Suggested risk: <span style="color:${colour}">${level.toUpperCase()}</span></strong></p><p style="margin:0 0 10px;font-size:12px;color:#777">An automatic first pass from the documents and the UK Sanctions List — you confirm the level.</p>` : '<p>The automatic checks couldn’t run — open the record to run them.</p>'}
      ${reasons ? `<ul style="margin:0 0 14px;padding-left:18px;font-size:14px;color:#333">${reasons}</ul>` : ''}
-     <p style="margin:0 0 14px;font-size:14px;color:#333">Review the documents and checks, confirm the risk level, then generate the AML report.</p>
+     <p style="margin:0 0 14px;font-size:14px;color:#333">Each point is explained, with its source, on the review page. Look at the documents, record anything you’ve checked yourself (including meeting them in person), confirm the risk level, then download the AML report.</p>
      <p><a href="${base}/admin/new-business/onboarding/${onboardingId}" style="display:inline-block;background:#111;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px">Open the review</a></p>`,
   )
 }
