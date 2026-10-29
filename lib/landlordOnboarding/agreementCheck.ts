@@ -5,6 +5,7 @@
 // are kept on the record (form_data.__agreement_reject) so the preview, the approval and the saved agreement on
 // the Agreements page (formPatch — "and repopulate") all agree.
 import type { ManagementAgreementData } from '@/lib/managementAgreement/generatePDF'
+import { openFields, openOnboardingRow, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 export interface AgreementDiff { key: string; field: string; inAgreement: string; fromLandlord: string; accepted: boolean }
 export interface AgreementCheck {
@@ -21,7 +22,8 @@ const squash = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '')
 const join = (parts: string[]) => parts.map(p => p.trim()).filter(Boolean).join(', ')
 const addr = (line1: string, line2: string, town: string, postcode: string) => ({ line1, line2, town, county: '', postcode })
 
-export function checkAgreement(f: F): AgreementCheck {
+export function checkAgreement(sealed: F): AgreementCheck {
+  const f = openFields(sealed, BANK_FIELDS.landlord_onboarding_form) as F   // bank numbers are stored encrypted
   const snap = f.__agreement as (ManagementAgreementData & { sent_at?: string; version?: number }) | undefined
   if (!snap) return { hasSnapshot: false, diffs: [] }
   const rejected = new Set(Array.isArray(f.__agreement_reject) ? (f.__agreement_reject as string[]) : [])

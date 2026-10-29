@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { renderModernStatement } from '@/lib/statements/modernPdf'
 import { landlordFormalNames } from '@/lib/people'
 import { fullAddress } from '@/lib/quotes/quoteRequest'
+import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 const ukDate = (iso: string) => new Date(iso + (iso.length === 10 ? 'T12:00:00Z' : '')).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 
@@ -26,7 +27,7 @@ export async function loadStatementForPdf(s: SupabaseClient, id: string): Promis
     s.from('recharge_expenses').select('*').eq('included_in_statement_id', id),
   ])
   // the account paid into: the property's own payee account, else the landlord's default
-  const acct = (property as any)?.bank_account_number || ((banks ?? []) as any[]).sort((a, b) => Number(b.is_default) - Number(a.is_default))[0]?.account_number
+  const acct = open((property as any)?.bank_account_number) || open(((banks ?? []) as any[]).sort((a, b) => Number(b.is_default) - Number(a.is_default))[0]?.account_number)   // stored encrypted
   const floatBalance = Math.round(((floats ?? []) as any[]).reduce((t, x) => t + Number(x.float_retained || 0) - Number(x.float_used || 0), 0) * 100) / 100
   // tenants still owing for the statement's month (CROS rent charges only)
   const stillOwed: { room: string; tenant: string; amount: number }[] = []

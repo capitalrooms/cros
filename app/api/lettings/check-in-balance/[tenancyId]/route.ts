@@ -20,6 +20,7 @@ import { createClient } from '@supabase/supabase-js'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { contentDisposition } from '@/lib/contentDisposition'
+import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -97,7 +98,7 @@ export async function GET(
   // ── Build data ────────────────────────────────────────────────────────────────
   const person    = (tenancy as any).people
   const room      = (tenancy as any).rooms
-  const property  = room?.properties
+  const property  = openFields(room?.properties, BANK_FIELDS.properties)   // bank numbers stored encrypted
 
   if (!person || !room || !property) {
     return NextResponse.json({ error: 'Incomplete tenancy data' }, { status: 422 })

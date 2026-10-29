@@ -14,6 +14,7 @@ import { generateTenancyAgreement } from '@/lib/tenancyAgreement/generate'
 import { generateSingleLetAgreement } from '@/lib/tenancyAgreement/singleLet'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 // Rent and deposits for managed tenancies go to the client account (Harry, 27 Sep 2026).
 export const CLIENT_ACCOUNT = {
@@ -95,7 +96,8 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
   if (!t) return null
   // certificates on file whose dates aren't on the house yet are read first (lib/compliance/certFromDocument)
   await healPropertyCerts(s as any, (t as any).property_id, 4).catch(() => null)
-  const { data: prop } = await s.from('properties').select('*').eq('id', (t as any).property_id).maybeSingle()
+  const { data: propRow } = await s.from('properties').select('*').eq('id', (t as any).property_id).maybeSingle()
+  const prop = openFields(propRow as any, BANK_FIELDS.properties)   // bank numbers stored encrypted
   const [{ data: landlord }, { data: docs }] = await Promise.all([
     prop?.landlord_id ? s.from('people').select('*').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     s.from('property_documents').select('document_type, storage_url, file_name, uploaded_at').eq('property_id', (t as any).property_id).order('uploaded_at', { ascending: false }),

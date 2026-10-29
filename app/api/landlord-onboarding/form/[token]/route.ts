@@ -3,6 +3,7 @@ import { runSubmissionReview, notifyOfficeOfSubmission } from '@/lib/landlordOnb
 import { svc, loadRow, updateFormData, stripServerKeys, mergeDocuments } from '@/lib/landlordOnboarding/store'
 import { missingAll, missingFor, type SectionKey } from '@/lib/landlordOnboarding/requirements'
 import { mergePropertyDocs } from '@/lib/landlordOnboarding/propertyDocs'
+import { sealFields, openFields, openOnboardingRow, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -26,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   const { verified_at, ...rest } = data as typeof data & { verified_at: string | null }
   const can_reopen = rest.stage === 3 && !verified_at
   // an update for an existing landlord: what we already hold, so they only change what's changed
-  return NextResponse.json({ row: { ...rest, form_data, agreement_type, agreement_version, can_reopen, previous: rest.is_refresh ? (__previous ?? null) : null } })
+  return NextResponse.json({ row: { ...rest, form_data: openFields(form_data, BANK_FIELDS.landlord_onboarding_form), agreement_type, agreement_version, can_reopen, previous: rest.is_refresh ? openFields((__previous ?? null) as any, BANK_FIELDS.landlord_onboarding_form) : null } })
 }
 
 // ── PATCH → save progress. draft=true is the background auto-save (does not mark the
@@ -43,7 +44,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ to
 
   let missing: string[] = []
   const result = await updateFormData(token, (current) => {
-    const client = stripServerKeys(body.form_data)
+    // the landlord's bank numbers are stored encrypted (lib/crypto/fieldCrypt)
+    const client = sealFields(stripServerKeys(body.form_data), BANK_FIELDS.landlord_onboarding_form)
     const merged: Record<string, unknown> = {
       ...current,
       ...client,
@@ -65,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ to
 
   const { __agreement, __review, ...form_data } = result.form_data as Record<string, unknown>
   void __agreement; void __review
-  return NextResponse.json({ ok: true, missing, sections_saved: result.form_data.__sections_saved, form_data })
+  return NextResponse.json({ ok: true, missing, sections_saved: result.form_data.__sections_saved, form_data: openFields(form_data, BANK_FIELDS.landlord_onboarding_form) })
 }
 
 // ── POST → final submit. Refused (400 + list) if anything required is missing. ──

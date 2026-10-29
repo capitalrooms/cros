@@ -10,6 +10,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { blockAddress, inlineAddress } from '@/lib/formatAddress'
 import AddLetOnlyModal from '@/app/components/AddLetOnlyModal'
 import LineIcon from '@/components/LineIcon'
+import { adminFetch } from '@/lib/adminFetch'
 
 interface Tenancy {
   id: string
@@ -109,6 +110,11 @@ export default function LetOnlyPropertiesPage() {
       }),
       landlord: p.people || null,
     })))
+    // the landlord's bank numbers are stored encrypted — the server opens them (app/api/admin/properties/bank)
+    const ids = (letOnly || []).map((p: any) => p.id)
+    if (ids.length) adminFetch(`/api/admin/properties/bank?ids=${ids.join(',')}`).then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.banks) setLetOnlyProperties(prev => prev.map((p: any) => d.banks[p.id] ? { ...p, ...d.banks[p.id] } : { ...p, bank_sort_code: null, bank_account_number: null, bank_iban: null }))
+    }).catch(() => {})
     const { data: occ } = await supabase.from('let_only_occupants').select('room_id, name, phone, move_in, rent, source').is('ended_at', null)
     setOccupants(new Map(((occ ?? []) as any[]).map(o => [o.room_id, o])))
     setLoading(false)

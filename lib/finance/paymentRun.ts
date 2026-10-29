@@ -7,6 +7,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadLedger, landlordBalances, ledgerStart } from '@/lib/clientLedger'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
+import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 const first = (s: unknown) => String(s || '').split('\n')[0]
@@ -70,7 +71,7 @@ export async function loadPaymentRun(s: SupabaseClient, month: string, opts: { p
     run ? s.from('office_transfers').select('*').eq('payment_run_id', run.id).is('voided_at', null) : Promise.resolve({ data: [] as any[] }),
   ])
   const propName = new Map(((props ?? []) as any[]).map(p => [p.id, first(p.name)]))
-  const propById = new Map(((props ?? []) as any[]).map(p => [p.id, p]))
+  const propById = new Map(openRows(props as any[], BANK_FIELDS.properties).map(p => [p.id, p]))   // bank numbers stored encrypted
   const sts = ((inRun ?? []) as any[]).filter(x => ok(x.property_id))
   const landlordIds = [...new Set(sts.map(x => x.landlord_id).filter(Boolean))]
   const [{ data: people }, { data: banks }] = await Promise.all([
@@ -82,7 +83,7 @@ export async function loadPaymentRun(s: SupabaseClient, month: string, opts: { p
   const bankFor = (st: any) => {
     const p = propById.get(st.property_id)
     if (p?.bank_account_number && p?.bank_sort_code) return { name: p.bank_account_name || nameOf.get(st.landlord_id) || '', sortCode: digits(p.bank_sort_code), accountNo: digits(p.bank_account_number) }
-    const b = ((banks ?? []) as any[]).filter(x => x.landlord_id === st.landlord_id).sort((a, c) => Number(c.is_default) - Number(a.is_default))[0]
+    const b = openRows(banks as any[], BANK_FIELDS.landlord_bank_accounts).filter(x => x.landlord_id === st.landlord_id).sort((a, c) => Number(c.is_default) - Number(a.is_default))[0]
     return b ? { name: b.account_name || nameOf.get(st.landlord_id) || '', sortCode: digits(b.sort_code), accountNo: digits(b.account_number) } : null
   }
 
