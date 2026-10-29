@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sendServerPush } from '@/lib/serverPush'
 import { pendingLicenceIds } from '@/lib/compliance/hmoLicence'
+import { quietCertificates } from '@/lib/propertyCertificates'
 import { createServiceClient } from '@/lib/supabase'
 import { TIME_SLOTS } from '@/lib/booking'
 import { getTemplate, render } from '@/lib/messageTemplate'
@@ -169,6 +170,7 @@ export async function GET(req: Request) {
       .select('id, name, gas_safe_cert_expiry, electrical_cert_expiry, license_expiry, insurance_expiry')
       .or('letting_type.is.null,letting_type.neq.let_only')   // managed only
     const licencePending = await pendingLicenceIds(supabase)
+    const quietCerts = await quietCertificates(supabase)
     const t0 = new Date(today).getTime()
     const names = new Set<string>()
     for (const p of props || []) {
@@ -181,6 +183,7 @@ export async function GET(req: Request) {
         const v = (p as any)[f]
         if (!v) continue
         if (f === 'license_expiry' && licencePending.has((p as any).id)) continue
+        if (quietCerts.has(f)) continue
         const days = Math.floor((new Date(v).getTime() - t0) / 86400000)
         if (days <= 14) names.add(p.name)
       }

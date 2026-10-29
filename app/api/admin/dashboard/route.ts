@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
-import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
+import { quietCertificates, PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import { ledgerStart } from '@/lib/clientLedger'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { loadVoids, VOID_WINDOWS } from '@/lib/voids'
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const in30 = addDays(today, 30), in7 = addDays(today, 7)
 
   const [propsR, roomsR, tenR, chargesR, appsR, viewsR, jobsR, holdR, start, voidsAll, captureR, amlR] = await Promise.all([
-    s.from('properties').select(['id', 'name', 'address', 'letting_type', 'is_demo', 'landlord_id', 'has_gas', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')),
+    s.from('properties').select(['id', 'name', 'address', 'letting_type', 'is_demo', 'landlord_id', 'has_gas', 'licence_application_submitted_at', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')),
     s.from('rooms').select('id, property_id, name, status, is_let_only'),
     s.from('tenancies').select('id, room_id, property_id, start_date, end_date, notice_received_date, let_cancelled_at, rent_amount, deposit_amount, deposit_protected_at, deposit_protection_assumed, prescribed_info_served_at, last_rent_change_date, is_periodic'),
     s.from('rent_charges').select('property_id, charge_month, amount_due, amount_received, status, voided'),
@@ -120,6 +120,7 @@ export async function GET(req: NextRequest) {
       id: p.id, name: propName.get(p.id)!,
       cells: PROPERTY_CERTIFICATES.map(([col]) => {
         const d = p[col] as string | null
+        if (col === 'license_expiry' && p.licence_application_submitted_at) return 'applied'   // with the council — covered meanwhile
         if (!d) return col === 'gas_safe_cert_expiry' && p.has_gas === false ? 'na' : 'missing'
         return d < today ? 'expired' : d <= in30c ? 'due' : 'valid'
       }),
@@ -142,11 +143,12 @@ export async function GET(req: NextRequest) {
   }
 
   const aml = ((amlR?.data ?? []) as any[])
+  const quiet = await quietCertificates(s)
   const waiting = [
     { label: 'Tenancy end dates to sort', count: endNoNotice.length, href: '/admin/finance-check', bad: true },
     { label: 'Deposits not protected', count: withDeposit.length - protectedN, href: '/admin/deposits', bad: true },
     { label: 'Visits to sign off', count: repairs.visitPassed, href: '/admin/maintenance', bad: true },
-    { label: 'Certificates expired', count: flat.filter(c => c === 'expired').length, href: '/admin/compliance?tab=certificates', bad: true },
+    { label: 'Certificates expired', count: certs.rows.reduce((n, r) => n + r.cells.filter((c, i) => c === 'expired' && !quiet.has(PROPERTY_CERTIFICATES[i][0])).length, 0), href: '/admin/compliance?tab=certificates', bad: true },
     { label: 'Jobs to approve', count: repairs.toApprove, href: '/admin/maintenance', bad: false },
     { label: 'Jobs needing a contractor', count: repairs.needContractor, href: '/admin/maintenance', bad: false },
     { label: 'Rent overdue', count: overdue.length, href: '/admin/arrears', bad: false },

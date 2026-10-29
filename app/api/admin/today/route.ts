@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '@/lib/adminAuth'
-import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
+import { PROPERTY_CERTIFICATES, quietCertificates, chaseCert } from '@/lib/propertyCertificates'
 import { demoPropertyIds } from '@/lib/demoProperties'
 import { ledgerStart } from '@/lib/clientLedger'
 import { onboardingName } from '@/lib/people'
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     s.from('viewings').select('id, viewing_date, viewing_slot, visitor_name, visitor_phone, rooms(name), properties(name, address)')
       .eq('viewing_date', today).neq('viewing_status', 'cancelled').order('viewing_slot'),
     s.from('admin_appointments').select('id, title, appointment_date, appointment_time, properties(name)').eq('appointment_date', today).order('appointment_time'),
-    s.from('properties').select(['id', 'name', 'address', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')).or('letting_type.is.null,letting_type.neq.let_only'),   // let-only houses aren't ours to keep certified (27 Oct 2026)
+    s.from('properties').select(['id', 'name', 'address', 'licence_application_submitted_at', ...PROPERTY_CERTIFICATES.map(([c]) => c)].join(', ')).or('letting_type.is.null,letting_type.neq.let_only'),   // let-only houses aren't ours to keep certified (27 Oct 2026)
     s.from('tenancies').select('id, end_date, person_id, rooms(name), properties(name, address), people!person_id(salutation, first_name, last_name, full_name)')
       .not('notice_received_date', 'is', null).gte('end_date', today).lte('end_date', in14),
     // Prices back from the multi-contractor quote requests (table from migration 184 — empty until it's run)
@@ -131,11 +131,12 @@ export async function GET(req: NextRequest) {
       detail: a.properties?.name || '', tag: { text: 'Today', tone: 'green' }, href: `/admin/appointments`,
     })
   }
+  const quiet = await quietCertificates(s)
   for (const p of (props.data ?? []) as any[]) {
     if (demo.has(p.id)) continue
     for (const [col, label] of PROPERTY_CERTIFICATES) {
       const d = p[col] as string | null
-      if (!d || d > in30) continue
+      if (!d || d > in30 || !chaseCert(p, col, quiet)) continue
       const left = days(today, d)
       items.push({
         id: `cert-${p.id}-${col}`, kind: 'certificate', group: left < 0 ? 'needs_you' : 'coming_up', rank: left < 0 ? 5 : 70 + left / 100,

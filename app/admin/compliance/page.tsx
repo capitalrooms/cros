@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { displayName } from '@/lib/people'
 import LineIcon from '@/components/LineIcon'
+import { PROPERTY_CERTIFICATES, CERT_REMINDERS_OFF, isCertColumn } from '@/lib/propertyCertificates'
 
 type Tab = 'certificates' | 'monthly-checks'
 // Older links use the names of the screens these tabs replaced.
@@ -607,6 +608,46 @@ function CertUploadDrawer({
 }
 
 // ─── Certificates Table ──────────────────────────────────────────────────────
+// Which certificates we're reminded about (29 Oct 2026, Harry: "I should be able to silence fire risk assessments").
+// Off = still shown here and on the property, but no longer in Today, the dashboard's Waiting on you, Money or the reminder pushes.
+function CertReminders() {
+  const [off, setOff] = useState<Set<string> | null>(null)
+  const [saving, setSaving] = useState('')
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    fetch('/api/admin/settings').then(r => r.json()).then(d => {
+      const v = (d.settings ?? []).find((x: any) => x.key === CERT_REMINDERS_OFF)?.value ?? ''
+      setOff(new Set(String(v).split(',').filter(isCertColumn)))
+    }).catch(() => setOff(new Set()))
+  }, [])
+  if (!off) return null
+  async function toggle(col: string) {
+    const next = new Set(off); if (next.has(col)) next.delete(col); else next.add(col)
+    setSaving(col); setErr('')
+    const r = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: CERT_REMINDERS_OFF, value: [...next].join(',') }) })
+    setSaving('')
+    if (r.ok) setOff(next); else setErr((await r.json().catch(() => ({}))).error ?? 'Couldn’t save that — try again')
+  }
+  return (
+    <div className="mb-lg rounded-2xl border border-neutral-200 bg-white px-lg py-md">
+      <div className="flex flex-wrap items-center gap-sm">
+        <p className="mr-sm text-sm font-semibold text-neutral-900">Remind me about</p>
+        {PROPERTY_CERTIFICATES.map(([col, label]) => {
+          const on = !off.has(col)
+          return (
+            <button key={col} type="button" onClick={() => toggle(col)} disabled={!!saving} aria-pressed={on}
+              className={`rounded-full border px-sm py-[3px] text-xs font-semibold transition disabled:opacity-50 ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-400 line-through'}`}>
+              {saving === col ? 'Saving…' : label}
+            </button>
+          )
+        })}
+      </div>
+      <p className="mt-xs text-xs text-neutral-500">Tap one to switch its reminders off. It still shows in this table and on the property — it just stops appearing in Today, Waiting on you and the reminder notifications. HMO licences you’ve applied for are held back automatically.</p>
+      {err && <p className="mt-xs text-xs text-red-700">{err}</p>}
+    </div>
+  )
+}
+
 function CertificatesTab({
   properties,
   checkStatus,
@@ -706,6 +747,7 @@ function CertificatesTab({
           <span className="text-neutral-400">· click a cell to upload</span>
         </div>
       </div>
+      <CertReminders />
       <div className="rounded-2xl border border-neutral-200 bg-white overflow-x-auto">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-sm">
