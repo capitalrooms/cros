@@ -2,17 +2,16 @@
 
 // Phone-only bottom tab bar for admin (hidden from md up — desktop is unchanged). Drawn by the shared
 // app/components/PhoneTabBar, the same bar lettings, cleaners and contractors have.
+// 29 Oct 2026, Harry: the day-to-day ones are Properties, Maintenance and Calendar. Search is at the top of More;
+// Money is in More under Finance.
 import { usePathname } from 'next/navigation'
-import { ZONES } from '@/lib/adminNav'
 import PhoneTabBar, { ICONS } from '@/app/components/PhoneTabBar'
-
-const FINANCE_ROUTES = ZONES.find(z => z.id === 'finance')?.routes ?? []
 
 const TABS = [
   { href: '/admin', label: 'Today', match: (p: string) => p === '/admin', icon: ICONS.home },
-  { href: '/admin/search', label: 'Search', match: (p: string) => p.startsWith('/admin/search'), icon: ICONS.search },
   { href: '/admin/active-rooms', label: 'Properties', match: (p: string) => p.startsWith('/admin/properties') || p.startsWith('/admin/active-rooms'), icon: ICONS.building },
-  { href: '/admin/money', label: 'Money', match: (p: string) => p.startsWith('/admin/money') || FINANCE_ROUTES.some(r => p === r || p.startsWith(r + '/')), icon: ICONS.money },
+  { href: '/admin/maintenance', label: 'Maintenance', match: (p: string) => p.startsWith('/admin/maintenance') || p.startsWith('/admin/jobs'), icon: ICONS.wrench },
+  { href: '/admin/appointments', label: 'Calendar', match: (p: string) => p.startsWith('/admin/appointments') || p.startsWith('/admin/calendar'), icon: ICONS.calendar },
 ]
 
 /** allowed: the person's access (lib/access/areas, from the layout) — tabs outside it aren't shown */
