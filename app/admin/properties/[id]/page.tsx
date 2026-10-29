@@ -33,6 +33,8 @@ import TenantAppTab from './components/TenantAppTab'
 import { landlordFormalNames } from '@/lib/people'
 import { PROPERTY_CERTIFICATES } from '@/lib/propertyCertificates'
 import LineIcon from '@/components/LineIcon'
+import { propertySystemAddress } from '@/lib/properties/names'
+import Availability from './components/Availability'
 
 const fullDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
 const todayIso = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
@@ -285,7 +287,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
           figures, and the tabs. Name, address and postcode are edited on the Details tab. */}
       <PageHero
         eyebrow={[property.property_code, property.property_type === 'hmo' ? 'HMO' : property.property_type === 'single' || property.property_type === 'single_let' ? 'Single let' : property.property_type, property.letting_type === 'let_only' ? 'Let only' : 'Fully managed'].filter(Boolean).join(' · ')}
-        title={String(property.name || '—').split('\n')[0]}
+        title={propertySystemAddress(property) || '—'}
         subtitle={<>
           {(() => { const addr = String(property.address || '').split('\n').join(', '); const sq = (v: string) => v.replace(/[\s,]/g, '').toLowerCase(); return sq(addr) === sq(String(property.name || '').split('\n').join(', ')) || sq(String(property.name || '')).includes(sq(addr)) ? null : <>{addr} · </> })()}
           {property.landlord_id ? <>Landlord: <Link href={`/admin/landlord/${property.landlord_id}`} className="hover:underline">{property.landlord_name}</Link></> : 'No landlord linked'}
@@ -301,6 +303,11 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
+        {property.unavailable_from && (
+          <div className="mb-lg rounded-xl border border-neutral-300 bg-neutral-50 px-md py-sm text-sm text-neutral-800">
+            <span className="font-semibold">Not available to let</span> since {fullDate(property.unavailable_from)}{property.unavailable_reason ? ` — ${property.unavailable_reason}` : ''}. Its empty rooms aren’t counted as voids. Change this on the Details tab.
+          </div>
+        )}
         {!property.property_code && (
           <div className="mb-lg flex flex-wrap items-center gap-sm rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">
             <span className="font-semibold">This house has no property code.</span>
@@ -322,6 +329,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
                 <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-lg">Extended Details</p>
                 <ExtendedDetailsTab propertyId={id} propertyType={property.property_type} />
               </div>
+              <Availability propertyId={id} from={property.unavailable_from} reason={property.unavailable_reason} onChange={u => setProperty((p: any) => ({ ...p, ...u }))} />
               <RemoveProperty propertyId={id} code={property.property_code ?? null} name={property.name} />
             </div>
           )}

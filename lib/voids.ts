@@ -4,7 +4,9 @@
 // never as empty. A room with neither (a house still being refurbished) isn't counted at all.
 // When the records say empty but the room is still marked let (a tenancy ended and nothing was recorded after it),
 // those days are "check", not counted, and the room is listed so the records can be put right.
+// A house marked not available (properties.unavailable_from — e.g. subsidence works) stops counting from that day: "off".
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { propertyName } from '@/lib/properties/names'
 
 export const VOID_WINDOWS = [3, 6, 12] as const
 export type VoidWindow = typeof VOID_WINDOWS[number]
@@ -12,14 +14,13 @@ export type VoidWindow = typeof VOID_WINDOWS[number]
 const DAY = 86400000
 const toDay = (iso: string) => Math.floor(Date.parse(`${iso.slice(0, 10)}T12:00:00Z`) / DAY)
 const toIso = (d: number) => new Date(d * DAY + DAY / 2).toISOString().slice(0, 10)
-const firstLine = (v: unknown) => String(v ?? '').split('\n')[0].trim().replace(/,.*$/, '')
 const monthsBack = (iso: string, n: number) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCMonth(d.getUTCMonth() - n); return d.toISOString().slice(0, 10) }
 
 export interface VoidRoom {
   id: string; name: string; houseId: string; house: string; landlordId: string | null; landlord: string
   knownFrom: string; rent: number | null
   // per window: days counted, days empty, rent lost, timeline segments [fromDay, toDay, kind] as offsets from the window start
-  w: Record<VoidWindow, { counted: number; empty: number; lost: number; segments: [number, number, 'let' | 'empty' | 'unknown' | 'check'][] }>
+  w: Record<VoidWindow, { counted: number; empty: number; lost: number; segments: [number, number, 'let' | 'empty' | 'unknown' | 'check' | 'off'][] }>
   emptyNowSince: string | null
   check: string | null      // why the records need looking at
 }
@@ -27,7 +28,7 @@ export interface VoidGroup { id: string; name: string; rooms: number; counted: n
 
 export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })) {
   const [{ data: props }, { data: rooms }, { data: tens }] = await Promise.all([
-    s.from('properties').select('id, name, address, landlord_id, letting_type, is_demo'),
+    s.from('properties').select('*'),   // * so it still works before migration 248 (unavailable_from)
     s.from('rooms').select('id, property_id, name, status, created_at, available_date, current_asking_rent, is_let_only'),
     s.from('tenancies').select('room_id, start_date, end_date, rent_amount, let_cancelled_at'),
   ]) as { data: any[] | null }[]
@@ -60,8 +61,10 @@ export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDa
     const latest = [...ts].reverse().find(t => Number(t.rent_amount) > 0)
     const rent = latest ? Number(latest.rent_amount) : r.current_asking_rent ? Number(r.current_asking_rent) : null
     const letOn = (d: number) => lets.some(([a, b]) => d >= a && d < b)
+    const offFrom = p.unavailable_from ? toDay(p.unavailable_from) : Infinity
+    const offNow = offFrom < end && !letOn(end - 1)
     let emptyNowSince: string | null = null
-    if (!letOn(end - 1) && toDay(knownFrom) < end) { let d = end - 1; while (d > toDay(knownFrom) && !letOn(d - 1)) d--; emptyNowSince = toIso(d) }
+    if (!offNow && !letOn(end - 1) && toDay(knownFrom) < end) { let d = end - 1; while (d > toDay(knownFrom) && !letOn(d - 1)) d--; emptyNowSince = toIso(d) }
     // records say empty, room says let → those trailing days are unconfirmed
     const checkFrom = emptyNowSince && !marketed ? toDay(emptyNowSince) : Infinity
     const check = emptyNowSince && !marketed ? `Marked let, but no tenancy on file since ${new Date(`${emptyNowSince}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', timeZone: 'UTC' })}` : null
@@ -72,14 +75,14 @@ export async function loadVoids(s: SupabaseClient, today = new Date().toLocaleDa
       const segments: VoidRoom['w'][VoidWindow]['segments'] = []
       let counted = 0, empty = 0
       for (let d = start; d < end; d++) {
-        const kind = d < known ? 'unknown' : letOn(d) ? 'let' : d >= checkFrom ? 'check' : 'empty'
+        const kind = d < known ? 'unknown' : letOn(d) ? 'let' : d >= offFrom ? 'off' : d >= checkFrom ? 'check' : 'empty'
         if (kind === 'let' || kind === 'empty') { counted++; if (kind === 'empty') empty++ }
         const last = segments[segments.length - 1]
         if (last && last[2] === kind) last[1] = d - start + 1; else segments.push([d - start, d - start + 1, kind])
       }
       w[m] = { counted, empty, lost: rent ? Math.round(empty * rent * 12 / 365 * 100) / 100 : 0, segments }
     }
-    out.push({ id: r.id, name: r.name ?? '', houseId: p.id, house: firstLine(p.name || p.address), landlordId: p.landlord_id ?? null, landlord: llName.get(p.landlord_id) ?? 'No landlord set', knownFrom, rent, w, emptyNowSince: marketed ? emptyNowSince : null, check })
+    out.push({ id: r.id, name: r.name ?? '', houseId: p.id, house: propertyName(p), landlordId: p.landlord_id ?? null, landlord: llName.get(p.landlord_id) ?? 'No landlord set', knownFrom, rent, w, emptyNowSince: marketed ? emptyNowSince : null, check })
   }
   out.sort((a, b) => a.house.localeCompare(b.house, 'en', { numeric: true }) || a.name.localeCompare(b.name, 'en', { numeric: true }))
 
