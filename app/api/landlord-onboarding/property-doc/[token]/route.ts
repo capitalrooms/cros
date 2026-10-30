@@ -8,6 +8,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODEL } from '@/lib/ai-classify'
 import { svc, loadRow, updateFormData, DOCS_BUCKET } from '@/lib/landlordOnboarding/store'
 import { FACT_LABELS, PROPERTY_DOC_TYPES, isPropertyDocType, mergePropertyDocs, type PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
+import { openBytes } from '@/lib/files/fileCrypt'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,7 @@ const isoDate = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.
 async function readDocument(path: string): Promise<Pick<PropertyDoc, 'type' | 'label' | 'info' | 'expiry'>> {
   const { data: file, error } = await svc().storage.from(DOCS_BUCKET).download(path)
   if (error || !file) throw new Error('could not download')
-  const data = Buffer.from(await file.arrayBuffer()).toString('base64')
+  const data = openBytes(Buffer.from(await file.arrayBuffer())).toString('base64')
   const pdf = path.endsWith('.pdf')
   const mediaType = pdf ? 'application/pdf' : path.endsWith('.png') ? 'image/png' : path.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
   const msg = await anthropic().messages.create({

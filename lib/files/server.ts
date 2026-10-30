@@ -4,13 +4,15 @@
 //   signedLinkFor(url, secs)  — a signed link that works for `secs` (emails, the move-in pack, quote pages)
 import { createServiceClient } from '@/lib/supabase'
 import { parseStorageUrl } from '@/lib/files/paths'
+import { openBytes } from '@/lib/files/fileCrypt'
 
 export async function readStoredFile(url: string): Promise<{ bytes: Buffer; contentType: string }> {
   const ref = parseStorageUrl(url)
   if (ref) {
     const { data, error } = await createServiceClient().storage.from(ref.bucket).download(ref.path)
     if (error || !data) throw new Error(`Couldn’t read the file: ${error?.message ?? 'not found'}`)
-    return { bytes: Buffer.from(await data.arrayBuffer()), contentType: data.type || 'application/octet-stream' }
+    // a file encrypted at rest (identity documents — lib/files/fileCrypt) is decrypted here, so every server reader gets the real file
+    return { bytes: openBytes(Buffer.from(await data.arrayBuffer())), contentType: data.type || 'application/octet-stream' }
   }
   const r = await fetch(url, { signal: AbortSignal.timeout(20000) })
   if (!r.ok) throw new Error(`Couldn’t download the file (${r.status})`)

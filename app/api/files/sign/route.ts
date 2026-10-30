@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireSignedIn, isStaff } from '@/lib/portalAuth'
 import { parseStorageUrl } from '@/lib/files/paths'
+import { isIdentityPath, viewLink } from '@/lib/files/fileCrypt'
 
 export const dynamic = 'force-dynamic'
 const SECONDS = 600
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
       ok = !!job && job.contractor_id === me.personId
     }
     if (!ok) continue
+    if (isIdentityPath(ref.bucket, ref.path)) { links[url] = viewLink(ref.bucket, ref.path, SECONDS); continue }   // encrypted at rest
     const { data } = await s.storage.from(ref.bucket).createSignedUrl(ref.path, SECONDS)
     links[url] = data?.signedUrl ?? null
   }
