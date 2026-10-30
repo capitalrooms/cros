@@ -84,6 +84,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
   )
 
   const cur = o.current
+  const letOnly = o.property.lettingType === 'let_only'   // the landlord manages: no rent account, repairs or deposit jobs here
   const pill = STAGE_PILL[o.stage] ?? STAGE_PILL.live
   const photo = o.room.photos[0]?.src ?? null
   const reletDue = !!(cur?.end && !o.incoming) || o.stage === 'void'
@@ -117,7 +118,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
             </div>
             <div className="hidden flex-wrap gap-sm md:flex">
               {cur && <button type="button" onClick={message} className="rounded-lg bg-[#F6F3EC] px-md py-sm text-sm font-black text-[#181614]">Message {cur.tenant.name}</button>}
-              {canReport && <button type="button" onClick={() => setArranging(true)} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Arrange works</button>}
+              {canReport && !letOnly && <button type="button" onClick={() => setArranging(true)} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Arrange works</button>}
               <Link href={`/lettings/listing/${roomId}?from=${encodeURIComponent(`/admin/properties/${propertyId}/rooms/${roomId}`)}`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Marketing view</Link>
               <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className="rounded-lg border border-[#F6F3EC]/25 px-md py-sm text-sm font-bold">Edit room</Link>
             </div>
@@ -125,11 +126,12 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
 
           <div className="mt-md grid grid-cols-2 gap-sm md:grid-cols-4">
             <Stat value={gbp(cur?.rent ?? o.incoming?.rent ?? o.room.askingRent)} label={cur ? `Rent per month · due on the ${ordinal(cur.dueDay)}` : 'Asking rent per month'} />
-            {cur?.balance != null && cur.balance > 0.004
+            {letOnly ? <Stat value="Let only" label={`${o.landlord?.name ?? 'The landlord'} collects the rent and manages`} />
+              : cur?.balance != null && cur.balance > 0.004
               ? <Stat value={gbp(cur.balance)} label="Owed on the rent account" tone="text-red-300" />
               : <Stat value={cur ? gbp(0) : '—'} label={cur ? 'Owed on the rent account' : 'No current tenancy'} />}
             <Stat value={o.occupancy ? `${o.occupancy.pct}%` : '—'} label={o.occupancy ? `Let since ${full(o.occupancy.since)} · ${o.occupancy.voidDays} void days` : 'No tenancies yet'} />
-            <Stat value={gbp(o.spend)} label={`Spent on this room · ${o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status)).length} repair${o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status)).length === 1 ? '' : 's'} open`} />
+            {!letOnly && <Stat value={gbp(o.spend)} label={`Spent on this room · ${o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status)).length} repair${o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status)).length === 1 ? '' : 's'} open`} />}
           </div>
 
           <nav aria-label={`Rooms at ${o.property.name}`} className="-mx-lg mt-md flex gap-0.5 overflow-x-auto px-lg" style={{ scrollbarWidth: 'none' }}>
@@ -167,7 +169,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
           <div className="min-w-0 flex-[1_1_340px] space-y-lg">
             {(reletDue || o.incoming || o.applicants.length > 0) && <Relet o={o} wide={wide} />}
             <TheRoom o={o} wide={wide} propertyId={propertyId} />
-            <Repairs o={o} wide={wide} onArrange={() => setArranging(true)} />
+            {!letOnly && <Repairs o={o} wide={wide} onArrange={() => setArranging(true)} />}
             <Safety o={o} wide={wide} propertyId={propertyId} />
           </div>
         </div>
@@ -181,7 +183,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
       {/* phone: the two things you most often do here, above the tab bar */}
       <div className="sticky bottom-0 z-30 grid grid-cols-[1fr_1fr_auto] gap-sm border-t border-neutral-200 bg-neutral-100/95 px-md py-sm backdrop-blur md:hidden">
         {cur && <button type="button" onClick={message} className={`${btnDark} col-span-3`}>Message {cur.tenant.name}</button>}
-        {canReport && <button type="button" onClick={() => setArranging(true)} className={`${btnLight} col-span-2`}>Arrange works</button>}
+        {canReport && !letOnly && <button type="button" onClick={() => setArranging(true)} className={`${btnLight} col-span-2`}>Arrange works</button>}
         <Link href={`/admin/properties/${propertyId}/rooms/${roomId}/edit`} className={`${btnLight} ${canReport ? '' : 'col-span-3'}`} aria-label="Edit room">{canReport ? 'Edit' : 'Edit room'}</Link>
       </div>
     </div>

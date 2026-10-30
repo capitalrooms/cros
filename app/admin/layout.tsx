@@ -107,7 +107,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // where Back goes when this tab has no earlier screen: a property's pages → All Units; a page inside a section → that
   // section's list; a section's own home (or a phone tab) → nowhere, so no button
   const backFallback: { href: string; label: string } | null =
-    onPropHub ? { href: '/admin/active-rooms', label: 'All Units' }
+    onPropHub ? { href: '/admin/active-rooms', label: 'All Properties' }
     : isPhoneTabRoot(pathname) ? null
     : activeSub && activeSub.href.split('?')[0] !== pathname ? { href: activeSub.href, label: activeSub.label }
     : railZone && !railZone.subnav.some(i => i.href.split('?')[0] === pathname) && railZone.subnav[0] ? { href: railZone.subnav[0].href, label: railZone.label }

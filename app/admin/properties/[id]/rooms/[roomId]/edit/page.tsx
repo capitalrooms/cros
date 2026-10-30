@@ -734,7 +734,7 @@ export default function RoomDashboardPage({
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href={`/admin/properties/${propertyId}/rooms/${roomId}`} />} />
       <PageHero
-        eyebrow={<><Link href="/admin/active-rooms" className="hover:underline">All Units</Link> · <Link href={`/admin/properties/${propertyId}`} className="hover:underline">{String(property.name ?? '').split('\n')[0]}</Link></>}
+        eyebrow={<><Link href="/admin/active-rooms" className="hover:underline">All Properties</Link> · <Link href={`/admin/properties/${propertyId}`} className="hover:underline">{String(property.name ?? '').split('\n')[0]}</Link></>}
         title={`Edit ${room.name}`}
         tabs={tabs.map(t => ({ key: t.id, label: t.label, active: activeTab === t.id, onClick: () => setActiveTab(t.id) }))}
         subtitle={String(property.address ?? '').split('\n').join(', ')}

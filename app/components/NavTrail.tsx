@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { recordVisit, nameVisit } from '@/lib/navTrail'
 
 const NAMES: [RegExp, string][] = [
-  [/^\/admin\/?$/, 'Dashboard'], [/^\/admin\/active-rooms/, 'All Units'], [/^\/admin\/properties\/[^/]+\/rooms\//, 'Room'],
+  [/^\/admin\/?$/, 'Dashboard'], [/^\/admin\/active-rooms/, 'All Properties'], [/^\/admin\/properties\/[^/]+\/rooms\//, 'Room'],
   [/^\/admin\/properties\/[^/]+/, 'Property'], [/^\/admin\/lettings\/[^/]+/, 'Letting file'], [/^\/lettings\/?$/, 'Lettings'],
   [/^\/cleaner\/?$/, 'My cleans'], [/^\/contractor\/?$/, 'My jobs'], [/^\/tenant\/?$/, 'Home'], [/^\/landlord\/?$/, 'Home'],
 ]

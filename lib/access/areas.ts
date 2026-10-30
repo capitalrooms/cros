@@ -19,7 +19,7 @@ export const AREAS: Area[] = [
     pages: ['/admin/today', '/admin/search'], api: ['/api/admin/dashboard', '/api/admin/today', '/api/admin/search'],
     // 23 Oct 2026 audit: each area may READ what its own screens show from another area; changing it stays there
     apiRead: ['/api/admin/rent-charges', '/api/admin/finance-dates'] },
-  { key: 'properties', label: 'Properties', hint: 'All Units, property pages, adding properties',
+  { key: 'properties', label: 'Properties', hint: 'All Properties, property pages, adding properties',
     pages: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties', '/admin/property-documents', '/admin/property-notes'],
     // (removing a property is administrators only — not in any area)
     api: ['/api/admin/property-tasks', '/api/admin/rooms', '/api/admin/house-docs', '/api/admin/hmo-notice', '/api/admin/files',
@@ -74,7 +74,7 @@ export const AREAS: Area[] = [
     pages: ['/admin/people', '/admin/person', '/admin/contacts', '/admin/landlords', '/admin/tenant', '/admin/landlord'], api: ['/api/admin/people', '/api/admin/landlords', '/api/admin/landlord-access'],
     // tenant profiles show the rent account; the People list shows who's on emergency call-outs
     apiRead: ['/api/admin/emergencies', '/api/admin/rent-charges', '/api/admin/payment-audit-log', '/api/admin/tenancies', '/api/admin/deposit-returns', '/api/admin/messages'] },
-  { key: 'comms', label: 'Comms', hint: 'Messages, letters & invoices, quick notify, templates',
+  { key: 'comms', label: 'Communications', hint: 'Messages, letters & invoices, quick notify, templates',
     pages: ['/admin/communications', '/admin/document-generator', '/admin/notify', '/admin/message-templates', '/admin/acknowledgment-notes', '/admin/feedback'],
     api: ['/api/admin/notify', '/api/admin/messages', '/api/admin/message-templates', '/api/admin/communications', '/api/admin/document-generator', '/api/admin/letters', '/api/admin/quick-notify',
       '/api/admin/notices', '/api/admin/feedback', '/api/admin/letter-templates', '/api/admin/documents/generated'] },
