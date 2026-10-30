@@ -295,6 +295,7 @@ function CurrentTenancy({ o, wide, onMessage }: { o: RoomOverview; wide: boolean
           <button type="button" onClick={onMessage} className={btnDark}>Message</button>
           {c.tenant.phone ? <a href={`tel:${c.tenant.phone.replace(/\s+/g, '')}`} className={btnLight}>Call</a> : <span className={`${btnLight} opacity-40`}>No mobile</span>}
           <Link href={`/admin/lettings/${c.id}?from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className={btnLight}>Letting file</Link>
+          <Link href={`/admin/move-in/${c.id}`} className={btnLight}>Move-in pack</Link>
           {/* notice is recorded (or changed) in the letting file — the list rows no longer carry the button */}
           <Link href={`/admin/lettings/${c.id}?tab=notice${c.notice ? '' : '&mark=1'}`} className={`${btnLight} col-span-3 sm:col-span-1`}>{c.notice ? 'Notice' : 'Record notice'}</Link>
         </div>
