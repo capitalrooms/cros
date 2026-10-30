@@ -290,7 +290,7 @@ export function ProgressTab({ file, step, setStep, patch, reload }: { file: Lett
                   </tbody>
                 </table>
               ) : <p className="text-sm text-neutral-500">Add the start date and rent in Terms to work this out.</p>}
-              {money && <p className="text-xs text-neutral-500">Paid to {money.bank.name} · {money.bank.sortCode} · {money.bank.accountNo} · reference <strong>{money.paymentRef}</strong></p>}
+              {money?.bank && <p className="text-xs text-neutral-500">Paid to {money.bank.name} · {money.bank.sortCode} · {money.bank.accountNo} · reference <strong>{money.paymentRef}</strong></p>}
               {file.moneyWarnings.length > 0 && <ul className="text-xs text-amber-800 list-disc pl-lg">{file.moneyWarnings.map(w => <li key={w}>{w}</li>)}</ul>}
               <button type="button" className={btn} onClick={() => openPdf(`/api/admin/move-in/${t.id}/doc?key=check_in`)}>Check-in balance (PDF)</button>
               <Tick title="Move-in monies received" step="monies" value={t.move_in_monies_received_at} patch={patch} disabled={ended}

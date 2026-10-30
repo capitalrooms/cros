@@ -708,13 +708,13 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
             </div>
 
             {/* ── Letting type ── */}
-            <div className="border-t border-neutral-700 pt-lg">
-              <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Letting type</label>
+            <div className="border-t border-neutral-300 pt-lg">
+              <label className="text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-sm block">Letting type</label>
               <div className="grid grid-cols-2 gap-sm mb-lg">
                 {([['managed','Fully managed','Capital Rooms manages everything'],['let_only','Let only','Find tenant only — landlord manages']] as const).map(([val, label, desc]) => (
                   <button key={val} type="button"
                     onClick={() => setFormData({ ...formData, letting_type: val })}
-                    className={`rounded-lg border px-md py-sm text-left transition ${formData.letting_type === val ? 'border-blue-500 bg-blue-500/10 text-blue-300' : 'border-neutral-700 bg-neutral-800 text-neutral-300 hover:border-neutral-500'}`}>
+                    className={`rounded-lg border px-md py-sm text-left transition ${formData.letting_type === val ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800 hover:border-neutral-500'}`}>
                     <p className="text-sm font-semibold">{label}</p>
                     <p className="text-xs opacity-70 mt-0.5">{desc}</p>
                   </button>
@@ -722,23 +722,23 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               </div>
 
               {formData.letting_type === 'let_only' && (
-                <div className="space-y-lg rounded-xl border border-neutral-700 bg-neutral-800/50 p-lg">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Landlord bank details <span className="normal-case font-normal text-neutral-500">— used in tenancy agreements &amp; check-in letters</span></p>
+                <div className="space-y-lg rounded-xl border border-neutral-300 bg-white p-lg">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Landlord bank details <span className="normal-case font-normal text-neutral-600">— used in tenancy agreements &amp; check-in letters</span></p>
                   {/* Fed from the landlord's own bank accounts (saved on the landlord's page) */}
                   {!selectedLandlordId ? (
-                    <p className="text-xs text-amber-400">Choose this property's landlord above to pick one of their bank accounts.</p>
+                    <p className="text-xs text-amber-700">Choose this property's landlord above to pick one of their bank accounts.</p>
                   ) : landlordAccounts.length === 0 ? (
-                    <p className="text-xs text-neutral-400">This landlord has no bank accounts saved yet — add one on the <a href={`/admin/landlord/${selectedLandlordId}`} className="underline">landlord&apos;s page</a>, then pick it here.</p>
+                    <p className="text-xs text-neutral-600">This landlord has no bank accounts saved yet — add one on the <a href={`/admin/landlord/${selectedLandlordId}`} className="underline">landlord&apos;s page</a>, then pick it here.</p>
                   ) : (
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">Use the landlord&apos;s account</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">Use the landlord&apos;s account</label>
                       <select
                         value={landlordAccounts.find(a => a.account_number === formData.bank_account_number && a.sort_code === formData.bank_sort_code)?.id || ''}
                         onChange={e => {
                           const a = landlordAccounts.find(x => x.id === e.target.value)
                           if (a) setFormData({ ...formData, bank_account_name: a.account_name || '', bank_sort_code: a.sort_code || '', bank_account_number: a.account_number || '', bank_iban: a.iban || '', bank_swift: a.swift || '' })
                         }}
-                        className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100">
+                        className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900">
                         <option value="">— choose an account —</option>
                         {landlordAccounts.map(a => (
                           <option key={a.id} value={a.id}>{a.account_label || a.account_name} · {a.sort_code} · ••••{String(a.account_number || '').slice(-4)}{a.is_default ? ' (default)' : ''}</option>
@@ -749,54 +749,54 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
 
                   <div className="grid grid-cols-2 gap-md">
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">Account name</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">Account name</label>
                       <input type="text" value={formData.bank_account_name} onChange={e => setFormData({ ...formData, bank_account_name: e.target.value })}
-                        placeholder="e.g. John Smith" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        placeholder="e.g. John Smith" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">Sort code</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">Sort code</label>
                       <input type="text" value={formData.bank_sort_code} onChange={e => setFormData({ ...formData, bank_sort_code: e.target.value })}
-                        placeholder="00-00-00" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        placeholder="00-00-00" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">Account number</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">Account number</label>
                       <input type="text" value={formData.bank_account_number} onChange={e => setFormData({ ...formData, bank_account_number: e.target.value })}
-                        placeholder="12345678" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        placeholder="12345678" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">Payment reference base</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">Payment reference base</label>
                       <input type="text" value={formData.bank_payment_ref} onChange={e => setFormData({ ...formData, bank_payment_ref: e.target.value })}
-                        placeholder="e.g. 008ROC (room code appended)" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        placeholder="e.g. 008ROC (room code appended)" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">IBAN</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">IBAN</label>
                       <input type="text" value={formData.bank_iban} onChange={e => setFormData({ ...formData, bank_iban: e.target.value })}
-                        placeholder="GB00 XXXX 0000 0000 0000 00" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        placeholder="GB00 XXXX 0000 0000 0000 00" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">SWIFT / BIC</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">SWIFT / BIC</label>
                       <input type="text" value={formData.bank_swift} onChange={e => setFormData({ ...formData, bank_swift: e.target.value })}
-                        placeholder="e.g. BUKBGB22" className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        placeholder="e.g. BUKBGB22" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   </div>
 
-                  <div className="border-t border-neutral-700 pt-md grid grid-cols-2 gap-md">
+                  <div className="border-t border-neutral-300 pt-md grid grid-cols-2 gap-md">
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">Letting fee</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">Letting fee</label>
                       <div className="flex gap-sm items-center">
                         <input type="number" value={formData.letting_fee_pct} onChange={e => setFormData({ ...formData, letting_fee_pct: e.target.value, letting_fee_flat: '' })}
-                          placeholder="e.g. 75" className="w-20 px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        <span className="text-xs text-neutral-400">% of first month's rent</span>
-                        <span className="text-xs text-neutral-600">or</span>
-                        <span className="text-xs text-neutral-400">£</span>
+                          placeholder="e.g. 75" className="w-20 px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <span className="text-xs text-neutral-600">% of first month's rent</span>
+                        <span className="text-xs text-neutral-500">or</span>
+                        <span className="text-xs text-neutral-600">£</span>
                         <input type="number" value={formData.letting_fee_flat} onChange={e => setFormData({ ...formData, letting_fee_flat: e.target.value, letting_fee_pct: '' })}
-                          placeholder="flat fee" className="w-24 px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          placeholder="flat fee" className="w-24 px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs text-neutral-400 mb-xs">Rent due date preference</label>
+                      <label className="block text-xs text-neutral-600 mb-xs">Rent due date preference</label>
                       <select value={formData.rent_due_preference} onChange={e => setFormData({ ...formData, rent_due_preference: e.target.value })}
-                        className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm bg-neutral-900 text-neutral-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="fixed_day">Fixed day of month (e.g. 1st)</option>
                         <option value="move_in_date">Move-in date each month</option>
                       </select>

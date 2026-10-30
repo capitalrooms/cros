@@ -194,13 +194,22 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
   }
 }
 
+/** Who the tenant pays: on a let-only the landlord collects the first rent and deposit too (Harry, 30 Oct 2026),
+ *  so it's the landlord's own account — never the Capital Rooms client account. */
+export function payeeBank(ctx: PackContext): { name: string; bank: string; sortCode: string; accountNo: string; iban: string; swift: string } {
+  if (ctx.lettingType !== 'let_only') return CLIENT_ACCOUNT
+  const b = ctx.landlordBank
+  if (!b?.accountNo) throw new Error('Add the landlord’s bank account to this property first (property › Details › bank account) — on a let-only the landlord collects the rent and deposit.')
+  return { name: b.name, bank: b.bank, sortCode: b.sortCode, accountNo: b.accountNo, iban: b.iban ?? '', swift: b.swift ?? '' }
+}
+
 export function moneySummary(ctx: PackContext) {
   const f = ctx.first
   return {
     startDate: ctx.startDate, rentMonthly: ctx.rentMonthly, rentDueDay: ctx.rentDueDay,
     firstRent: f?.amount ?? null, firstFrom: f ? iso(f.from) : null, firstTo: f ? iso(f.to) : null, firstFull: f?.full ?? null,
     deposit: ctx.deposit, holdingDeposit: ctx.holdingDeposit, amountDue: ctx.amountDue, payBy: ctx.payBy,
-    paymentRef: ctx.paymentRef, bank: CLIENT_ACCOUNT,
+    paymentRef: ctx.paymentRef, bank: (() => { try { return payeeBank(ctx) } catch { return null } })(),
   }
 }
 
@@ -257,6 +266,7 @@ export async function renderAgreement(ctx: PackContext, opts: { parking?: boolea
 }
 
 export async function renderCheckIn(ctx: PackContext) {
+  const payee = payeeBank(ctx)
   return generateCheckInBalancePDF({
     tenantNames: ctx.tenant.names,
     propertyAddress: ctx.address,
@@ -267,11 +277,11 @@ export async function renderCheckIn(ctx: PackContext) {
     rentMode: 'prorata',
     rentDueDay: ctx.rentDueDay,
     paymentRef: ctx.paymentRef,
-    bankName: CLIENT_ACCOUNT.name,
-    sortCode: CLIENT_ACCOUNT.sortCode,
-    accountNo: CLIENT_ACCOUNT.accountNo,
-    iban: CLIENT_ACCOUNT.iban,
-    swift: CLIENT_ACCOUNT.swift,
+    bankName: payee.name,
+    sortCode: payee.sortCode,
+    accountNo: payee.accountNo,
+    iban: payee.iban,
+    swift: payee.swift,
     bizSettings: await fetchPDFBizSettings(),
   })
 }
