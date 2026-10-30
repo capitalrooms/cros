@@ -55,7 +55,8 @@ export async function renderDpsForm(c: PIContext): Promise<Buffer> {
   }
 
   const tenantNames = c.tenants.map(t => t.name).join(', ')
-  const landlordAddress = `c/o ${c.agentAddress.replace(/^Capital Rooms Ltd,\s*/, 'Capital Rooms Ltd (managing agent), ')}`
+  // the landlord's own address and contact details; c/o us only when we don't hold them
+  const landlordAddress = c.landlordAddress || `c/o ${c.agentAddress.replace(/^Capital Rooms Ltd,\s*/, 'Capital Rooms Ltd (managing agent), ')}`
   const landlordLine = c.landlord
 
   // page 1 — "To:" every tenant (and anyone paying for them)
@@ -66,8 +67,8 @@ export async function renderDpsForm(c: PIContext): Promise<Buffer> {
   block(p2, [133.2, 148.0, 162.9, 177.7], c.property)
   fill(p2, 124.7, 216.5, 226.5, 511.1, 'Name: ', landlordLine)
   block(p2, [246.2, 261.0, 275.9, 290.7], landlordAddress)
-  fill(p2, 124.7, 306.9, 316.9, 510.8, 'Telephone Number: ', c.agentPhone || '—')
-  fill(p2, 124.7, 323.2, 333.2, 512.7, 'Email address (if any): ', c.agentEmail || '—')
+  fill(p2, 124.7, 306.9, 316.9, 510.8, 'Telephone Number: ', c.landlordPhone || c.agentPhone || '—')
+  fill(p2, 124.7, 323.2, 333.2, 512.7, 'Email address (if any): ', c.landlordEmail || c.agentEmail || '—')
   fill(p2, 124.7, 339.5, 349.5, 511.7, 'Fax Number (if any): ', 'None')
 
   // each tenant's block: name, address (the property), phone, email, fax, address for the end of the tenancy
@@ -97,9 +98,13 @@ export async function renderDpsForm(c: PIContext): Promise<Buffer> {
   const at = 102 + font.widthOfTextAtSize('Refer to Clause(s) [ ', 10)
   p4.drawText('5 (The deposit)', { x: at, y: H - 76.4, size: 10, font: bold, color: INK })
   p4.drawText('] of the Tenancy Agreement.', { x: at + bold.widthOfTextAtSize('5 (The deposit) ', 10), y: H - 76.4, size: 10, font, color: rgb(0, 0, 0) })
-  fill(p4, 57.7, 210.5, 220.5, 227.9, 'Landlord(s): ', 'Capital Rooms Ltd, as agent', { size: 8.5 })
-  // the second line has no signature box beside it, so the landlord's name can run on
-  fill(p4, 124.7, 226.8, 236.8, 420, '', `for ${c.landlord}`, { size: 8.5 })
+  // let-only: the landlord signs it themselves; managed: we sign as their agent
+  if (c.letOnly) fill(p4, 57.7, 210.5, 220.5, 227.9, 'Landlord(s): ', c.landlord, { size: 8.5 })
+  else {
+    fill(p4, 57.7, 210.5, 220.5, 227.9, 'Landlord(s): ', 'Capital Rooms Ltd, as agent', { size: 8.5 })
+    // the second line has no signature box beside it, so the landlord's name can run on
+    fill(p4, 124.7, 226.8, 236.8, 420, '', `for ${c.landlord}`, { size: 8.5 })
+  }
   const tenantTops = [373.0, 389.3, 405.5, 421.8]
   c.tenants.slice(0, 4).forEach((t, i) => fill(p4, i === 0 ? 57.7 : 124.7, tenantTops[i], tenantTops[i] + 10, 227.9, i === 0 ? 'Tenant(s): ' : '', t.name, { size: 8.5 }))
 
