@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     let lookupPostcode = postcode
     if (!lookupPostcode && address) {
-      const postcodeMatch = address.match(/\b([A-Z]{1,2}[0-9]{1,2}\s[0-9]{1}[A-Z]{2})\b/i)
+      const postcodeMatch = address.match(/\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i)
       lookupPostcode = postcodeMatch ? postcodeMatch[1] : null
     }
 
