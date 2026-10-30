@@ -8,6 +8,7 @@ import { adminFetch, downloadPdf } from '@/lib/adminFetch'
 import { FACT_LABELS, propertyDocLabel, type PropertyDoc } from '@/lib/landlordOnboarding/propertyDocs'
 import { onboardingName } from '@/lib/people'
 import LineIcon from '@/components/LineIcon'
+import AskForMissing from './AskForMissing'
 
 type Status = 'pass' | 'review' | 'fail'
 interface Check { area: string; label: string; status: Status; detail: string }
@@ -318,6 +319,8 @@ export default function OnboardingReviewPage({ params }: { params: Promise<{ id:
 
           {/* Right column: decision + agreement */}
           <div className="space-y-lg">
+            {!row.verified_at && review && <AskForMissing id={id} form={f} review={review} onSent={load} card={card} h2={h2} />}
+
             <div className={card}>
               <h2 className={h2}>Your decision</h2>
               {decision && <p className="text-xs text-neutral-500 mb-md">Last recorded by {decision.reviewer_name} on {fmt(decision.reviewed_at)}.</p>}
