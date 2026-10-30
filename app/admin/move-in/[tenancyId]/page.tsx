@@ -2,7 +2,7 @@
 
 // Move-in pack for one tenancy: check the move-in figures, choose documents, preview, send one link.
 import { openStoredFile } from '@/lib/files/openFile'
-import { use, useCallback, useEffect, useMemo, useState } from 'react'
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import DocUploadDrawer from '@/components/DocUploadDrawer'
 import AppBar from '@/components/AppBar'
@@ -23,7 +23,7 @@ interface Data {
   context: {
     tenancyId: string; tenant: { name: string; email: string; emails?: string[]; formalName: string }; address: string; landlordName: string
     property: { id: string }; startDate: string | null; rentMonthly: number; rentDueDay: number; deposit: number; holdingDeposit: number
-    paymentRef: string; paymentRefStored: boolean; warnings: string[]; documents: Doc[]; lettingType?: string | null
+    paymentRef: string; paymentRefStored: boolean; warnings: string[]; documents: Doc[]; lettingType?: string | null; houseLettingType?: string | null
   }
   packs: Pack[]; commsLive: boolean; defaults: { subject: string; message: string }; setupNeeded: string | null
 }
@@ -43,17 +43,20 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
   const [dirty, setDirty] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [parking, setParking] = useState(false)
+  const [agreement, setAgreement] = useState<'' | 'managed' | 'let_only'>('')   // '' = follow the house's setting
+  const agreementQs = agreement ? `agreement=${agreement}` : ''
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [cc, setCc] = useState('harry@capitalrooms.co.uk')
   const [emailHtml, setEmailHtml] = useState('')
 
-  const load = useCallback(async (resetForm = false) => {
+  const load = useCallback(async (resetForm = false, resetDocs = false) => {
     try {
-      const r = await adminFetch(`/api/admin/move-in/${tenancyId}`)
+      const r = await adminFetch(`/api/admin/move-in/${tenancyId}${agreementQs ? '?' + agreementQs : ''}`)
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || 'Could not load this tenancy')
       setData(d)
+      if (resetDocs && !resetForm) setPicked(new Set(d.context.documents.filter((x: Doc) => x.include).map((x: Doc) => x.key)))
       if (resetForm) {
         const c = d.context
         setForm({ start_date: c.startDate || '', rent_amount: c.rentMonthly ? String(c.rentMonthly) : '', rent_due_day: String(c.rentDueDay || 1),
@@ -63,8 +66,9 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
         setSubject(d.defaults.subject); setMessage(d.defaults.message); setDirty(!c.paymentRefStored)
       }
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not load this tenancy') }
-  }, [tenancyId])
-  useEffect(() => { load(true) }, [load])
+  }, [tenancyId, agreementQs])
+  const first = useRef(true)
+  useEffect(() => { load(first.current, !first.current); first.current = false }, [load])
   // back from uploading somewhere else (another tab, the house's page, the phone): look again, so what was filed is
   // there (27 Oct 2026, Harry: "when I come back from uploading they need to be there"). The form isn't reset.
   useEffect(() => {
@@ -112,7 +116,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
     setBusy(key); setError('')
     const win = window.open('', '_blank')
     try {
-      const r = await adminFetch(`/api/admin/move-in/${tenancyId}/doc?key=${key}${parking ? '&parking=1' : ''}`)
+      const r = await adminFetch(`/api/admin/move-in/${tenancyId}/doc?key=${key}${parking ? '&parking=1' : ''}${agreementQs ? '&' + agreementQs : ''}`)
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Could not build the document')
       const url = URL.createObjectURL(await r.blob())
       if (win) win.location.href = url; else window.open(url, '_blank')
@@ -123,7 +127,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
   async function previewEmail() {
     setBusy('email'); setError('')
     try {
-      const r = await adminFetch(`/api/admin/move-in/${tenancyId}/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'preview', docs: [...picked], message }) })
+      const r = await adminFetch(`/api/admin/move-in/${tenancyId}/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'preview', docs: [...picked], message, agreement: agreement || undefined }) })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || 'Could not build the email')
       setEmailHtml(d.html)
@@ -138,7 +142,7 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
     try {
       const r = await adminFetch(`/api/admin/move-in/${tenancyId}/send`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, docs: [...picked], parking, subject, message, cc }),
+        body: JSON.stringify({ action, docs: [...picked], parking, agreement: agreement || undefined, subject, message, cc }),
       })
       const d = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(d.error || 'Could not create the pack')
@@ -232,15 +236,35 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
               ) : <p className="text-sm text-white/70">Add the move-in date and rent to see the figures.</p>}
             </div>
 
+            {/* which agreement goes out — the house's setting is the default, the office confirms or changes it per pack
+                (30 Oct 2026). It also decides the bank account printed and which guides go in. */}
+            <div className="rounded-xl border-2 border-neutral-900 p-md">
+              <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Agreement</p>
+              <div className="mt-xs flex flex-wrap gap-sm">
+                {([['managed', 'Capital Rooms managed', 'Rent to the Capital Rooms client account · all guides'],
+                   ['let_only', 'Nigel let-only', 'Rent to the landlord’s own account · no Jedi or Checking Out guide · landlord signs']] as const).map(([v, label, sub]) => {
+                  const on = (c.lettingType === 'let_only' ? 'let_only' : 'managed') === v
+                  return (
+                    <button key={v} type="button" onClick={() => setAgreement(v)}
+                      className={`rounded-lg border px-md py-sm text-left ${on ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-300 bg-white text-neutral-800'}`}>
+                      <span className="block text-sm font-bold">{label}</span>
+                      <span className={`block text-xs ${on ? 'text-white/70' : 'text-neutral-500'}`}>{sub}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {c.lettingType === 'let_only' && <label className="mt-sm flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={parking} onChange={e => setParking(e.target.checked)} />Include the parking clause</label>}
+              {(c.lettingType === 'let_only') !== (c.houseLettingType === 'let_only') && (
+                <p className="mt-sm text-xs font-bold text-amber-800">This house is set to {c.houseLettingType === 'let_only' ? 'let-only' : 'managed'} on its Details page — check this is right, or change the house.</p>
+              )}
+            </div>
+
             <div className="flex flex-wrap items-center gap-sm">
               <button onClick={save} disabled={!dirty || busy === 'save'} className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:bg-neutral-300">{busy === 'save' ? 'Saving…' : dirty ? 'Save figures' : 'Saved'}</button>
               <button onClick={() => previewDoc('agreement')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'agreement' ? 'Building…' : 'Preview agreement'}</button>
               <button onClick={() => previewDoc('check_in')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'check_in' ? 'Building…' : 'Preview check-in balance'}</button>
               {c.documents.some(d => d.key === 'prescribed_info') && <button onClick={() => previewDoc('prescribed_info')} disabled={!!busy} className="rounded-lg border border-neutral-300 px-md py-sm text-sm font-bold text-neutral-800">{busy === 'prescribed_info' ? 'Building…' : 'Preview deposit prescribed information'}</button>}
-              {/* only Nigel's let-only agreement has a parking clause (27 Oct 2026) — managed packs use the Capital Rooms one */}
-              {c.lettingType === 'let_only'
-                ? <label className="flex items-center gap-xs text-xs text-neutral-700"><input type="checkbox" checked={parking} onChange={e => setParking(e.target.checked)} />Nigel’s let-only agreement · include the parking clause</label>
-                : <span className="text-xs text-neutral-500">Capital Rooms agreement</span>}
+
             </div>
             {c.warnings.length > 0 && <ul className="list-disc space-y-xs pl-lg text-sm text-amber-800">{c.warnings.map(w => <li key={w}>{w}</li>)}</ul>}
           </section>

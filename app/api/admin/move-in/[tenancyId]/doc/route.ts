@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { contentDisposition } from '@/lib/contentDisposition'
-import { loadPackContext, renderAgreement, renderCheckIn, packFileName, GENERATED_KEYS, type GeneratedKey } from '@/lib/movein/pack'
+import { agreementChoice, loadPackContext, renderAgreement, renderCheckIn, packFileName, GENERATED_KEYS, type GeneratedKey } from '@/lib/movein/pack'
 import { renderDpsFormFor } from '@/lib/deposits/dpsForm'
 import { svc } from '@/lib/movein/email'
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ tena
   const { tenancyId } = await params
   const key = req.nextUrl.searchParams.get('key')
   if (!GENERATED_KEYS.includes(key as GeneratedKey)) return NextResponse.json({ error: 'Unknown document' }, { status: 400 })
-  const ctx = await loadPackContext(svc(), tenancyId)
+  const ctx = await loadPackContext(svc(), tenancyId, { agreement: agreementChoice(req.nextUrl.searchParams.get('agreement')) })
   if (!ctx) return NextResponse.json({ error: 'Tenancy not found' }, { status: 404 })
   if (!ctx.startDate || !ctx.rentMonthly) return NextResponse.json({ error: 'Add the move-in date and rent first.' }, { status: 400 })
   let pdf: Buffer
