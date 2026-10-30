@@ -39,7 +39,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
     adminFetch(`/api/admin/properties/bank?ids=${property.id}`).then(r => r.ok ? r.json() : null).then(d => {
       const b = d?.banks?.[property.id]
       if (!b) return
-      const fields = { bank_account_name: b.bank_account_name ?? null, bank_sort_code: b.bank_sort_code ?? null, bank_account_number: b.bank_account_number ?? null, bank_iban: b.bank_iban ?? null, bank_swift: b.bank_swift ?? null, bank_payment_ref: b.bank_payment_ref ?? null }
+      const fields = { bank_account_id: b.bank_account_id ?? null, bank_account_name: b.bank_account_name ?? null, bank_sort_code: b.bank_sort_code ?? null, bank_account_number: b.bank_account_number ?? null, bank_iban: b.bank_iban ?? null, bank_swift: b.bank_swift ?? null, bank_payment_ref: b.bank_payment_ref ?? null }
       setDisplayed((prev: any) => ({ ...prev, ...fields }))
       setFormData((f: any) => ({ ...f, ...Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v ?? ''])) }))
     }).catch(() => {})
@@ -94,6 +94,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
     lng: p.lng != null ? String(p.lng) : '',
     // Letting type & let-only bank details
     letting_type: p.letting_type || 'managed',
+    bank_account_id: p.bank_account_id || '',
     bank_account_name: p.bank_account_name || '',
     bank_sort_code: plain(p.bank_sort_code),
     bank_account_number: plain(p.bank_account_number),
@@ -258,10 +259,18 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
       bank_account_number: formData.bank_account_number.trim() || null, bank_iban: formData.bank_iban.trim() || null,
       bank_swift: formData.bank_swift.trim() || null, bank_payment_ref: formData.bank_payment_ref.trim() || null,
     }
-    if (!err && Object.entries(bank).some(([k, v]) => v !== ((displayed as any)[k] || null))) {
+    // linked to one of the landlord's accounts: the server copies its details onto the house (lib/banking/propertyAccount)
+    const linkTo = formData.bank_account_id || null
+    if (!err && linkTo !== ((displayed as any).bank_account_id || null) && linkTo) {
+      const r = await adminFetch('/api/admin/properties/bank', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: property.id, bank_account_id: linkTo }) })
+      if (!r.ok) err = { message: (await r.json().catch(() => ({}))).error || 'bank account' } as any
+      else { const d = await r.json().catch(() => ({})); Object.assign(patch, d.bank ?? {}) }
+    } else if (!err && Object.entries(bank).some(([k, v]) => v !== ((displayed as any)[k] || null))) {
+      // typed by hand: no longer linked to a saved account
+      if ((displayed as any).bank_account_id) await adminFetch('/api/admin/properties/bank', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: property.id, bank_account_id: null }) })
       const r = await adminFetch('/api/admin/properties/bank', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: property.id, ...bank }) })
       if (!r.ok) err = { message: 'bank details' } as any
-      else Object.assign(patch, bank)
+      else Object.assign(patch, bank, { bank_account_id: null })
     }
     const code = formData.key_safe_code.trim() || null
     if (!err && code !== ((displayed as any).key_safe_code || null)) {
@@ -733,10 +742,10 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                     <div>
                       <label className="block text-xs text-neutral-600 mb-xs">Use the landlord&apos;s account</label>
                       <select
-                        value={landlordAccounts.find(a => a.account_number === formData.bank_account_number && a.sort_code === formData.bank_sort_code)?.id || ''}
+                        value={formData.bank_account_id || landlordAccounts.find(a => a.account_number === formData.bank_account_number && a.sort_code === formData.bank_sort_code)?.id || ''}
                         onChange={e => {
                           const a = landlordAccounts.find(x => x.id === e.target.value)
-                          if (a) setFormData({ ...formData, bank_account_name: a.account_name || '', bank_sort_code: a.sort_code || '', bank_account_number: a.account_number || '', bank_iban: a.iban || '', bank_swift: a.swift || '' })
+                          if (a) setFormData({ ...formData, bank_account_id: a.id, bank_account_name: a.account_name || '', bank_sort_code: a.sort_code || '', bank_account_number: a.account_number || '', bank_iban: a.iban || '', bank_swift: a.swift || '' })
                         }}
                         className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900">
                         <option value="">— choose an account —</option>
@@ -750,17 +759,17 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                   <div className="grid grid-cols-2 gap-md">
                     <div>
                       <label className="block text-xs text-neutral-600 mb-xs">Account name</label>
-                      <input type="text" value={formData.bank_account_name} onChange={e => setFormData({ ...formData, bank_account_name: e.target.value })}
+                      <input type="text" value={formData.bank_account_name} onChange={e => setFormData({ ...formData, bank_account_id: '', bank_account_name: e.target.value })}
                         placeholder="e.g. John Smith" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
                       <label className="block text-xs text-neutral-600 mb-xs">Sort code</label>
-                      <input type="text" value={formData.bank_sort_code} onChange={e => setFormData({ ...formData, bank_sort_code: e.target.value })}
+                      <input type="text" value={formData.bank_sort_code} onChange={e => setFormData({ ...formData, bank_account_id: '', bank_sort_code: e.target.value })}
                         placeholder="00-00-00" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
                       <label className="block text-xs text-neutral-600 mb-xs">Account number</label>
-                      <input type="text" value={formData.bank_account_number} onChange={e => setFormData({ ...formData, bank_account_number: e.target.value })}
+                      <input type="text" value={formData.bank_account_number} onChange={e => setFormData({ ...formData, bank_account_id: '', bank_account_number: e.target.value })}
                         placeholder="12345678" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
@@ -770,12 +779,12 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                     </div>
                     <div>
                       <label className="block text-xs text-neutral-600 mb-xs">IBAN</label>
-                      <input type="text" value={formData.bank_iban} onChange={e => setFormData({ ...formData, bank_iban: e.target.value })}
+                      <input type="text" value={formData.bank_iban} onChange={e => setFormData({ ...formData, bank_account_id: '', bank_iban: e.target.value })}
                         placeholder="GB00 XXXX 0000 0000 0000 00" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
                       <label className="block text-xs text-neutral-600 mb-xs">SWIFT / BIC</label>
-                      <input type="text" value={formData.bank_swift} onChange={e => setFormData({ ...formData, bank_swift: e.target.value })}
+                      <input type="text" value={formData.bank_swift} onChange={e => setFormData({ ...formData, bank_account_id: '', bank_swift: e.target.value })}
                         placeholder="e.g. BUKBGB22" className="w-full px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                   </div>

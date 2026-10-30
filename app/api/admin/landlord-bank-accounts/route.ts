@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { sealFields, openFields, openRows, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
+import { syncLinkedProperties } from '@/lib/banking/propertyAccount'
 
 // sort code, account number and IBAN are stored encrypted (lib/crypto/fieldCrypt) — sealed on the way in, opened on the way out
 const F = BANK_FIELDS.landlord_bank_accounts
@@ -109,7 +110,9 @@ export async function PUT(req: NextRequest) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ account: openFields(data as any, F) })
+  // every house linked to this account gets the new details too
+  const houses = await syncLinkedProperties(svc as any, id).catch(() => [])
+  return NextResponse.json({ account: openFields(data as any, F), houses })
 }
 
 export async function DELETE(req: NextRequest) {

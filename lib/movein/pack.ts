@@ -14,6 +14,7 @@ import { generateTenancyAgreement } from '@/lib/tenancyAgreement/generate'
 import { generateSingleLetAgreement } from '@/lib/tenancyAgreement/singleLet'
 import { generateCheckInBalancePDF } from '@/lib/checkInBalance/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
+import { resolvePropertyAccount, type PayeeAccount } from '@/lib/banking/propertyAccount'
 import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 // Rent and deposits for managed tenancies go to the client account (Harry, 27 Sep 2026).
@@ -80,7 +81,7 @@ export interface PackContext {
   /** a whole house or flat → the single-let agreement (NRLA, lib/tenancyAgreement/singleLet); a room → the APT room agreement */
   wholeLet: boolean
   /** let-only: where the rent goes (the landlord's account saved on the property) and who the tenant contacts */
-  landlordBank: { name: string; bank: string; sortCode: string; accountNo: string; iban?: string; swift?: string } | null
+  landlordBank: PayeeAccount | null   // linked account → house's copy → landlord's default (lib/banking/propertyAccount)
   landlordContact: { address: string; email: string; phone: string } | null
   documents: PackDoc[]
 }
@@ -107,9 +108,10 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
   const prop = openFields(propRow as any, BANK_FIELDS.properties)   // bank numbers stored encrypted
   const houseLettingType: string | null = (prop as any)?.letting_type ?? null
   const lettingType: string | null = opts.agreement ?? houseLettingType
-  const [{ data: landlord }, { data: docs }] = await Promise.all([
+  const [{ data: landlord }, { data: docs }, landlordBank] = await Promise.all([
     prop?.landlord_id ? s.from('people').select('*').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     s.from('property_documents').select('document_type, storage_url, file_name, uploaded_at').eq('property_id', (t as any).property_id).order('uploaded_at', { ascending: false }),
+    resolvePropertyAccount(s, prop).catch(() => null),
   ])
 
   const p = (t as any).people ?? {}
@@ -181,7 +183,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
     lettingType,
     houseLettingType,
     wholeLet: isWholeLet((prop as any)?.property_type, room.name),
-    landlordBank: (prop as any)?.bank_account_number ? { name: (prop as any).bank_account_name || '', bank: '', sortCode: (prop as any).bank_sort_code || '', accountNo: (prop as any).bank_account_number, iban: (prop as any).bank_iban || undefined, swift: (prop as any).bank_swift || undefined } : null,
+    landlordBank,
     landlordContact: landlord ? { address: oneLine((landlord as any).home_address || ''), email: (landlord as any).email || '', phone: (landlord as any).phone || '' } : null,
     address: placeLabel(isWholeLet(prop?.property_type, room.name), room.name, houseAddress),   // a whole home: just the address, never "Whole Property, …"
     landlordName: landlord ? landlordFormalNames(landlord as any) : '',
@@ -199,7 +201,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
 export function payeeBank(ctx: PackContext): { name: string; bank: string; sortCode: string; accountNo: string; iban: string; swift: string } {
   if (ctx.lettingType !== 'let_only') return CLIENT_ACCOUNT
   const b = ctx.landlordBank
-  if (!b?.accountNo) throw new Error('Add the landlord’s bank account to this property first (property › Details › bank account) — on a let-only the landlord collects the rent and deposit.')
+  if (!b?.accountNo) throw new Error('Add the landlord’s bank account to this property first (landlord’s page › Bank accounts, then link it to this house) — on a let-only the landlord collects the rent and deposit.')
   return { name: b.name, bank: b.bank, sortCode: b.sortCode, accountNo: b.accountNo, iban: b.iban ?? '', swift: b.swift ?? '' }
 }
 
@@ -239,7 +241,7 @@ export async function renderAgreement(ctx: PackContext, opts: { parking?: boolea
   const start = parseTenancyDate(ctx.startDate)
   // let-only: the rent goes to the landlord's own account, never the Capital Rooms client account
   const letOnly = ctx.lettingType === 'let_only'
-  if (letOnly && !ctx.landlordBank?.accountNo) throw new Error('Add the landlord’s bank account to this property first (property › Details › bank account) — the rent goes there on a let-only.')
+  if (letOnly && !ctx.landlordBank?.accountNo) throw new Error('Add the landlord’s bank account to this property first (landlord’s page › Bank accounts, then link it to this house) — the rent goes there on a let-only.')
   const bank = letOnly
     ? { name: ctx.landlordBank!.name, bank: ctx.landlordBank!.bank, sortCode: ctx.landlordBank!.sortCode, accountNo: ctx.landlordBank!.accountNo }
     : { name: CLIENT_ACCOUNT.name, bank: CLIENT_ACCOUNT.bank, sortCode: CLIENT_ACCOUNT.sortCode, accountNo: CLIENT_ACCOUNT.accountNo }
