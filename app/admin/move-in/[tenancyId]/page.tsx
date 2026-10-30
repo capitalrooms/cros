@@ -330,7 +330,6 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
                       <div className="mt-sm flex flex-wrap items-center gap-sm rounded-xl bg-neutral-50 px-md py-sm">
                         <span className="text-xs font-semibold text-neutral-700">{p.status === 'confirmed' ? 'Ready to sign — download the documents for Adobe Sign:' : 'For Adobe Sign, once they’re ready to sign:'}</span>
                         <button onClick={() => download(p, 'sign')} disabled={!!busy} className={`rounded-lg px-md py-xs text-xs font-bold disabled:opacity-40 ${p.status === 'confirmed' ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-900'}`}>{busy === `dl-${p.id}-sign` ? 'Preparing…' : 'Download for signing (ZIP)'}</button>
-                        <button onClick={() => download(p, 'all')} disabled={!!busy} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-bold text-neutral-900 disabled:opacity-40">{busy === `dl-${p.id}-all` ? 'Preparing…' : 'Whole pack (ZIP)'}</button>
                       </div>
                     )}
                     {p.status !== 'withdrawn' && (

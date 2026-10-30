@@ -265,6 +265,21 @@ export type GeneratedKey = 'agreement' | 'check_in' | 'prescribed_info'
 export const GENERATED_KEYS: GeneratedKey[] = ['agreement', 'check_in', 'prescribed_info']
 /** The ones that are signed — what "Download for signing" gives you for Adobe Sign. */
 export const TO_SIGN: string[] = ['agreement', 'prescribed_info', 'guarantor_form']
+
+// The order the documents go into Adobe Sign (Harry, 30 Oct 2026): 1 agreement, 2 guides, 3 prescribed information,
+// 4 deposit info leaflet, 5 Renters' Rights guides, 6 certificates at the property. The guarantor form and check-in
+// balance sit with the agreement; the DPS Terms and Conditions sit with the leaflet, straight after the prescribed
+// information they belong to. Anything not listed goes last.
+export const SIGNING_ORDER: string[][] = [
+  ['agreement', 'guarantor_form', 'check_in'],
+  ['fire_doors', 'legionnaires', 'mould', 'jedi', 'checking_out'],
+  ['prescribed_info'],
+  ['dps_terms', 'deposit_guide'],
+  ['renters_rights', 'apt_guide'],
+  ['gas', 'eicr', 'epc'],
+]
+const SIGNING_RANK = new Map(SIGNING_ORDER.flat().map((k, i) => [k, i]))
+export const signingRank = (key: string) => SIGNING_RANK.get(key) ?? SIGNING_RANK.size
 const GENERATED_NAME: Record<GeneratedKey, string> = { agreement: 'Tenancy Agreement', check_in: 'Check-in Balance', prescribed_info: 'Deposit Prescribed Information (DPS)' }
 export const packFileName = (ctx: PackContext, key: GeneratedKey) =>
   `${GENERATED_NAME[key]} - ${ctx.address}.pdf`.replace(/[\\/:*?"<>|]/g, '')

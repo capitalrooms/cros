@@ -43,14 +43,14 @@ export async function renderDpsForm(c: PIContext): Promise<Buffer> {
   const fill = (page: PDFPage, x0: number, top: number, bot: number, x1: number, label: string, text: string, opts: { size?: number; f?: PDFFont; pad?: number } = {}) => {
     const start = x0 + (label ? font.widthOfTextAtSize(label, 10) * LABEL_SCALE - 1.5 - (opts.pad ?? 0) : 0)
     page.drawRectangle({ x: start, y: H - bot - 1.5, width: x1 + 3 - start, height: bot - top + 3, color: rgb(1, 1, 1) })
-    const size = opts.size ?? 9.5
+    const size = opts.size ?? 10.5
     let t = text
     while (t.length > 1 && (opts.f ?? font).widthOfTextAtSize(t, size) > x1 - start - 2) t = t.slice(0, -2) + '…'
     page.drawText(t, { x: start + 1, y: H - bot + 2.2, size, font: opts.f ?? font, color: INK })
   }
   /** Several dotted lines in a row (an address block): wrap the text across them. */
   const block = (page: PDFPage, tops: number[], text: string, x0 = 124.7, x1 = 511.1) => {
-    const lines = wrap(font, text, 9.5, x1 - x0 - 4)
+    const lines = wrap(font, text, 10.5, x1 - x0 - 4)
     tops.forEach((top, i) => fill(page, x0, top, top + 10, x1, '', lines[i] ?? ''))
   }
 
@@ -88,7 +88,7 @@ export async function renderDpsForm(c: PIContext): Promise<Buffer> {
   // page 3 — (e) third party
   // (the label is italic and runs wider than the plain labels)
   p3.drawRectangle({ x: 392, y: H - 635.8 - 1.5, width: 122, height: 13, color: rgb(1, 1, 1) })
-  p3.drawText('None', { x: 394, y: H - 635.8 + 2.2, size: 9.5, font: bold, color: INK })
+  p3.drawText('None', { x: 394, y: H - 635.8 + 2.2, size: 10.5, font: bold, color: INK })
 
   // page 4 — (f) the deposit clause; the landlord's (agent's) and tenants' names. Signatures and dates are left for
   // signing (Adobe Sign).
@@ -97,11 +97,11 @@ export async function renderDpsForm(c: PIContext): Promise<Buffer> {
   const at = 102 + font.widthOfTextAtSize('Refer to Clause(s) [ ', 10)
   p4.drawText('5 (The deposit)', { x: at, y: H - 76.4, size: 10, font: bold, color: INK })
   p4.drawText('] of the Tenancy Agreement.', { x: at + bold.widthOfTextAtSize('5 (The deposit) ', 10), y: H - 76.4, size: 10, font, color: rgb(0, 0, 0) })
-  fill(p4, 57.7, 210.5, 220.5, 227.9, 'Landlord(s): ', 'Capital Rooms Ltd, as agent', { size: 7.5 })
+  fill(p4, 57.7, 210.5, 220.5, 227.9, 'Landlord(s): ', 'Capital Rooms Ltd, as agent', { size: 8.5 })
   // the second line has no signature box beside it, so the landlord's name can run on
-  fill(p4, 124.7, 226.8, 236.8, 420, '', `for ${c.landlord}`, { size: 7.5 })
+  fill(p4, 124.7, 226.8, 236.8, 420, '', `for ${c.landlord}`, { size: 8.5 })
   const tenantTops = [373.0, 389.3, 405.5, 421.8]
-  c.tenants.slice(0, 4).forEach((t, i) => fill(p4, i === 0 ? 57.7 : 124.7, tenantTops[i], tenantTops[i] + 10, 227.9, i === 0 ? 'Tenant(s): ' : '', t.name, { size: 7.5 }))
+  c.tenants.slice(0, 4).forEach((t, i) => fill(p4, i === 0 ? 57.7 : 124.7, tenantTops[i], tenantTops[i] + 10, 227.9, i === 0 ? 'Tenant(s): ' : '', t.name, { size: 8.5 }))
 
   doc.setTitle(`Deposit prescribed information — ${c.property}`)
   doc.setSubject('Prescribed information relating to tenancy deposits (The Deposit Protection Service)')

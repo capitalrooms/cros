@@ -1,9 +1,10 @@
 // GET /api/admin/move-in/packs/[packId]/download?set=sign|all — a sent move-in pack's documents as one ZIP, to upload
 // to Adobe Sign (24 Oct 2026, Harry: "when they are ready to sign I can download all the docs so I can add them to
 // adobesign to then send for signing").
-//   set=sign → the documents that are signed: the tenancy agreement, the deposit prescribed information (with the DPS
-//              Terms and Conditions, which must go with it) and the guarantor form when it was in the pack
-//   set=all  → every document in the pack
+//   set=sign → everything that goes into the Adobe Sign envelope — every document in the pack, numbered in Harry's
+//              order (lib/movein/pack SIGNING_ORDER, 30 Oct 2026: agreement, guides, prescribed information, deposit
+//              leaflet, Renters' Rights guides, certificates), so they upload in the right order with no arranging
+//   set=all  → every document in the pack, the same order
 // Always the copies that were sent (the pack's stored files), never regenerated — what they sign is what they read —
 // except the prescribed information in packs sent before 24 Oct 2026, which held the DPS's blank form: that one is
 // filled in from the tenancy's records.
@@ -13,7 +14,7 @@ import path from 'node:path'
 import JSZip from 'jszip'
 import { requireAdmin } from '@/lib/adminAuth'
 import { svc, PACK_BUCKET } from '@/lib/movein/email'
-import { loadPackContext, packFileName, GENERATED_KEYS, TO_SIGN, type GeneratedKey } from '@/lib/movein/pack'
+import { loadPackContext, packFileName, GENERATED_KEYS, signingRank, type GeneratedKey } from '@/lib/movein/pack'
 import { fetchStored } from '@/lib/files/server'
 import { contentDisposition } from '@/lib/contentDisposition'
 import { renderDpsFormFor } from '@/lib/deposits/dpsForm'
@@ -35,11 +36,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pack
 
   const all = (pack.documents ?? []) as { key: string; label: string; source: string; path?: string; url?: string; available?: boolean }[]
   const hasPI = all.some(d => d.key === 'prescribed_info')
-  const wanted = set === 'all' ? [...all] : all.filter(d => TO_SIGN.includes(d.key) || (hasPI && d.key === 'dps_terms'))
+  const wanted = [...all]
   // the prescribed information must go with the DPS Terms and Conditions (its note 1) — packs sent before 16 Oct 2026
   // didn't include them
   if (hasPI && !wanted.some(d => d.key === 'dps_terms')) wanted.push({ key: 'dps_terms', label: 'DPS Terms and Conditions', source: 'static', url: '/tenancy-pack/dps-terms-and-conditions.pdf' })
-  if (!wanted.length) return NextResponse.json({ error: set === 'sign' ? 'This pack has no documents to sign — it was sent before the agreement was included.' : 'This pack has no documents.' }, { status: 404 })
+  if (!wanted.length) return NextResponse.json({ error: 'This pack has no documents.' }, { status: 404 })
+  wanted.sort((a, b) => signingRank(a.key) - signingRank(b.key))
 
   const zip = new JSZip()
   const missing: string[] = []
@@ -62,7 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pack
     } catch { /* noted below */ }
     if (!bytes) { missing.push(d.label); continue }
     const name = GENERATED_KEYS.includes(d.key as GeneratedKey) ? packFileName(ctx, d.key as GeneratedKey) : `${clean(d.label)}.pdf`
-    zip.file(`${++n} ${name}`, bytes)
+    zip.file(`${String(++n).padStart(2, '0')} ${name}`, bytes)
   }
   if (missing.length) zip.file('MISSING - read me.txt', `These documents in the pack couldn't be read, so they aren't in this download:\n\n${missing.map(m => `- ${m}`).join('\n')}\n`)
   const out = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
