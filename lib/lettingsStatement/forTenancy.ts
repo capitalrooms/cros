@@ -79,6 +79,10 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
 
   // ── Determine fee ────────────────────────────────────────────────────────
   const feeCharged = (tenancy as any).letting_fee_charged
+  // a let-only statement with no fee would pay the landlord everything — say so instead (30 Oct 2026: 95 Rope Street's
+  // fee box showed a greyed 'e.g. 75' that looked filled in)
+  if (property.letting_type === 'let_only' && feeCharged == null && property.letting_fee_pct == null && property.letting_fee_flat == null)
+    return { error: `Set the letting fee on ${property.name || 'the house'} first (house › Details › Letting fee) — the statement takes it off what the landlord is paid.` }
   const feePct     = feeCharged != null ? null : property.letting_fee_pct
   const feeFlat    = feeCharged != null ? feeCharged : property.letting_fee_flat
 
