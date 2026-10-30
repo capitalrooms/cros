@@ -33,12 +33,11 @@ async function applyEmailHtml(vars: { firstName: string; roomName: string; propA
   We'd love to invite you to submit a formal application — it takes less than 5 minutes.
 </p>
 <div style="text-align:center;margin:28px 0">
-  <a href="${vars.applyUrl}" style="background:#86284a;color:#ffffff;padding:14px 32px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block">
-    Apply Now →
+  <a href="${vars.applyUrl}" style="background:#1b1a18;color:#ffffff;padding:14px 32px;border-radius:24px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block">
+    Apply now
   </a>
 </div>
-<p style="font-size:13px;color:#888;margin:0 0 4px">Or copy this link:</p>
-<p style="font-size:13px;color:#555;word-break:break-all;background:#f5f5f5;padding:10px 12px;border-radius:6px;margin:0">${vars.applyUrl}</p>`, { req })
+`, { req })
 }
 
 
