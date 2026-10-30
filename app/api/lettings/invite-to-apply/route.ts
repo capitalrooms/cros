@@ -295,6 +295,8 @@ export async function POST(request: NextRequest) {
     else {
       const emailRes = await deliverEmail({ to: [visitorEmail], ...(cc.length ? { cc } : {}), subject, html }, { req: request })
       if (emailRes.ok) { result.emailSent = true; result.cc = cc }
+      // remember who was copied in: later office emails about this applicant go to them only (mig 251)
+      if (emailRes.ok && result.applicantId) await supabase.from('applicants').update({ staff_cc: cc }).eq('id', result.applicantId).then(() => null, () => null)
       else { const err = await emailRes.json().catch(() => ({})); result.emailError = (err as any)?.message || 'Failed to send email' }
     }
   }
