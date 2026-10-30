@@ -27,16 +27,12 @@ function weeklyRent(monthly: number) {
 // Fallback HTML when DB template isn't loaded yet — body content only, wrapper applied via buildEmail
 async function applyEmailHtml(vars: { firstName: string; roomName: string; propAddress: string; applyUrl: string; whole?: boolean }, req: Request): Promise<string> {
   return buildEmail(`
-<p style="font-size:16px;margin:0 0 16px">Hi ${vars.firstName},</p>
-<p style="font-size:15px;line-height:1.6;margin:0 0 16px;color:#444">
-  Thanks for viewing ${vars.whole ? `<strong>${vars.propAddress || 'the property'}</strong>` : `<strong>${vars.roomName}</strong>${vars.propAddress ? ` at ${vars.propAddress}` : ''}`}.
-  We'd love to invite you to submit a formal application — it takes less than 5 minutes.
-</p>
-<div style="text-align:center;margin:28px 0">
-  <a href="${vars.applyUrl}" style="background:#1b1a18;color:#ffffff;padding:14px 32px;border-radius:24px;text-decoration:none;font-size:15px;font-weight:600;display:inline-block">
-    Apply now
-  </a>
-</div>
+<p style="margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6e6a63">Your application</p>
+<h1 style="margin:0 0 18px;font-size:26px;line-height:1.2;font-weight:600;color:#1b1a18">Thanks for viewing ${vars.whole ? 'the property' : vars.roomName}</h1>
+<p style="margin:0 0 14px">Hi ${vars.firstName},</p>
+<p style="margin:0 0 22px">Thanks for coming to see ${vars.whole ? `<strong>${vars.propAddress || 'the property'}</strong>` : `<strong>${vars.roomName}</strong>${vars.propAddress ? ` at ${vars.propAddress}` : ''}`}. We’d love you to apply — it takes about five minutes on your phone.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px"><tr><td style="border-radius:24px;background:#1b1a18"><a href="${vars.applyUrl}" style="display:inline-block;padding:13px 28px;border-radius:24px;background:#1b1a18;color:#ffffff !important;font-size:15px;font-weight:600;line-height:20px;text-decoration:none">Apply now</a></td></tr></table>
+<p style="margin:0">Any questions, just reply to this email.</p>
 `, { req })
 }
 

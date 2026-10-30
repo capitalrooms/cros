@@ -175,7 +175,7 @@ export function wrapEmail(content: string, biz: BusinessSettings = BUSINESS_DEFA
 <meta name="x-apple-disable-message-reformatting">
 <style>:root { color-scheme: light only; supported-color-schemes: light only; }
 /* addresses, dates and phone numbers stay as written — mail apps mustn't turn them into blue links (30 Oct 2026) */
-a[x-apple-data-detectors], #body a[href^="x-apple"], u + #body a { color: inherit !important; text-decoration: none !important; font: inherit !important; }</style>
+a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; font: inherit !important; }  /* only links the mail app made itself — never our own links or buttons */</style>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 </head>
 <body id="body" style="margin:0;padding:0;background:#f5f4f2;-webkit-text-size-adjust:100%;">
