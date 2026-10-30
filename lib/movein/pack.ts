@@ -156,8 +156,9 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
   const documents: PackDoc[] = [
     { key: 'agreement', label: 'Tenancy agreement', group: 'Your tenancy', source: 'generated', available: true, include: true },
     { key: 'check_in', label: 'Check-in balance', group: 'Your tenancy', source: 'generated', available: true, include: true },
-    // the deposit's prescribed information on the DPS's own form, filled in — managed lets taking a deposit
-    ...(deposit > 0 && lettingType !== 'let_only'
+    // the deposit's prescribed information on the DPS's own form, filled in — every let taking a deposit (let-only too,
+    // signed by the landlord: Harry, 30 Oct 2026)
+    ...(deposit > 0
       ? [{ key: 'prescribed_info', label: 'Deposit prescribed information (DPS form) — to sign', group: 'Your deposit' as DocGroup, source: 'generated' as const, available: true, include: true }] : []),
     ...certDocs,
     // let-only (Nigel) tenants don't get the housemate and checking-out guides (Harry, 15 Oct 2026)

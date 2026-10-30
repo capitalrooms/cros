@@ -41,6 +41,11 @@ export interface PIContext {
   tenants: { name: string; dear: string; email: string; phone: string }[]
   property: string
   landlord: string
+  // the landlord's own contact details (Harry, 30 Oct 2026: they go on the form, managed or let-only)
+  landlordAddress: string
+  landlordEmail: string
+  landlordPhone: string
+  letOnly: boolean   // let-only: the landlord signs it; managed: we sign as agent
   agentAddress: string
   agentEmail: string
   agentPhone: string
@@ -59,7 +64,7 @@ export async function loadPI(s: SupabaseClient, tenancyId: string, biz: { addres
     .select('id, start_date, deposit_amount, deposit_scheme_ref, deposit_protected_at, property_id, room_id, people!person_id(salutation, first_name, middle_name, last_name, full_name, email, phone), co:people!co_tenant_id(salutation, first_name, middle_name, last_name, full_name, email, phone), rooms(name)')
     .eq('id', tenancyId).maybeSingle() as { data: any }
   if (!t) return null
-  const { data: prop } = await s.from('properties').select('name, address, postcode, property_type, landlord_id').eq('id', t.property_id).maybeSingle() as { data: any }
+  const { data: prop } = await s.from('properties').select('name, address, postcode, property_type, landlord_id, letting_type').eq('id', t.property_id).maybeSingle() as { data: any }
   const { data: ll } = prop?.landlord_id ? await s.from('people').select('*').eq('id', prop.landlord_id).maybeSingle() as { data: any } : { data: null }
   const house = fullAddress(null, oneLine([prop?.name, prop?.address].filter(Boolean).join('\n')), prop?.postcode)
   const tenants = [t.people, t.co].filter(Boolean).map((p: any) => ({ name: displayName(p), dear: dearName(p), email: p.email || '', phone: p.phone || '' }))
@@ -67,6 +72,8 @@ export async function loadPI(s: SupabaseClient, tenancyId: string, biz: { addres
     tenancyId, tenants,
     property: placeLabel(isWholeLet(prop?.property_type, t.rooms?.name), t.rooms?.name, house),
     landlord: ll ? landlordFormalNames(ll) : 'The landlord',
+    landlordAddress: oneLine(ll?.home_address || ''), landlordEmail: ll?.email || '', landlordPhone: ll?.phone || '',
+    letOnly: prop?.letting_type === 'let_only',
     agentAddress: ['Capital Rooms Ltd', biz.address_line1, biz.city, biz.postcode].filter(Boolean).join(', '),
     agentEmail: biz.email, agentPhone: biz.phone,
     deposit: Number(t.deposit_amount || 0), startDate: t.start_date ?? null,
