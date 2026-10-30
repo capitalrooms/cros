@@ -1,5 +1,6 @@
 'use client'
 
+import { lettingFeeRule } from '@/lib/fees/lettingFee'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -67,7 +68,7 @@ export default function CreateTenancyPage() {
 
       const { data, error: err } = await (supabase as any)
         .from('applicants')
-        .select('*, rooms(id, name, unit_code, current_asking_rent), properties(id, name, address, letting_fee_pct, letting_fee_flat)')
+        .select('*, rooms(id, name, unit_code, current_asking_rent), properties(id, name, address, letting_fee_pct, letting_fee_flat, people!landlord_id(letting_fee_pct, letting_fee_flat))')
         .eq('id', applicantId)
         .single()
 
@@ -77,8 +78,10 @@ export default function CreateTenancyPage() {
 
       // Load property letting fee config
       const propAny = data.properties as any
-      if (propAny?.letting_fee_pct != null) setPropertyFeePct(Number(propAny.letting_fee_pct))
-      if (propAny?.letting_fee_flat != null) setPropertyFeeFlat(Number(propAny.letting_fee_flat))
+      // the house's own fee, else the landlord's default (lib/fees/lettingFee)
+      const feeRule = lettingFeeRule(propAny, propAny?.people)
+      if (feeRule.pct != null) setPropertyFeePct(feeRule.pct)
+      if (feeRule.flat != null) setPropertyFeeFlat(feeRule.flat)
 
       // Pre-fill form from application
       // the AGREED rent: a lower offer we accepted, else the rent on the offer sent to them — never the advert

@@ -196,6 +196,8 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
         management_start_date: p.management_start_date || '',
         management_fee_pct: '',
         management_fee_notes: p.management_fee_notes || '',
+        letting_fee_pct: p.letting_fee_pct != null ? String(p.letting_fee_pct) : '',
+        letting_fee_flat: p.letting_fee_flat != null ? String(p.letting_fee_flat) : '',
       })
 
       // these don't depend on each other — fetched together, not one after another (16 Oct 2026)
@@ -353,6 +355,9 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
       management_type: agreementForm.management_type || null,
       management_start_date: agreementForm.management_start_date || null,
       management_fee_notes: agreementForm.management_fee_notes || null,
+      // let-only letting fee: set once here, used by all their let-only houses unless a house has its own (mig 252)
+      letting_fee_pct: agreementForm.letting_fee_pct !== '' ? Number(agreementForm.letting_fee_pct) : null,
+      letting_fee_flat: agreementForm.letting_fee_flat !== '' ? Number(agreementForm.letting_fee_flat) : null,
     }).eq('id', personId)
     if (!error) {
       setPerson((p: any) => ({ ...p, ...agreementForm }))
@@ -1035,6 +1040,16 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                       <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Fee notes</label>
                       <textarea rows={3} className={inputCls()} placeholder="e.g. 12% full management, 8% let-only on Room 3 only, special rates agreed…" value={agreementForm.management_fee_notes} onChange={e => setAgreementForm((p: any) => ({ ...p, management_fee_notes: e.target.value }))} />
                     </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-sm">Let-only letting fee</label>
+                      <div className="flex flex-wrap items-center gap-sm">
+                        <input type="number" className={`${inputCls()} w-24`} value={agreementForm.letting_fee_pct} onChange={e => setAgreementForm((p: any) => ({ ...p, letting_fee_pct: e.target.value, letting_fee_flat: '' }))} />
+                        <span className="text-sm text-neutral-600">% of the first month’s rent, or £</span>
+                        <input type="number" className={`${inputCls()} w-28`} value={agreementForm.letting_fee_flat} onChange={e => setAgreementForm((p: any) => ({ ...p, letting_fee_flat: e.target.value, letting_fee_pct: '' }))} />
+                        <span className="text-sm text-neutral-600">flat</span>
+                      </div>
+                      <p className="text-xs text-neutral-500 mt-xs">Used for all of this landlord’s let-only houses. A house can have its own fee on its Details page.</p>
+                    </div>
                     <p className="text-xs text-neutral-400">Management fees per property are set on each individual property record.</p>
                     <div className="flex gap-sm pt-sm border-t border-neutral-100">
                       <button onClick={saveAgreement} disabled={savingAgreement}
@@ -1053,6 +1068,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                       <Field label="Management type" value={MGMT_TYPES.find(t => t.value === person.management_type)?.label} />
                       <Field label="Agreement start" value={person.management_start_date ? fmt(person.management_start_date) : null} />
                       <Field label="Fee notes" value={person.management_fee_notes} />
+                      <Field label="Let-only letting fee" value={person.letting_fee_pct != null ? `${person.letting_fee_pct}% of the first month’s rent` : person.letting_fee_flat != null ? `£${person.letting_fee_flat} flat` : null} />
                     </div>
                     <div className="space-y-md">
                       <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-md">Fees by property</p>
