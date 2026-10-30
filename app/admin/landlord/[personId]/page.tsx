@@ -115,6 +115,8 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
   const [statements, setStatements]     = useState<any[]>([])
   const [notifPrefs, setNotifPrefs]     = useState<Record<string, boolean>>({})
   const [bankAccounts, setBankAccounts] = useState<any[]>([])
+  const [houseLinks, setHouseLinks]     = useState<Record<string, { id: string | null; last4: string }>>({})   // house → linked account (30 Oct 2026)
+  const [linking, setLinking]           = useState('')
   const [loading, setLoading]           = useState(true)
   const [activeTab, setActiveTab]       = useState<'overview' | 'contact' | 'bank' | 'agreement' | 'properties' | 'aml' | 'statements' | 'notifications' | 'correspondence'>('overview')
   const [amlRequest, setAmlRequest]     = useState<{ busy?: boolean; ok?: boolean; text?: string } | null>(null)
@@ -198,7 +200,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
 
       // these don't depend on each other — fetched together, not one after another (16 Oct 2026)
       const [{ data: props }, { data: records }, { data: prefs }, { data: banks }] = await Promise.all([
-        supabase.from('properties').select('id, name, address, management_fee_pct, property_type, cc_emails').eq('landlord_id', personId).order('name'),
+        supabase.from('properties').select('id, name, address, management_fee_pct, property_type, cc_emails, letting_type').eq('landlord_id', personId).order('name'),
         supabase.from('landlord_onboarding').select('*').eq('landlord_people_id', personId).order('created_at', { ascending: false }),
         supabase.from('landlord_notification_prefs').select('category, enabled').eq('person_id', personId),
         // bank details are encrypted at rest — the server opens them (lib/crypto/fieldCrypt)
@@ -219,6 +221,12 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
       setNotifPrefs(prefsMap)
 
       setBankAccounts(banks || [])
+      // which account each house pays into — the numbers are encrypted, so read through the server
+      if ((props || []).length) adminFetch(`/api/admin/properties/bank?ids=${(props || []).map((pp: any) => pp.id).join(',')}`)
+        .then(r => r.ok ? r.json() : null).then(d => {
+          if (!d?.banks) return
+          setHouseLinks(Object.fromEntries(Object.entries(d.banks as Record<string, any>).map(([id, b]) => [id, { id: b.bank_account_id ?? null, last4: String(b.bank_account_number || '').replace(/\s/g, '').slice(-4) }])))
+        }).catch(() => {})
 
       const propsMapped: LandlordProperty[] = (props || []).map((pp: any) => ({
         id: pp.id, name: pp.name || pp.address, address: pp.address,
@@ -379,6 +387,11 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
     if (!bankForm.account_name) { alert('Please enter the name on the account'); return }
     // the label is just a nickname — default it so it never blocks saving
     if (!bankForm.account_label?.trim()) bankForm.account_label = `${bankForm.bank_name || 'Account'}${bankForm.account_number ? ` ••••${String(bankForm.account_number).slice(-4)}` : ''}`
+    // an account several houses use: say so before changing it (30 Oct 2026)
+    if (editingBankId) {
+      const using = properties.filter(pp => houseLinks[pp.id]?.id === editingBankId).map(pp => pp.name || pp.address)
+      if (using.length && !confirm(`This account is used by:\n\n${using.join('\n')}\n\nThe new details will go on future agreements and statements for all of them. Carry on?`)) return
+    }
     setSavingBank(true)
     // only one default account per landlord (the payout run and property bank picker use it) — the server clears the
     // others and stores the numbers encrypted (app/api/admin/landlord-bank-accounts)
@@ -393,8 +406,18 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
         return editingBankId ? prev.map(a => a.id === j.account.id ? j.account : (bankForm.is_default ? { ...a, is_default: false } : a)) : rest.concat(j.account)
       })
       setShowBankForm(false)
+      if (j.houses?.length) alert(`Updated on ${j.houses.length} house${j.houses.length === 1 ? '' : 's'}: ${j.houses.join(', ')}`)
     } else { alert(j.error || 'Could not save the bank account') }
     setSavingBank(false)
+  }
+
+  async function linkHouse(propertyId: string, accountId: string) {
+    setLinking(propertyId)
+    const res = await adminFetch('/api/admin/properties/bank', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: propertyId, bank_account_id: accountId || null }) })
+    const j = await res.json().catch(() => ({}))
+    if (res.ok) setHouseLinks(prev => ({ ...prev, [propertyId]: { id: accountId || null, last4: String(j.bank?.bank_account_number || prev[propertyId]?.last4 || '').replace(/\s/g, '').slice(-4) } }))
+    else alert(j.error || 'Could not link the account')
+    setLinking('')
   }
 
   async function deleteBank(id: string) {
@@ -932,6 +955,48 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* ── Houses and accounts: which account each house's rent goes to (30 Oct 2026) ── */}
+            {properties.length > 0 && (
+              <div className="rounded-xl border border-neutral-200 bg-white">
+                <div className="border-b border-neutral-100 px-lg py-md">
+                  <p className="text-sm font-bold text-neutral-900">Houses and accounts</p>
+                  <p className="text-xs text-neutral-500 mt-xs">On a let-only, tenants pay the account linked here — it goes on their agreement and check-in balance. No link: the default account is used.</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-left text-xs uppercase tracking-wide text-neutral-500">
+                      <th className="px-lg py-sm font-semibold">House</th><th className="px-lg py-sm font-semibold">Letting</th><th className="px-lg py-sm font-semibold">Rent paid to</th>
+                    </tr></thead>
+                    <tbody>
+                      {properties.map(pp => {
+                        const link = houseLinks[pp.id]
+                        const letOnly = pp.letting_type === 'let_only'
+                        const dflt = bankAccounts.find(a => a.is_default)
+                        return (
+                          <tr key={pp.id} className="border-t border-neutral-100">
+                            <td className="px-lg py-sm"><a href={`/admin/properties/${pp.id}`} className="font-semibold text-neutral-900 hover:underline">{pp.name || pp.address}</a></td>
+                            <td className="px-lg py-sm text-neutral-600">{letOnly ? 'Let only' : 'Managed'}</td>
+                            <td className="px-lg py-sm">
+                              {!letOnly ? <span className="text-neutral-500">Capital Rooms client account</span> : (
+                                <div className="flex flex-col gap-xs">
+                                  <select value={link?.id || ''} disabled={linking === pp.id} onChange={e => linkHouse(pp.id, e.target.value)}
+                                    className="w-full max-w-sm rounded-lg border border-neutral-300 bg-white px-md py-xs text-sm text-neutral-900">
+                                    <option value="">{dflt ? `Default — ${dflt.account_label || dflt.account_name}` : link?.last4 ? `Typed on the house (••••${link.last4})` : '— choose an account —'}</option>
+                                    {bankAccounts.map(a => <option key={a.id} value={a.id}>{a.account_label || a.account_name} · {a.sort_code} · ••••{String(a.account_number || '').slice(-4)}</option>)}
+                                  </select>
+                                  {!link?.id && !dflt && !link?.last4 && <span className="text-xs font-bold text-red-700">No account — agreements for this house can’t be made</span>}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
