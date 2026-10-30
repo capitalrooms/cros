@@ -76,8 +76,9 @@ export async function POST(request: Request) {
     // …and an email to the office, with what to do next (Harry, 15 Oct 2026: "I should really get an email … that I
     // must now start Homeppl"). Office addresses only — never a test account.
     try {
-      const { data: office } = await supabase.from('people').select('email').in('role', ['administrator', 'lettings']).ilike('email', '%@capitalrooms.co.uk').not('email', 'ilike', '%+%')
-      const to = [...new Set(((office ?? []) as any[]).map(p => String(p.email).toLowerCase()))]
+      // only the colleagues chosen under "Copy in" when the offer went out — never everyone automatically (30 Oct 2026)
+      const { data: chosen } = await supabase.from('applicants').select('staff_cc').eq('id', applicantId).maybeSingle()
+      const to = [...new Set((((chosen as any)?.staff_cc ?? []) as string[]).map(e => String(e).toLowerCase()).filter(e => e.endsWith('@capitalrooms.co.uk')))]
       if (to.length) {
         const ctx = await loadDepositContext(supabase as any, applicantId).catch(() => null)
         const amount = ctx?.rent ? oneWeekRent(ctx.rent) : null

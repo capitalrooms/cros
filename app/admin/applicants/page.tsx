@@ -400,7 +400,7 @@ export default function ApplicantsPage() {
       <main className="mx-auto max-w-6xl px-lg py-xl">
         <DuplicateApplicants onMerged={() => loadAll()} />
         {inviteFor && (<BodyPortal>
-          <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 md:items-center md:p-lg" role="dialog" aria-modal="true" aria-label={`Email ${inviteFor.a.full_name}`}>
+          <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:items-center md:pt-0 md:pb-0 md:p-lg" role="dialog" aria-modal="true" aria-label={`Email ${inviteFor.a.full_name}`}>
             <div className="flex w-full flex-col overflow-hidden bg-white md:max-h-[92dvh] md:max-w-3xl md:rounded-2xl">
               <div className="flex items-start justify-between gap-md border-b border-neutral-200 px-lg py-md">
                 <div><p className="text-xs font-bold uppercase tracking-wide text-neutral-500">Email {inviteFor.a.full_name}</p><p className="text-xs text-neutral-500">{[inviteFor.a.email, inviteFor.a.phone].filter(Boolean).join(' · ')}</p></div>

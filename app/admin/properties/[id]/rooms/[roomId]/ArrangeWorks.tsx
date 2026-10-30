@@ -90,7 +90,7 @@ export default function ArrangeWorks({ roomId, roomName, houseName, onClose, onD
   const radio = (on: boolean) => `flex cursor-pointer items-start gap-sm rounded-xl border p-md text-sm ${on ? 'border-neutral-900 bg-neutral-50' : 'border-neutral-200 bg-white'}`
 
   return createPortal(
-    <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 md:items-center md:p-lg" role="dialog" aria-modal="true" aria-label="Arrange works">
+    <div className="fixed inset-0 z-[1000] flex items-stretch justify-center bg-black/50 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:items-center md:pt-0 md:pb-0 md:p-lg" role="dialog" aria-modal="true" aria-label="Arrange works">
       <div className="flex w-full flex-col overflow-hidden bg-neutral-50 shadow-2xl md:max-h-[92dvh] md:max-w-2xl md:rounded-2xl">
         <div className="flex items-start justify-between gap-md bg-[#181614] px-lg py-md text-white">
           <div className="min-w-0">
