@@ -38,7 +38,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
     routes: ['/admin/active-rooms', '/admin/overview', '/admin/property-tasks', '/admin/properties/new'],
     subnav: [
       { emoji: '➕', label: 'Add Property',    href: '/admin/properties/new' },
-      { emoji: '🏠', label: 'All Units',       href: '/admin/active-rooms' },
+      { emoji: '🏠', label: 'All Properties',  href: '/admin/active-rooms' },
     ],
   },
   {
@@ -68,7 +68,6 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '🔑', label: 'Available Rooms',    href: '/admin/available-and-lettings' },
       { emoji: '📄', label: 'Bulk Agreements',    href: '/admin/bulk-tenancy-generator' },
       { emoji: '📧', label: 'Invite to Apply',    href: '/admin/invite-to-apply' },
-      { emoji: '🏘',  label: 'Let-Only',           href: '/admin/let-only-properties' },
       { emoji: '🔔', label: 'On Notice',          href: '/admin/tenancy-management' },
       { emoji: '📈', label: 'Rent Reviews',       href: '/admin/rent-increase' },
       { emoji: '🤝', label: 'Tenancies',          href: '/admin/tenancies' },
@@ -184,7 +183,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
   {
     id: 'comms',
     emoji: '💬',
-    label: 'Comms',
+    label: 'Communications',
     home: '/admin/communications',
     routes: [
       '/admin/communications',

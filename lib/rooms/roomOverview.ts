@@ -289,6 +289,11 @@ export async function loadRoomOverview(s: SupabaseClient, roomId: string) {
     const left = days(today, c.expiry)
     if (left <= 30) needs.push({ key: `cert-${c.label}`, level: left < 0 ? 'urgent' : 'week', category: 'House certificate', title: `${c.label} ${left < 0 ? 'expired' : 'expires'} ${fullDate(c.expiry)}`, detail: `${firstLine(prop.name)} · every room in the house`, due: left < 0 ? `${-left} days ago` : `${left} days left`, href: `/admin/compliance?property=${prop.id}`, action: 'Open certificates' })
   }
+  // let-only: the landlord collects the rent, protects the deposit and does the repairs — those aren't our jobs (30 Oct 2026)
+  if (prop.letting_type === 'let_only') {
+    const notOurs = (k: string) => /^(rent-|protect$|pi$|dep-|job-)/.test(k)
+    for (let i = needs.length - 1; i >= 0; i--) if (notOurs(needs[i].key)) needs.splice(i, 1)
+  }
   const ORDER: Record<NeedLevel, number> = { urgent: 0, week: 1, tidy: 2 }
   needs.sort((a, b) => ORDER[a.level] - ORDER[b.level])
 
