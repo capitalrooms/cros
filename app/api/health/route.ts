@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import manifest from '@/lib/schema-manifest.json'
 import { foreignImages } from '@/lib/email/imageGuard'
+import { hasOwnDesign } from '@/lib/email/bodyGuard'
 import { encryptionOn } from '@/lib/crypto/fieldCrypt'
 
 /**
@@ -65,6 +66,8 @@ export async function GET(req: NextRequest) {
         const rows = r.ok ? await r.json() as { slug: string; template_text: string | null }[] : []
         const bad = rows.filter(t => foreignImages(t.template_text ?? '', [new globalThis.URL(URL).host]).length).map(t => t.slug)
         add('email templates: pictures on our own addresses', bad.length === 0, 'warn', bad.length ? `re-save on Message templates: ${[...new Set(bad)].join(', ')}` : undefined)
+        const designed = rows.filter(t => hasOwnDesign(t.template_text ?? '')).map(t => t.slug)
+        add('email templates: no designs of their own (built-in wording used meanwhile)', designed.length === 0, 'warn', designed.length ? `redo on Message templates as plain wording: ${[...new Set(designed)].join(', ')}` : undefined)
       } catch { add('email templates: pictures on our own addresses', false, 'warn', 'could not read templates') }
       add('bank details encrypted at rest', encryptionOn(), 'warn', encryptionOn() ? undefined : 'CROS_FIELD_KEY not set — bank numbers are stored readable')
     }

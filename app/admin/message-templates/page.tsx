@@ -10,6 +10,7 @@ import BackButton from '@/app/components/BackButton'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { createClient } from '@/lib/supabase'
 import { guardEmailImages } from '@/lib/email/imageGuard'
+import { hasOwnDesign } from '@/lib/email/bodyGuard'
 
 // ── Branding types ─────────────────────────────────────────────────────────────
 
@@ -556,6 +557,9 @@ export default function MessageTemplatesPage() {
   async function handleSave(id: string, subject: string, rawBody: string) {
     // a picture pasted from somewhere else, or an old logo address, never gets saved (lib/email/imageGuard)
     const body = guardEmailImages(rawBody, [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://x.invalid').host]).html
+    // the house email adds the logo, header and signature — a template brings wording only (lib/email/bodyGuard)
+    const own = hasOwnDesign(body)
+    if (own) throw new Error(`This template has ${own}. Write just the wording — every email gets the Capital Rooms header, button style and signature automatically.`)
     const supabase = createClient()
     const { error } = await supabase
       .from('notification_templates')

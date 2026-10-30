@@ -13,6 +13,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { dearName, hiName, type PersonLike } from '@/lib/people'
 import { guardEmailImages } from '@/lib/email/imageGuard'
+import { hasOwnDesign } from '@/lib/email/bodyGuard'
 
 export interface TemplateParts {
   subject_line: string
@@ -59,7 +60,11 @@ export async function getTemplate(slug: string): Promise<TemplateParts | null> {
     const misleading = !!data && /non[-\s]?refundable/i.test(`${data.subject_line ?? ''} ${data.template_text ?? ''}`)
     if (misleading) console.warn(`[messageTemplate] "${slug}" calls the holding deposit non-refundable — using the built-in wording`)
 
-    const result: TemplateParts | null = data && !misleading
+    // a template that brings its own design (logo, band, frame, footer, raw link) would sit inside the house email —
+    // the clean built-in wording is used instead until it's redone (lib/email/bodyGuard, 30 Oct 2026)
+    const ownDesign = data ? hasOwnDesign(data.template_text ?? '') : null
+    if (ownDesign) console.warn(`[messageTemplate] "${slug}" has ${ownDesign} — using the built-in wording`)
+    const result: TemplateParts | null = data && !misleading && !ownDesign
       // no broken pictures — a logo on an address that isn't ours becomes our own (lib/email/imageGuard, 30 Oct 2026)
       ? { subject_line: data.subject_line ?? '', template_text: guardEmailImages(data.template_text ?? '', [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://x.invalid').host]).html }
       : null

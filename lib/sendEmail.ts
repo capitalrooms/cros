@@ -21,6 +21,7 @@ import { oneLine } from '@/lib/lettings/letWording'
 import { SIGNATURE_ASSET_BASE } from '@/lib/brand/signature'
 import { HEADER_LOGO_CID, HEADER_LOGO_PNG_BASE64, DARK_LOGO_CID, DARK_LOGO_PNG_BASE64 } from '@/lib/brand/logoInline'
 import { guardEmailImages, LOGO_ON_DARK } from '@/lib/email/imageGuard'
+import { removeRawLinks } from '@/lib/email/bodyGuard'
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 
@@ -141,7 +142,7 @@ export async function deliverEmail(msg: OutgoingEmail, opts: { req?: Request | n
   const guarded = guardEmailImages(msg.html, [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://x.invalid').host])
   if (guarded.fixed.length || guarded.removed.length) console.warn('[deliverEmail] images fixed in', JSON.stringify(String(msg.subject).slice(0, 60)), { fixed: guarded.fixed, removed: guarded.removed })
   const LOGO_URL = `${SIGNATURE_ASSET_BASE}/brand/lockup-ink-on-white.png`
-  let html = guarded.html
+  let html = removeRawLinks(guarded.html)   // no web addresses shown as text — the button does that job (lib/email/bodyGuard)
   const inlineLogo = html.includes(LOGO_URL), inlineDark = html.includes(LOGO_ON_DARK)
   if (inlineLogo) html = html.split(LOGO_URL).join(`cid:${HEADER_LOGO_CID}`)
   if (inlineDark) html = html.split(LOGO_ON_DARK).join(`cid:${DARK_LOGO_CID}`)
