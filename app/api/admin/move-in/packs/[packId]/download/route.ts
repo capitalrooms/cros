@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { asPdf } from '@/lib/files/asPdf'
 import JSZip from 'jszip'
 import { requireAdmin } from '@/lib/adminAuth'
 import { svc, PACK_BUCKET } from '@/lib/movein/email'
@@ -63,6 +64,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ pack
       }
     } catch { /* noted below */ }
     if (!bytes) { missing.push(d.label); continue }
+    // a photo or odd file saved as a certificate: turn it into a proper PDF, or flag it
+    const pdf = await asPdf(bytes).catch(() => null)
+    if (!pdf) { missing.push(`${d.label} (not a PDF or photo — upload it again as a PDF)`); continue }
+    bytes = pdf
     const name = GENERATED_KEYS.includes(d.key as GeneratedKey) ? packFileName(ctx, d.key as GeneratedKey) : `${clean(d.label)}.pdf`
     zip.file(`${String(++n).padStart(2, '0')} ${name}`, bytes)
   }
