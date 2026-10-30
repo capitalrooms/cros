@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdministrator } from '@/lib/adminAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { encryptionOn, isSealed, sealFields, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
+import { isIdentityPath, isSealedBytes, sealStoredFile } from '@/lib/files/fileCrypt'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -33,6 +34,16 @@ async function survey() {
   const filled = ((forms ?? []) as any[]).filter(r => r.form_data && f.some(k => r.form_data[k]))
   const openForms = filled.filter(r => f.some(k => r.form_data[k] && !isSealed(r.form_data[k])))
   out.push({ place: 'landlord_onboarding', locked: filled.length - openForms.length, open: openForms.length, rows: openForms, key: 'id', fields: f, table: 'landlord_onboarding' })
+  // identity documents (photo ID, proof of address, company papers) — files, encrypted where they sit
+  const paths = [...new Set(((forms ?? []) as any[]).flatMap(r => Object.values((r.form_data?.documents ?? {}) as Record<string, string[]>).flat()).filter(p => typeof p === 'string' && isIdentityPath('landlord-docs', p)))]
+  const openFiles: any[] = []
+  let lockedFiles = 0
+  for (const path of paths) {
+    const { data } = await s.storage.from('landlord-docs').download(path)
+    if (!data) continue
+    if (isSealedBytes(Buffer.from(await data.arrayBuffer()))) lockedFiles++; else openFiles.push({ path })
+  }
+  out.push({ place: 'identity_documents', locked: lockedFiles, open: openFiles.length, rows: openFiles, key: 'path', fields: [], table: 'files' })
   return out
 }
 
@@ -48,6 +59,10 @@ export async function POST(req: NextRequest) {
   const s = createServiceClient()
   let done = 0, failed = 0
   for (const p of await survey()) {
+    if (p.table === 'files') {
+      for (const r of p.rows) { try { await sealStoredFile('landlord-docs', r.path); done++ } catch { failed++ } }
+      continue
+    }
     for (const r of p.rows) {
       const patch = p.table === 'landlord_onboarding'
         ? { form_data: sealFields(r.form_data, p.fields) }

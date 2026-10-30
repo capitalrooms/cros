@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { AI_MODEL_SMART } from '@/lib/ai-classify'
 import { svc, DOCS_BUCKET } from '@/lib/landlordOnboarding/store'
+import { openBytes } from '@/lib/files/fileCrypt'
 
 export type DocKind = 'id' | 'address' | 'ownership'
 
@@ -74,7 +75,7 @@ export async function readDocument(path: string, kind: DocKind): Promise<DocRead
   try {
     const { data, error } = await svc().storage.from(DOCS_BUCKET).download(path)
     if (error || !data) return { path, kind, ok: false, error: 'File could not be opened', fields: {} }
-    const buf = Buffer.from(await data.arrayBuffer())
+    const buf = openBytes(Buffer.from(await data.arrayBuffer()))   // identity documents are encrypted at rest
     const isPdf = path.endsWith('.pdf')
     const mime = isPdf ? 'application/pdf' : path.endsWith('.png') ? 'image/png' : path.endsWith('.webp') ? 'image/webp' : 'image/jpeg'
     if (buf.length > (isPdf ? MAX_PDF_BYTES : MAX_IMAGE_BYTES)) {

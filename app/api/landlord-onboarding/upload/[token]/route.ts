@@ -3,6 +3,7 @@ import {
   svc, loadRow, updateFormData, mergeDocuments,
   DOCS_BUCKET, MAX_UPLOAD_BYTES, ALLOWED_UPLOAD_TYPES,
 } from '@/lib/landlordOnboarding/store'
+import { isIdentityPath, viewLink, sealStoredFile } from '@/lib/files/fileCrypt'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     if (!found?.some(f => f.name === name)) {
       return NextResponse.json({ error: 'The file did not finish uploading — please try again' }, { status: 400 })
     }
+    // photo ID, proof of address and the other AML papers are encrypted where they sit (lib/files/fileCrypt)
+    await sealStoredFile(DOCS_BUCKET, path).catch(e => console.error('[upload] could not encrypt', path, e?.message))
     const result = await updateFormData(token, (current) => ({
       form_data: { ...current, documents: mergeDocuments(current.documents, { [docType]: [path] }) },
     }))
@@ -63,6 +66,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const { token } = await params
   const path = req.nextUrl.searchParams.get('path')
   if (!path || !path.startsWith(`${token}/`)) return NextResponse.json({ error: 'path required' }, { status: 400 })
+  // identity documents are encrypted at rest — they open through our server, which decrypts them (lib/files/fileCrypt)
+  if (isIdentityPath(DOCS_BUCKET, path)) return NextResponse.json({ url: viewLink(DOCS_BUCKET, path, 3600) })
   const { data, error } = await svc().storage.from(DOCS_BUCKET).createSignedUrl(path, 3600)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ url: data.signedUrl })

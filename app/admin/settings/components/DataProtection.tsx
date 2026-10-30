@@ -7,7 +7,7 @@ import { adminFetch } from '@/lib/adminFetch'
 type Place = { place: string; locked: number; open: number }
 const LABEL: Record<string, string> = {
   landlord_bank_accounts: 'Landlord bank accounts', properties: 'Property payee accounts',
-  supplier_profiles: 'Contractor and cleaner accounts', landlord_onboarding: 'Landlord onboarding forms',
+  supplier_profiles: 'Contractor and cleaner accounts', landlord_onboarding: 'Landlord onboarding forms', identity_documents: 'Landlord ID and proof of address files',
 }
 
 export default function DataProtection() {
@@ -36,8 +36,8 @@ export default function DataProtection() {
       <div className="px-lg py-lg space-y-md">
         <p className="text-sm text-neutral-700">
           {state.keySet
-            ? 'Bank details are stored encrypted. Someone with a copy of the database alone can’t read them — the key is kept separately.'
-            : 'Encryption is ready but not switched on yet: the key needs adding on Vercel (CROS_FIELD_KEY). Until then bank details are stored as before.'}
+            ? 'Bank details and identity documents are stored encrypted. Someone with a copy of the database or the file store alone can’t read them — the key is kept separately.'
+            : 'Encryption is ready but not switched on yet: the key needs adding on Vercel (CROS_FIELD_KEY). Until then bank details and ID documents are stored as before.'}
         </p>
         <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200">
           {state.places.map(p => (

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/adminAuth'
 import { parseStorageUrl } from '@/lib/files/paths'
+import { isIdentityPath, viewLink } from '@/lib/files/fileCrypt'
 
 export const dynamic = 'force-dynamic'
 const BUCKETS = new Set(['inbox-docs', 'finance-docs', 'landlord-docs', 'property-documents', 'valuations', 'maintenance-photos', 'job-photos', 'property-photos', 'tenant-guides', 'planner-files', 'capture'])
@@ -13,6 +14,7 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}))
   const ref = b.url ? parseStorageUrl(b.url) : (b.bucket && b.path ? { bucket: String(b.bucket), path: String(b.path) } : null)
   if (!ref || !BUCKETS.has(ref.bucket) || ref.path.includes('..')) return NextResponse.json({ error: 'That file can’t be opened here' }, { status: 400 })
+  if (isIdentityPath(ref.bucket, ref.path)) return NextResponse.json({ url: viewLink(ref.bucket, ref.path, 300) })   // encrypted at rest — opens through our server
   const { data, error } = await createServiceClient().storage.from(ref.bucket).createSignedUrl(ref.path, 300)
   if (error || !data) return NextResponse.json({ error: error?.message || 'File not found' }, { status: 404 })
   return NextResponse.json({ url: data.signedUrl })

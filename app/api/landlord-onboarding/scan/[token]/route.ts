@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient }              from '@supabase/supabase-js'
 import Anthropic                     from '@anthropic-ai/sdk'
 import { AI_MODEL }                  from '@/lib/ai-classify'
+import { openBytes } from '@/lib/files/fileCrypt'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -194,8 +195,7 @@ export async function POST(
   }
 
   // Convert to base64
-  const arrayBuffer = await fileData.arrayBuffer()
-  const base64      = Buffer.from(arrayBuffer).toString('base64')
+  const base64      = openBytes(Buffer.from(await fileData.arrayBuffer())).toString('base64')   // identity documents are encrypted at rest
   const mimeType    = fileData.type || guessMime(path)
 
   // Only images and PDFs can be sent to Claude vision
