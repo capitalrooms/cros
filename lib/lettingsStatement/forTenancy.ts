@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { generateLettingsStatementPDF } from '@/lib/lettingsStatement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { inlineAddress } from '@/lib/formatAddress'
+import { resolvePropertyAccount } from '@/lib/banking/propertyAccount'
 import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
 export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string): Promise<{ buffer: Buffer; filename: string } | { error: string }> {
@@ -20,7 +21,7 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
       rooms (
         id, name, property_id,
         properties (
-          id, name, address, property_code,
+          id, name, address, property_code, landlord_id, bank_account_id,
           letting_type, letting_fee_pct, letting_fee_flat,
           bank_account_name, bank_sort_code, bank_account_number,
           bank_iban, bank_swift, bank_payment_ref,
@@ -41,6 +42,8 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
 
   const room     = (tenancy.rooms as any)
   const property = openFields(room?.properties as any, BANK_FIELDS.properties)   // bank numbers stored encrypted
+  // the landlord's account this house is linked to (or their default) — lib/banking/propertyAccount
+  const payee = await resolvePropertyAccount(supabase as any, property).catch(() => null)
   const landlord = property?.people as any
   const tenant   = (tenancy as any).people as any
 
@@ -104,10 +107,10 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
     lettingFeePct:  feePct  ?? undefined,
     lettingFeeFlat: feeFlat ?? undefined,
     holdingDepositReceived: (tenancy as any).holding_deposit_received ?? undefined,
-    bankName: undefined, // not stored — landlord's bank name not in schema yet
-    bankAccountName:  property.bank_account_name ?? landlordName,
-    bankSortCode:     property.bank_sort_code,
-    bankAccountNumber: property.bank_account_number,
+    bankName: payee?.bank || undefined,
+    bankAccountName:  payee?.name || property.bank_account_name || landlordName,
+    bankSortCode:     payee?.sortCode ?? property.bank_sort_code,
+    bankAccountNumber: payee?.accountNo ?? property.bank_account_number,
     paymentReference: paymentRef,
     paidOn: (im as any)?.paid_on ?? undefined,   // once the landlord's payment is recorded the statement says it went
     statementDate: new Date().toISOString(),
