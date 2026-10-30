@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/adminAuth'
 import { getNewTenantCommsLive } from '@/lib/comms'
-import { loadPackContext, moneySummary } from '@/lib/movein/pack'
+import { loadPackContext, moneySummary, agreementChoice } from '@/lib/movein/pack'
 import { svc, packLink, defaultPackSubject, defaultPackMessage } from '@/lib/movein/email'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ tena
   if (!(await requireAdmin(req))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { tenancyId } = await params
   const s = svc()
-  const ctx = await loadPackContext(s, tenancyId)
+  const ctx = await loadPackContext(s, tenancyId, { agreement: agreementChoice(req.nextUrl.searchParams.get('agreement')) })
   if (!ctx) return NextResponse.json({ error: 'Tenancy not found' }, { status: 404 })
 
   const { data: packs, error } = await s.from('tenancy_packs')

@@ -75,6 +75,7 @@ export interface PackContext {
   amountDue: number
   payBy: string | null              // YYYY-MM-DD — cleared funds 24h before check-in
   warnings: string[]
+  houseLettingType: string | null // the house's own setting (Details), before any per-pack choice
   lettingType: string | null      // 'let_only' → the let-only agreement; otherwise the Capital Rooms one
   /** a whole house or flat → the single-let agreement (NRLA, lib/tenancyAgreement/singleLet); a room → the APT room agreement */
   wholeLet: boolean
@@ -89,7 +90,13 @@ const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 const ordinal = (n: number) => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th')
 const agreementDate = (d: Date) => `${ordinal(d.getDate())} ${d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`
 
-export async function loadPackContext(s: SupabaseClient, tenancyId: string): Promise<PackContext | null> {
+export type AgreementChoice = 'managed' | 'let_only'
+/** ?agreement= / body.agreement → a choice, or null to follow the house's own setting */
+export const agreementChoice = (v: unknown): AgreementChoice | null => (v === 'managed' || v === 'let_only' ? v : null)
+
+// The office can choose the agreement per pack (30 Oct 2026, Harry: be sure the right one goes out). The choice drives
+// the agreement, whose bank account is printed, and which guides go in — the house's setting is only the default.
+export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts: { agreement?: AgreementChoice | null } = {}): Promise<PackContext | null> {
   const { data: t } = await s.from('tenancies')
     .select('id, start_date, rent_amount, rent_due_day, deposit_amount, holding_deposit_received, payment_reference, person_id, room_id, property_id, people!person_id(id, salutation, first_name, middle_name, last_name, full_name, email), co:people!co_tenant_id(id, salutation, first_name, middle_name, last_name, full_name, email), rooms(id, name)')
     .eq('id', tenancyId).maybeSingle()
@@ -98,6 +105,8 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
   await healPropertyCerts(s as any, (t as any).property_id, 4).catch(() => null)
   const { data: propRow } = await s.from('properties').select('*').eq('id', (t as any).property_id).maybeSingle()
   const prop = openFields(propRow as any, BANK_FIELDS.properties)   // bank numbers stored encrypted
+  const houseLettingType: string | null = (prop as any)?.letting_type ?? null
+  const lettingType: string | null = opts.agreement ?? houseLettingType
   const [{ data: landlord }, { data: docs }] = await Promise.all([
     prop?.landlord_id ? s.from('people').select('*').eq('id', prop.landlord_id).maybeSingle() : Promise.resolve({ data: null }),
     s.from('property_documents').select('document_type, storage_url, file_name, uploaded_at').eq('property_id', (t as any).property_id).order('uploaded_at', { ascending: false }),
@@ -146,11 +155,11 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
     { key: 'agreement', label: 'Tenancy agreement', group: 'Your tenancy', source: 'generated', available: true, include: true },
     { key: 'check_in', label: 'Check-in balance', group: 'Your tenancy', source: 'generated', available: true, include: true },
     // the deposit's prescribed information on the DPS's own form, filled in — managed lets taking a deposit
-    ...(deposit > 0 && (prop as any)?.letting_type !== 'let_only'
+    ...(deposit > 0 && lettingType !== 'let_only'
       ? [{ key: 'prescribed_info', label: 'Deposit prescribed information (DPS form) — to sign', group: 'Your deposit' as DocGroup, source: 'generated' as const, available: true, include: true }] : []),
     ...certDocs,
     // let-only (Nigel) tenants don't get the housemate and checking-out guides (Harry, 15 Oct 2026)
-    ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true, include: d.include && !((prop as any)?.letting_type === 'let_only' && (d.key === 'jedi' || d.key === 'checking_out')) && !(isWholeLet((prop as any)?.property_type, room.name) && d.key === 'jedi') })),   // no housemates in a whole home
+    ...STATIC.map(d => ({ ...d, source: 'static' as const, available: true, include: d.include && !(lettingType === 'let_only' && (d.key === 'jedi' || d.key === 'checking_out')) && !(isWholeLet((prop as any)?.property_type, room.name) && d.key === 'jedi') })),   // no housemates in a whole home
   ]
 
   // formalName = title, first, middle and surname — it goes on the agreement
@@ -169,7 +178,8 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string): Pro
     },
     room: { id: room.id, name: room.name || '' },
     property: { id: prop?.id, name: prop?.name || '', address: houseAddress, propertyId: prop?.id },
-    lettingType: (prop as any)?.letting_type ?? null,
+    lettingType,
+    houseLettingType,
     wholeLet: isWholeLet((prop as any)?.property_type, room.name),
     landlordBank: (prop as any)?.bank_account_number ? { name: (prop as any).bank_account_name || '', bank: '', sortCode: (prop as any).bank_sort_code || '', accountNo: (prop as any).bank_account_number, iban: (prop as any).bank_iban || undefined, swift: (prop as any).bank_swift || undefined } : null,
     landlordContact: landlord ? { address: oneLine((landlord as any).home_address || ''), email: (landlord as any).email || '', phone: (landlord as any).phone || '' } : null,
@@ -218,6 +228,12 @@ export async function renderAgreement(ctx: PackContext, opts: { parking?: boolea
     })
   }
   const start = parseTenancyDate(ctx.startDate)
+  // let-only: the rent goes to the landlord's own account, never the Capital Rooms client account
+  const letOnly = ctx.lettingType === 'let_only'
+  if (letOnly && !ctx.landlordBank?.accountNo) throw new Error('Add the landlord’s bank account to this property first (property › Details › bank account) — the rent goes there on a let-only.')
+  const bank = letOnly
+    ? { name: ctx.landlordBank!.name, bank: ctx.landlordBank!.bank, sortCode: ctx.landlordBank!.sortCode, accountNo: ctx.landlordBank!.accountNo }
+    : { name: CLIENT_ACCOUNT.name, bank: CLIENT_ACCOUNT.bank, sortCode: CLIENT_ACCOUNT.sortCode, accountNo: CLIENT_ACCOUNT.accountNo }
   return generateTenancyAgreement({
     // managed tenancies get the Capital Rooms agreement; a let-only (landlord-managed) property gets the let-only one
     template: ctx.lettingType === 'let_only' ? (opts.parking ? 'apt-ns' : 'apt-base') : 'apt-cr',
@@ -232,10 +248,10 @@ export async function renderAgreement(ctx: PackContext, opts: { parking?: boolea
     when_rent_due: ordinal(ctx.rentDueDay),
     deposit: gbp(ctx.deposit),
     tenant_email: ctx.tenant.emails.join(", "),   // both tenants on a joint tenancy
-    bank_account_name: CLIENT_ACCOUNT.name,
-    bank_name: CLIENT_ACCOUNT.bank,
-    bank_sort_code: CLIENT_ACCOUNT.sortCode,
-    bank_account_number: CLIENT_ACCOUNT.accountNo,
+    bank_account_name: bank.name,
+    bank_name: bank.bank,
+    bank_sort_code: bank.sortCode,
+    bank_account_number: bank.accountNo,
     payment_reference: ctx.paymentRef,
   })
 }

@@ -14,7 +14,7 @@ import { getNewTenantCommsLive } from '@/lib/comms'
 import { sendEmail } from '@/lib/sendEmail'
 import { buildEmail } from '@/lib/emailWrapper'
 import { senderFor } from '@/lib/email/sender'
-import { loadPackContext, moneySummary, renderAgreement, renderCheckIn, packFileName, type PackDoc, type GeneratedKey } from '@/lib/movein/pack'
+import { agreementChoice, loadPackContext, moneySummary, renderAgreement, renderCheckIn, packFileName, type PackDoc, type GeneratedKey } from '@/lib/movein/pack'
 import { renderDpsFormFor } from '@/lib/deposits/dpsForm'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
 import { svc, newPackToken, packLink, packEmailHtml, defaultPackSubject, PACK_BUCKET } from '@/lib/movein/email'
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ten
   const b = await req.json().catch(() => ({}))
   const action = String(b.action || '')
   const s = svc()
-  const ctx = await loadPackContext(s, tenancyId)
+  const ctx = await loadPackContext(s, tenancyId, { agreement: agreementChoice(b.agreement) })
   if (!ctx) return NextResponse.json({ error: 'Tenancy not found' }, { status: 404 })
 
   const wanted: string[] = Array.isArray(b.docs) ? b.docs : ctx.documents.filter(d => d.include).map(d => d.key)
