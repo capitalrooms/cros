@@ -21,7 +21,9 @@ const svc = () => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.en
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-interface PersonRow { first_name: string | null; last_name: string | null; email: string | null; job_title: string | null; direct_phone: string | null }
+interface PersonRow { first_name: string | null; last_name: string | null; email: string | null; job_title: string | null; direct_phone: string | null; role?: string | null }
+// the same signature for everyone, filled with their own details; a blank job title falls back to their team (30 Oct 2026)
+const TEAM: Record<string, string> = { lettings: 'Lettings', administrator: 'Capital Rooms', admin: 'Capital Rooms' }
 
 function toSender(p: PersonRow): EmailSender {
   const email = (p.email ?? '').trim().toLowerCase()
@@ -32,7 +34,7 @@ function toSender(p: PersonRow): EmailSender {
   const ours = email.endsWith(SENDABLE_DOMAIN)
   return {
     name,
-    title: (p.job_title ?? '').trim() || 'Capital Rooms',
+    title: (p.job_title ?? '').trim() || TEAM[p.role ?? ''] || 'Capital Rooms',
     phone: (p.direct_phone ?? '').trim() || OFFICE_PHONE,
     email,
     from: ours ? `${display} <${email}>` : `${display} <${FALLBACK.email}>`,
@@ -47,7 +49,7 @@ export async function defaultSender(): Promise<EmailSender> {
   if (cached && Date.now() - cached.at < 5 * 60_000) return cached.sender
   try {
     const { data } = await svc().from('people')
-      .select('salutation, first_name, last_name, email, job_title, direct_phone')
+      .select('salutation, first_name, last_name, email, job_title, direct_phone, role')
       .in('role', ['administrator', 'admin']).order('created_at', { ascending: true }).limit(1).maybeSingle()
     const sender = data ? toSender(data) : FALLBACK
     cached = { at: Date.now(), sender }
