@@ -199,13 +199,11 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
   }
 }
 
-/** Who the tenant pays: on a let-only the landlord collects the first rent and deposit too (Harry, 30 Oct 2026),
- *  so it's the landlord's own account — never the Capital Rooms client account. */
-export function payeeBank(ctx: PackContext): { name: string; bank: string; sortCode: string; accountNo: string; iban: string; swift: string } {
-  if (ctx.lettingType !== 'let_only') return CLIENT_ACCOUNT
-  const b = ctx.landlordBank
-  if (!b?.accountNo) throw new Error('Add the landlord’s bank account to this property first (landlord’s page › Bank accounts, then link it to this house) — on a let-only the landlord collects the rent and deposit.')
-  return { name: b.name, bank: b.bank, sortCode: b.sortCode, accountNo: b.accountNo, iban: b.iban ?? '', swift: b.swift ?? '' }
+/** Where the tenant's move-in money goes: always our client account. On a let-only we take the letting fee and pass the
+ *  rest — the deposit included — to the landlord (lettings statement), who protects the deposit (Harry, 30 Oct 2026).
+ *  Only the monthly rent after that goes to the landlord's own account, as the let-only agreement says. */
+export function payeeBank(_ctx: PackContext): { name: string; bank: string; sortCode: string; accountNo: string; iban: string; swift: string } {
+  return CLIENT_ACCOUNT
 }
 
 export function moneySummary(ctx: PackContext) {
