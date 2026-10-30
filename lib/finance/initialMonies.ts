@@ -4,6 +4,7 @@
 //   expectedFor()  what should arrive and where it goes, from the move-in figures (lib/movein/pack) and the fee
 //   bankMatches()  imported bank lines that look like the balance (amount, the tenant's name or payment reference)
 //   receive() / pay() / transferFee() / voidRecord()  each step, numbered and logged; nothing is ever deleted
+import { lettingFeeRule } from '@/lib/fees/lettingFee'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { loadPackContext, moneySummary } from '@/lib/movein/pack'
 import { logTenancyEvent } from '@/lib/lettings/incomingTenancy'
@@ -29,11 +30,14 @@ export async function expectedFor(s: SupabaseClient, tenancyId: string): Promise
   const deposit = r2(Number(m?.deposit ?? t.deposit_amount ?? 0))
   const holding = r2(Number(hold?.amount ?? m?.holdingDeposit ?? 0))
   const p = t.properties ?? {}
+  // the house's own fee, else the landlord's (lib/fees/lettingFee)
+  const { data: ll } = p.landlord_id ? await s.from('people').select('letting_fee_pct, letting_fee_flat').eq('id', p.landlord_id).maybeSingle() : { data: null }
+  const rule = lettingFeeRule(p, ll)
   // the tenant-find fee: what the tenancy already says, else the house's let-only fee (flat, or % of a month's rent)
   let feeSuggested: number | null = null, feeBasis = 'Not set — enter the agreed fee'
   if (t.letting_fee_charged != null) { feeSuggested = r2(Number(t.letting_fee_charged)); feeBasis = 'From the tenancy' }
-  else if (p.letting_fee_flat != null) { feeSuggested = r2(Number(p.letting_fee_flat)); feeBasis = 'The house’s flat fee' }
-  else if (p.letting_fee_pct != null && t.rent_amount) { feeSuggested = r2(Number(t.rent_amount) * Number(p.letting_fee_pct) / 100); feeBasis = `${p.letting_fee_pct}% of a month’s rent` }
+  else if (rule.flat != null) { feeSuggested = r2(rule.flat); feeBasis = rule.from === 'landlord' ? 'The landlord’s flat fee' : 'The house’s flat fee' }
+  else if (rule.pct != null && t.rent_amount) { feeSuggested = r2(Number(t.rent_amount) * rule.pct / 100); feeBasis = `${rule.pct}% of a month’s rent${rule.from === 'landlord' ? ' (the landlord’s fee)' : ''}` }
   return {
     letOnly: p.letting_type === 'let_only',
     firstRent, deposit, holding, holdingId: hold?.id ?? null,

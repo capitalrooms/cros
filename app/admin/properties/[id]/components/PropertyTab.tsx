@@ -790,7 +790,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                       <label className="block text-xs text-neutral-600 mb-xs">Letting fee</label>
                       <div className="flex gap-sm items-center">
                         <input type="number" value={formData.letting_fee_pct} onChange={e => setFormData({ ...formData, letting_fee_pct: e.target.value, letting_fee_flat: '' })}
-                          placeholder="—" className="w-20 px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          placeholder="landlord’s" className="w-28 px-md py-sm border border-neutral-300 rounded-lg text-sm bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         <span className="text-xs text-neutral-600">% of first month's rent</span>
                         <span className="text-xs text-neutral-500">or</span>
                         <span className="text-xs text-neutral-600">£</span>

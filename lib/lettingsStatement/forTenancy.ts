@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { generateLettingsStatementPDF } from '@/lib/lettingsStatement/generatePDF'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { inlineAddress } from '@/lib/formatAddress'
+import { lettingFeeRule } from '@/lib/fees/lettingFee'
 import { resolvePropertyAccount } from '@/lib/banking/propertyAccount'
 import { open, openFields, openRows, seal, BANK_FIELDS } from '@/lib/crypto/fieldCrypt'
 
@@ -79,12 +80,14 @@ export async function lettingsStatementFor(s: SupabaseClient, tenancyId: string)
 
   // ── Determine fee ────────────────────────────────────────────────────────
   const feeCharged = (tenancy as any).letting_fee_charged
+  const { data: llFee } = property.landlord_id ? await supabase.from('people').select('letting_fee_pct, letting_fee_flat').eq('id', property.landlord_id).maybeSingle() : { data: null }
+  const rule = lettingFeeRule(property, llFee)
   // a let-only statement with no fee would pay the landlord everything — say so instead (30 Oct 2026: 95 Rope Street's
   // fee box showed a greyed 'e.g. 75' that looked filled in)
-  if (property.letting_type === 'let_only' && feeCharged == null && property.letting_fee_pct == null && property.letting_fee_flat == null)
-    return { error: `Set the letting fee on ${property.name || 'the house'} first (house › Details › Letting fee) — the statement takes it off what the landlord is paid.` }
-  const feePct     = feeCharged != null ? null : property.letting_fee_pct
-  const feeFlat    = feeCharged != null ? feeCharged : property.letting_fee_flat
+  if (property.letting_type === 'let_only' && feeCharged == null && rule.pct == null && rule.flat == null)
+    return { error: `Set the letting fee on ${property.name || 'the house'} first (the landlord’s page › Agreement › Letting fee, or the house’s own) — the statement takes it off what the landlord is paid.` }
+  const feePct     = feeCharged != null ? null : rule.pct
+  const feeFlat    = feeCharged != null ? feeCharged : rule.flat
 
   // ── Auto payment reference if not set ────────────────────────────────────
   const paymentRef = (tenancy as any).payment_reference
