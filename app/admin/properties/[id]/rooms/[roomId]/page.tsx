@@ -88,7 +88,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
   const pill = STAGE_PILL[o.stage] ?? STAGE_PILL.live
   const photo = o.room.photos[0]?.src ?? null
   const reletDue = !!(cur?.end && !o.incoming) || o.stage === 'void'
-  const facts = [o.room.unitCode, o.room.type, o.room.ensuite ? 'en suite' : o.room.sharedBathroom === false ? '' : 'shared bathroom', o.property.furnished, o.property.bills ? 'bills included' : ''].filter(Boolean).join(' · ')
+  const houseNeeds = o.needs.filter(n => n.category === 'House certificate').length
 
   return (
     <div className="min-h-screen bg-neutral-100">
@@ -101,18 +101,14 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
             <div className="flex min-w-0 flex-[1_1_420px] items-center gap-md md:items-end">
               <StoredImg src={photo} alt={`${o.room.name} photo`} className="h-16 w-16 flex-none rounded-xl object-cover md:h-[90px] md:w-[120px]" />
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#F6F3EC]/55">{facts}</p>
                 <div className="flex flex-wrap items-center gap-sm">
                   <h1 className="text-[28px] font-extrabold leading-none md:text-[34px]" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>{o.room.name}</h1>
                   <span className={`rounded-full px-sm py-0.5 text-[11px] font-black uppercase tracking-wide ${pill.cls}`}>{pill.label(o)}</span>
                 </div>
-                {cur && <p className="mt-0.5 text-sm text-[#F6F3EC]/80">Current tenancy: <b className="text-[#F6F3EC]">{cur.tenant.name}</b> · {full(cur.start)} – {cur.end ? full(cur.end) : 'periodic, no end date'}</p>}
-                {!cur && o.incoming && <p className="mt-0.5 text-sm text-[#F6F3EC]/80">Incoming tenancy: <b className="text-[#F6F3EC]">{o.incoming.tenant}</b> · tenancy start date {full(o.incoming.start)}</p>}
+                {cur && <p className="mt-0.5 text-sm text-[#F6F3EC]/80"><b className="text-[#F6F3EC]">{cur.tenant.name}</b></p>}
                 <p className="mt-0.5 text-[13px] text-[#F6F3EC]/65">
                   <Link href={`/admin/properties/${propertyId}`} className="font-bold text-[#F6F3EC] underline-offset-2 hover:underline">{o.property.name}</Link>
-                  {o.property.type === 'hmo' && ` · HMO, ${o.property.roomCount} rooms`}
-                  {o.landlord && <> · Landlord: <Link href={`/admin/landlord/${o.landlord.id}`} className="hover:underline">{o.landlord.name}{o.landlord.company ? `, ${o.landlord.company}` : ''}</Link></>}
-                  {o.fee.label && ` · ${o.fee.label}`}
+                  {o.landlord && <> · <Link href={`/admin/landlord/${o.landlord.id}`} className="hover:underline">{o.landlord.name}</Link></>}
                 </p>
               </div>
             </div>
@@ -124,45 +120,43 @@ export default function RoomPage({ params }: { params: Promise<{ id: string; roo
             </div>
           </div>
 
-          <div className="mt-md grid grid-cols-2 gap-sm md:grid-cols-4">
-            <Stat value={gbp(cur?.rent ?? o.incoming?.rent ?? o.room.askingRent)} label={cur ? `Rent per month · due on the ${ordinal(cur.dueDay)}` : 'Asking rent per month'} />
-            {letOnly ? <Stat value="Let only" label={`${o.landlord?.name ?? 'The landlord'} collects the rent and manages`} />
-              : cur?.balance != null && cur.balance > 0.004
-              ? <Stat value={gbp(cur.balance)} label="Owed on the rent account" tone="text-red-300" />
-              : <Stat value={cur ? gbp(0) : '—'} label={cur ? 'Owed on the rent account' : 'No current tenancy'} />}
-            <Stat value={o.occupancy ? `${o.occupancy.pct}%` : '—'} label={o.occupancy ? `Let since ${full(o.occupancy.since)} · ${o.occupancy.voidDays} void days` : 'No tenancies yet'} />
-            {!letOnly && <Stat value={gbp(o.spend)} label={`Spent on this room · ${o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status)).length} repair${o.repairs.filter(r => !['completed', 'cancelled'].includes(r.status)).length === 1 ? '' : 's'} open`} />}
-          </div>
+          {/* figures only when they need attention: rent owed, or how long the room has stood empty (30 Oct 2026) */}
+          {(() => {
+            const owed = !letOnly && cur?.balance != null && cur.balance > 0.004 ? cur.balance : 0
+            const empty = !cur && o.occupancy?.voidDays ? o.occupancy.voidDays : 0
+            if (!owed && !(o.stage === 'void' && empty)) return null
+            return (
+              <div className="mt-md flex flex-wrap gap-sm">
+                {owed > 0 && <Stat value={gbp(owed)} label="Owed on the rent account" tone="text-red-300" />}
+                {o.stage === 'void' && empty > 0 && <Stat value={`${empty} days`} label="Empty" tone="text-amber-200" />}
+              </div>
+            )
+          })()}
 
           <nav aria-label={`Rooms at ${o.property.name}`} className="-mx-lg mt-md flex gap-0.5 overflow-x-auto px-lg" style={{ scrollbarWidth: 'none' }}>
             {o.strip.map(r => {
               const on = r.id === roomId
               return (
                 <Link key={r.id} href={`/admin/properties/${propertyId}/rooms/${r.id}`} aria-current={on ? 'page' : undefined}
-                  className={`flex min-w-[148px] flex-none flex-col gap-0.5 rounded-t-xl px-md py-sm text-left ${on ? 'bg-neutral-100 text-neutral-900' : 'text-[#F6F3EC]/75 hover:text-[#F6F3EC]'}`}>
-                  <span className="flex items-center gap-xs text-[13px] font-black"><span className={`h-2 w-2 rounded-full ${DOT[r.state] ?? 'bg-neutral-400'}`} />{r.name}{r.rent ? ` · ${gbp(r.rent)}` : ''}</span>
-                  <span className="truncate text-xs">{r.tenant ?? 'No tenancy'}</span>
-                  <span className={`truncate text-[11px] ${on ? 'text-neutral-500' : 'text-[#F6F3EC]/50'}`}>{r.line}</span>
+                  title={[r.tenant ?? 'No tenancy', r.line].filter(Boolean).join(' · ')}
+                  className={`flex flex-none items-center rounded-t-xl px-md py-sm text-left ${on ? 'bg-neutral-100 text-neutral-900' : 'text-[#F6F3EC]/75 hover:text-[#F6F3EC]'}`}>
+                  <span className="flex items-center gap-xs text-[13px] font-black"><span className={`h-2 w-2 rounded-full ${DOT[r.state] ?? 'bg-neutral-400'}`} />{r.name}</span>
                 </Link>
               )
             })}
-            <Link href={`/admin/properties/${propertyId}`} className="flex min-w-[148px] flex-none flex-col gap-0.5 rounded-t-xl border-l border-[#F6F3EC]/15 px-md py-sm text-[#F6F3EC]/75 hover:text-[#F6F3EC]">
-              <span className="text-[13px] font-black">The house</span><span className="text-xs">Shared areas, certificates</span><span className="text-[11px] text-[#F6F3EC]/50">{o.property.roomCount} rooms</span>
+            <Link href={`/admin/properties/${propertyId}`} className="flex flex-none items-center gap-xs rounded-t-xl border-l border-[#F6F3EC]/15 px-md py-sm text-[13px] font-black text-[#F6F3EC]/75 hover:text-[#F6F3EC]">
+              The house{houseNeeds > 0 && <span className="rounded-full bg-amber-300 px-xs text-[11px] text-[#181614]">{houseNeeds}</span>}
             </Link>
           </nav>
         </div>
       </section>
 
       <div className="mx-auto max-w-6xl space-y-lg px-lg py-xl pb-[120px] md:pb-xl">
-        <NeedsYou needs={o.needs} today={o.today} reload={load} />
+        <NeedsYou needs={o.needs.filter(n => n.category !== 'House certificate')} today={o.today} reload={load} />
 
         <div className="flex flex-wrap items-start gap-lg">
           <div className="min-w-0 flex-[999_1_560px] space-y-lg">
-            {cur ? <CurrentTenancy o={o} wide={wide} onMessage={message} /> : (
-              <Section title="Current tenancy" summary="No current tenancy" wide={wide} open>
-                <p className="text-sm text-neutral-600">{o.incoming ? <>Incoming tenancy: <b>{o.incoming.tenant}</b>, tenancy start date {full(o.incoming.start)}. <Link className="font-bold underline" href={`/admin/lettings/${o.incoming.id}`}>Letting file</Link></> : 'Nobody has a tenancy of this room today.'}</p>
-              </Section>
-            )}
+            {cur && <CurrentTenancy o={o} wide={wide} onMessage={message} />}
             <Rent o={o} wide={wide} />
             <Messages o={o} wide={wide} composeRef={composeRef} roomId={roomId} reload={load} onMessage={message} />
           </div>
@@ -242,12 +236,11 @@ function NeedsYou({ needs, today, reload }: { needs: Need[]; today: string; relo
       <div className="flex flex-wrap items-baseline justify-between gap-x-md gap-y-xs border-b border-neutral-100 bg-neutral-50 px-lg py-md">
         <div className="flex flex-wrap items-baseline gap-sm">
           <h2 id="needs" className="text-xl font-extrabold" style={{ fontFamily: 'var(--font-baloo-2, system-ui, sans-serif)' }}>Needs you · {needs.length}</h2>
-          <span className="text-xs text-neutral-500">From this room’s records as at {full(today)}, most urgent first. Each clears itself once done.</span>
         </div>
         {counts.length > 0 && <span className="flex gap-md text-xs font-bold">{counts.map(([l, n]) => <span key={l} className={`inline-flex items-center gap-xs ${LEVEL[l].text}`}><span className={`h-2 w-2 rounded-full ${LEVEL[l].bar}`} />{n} {l === 'tidy' && n === 1 ? 'tidy-up' : LEVEL[l].label}</span>)}</span>}
       </div>
       {msg && <p className="border-b border-neutral-100 bg-green-50 px-lg py-sm text-sm font-semibold text-green-800">{msg}</p>}
-      {needs.length === 0 ? <p className="px-lg py-md text-sm text-neutral-500">Nothing needs doing on this room.</p> : (
+      {needs.length === 0 ? null : (
         <ol>
           {needs.map(n => (
             <li key={n.key} className="flex items-stretch gap-md border-b border-neutral-100 pr-lg last:border-b-0">
@@ -281,7 +274,7 @@ function NeedsYou({ needs, today, reload }: { needs: Need[]; today: string; relo
 function CurrentTenancy({ o, wide, onMessage }: { o: RoomOverview; wide: boolean; onMessage: () => void }) {
   const c = o.current!
   const holdOver = c.hold && c.rent ? Math.round((c.hold.amount - Math.floor(c.rent * 12 / 52 * 100) / 100) * 100) / 100 : 0
-  const steps = c.steps.filter(s => s.id !== 'offer' && s.id !== 'move_in')
+  const steps = c.steps.filter(s => s.id !== 'offer' && s.id !== 'move_in' && !s.done)   // only what's still to do
   const row = (label: string, value: React.ReactNode, tone = '') => <><dt className="text-neutral-500">{label}</dt><dd className={tone}>{value}</dd></>
   return (
     <Section title="Current tenancy" wide={wide} open summary={`${c.tenant.name} · ${full(c.start)} – ${c.end ? full(c.end) : 'periodic'}`}>
@@ -290,7 +283,7 @@ function CurrentTenancy({ o, wide, onMessage }: { o: RoomOverview; wide: boolean
           <span className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-amber-100 font-black text-amber-900">{initials(c.tenant.name)}</span>
           <div className="min-w-0">
             <p className="text-lg font-black text-neutral-900">{c.tenant.name}</p>
-            <p className="text-[13px] text-neutral-500">{c.jointTenant ? `Joint tenancy with ${c.jointTenant.name}` : 'Sole tenant'}{c.tenant.occupation ? ` · ${c.tenant.occupation}` : ''}</p>
+            {c.jointTenant && <p className="text-[13px] text-neutral-500">Joint tenancy with {c.jointTenant.name}</p>}
           </div>
         </div>
         <div className="grid w-full grid-cols-3 gap-sm sm:flex sm:w-auto">
@@ -387,16 +380,15 @@ function Messages({ o, wide, composeRef, roomId, reload, onMessage }: { o: RoomO
   }
 
   return (
-    <Section id="messages" title="Messages and activity" wide={wide} open summary={`${o.timeline.length} items · current tenancy, expired tenancies and applicants`}>
+    <Section id="messages" title="Messages and activity" wide={wide} open summary={`${o.timeline.length} items`}>
       <div className="space-y-sm px-lg py-md">
         <div className="flex flex-wrap items-center gap-sm">
           {o.current && <button type="button" onClick={onMessage} className={btnDark}>Message {o.current.tenant.name}{o.current.jointTenant ? ` and ${o.current.jointTenant.name}` : ''}</button>}
-          <span className="text-xs text-neutral-500">Opens Quick Notify: ready-made messages, a preview, and app, email or text</span>
         </div>
         <div className="overflow-hidden rounded-xl border border-neutral-300">
           <textarea ref={composeRef} value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder="An office note — kept on this room, never sent" aria-label="Office note" className="block w-full resize-y border-0 px-md py-sm text-sm outline-none" />
           <div className="flex items-center justify-between gap-sm border-t border-neutral-100 bg-neutral-50 px-sm py-sm">
-            <span className="text-xs text-neutral-500">Only the office sees notes</span>
+            <span />
             <button type="button" disabled={busy || !body.trim()} onClick={saveNote} className={btnLight}>{busy ? 'Saving…' : 'Save note'}</button>
           </div>
         </div>
