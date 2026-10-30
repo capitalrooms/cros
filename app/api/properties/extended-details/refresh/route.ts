@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
     // Fetch property with location data
     const { data: property, error: propError } = await supabase
       .from('properties')
-      .select('id, name, address, lat, lng')
+      .select('id, name, address, postcode, lat, lng')
       .eq('id', property_id)
       .single()
 
@@ -266,7 +266,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 })
     }
 
-    const postcode = property.address?.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}/i)?.[0]
+    // the house's own postcode field first; the address only if that's empty
+    const postcode = (property as any).postcode?.trim() || property.address?.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2}/i)?.[0]
     console.log('Extracted postcode:', postcode, 'from address:', property.address)
     if (!postcode) {
       return NextResponse.json(

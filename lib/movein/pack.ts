@@ -76,6 +76,7 @@ export interface PackContext {
   amountDue: number
   payBy: string | null              // YYYY-MM-DD — cleared funds 24h before check-in
   warnings: string[]
+  landlordId: string | null
   houseLettingType: string | null // the house's own setting (Details), before any per-pack choice
   lettingType: string | null      // 'let_only' → the let-only agreement; otherwise the Capital Rooms one
   /** a whole house or flat → the single-let agreement (NRLA, lib/tenancyAgreement/singleLet); a room → the APT room agreement */
@@ -188,6 +189,7 @@ export async function loadPackContext(s: SupabaseClient, tenancyId: string, opts
     landlordContact: landlord ? { address: oneLine((landlord as any).home_address || ''), email: (landlord as any).email || '', phone: (landlord as any).phone || '' } : null,
     address: placeLabel(isWholeLet(prop?.property_type, room.name), room.name, houseAddress),   // a whole home: just the address, never "Whole Property, …"
     landlordName: landlord ? landlordFormalNames(landlord as any) : '',
+    landlordId: (landlord as any)?.id ?? null,
     startDate: t.start_date, rentMonthly, rentDueDay, deposit, holdingDeposit,
     paymentRef: t.payment_reference || generatedRef,
     paymentRefStored: !!t.payment_reference,

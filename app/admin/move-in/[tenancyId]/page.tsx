@@ -21,9 +21,9 @@ interface Pack {
 }
 interface Data {
   context: {
-    tenancyId: string; tenant: { name: string; email: string; emails?: string[]; formalName: string }; address: string; landlordName: string
-    property: { id: string }; startDate: string | null; rentMonthly: number; rentDueDay: number; deposit: number; holdingDeposit: number
-    paymentRef: string; paymentRefStored: boolean; warnings: string[]; documents: Doc[]; lettingType?: string | null; houseLettingType?: string | null
+    tenancyId: string; tenant: { id?: string; name: string; email: string; emails?: string[]; formalName: string }; address: string; landlordName: string
+    property: { id: string; name: string }; startDate: string | null; rentMonthly: number; rentDueDay: number; deposit: number; holdingDeposit: number
+    paymentRef: string; paymentRefStored: boolean; warnings: string[]; documents: Doc[]; lettingType?: string | null; houseLettingType?: string | null; landlordId?: string | null; room: { id: string; name: string }
   }
   packs: Pack[]; commsLive: boolean; defaults: { subject: string; message: string }; setupNeeded: string | null
 }
@@ -182,7 +182,19 @@ export default function MoveInPackAdmin({ params }: { params: Promise<{ tenancyI
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/tenancies" />} title="Move-in pack" />
-      <PageHero eyebrow="Lettings · Move-in pack" title={c.tenant.formalName} subtitle={`${c.address} · ${(c.tenant.emails ?? [c.tenant.email]).filter(Boolean).join(', ') || 'no email'}${c.landlordName ? ` · landlord ${c.landlordName}` : ''}`} />
+      {/* the tenant, room, house and landlord are each one click away (30 Oct 2026) */}
+      <PageHero eyebrow="Lettings · Move-in pack" title={c.tenant.formalName} subtitle={
+        <span className="flex flex-wrap gap-x-md gap-y-xs">
+          {[
+            { label: 'Tenant', text: c.tenant.formalName, href: c.tenant.id ? `/admin/tenant/${c.tenant.id}` : '' },
+            { label: 'Room', text: c.room.name, href: c.property.id && c.room.id ? `/admin/properties/${c.property.id}/rooms/${c.room.id}` : '' },
+            { label: 'House', text: c.property.name || c.address, href: c.property.id ? `/admin/properties/${c.property.id}` : '' },
+            { label: 'Landlord', text: c.landlordName, href: c.landlordId ? `/admin/landlord/${c.landlordId}` : '' },
+          ].filter(x => x.text).map(x => x.href
+            ? <a key={x.label} href={x.href} className="underline decoration-white/30 underline-offset-2 hover:text-white hover:decoration-white"><span className="text-white/45">{x.label} </span>{x.text}</a>
+            : <span key={x.label}><span className="text-white/45">{x.label} </span>{x.text}</span>)}
+        </span>
+      } />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
 
         {data.setupNeeded && <p className="rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">{data.setupNeeded}</p>}

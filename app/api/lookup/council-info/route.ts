@@ -18,13 +18,13 @@ export async function POST(request: NextRequest) {
     let lookupPostcode = postcode
     if (!lookupPostcode && address) {
       // Simple regex to extract UK postcode (e.g., "M1 1AA")
-      const postcodeMatch = address.match(/\b([A-Z]{1,2}[0-9]{1,2}\s[0-9]{1}[A-Z]{2})\b/i)
+      const postcodeMatch = address.match(/\b([A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2})\b/i)
       lookupPostcode = postcodeMatch ? postcodeMatch[1] : null
     }
 
     if (!lookupPostcode) {
       return NextResponse.json(
-        { error: 'Could not extract postcode from address' },
+        { error: 'No postcode found — type a postcode, e.g. SE16 7TF' },
         { status: 400 }
       )
     }

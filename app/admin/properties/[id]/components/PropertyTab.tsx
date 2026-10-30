@@ -506,13 +506,9 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               </div>
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Full Address</label>
-                <PostcodeLookupWidget
-                  value={formData.address}
-                  onChange={(v) => setFormData({ ...formData, address: v })}
-                  onResult={(data) => setLookupResult(data)}
-                  placeholder="e.g. 71 Alloa Road, London, SE8 5AH"
-                  inputClassName="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="e.g. 71 Alloa Road, London"
+                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 {lookupResult && (
                   <p className="text-xs text-blue-600 mt-xs">
                     ✓ Lookup accepted — council & lat/lng will save with this form
@@ -523,13 +519,13 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-sm block">Postcode (required)</label>
-                <input
-                  type="text"
+                {/* Look up sits with the postcode — that's what it looks up (30 Oct 2026) */}
+                <PostcodeLookupWidget
                   value={formData.postcode}
-                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value.toUpperCase() })}
+                  onChange={(v) => setFormData({ ...formData, postcode: v.toUpperCase() })}
+                  onResult={(data) => setLookupResult(data)}
                   placeholder="e.g. E15 1LU"
-                  autoComplete="postal-code"
-                  className="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  inputClassName="w-full px-md py-sm border border-neutral-700 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <p className="text-xs text-neutral-500 mt-xs">Checked against the postcode register when you save; the council is set from it.</p>
               </div>
