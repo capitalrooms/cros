@@ -9,7 +9,7 @@ export const VAT_RATE = 0.2
 /** Is VAT charged on fees for something dated `iso` (an agreement date, invoice date…)? */
 export const vatApplies = (iso?: string | null) => (iso || new Date().toISOString()).slice(0, 10) >= VAT_FROM
 
-/** "12%" → "12% + VAT (14.4% inc. VAT)"; "£300 per room" → "£300 + VAT per room (£360 inc. VAT)". */
+/** "12%" → "12% + VAT (14.4% inc. VAT)"; "£300 per room" → "£300 + VAT (£360 inc. VAT) per room". */
 export function plusVat(fee: string): string {
   const f = fee.trim()
   if (!f || /vat/i.test(f) || /^(included|to be agreed|as agreed)/i.test(f)) return f
@@ -23,7 +23,7 @@ export function plusVat(fee: string): string {
     const n = Number(gbp[1].replace(/,/g, ''))
     const inc = n * (1 + VAT_RATE)
     const incStr = `£${Number.isInteger(inc) ? inc.toLocaleString('en-GB') : inc.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    return `${gbp[0]} + VAT${f.slice(gbp[0].length)} (${incStr} inc. VAT)`
+    return `${gbp[0]} + VAT (${incStr} inc. VAT)${f.slice(gbp[0].length)}`
   }
   return `${f} (plus VAT)`
 }
