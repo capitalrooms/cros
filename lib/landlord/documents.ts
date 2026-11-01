@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { displayName } from '@/lib/people'
 import type { NextRequest } from 'next/server'
 import { requireSignedIn } from '@/lib/portalAuth'
+import { filesFor } from '@/lib/documents/files'
 
 export const CERT_TYPES: Record<string, string> = {
   gas_safety_certificate: 'Gas safety certificate', gas_safety: 'Gas safety certificate', electrical_eicr: 'Electrical safety report (EICR)', electrical_cert: 'Electrical safety report (EICR)', epc: 'Energy performance certificate (EPC)',
@@ -16,7 +17,7 @@ export const CERT_TYPES: Record<string, string> = {
   pat_test: 'Portable appliance test (PAT)', fire_risk_assessment: 'Fire risk assessment',
 }
 
-export interface LandlordDoc { type: 'pd' | 'gd' | 'ls'; id: string; title: string; property: string; date: string | null; extra?: string }
+export interface LandlordDoc { type: 'pd' | 'gd' | 'ls' | 'gf'; id: string; title: string; property: string; date: string | null; extra?: string }
 
 const house = (p: any) => String(p?.name || p?.address || 'Your property').split('\n')[0]
 
@@ -30,7 +31,7 @@ export async function documentsFor(s: SupabaseClient, landlordId: string) {
   const houses = await landlordHouses(s, landlordId)
   const ids = houses.map(h => h.id)
   const byId = new Map(houses.map(h => [h.id, h]))
-  if (!ids.length) return { houses: [], statements: [], agreements: [], invoices: [], certificates: [] }
+  if (!ids.length) return { houses: [], statements: [], agreements: [], invoices: [], receipts: [], certificates: [] }
   const { data: me } = await s.from('people').select('email, joint_email').eq('id', landlordId).maybeSingle() as { data: any }
   const emails = [me?.email, me?.joint_email].filter(Boolean).map((e: string) => e.toLowerCase())
 
@@ -60,7 +61,11 @@ export async function documentsFor(s: SupabaseClient, landlordId: string) {
     .filter(g => (g.property_id && byId.has(g.property_id)) || (g.recipient_email && emails.includes(String(g.recipient_email).toLowerCase())))
     .map(g => ({ type: 'gd', id: g.id, title: `${g.kind === 'invoice' ? 'Invoice' : 'Letter'}${g.number ? ` ${g.number}` : ''}${g.title ? ` — ${g.title}` : ''}`, property: g.property_id ? house(byId.get(g.property_id)) : '', date: String(g.emailed_at || g.created_at || '').slice(0, 10) || null, extra: g.total != null && g.kind === 'invoice' ? `£${Number(g.total).toLocaleString('en-GB', { minimumFractionDigits: 2 })}` : undefined }))
 
-  return { houses: houses.map(h => ({ id: h.id, name: house(h), lettingType: h.letting_type })), statements: [...statements, ...pastStatements], agreements, invoices: [...invoices, ...pastInvoices], certificates }
+  // Receipts sent with our invoices (migration 254): kept even before the landlord is in the app, so they're waiting here
+  const invTitle = new Map(invoices.map(i => [i.id, i]))
+  const receipts: LandlordDoc[] = (await filesFor(s, invoices.map(i => i.id))).map(f => ({ type: 'gf', id: f.id, title: f.file_name, property: invTitle.get(f.document_id)?.property ?? '', date: f.created_at.slice(0, 10), extra: `with ${invTitle.get(f.document_id)?.title.split(' — ')[0] ?? 'invoice'}` }))
+
+  return { houses: houses.map(h => ({ id: h.id, name: house(h), lettingType: h.letting_type })), statements: [...statements, ...pastStatements], agreements, invoices: [...invoices, ...pastInvoices], receipts, certificates }
 }
 
 /** Is this document one of this landlord's? (the opener checks before any file is handed out) */
@@ -68,6 +73,10 @@ export async function ownsDoc(s: SupabaseClient, landlordId: string, type: strin
   const ids = new Set((await landlordHouses(s, landlordId)).map(h => h.id))
   if (type === 'ls') { const { data } = await s.from('tenancies').select('property_id, properties(letting_type)').eq('id', id).maybeSingle() as { data: any }; return !!data && ids.has(data.property_id) && data.properties?.letting_type === 'let_only' }
   if (type === 'pd') { const { data } = await s.from('property_documents').select('property_id').eq('id', id).maybeSingle() as { data: any }; return !!data && ids.has(data.property_id) }
+  if (type === 'gf') {
+    const { data } = await s.from('generated_document_files').select('document_id, removed_at').eq('id', id).maybeSingle() as { data: any }
+    return !!data && !data.removed_at && ownsDoc(s, landlordId, 'gd', data.document_id)
+  }
   if (type === 'gd') {
     const { data } = await s.from('generated_documents').select('property_id, recipient_email, kind, deleted_at').eq('id', id).maybeSingle() as { data: any }
     if (!data || data.deleted_at || !['invoice', 'letter'].includes(data.kind)) return false

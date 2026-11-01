@@ -5,8 +5,8 @@
 // a new tab or downloads; links are private and short-lived.
 import { useEffect, useState } from 'react'
 
-interface Doc { type: 'pd' | 'gd' | 'ls'; id: string; title: string; property: string; date: string | null; extra?: string }
-interface Data { houses: { id: string; name: string; lettingType: string }[]; statements: Doc[]; agreements: Doc[]; invoices: Doc[]; certificates: Doc[] }
+interface Doc { type: 'pd' | 'gd' | 'gf' | 'ls'; id: string; title: string; property: string; date: string | null; extra?: string }
+interface Data { houses: { id: string; name: string; lettingType: string }[]; statements: Doc[]; agreements: Doc[]; invoices: Doc[]; receipts?: Doc[]; certificates: Doc[] }
 
 const day = (d: string | null) => d ? new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 
@@ -29,7 +29,7 @@ export default function LandlordDocuments({ asId }: { asId?: string | null }) {
       let url: string
       if ((res.headers.get('content-type') ?? '').includes('application/pdf')) url = URL.createObjectURL(await res.blob())
       else url = (await res.json()).url
-      if (download) { const a = document.createElement('a'); a.href = url; a.download = `${d.title}.pdf`.replace(/[\\/:*?"<>|]+/g, ' '); document.body.appendChild(a); a.click(); a.remove() }
+      if (download) { const a = document.createElement('a'); a.href = url; a.download = d.type === 'gf' ? d.title : `${d.title}.pdf`.replace(/[\\/:*?"<>|]+/g, ' '); document.body.appendChild(a); a.click(); a.remove() }
       else if (w) w.location.href = url
       else window.location.href = url
     } catch (e) { w?.close(); setMsg(e instanceof Error ? e.message : 'That document couldn’t be opened') } finally { setBusy('') }
@@ -40,6 +40,7 @@ export default function LandlordDocuments({ asId }: { asId?: string | null }) {
     ['Lettings statements', 'What came in for each let, our fee, and what was paid to you', data.statements],
     ['Tenancy agreements', '', data.agreements],
     ['Invoices and letters from us', '', data.invoices],
+    ['Receipts', 'Sent with our invoices', data.receipts ?? []],
     ['Certificates', 'Safety certificates for the houses we manage', data.certificates],
   ] as [string, string, Doc[]][]).filter(([, , xs]) => xs.length)
 
