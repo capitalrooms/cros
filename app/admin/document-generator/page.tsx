@@ -15,6 +15,7 @@ import { dearFromText, formalName, landlordFormalNames } from '@/lib/people'
 import type { FormalLetter } from '@/lib/letters/formalLetter'
 import { invoiceNumberFor, type DocInvoice } from '@/lib/invoices/fromDocumentGenerator'
 import SavedDocuments from './SavedDocuments'
+import ReceiptsBox from './ReceiptsBox'
 import AddressField from '@/app/components/AddressField'
 import { READY_LETTERS, fillLetter, type LetterFacts } from '@/lib/letters/readyLetters'
 
@@ -926,11 +927,17 @@ export default function DocumentGenerator() {
               </div>
             </div>
 
+            <ReceiptsBox documentId={savedId} ensureSaved={async () => {
+              const r = await saveDoc('json'); const d = await r.json().catch(() => ({}))
+              if (r.ok && d.doc?.id) { setSavedId(d.doc.id); setRefreshKey(k => k + 1); return d.doc.id as string }
+              return null
+            }} />
+
             {/* Email */}
             <div className="bg-white rounded-xl border border-neutral-200 p-lg space-y-md">
               <div>
                 <p className="text-sm font-bold text-neutral-900">Email it</p>
-                <p className="text-xs text-neutral-500 mt-xs">Sent from you{fromLine ? ` (${fromLine})` : ''} with the {docType === 'invoice' ? 'invoice' : 'letter'} attached as a PDF.</p>
+                <p className="text-xs text-neutral-500 mt-xs">Sent from you{fromLine ? ` (${fromLine})` : ''} with the {docType === 'invoice' ? 'invoice' : 'letter'} attached as a PDF, and a link to any receipts above.</p>
               </div>
               <div className="grid gap-md md:grid-cols-2">
                 <div className="space-y-sm">

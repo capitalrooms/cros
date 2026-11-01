@@ -1,4 +1,4 @@
-// GET /api/landlord/documents/open?type=pd|gd|ls&id=…[&download=1] — one of the landlord's documents.
+// GET /api/landlord/documents/open?type=pd|gd|gf|ls&id=…[&download=1] — one of the landlord's documents.
 //   pd / gd → { url } (a private link for 5 minutes) · ls → the lettings statement PDF, made now
 // Only ever the landlord's own (ownsDoc). 21 Oct 2026.
 import { NextRequest, NextResponse } from 'next/server'
@@ -30,6 +30,12 @@ export async function GET(req: NextRequest) {
     const ref = parseStorageUrl(d?.storage_url)
     if (!ref) return d?.storage_url ? NextResponse.json({ url: d.storage_url }) : sorry
     const { data } = await s.storage.from(ref.bucket).createSignedUrl(ref.path, 300, download ? { download: d.file_name || true } : undefined)
+    return data?.signedUrl ? NextResponse.json({ url: data.signedUrl }) : sorry
+  }
+  if (type === 'gf') {
+    const { data: f } = await s.from('generated_document_files').select('storage_path, file_name').eq('id', id).maybeSingle()
+    if (!f?.storage_path) return sorry
+    const { data } = await s.storage.from(DOCS_BUCKET).createSignedUrl(f.storage_path, 300, download ? { download: f.file_name || true } : undefined)
     return data?.signedUrl ? NextResponse.json({ url: data.signedUrl }) : sorry
   }
   const { data: g } = await s.from('generated_documents').select('storage_path, number, kind').eq('id', id).maybeSingle()

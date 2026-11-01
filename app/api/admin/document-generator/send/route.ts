@@ -22,6 +22,20 @@ import { generateLandlordInvoice } from '@/lib/invoices/landlordInvoice'
 import { fetchPDFBizSettings } from '@/lib/pdfLetterhead'
 import { createServiceClient } from '@/lib/supabase'
 import { DOCS_BUCKET, fileNameFor, type GeneratedDocument } from '@/lib/documents/generated'
+import { filesFor, shareTokenFor } from '@/lib/documents/files'
+import { ctaButton, PORTAL_URL } from '@/lib/emailWrapper'
+
+// Receipts kept with the document (migration 254) go as a private link under the message, not as attachments.
+async function bodyWithReceipts(message: string, documentId: unknown): Promise<string> {
+  const html = messageHtml(message)
+  if (typeof documentId !== 'string' || !documentId) return html
+  const s = createServiceClient()
+  const n = (await filesFor(s, [documentId])).length
+  if (!n) return html
+  const token = await shareTokenFor(s, documentId)
+  if (!token) return html
+  return `${html}<p style="margin:20px 0 8px">${n === 1 ? 'The receipt that goes with it is' : `The ${n} receipts that go with it are`} here, to view or download:</p>${ctaButton(n === 1 ? 'View the receipt' : `View the ${n} receipts`, `${PORTAL_URL}/receipts/${token}`)}`
+}
 
 // The saved copy (Letters & Invoices list) records when and to whom it was emailed. Best effort: the email has gone.
 async function markEmailed(documentId: unknown, to: string[]) {
@@ -65,7 +79,7 @@ export async function POST(req: NextRequest) {
     const { data: file, error: dlErr } = await db.storage.from(DOCS_BUCKET).download((doc as any).storage_path)
     if (dlErr || !file) return NextResponse.json({ error: 'The saved PDF could not be opened. Nothing was sent.' }, { status: 500 })
     const filename = fileNameFor(doc as GeneratedDocument)
-    const sent = await sendEmail(to, subject, messageHtml(message), { req, cc, attachments: [{ filename, content: Buffer.from(await file.arrayBuffer()).toString('base64') }] })
+    const sent = await sendEmail(to, subject, await bodyWithReceipts(message, (doc as any).id), { req, cc, attachments: [{ filename, content: Buffer.from(await file.arrayBuffer()).toString('base64') }] })
     if (!sent.ok) return NextResponse.json({ error: `The email was not sent: ${sent.error ?? 'unknown error'}` }, { status: 502 })
     await markEmailed((doc as any).id, to)
     return NextResponse.json({ ok: true, to, cc, attachment: filename, sentAt: new Date().toISOString() })
@@ -82,7 +96,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Could not create the invoice. Nothing was sent.' }, { status: 500 })
     }
     const invoiceFile = `Invoice ${input.invoiceNumber}.pdf`
-    const sent = await sendEmail(to, subject, messageHtml(message), { req, cc, attachments: [{ filename: invoiceFile, content: invoicePdf.toString('base64') }] })
+    const sent = await sendEmail(to, subject, await bodyWithReceipts(message, b.documentId), { req, cc, attachments: [{ filename: invoiceFile, content: invoicePdf.toString('base64') }] })
     if (!sent.ok) return NextResponse.json({ error: `The email was not sent: ${sent.error ?? 'unknown error'}` }, { status: 502 })
     await markEmailed(b.documentId, to)
     return NextResponse.json({ ok: true, to, cc, attachment: invoiceFile, sentAt: new Date().toISOString() })
@@ -102,7 +116,7 @@ export async function POST(req: NextRequest) {
   }
 
   const filename = letterFileName(letter)
-  const { ok, error: sendError } = await sendEmail(to, subject, messageHtml(message), {
+  const { ok, error: sendError } = await sendEmail(to, subject, await bodyWithReceipts(message, b.documentId), {
     req, cc, attachments: [{ filename, content: pdf.toString('base64') }],
   })
   if (!ok) return NextResponse.json({ error: `The email was not sent: ${sendError ?? 'unknown error'}` }, { status: 502 })
