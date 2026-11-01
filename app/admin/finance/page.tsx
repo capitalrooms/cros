@@ -1,9 +1,10 @@
 'use client'
 
 /**
- * /admin/finance — Finance home. The month at a glance: where it is in the cycle (rent roll → statements →
- * payment run → reconcile & close), the key numbers, and a to-do list where each item opens the screen that
- * deals with it. Tools used less often are under "Other tools".
+ * /admin/finance — Finance home (1 Nov 2026, Harry: "just a list of tiles with processes in each large tile … way too
+ * confusing and busy … minimal … more modern bank like"). One card for the client account, then one large tile per
+ * process — money in, rent, paying landlords, expenses & invoices, the client account, reports — each with a single
+ * line saying where it's at and the one or two things to do. Agency income lives under Reports.
  */
 
 import { use, useCallback, useEffect, useState } from 'react'
@@ -14,40 +15,19 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import { getCurrentUser } from '@/lib/auth'
 import { adminFetch } from '@/lib/adminFetch'
 import AppBar from '@/components/AppBar'
-import PageHero from '@/components/PageHero'
 import HeroMonthPicker from '@/components/HeroMonthPicker'
-import { financeTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
-import ExportButtons from '@/app/components/ExportButtons'
 
-interface Step { n: number; label: string; href: string; status: string; done: boolean }
 interface Todo { key: string; tone: 'red' | 'amber' | 'green' | 'grey'; title: string; detail?: string; href: string; action: string }
 interface Home {
-  month: string; source: string; steps: Step[]; current: number; todos: Todo[]
-  numbers: { due: number; received: number; missing: number; heldInClientAccount: number; agrees: boolean; toLandlords: number; statementRent?: number; fees: number; mgmtFees?: number; lettingFees?: number; expenses?: number | null; statements?: number | null; importedStatements?: number | null }
+  month: string; source: string; todos: Todo[]
+  numbers: { due: number; received: number; missing: number; heldInClientAccount: number; agrees: boolean; toLandlords: number; statementRent?: number; fees: number; expenses?: number | null; statements?: number | null }
 }
+interface Tile { title: string; status: string; tone: 'red' | 'amber' | 'green' | 'none'; actions: { label: string; href: string }[] }
 
 const gbp = (n: number | null | undefined) => (n == null ? '—' : '£' + Number(n).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
 const monthLabel = (m: string) => new Date(m + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-
-const TONE: Record<Todo['tone'], { dot: string; label: string }> = {
-  red: { dot: 'bg-red-600', label: 'Urgent' },
-  amber: { dot: 'bg-amber-500', label: 'To do' },
-  grey: { dot: 'bg-neutral-400', label: 'When ready' },
-  green: { dot: 'bg-green-600', label: 'Done' },
-}
-
-const OTHER_TOOLS = [
-  { label: 'Raise an invoice', href: '/admin/document-generator?mode=invoice', note: 'Type what to charge; get our standard invoice' },
-  { label: 'Bank import', href: '/admin/bank-import', note: 'Upload a bank CSV' },
-  { label: 'Rent charges', href: '/admin/rent-charges', note: 'Every charge raised' },
-  { label: 'Fee income', href: '/admin/income', note: 'Management and letting fees' },
-  { label: 'Landlord accounts', href: '/admin/accounts', note: 'Balance per landlord' },
-  { label: 'Expense review', href: '/admin/expense-review', note: 'Invoices waiting to be checked' },
-  { label: 'AutoLedger', href: '/admin/autoledger', note: 'Emailed invoices' },
-  { label: 'MTD quarters', href: '/admin/reports/mtd', note: 'HMRC figures per landlord' },
-  { label: 'Health check', href: '/admin/finance-check', note: 'Ledger and data checks' },
-]
+const DOT = { red: 'bg-red-500', amber: 'bg-amber-400', green: 'bg-emerald-500', none: 'bg-neutral-300' }
 
 export default function FinanceHomePage({ searchParams }: { searchParams: PageSearchParams }) {
   return <FinanceHomeScreen initialMonth={one(use(searchParams).month)} />
@@ -57,15 +37,13 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
   const router = useRouter()
   const [month, setMonth] = useState(initialMonth || new Date().toISOString().slice(0, 7))
   const [data, setData] = useState<Home | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const load = useCallback(async (m: string) => {
-    setLoading(true); setError('')
+    setError('')
     const r = await adminFetch(`/api/admin/finance-home?month=${m}`)
     const j = await r.json().catch(() => ({}))
     if (!r.ok) { setError(j.error || 'Could not load the month'); setData(null) } else setData(j)
-    setLoading(false)
   }, [])
 
   useEffect(() => {
@@ -76,133 +54,92 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
     })()
   }, [router, load, month])
 
+  // the month's accounts pack for the accountant (lib/finance/accountantPack): a zip, made when pressed
+  const [packing, setPacking] = useState(false)
+  async function pack() {
+    setPacking(true)
+    const r = await adminFetch(`/api/admin/accountant-pack?month=${month}&link=1`)
+    const d = await r.json().catch(() => ({}))
+    setPacking(false)
+    if (!r.ok || !d.url) { setError(d.error || 'The pack couldn’t be made'); return }
+    window.location.href = d.url
+  }
   const go = (m: string) => { setMonth(m); router.replace(`/admin/finance?month=${m}`) }
   const n = data?.numbers
-  const prevAgent = data?.source === 'previous_agent'
+  const todo = (k: string) => data?.todos.find(t => t.key === k)
+  const q = `?month=${month}`
+
+  const tiles: Tile[] = !data || !n ? [] : [
+    (() => {
+      const t = todo('unmatched')
+      return { title: 'Money in', tone: t ? 'amber' : 'green', status: t ? `${t.title} · ${t.detail}` : 'Every payment imported is matched',
+        actions: [{ label: 'Import statement', href: '/admin/bank-import' }, { label: 'Bank calendar', href: '/admin/bank-calendar' }, ...(t ? [{ label: 'Match', href: '/admin/reconciliation' }] : [])] }
+    })(),
+    (() => {
+      const arrears = todo('arrears')
+      if (data.source !== 'cros') return { title: 'Rent', tone: 'none', status: `${gbp(n.statementRent ?? n.received)} collected by the previous agent`, actions: [{ label: 'Rent roll', href: `/admin/rent-roll${q}` }] }
+      return { title: 'Rent', tone: n.missing > 0 ? (arrears?.tone === 'red' ? 'red' : 'amber') : 'green',
+        status: n.missing > 0 ? `${gbp(n.received)} of ${gbp(n.due)} in · ${gbp(n.missing)} still to come` : `All ${gbp(n.due)} in`,
+        actions: [{ label: 'Rent roll', href: `/admin/rent-roll${q}` }, ...(n.missing > 0 ? [{ label: 'Chase rent', href: '/admin/rent-chase' }] : [])] }
+    })(),
+    (() => {
+      const ready = todo('ready'), drafts = todo('drafts'), pay = todo('pay')
+      const next = pay ?? drafts ?? ready
+      return { title: 'Pay landlords', tone: next ? 'amber' : 'green', status: next ? `${next.title}${next.detail ? ` · ${next.detail}` : ''}` : `${gbp(n.toLandlords)} paid this month`,
+        actions: [{ label: 'Statements', href: `/admin/rent-roll${q}` }, { label: 'Payment run', href: `/admin/payment-run${q}` }] }
+    })(),
+    { title: 'Expenses & invoices', tone: 'none', status: `${gbp(n.expenses ?? 0)} charged to landlords this month`,
+      actions: [{ label: 'Expenses', href: '/admin/expense-log' }, { label: 'Raise an invoice', href: '/admin/document-generator?mode=invoice' }, { label: 'Contractor invoices', href: '/admin/supplier-invoices' }] },
+    (() => {
+      const bad = todo('ledger'), deposits = todo('deposits'), close = todo('close')
+      return { title: 'Client account', tone: bad || deposits ? 'red' : close ? 'amber' : 'green',
+        status: bad ? 'Ledgers don’t agree — check' : deposits ? deposits.title : close ? close.title : 'Ledgers agree',
+        actions: [{ label: 'Reconcile', href: '/admin/client-money' }, { label: 'Deposits', href: '/admin/deposits' }] }
+    })(),
+    { title: 'Reports', tone: 'none', status: `Agency income ${gbp(n.fees)} this month`,
+      actions: [{ label: 'Agency income', href: '/admin/reports/fees' }, { label: 'MTD', href: '/admin/reports/mtd' }, { label: 'Accountant pack', href: '#pack' }] },
+  ]
 
   return (
-    <div className="min-h-screen fin">
+    <div className="min-h-screen bg-[#F4F4F2]">
       <AppBar left={<BackButton href="/admin" label="Dashboard" />} title="Finance" />
-      <PageHero eyebrow="Finance" title={monthLabel(month)} subtitle="The month at a glance: rent roll, statements, then the payment run"
-        actions={<HeroMonthPicker month={month} onChange={go} />} tabs={financeTabs('home', month)} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
-
-        {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
-
-        {/* the cycle */}
-        <ol className="mb-lg grid grid-cols-2 gap-sm md:grid-cols-4">
-          {(data?.steps ?? []).map(s => {
-            const isCurrent = !s.done && s.n === data!.current
-            return (
-              <li key={s.n}>
-                <Link href={s.href} className={`flex h-full flex-col rounded-xl border px-md py-sm transition hover:border-neutral-900 ${isCurrent ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-200 bg-white text-neutral-900'}`}>
-                  <span className={`flex items-center gap-xs text-xs font-semibold ${isCurrent ? 'text-neutral-300' : 'text-neutral-500'}`}>
-                    <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${s.done ? 'bg-green-600 text-white' : isCurrent ? 'bg-white text-neutral-900' : 'bg-neutral-200 text-neutral-700'}`}>{s.done ? '✓' : s.n}</span>
-                    Step {s.n}
-                  </span>
-                  <span className="mt-xs text-base font-bold">{s.label}</span>
-                  <span className={`text-sm ${isCurrent ? 'text-neutral-200' : s.done ? 'text-green-700' : 'text-neutral-600'}`}>{s.status}</span>
-                </Link>
-              </li>
-            )
-          })}
-          {loading && !data && [1, 2, 3, 4].map(i => <li key={i} className="h-24 animate-pulse rounded-xl bg-white" />)}
-        </ol>
-
-        {/* the month in five figures (17 Oct 2026, Harry: "pills for agency income and expenses charged … letting fees …
-            useful in the header summary without making it too busy"). Each: one figure, one line under it. Paid to
-            landlords, agency income and expenses come from the month's landlord statements (imported or made in CROS). */}
-        {n && (() => {
-          const st = n.statements ?? 0
-          const onSt = `on ${st} statement${st === 1 ? '' : 's'}`
-          const tiles: { label: string; value: string; sub: string; cls: string; subCls?: string; href: string }[] = [
-            prevAgent
-              ? { label: 'Rent collected', value: gbp(n.statementRent ?? n.received), sub: onSt, cls: 'text-neutral-900', href: `/admin/rent-roll?month=${month}` }
-              : { label: 'Rent collected', value: gbp(n.received), sub: n.missing > 0 ? `of ${gbp(n.due)} due · ${gbp(n.missing)} missing` : `all ${gbp(n.due)} in`, cls: 'text-neutral-900', subCls: n.missing > 0 ? 'text-red-700' : 'text-green-700', href: `/admin/rent-roll?month=${month}` },
-            { label: 'Paid to landlords', value: gbp(n.toLandlords), sub: onSt, cls: 'text-neutral-900', href: '/admin/statements' },
-            { label: 'Agency income', value: gbp(n.fees), sub: `${gbp(n.mgmtFees ?? 0)} management · ${gbp(n.lettingFees ?? 0)} letting`, cls: 'text-green-700', href: '/admin/reports/fees' },
-            { label: 'Expenses charged', value: gbp(n.expenses ?? 0), sub: 'to landlords, ' + onSt, cls: 'text-neutral-900', href: '/admin/reports/expenses' },
-            { label: 'Client account today', value: gbp(n.heldInClientAccount), sub: n.agrees ? 'Ledgers agree' : 'Ledgers don’t agree — check', cls: 'text-neutral-900', subCls: n.agrees ? 'text-green-700' : 'text-red-700', href: '/admin/client-money' },
-          ]
-          return (
-            <div className="mb-lg grid grid-cols-2 gap-sm md:grid-cols-3 lg:grid-cols-5">
-              {tiles.map(c => (
-                <Link key={c.label} href={c.href} className="rounded-xl bg-white px-md py-sm hover:ring-1 hover:ring-neutral-900">
-                  <p className="text-xs font-medium text-neutral-500">{c.label}</p>
-                  <p className={`text-xl font-bold tabular-nums ${c.cls}`}>{c.value}</p>
-                  <p className={`mt-0.5 truncate text-[11px] ${c.subCls ?? 'text-neutral-500'}`} title={c.sub}>{c.sub}</p>
-                </Link>
-              ))}
-            </div>
-          )
-        })()}
-
-        {/* the month's pack for the accountant (lib/finance/accountantPack) */}
-        {n && <AccountantPack month={month} label={monthLabel(month)} />}
-
-        {/* to-do */}
-        <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
-          <h2 className="text-lg font-bold text-neutral-900">To do</h2>
-          {data && (
-            <ExportButtons title={`Finance to-do · ${monthLabel(month)}`} filename={`finance-todo-${month}`}
-              columns={[{ key: 'priority', label: 'Priority' }, { key: 'title', label: 'Item' }, { key: 'detail', label: 'Detail' }, { key: 'screen', label: 'Screen' }]}
-              rows={data.todos.map(t => ({ priority: TONE[t.tone].label, title: t.title, detail: t.detail ?? '', screen: t.href }))} />
-          )}
+        <div className="mb-lg flex flex-wrap items-center justify-between gap-md">
+          <h1 className="text-3xl font-black tracking-tight text-neutral-900">Finance</h1>
+          <HeroMonthPicker month={month} onChange={go} />
         </div>
-        <div className="mb-xl overflow-hidden rounded-2xl border border-neutral-200 bg-white">
-          {loading && <p className="px-lg py-xl text-center text-sm text-neutral-500">Loading…</p>}
-          {!loading && (data?.todos ?? []).map((t, i) => (
-            <div key={t.key} className={`flex flex-wrap items-center gap-md px-lg py-md ${i ? 'border-t border-neutral-100' : ''}`}>
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${TONE[t.tone].dot}`} aria-label={TONE[t.tone].label} />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-neutral-900">{t.title}</p>
-                {t.detail && <p className="truncate text-sm tabular-nums text-neutral-600">{t.detail}</p>}
+
+        {error && <p className="mb-md rounded-2xl bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}
+
+        {/* the client account, like the top of a banking app */}
+        <Link href="/admin/client-money" className="mb-lg block rounded-3xl bg-[#141414] px-xl py-xl text-white transition hover:bg-black">
+          <p className="text-sm text-neutral-400">Client account · {monthLabel(month)}</p>
+          <p className="mt-xs text-4xl font-black tabular-nums tracking-tight md:text-5xl">{n ? gbp(n.heldInClientAccount) : '—'}</p>
+          {n && <p className={`mt-sm text-sm ${n.agrees ? 'text-emerald-400' : 'text-red-400'}`}>{n.agrees ? 'Ledgers agree' : 'Ledgers don’t agree — check'}</p>}
+        </Link>
+
+        <div className="grid gap-md md:grid-cols-2 lg:grid-cols-3">
+          {!data && !error && [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-44 animate-pulse rounded-3xl bg-white" />)}
+          {tiles.map(t => (
+            <div key={t.title} className="flex min-h-[11rem] flex-col justify-between rounded-3xl bg-white p-lg shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <div>
+                <div className="flex items-center gap-sm">
+                  <span className={`h-2.5 w-2.5 rounded-full ${DOT[t.tone]}`} aria-hidden />
+                  <h2 className="text-xl font-bold text-neutral-900">{t.title}</h2>
+                </div>
+                <p className="mt-sm text-[15px] leading-snug text-neutral-600">{t.status}</p>
               </div>
-              <Link href={t.href} className={`rounded-lg px-md py-sm text-sm font-bold ${t.tone === 'green' ? 'border border-neutral-300 text-neutral-900' : 'bg-neutral-900 text-white'}`}>{t.action}</Link>
+              <div className="mt-lg flex flex-wrap gap-sm">
+                {t.actions.map((a, i) => a.href === '#pack' ? (
+                  <button key={a.href} type="button" onClick={pack} disabled={packing} className="rounded-full bg-neutral-100 px-md py-xs text-sm font-semibold text-neutral-800 hover:bg-neutral-200 disabled:opacity-50">{packing ? 'Putting it together…' : a.label}</button>
+                ) : (
+                  <Link key={a.href} href={a.href} className={`rounded-full px-md py-xs text-sm font-semibold ${i === 0 ? 'bg-neutral-900 text-white hover:bg-black' : 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200'}`}>{a.label}</Link>
+                ))}
+              </div>
             </div>
           ))}
         </div>
-
-        {/* other tools */}
-        <h2 className="mb-sm text-lg font-bold text-neutral-900">Other tools</h2>
-        <div className="grid grid-cols-2 gap-sm md:grid-cols-4">
-          {OTHER_TOOLS.map(t => (
-            <Link key={t.href} href={t.href} className="rounded-xl border border-neutral-200 bg-white px-md py-sm hover:border-neutral-900">
-              <p className="font-semibold text-neutral-900">{t.label}</p>
-              <p className="text-xs text-neutral-500">{t.note}</p>
-            </Link>
-          ))}
-        </div>
       </div>
-    </div>
-  )
-}
-
-/** One button: the month's accounts pack for the accountant — a zip of the summary, the spreadsheets and every
- *  landlord statement (17 Oct 2026). Built when pressed, so it always has the latest statements. */
-function AccountantPack({ month, label }: { month: string; label: string }) {
-  const [state, setState] = useState<'idle' | 'busy' | 'error'>('idle')
-  const [msg, setMsg] = useState('')
-  async function go() {
-    setState('busy'); setMsg('')
-    try {
-      const r = await adminFetch(`/api/admin/accountant-pack?month=${month}&link=1`)
-      const d = await r.json().catch(() => ({}))
-      if (!r.ok || !d.url) throw new Error(d.error || 'The pack couldn’t be made')
-      window.location.href = d.url
-      const miss = d.summary?.missing?.length ? ` · no statement yet for ${d.summary.missing.join(', ')}` : ''
-      setState('idle'); setMsg(`Downloaded: ${d.summary?.statements ?? 0} statements${miss}`)
-    } catch (e) { setState('error'); setMsg(e instanceof Error ? e.message : 'The pack couldn’t be made') }
-  }
-  return (
-    <div className="mb-lg flex flex-wrap items-center justify-between gap-sm rounded-xl border border-neutral-200 bg-white px-md py-sm">
-      <div className="min-w-0">
-        <p className="text-sm font-bold text-neutral-900">Accounts pack for your accountant · {label}</p>
-        <p className={`text-xs ${state === 'error' ? 'text-red-700' : 'text-neutral-500'}`}>{msg || 'Summary PDF, landlord statements, payments, fees, expenses, deposits and the client account — one zip.'}</p>
-      </div>
-      <button type="button" onClick={go} disabled={state === 'busy'} className="shrink-0 rounded-lg bg-neutral-900 px-md py-xs text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50">
-        {state === 'busy' ? 'Putting it together…' : 'Download pack (zip)'}
-      </button>
     </div>
   )
 }
