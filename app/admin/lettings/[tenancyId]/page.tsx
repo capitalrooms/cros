@@ -17,11 +17,12 @@ import { one, type PageSearchParams } from '@/lib/pageSearchParams'
 import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
 import { TenantProfileView } from '@/app/admin/tenant/[personId]/TenantProfileView'
 import LandlordUpdates from '@/app/components/LandlordUpdates'
+import TenantMessages from '@/app/components/TenantMessages'
 import { ProgressTab, TermsTab, MoneyTab, DocumentsTab, LettersTab, NoticeTab, ActivityTab, activityItems, openPdf, gbp, day } from './parts'
 
 const TABS = [
   ['progress', 'Progress'], ['person', 'Person'], ['terms', 'Terms'], ['money', 'Money'], ['documents', 'Documents'],
-  ['letters', 'Letters & Invoices'], ['notice', 'Notice & Rent'], ['activity', 'Activity'],
+  ['letters', 'Letters & Invoices'], ['messages', 'Message tenant'], ['notice', 'Notice & Rent'], ['activity', 'Activity'],
 ] as const
 type Tab = typeof TABS[number][0]
 
@@ -121,6 +122,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
             {activeTab === 'money' && <MoneyTab file={file} />}
             {activeTab === 'documents' && <DocumentsTab file={file} reload={load} />}
             {activeTab === 'letters' && <LettersTab file={file} />}
+            {activeTab === 'messages' && <TenantMessages tenancyId={tenancyId} />}
             {activeTab === 'notice' && <NoticeTab file={file} patch={patch} reload={load} startMarking={mark} />}
             {activeTab === 'activity' && <ActivityTab file={file} />}
           </div>
