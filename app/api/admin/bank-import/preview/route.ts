@@ -81,6 +81,34 @@ export async function POST(req: NextRequest) {
     .in('dedup_hash', allHashes)
   const importedHashes = new Set((existingTxns || []).map((r: any) => r.dedup_hash))
 
+  // A line that looks like one already imported — same day, amount and reference, but the bank worded it differently
+  // this time (pending vs cleared) — is held for the office instead of going in twice (1 Nov 2026)
+  const dates = [...new Set(parseResult.transactions.map(t => t.transaction_date))]
+  const { data: sameDays } = dates.length ? await supabase.from('bank_transactions').select('id, transaction_date, amount, extracted_ref, description, dedup_hash').in('transaction_date', dates) : { data: [] as any[] }
+  const nearDupeOf = (t: { transaction_date: string; amount: number; extracted_ref: string | null; description: string; dedup_hash: string }) =>
+    ((sameDays ?? []) as any[]).find(x => x.transaction_date === t.transaction_date && Math.abs(Number(x.amount) - t.amount) < 0.005 && x.dedup_hash !== t.dedup_hash
+      && (t.extracted_ref ? String(x.extracted_ref ?? '').toUpperCase() === t.extracted_ref.toUpperCase() : String(x.description).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) === t.description.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12)))
+
+  // What this file covers against what's already been imported: gaps, and days imported part-way through
+  const coverage: string[] = []
+  {
+    const { data: prev } = await supabase.from('bank_import_batches').select('period_from, period_to, imported_at, is_practice').not('period_to', 'is', null)
+    const real = ((prev ?? []) as any[]).filter(b => !!b.is_practice === practice)
+    const london = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+    const nextDay = (d: string) => new Date(Date.parse(`${d}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10)
+    const covered = (d: string) => real.some(b => b.period_from <= d && d <= b.period_to && london(b.imported_at) > d)
+    const lastEnd = real.map(b => b.period_to).sort().pop()
+    const from = parseResult.period_from
+    if (lastEnd && from && nextDay(lastEnd) < from) coverage.push(`Nothing has been imported for ${nextDay(lastEnd)}${nextDay(nextDay(lastEnd)) < from ? ` to ${new Date(Date.parse(`${from}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10)}` : ''} — this file starts on ${from}. Download that period too so nothing is missed.`)
+    for (const b of real) {
+      const day = b.period_to
+      if (london(b.imported_at) === day && !covered(day) && from && from > day)
+        coverage.push(`${day} was imported part-way through the day (at ${new Date(b.imported_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}) and this file starts after it — anything that arrived later that day is missing. Include ${day} in your download.`)
+    }
+    if (parseResult.period_to && parseResult.period_to === london(new Date().toISOString()))
+      coverage.push(`This file includes today (${parseResult.period_to}). Today will show as part-day on the calendar until a later import covers the rest of it.`)
+  }
+
   // ── Step 2: Load all tenancies with payment_references and room/property info ─
   const { data: tenancies } = await supabase
     .from('tenancies')
@@ -180,6 +208,12 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    const near = nearDupeOf(txn)
+    if (near) {
+      preview.push({ ...txn, ...NULL_EXTRA, category: 'possible_dupe', near_duplicate_of: near.id, near_duplicate_text: near.description, rent_charge_id: null, charge_month: null, charge_status: null, charge_amount_due: null, tenancy_id: null, tenant_name: null, room_name: null, property_name: null } as any)
+      continue
+    }
+
     // use whichever reference-like code in the line belongs to a real tenancy
     const ref = [txn.extracted_ref?.toUpperCase(), ...refCandidates(txn.description)].find(r => r && tenancyByRef.has(r)) ?? txn.extracted_ref?.toUpperCase() ?? null
     if (ref && ref !== txn.extracted_ref) txn.extracted_ref = ref
@@ -228,6 +262,10 @@ export async function POST(req: NextRequest) {
     period_to: parseResult.period_to,
     bank_name: parseResult.bank_name,
     filename: file.name,
-    warnings: parseResult.warnings,
+    warnings: [...coverage, ...parseResult.warnings],
+    day_counts: parseResult.day_counts ?? null,
+    opening_balance: parseResult.opening_balance ?? null,
+    closing_balance: parseResult.closing_balance ?? null,
+    balance_breaks: parseResult.balance_breaks ?? [],
   })
 }

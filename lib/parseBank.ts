@@ -22,7 +22,13 @@ export interface ParsedTransaction {
   extracted_ref: string | null // payment_reference pattern found in description
   sender_name: string | null   // bank display name of the payer, extracted from description
   dedup_hash: string
+  balance?: number | null      // the running balance after this line, when the CSV has one
 }
+
+/** Every line in the file, in and out, per day — for the import calendar (1 Nov 2026). */
+export interface DayCount { in: number; out: number }
+/** Where the running balance doesn't follow on from the line before: something is missing between them. */
+export interface BalanceBreak { after: string; before: string; expected: number; found: number }
 
 export interface ParseResult {
   transactions: ParsedTransaction[]
@@ -31,6 +37,10 @@ export interface ParseResult {
   credit_total: number
   bank_name: string | null
   warnings: string[]
+  day_counts?: Record<string, DayCount>
+  opening_balance?: number | null
+  closing_balance?: number | null
+  balance_breaks?: BalanceBreak[]
 }
 
 // ─── Hash ─────────────────────────────────────────────────────────────────────
@@ -75,6 +85,18 @@ function parseDate(raw: string): string | null {
 
 // ─── Amount parsing ───────────────────────────────────────────────────────────
 // Handles: "1,234.56" "-1234.56" "£1234.56" "1.234,56" (European)
+
+/** Any amount, keeping its sign: "-12.50", "(12.50)" and "12.50" → -12.5 / -12.5 / 12.5. */
+function signedAmount(raw: string): number | null {
+  if (!raw || !raw.trim()) return null
+  let s = raw.trim().replace(/[£$€\s]/g, '')
+  const neg = s.startsWith('-') || (s.startsWith('(') && s.endsWith(')'))
+  s = s.replace(/^[-+(]|\)$/g, '')
+  if (/^\d{1,3}(\.\d{3})+(,\d{2})?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.')
+  else s = s.replace(/,/g, '')
+  const n = Number(s)
+  return Number.isFinite(n) ? (neg ? -n : n) : null
+}
 
 function parseAmount(raw: string): number | null {
   if (!raw || !raw.trim()) return null
@@ -192,6 +214,7 @@ interface ColumnMap {
   descIdx: number
   refIdx: number | null    // separate reference column (some banks split this)
   typeIdx: number | null   // transaction type (Barclays has this)
+  balanceIdx: number | null // running balance, when the bank includes it
 }
 
 function detectColumns(headers: string[]): ColumnMap | null {
@@ -229,6 +252,7 @@ function detectColumns(headers: string[]): ColumnMap | null {
 
   const refIdx = h.findIndex(s => s === 'ref' || s === 'payment ref' || s === 'your ref')
   const typeIdx = h.findIndex(s => s === 'type' || s === 'transaction type')
+  const balanceIdx = h.findIndex(s => s === 'balance' || s === 'running balance' || s === 'balance gbp' || s === 'account balance')
 
   return {
     dateIdx,
@@ -237,6 +261,7 @@ function detectColumns(headers: string[]): ColumnMap | null {
     descIdx,
     refIdx: refIdx !== -1 ? refIdx : null,
     typeIdx: typeIdx !== -1 ? typeIdx : null,
+    balanceIdx: balanceIdx !== -1 ? balanceIdx : null,
   }
 }
 
@@ -290,6 +315,10 @@ export function parseBankCSV(csvText: string): ParseResult {
   const transactions: ParsedTransaction[] = []
   let skippedDebits = 0
   let skippedBadDate = 0
+  // every line, in and out: the days the file covers and the running balance (1 Nov 2026)
+  const day_counts: Record<string, DayCount> = {}
+  const flow: { date: string; signed: number; balance: number | null }[] = []
+  const seen = new Map<string, number>()
 
   for (let i = headerLineIdx + 1; i < lines.length; i++) {
     const row = tokeniseCSV(lines[i])
@@ -299,6 +328,17 @@ export function parseBankCSV(csvText: string): ParseResult {
     const rawDate = row[cols.dateIdx] || ''
     const date = parseDate(rawDate)
     if (!date) { skippedBadDate++; continue }
+    {
+      const debitV = cols.debitIdx !== null ? signedAmount(row[cols.debitIdx] || '') : null
+      const creditV = signedAmount(row[cols.creditIdx] || '')
+      const signed = debitV && Math.abs(debitV) > 0 ? -Math.abs(debitV) : (creditV ?? 0)
+      const bal = cols.balanceIdx !== null ? signedAmount(row[cols.balanceIdx] || '') : null
+      if (signed !== 0) {
+        const d = (day_counts[date] ??= { in: 0, out: 0 })
+        if (signed > 0) d.in++; else d.out++
+        flow.push({ date, signed, balance: bal })
+      }
+    }
 
     // Amount — if separate debit column exists and debit is populated, this is a debit → skip
     if (cols.debitIdx !== null) {
@@ -320,16 +360,37 @@ export function parseBankCSV(csvText: string): ParseResult {
 
     const extracted_ref = extractRef(description)
     const sender_name = extractSenderName(description, extracted_ref)
-    const dedup_hash = dedupHash(date, amount, description)
+    // two genuinely identical lines in one file (a tenant paying £475 twice the same day) are both kept: the second
+    // gets its own fingerprint, and re-importing the same file still gives the same fingerprints
+    const base = dedupHash(date, amount, description)
+    const n = (seen.get(base) ?? 0) + 1
+    seen.set(base, n)
+    const dedup_hash = n === 1 ? base : dedupHash(date, amount, `${description}#${n}`)
+    const balance = cols.balanceIdx !== null ? signedAmount(row[cols.balanceIdx] || '') : null
 
-    transactions.push({ transaction_date: date, amount, description, extracted_ref, sender_name, dedup_hash })
+    transactions.push({ transaction_date: date, amount, description, extracted_ref, sender_name, dedup_hash, balance })
   }
 
   if (skippedBadDate > 0) warnings.push(`${skippedBadDate} row(s) skipped — unrecognised date format`)
   if (skippedDebits > 0) warnings.push(`${skippedDebits} debit/outgoing transaction(s) excluded (credits only)`)
 
-  const dates = transactions.map(t => t.transaction_date).sort()
+  // the period is every line in the file, in and out — not just the credits
+  const dates = (flow.length ? flow.map(f => f.date) : transactions.map(t => t.transaction_date)).sort()
   const credit_total = transactions.reduce((s, t) => s + t.amount, 0)
+
+  // running balance: each line should be the last balance plus or minus this line. A break means lines are missing.
+  let opening_balance: number | null = null, closing_balance: number | null = null
+  const balance_breaks: BalanceBreak[] = []
+  if (flow.length && flow.every(f => f.balance !== null)) {
+    const ordered = flow[0].date > flow[flow.length - 1].date ? [...flow].reverse() : flow   // newest-first files
+    opening_balance = Math.round((ordered[0].balance! - ordered[0].signed) * 100) / 100
+    closing_balance = ordered[ordered.length - 1].balance
+    for (let i = 1; i < ordered.length; i++) {
+      const expected = Math.round((ordered[i - 1].balance! + ordered[i].signed) * 100) / 100
+      if (Math.abs(expected - ordered[i].balance!) > 0.005) balance_breaks.push({ after: ordered[i - 1].date, before: ordered[i].date, expected, found: ordered[i].balance! })
+    }
+    if (balance_breaks.length) warnings.push(`The running balance jumps ${balance_breaks.length} time${balance_breaks.length === 1 ? '' : 's'} — lines may be missing from this file (first between ${balance_breaks[0].after} and ${balance_breaks[0].before}).`)
+  }
 
   return {
     transactions,
@@ -338,6 +399,7 @@ export function parseBankCSV(csvText: string): ParseResult {
     credit_total: Math.round(credit_total * 100) / 100,
     bank_name,
     warnings,
+    day_counts, opening_balance, closing_balance, balance_breaks,
   }
 }
 

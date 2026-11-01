@@ -24,6 +24,10 @@ export interface RollProperty {
   due: number; received: number; missing: number
   readyForStatement: number            // rent received (any month up to this one) and not yet paid over
   statements: RollStatement[]
+  // paying each landlord once (1 Nov 2026): a house is ready when every room's rent for the month is in, or when the
+  // office has chosen to pay the rents that are in now (rent_pay_part, migration 255)
+  allIn?: boolean
+  payPart?: { reason: string | null; by: string | null } | null
 }
 export interface RentRoll { month: string; source: 'cros' | 'previous_agent'; takeover: string; properties: RollProperty[]; totals: { due: number; received: number; missing: number; ready: number } }
 
@@ -114,6 +118,8 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
     const amount = Number(a.new_value?.this_payment ?? a.new_value?.amount_received ?? t?.amount ?? 0)
     return { number: t?.txn_no ?? null, date: t?.transaction_date ?? (a.performed_at ? String(a.performed_at).slice(0, 10) : null), amount: r2(amount), file: t ? fileById.get(t.batch_id) ?? null : null, how: t ? 'bank' : 'by hand' }
   })
+  const { data: partRows } = await s.from('rent_pay_part').select('property_id, reason, created_by').eq('month', month)
+  const payPart = new Map(((partRows ?? []) as any[]).map(r => [r.property_id, { reason: r.reason, by: r.created_by }]))   // empty before migration 255
   const ready = new Map<string, number>()
   for (const c of ((openCharges.data ?? []) as any[])) if (!c.voided) ready.set(c.property_id, r2((ready.get(c.property_id) ?? 0) + Math.max(0, Number(c.amount_received || 0) - Number(c.remitted_amount || 0))))
   const { data: remittedSts } = await s.from('landlord_statements').select('id, statement_reference').in('id', [...new Set(charges.map(c => c.remitted_statement_id).filter(Boolean))].concat(['00000000-0000-0000-0000-000000000000']))
@@ -152,7 +158,8 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
     rollRooms.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }))
     const due = r2(rollRooms.reduce((t, r) => t + (r.due ?? 0), 0)), received = r2(rollRooms.reduce((t, r) => t + r.received, 0))
     out.push({ id: p.id, name: first(p.name), code: p.property_code, landlord: landlordName.get(p.landlord_id) || '', rooms: rollRooms,
-      due, received, missing: r2(rollRooms.reduce((t, r) => t + Math.max(0, (r.due ?? 0) - r.received), 0)), readyForStatement: ready.get(p.id) ?? 0, statements: stmtsFor(p.id) })
+      due, received, missing: r2(rollRooms.reduce((t, r) => t + Math.max(0, (r.due ?? 0) - r.received), 0)), readyForStatement: ready.get(p.id) ?? 0, statements: stmtsFor(p.id),
+      allIn: due > 0 && rollRooms.every(r => r.status === 'paid' || r.status === 'over' || (r.due ?? 0) <= 0), payPart: payPart.get(p.id) ?? null })
   }
   return { month, source: 'cros', takeover, properties: out, totals: sum(out) }
 }

@@ -36,6 +36,12 @@ const STATUS: Record<RollRoom['status'], { label: string; cls: string }> = {
   collected_by_previous_agent: { label: 'Imported — before go-live', cls: 'bg-neutral-100 text-neutral-600' },
 }
 
+// which pile a house is in this month: all rent in (ready to pay), some in (waiting), none in yet
+function pileOf(p: { allIn?: boolean; payPart?: unknown; received: number; due: number }): 'ready' | 'waiting' | 'none' {
+  if (p.allIn || p.payPart) return 'ready'
+  return p.received > 0.005 ? 'waiting' : 'none'
+}
+
 export default function RentRollPage({ searchParams }: { searchParams: PageSearchParams }) {
   const sp = use(searchParams)
   return <RentRollScreen initialMonth={one(sp.month)} practice={one(sp.practice) === '1'} />
@@ -48,7 +54,7 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
   const [roll, setRoll] = useState<RentRoll | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [filter, setFilter] = useState<'all' | 'attention' | 'ready'>('all')
+  const [filter, setFilter] = useState<'all' | 'ready' | 'waiting' | 'none'>('all')
   const [sel, setSel] = useState<string | null>(null)   // the property open on the right
 
   const load = useCallback(async (m: string) => {
@@ -85,10 +91,16 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
     const j = await r.json().catch(() => ({}))
     setBusyPractice(''); if (!r.ok) setError(j.error || 'Could not record it'); else load(month)
   }
+  // paying each landlord once: wait for every rent, unless the office chooses to pay what's in now (migration 255)
+  async function payPart(propertyId: string, on: boolean) {
+    const reason = on ? prompt('Pay the rents that are in now, and the rest on a second statement later. Why? (e.g. Room 3 paying on the 10th)') : ''
+    if (on && reason === null) return
+    const r = await adminFetch('/api/admin/rent-roll', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: on ? 'pay_part' : 'wait_all', propertyId, month, reason }) })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok) setError(j.error || 'Could not change it'); else load(month)
+  }
   const props = useMemo(() => (roll?.properties ?? []).filter(p =>
-    filter === 'all' ? true
-      : filter === 'ready' ? p.readyForStatement > 0
-      : p.rooms.some(r => ['missing', 'part', 'over', 'no_charge'].includes(r.status))), [roll, filter])
+    filter === 'all' ? true : pileOf(p) === filter), [roll, filter])
 
   const exportRows = useMemo(() => props.flatMap(p => p.rooms.map(r => ({
     property: p.name, landlord: p.landlord, room: r.room, tenant: r.tenant, reference: r.reference ?? '', due: r.due, received: r.received,
@@ -132,9 +144,10 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
 
         <div className="mb-sm flex flex-wrap items-center justify-between gap-sm">
           <div className="inline-flex rounded-xl bg-white p-0.5 text-xs font-semibold">
-            {([['all', 'All properties'], ['attention', 'Needs attention'], ['ready', 'Ready to pay']] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setFilter(k)} className={`rounded-lg px-md py-xs ${filter === k ? 'bg-[#181614] text-white' : 'text-neutral-600'}`}>{l}</button>
-            ))}
+            {([['all', 'All properties'], ['ready', 'All in · ready to pay'], ['waiting', 'Part in · waiting'], ['none', 'No rent in yet']] as const).map(([k, l]) => {
+              const n = k === 'all' ? (roll?.properties.length ?? 0) : (roll?.properties ?? []).filter(p => pileOf(p) === k).length
+              return <button key={k} onClick={() => setFilter(k)} className={`rounded-lg px-md py-xs ${filter === k ? 'bg-[#181614] text-white' : 'text-neutral-600'}`}>{l} · {n}</button>
+            })}
           </div>
           <ExportButtons title={`Rent roll ${monthLabel(month)}`} filename={`rent-roll-${month}`}
             columns={[{ key: 'property', label: 'Property' }, { key: 'room', label: 'Room' }, { key: 'tenant', label: 'Tenant' }, { key: 'reference', label: 'Ref' },
@@ -221,9 +234,23 @@ function RentRollScreen({ initialMonth, practice }: { initialMonth?: string; pra
               {selected.statements.length > 0 && (
                 <p className="text-xs text-neutral-600">Statements: {selected.statements.map(st => `${st.reference} · ${st.state === 'paid' ? 'paid' : st.state}${st.source === 'import' ? ' (imported)' : ''}`).join(' · ')}</p>
               )}
-              {!prevAgent && (selected.readyForStatement > 0
-                ? <Link href={`/admin/statements/prepare?property=${selected.id}&month=${month}${P}`} className="block rounded-xl bg-[#181614] py-sm text-center text-sm font-bold text-white hover:bg-black">Prepare statement · {gbp(selected.readyForStatement)}</Link>
-                : <p className="rounded-xl bg-neutral-50 py-sm text-center text-sm text-neutral-500">Nothing new to pay over</p>)}
+              {!prevAgent && (selected.readyForStatement <= 0
+                ? <p className="rounded-xl bg-neutral-50 py-sm text-center text-sm text-neutral-500">Nothing new to pay over</p>
+                : selected.allIn || selected.payPart
+                  ? <>
+                      <p className={`rounded-xl px-md py-sm text-sm ${selected.allIn ? 'bg-green-50 text-green-900' : 'bg-amber-50 text-amber-900'}`}>
+                        {selected.allIn ? `All ${selected.rooms.length} rents for ${monthLabel(month)} are in — funds received. Add any expenses on the statement, then pay.`
+                          : <>Paying the rents in now; {gbp(selected.missing)} still to come will go on a second statement.{selected.payPart?.reason ? ` (${selected.payPart.reason})` : ''} <button type="button" onClick={() => payPart(selected.id, false)} className="font-semibold underline">Wait for all instead</button></>}
+                      </p>
+                      <Link href={`/admin/statements/prepare?property=${selected.id}&month=${month}${P}`} className="block rounded-xl bg-[#181614] py-sm text-center text-sm font-bold text-white hover:bg-black">Prepare statement · {gbp(selected.readyForStatement)}</Link>
+                    </>
+                  : <div className="space-y-xs rounded-xl bg-neutral-50 px-md py-sm text-sm text-neutral-700">
+                      <p><strong>Waiting for {selected.rooms.filter(r => r.status === 'missing' || r.status === 'part').length} rent{selected.rooms.filter(r => r.status === 'missing' || r.status === 'part').length === 1 ? '' : 's'}</strong> ({gbp(selected.missing)}) so {selected.landlord || 'the landlord'} is paid once, with one statement.</p>
+                      <div className="flex flex-wrap gap-sm">
+                        <Link href="/admin/rent-chase" className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-semibold">Chase the missing rent</Link>
+                        <button type="button" onClick={() => payPart(selected.id, true)} className="rounded-lg border border-neutral-300 bg-white px-md py-xs text-xs font-semibold">Pay the {gbp(selected.readyForStatement)} in now</button>
+                      </div>
+                    </div>)}
               <div className="grid grid-cols-2 gap-sm text-sm font-semibold">
                 <Link href={`/admin/properties/${selected.id}`} className="rounded-xl border border-neutral-300 py-xs text-center hover:bg-neutral-50">The property</Link>
                 <Link href="/admin/arrears" className="rounded-xl border border-neutral-300 py-xs text-center hover:bg-neutral-50">Arrears</Link>
