@@ -16,9 +16,7 @@ export const READY_LETTERS: ReadyLetter[] = [
     subject: 'Your rent for {room}, {house}',
     body: `We haven’t yet received your rent of **{rent}**, which was due on [due date]. It may simply have been missed, so this is a friendly reminder.
 
-Please pay as soon as you can, using your payment reference **{payment_ref}** so we can match it straight away. If you’ve paid in the last day or two, thank you — please ignore this letter.
-
-If something has changed and you’re finding it hard to pay, please tell us now. We would much rather agree a plan with you early than let arrears build up.` },
+Please pay as soon as you can, using your payment reference **{payment_ref}** so we can match it straight away. If you’ve paid in the last day or two, thank you — please ignore this letter.` },
   { id: 'rent-arrears', group: 'Rent', name: 'Rent arrears — formal letter', audience: 'tenant', closing: 'Yours sincerely',
     subject: 'Rent arrears — {room}, {house}',
     body: `Our records show that your rent account is in arrears by **[amount owed]**. A statement of your account is enclosed.
