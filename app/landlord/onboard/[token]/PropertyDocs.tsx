@@ -63,7 +63,7 @@ export default function PropertyDocs({ token, properties, docs, onChange, upload
     <div className="bg-white rounded-2xl border border-neutral-200 p-6 sm:p-8 mb-6">
       <h2 className="text-base font-bold text-neutral-900 mb-1">Documents for your {properties.length > 1 ? 'properties' : 'property'}</h2>
       <p className="text-sm text-neutral-500 mb-5 leading-relaxed">
-        Add anything you have — certificates, floor plans, tenancy agreements, lease papers, insurance, council tax or utility bills.
+        Add anything you have — certificates, floor plans, photos of the property, tenancy agreements, lease papers, insurance, council tax or utility bills.
         We read each one for you and note what it is and the key details, so there’s nothing to type. Photos or PDFs are fine.
       </p>
 

@@ -22,6 +22,7 @@ import fs   from 'fs'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
 import { dearFromText } from '@/lib/people'
+import { fetchVatNumber } from '@/lib/finance/vat'
 
 // ── Shared page geometry (A4 in PDF points) ───────────────────────────────────
 
@@ -90,6 +91,7 @@ export interface PDFBizSettings {
   postcode:      string
   email:         string
   phone:         string
+  vat_number?:   string | null   // system_settings 'vat_number' (lib/finance/vat.ts)
 }
 
 /**
@@ -121,9 +123,11 @@ export async function fetchPDFBizSettings(): Promise<PDFBizSettings> {
       .eq('id', '00000000-0000-0000-0000-000000000001')
       .maybeSingle()
 
-    if (!data) return PDF_BIZ_DEFAULTS
+    const vat_number = await fetchVatNumber(supa)
+    if (!data) return { ...PDF_BIZ_DEFAULTS, vat_number }
 
     return {
+      vat_number,
       company_name:  data.company_name  || PDF_BIZ_DEFAULTS.company_name,
       address_line1: data.address_line1 || PDF_BIZ_DEFAULTS.address_line1,
       city:          data.city          || PDF_BIZ_DEFAULTS.city,
