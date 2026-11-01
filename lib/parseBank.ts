@@ -23,6 +23,8 @@ export interface ParsedTransaction {
   sender_name: string | null   // bank display name of the payer, extracted from description
   dedup_hash: string
   balance?: number | null      // the running balance after this line, when the CSV has one
+  repeat?: number              // 2, 3… when an identical line (same day, amount, wording) came earlier in this file
+  repeat_group?: string        // shared by all the identical lines
 }
 
 /** Every line in the file, in and out, per day — for the import calendar (1 Nov 2026). */
@@ -368,7 +370,7 @@ export function parseBankCSV(csvText: string): ParseResult {
     const dedup_hash = n === 1 ? base : dedupHash(date, amount, `${description}#${n}`)
     const balance = cols.balanceIdx !== null ? signedAmount(row[cols.balanceIdx] || '') : null
 
-    transactions.push({ transaction_date: date, amount, description, extracted_ref, sender_name, dedup_hash, balance })
+    transactions.push({ transaction_date: date, amount, description, extracted_ref, sender_name, dedup_hash, balance, ...(n > 1 ? { repeat: n } : {}), repeat_group: base })
   }
 
   if (skippedBadDate > 0) warnings.push(`${skippedBadDate} row(s) skipped — unrecognised date format`)
