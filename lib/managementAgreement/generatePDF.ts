@@ -17,6 +17,7 @@ import type { RentCollectionTerms } from '@/lib/managementAgreement/rentCollecti
 import { generateRentCollectionAgreementPDF } from '@/lib/managementAgreement/rentCollectionPDF'
 import { durationSentence } from '@/lib/managementAgreement/durationTerms'
 import type { AgreementBlock } from '@/lib/managementAgreement/blocks'
+import { vatApplies, plusVat, vatSentence } from '@/lib/finance/vat'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ export interface ManagementAgreementData {
   noticeMonths?: number                     // termination notice; default 3 (lib/managementAgreement/durationTerms)
   minimumTermMonths?: number                // no notice in the first N months; 0 = none; default 12
   inventoryNote?: string                    // optional free text
+  extraFees?: { name: string; details: string }[]   // charges particular to this landlord, added after onboarding
   // Client's nominated account for rent remittance (added once confirmed through onboarding)
   nominatedAccount?: { accountName: string; bankName?: string; sortCode: string; accountNumber: string }
   rentCollection?: RentCollectionTerms     // rent_collection agreements only
@@ -278,6 +280,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
 
     const prop = data.properties.length === 1 ? 'the Property' : 'the Properties'
     const mgmtFee = `${data.managementFee}%`
+    const vat = (fee: string) => vatApplies(data.agreementDate) ? plusVat(fee) : fee
     const floatStr = data.floatAmount ? `£${data.floatAmount}` : undefined
 
     drawClause('1', 'Appointment',
@@ -317,7 +320,7 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
       `The Client warrants that smoke alarms are installed on every storey of the Property and carbon monoxide alarms are installed in every room containing a fixed combustion appliance. The Agent shall check alarm functionality at the start of each new tenancy.`)
 
     drawClause('13', 'Energy Performance Certificate',
-      `The Property must have a valid Energy Performance Certificate (EPC) with a rating of E or above (or such other minimum rating as required by law from time to time). If the Client requires an EPC to be obtained or renewed, the Agent shall arrange this at a cost of ${data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`}. The Client shall be responsible for any required improvement works.`)
+      `The Property must have a valid Energy Performance Certificate (EPC) with a rating of E or above (or such other minimum rating as required by law from time to time). If the Client requires an EPC to be obtained or renewed, the Agent shall arrange this at a cost of ${vat(data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`)}. The Client shall be responsible for any required improvement works.`)
 
     drawClause('14', 'HMO Licensing',
       `Where the Property requires a House in Multiple Occupation (HMO) licence, the Client is responsible for obtaining and maintaining such licence and for ensuring that the Property meets all licence conditions. The Agent shall provide reasonable assistance in the licensing application process.`)
@@ -428,14 +431,15 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
 
     // Fee table
     const fees: [string, string][] = [
-      ['Management Fee', `${mgmtFee} of all rent collected`],
-      ['Let Fee (new tenancy)', data.letFee],
-      ['EPC (if required)', data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`],
+      ['Management Fee', `${vat(mgmtFee)} of all rent collected`],
+      ['Let Fee (new tenancy)', vat(data.letFee)],
+      ['EPC (if required)', vat(data.agreementType === 'hmo' ? `£${data.epcCost} per unit` : `£${data.epcCost}`)],
       ...(data.floatAmount ? [['Working Float', `£${data.floatAmount} (held by Agent to cover day-to-day expenditure)`] as [string, string]] : []),
       ['Inventory (new tenancy)', data.inventoryNote ? 'As agreed' : 'Cost to be agreed prior to each tenancy'],
       ['Contractor Administration', 'Included in management fee (no surcharge on contractor invoices)'],
       ['Court Attendance / Eviction', 'By separate quotation — agreed in advance'],
       ['Sale of Property', 'By separate quotation if instructed — not included in this agreement'],
+      ...(data.extraFees ?? []).filter(f => f.name?.trim()).map(f => [f.name.trim(), vat(f.details?.trim() || 'As agreed')] as [string, string]),
     ]
 
     rec?.push({ kind: 'table', head: ['Fee', 'Details'], rows: fees })
@@ -443,31 +447,37 @@ export async function generateManagementAgreementPDF(data: ManagementAgreementDa
     const c1W = COL_W * 0.38
     const c2W = COL_W * 0.62
 
-    // Header row
-    ensureSpace(ROW_H + fees.length * ROW_H + 16)
-    doc.save().fillColor(BLACK).rect(MARGIN, y, COL_W, ROW_H).fill().restore()
-    doc.save().font(fontBold).fontSize(8).fillColor('#fff')
-      .text('Fee', MARGIN + 6, y + 8, { width: c1W - 6, lineBreak: false })
-      .text('Details', MARGIN + c1W + 6, y + 8, { width: c2W - 12, lineBreak: false })
-      .restore()
-    y += ROW_H
+    // Header row; rows grow to fit (fees now carry "+ VAT (… inc. VAT)" and landlord-specific charges)
+    ensureSpace(ROW_H * 3)
+    const header = () => {
+      doc.save().fillColor(BLACK).rect(MARGIN, y, COL_W, ROW_H).fill().restore()
+      doc.save().font(fontBold).fontSize(8).fillColor('#fff')
+        .text('Fee', MARGIN + 6, y + 8, { width: c1W - 6, lineBreak: false })
+        .text('Details', MARGIN + c1W + 6, y + 8, { width: c2W - 12, lineBreak: false })
+        .restore()
+      y += ROW_H
+    }
+    header()
 
     for (let i = 0; i < fees.length; i++) {
       const [name, detail] = fees[i]
+      doc.font(fontReg).fontSize(8)
+      const h = Math.max(ROW_H, 16 + Math.max(doc.heightOfString(name, { width: c1W - 6 }), doc.heightOfString(detail, { width: c2W - 12 })))
+      if (y + h > PAGE_H - FOOTER_BAND_H - 24) { ensureSpace(h + 999); header() }
       const bg = i % 2 === 1 ? LIGHT : undefined
       if (bg) {
-        doc.save().fillColor(bg).rect(MARGIN, y, COL_W, ROW_H).fill().restore()
+        doc.save().fillColor(bg).rect(MARGIN, y, COL_W, h).fill().restore()
       }
       doc.save().font(fontReg).fontSize(8).fillColor(BLACK)
-        .text(name, MARGIN + 6, y + 8, { width: c1W - 6, lineBreak: false })
-        .text(detail, MARGIN + c1W + 6, y + 8, { width: c2W - 12, lineBreak: false })
+        .text(name, MARGIN + 6, y + 8, { width: c1W - 6 })
+        .text(detail, MARGIN + c1W + 6, y + 8, { width: c2W - 12 })
         .restore()
-      hRule(doc, MARGIN, y + ROW_H, COL_W, '#ececec')
-      y += ROW_H
+      hRule(doc, MARGIN, y + h, COL_W, '#ececec')
+      y += h
     }
 
     spacer(16)
-    drawPara('Capital Rooms Ltd is not VAT registered, so no VAT is added to our fees. The management fee is deducted from rent collected before remittance to the Client. All other fees are invoiced separately.')
+    drawPara(vatSentence(data.agreementDate, data.bizSettings?.vat_number, 'The management fee is deducted from rent collected before remittance to the Client. All other fees are invoiced separately.'))
 
     spacer(10)
     hRule(doc, MARGIN, y, COL_W, '#999')

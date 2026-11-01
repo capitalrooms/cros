@@ -69,6 +69,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
   const [epcCost,        setEpcCost]        = useState(DEFAULTS.hmo.epcCost)
   const [commencementDate, setCommencementDate] = useState(today())
   const [inventoryNote,  setInventoryNote]  = useState('')
+  const [extraFees,      setExtraFees]      = useState<{ name: string; details: string }[]>([])   // this landlord's own charges
   const [noticeMonths,   setNoticeMonths]   = useState(DEFAULT_NOTICE_MONTHS)
   const [minimumTermMonths, setMinimumTermMonths] = useState(DEFAULT_MINIMUM_TERM_MONTHS)
   const [rcTerms,        setRcTerms]        = useState<RentCollectionTerms>(RENT_COLLECTION_DEFAULTS)
@@ -123,6 +124,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
   const [savedLabel, setSavedLabel] = useState('')
   const [saved, setSaved] = useState<any[] | null>(null)
   const [savedSetup, setSavedSetup] = useState(false)
+  const [sendFor, setSendFor] = useState<{ id: string; name: string; email: string; message: string; sending: boolean; error: string; sent: string } | null>(null)
   const skipDefaults = useRef(false)   // reopening an entry keeps its own fees, not the type's defaults
 
   const loadSaved = useCallback(async () => {
@@ -134,7 +136,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
 
   function snapshot() {
     return { agreementType, agreementDate, entityType, clientTitle, clientFirst, clientLast, hasJointLandlord, client2Title, client2First, client2Last,
-      companyName, companyReg, companyCountry, clientAddrValue, propAddresses, managementFee, letFee, floatAmount, epcCost, commencementDate, noticeMonths, minimumTermMonths, inventoryNote, rcTerms, pickedLandlordId }
+      companyName, companyReg, companyCountry, clientAddrValue, propAddresses, managementFee, letFee, floatAmount, epcCost, commencementDate, noticeMonths, minimumTermMonths, inventoryNote, extraFees, rcTerms, pickedLandlordId }
   }
   async function openSaved(id: string) {
     setError(null); setSuccess(false)
@@ -157,12 +159,27 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
     if (f.epcCost != null) setEpcCost(f.epcCost)
     if (f.commencementDate) setCommencementDate(f.commencementDate)
     setInventoryNote(f.inventoryNote ?? '')
+    setExtraFees(Array.isArray(f.extraFees) ? f.extraFees : [])
     { const t = durationTermsFrom(f); setNoticeMonths(t.noticeMonths); setMinimumTermMonths(t.minimumTermMonths) }   // older saves: 3 / 12
     if (f.rcTerms) setRcTerms(f.rcTerms)
     setPickedLandlordId(f.pickedLandlordId ?? '')
     setSavedId(id)
     setSavedLabel(`${d.agreement.client_name || 'this client'} (version ${d.agreement.version})`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  async function startSend(a: any) {
+    setSendFor({ id: a.id, name: a.client_name || 'the landlord', email: '', message: '', sending: false, error: '', sent: '' })
+    const r = await adminFetch(`/api/admin/management-agreements/send?id=${a.id}`)
+    const d = await r.json().catch(() => ({}))
+    setSendFor(f => f && f.id === a.id ? { ...f, email: d.email ?? '', error: r.ok ? '' : (d.error ?? '') } : f)
+  }
+  async function doSend() {
+    if (!sendFor) return
+    setSendFor({ ...sendFor, sending: true, error: '' })
+    const r = await adminFetch('/api/admin/management-agreements/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: sendFor.id, email: sendFor.email, message: sendFor.message }) })
+    const d = await r.json().catch(() => ({}))
+    setSendFor(f => f && { ...f, sending: false, error: r.ok ? '' : (d.error ?? 'Could not send'), sent: r.ok ? d.sentTo : '' })
+    if (r.ok) loadSaved()
   }
   async function openPdf(id: string, mode: 'view' | 'download') {
     const win = mode === 'view' ? window.open('', '_blank') : null
@@ -247,6 +264,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
       ...durationTermsFrom({ noticeMonths, minimumTermMonths }),
       inventoryNote:  isRC ? undefined : inventoryNote.trim() || undefined,
       rentCollection: isRC ? rentCollectionTermsFrom(rcTerms) : undefined,
+      extraFees:      extraFees.filter(f => f.name.trim()),
       onboardingId:   onboardingId || undefined,
       savedId:        savedId || undefined,
       form:           snapshot(),
@@ -317,9 +335,12 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-neutral-900">{a.client_name || 'Client'} <span className="font-normal text-neutral-500">· {TYPE_LABEL[a.agreement_type as AgreementType] ?? a.agreement_type} · v{a.version}</span></span>
                     <span className="block truncate text-xs text-neutral-500">{(a.properties ?? []).map((p: string) => p.split('\n')[0].split(',')[0]).join(' · ')} · {new Date(a.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    {a.ready_at ? <span className="mt-xs inline-block rounded-full bg-green-100 px-sm text-xs font-semibold text-green-800">Ready to sign · {a.ready_name} · {new Date(a.ready_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                      : a.review_sent_at ? <span className="mt-xs inline-block rounded-full bg-amber-100 px-sm text-xs font-semibold text-amber-800">{a.review_version && a.review_version < a.version ? `v${a.review_version} sent; v${a.version} not sent yet` : `Sent to review ${new Date(a.review_sent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`}</span> : null}
                   </span>
                   <span className="flex shrink-0 gap-md text-xs font-semibold">
                     <button type="button" onClick={() => openSaved(a.id)} className="text-blue-700 hover:underline">{savedId === a.id ? 'Open (editing)' : 'Open & edit'}</button>
+                    <button type="button" onClick={() => startSend(a)} className="text-blue-700 hover:underline">{a.review_sent_at ? 'Send again' : 'Send to review'}</button>
                     <button type="button" onClick={() => openPdf(a.id, 'view')} className="text-blue-700 hover:underline">View</button>
                     <button type="button" onClick={() => openPdf(a.id, 'download')} className="text-blue-700 hover:underline">Download</button>
                     <button type="button" onClick={() => removeSaved(a)} className="text-red-600 hover:underline">Remove</button>
@@ -329,6 +350,28 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
             </ul>
           )}
         </section>
+
+        {sendFor && (
+          <section className="mb-lg rounded-2xl border border-blue-200 bg-blue-50 p-lg">
+            {sendFor.sent ? (<>
+              <p className="text-sm font-semibold text-blue-900">Sent to {sendFor.sent}.</p>
+              <p className="mt-xs text-sm text-blue-800">They get a link to read it and press “ready to sign”. You’ll get an email when they do, and it shows on the list above.</p>
+              <button type="button" onClick={() => setSendFor(null)} className="mt-sm text-xs font-semibold text-blue-700 hover:underline">Close</button>
+            </>) : (<>
+              <h2 className="text-sm font-bold text-neutral-900">Send {sendFor.name}’s agreement to review</h2>
+              <p className="mt-xs mb-md text-xs text-neutral-600">They read the latest version and press “I’ve read it and I’m ready to sign”. Then you send it for signing.</p>
+              <div className="grid gap-sm sm:grid-cols-2">
+                <div><label className={label}>Landlord’s email</label><input type="email" value={sendFor.email} onChange={e => setSendFor({ ...sendFor, email: e.target.value })} className={inp} /></div>
+                <div><label className={label}>Note to include (optional)</label><textarea rows={2} value={sendFor.message} onChange={e => setSendFor({ ...sendFor, message: e.target.value })} className={inp} placeholder="e.g. I’ve added the key cutting charge we discussed." /></div>
+              </div>
+              {sendFor.error && <p className="mt-sm text-sm text-red-700">{sendFor.error}</p>}
+              <div className="mt-md flex gap-md">
+                <button type="button" onClick={doSend} disabled={sendFor.sending || !sendFor.email.trim()} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:opacity-40">{sendFor.sending ? 'Sending…' : 'Send'}</button>
+                <button type="button" onClick={() => setSendFor(null)} className="text-sm font-semibold text-neutral-600 hover:underline">Cancel</button>
+              </div>
+            </>)}
+          </section>
+        )}
 
         {savedId && savedLabel && (
           <div className="mb-lg rounded-xl border border-amber-200 bg-amber-50 px-md py-sm text-sm text-amber-900">
@@ -609,6 +652,20 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
             </div>
           </div>}
 
+          {/* ── Charges particular to this landlord ─────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
+            <h2 className="text-sm font-bold text-neutral-900 mb-xs">Other charges <span className="text-neutral-400 font-normal">(optional)</span></h2>
+            <p className="text-xs text-neutral-500 mb-md">Anything this landlord asked for or agreed, e.g. key cutting £15, or a different inspection fee. Added to the fee table. Enter fees before VAT; the agreement adds “+ VAT” for agreements dated from 1 November 2026.</p>
+            {extraFees.map((f, i) => (
+              <div key={i} className="mb-sm grid grid-cols-1 gap-sm sm:grid-cols-[1fr_1.4fr_auto]">
+                <input value={f.name} onChange={e => setExtraFees(x => x.map((y, j) => j === i ? { ...y, name: e.target.value } : y))} className={inp} placeholder="Charge, e.g. Key cutting" />
+                <input value={f.details} onChange={e => setExtraFees(x => x.map((y, j) => j === i ? { ...y, details: e.target.value } : y))} className={inp} placeholder="Amount, e.g. £15 per set" />
+                <button type="button" onClick={() => setExtraFees(x => x.filter((_, j) => j !== i))} className="text-xs font-semibold text-red-600 hover:underline">Remove</button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setExtraFees(x => [...x, { name: '', details: '' }])} className="text-xs font-semibold text-blue-700 hover:underline">+ Add a charge</button>
+          </div>
+
           {/* ── Optional notes ──────────────────────────────────────────────── */}
           {!isRC && <div className="bg-white rounded-2xl border border-neutral-200 p-lg">
             <h2 className="text-sm font-bold text-neutral-900 mb-md">Inventory Note <span className="text-neutral-400 font-normal">(optional)</span></h2>
@@ -629,7 +686,7 @@ function ManagementAgreementForm({ query }: { query: Record<string, string | str
           )}
           {success && (
             <div className="rounded-xl bg-green-50 border border-green-200 px-md py-sm text-sm text-green-700">
-              ✓ Agreement generated and downloaded. Send via Adobe Sign or email to the client.
+              ✓ Agreement generated, downloaded and saved. To send it to the landlord to read first, press “Send to review” on it in Saved agreements.
             </div>
           )}
 

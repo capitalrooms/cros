@@ -27,9 +27,10 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ agreement: data })
   }
-  const { data, error } = await s.from('management_agreements')
-    .select('id, agreement_type, client_name, properties, version, created_at, updated_at, updated_by, onboarding_id')
-    .is('deleted_at', null).order('updated_at', { ascending: false }).limit(200)
+  const cols = 'id, agreement_type, client_name, properties, version, created_at, updated_at, updated_by, onboarding_id'
+  const list = (c: string) => s.from('management_agreements').select(c).is('deleted_at', null).order('updated_at', { ascending: false }).limit(200)
+  let { data, error } = await list(`${cols}, review_sent_at, review_sent_to, review_version, ready_at, ready_name`)
+  if (error && /review_|ready_/.test(error.message)) ({ data, error } = await list(cols))   // before migration 253
   if (error) return NextResponse.json(missing(error) ? { agreements: [], setupNeeded: true } : { error: error.message }, { status: missing(error) ? 200 : 500 })
   return NextResponse.json({ agreements: data })
 }

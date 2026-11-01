@@ -12,6 +12,7 @@ import {
   BLACK, GREY,
   drawPDFFooter,
 } from '@/lib/pdfLetterhead'
+import { vatApplies, plusVat, vatSentence } from '@/lib/finance/vat'
 import type { ManagementAgreementData } from '@/lib/managementAgreement/generatePDF'
 import { rentCollectionTermsFrom } from '@/lib/managementAgreement/rentCollectionTerms'
 import { durationSentence } from '@/lib/managementAgreement/durationTerms'
@@ -329,7 +330,9 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
 
     ensureSpace(320)
     label('SCHEDULE 4 — FEES')
-    table(['Fee', 'Details'], L ? [
+    const vat = (rows: [string, string][]) => vatApplies(data.agreementDate) ? rows.map(([n, d]) => [n, /^Included|not a fee|^By separate|^Quoted/.test(d) ? d : plusVat(d)] as [string, string]) : rows
+    const extras = (data.extraFees ?? []).filter(f => f.name?.trim()).map(f => [f.name.trim(), f.details?.trim() || 'As agreed'] as [string, string])
+    table(['Fee', 'Details'], vat([...(L ? [
       ['Letting (each room)', t.lettingFee],
       ['Rent collection & client account service', t.serviceFee || 'To be agreed'],
       ['Deposit protection and release', 'Included'],
@@ -349,8 +352,8 @@ export async function generateRentCollectionAgreementPDF(data: ManagementAgreeme
       ['Working float', `${money(t.floatAmount)} held in the client account (not a fee)`],
       ['Other services outside Schedule 1', 'Quoted and agreed in writing in advance'],
       ['Court attendance', 'By separate quotation, agreed in advance'],
-    ])
-    para('Capital Rooms Ltd is not VAT registered, so no VAT is added to our fees. The service fee is deducted from rent collected before the balance is paid to the Client. Other fees are invoiced separately.')
+    ]) as [string, string][], ...extras]))
+    para(vatSentence(data.agreementDate, data.bizSettings?.vat_number, 'The service fee is deducted from rent collected before the balance is paid to the Client. Other fees are invoiced separately.'))
     y += 10; rule('#999'); y += 20
 
     // ── Signatures ────────────────────────────────────────────────────────────
