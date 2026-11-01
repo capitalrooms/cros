@@ -40,6 +40,7 @@ export default function RentSortOut({ tenancyId, onClose, onChanged }: { tenancy
   const pos = data?.position, t = pos?.tenancy
   const plan = (pos?.plans ?? []).find((p: any) => p.status === 'active')
   const inp = 'w-full rounded-lg border border-neutral-300 bg-white px-sm py-xs text-sm text-neutral-900'
+  const thisMonthStart = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }).slice(0, 7) + '-01'
   const small = 'rounded-lg border border-neutral-300 px-sm py-0.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50'
 
   return (
@@ -61,6 +62,7 @@ export default function RentSortOut({ tenancyId, onClose, onChanged }: { tenancy
             <div className="flex flex-wrap gap-sm">
               <span className={`rounded-full px-md py-xs text-sm font-bold ${pos.owed > 0.005 ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-900'}`}>{pos.owed > 0.005 ? `${gbp(pos.owed)} still owed` : 'Nothing owed'}</span>
               {pos.over > 0.005 && <span className="rounded-full bg-blue-100 px-md py-xs text-sm font-bold text-blue-900">{gbp(pos.over)} paid over</span>}
+              {pos.credit > 0.005 && <span className="rounded-full bg-blue-100 px-md py-xs text-sm font-bold text-blue-900">{gbp(pos.credit)} credit for next month</span>}
               {plan && <span className="rounded-full bg-violet-100 px-md py-xs text-sm font-bold text-violet-900">Plan: {gbp(plan.instalment)} a month from {day(plan.starts_on)}</span>}
               {pos.told[0] && <span className="rounded-full bg-neutral-100 px-md py-xs text-sm text-neutral-700">Last told {day(pos.told[0].at)}</span>}
             </div>
@@ -83,6 +85,10 @@ export default function RentSortOut({ tenancyId, onClose, onChanged }: { tenancy
                           {m.outstanding > 0.005 && <button type="button" className={small} onClick={() => { setForm({ kind: 'direct', chargeId: m.chargeId }); setF({ amount: m.outstanding, date: today(), takeFee: true }) }}>Paid landlord direct</button>}
                           {m.outstanding > 0.005 && <button type="button" className={small} onClick={() => { setForm({ kind: 'reduce', chargeId: m.chargeId }); setF({ newDue: m.received }) }}>Reduce / write off</button>}
                           {m.over > 0.005 && <button type="button" className={small} onClick={() => { setForm({ kind: 'refund', chargeId: m.chargeId }); setF({ amount: m.over }) }}>Refund overpayment</button>}
+                          {m.month > thisMonthStart && m.received - m.remitted > 0.005 && m.received < m.due - 0.005 && <>
+                            <button type="button" className={small} onClick={() => { setForm({ kind: 'refund', chargeId: m.chargeId }); setF({ amount: Math.round((m.received - m.remitted) * 100) / 100 }) }}>Refund the credit</button>
+                            <a className={small} href={`/admin/lettings/${t.id}?tab=messages`}>Tell them to pay {gbp(m.due - m.received)}</a>
+                          </>}
                         </span></td>
                       </tr>
                     ))}

@@ -199,5 +199,7 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, nudged, certAlerts, cleaningAlert })
+  // tenant messages the office set to go again today (migration 256; lib/tenancy/quickMessages)
+  const scheduled = await import('@/lib/tenancy/quickMessages').then(m => m.sendScheduledMessages(supabase as any)).catch(() => 0)
+  return NextResponse.json({ ok: true, nudged, certAlerts, cleaningAlert, scheduled })
 }

@@ -9,7 +9,7 @@ import { adminFetch } from '@/lib/adminFetch'
 interface Msg { id: string; group: string; name: string; subject: string; email: string; sms: string }
 interface Facts {
   tenants: { name: string; email: string | null; phone: string | null }[]
-  rent: number | null; owed: number; owedMonths: string[]; nextDue: string | null; paymentRef: string | null
+  rent: number | null; owed: number; owedMonths: string[]; credit: number; nextDue: string | null; paymentRef: string | null
   account: { label: string; name: string; sortCode: string; accountNo: string } | null; letOnly: boolean
 }
 type Channel = 'email' | 'sms' | 'push'
@@ -27,12 +27,15 @@ export default function TenantMessages({ tenancyId }: { tenancyId: string }) {
   const [channels, setChannels] = useState<Channel[]>(['email'])
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState('')
+  const [again, setAgain] = useState('')            // "send again on" date (migration 256)
+  const [onlyLater, setOnlyLater] = useState(false)  // don't send now, only on that date
+  const [scheduled, setScheduled] = useState<{ id: string; send_on: string; name: string | null; sent_at: string | null; cancelled_at: string | null }[]>([])
 
   useEffect(() => {
     adminFetch(`/api/admin/tenancy-messages?tenancyId=${tenancyId}`).then(async r => {
       const d = await r.json().catch(() => ({}))
       if (!r.ok) { setError(d.error ?? 'Could not load'); return }
-      setFacts(d.facts); setMsgs(d.messages)
+      setFacts(d.facts); setMsgs(d.messages); setScheduled(d.scheduled ?? [])
     })
   }, [tenancyId])
 
@@ -49,11 +52,14 @@ export default function TenantMessages({ tenancyId }: { tenancyId: string }) {
     const who = facts.tenants.map(t => t.name).join(' & ')
     if (!window.confirm(`Send “${open.name}” to ${who} by ${channels.map(c => c === 'sms' ? 'text' : c === 'push' ? 'app' : 'email').join(', ')}?`)) return
     setSending(true); setResult('')
-    const r = await adminFetch('/api/admin/tenancy-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId, subject, email, sms, channels }) })
+    const r = await adminFetch('/api/admin/tenancy-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId, subject, email, sms, channels, name: open.name, sendAgainOn: again || undefined, onlyLater: onlyLater && !!again }) })
     const d = await r.json().catch(() => ({}))
     setSending(false)
     if (!r.ok) { setResult(d.error ?? 'Not sent'); return }
-    setResult((d.results as any[]).map(x => `${x.name}: ${[x.email && `email ${x.email}`, x.sms && `text ${x.sms}`, x.push && `app ${x.push}`].filter(Boolean).join(', ')}`).join(' · '))
+    if (d.scheduledOn) adminFetch(`/api/admin/tenancy-messages?tenancyId=${tenancyId}`).then(r => r.json()).then(x => setScheduled(x.scheduled ?? []))
+    const later = d.scheduledOn ? ` Will send again on ${day(d.scheduledOn)}.` : ''
+    if (!(d.results as any[]).length) { setResult(`Set to send on ${day(d.scheduledOn)}.`); return }
+    setResult(later + ' ' + (d.results as any[]).map(x => `${x.name}: ${[x.email && `email ${x.email}`, x.sms && `text ${x.sms}`, x.push && `app ${x.push}`].filter(Boolean).join(', ')}`).join(' · '))
   }
 
   if (error) return <p className="text-sm text-red-700">{error}</p>
@@ -66,8 +72,15 @@ export default function TenantMessages({ tenancyId }: { tenancyId: string }) {
         <span className={facts.owed > 0 ? 'font-semibold text-red-700' : 'text-green-700'}>{facts.owed > 0 ? `Owes ${gbp(facts.owed)} (${facts.owedMonths.join(', ')})` : 'Rent account up to date'}</span>
         <span>Pays to {facts.account ? `${facts.account.label} · ${facts.account.sortCode} ${facts.account.accountNo}` : <span className="text-amber-700">no account on file</span>}</span>
         <span>Ref {facts.paymentRef ?? '—'}</span>
+        {facts.credit > 0 && <span className="font-semibold text-blue-800">{gbp(facts.credit)} credit · next rent {facts.rent != null ? gbp(facts.rent - facts.credit) : '—'}</span>}
       </div>
 
+      {scheduled.filter(x => !x.sent_at && !x.cancelled_at).map(x => (
+        <div key={x.id} className="flex items-center justify-between gap-md rounded-xl bg-blue-50 px-md py-sm text-sm text-blue-900">
+          <span>“{x.name ?? 'Message'}” will send again on {day(x.send_on)}</span>
+          <button type="button" className="text-xs font-semibold underline" onClick={async () => { if (!confirm('Cancel this scheduled message?')) return; await adminFetch(`/api/admin/tenancy-messages?id=${x.id}`, { method: 'DELETE' }); setScheduled(s => s.map(y => y.id === x.id ? { ...y, cancelled_at: 'now' } : y)) }}>Cancel it</button>
+        </div>
+      ))}
       {groups.map(g => (
         <div key={g}>
           <p className="mb-xs text-xs font-semibold uppercase tracking-wide text-neutral-500">{g}</p>
@@ -107,8 +120,13 @@ export default function TenantMessages({ tenancyId }: { tenancyId: string }) {
             <button type="button" onClick={send} disabled={sending || !channels.length || missing.length > 0}
               className="rounded-lg bg-neutral-900 px-lg py-sm text-sm font-bold text-white disabled:opacity-40">{sending ? 'Sending…' : 'Send'}</button>
             <button type="button" onClick={() => setOpen(null)} className="text-sm text-neutral-600 hover:underline">Cancel</button>
+            <label className="ml-auto flex items-center gap-xs text-sm text-neutral-700">Send again on
+              <input type="date" value={again} min={new Date().toISOString().slice(0, 10)} onChange={e => setAgain(e.target.value)} className="rounded border border-neutral-200 px-xs py-[2px] text-sm" />
+            </label>
+            {again && <label className="flex items-center gap-xs text-xs text-neutral-600"><input type="checkbox" checked={onlyLater} onChange={e => setOnlyLater(e.target.checked)} />only then, not now</label>}
           </div>
           {result && <p className="text-sm text-neutral-800">{result}</p>}
+          {again && <p className="text-xs text-neutral-500">On {day(again)} it’s sent again automatically in the morning, with the figures as they are that day.</p>}
         </div>
       )}
     </div>

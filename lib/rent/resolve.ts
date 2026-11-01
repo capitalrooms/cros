@@ -72,7 +72,10 @@ export async function rentPosition(s: SupabaseClient, tenancyId: string) {
   const { data: plans } = await s.from('rent_arrangements').select('*').eq('tenancy_id', t.id).order('created_at', { ascending: false })
   const told = entries.filter(e => e.action === 'tenant_told').map(e => ({ at: e.performed_at, note: e.note })).reverse()
   const owed = r2(months.reduce((n, m) => n + m.outstanding, 0))
-  return { tenancy: t, months, receipts: receipts.reverse(), plans: plans ?? [], told, owed, over: r2(months.reduce((n, m) => n + m.over, 0)) }
+  // money already on a future month (an overpayment carried forward, or rent paid early) — not yet due, so a credit
+  const thisMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }).slice(0, 7) + '-01'
+  const credit = r2(months.filter(m => m.month > thisMonth).reduce((n, m) => n + Math.max(0, m.received - m.remitted), 0))
+  return { tenancy: t, months, receipts: receipts.reverse(), plans: plans ?? [], told, owed, over: r2(months.reduce((n, m) => n + m.over, 0)), credit }
 }
 
 /** The message to the tenant: month by month what's still due, the total, and how to pay. */
@@ -150,7 +153,10 @@ export async function refundOver(s: SupabaseClient, tenancyId: string, chargeId:
   const m = pos.months.find(x => x.chargeId === chargeId)
   if (!m) throw new Error('That month isn’t on this tenant’s account.')
   amount = r2(amount)
-  if (!(amount > 0) || amount > m.over + 0.005) throw new Error(`Only ${gbp(m.over)} was paid over what was due that month.`)
+  // a future month's money (an overpayment carried forward) can all be refunded; a past month only what's over
+  const future = m.month > new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }).slice(0, 7) + '-01'
+  const max = future ? m.received : m.over
+  if (!(amount > 0) || amount > max + 0.005) throw new Error(future ? `Only ${gbp(max)} is held for ${monthName(m.month)}.` : `Only ${gbp(m.over)} was paid over what was due that month.`)
   if (m.remitted > r2(m.received - amount) + 0.005) throw new Error('That money has already been paid over to the landlord, so it can’t be refunded from here.')
   if (!reason.trim()) throw new Error('Say how it was refunded (e.g. “bank transfer to the tenant on 14 Oct”).')
   const received = r2(m.received - amount)

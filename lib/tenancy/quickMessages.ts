@@ -18,6 +18,7 @@ export interface TenancyFacts {
   room: string; house: string; address: string
   rent: number | null; dueDay: number; nextDue: string | null; paymentRef: string | null
   owed: number; owedMonths: string[]  // what's unpaid now, and for which months
+  credit: number                      // paid ahead (an overpayment carried to next month); next rent is less by this
   account: { label: string; name: string; bank: string; sortCode: string; accountNo: string } | null
   deposit: number | null; startDate: string | null; endDate: string | null
   letOnly: boolean
@@ -54,6 +55,9 @@ export async function tenancyFacts(s: SupabaseClient, tenancyId: string): Promis
   }))
   const dueDay = Number(tt.rent_due_day) || acct?.dueDay || 1
   const unpaid = (acct?.months ?? []).filter(m => m.how === 'unpaid' || m.how === 'part')
+  const thisMonth = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' }).slice(0, 7) + '-01'
+  const { data: ahead } = await s.from('rent_charges').select('amount_received, remitted_amount, voided').eq('tenancy_id', tenancyId).gt('charge_month', thisMonth)
+  const credit = Math.round(((ahead ?? []) as any[]).filter(c => !c.voided).reduce((n, c) => n + Math.max(0, Number(c.amount_received || 0) - Number(c.remitted_amount || 0)), 0) * 100) / 100
   // rent goes to our client account, except let-only, where the tenant pays the landlord directly after move-in
   const account = letOnly
     ? (landlordAcct ? { label: 'your landlord’s account', name: landlordAcct.name, bank: landlordAcct.bank, sortCode: landlordAcct.sortCode, accountNo: landlordAcct.accountNo } : null)
@@ -62,7 +66,7 @@ export async function tenancyFacts(s: SupabaseClient, tenancyId: string): Promis
     tenancyId, tenants, dear: tenants.map(x => x.dear).join(' and ') || 'Tenant',
     room: tt.rooms?.name ?? '', house: String(prop?.name || prop?.address || '').split(/\n|,/)[0].trim(), address: [prop?.address, prop?.postcode].filter(Boolean).join(', '),
     rent: tt.rent_amount != null ? Number(tt.rent_amount) : null, dueDay, nextDue: nextDueDate(dueDay), paymentRef: tt.payment_reference || acct?.paymentRef || null,
-    owed: Math.max(0, Math.round((acct?.balance ?? 0) * 100) / 100), owedMonths: unpaid.map(m => monthName(m.month)),
+    owed: Math.max(0, Math.round((acct?.balance ?? 0) * 100) / 100), owedMonths: unpaid.map(m => monthName(m.month)), credit,
     account, deposit: tt.deposit_amount != null ? Number(tt.deposit_amount) : null, startDate: tt.start_date, endDate: tt.end_date, letOnly,
   }
 }
@@ -74,8 +78,8 @@ export interface QuickMessage { id: string; group: 'Rent' | 'Visits & repairs' |
 export const QUICK_MESSAGES: QuickMessage[] = [
   { id: 'rent-due', group: 'Rent', name: 'Rent due soon',
     subject: 'Your rent is due on {next_due}',
-    email: `Just a reminder that your rent of **{rent}** is due on **{next_due}**.\n\n{pay_to}\n\nIf you pay by standing order, there’s nothing to do. Thank you.`,
-    sms: `Hi {first}, a reminder your rent of {rent} is due on {next_due}. Ref {ref}. Thanks, Capital Rooms` },
+    email: `Just a reminder that your rent of **{next_rent}** is due on **{next_due}**.\n\n{pay_to}\n\nIf you pay by standing order, there’s nothing to do. Thank you.`,
+    sms: `Hi {first}, a reminder your rent of {next_rent} is due on {next_due}. Ref {ref}. Thanks, Capital Rooms` },
   { id: 'rent-late', group: 'Rent', name: 'Rent overdue — friendly reminder',
     subject: 'Your rent for {room}, {house}',
     email: `We haven’t yet received **{owed}** for {owed_months}. It may simply have been missed, so this is a friendly reminder.\n\n{pay_to}\n\nPlease pay today. If you’ve paid in the last day or two, thank you — please ignore this.`,
@@ -88,6 +92,10 @@ export const QUICK_MESSAGES: QuickMessage[] = [
     subject: 'Thank you — rent received',
     email: `Thank you, we’ve received your rent for {room}. Your account is up to date.`,
     sms: `Hi {first}, thanks, we've received your rent. Your account is up to date. Capital Rooms` },
+  { id: 'overpaid', group: 'Rent', name: 'Overpaid — next rent less, or refund',
+    subject: 'You’ve paid {credit} more than was due',
+    email: `Thank you for your payment. It was **{credit}** more than was due, so you have a credit of {credit} with us.\n\nUnless you tell us otherwise, we’ll take it off your next rent: on **{next_due}** please pay **{next_rent}** instead of {rent}.\n\nIf you’d rather have the {credit} back, just reply with the account name, sort code and account number to refund it to.`,
+    sms: `Hi {first}, you paid {credit} more than was due. Next rent on {next_due} is {next_rent} instead of {rent}, or reply for a refund. Capital Rooms` },
   { id: 'how-to-pay', group: 'Rent', name: 'How to pay your rent',
     subject: 'How to pay your rent for {room}',
     email: `Your rent is **{rent}** a month, due on the **{due_day}** of each month.\n\n{pay_to}\n\nA standing order is the easiest way to make sure it’s never late.`,
@@ -142,7 +150,8 @@ export function fillMessage(text: string, f: TenancyFacts, who?: TenantContact):
     next_due: longDate(f.nextDue), due_day: ordinal(f.dueDay), ref: f.paymentRef ?? '[reference]',
     owed: f.owed > 0 ? gbp(f.owed) : '[amount owed]', owed_months: f.owedMonths.length ? f.owedMonths.join(', ') : '[month]',
     pay_to: payTo, acct_short: a ? `${a.name} ${a.sortCode} ${a.accountNo}` : 'your usual account',
-    deposit: f.deposit != null ? gbp(f.deposit) : '[deposit]', end_date: longDate(f.endDate) || '[end date]',
+    deposit: f.deposit != null ? gbp(f.deposit) : '[deposit]',
+    credit: f.credit > 0 ? gbp(f.credit) : '[overpaid amount]', next_rent: f.rent != null ? gbp(Math.max(0, f.rent - f.credit)) : '[next rent]', end_date: longDate(f.endDate) || '[end date]',
   }
   return text.replace(/\{([a-z_]+)\}/g, (m, k: string) => map[k] ?? m)
 }
@@ -190,3 +199,24 @@ export async function sendToTenancy(f: TenancyFacts, o: { subject: string; email
 
 /** Placeholders still to fill in — sending is refused while any remain. */
 export const unfilled = (...texts: string[]) => [...new Set(texts.join('\n').match(/\[[^\]\n]{2,60}\]/g) ?? [])]
+
+/** The morning job: send every scheduled tenant message due today or earlier (migration 256). */
+export async function sendScheduledMessages(s: SupabaseClient): Promise<number> {
+  const { getElectedCommsLive } = await import('@/lib/comms')
+  if (!(await getElectedCommsLive())) return 0
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/London' })
+  const { data, error } = await s.from('scheduled_tenant_messages').select('*').lte('send_on', today).is('sent_at', null).is('cancelled_at', null).limit(100)
+  if (error) return 0
+  let n = 0
+  for (const m of (data ?? []) as any[]) {
+    // claim it first, so a second run can't send it twice
+    const { data: claimed } = await s.from('scheduled_tenant_messages').update({ sent_at: new Date().toISOString() }).eq('id', m.id).is('sent_at', null).select('id')
+    if (!claimed?.length) continue
+    const f = await tenancyFacts(s, m.tenancy_id).catch(() => null)
+    if (!f) { await s.from('scheduled_tenant_messages').update({ result: { error: 'tenancy not found' } }).eq('id', m.id); continue }
+    const result = await sendToTenancy(f, { subject: m.subject, email: m.email, sms: m.sms, channels: m.channels })
+    await s.from('scheduled_tenant_messages').update({ result }).eq('id', m.id)
+    n++
+  }
+  return n
+}
