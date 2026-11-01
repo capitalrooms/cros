@@ -242,6 +242,21 @@ export async function POST(req: NextRequest) {
       continue
     }
 
+    // Identical lines in one file (same day, amount and wording): two real payments, or the same one downloaded twice?
+    // Accepted when they add up to what's owed this month, or the running balance shows every line is real;
+    // otherwise held for the office to check in the bank (Harry, 1 Nov 2026).
+    const twins = parseResult.transactions.filter(t => t.repeat_group === txn.repeat_group)
+    if (twins.length > 1) {
+      const outstanding = Number(charge.amount_due || 0) - Number(charge.amount_received || 0)
+      const sum = twins.reduce((n, t) => n + t.amount, 0)
+      const balanceProves = parseResult.balance_breaks !== undefined && parseResult.opening_balance != null && !(parseResult.balance_breaks ?? []).length
+      if (!(Math.abs(sum - outstanding) < 0.01 || balanceProves)) {
+        preview.push({ ...txn, ...TENANCY_EXTRA, category: 'possible_dupe', double_import: true, rent_charge_id: charge.id, charge_month: charge.charge_month, charge_status: charge.status, charge_amount_due: charge.amount_due, charge_amount_received: Number(charge.amount_received || 0), tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name } as any)
+        continue
+      }
+      ;(txn as any).twin_ok = Math.abs(sum - outstanding) < 0.01 ? `${twins.length} payments of £${txn.amount.toFixed(2)} add up to this month’s rent` : 'the running balance confirms each payment'
+    }
+
     // Clean match — unpaid charge, reference found
     preview.push({ ...txn, ...TENANCY_EXTRA, category: 'matched', rent_charge_id: charge.id, charge_month: charge.charge_month, charge_status: charge.status, charge_amount_due: charge.amount_due, charge_amount_received: Number(charge.amount_received || 0), tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name })
   }

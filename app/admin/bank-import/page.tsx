@@ -334,11 +334,14 @@ export default function BankImportPage() {
                         const fit = paymentFit(Number(row.amount), Number(row.charge_amount_due) - Number(row.charge_amount_received || 0))
                         return <p className={`text-xs font-semibold mt-xs ${FIT_CLASS[fit.tone]}`}>{fit.label}</p>
                       })()}
+                      {row.category === 'matched' && (row as any).twin_ok && (
+                        <p className="text-xs text-green-700 font-semibold mt-xs">Same payment twice in this file — accepted: {(row as any).twin_ok}.</p>
+                      )}
                       {row.category === 'matched' && row.charge_status === 'to be raised' && (
                         <p className="text-xs text-neutral-500 mt-xs">This month’s rent will be raised when you confirm, then this payment put against it.</p>
                       )}
                       {row.category === 'possible_dupe' && (
-                        <p className="text-xs text-amber-600 font-semibold mt-xs">{(row as any).near_duplicate_of ? `Looks like a line already imported (“${(row as any).near_duplicate_text}”) — held for you to check, not added twice` : 'This charge is already marked as paid — held for manual review'}</p>
+                        <p className="text-xs text-amber-600 font-semibold mt-xs">{(row as any).double_import ? 'This could be a double import — the same payment appears more than once in this file and doesn’t add up to the rent due. Please check in your bank before confirming.' : (row as any).near_duplicate_of ? `Looks like a line already imported (“${(row as any).near_duplicate_text}”) — held for you to check, not added twice` : 'This charge is already marked as paid — held for manual review'}</p>
                       )}
                     </div>
                     <div className="text-right shrink-0">
