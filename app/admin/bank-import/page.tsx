@@ -130,6 +130,10 @@ export default function BankImportPage() {
           bank_name:   preview.bank_name,
           period_from: preview.period_from,
           period_to:   preview.period_to,
+          day_counts:  (preview as any).day_counts,
+          opening_balance: (preview as any).opening_balance,
+          closing_balance: (preview as any).closing_balance,
+          balance_breaks:  (preview as any).balance_breaks,
           ...(practice ? { practice: true } : {}),
         }),
       })
@@ -334,7 +338,7 @@ export default function BankImportPage() {
                         <p className="text-xs text-neutral-500 mt-xs">This month’s rent will be raised when you confirm, then this payment put against it.</p>
                       )}
                       {row.category === 'possible_dupe' && (
-                        <p className="text-xs text-amber-600 font-semibold mt-xs">This charge is already marked as paid — held for manual review</p>
+                        <p className="text-xs text-amber-600 font-semibold mt-xs">{(row as any).near_duplicate_of ? `Looks like a line already imported (“${(row as any).near_duplicate_text}”) — held for you to check, not added twice` : 'This charge is already marked as paid — held for manual review'}</p>
                       )}
                     </div>
                     <div className="text-right shrink-0">

@@ -72,6 +72,11 @@ export async function POST(req: NextRequest) {
     })
     .select('id')
     .single()
+  // the calendar's facts (migration 255): lines per day, running balance — best effort, before 255 these are skipped
+  if (batch?.id && body.day_counts) {
+    await supabase.from('bank_import_batches').update({ day_counts: body.day_counts, opening_balance: body.opening_balance ?? null, closing_balance: body.closing_balance ?? null, balance_breaks: body.balance_breaks ?? null }).eq('id', batch.id)
+      .then(({ error }) => { if (error) console.error('bank-import confirm: calendar facts not saved', error.message) })
+  }
   if (batchErr || !batch) return NextResponse.json({ error: 'Failed to create import batch: ' + batchErr?.message }, { status: 500 })
 
   const batchId = batch.id
@@ -106,6 +111,8 @@ export async function POST(req: NextRequest) {
         matched_by:             txn.category === 'matched' ? person.id : null,
         imported_at:      now,
         imported_by:      person.id,
+        ...(txn.balance != null ? { balance: txn.balance } : {}),
+        ...(txn.near_duplicate_of ? { near_duplicate_of: txn.near_duplicate_of } : {}),
         ...(practice ? { is_practice: true } : {}),
       }, { onConflict: 'dedup_hash', ignoreDuplicates: true })
       .select('id')

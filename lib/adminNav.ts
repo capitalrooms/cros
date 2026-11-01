@@ -159,6 +159,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
       { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },
       { emoji: '💸', label: 'Payment Run',      href: '/admin/payment-run' },
       { emoji: '🧰', label: 'Contractor Invoices', href: '/admin/supplier-invoices' },
+      { emoji: '🗓️', label: 'Bank Calendar',    href: '/admin/bank-calendar' },
       { emoji: '🏦', label: 'Bank & Matching',  href: '/admin/reconciliation' },
       { emoji: '💷', label: 'Expenses',         href: '/admin/expense-log' },
       { emoji: '🏧', label: 'Operations Account', href: '/admin/ops-account' },

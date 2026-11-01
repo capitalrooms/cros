@@ -163,6 +163,7 @@ export async function POST(req: NextRequest) {
     } else result.errors.push(`Recorded as ${rec.hold_no}, but the tenancy wasn’t created: ${inc.error ?? 'no room or property on the application'}`)
   }
   result.holdNo = rec.hold_no
+  ;(result as any).holdingId = rec.id
   if (!result.tenancyId && rec.tenancy_id) result.tenancyId = rec.tenancy_id
 
   // 2. The receipt is always filed (it's part of the record); emailing it is optional
