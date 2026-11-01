@@ -384,6 +384,7 @@ function Messages({ o, wide, composeRef, roomId, reload, onMessage }: { o: RoomO
       <div className="space-y-sm px-lg py-md">
         <div className="flex flex-wrap items-center gap-sm">
           {o.current && <button type="button" onClick={onMessage} className={btnDark}>Message {o.current.tenant.name}{o.current.jointTenant ? ` and ${o.current.jointTenant.name}` : ''}</button>}
+          {o.current && <Link href={`/admin/lettings/${o.current.id}?tab=messages&from=${encodeURIComponent(`/admin/properties/${o.property.id}/rooms/${o.room.id}`)}`} className="text-sm font-semibold text-blue-700 hover:underline">Rent reminder and other ready messages</Link>}
         </div>
         <div className="overflow-hidden rounded-xl border border-neutral-300">
           <textarea ref={composeRef} value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder="An office note — kept on this room, never sent" aria-label="Office note" className="block w-full resize-y border-0 px-md py-sm text-sm outline-none" />

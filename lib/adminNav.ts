@@ -154,6 +154,7 @@ const ZONES_AS_WRITTEN: Zone[] = [
     // the month's cycle first; everything else is under "Other tools" on Finance home
     subnav: [
       { emoji: '🏠', label: 'Finance Home',     href: '/admin/finance' },
+      { emoji: '📨', label: 'Rent Chase',       href: '/admin/rent-chase' },
       { emoji: '📋', label: 'Rent Roll',        href: '/admin/rent-roll' },
       { emoji: '🧾', label: 'Statements',       href: '/admin/statements' },
       { emoji: '💸', label: 'Payment Run',      href: '/admin/payment-run' },

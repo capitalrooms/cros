@@ -187,6 +187,7 @@ export default function DocumentGenerator() {
   })
   const [forTenancy, setForTenancy] = useState('')
   const [facts, setFacts] = useState<LetterFacts>({})
+  const [tenancyNote, setTenancyNote] = useState('')
   // ready-made letters and the ones you've saved as templates (migration 238)
   const [saved, setSaved] = useState<{ id: string; name: string; audience: string; subject: string; body: string; closing: string }[]>([])
   const [templatesSetup, setTemplatesSetup] = useState(false)
@@ -226,6 +227,7 @@ export default function DocumentGenerator() {
       .then(({ data }) => {
         setPeople((data as Person[]) || [])
         if (!tenancyId) return
+        loadTenancyFacts(tenancyId)
         supabase.from('tenancies').select('person_id, start_date, end_date, rent_amount, rent_due_day, payment_reference, rooms(name), properties(name, address, postcode)').eq('id', tenancyId).maybeSingle().then(({ data: t }) => {
           const tt = t as any
           const p = ((data as Person[]) || []).find(x => x.id === tt?.person_id)
@@ -252,14 +254,34 @@ export default function DocumentGenerator() {
     })
   }, [])
 
+  // The tenant's rent account and the account they pay into, from the tenancy (lib/tenancy/quickMessages)
+  async function loadTenancyFacts(id: string) {
+    const r = await adminFetch(`/api/admin/tenancy-messages?tenancyId=${id}`).catch(() => null)
+    const d = r?.ok ? await r.json().catch(() => null) : null
+    const f = d?.facts
+    if (!f) return
+    const gbp = (n: number) => money(n)
+    setFacts(prev => ({
+      ...prev,
+      room: prev.room || f.room || undefined, house: prev.house || f.house || undefined,
+      rent: prev.rent || (f.rent != null ? gbp(f.rent) : undefined), payment_ref: prev.payment_ref || f.paymentRef || undefined,
+      owed: f.owed > 0 ? gbp(f.owed) : undefined, owed_months: f.owedMonths?.join(', ') || undefined,
+      account_label: f.account?.label, account_name: f.account?.name, sort_code: f.account?.sortCode, account_number: f.account?.accountNo, bank: f.account?.bank,
+      deposit: f.deposit != null ? gbp(f.deposit) : undefined,
+    }))
+    setTenancyNote(f.owed > 0 ? `${f.tenants.map((t: any) => t.name).join(' & ')} owes ${gbp(f.owed)} (${f.owedMonths.join(', ')}) · rent ${f.rent != null ? gbp(f.rent) : '—'} · pays to ${f.account ? `${f.account.label} (${f.account.name}, ${f.account.sortCode})` : 'no account on file'}`
+      : `Rent account up to date · rent ${f.rent != null ? gbp(f.rent) : '—'} · pays to ${f.account ? `${f.account.label} (${f.account.name}, ${f.account.sortCode})` : 'no account on file'}`)
+  }
+
   async function pickPerson(p: Person) {
     const name = p.role === 'landlord' ? landlordFormalNames(p as any) : formalName(p as any)
     let address = p.home_address ?? ''
     // Tenants rarely have a correspondence address on file — use the room they rent
     if (!address && p.role === 'tenant') {
       const { data } = await supabase.from('tenancies')
-        .select('room:rooms(name, properties(name, address))')
+        .select('id, room:rooms(name, properties(name, address))')
         .eq('person_id', p.id).order('start_date', { ascending: false }).limit(1)
+      if ((data?.[0] as any)?.id) loadTenancyFacts((data![0] as any).id)
       const room = (data?.[0] as any)?.room
       const prop = room?.properties
       // the property's name holds the street ("12 Saltwell Street"); its address field is often just town and postcode
@@ -588,7 +610,7 @@ export default function DocumentGenerator() {
 
   function startAgain() {
     if (!window.confirm('Start a new document? The current draft will be cleared.')) return
-    setStep('write'); setLetter(null); setInvoice(null); setSavedId(null); setNumberAuto(true); setSaveNote(''); setInstructions(''); setRecipient(EMPTY_RECIPIENT); setMissing([])
+    setStep('write'); setLetter(null); setInvoice(null); setSavedId(null); setNumberAuto(true); setSaveNote(''); setInstructions(''); setRecipient(EMPTY_RECIPIENT); setMissing([]); setTenancyNote('')
     setChanges(''); setError(null); setSendResult(null); setEmailMessage(''); setTo('')
   }
 
@@ -708,8 +730,9 @@ export default function DocumentGenerator() {
                   </button>
                 ))}
               </div>
+              {tenancyNote && <p className="mb-sm rounded-lg bg-blue-50 px-md py-sm text-sm text-blue-900">{tenancyNote}. The letters below fill these in for you.</p>}
               <ReadyLetterPicker query={templateQuery} setQuery={setTemplateQuery} saved={saved} setupNeeded={templatesSetup}
-                forTenancy={!!tenancyId} onUse={useTemplate} onRemove={removeTemplate} />
+                forTenancy={!!tenancyId || !!tenancyNote} onUse={useTemplate} onRemove={removeTemplate} />
               <h2 className="font-semibold text-neutral-900 mb-sm">Or say what you want in your own words</h2>
               <p className="text-sm text-neutral-500 mb-md">
                 Write it in your own words — notes, bullet points or a pasted email are fine. Include the facts that matter

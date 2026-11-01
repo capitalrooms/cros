@@ -184,10 +184,20 @@ Between **[from date]** and **[to date]** they paid **[total paid]** in rent, an
 This letter is provided at the tenant’s request.` },
 ]
 
-export interface LetterFacts { tenant?: string; room?: string; house?: string; address?: string; rent?: string; payment_ref?: string; start_date?: string; end_date?: string; due_day?: string }
+export interface LetterFacts { tenant?: string; room?: string; house?: string; address?: string; rent?: string; payment_ref?: string; start_date?: string; end_date?: string; due_day?: string
+  // from the tenant's rent account and the house (1 Nov 2026, Harry: "it doesn't know the agency rent account … AT LEAST try")
+  owed?: string; owed_months?: string; account_label?: string; account_name?: string; sort_code?: string; account_number?: string; bank?: string; deposit?: string }
 
 /** Put the tenancy's facts in; any fact we don't have becomes a [placeholder] to fill in on the check screen. */
 export function fillLetter(text: string, f: LetterFacts): string {
   const blanks: Record<string, string> = { tenant: '[tenant name]', room: '[room]', house: '[house]', address: '[address]', rent: '[monthly rent]', payment_ref: '[payment reference]', start_date: '[tenancy start date]', end_date: '[tenancy end date]', due_day: '[rent due day]' }
-  return text.replace(/\{([a-z_]+)\}/g, (m, k: string) => (f as Record<string, string | undefined>)[k] || blanks[k] || m)
+  // the [boxes] we can answer from the tenancy are filled too; anything else stays for the office
+  const known: [RegExp, string | undefined][] = [
+    [/\[amount owed\]/g, f.owed], [/\[account name\]/g, f.account_name], [/\[sort code\]/g, f.sort_code], [/\[account number\]/g, f.account_number],
+    [/\[deposit( amount)?\]/g, f.deposit],
+  ]
+  let out = text.replace(/\{([a-z_]+)\}/g, (m, k: string) => (f as Record<string, string | undefined>)[k] || blanks[k] || m)
+  for (const [re, v] of known) if (v) out = out.replace(re, v)
+  if (f.account_label) out = out.replace(/to our client account:/g, `to ${f.account_label}:`)
+  return out
 }
