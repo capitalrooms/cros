@@ -7,6 +7,7 @@ import { importedRentFor } from '@/lib/finance/importedRent'
 import { statementMonth } from '@/lib/finance/statementMonth'
 const shiftDays = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 import { ledgerStart } from '@/lib/clientLedger'
+import { importedChargeIds } from '@/lib/finance/importedCharges'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 
@@ -100,8 +101,12 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   const [monthCharges, openCharges] = await Promise.all([
     s.from('rent_charges').select('*').eq('charge_month', start).in('property_id', propIds),
     // everything received and not yet paid over, up to this month — what the next statement takes
-    s.from('rent_charges').select('property_id, amount_received, remitted_amount, voided').lte('charge_month', end).gte('charge_month', takeover).in('property_id', propIds).gt('amount_received', 0),
+    s.from('rent_charges').select('id, property_id, amount_received, remitted_amount, voided').lte('charge_month', end).gte('charge_month', takeover).in('property_id', propIds).gt('amount_received', 0),
   ])
+  // a previous agent's rent (from an imported statement) is never rent CROS received (lib/finance/importedCharges)
+  const imported = await importedChargeIds(s, [...((monthCharges.data ?? []) as any[]), ...((openCharges.data ?? []) as any[])].map(c => c.id))
+  for (const c of (monthCharges.data ?? []) as any[]) if (imported.has(c.id)) c.amount_received = 0
+  if (openCharges.data) (openCharges as any).data = (openCharges.data as any[]).filter(c => !imported.has(c.id))
   const charges = ((monthCharges.data ?? []) as any[]).filter(c => !c.voided)
   const chargeIds = charges.map(c => c.id)
   const { data: audit } = chargeIds.length

@@ -5,6 +5,7 @@
 // Rent is counted on what has been RECEIVED and not yet paid over (amount_received − remitted_amount),
 // so late or part payments for earlier months carry onto the next statement. Until migration 185 adds
 // remitted_amount, it falls back to the month's own charges.
+import { importedChargeIds } from '@/lib/finance/importedCharges'
 import { nextStatementNumber } from '@/lib/statements/numbering'
 import { resolveFee, feeAmount, describeFee } from '@/lib/fees/managementFee'
 import { ledgerStart } from '@/lib/clientLedger'
@@ -82,7 +83,9 @@ export async function buildStatementDraft(s: SupabaseClient, propertyId: string,
     if (plain.error) throw new Error(plain.error.message)
     charges = plain.data ?? []
   } else charges = withRemitted.data ?? []
-  charges = charges.filter(c => !c.voided)
+  // never a previous agent's rent from an imported statement (lib/finance/importedCharges)
+  const imported = await importedChargeIds(s, charges.map(c => c.id))
+  charges = charges.filter(c => !c.voided && !imported.has(c.id))
 
   const roomName = new Map((rooms ?? []).map((r: any) => [r.id, r.name as string]))
   // Each charge's own tenancy (migration 217): in a changeover month the landlord gets two lines for the room — one per
