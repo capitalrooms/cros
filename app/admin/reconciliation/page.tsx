@@ -337,7 +337,7 @@ export default function ReconciliationPage() {
   return (
     <>
       <AppBar left={<BackButton href="/admin/finance" />} title="Bank" />
-      <PageHero title="Bank" subtitle="Match money in to rent, and check the room lines read from the agent’s statements — confirming says the room and tenant are right"
+      <PageHero look="olive" title="Bank" subtitle="Match money in to rent, and check the room lines read from the agent’s statements — confirming says the room and tenant are right"
         actions={<HeroButton href="/admin/bank-import" primary>Import bank CSV</HeroButton>}
         tabs={bankTabs('match')} />
       {/* a soft grey ground, not a white page (17 Oct 2026) */}

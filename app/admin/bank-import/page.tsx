@@ -168,7 +168,7 @@ export default function BankImportPage() {
       <AppBar left={<BackButton href="/admin/finance" />} title="Bank" />
 
       {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Every line in this file gets a practice receipt number (XRCPT) and stays out of the real books.</div>}
-      <PageHero eyebrow={practice ? 'PRACTICE' : undefined} title="Bank" subtitle="Import a bank statement CSV — each payment is matched to its rent by the reference" tabs={bankTabs('import')}
+      <PageHero look="olive" eyebrow={practice ? 'PRACTICE' : undefined} title="Bank" subtitle="Import a bank statement CSV — each payment is matched to its rent by the reference" tabs={bankTabs('import')}
         actions={practice ? <HeroButton href="/admin/bank-import">Leave practice</HeroButton> : <HeroButton href="/admin/bank-import?practice=1">Practice mode</HeroButton>} />
       <div className="max-w-6xl mx-auto px-lg py-xl space-y-xl">
 

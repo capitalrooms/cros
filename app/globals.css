@@ -206,20 +206,23 @@ button:disabled {
    white screens … study really nice looking software and spreadsheets"). Any page wrapped in `.fin` gets a soft grey
    ground and spreadsheet tables: compact rows, banded lines, small uppercase headings, figures right-aligned in
    even-width digits, a tinted totals row. One place — every finance page follows. ───────────────────────────────── */
-.fin { background-color: #E8ECF1; }
+.fin { background-color: #F3F0E6; }   /* 3 Nov 2026: the Finance home's look C — cream ground, olive band (PageHero look="olive") */
 .fin table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
 .fin table thead th {
-  background: #F6F8FA; color: #5B6470; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: .04em; padding: 7px 10px; border-bottom: 1px solid #D6DCE3; white-space: nowrap; text-align: left;
+  background: #F7F4EA; color: #6B6A55; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; padding: 7px 10px; border-bottom: 1px solid #E2DDC9; white-space: nowrap; text-align: left;
 }
-.fin table tbody td { padding: 6px 10px; border-bottom: 1px solid #EDF0F3; vertical-align: middle; }
-.fin table tbody tr:nth-child(even) td { background: #FAFBFC; }
-.fin table tbody tr:hover td { background: #F1F5FA; }
-.fin table tfoot td, .fin table tr.total td { background: #F6F8FA; font-weight: 700; border-top: 1px solid #D6DCE3; padding: 7px 10px; }
+.fin table tbody td { padding: 6px 10px; border-bottom: 1px solid #EFEBDD; vertical-align: middle; }
+.fin table tbody tr:nth-child(even) td { background: #FCFBF6; }
+.fin table tbody tr:hover td { background: #F5F1E3; }
+.fin table tfoot td, .fin table tr.total td { background: #F7F4EA; font-weight: 700; border-top: 1px solid #E2DDC9; padding: 7px 10px; }
 .fin table .num, .fin table td.text-right, .fin table th.text-right { text-align: right; font-variant-numeric: tabular-nums; }
 /* overflow-x auto, not hidden: on a phone a wide ledger table scrolls inside its card instead of being cut off (23 Oct 2026 audit) */
-.fin .ledger-card { background: #fff; border: 1px solid #D6DCE3; border-radius: 10px; overflow-x: auto; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
-.fin .ledger-band { background: #EEF1F5; border-bottom: 1px solid #D6DCE3; padding: 8px 12px; }
+.fin .ledger-card { background: #FFFDF6; border: 1px solid #E2DDC9; border-radius: 18px; overflow-x: auto; box-shadow: 0 2px 0 rgba(35, 38, 26, .06); }
+.fin .ledger-band { background: #EDE8D6; border-bottom: 1px solid #E2DDC9; padding: 8px 12px; }
+/* plain white cards on a finance page sit on the cream as cream-white tiles, like the home's */
+.fin .bg-white { background-color: #FFFDF6; }
+.fin .rounded-2xl, .fin .rounded-xl.border { border-color: #E2DDC9; }
 
 /* the role apps on a computer (26 Oct 2026): the side rail carries the logo, so the top bar beside it doesn't repeat it */
 @media (min-width: 1024px) { .cr-shell .cr-topbar-logo { visibility: hidden; } }

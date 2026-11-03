@@ -81,7 +81,7 @@ export default function DepositsPage() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Deposits" />
-      <PageHero title="Deposits" subtitle="Protected, with the prescribed information served, within 30 days of the tenancy starting — never more than 5 weeks’ rent"
+      <PageHero look="olive" title="Deposits" subtitle="Protected, with the prescribed information served, within 30 days of the tenancy starting — never more than 5 weeks’ rent"
         stats={rows ? [
           { label: STATUS.overdue[0], value: counts.overdue || 0, tone: counts.overdue ? 'bad' : undefined },
           { label: STATUS.due[0], value: counts.due || 0, tone: counts.due ? 'warn' : undefined },

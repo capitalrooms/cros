@@ -402,7 +402,7 @@ export default function IncomeDashboard() {
   return (
     <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/finance" />} title="Income" />
-      <PageHero title="Income" subtitle="What the agency earns: management and letting fees, from the landlord statements" tabs={incomeTabs('income')} />
+      <PageHero look="olive" title="Income" subtitle="What the agency earns: management and letting fees, from the landlord statements" tabs={incomeTabs('income')} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
 

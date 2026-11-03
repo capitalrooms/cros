@@ -203,7 +203,7 @@ export default function ExpensesPage() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
-      <PageHero title="Expenses" subtitle="Money spent on a property that comes off the landlord’s statement — each is numbered (EXP…) and never deleted; mistakes are voided"
+      <PageHero look="olive" title="Expenses" subtitle="Money spent on a property that comes off the landlord’s statement — each is numbered (EXP…) and never deleted; mistakes are voided"
         stats={[{ label: 'To deduct from landlord', value: pending.length, tone: pending.length ? 'warn' : undefined }]}
         actions={<><HeroButton href="/admin/ops-account">Operations account CSV</HeroButton><HeroButton href="/admin/reports/resold">Mark-ups</HeroButton><HeroButton primary onClick={() => { setShowForm(true); setDups(null); setFormError('') }}>+ Add expense</HeroButton></>}
         tabs={expenseTabs('log')} />

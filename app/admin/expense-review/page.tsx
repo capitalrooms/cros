@@ -148,7 +148,7 @@ export default function ExpenseReviewPage() {
   return (
     <div className="min-h-screen fin pb-3xl">
       <AppBar left={<BackButton href="/admin/finance" />} title="Expenses" />
-      <PageHero title="Expenses" subtitle="Statement lines: the lines read off statements you email to statements@ — check any the system wasn’t sure about. Changes are invisible to landlords." tabs={expenseTabs('review')} />
+      <PageHero look="olive" title="Expenses" subtitle="Statement lines: the lines read off statements you email to statements@ — check any the system wasn’t sure about. Changes are invisible to landlords." tabs={expenseTabs('review')} />
       <main className="mx-auto max-w-6xl px-lg py-lg space-y-md">
         <div className="flex items-start justify-between gap-lg">
           <div>

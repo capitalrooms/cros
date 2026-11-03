@@ -108,7 +108,7 @@ function Prepare({ propertyId, month, practice }: { propertyId: string; month: s
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href={`/admin/rent-roll?month=${month}${practice ? '&practice=1' : ''}`} />} title="Prepare statement" />
       {practice && <div className="border-b-4 border-amber-400 bg-amber-300 px-lg py-sm text-center text-sm font-bold text-amber-950">PRACTICE MODE — demo houses only. Nothing here is real money; every entry gets an X number (XRENT, XLS, XPAY…) and stays out of the real books.</div>}
-      <PageHero eyebrow={`Finance · Statement · ${monthLabel(month)}`} title={property?.name ?? 'Statement'}
+      <PageHero look="olive" eyebrow={`Finance · Statement · ${monthLabel(month)}`} title={property?.name ?? 'Statement'}
         subtitle={<>{property?.landlord} · step 2: check, make, approve — then it goes in the <Link href={`/admin/payment-run?month=${month}${practice ? '&practice=1' : ''}`} className="font-semibold text-[#F6F3EC] underline">payment run</Link>.</>} />
       <div className="mx-auto max-w-6xl px-lg py-xl">
 

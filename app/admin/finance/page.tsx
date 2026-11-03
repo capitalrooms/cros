@@ -79,6 +79,8 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
             <h1 className={`${display.className} mt-xs text-4xl font-extrabold tracking-tight ${C.ink}`}>Agency accounts</h1>
           </div>
           <div className="flex items-center gap-md">
+            {/* practice mode (migration 209): the demo house, X numbers, never the real books — try the whole cycle safely */}
+            <Pill tone="paper" second href="/admin/rent-roll?practice=1">Practice mode</Pill>
             <More />
             <Link href="/admin/client-money" className={`rounded-[22px] px-lg py-md text-right ${C.olive}`}>
               <span className="block text-xs opacity-80">Client account{d?.client ? (d.client.agrees ? ' · ledgers agree' : ' · ledgers don’t agree') : ''}</span>

@@ -44,7 +44,7 @@ export default function FinanceCheckPage() {
   return (
     <div className="min-h-screen fin">
       <AppBar left={<BackButton href="/admin/accounts" />} title="Finance health check" />
-      <PageHero eyebrow="Finance" title="Finance health check" />
+      <PageHero look="olive" eyebrow="Finance" title="Finance health check" />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div>
           <p className="mt-xs text-sm text-neutral-600">{checks ? (problems ? `${problems} thing${problems === 1 ? '' : 's'} to sort so rent, statements and client money add up.` : 'Everything checks out.') : 'Checking…'}</p>
