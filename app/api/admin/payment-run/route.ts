@@ -77,10 +77,11 @@ export async function POST(req: NextRequest) {
       if (!p) return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
       if (p.paid) return NextResponse.json({ error: 'Already recorded as paid' }, { status: 409 })
       if (!p.bank && !practice) return NextResponse.json({ error: `Add bank details for ${p.landlord} first` }, { status: 409 })
-      const takeover = await ledgerStart(s)
-      // client money rule: never pay a landlord more than is held for them (statements from the ledger start)
-      if (p.held != null && p.amount > p.held + 0.005 && p.statements.some(x => (x.date ?? '') >= takeover))
-        return NextResponse.json({ error: `Only £${p.held.toFixed(2)} is held for ${p.landlord}; this payment is £${p.amount.toFixed(2)}. Check the rent received and statements first.` }, { status: 409 })
+      // client money rule: never pay a landlord more than is held for them — no ledger entries means nothing held, and
+      // no statement date exempts it (3 Nov 2026 audit: both had let a payment through unchecked)
+      const heldNow = p.held ?? 0
+      if (p.amount > heldNow + 0.005)
+        return NextResponse.json({ error: `Only £${heldNow.toFixed(2)} is held for ${p.landlord}; this payment is £${p.amount.toFixed(2)}. Check the rent received and statements first.` }, { status: 409 })
       const paidDate = isDate(b.paidDate) ? b.paidDate : now.slice(0, 10)
       for (const st of p.statements.filter(x => !x.paidDate)) {
         const { error } = await s.from('landlord_statements').update({ paid_date: paidDate, amount_paid: st.net }).eq('id', st.id).is('paid_date', null)
