@@ -243,9 +243,11 @@ export default function TenanciesManagementPage() {
     } catch { showToast('Could not generate — check rent and deposit are set', 'error'); }
   }
 
-  // on notice = notice recorded (or the room marked on notice by the notice workflow) — never just an end date
+  // on notice = this tenancy's own notice recorded. The room's "on notice" status only counts for a tenancy that is
+  // ending (has an end date): in a changeover the incoming tenant shares the room and isn't leaving (3 Nov 2026 —
+  // Harvey Davies showed "On notice" from Wilf Prasher's notice on Room 1, Claverton Street)
   function isOnNotice(t: Tenancy) {
-    return !!t.notice_received_date || (t as any).rooms?.status === 'on_notice'
+    return !!t.notice_received_date || ((t as any).rooms?.status === 'on_notice' && !!t.end_date)
   }
 
   function displayName(t: Tenancy) {
