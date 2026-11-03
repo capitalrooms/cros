@@ -286,6 +286,7 @@ export default function PropertyDetailPage({ params }: { params: Promise<{ id: s
       {/* One header, the same as every other screen (24 Oct 2026 tidy): the name once, the facts that matter, the
           figures, and the tabs. Name, address and postcode are edited on the Details tab. */}
       <PageHero
+        trail={[{ label: 'Properties', href: '/admin/active-rooms' }]}
         eyebrow={[property.property_code, property.property_type === 'hmo' ? 'HMO' : property.property_type === 'single' || property.property_type === 'single_let' ? 'Single let' : property.property_type, property.letting_type === 'let_only' ? 'Let only' : 'Fully managed'].filter(Boolean).join(' · ')}
         title={propertySystemAddress(property) || '—'}
         subtitle={<>
