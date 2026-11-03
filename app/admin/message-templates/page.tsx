@@ -630,14 +630,14 @@ export default function MessageTemplatesPage() {
         </div>
 
         {/* Group filter tabs */}
-        <div className="mb-xl flex flex-wrap gap-xs border-b border-neutral-300 pb-0">
+        <div className="mb-xl flex flex-wrap gap-sm">
           {/* Branding tab — first, before message groups */}
           <button
             onClick={() => { setActiveGroup('onboarding'); if (!onboardingSteps.length) loadOnboardingSteps() }}
             className={`px-md py-sm text-sm font-semibold transition whitespace-nowrap ${
               activeGroup === 'onboarding'
-                ? 'border-b-2 border-blue-600 text-blue-700'
-                : 'text-neutral-500 hover:text-neutral-700'
+                ? 'rounded-full bg-neutral-900 text-white'
+                : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
             }`}
           >
             📱 Onboarding Slides
@@ -646,8 +646,8 @@ export default function MessageTemplatesPage() {
             onClick={() => setActiveGroup('branding')}
             className={`px-md py-sm text-sm font-semibold transition whitespace-nowrap ${
               activeGroup === 'branding'
-                ? 'border-b-2 border-blue-600 text-blue-700'
-                : 'text-neutral-500 hover:text-neutral-700'
+                ? 'rounded-full bg-neutral-900 text-white'
+                : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
             }`}
           >
             🎨 Branding &amp; Contact Details
@@ -657,8 +657,8 @@ export default function MessageTemplatesPage() {
             onClick={() => setActiveGroup('all')}
             className={`px-md py-sm text-sm font-semibold transition ${
               activeGroup === 'all'
-                ? 'border-b-2 border-neutral-900 text-neutral-900'
-                : 'text-neutral-500 hover:text-neutral-700'
+                ? 'rounded-full bg-neutral-900 text-white'
+                : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
             }`}
           >
             All
@@ -669,8 +669,8 @@ export default function MessageTemplatesPage() {
               onClick={() => setActiveGroup(g)}
               className={`px-md py-sm text-sm font-semibold transition whitespace-nowrap ${
                 activeGroup === g
-                  ? 'border-b-2 border-neutral-900 text-neutral-900'
-                  : 'text-neutral-500 hover:text-neutral-700'
+                  ? 'rounded-full bg-neutral-900 text-white'
+                  : 'rounded-full bg-white text-neutral-700 ring-1 ring-neutral-200 hover:bg-neutral-50'
               }`}
             >
               {GROUP_ICONS[g]} {g}
