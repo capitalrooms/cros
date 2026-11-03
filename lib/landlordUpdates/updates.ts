@@ -53,6 +53,13 @@ export function applicantDocType(t: string | null | undefined): string {
 }
 
 const gbp = (n: number) => `£${n.toLocaleString('en-GB', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`
+// Nigel likes their age (3 Nov 2026) — worked out from the date of birth, which stays available but off by default
+const ageOf = (iso?: string | null) => {
+  if (!iso) return ''
+  const b = new Date(`${String(iso).slice(0, 10)}T12:00:00Z`), n = new Date()
+  const y = n.getUTCFullYear() - b.getUTCFullYear() - ((n.getUTCMonth() < b.getUTCMonth() || (n.getUTCMonth() === b.getUTCMonth() && n.getUTCDate() < b.getUTCDate())) ? 1 : 0)
+  return y > 0 && y < 120 ? String(y) : ''
+}
 const long = (iso?: string | null) => iso ? new Date(`${String(iso).slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : ''
 
 export interface UpdateContext {
@@ -85,7 +92,7 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
   let t: any = null
   if (ids.tenancyId) {
     ({ data: t } = await s.from('tenancies')
-      .select('*, people!person_id(id, salutation, first_name, last_name, full_name, email, phone, occupation, job_title, nationality, right_to_rent_until, applicant_id), rooms(name), properties(id, name, address, postcode, letting_type, landlord_id, property_type)')
+      .select('*, people!person_id(id, salutation, first_name, last_name, full_name, email, phone, occupation, job_title, nationality, date_of_birth, right_to_rent_until, applicant_id), rooms(name), properties(id, name, address, postcode, letting_type, landlord_id, property_type)')
       .eq('id', ids.tenancyId).maybeSingle())
     if (!t) return null
   }
@@ -145,7 +152,7 @@ export async function loadUpdateContext(s: SupabaseClient, ids: { applicantId?: 
       company: a?.applicant_profile?.application?.company ?? null,
       study: (() => { const st = a?.applicant_profile?.application; return st?.student ? [st.university, st.course, st.year].filter(Boolean).join(' · ') || 'Student' : null })(),
       salary: a?.salary ? String(a.salary) : null,
-      dob: a?.date_of_birth ?? null,
+      dob: a?.date_of_birth ?? person?.date_of_birth ?? null,
       linkedin: a?.linkedin_url ?? null,
       requirements: [a?.room_requirements, a?.room_conditions].map(x => String(x ?? '').trim()).filter(Boolean).join('\n') || null,
       nationality: person?.nationality ?? null,
@@ -207,7 +214,7 @@ export function draftFor(c: UpdateContext, stage: UpdateStage): Draft {
   const work = [t.job, t.company].filter(Boolean).join(' at ')
   // the applicant sheet, in the order landlords ask for it (Nigel's list, 17 Oct 2026)
   const profile = [
-    ...F('Full name', t.name), ...F('Contact number', t.phone), ...F('Email address', t.email), ...F('Date of birth', long(t.dob)),
+    ...F('Full name', t.name), ...F('Contact number', t.phone), ...F('Email address', t.email), ...F('Age', ageOf(t.dob)), ...F('Date of birth', long(t.dob), false),
     ...F('Current address', t.currentAddress), ...F('Profession & company', work), ...F('University & course', t.study), ...F('Salary', t.salary),
     ...F(stage === 'offer' ? 'Move-in date (requested)' : 'Move-in date', long(c.startDate)), ...F('Planned stay', c.term),
     ...F('LinkedIn', t.linkedin), ...F('Requirements in property', t.requirements),

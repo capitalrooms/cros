@@ -166,7 +166,7 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
                   <label className="flex items-start gap-sm rounded-lg border border-neutral-200 px-sm py-xs text-sm">
                     <input type="checkbox" checked={statement} onChange={() => setStatement(v => !v)} className="mt-1" />
                     <span><span className="font-semibold">Attach the lettings statement (PDF)</span> — rent and deposit received, our letting fee, the balance paid to them.{' '}
-                      <a href={`/api/lettings-statement/${d.tenancyId}`} target="_blank" rel="noreferrer" className="font-semibold text-blue-700 hover:underline">Preview</a></span>
+                      <button type="button" onClick={() => previewStatement(d.tenancyId!)} className="font-semibold text-blue-700 hover:underline">Preview</button></span>
                   </label>
                 )}
                 {open === 'offer' && <p className="text-xs text-neutral-500">The landlord gets a private page with the details and two buttons: “Happy to go ahead” or “Not this one”. You’ll get an email as soon as they answer.</p>}
@@ -182,4 +182,16 @@ export default function LandlordUpdates({ applicantId, tenancyId, only, bare = f
       )}
     </section>
   )
+}
+
+// the statement is behind the sign-in, so it's fetched signed in; if it can't be made (e.g. no letting fee set) the
+// reason is shown instead of a blank tab (3 Nov 2026)
+async function previewStatement(tenancyId: string) {
+  const win = window.open('', '_blank')
+  try {
+    const r = await adminFetch(`/api/lettings-statement/${tenancyId}`)
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error ?? 'Couldn’t make the statement') }
+    const href = URL.createObjectURL(await r.blob())
+    if (win) win.location.href = href; else window.location.href = href
+  } catch (e) { win?.close(); alert(e instanceof Error ? e.message : 'Couldn’t make the statement') }
 }
