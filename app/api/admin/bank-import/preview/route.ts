@@ -15,6 +15,7 @@
  */
 
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -270,7 +271,7 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    ok: true,
+    ok: true, trial: !CROS_COLLECTS_RENT && !practice,
     transactions: preview,
     summary,
     period_from: parseResult.period_from,

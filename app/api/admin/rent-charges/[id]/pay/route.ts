@@ -21,6 +21,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
+import { demoPropertyIds } from '@/lib/demoProperties'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,6 +54,8 @@ export async function POST(req: NextRequest, { params: paramsPromise }: { params
     .from('rent_charges').select('*').eq('id', params.id).single()
   if (fetchErr || !charge) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (charge.voided) return NextResponse.json({ error: 'Cannot record payment against a voided charge' }, { status: 400 })
+  // statements-only mode: only a practice (demo) house's rent can be marked paid (lib/finance/mode)
+  if (!CROS_COLLECTS_RENT && !(await demoPropertyIds(supabase as any)).has(charge.property_id)) return NextResponse.json({ error: 'CROS is on statements only — rent is collected in your other system, so payments aren’t recorded here. Nothing was changed.' }, { status: 409 })
 
   // Double-payment guard — if already paid, return details and block
   if (charge.status === 'paid') {
