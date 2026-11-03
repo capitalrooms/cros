@@ -20,7 +20,7 @@ import BackButton from '@/app/components/BackButton'
 import { C, display, Pill, type Tone } from '@/app/components/financeLook'
 
 interface Dash {
-  ready: { count: number; total: number; items: { id: string; name: string; landlord: string; amount: number; part: boolean }[] }
+  ready: { count: number; total: number; items: { id: string; name: string; landlord: string; amount: number; part: boolean }[]; letOnly: { tenancyId: string; name: string; landlord: string; tenant: string; start: string; amount: number; step: 'pay' | 'record' }[] }
   due: { count: number; total: number; waitingHouses: number; notRaised: number; items: { property: string; propertyId: string; room: string; tenant: string; tenancyId: string | null; owed: number; status: string; received: number; ends: string | null }[]; paid: number }
   expenses: { count: number; total: number; houses: { propertyId: string; house: string; count: number; total: number }[] }
   statements: { items: { id: string; house: string; landlord: string; reference: string; date: string; net: number; state: string }[] }
@@ -86,10 +86,13 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
           {!d && !error && [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="h-56 animate-pulse rounded-[28px] bg-[#FFFDF6]" />)}
           {d && <>
             <Tile id="ready" open={open} setOpen={setOpen} tone="olive"
-              title="Ready to pay" big={String(d.ready.count)} sub={d.ready.count ? `${gbp(d.ready.total)} · every rent in` : 'No house has all its rent in yet'}
+              title="Ready to pay" big={String(d.ready.count)} sub={d.ready.count ? [d.ready.items.length && `${d.ready.items.length} house${d.ready.items.length === 1 ? '' : 's'} with every rent in`, d.ready.letOnly.length && `${d.ready.letOnly.length} let-only move-in${d.ready.letOnly.length === 1 ? '' : 's'}`].filter(Boolean).join(' · ') + (d.ready.total ? ` · ${gbp(d.ready.total)}` : '') : 'Nothing to pay out yet'}
               actions={[{ label: 'Rent Roll', href: `/admin/rent-roll${q}` }, { label: 'Payment run', href: `/admin/payment-run${q}` }]}>
               {d.ready.items.map(r => (
                 <Row key={r.id} href={`/admin/statements/prepare?property=${r.id}&month=${month}`} left={r.name} sub={`${r.landlord}${r.part ? ' · paying part now' : ''}`} right={gbp(r.amount)} cta="Prepare" />
+              ))}
+              {d.ready.letOnly.map(l => (
+                <Row key={l.tenancyId} href={`/admin/lettings/${l.tenancyId}?tab=money`} left={l.name} sub={`Let only · ${l.landlord} · ${l.tenant} from ${short(l.start)}${l.step === 'record' ? ' · record the move-in money' : ''}`} right={gbp(l.amount)} cta={l.step === 'pay' ? 'Pay' : 'Record'} />
               ))}
             </Tile>
 
