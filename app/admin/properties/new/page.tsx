@@ -1,6 +1,7 @@
 'use client'
 
 import NameInput from '@/app/components/NameInput'
+import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
@@ -68,14 +69,11 @@ export default function NewPropertyPage() {
   const [numRooms, setNumRooms] = useState<number | ''>('')
   const [roomTypes, setRoomTypes] = useState<string[]>([])
 
+  // the same house code the payment references use (lib/tenancy/paymentRef), so a room's code and its tenant's payment
+  // reference are one and the same — e.g. 95 Rope Street → 095ROS, Room 1 → 095ROS01 (3 Nov 2026)
   function generatePropertyCode(addr: string): string {
     if (!addr.trim()) return ''
-    const numberMatch = addr.match(/^(\d+)/)
-    const number = numberMatch ? String(parseInt(numberMatch[1])).padStart(3, '0') : ''
-    const streetPart = addr.split(',')[0]
-    const words = streetPart.split(/\s+/).filter(w => !/^\d+$/.test(w))
-    const letters = words.map(w => w.charAt(0).toUpperCase()).join('')
-    return `${number}${letters}`.toUpperCase()
+    return buildPaymentRef(addr, 0).slice(0, -2)
   }
 
   const handleAddrChange = (val: AddressValue) => {
