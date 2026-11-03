@@ -644,6 +644,7 @@ export function DocumentsTab({ file, reload }: { file: LettingFile; reload: () =
   const [uploading, setUploading] = useState(false)
   return (
     <div className="space-y-md">
+      <FillFromReport file={file} />
       <section className={card}>
         <h2 className="text-lg font-bold mb-sm">Made from this tenancy</h2>
         <div className="flex flex-wrap gap-sm">
@@ -981,5 +982,42 @@ function EndDateChange({ file }: { file: LettingFile }) {
         </div>
       )}
     </div>
+  )
+}
+
+// The tenant's details come from what they gave us — here, their referencing report (3 Nov 2026: "I am not inputting
+// data again they already provided themselves"). Reads the report on this letting file and fills only the empty
+// details on the tenant's record; anything already there is left as it is.
+function FillFromReport({ file }: { file: LettingFile }) {
+  const [pv, setPv] = useState<{ fill: { key: string; label: string; value: any }[]; kept: { label: string; value: any }[]; source: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const call = async (preview: boolean) => {
+    setBusy(true); setMsg('')
+    const r = await adminFetch(`/api/admin/lettings/${file.tenancy.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'fill_from_report', preview }) })
+    const j = await r.json().catch(() => ({}))
+    setBusy(false)
+    if (!r.ok) { setMsg(j.error ?? 'Couldn’t read the report'); return }
+    if (preview) setPv(j); else { setPv(null); setMsg(`Filled in: ${j.fill.map((f: any) => f.label).join(', ') || 'nothing new'}.`); window.dispatchEvent(new Event('letting-file-changed')) }
+  }
+  return (
+    <section className={card}>
+      <div className="flex flex-wrap items-center justify-between gap-sm">
+        <div><h2 className="text-lg font-bold">Tenant’s details</h2><p className="text-xs text-neutral-500">Taken from what they gave us — their referencing report — never typed in again.</p></div>
+        {!pv && <button type="button" disabled={busy} onClick={() => call(true)} className={btn}>{busy ? 'Reading the report…' : 'Fill from the referencing report'}</button>}
+      </div>
+      {pv && (
+        <div className="mt-sm space-y-xs text-sm">
+          <p className="text-xs text-neutral-500">From {pv.source}</p>
+          {pv.fill.length ? pv.fill.map(f => <p key={f.key}>+ <b>{f.label}</b>: {String(f.value)}</p>) : <p className="text-neutral-600">Nothing new to fill — the tenant’s record already has everything the report shows.</p>}
+          {pv.kept.length > 0 && <p className="text-xs text-neutral-500">Already on their record, left as it is: {pv.kept.map(k => k.label).join(', ')}</p>}
+          <div className="flex gap-sm">
+            <button type="button" onClick={() => setPv(null)} className={btn}>Cancel</button>
+            {pv.fill.length > 0 && <button type="button" disabled={busy} onClick={() => call(false)} className={btnDark}>{busy ? 'Filling…' : `Fill ${pv.fill.length} detail${pv.fill.length === 1 ? '' : 's'}`}</button>}
+          </div>
+        </div>
+      )}
+      {msg && <p className="mt-sm text-sm text-neutral-700">{msg}</p>}
+    </section>
   )
 }

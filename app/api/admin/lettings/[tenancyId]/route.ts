@@ -17,6 +17,7 @@
  * Office and lettings staff only. Nothing here sends anything.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { extractReference } from '@/lib/references/extract'
 import { previewEndDate, applyEndDate } from '@/lib/tenancy/endDate'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
@@ -123,6 +124,37 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
       if (!b.preview && r.paid.length) await logTenancyEvent(s, tenancyId, 'move_in_rent', `First rent paid from the move-in monies received ${longDate(tm.move_in_monies_received_at)}: ${r.paid.map(p => `£${p.amount.toFixed(2)}`).join(' + ')}`, caller.email)
       return NextResponse.json({ ok: true, ...r })
     } catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Could not mark the rent paid' }, { status: 500 }) }
+  }
+
+  // fill the tenant's empty details from the referencing report on this letting file (lib/references/extract):
+  // { action: 'fill_from_report', preview? } — only blanks are filled, nothing typed in is ever overwritten
+  if (b.action === 'fill_from_report') {
+    const { data: tt } = await s.from('tenancies').select('person_id, people!person_id(id, date_of_birth, phone, occupation, nationality, right_to_rent_until)').eq('id', tenancyId).single() as { data: any }
+    const { data: doc } = await s.from('property_documents').select('file_name, storage_url').eq('tenancy_id', tenancyId).eq('document_type', 'reference_report').order('uploaded_at', { ascending: false }).limit(1).maybeSingle() as { data: any }
+    if (!doc?.storage_url) return NextResponse.json({ error: 'There’s no referencing report on this letting file yet.' }, { status: 409 })
+    const m = String(doc.storage_url).match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/([^?]+)/)
+    if (!m) return NextResponse.json({ error: 'Couldn’t find the report file.' }, { status: 500 })
+    const { data: blob, error: dErr } = await s.storage.from(m[1]).download(decodeURIComponent(m[2]))
+    if (dErr || !blob) return NextResponse.json({ error: 'Couldn’t open the report file.' }, { status: 500 })
+    let x: Record<string, any>
+    try { x = await extractReference([{ name: doc.file_name ?? 'report.pdf', type: blob.type || 'application/pdf', bytes: await blob.arrayBuffer() }]) }
+    catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : 'Couldn’t read the report' }, { status: 500 }) }
+    const p = tt?.people ?? {}
+    const job = [x.occupation, x.employer].filter(Boolean).join(' at ')
+    const offered: [string, string, unknown][] = [
+      ['date_of_birth', 'Date of birth', /^\d{4}-\d{2}-\d{2}$/.test(String(x.date_of_birth ?? '')) ? x.date_of_birth : null],
+      ['phone', 'Phone', x.phone ? String(x.phone).trim() : null],
+      ['occupation', 'Profession', job || null],
+      ['nationality', 'Nationality', x.nationality ?? null],
+      ['right_to_rent_until', 'Right to Rent until', /^\d{4}-\d{2}-\d{2}$/.test(String(x.right_to_rent_until ?? '')) ? x.right_to_rent_until : null],
+    ]
+    const fill = offered.filter(([k, , v]) => v != null && v !== '' && (p[k] == null || p[k] === '')).map(([k, label, v]) => ({ key: k, label, value: v }))
+    const kept = offered.filter(([k, , v]) => v != null && v !== '' && p[k] != null && p[k] !== '').map(([k, label]) => ({ key: k, label, value: p[k] }))
+    if (b.preview || !fill.length) return NextResponse.json({ fill, kept, source: doc.file_name })
+    const { error: uErr } = await s.from('people').update(Object.fromEntries(fill.map(f => [f.key, f.value]))).eq('id', tt.person_id)
+    if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 })
+    await logTenancyEvent(s as any, tenancyId, 'details_from_report', `Filled from the referencing report (${doc.file_name}): ${fill.map(f => f.label).join(', ')}`, caller.email)
+    return NextResponse.json({ ok: true, fill, kept, source: doc.file_name })
   }
 
   // change the end date (lib/tenancy/endDate): { action: 'end_date', endDate|null, preview?, reason }
