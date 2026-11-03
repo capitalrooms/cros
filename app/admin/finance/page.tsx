@@ -139,9 +139,9 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
 
 // Everything else in finance, alphabetical (Harry: menus always alphabetical), so no screen is more than two clicks away
 const MORE = [
-  ['Arrears letters', '/admin/arrears'], ['Bank import', '/admin/bank-import'], ['Cashbook', '/admin/reports/cashbook'], ['Deposits', '/admin/deposits'],
+  ['Arrears letters', '/admin/arrears'], ['Bank', '/admin/bank-calendar'], ['Cashbook', '/admin/reports/cashbook'], ['Deposits', '/admin/deposits'],
   ['Expenses report', '/admin/reports/expenses'], ['Finance health check', '/admin/finance-check'], ['Landlord income', '/admin/reports/landlord-income'],
-  ['Making Tax Digital', '/admin/reports/mtd'], ['Reconciliation', '/admin/reconciliation'], ['Rent analysis', '/admin/reports/rent-analysis'],
+  ['Making Tax Digital', '/admin/reports/mtd'], ['Rent analysis', '/admin/reports/rent-analysis'],
   ['Rent charges', '/admin/rent-charges'], ['Rent Chase', '/admin/rent-chase'], ['Rent demands', '/admin/reports/rent-demands'], ['Rent increase', '/admin/rent-increase'],
   ['Rent Roll', '/admin/rent-roll'], ['Reports (all)', '/admin/reports'], ['Supplier invoices', '/admin/supplier-invoices'], ['Tax year', '/admin/reports/tax-year'],
   ['Tenant balances', '/admin/reports/tenant-balances'], ['Utilities', '/admin/reports/utilities'], ['Voids', '/admin/reports/voids'],
