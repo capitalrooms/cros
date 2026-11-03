@@ -14,7 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
 import { importedChargeIds } from '@/lib/finance/importedCharges'
 
-export type LedgerKind = 'rent_in' | 'fee' | 'expenses' | 'payout' | 'opening_balance' | 'correction' | 'rent_other' | 'expense_paid' | 'deposit_in' | 'deposit_out' | 'initial_in'
+export type LedgerKind = 'rent_in' | 'fee' | 'expenses' | 'payout' | 'opening_balance' | 'correction' | 'rent_other' | 'expense_paid' | 'deposit_in' | 'deposit_out' | 'initial_in' | 'refund'
 export interface LedgerEntry {
   date: string
   kind: LedgerKind
@@ -32,7 +32,7 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 export const KIND_LABEL: Record<LedgerKind, string> = {
   rent_in: 'Rent received', fee: 'Management fee', expenses: 'Expenses', payout: 'Paid to landlord',
   opening_balance: 'Opening balance', correction: 'Correction', rent_other: 'Other money in', expense_paid: 'Expense paid',
-  deposit_in: 'Deposit received', deposit_out: 'Deposit paid out', initial_in: 'Initial monies received',
+  deposit_in: 'Deposit received', deposit_out: 'Deposit paid out', initial_in: 'Initial monies received', refund: 'Refunded to tenant',
 }
 
 export async function ledgerStart(s: SupabaseClient): Promise<string> {
@@ -60,7 +60,7 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
   const [demo, props, charges, statements, adjustments, initial] = await Promise.all([
     demoPropertyIds(s),
     s.from('properties').select('id, name, landlord_id'),
-    s.from('rent_charges').select('id, property_id, room_id, charge_month, amount_received, received_date, paid_at, reference, voided, rooms(name)').gt('amount_received', 0),
+    s.from('rent_charges').select('id, property_id, room_id, charge_month, amount_received, received_date, paid_at, reference, voided, rooms(name)').or('amount_received.gt.0,status.eq.pending,status.eq.overdue'),
     s.from('landlord_statements').select('*'),   // '*': letting_fees exists from migration 193
     s.from('client_ledger_adjustments').select('id, landlord_id, property_id, entry_date, kind, description, amount, reference, voided_at'),
     s.from('initial_monies').select('id, txn_no, payout_no, property_id, landlord_id, holding_amount, balance_amount, received_on, fee, amount_paid, paid_on, voided_at'),   // migration 231
@@ -74,13 +74,27 @@ export async function loadLedger(s: SupabaseClient, opts: { asAt?: string; from?
   // rent "received" on a charge from a previous agent's imported statement was never in our account (3 Nov 2026 audit:
   // Redstart's £4,120 of November rent counted as client money held, which a landlord payment is checked against)
   const imported = await importedChargeIds(s, ((charges.data ?? []) as any[]).map(c => c.id))
+  // a refund to the tenant leaves the account on the day it was paid (3 Nov 2026): the rent stays in on the day it came,
+  // gross, and the refund goes out on its own date — so the cash book matches the bank day by day
+  const refunds = new Map<string, { amount: number; on: string; reference: string | null }[]>()
+  const chargeIds = ((charges.data ?? []) as any[]).map(c => c.id)
+  for (let i = 0; i < chargeIds.length; i += 300) {
+    const { data: ra } = await s.from('payment_audit_log').select('rent_charge_id, performed_at, new_value').eq('action', 'refunded').in('rent_charge_id', chargeIds.slice(i, i + 300))
+    for (const a of (ra ?? []) as any[]) {
+      const amt = Number(a.new_value?.refunded || 0)
+      if (amt > 0) refunds.set(a.rent_charge_id, [...(refunds.get(a.rent_charge_id) ?? []), { amount: amt, on: String(a.new_value?.refunded_on || a.performed_at).slice(0, 10), reference: a.new_value?.reference ?? null }])
+    }
+  }
   const entries: LedgerEntry[] = []
   for (const c of (charges.data ?? []) as any[]) {
     if (c.voided || !ok(c.property_id) || imported.has(c.id)) continue
     const date = String(c.received_date || c.paid_at || c.charge_month).slice(0, 10)
-    if (!inRange(date)) continue
+    const refs = refunds.get(c.id) ?? []
+    for (const rf of refs) if (inRange(rf.on)) entries.push({ date: rf.on, kind: 'refund', amount: -r2(rf.amount), description: `Refund to tenant · rent ${String(c.charge_month).slice(0, 7)} · ${c.rooms?.name || 'room'}, ${propName.get(c.property_id) || ''}`, landlordId: propLandlord.get(c.property_id) ?? null, propertyId: c.property_id, reference: rf.reference, source: 'rent_charge', sourceId: c.id })
+    const gross = r2(Number(c.amount_received || 0) + refs.reduce((n, rf) => n + rf.amount, 0))
+    if (!inRange(date) || gross <= 0) continue
     entries.push({
-      date, kind: 'rent_in', amount: r2(Number(c.amount_received)),
+      date, kind: 'rent_in', amount: gross,
       description: `Rent ${String(c.charge_month).slice(0, 7)} · ${c.rooms?.name || 'room'}, ${propName.get(c.property_id) || ''}`,
       landlordId: propLandlord.get(c.property_id) ?? null, propertyId: c.property_id, reference: c.reference ?? null, source: 'rent_charge', sourceId: c.id,
     })

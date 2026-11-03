@@ -50,7 +50,7 @@ export async function clientAccountPosition(s: SupabaseClient, asAt?: string): P
   // cash book, from the ledger entries plus what the ledger treats as already gone (fees/expenses) but is still
   // in the bank until the office transfer
   const sum = (k: string) => r2(ledger.entries.filter(e => e.kind === k).reduce((t, e) => t + e.amount, 0))
-  const rentIn = r2(sum('rent_in') + sum('initial_in'))   // let-only initial monies are rent and deposit in too (migration 231)
+  const rentIn = r2(sum('rent_in') + sum('initial_in') + sum('refund'))   // refunds to tenants go out on the day paid   // let-only initial monies are rent and deposit in too (migration 231)
   const paidToLandlords = -sum('payout')
   const adjustments = r2(ledger.entries.filter(e => e.source === 'adjustment').reduce((t, e) => t + e.amount, 0))
   // a holding deposit is held from the day it arrived until its outcome date (table missing before 198 → none)

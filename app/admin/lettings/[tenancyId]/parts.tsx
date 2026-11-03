@@ -871,6 +871,7 @@ function DepositMoney({ file }: { file: LettingFile }) {
   const [ref, setRef] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [rcpt, setRcpt] = useState<{ to: string | null; subject: string; text: string; sentAt: string | null } | null>(null)
   if (letOnly) return <div className="col-span-2 sm:col-span-3 text-xs text-neutral-500">Let only — the deposit goes to the landlord with the initial monies, who protects it.</div>
   if (!(Number(t.deposit_amount) > 0)) return null
   const go = async (action: 'received' | 'sent') => {
@@ -897,6 +898,27 @@ function DepositMoney({ file }: { file: LettingFile }) {
             <input value={ref} onChange={e => setRef(e.target.value)} placeholder="Payment reference" className={field} />
             <button type="button" disabled={busy || !ref.trim()} onClick={() => go('sent')} className="rounded-lg bg-neutral-900 px-md py-xs text-sm font-semibold text-white disabled:opacity-40">Record sent</button>
             {daysHeld > 0 && <span className={`text-xs font-semibold ${daysHeld > 30 ? 'text-red-700' : daysHeld > 20 ? 'text-amber-700' : 'text-neutral-500'}`}>held {daysHeld} day{daysHeld === 1 ? '' : 's'} — send within 30</span>}</div>)}
+      {t.move_in_monies_received_at && (rcpt
+        ? <div className="rounded-lg border border-neutral-200 p-sm text-xs">
+            <p><b>To:</b> {rcpt.to ?? 'no email on file'} · <b>{rcpt.subject}</b>{rcpt.sentAt ? <span className="text-green-700"> · already sent {String(rcpt.sentAt).slice(0, 10)}</span> : null}</p>
+            <pre className="mt-xs whitespace-pre-wrap font-sans text-neutral-800">{rcpt.text}</pre>
+            <div className="mt-xs flex gap-sm">
+              <button type="button" onClick={() => setRcpt(null)} className="rounded-lg border border-neutral-300 px-md py-xs font-semibold">Close</button>
+              {rcpt.to && <button type="button" disabled={busy} onClick={async () => {
+                if (!window.confirm(`Email this receipt to ${rcpt.to}?`)) return
+                setBusy(true); setErr('')
+                const r = await adminFetch('/api/admin/deposits', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId: t.id }) })
+                const j = await r.json().catch(() => ({})); setBusy(false)
+                if (!r.ok) setErr(j.error ?? 'Could not send'); else { setRcpt(null); window.dispatchEvent(new Event('letting-file-changed')) }
+              }} className="rounded-lg bg-neutral-900 px-md py-xs font-bold text-white disabled:opacity-40">Send to {rcpt.to}</button>}
+            </div>
+          </div>
+        : <button type="button" onClick={async () => {
+            setErr('')
+            const r = await adminFetch('/api/admin/deposits', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tenancyId: t.id, preview: true }) })
+            const j = await r.json().catch(() => ({}))
+            if (!r.ok) setErr(j.error ?? 'Could not make the receipt'); else setRcpt(j)
+          }} className="text-sm font-semibold text-blue-700 hover:underline">Move-in receipt for the tenant</button>)}
       {err && <p className="text-xs text-red-700">{err}</p>}
     </div>
   )

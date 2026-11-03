@@ -195,3 +195,38 @@ Kind regards,
 Capital Rooms`,
   }
 }
+
+/** A managed let's move-in receipt (3 Nov 2026): first rent and deposit received, the deposit held by Capital Rooms
+ *  and protected with the DPS. Sent by the office; a sent receipt is noted on the letting file's activity. */
+export async function managedMoveInReceipt(s: SupabaseClient, tenancyId: string): Promise<{ to: string | null; subject: string; text: string; sentAt: string | null } | { error: string }> {
+  const e = await expectedFor(s, tenancyId)
+  if ('error' in e) return e
+  if (e.letOnly) return { error: 'This is a let-only let — use the receipt in Initial monies.' }
+  const { data: t } = await s.from('tenancies').select('move_in_monies_received_at, deposit_received_on, deposit_received_amount, deposit_no, payment_reference, people!person_id(salutation, first_name, last_name, full_name, email), rooms(name), properties(name)').eq('id', tenancyId).maybeSingle() as { data: any }
+  if (!t?.move_in_monies_received_at) return { error: 'Record the move-in money as received first.' }
+  const { data: ev } = await s.from('tenancy_events').select('created_at').eq('tenancy_id', tenancyId).eq('kind', 'move_in_receipt').order('created_at', { ascending: false }).limit(1)
+  const p = t.people ?? {}
+  const { dearName } = await import('@/lib/people')
+  const day = (d: string) => new Date(`${String(d).slice(0, 10)}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const g = (n: unknown) => `£${Number(n || 0).toFixed(2)}`
+  const place = [t.rooms?.name, String(t.properties?.name ?? '').split('\n')[0]].filter(Boolean).join(', ')
+  const deposit = Number(t.deposit_received_amount ?? e.deposit)
+  return {
+    to: p.email ?? null, sentAt: ((ev ?? []) as any[])[0]?.created_at ?? null,
+    subject: `Receipt — your move-in money for ${place}`,
+    text: `Dear ${dearName(p) || 'tenant'},
+
+Thank you — this is your receipt for the money you paid before moving in to ${place}.
+
+Received ${day(t.move_in_monies_received_at)}:
+First month's rent: ${g(e.firstRent)}
+Tenancy deposit: ${g(deposit)}${t.deposit_no ? ` (${t.deposit_no})` : ''}
+${e.holding > 0 ? `Less your holding deposit already paid: −${g(e.holding)}\n` : ''}
+We hold your deposit for your landlord and protect it with the Deposit Protection Service (DPS) within 30 days; we will send you the prescribed information about it. Please pay your rent each month with the reference ${t.payment_reference ?? 'on your tenancy agreement'}.
+
+Please keep this email for your records.
+
+Kind regards,
+Capital Rooms`,
+  }
+}
