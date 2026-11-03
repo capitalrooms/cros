@@ -10,6 +10,7 @@ import { use, useCallback, useEffect, useRef, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero, { HeroButton } from '@/components/PageHero'
 import SubTabs from '@/app/components/SubTabs'
+import InboxView from '@/app/admin/inbox/InboxView'
 import { documentTabs } from '@/lib/documentTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
@@ -111,6 +112,13 @@ function Capture({ initialTab }: { initialTab: Tab }) {
             </div>
           )
         )}
+        {/* everything coming in, in one list: emailed-in documents and certificates read from here (InboxView) */}
+        {data && tab === 'inbox' && (
+          <section className="space-y-sm">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-neutral-500">Documents to file — emailed in and read from here</h2>
+            <InboxView embedded />
+          </section>
+        )}
         {data && tab === 'inbox' && (data.recent ?? []).length > 0 && (
           <section className={card}>
             <h3 className="border-b border-neutral-100 px-lg py-sm text-xs font-bold uppercase tracking-wider text-neutral-500">Recently filed</h3>
@@ -169,9 +177,11 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
       setTimeout(reload, 1200)
     } catch (e) { setMsg(e instanceof Error ? e.message : 'Could not file it') } finally { setBusy('') }
   }
+  // read and filed here, in the documents list below (no hop to another screen)
   async function toScanner() {
-    await post({ action: 'handed_to_scanner' })
-    window.location.href = `/admin/ai-upload?capture=${it.id}`
+    setBusy('file'); setMsg('Reading it…')
+    try { await post({ action: 'to_documents', kind }); setMsg('Read — file it in “Documents to file” below.'); setTimeout(reload, 800) }
+    catch (e) { setMsg(e instanceof Error ? e.message : 'Couldn’t read it') } finally { setBusy('') }
   }
 
   const needsProperty = ['room_photo', 'property_photo', 'safety_sheet', 'certificate'].includes(kind)
@@ -233,11 +243,11 @@ function Item({ it, data, reload }: { it: any; data: any; reload: () => Promise<
           {(kind === 'bill' || kind === 'receipt') && (it.bill || bill) && (
             <ExpensePanel it={it} data={data} read={it.bill ?? bill} propertyId={propertyId} roomId={roomId} mode={mode} setMode={setMode} reload={reload} />
           )}
-          {kind === 'certificate' && <p className="text-xs text-neutral-600">Certificates are read in the AI Doc Scanner so the property’s expiry dates update.</p>}
+          {kind === 'certificate' && <p className="text-xs text-neutral-600">Certificates are read so the house’s expiry dates update — then filed from “Documents to file” below.</p>}
 
           <div className="flex flex-wrap items-center gap-sm pt-xs">
             {kind === 'certificate'
-              ? <button type="button" className={btnDark} onClick={toScanner}>Read it in the scanner →</button>
+              ? <button type="button" className={btnDark} onClick={toScanner}>Read and file it</button>
               : ((kind === 'bill' || kind === 'receipt') && mode !== 'document') ? null
               : <button type="button" className={btnDark} disabled={!canFile || !!busy} onClick={file}>{busy === 'file' ? 'Filing…' : 'File it'}</button>}
             <button type="button" className={btn} disabled={!!busy} onClick={async () => { if (confirm('Discard this? It won’t be filed anywhere.')) { await post({ action: 'discard' }); reload() } }}>Discard</button>
