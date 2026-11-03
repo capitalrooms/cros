@@ -24,10 +24,11 @@ interface Room {
   property_id: string
 }
 
-type AppointmentType = 'landlord' | 'viewing' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
+type AppointmentType = 'landlord' | 'management_visit' | 'viewing' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 const APPOINTMENT_TYPES: Record<AppointmentType, { label: string; icon: string }> = {
   landlord: { label: 'Landlord Visit', icon: '👤' },
+  management_visit: { label: 'Property Management Visit', icon: '📋' },
   viewing: { label: 'Viewing', icon: '👀' },
   inspection: { label: 'Inspection', icon: '🔍' },
   gas_safety: { label: 'Gas Safety Check', icon: '🔥' },

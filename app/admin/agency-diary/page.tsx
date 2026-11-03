@@ -76,6 +76,7 @@ const APPOINTMENT_TYPE_ICONS: Record<string, string> = {
   electrical: '⚡',
   fire_door: '🚪',
   smoke_alarm: '💨',
+  management_visit: '📋',
   viewing: '👀',
   other: '📍',
 }

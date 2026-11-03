@@ -108,7 +108,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
         trail={[{ label: 'Properties', href: '/admin/active-rooms' }, { label: shortHouse(file.property.name), href: `/admin/properties/${file.property.id}` }, ...(file.room.name && file.room.id ? [{ label: file.room.name, href: `/admin/properties/${file.property.id}/rooms/${file.room.id}` }] : [])]}
         eyebrow={<>Letting{file.room.unitCode ? ` · ${file.room.unitCode}` : ''} · {STAGE_LABEL[file.stage]} · {file.property.lettingType === 'let_only' ? 'Let only' : 'Fully managed'}</>}
         title={[file.tenant.name, file.jointTenant?.name].filter(Boolean).join(' and ') || where}   // both joint tenants
-        subtitle={<>{file.tenant.name ? `${where} · ` : ''}tenancy start date {day(tn.start_date)}{tn.end_date ? ` · tenancy end date ${day(tn.end_date)}` : ''} · {gbp(tn.rent_amount)} per month{agreementLabel ? ` · ${agreementLabel}` : ''}{file.landlord ? ` · landlord ${file.landlord.name}` : ''}</>}
+        subtitle={<>{file.tenant.name ? `${where} · ` : ''}tenancy start date {day(tn.start_date)}{tn.end_date ? ` · tenancy end date ${day(tn.end_date)}` : ''} · {gbp(tn.rent_amount)} per month{agreementLabel ? ` · ${agreementLabel}` : ''}</>}
         stats={[
           ...(file.liveHold ? [{ label: file.liveHold.status === 'applied' ? `Holding deposit · applied ${day(file.liveHold.outcome_on ?? file.liveHold.received_on)}` : `Holding deposit · received ${day(file.liveHold.received_on)}`, value: gbp(file.liveHold.amount) }] : []),
           ...(balanceDue != null && file.stage === 'let_agreed' ? [{ label: `Balance due by ${day(tn.start_date)}`, value: gbp(balanceDue), tone: 'warn' as const }] : []),
@@ -151,12 +151,6 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
                   <span className="min-w-0"><span className="font-semibold text-neutral-900">{file.tenant.name}</span><span className="block text-xs text-neutral-500">{file.stage === 'let_agreed' ? 'Incoming' : file.stage === 'on_notice' ? 'Tenant · notice received' : 'Tenant'}{file.tenant.occupation ? ` · ${file.tenant.occupation}` : ''}</span></span>
                   <button type="button" onClick={() => setTab('person')} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Profile</button>
                 </li>
-                {file.landlord && (
-                  <li className="flex items-baseline justify-between gap-sm">
-                    <span className="min-w-0"><span className="font-semibold text-neutral-900">{file.landlord.name}</span><span className="block text-xs text-neutral-500">Landlord</span></span>
-                    <Link href={`/admin/landlord/${file.landlord.id}`} className="shrink-0 text-xs font-semibold text-blue-700 hover:underline">Profile</Link>
-                  </li>
-                )}
                 {file.outgoing && (
                   <li className="flex items-baseline justify-between gap-sm">
                     <span className="min-w-0"><span className="font-semibold text-neutral-900">{file.outgoing.name}</span><span className="block text-xs text-neutral-500">Outgoing · moves out {day(file.outgoing.endDate)}</span></span>
@@ -214,6 +208,7 @@ function LettingFileScreen({ tenancyId, from, initialTab, done, mark }: { tenanc
               <div className="flex flex-col gap-xs text-sm">
                 <Link href={`/admin/properties/${file.property.id}/rooms/${file.room.id}`} className="font-semibold text-blue-700 hover:underline">Room page</Link>
                 <Link href={`/admin/move-in/${tenancyId}`} className="font-semibold text-blue-700 hover:underline">Move-in pack</Link>
+                {file.landlord && <Link href={`/admin/landlord/${file.landlord.id}`} className="font-semibold text-blue-700 hover:underline">The landlord’s profile</Link>}
                 <button type="button" onClick={() => openPdf(`/api/admin/tenancies/${tenancyId}/statement-of-account`)} className="text-left font-semibold text-blue-700 hover:underline">Statement of account (PDF)</button>
                 {file.stage !== 'let_agreed' && file.stage !== 'fell_through' && <Link href={`/admin/rent-increase/${tenancyId}`} className="font-semibold text-blue-700 hover:underline">Rent review</Link>}
               </div>

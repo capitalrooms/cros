@@ -15,7 +15,7 @@ import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
 import { sortPropertiesNumerically } from '@/lib/sortProperties'
 import { localISO } from '@/lib/dateUtils'
 import LineIcon from '@/components/LineIcon'
-type AppointmentType = 'landlord' | 'lettings' | 'contractor' | 'cleaner' | 'delivery' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
+type AppointmentType = 'landlord' | 'lettings' | 'management_visit' | 'contractor' | 'cleaner' | 'delivery' | 'inspection' | 'gas_safety' | 'electrical' | 'fire_door' | 'smoke_alarm' | 'other'
 
 interface Appointment {
   id: string
@@ -40,16 +40,18 @@ interface Property {
   address: string
 }
 
+// alphabetical, Other last (Harry: lists are always alphabetical). Property management visit added 3 Nov 2026.
 const APPOINTMENT_TYPES: Record<AppointmentType, { label: string; icon: string; bgColor: string; borderColor: string }> = {
-  landlord: { label: 'Landlord visit', icon: '👤', bgColor: 'bg-blue-100', borderColor: 'border-blue-300' },
-  lettings: { label: 'Lettings visit', icon: '🏘️', bgColor: 'bg-purple-100', borderColor: 'border-purple-300' },
-  contractor: { label: 'Contractor / repair', icon: '👷', bgColor: 'bg-orange-100', borderColor: 'border-orange-300' },
   cleaner: { label: 'Cleaner', icon: '🧹', bgColor: 'bg-green-100', borderColor: 'border-green-300' },
+  contractor: { label: 'Contractor / repair', icon: '👷', bgColor: 'bg-orange-100', borderColor: 'border-orange-300' },
   delivery: { label: 'Delivery', icon: '📦', bgColor: 'bg-yellow-100', borderColor: 'border-yellow-300' },
-  inspection: { label: 'Inspection', icon: '🔍', bgColor: 'bg-cyan-100', borderColor: 'border-cyan-300' },
-  gas_safety: { label: 'Gas safety', icon: '🔥', bgColor: 'bg-red-100', borderColor: 'border-red-300' },
   electrical: { label: 'Electrical', icon: '⚡', bgColor: 'bg-amber-100', borderColor: 'border-amber-300' },
   fire_door: { label: 'Fire door', icon: '🚪', bgColor: 'bg-rose-100', borderColor: 'border-rose-300' },
+  gas_safety: { label: 'Gas safety', icon: '🔥', bgColor: 'bg-red-100', borderColor: 'border-red-300' },
+  inspection: { label: 'Inspection', icon: '🔍', bgColor: 'bg-cyan-100', borderColor: 'border-cyan-300' },
+  landlord: { label: 'Landlord visit', icon: '👤', bgColor: 'bg-blue-100', borderColor: 'border-blue-300' },
+  lettings: { label: 'Lettings visit', icon: '🏘️', bgColor: 'bg-purple-100', borderColor: 'border-purple-300' },
+  management_visit: { label: 'Property management visit', icon: '📋', bgColor: 'bg-lime-100', borderColor: 'border-lime-300' },
   smoke_alarm: { label: 'Smoke alarm', icon: '💨', bgColor: 'bg-sky-100', borderColor: 'border-sky-300' },
   other: { label: 'Other', icon: '📍', bgColor: 'bg-gray-100', borderColor: 'border-gray-300' },
 }

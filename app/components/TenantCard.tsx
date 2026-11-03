@@ -113,7 +113,8 @@ export default function TenantCard({
   candidateIdPhotoUrl,
   onAcceptIdPhoto,
   acceptingPhoto,
-}: TenantCardProps) {
+  compact,
+}: TenantCardProps & { compact?: boolean }) {
   const [dismissed, setDismissed] = useState(false)
 
   const name  = tenantDisplayName(tenant)
@@ -158,7 +159,8 @@ export default function TenantCard({
           {/* Name, badges, actions, facts */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-md flex-wrap mb-sm">
-              <h2 className="text-2xl font-bold text-neutral-900 leading-tight">{name}</h2>
+              {/* compact (inside a letting file): the name, room, rent and dates are already on the band above */}
+              {compact ? <p className="text-sm font-semibold text-neutral-700">Checks and app sign-in</p> : <h2 className="text-2xl font-bold text-neutral-900 leading-tight">{name}</h2>}
 
               <div className="flex items-center gap-sm flex-wrap">
                 {decisionBadge(tenant.reference_status)}
@@ -176,7 +178,7 @@ export default function TenantCard({
             </div>
 
             {/* Key facts row */}
-            <div className="flex flex-wrap gap-x-xl gap-y-xs text-sm">
+            <div className={`flex flex-wrap gap-x-xl gap-y-xs text-sm ${compact ? 'hidden' : ''}`}>
               <span>
                 <span className="text-neutral-400 text-xs uppercase tracking-wide mr-xs">Email</span>
                 <span className="break-all text-neutral-700 font-medium">{tenant.email}</span>
