@@ -7,7 +7,7 @@ const TABS: [key: string, label: string, href: (month?: string) => string][] = [
   ['rent-roll', '1 · Rent roll', m => `/admin/rent-roll${m ? `?month=${m}` : ''}`],
   ['statements', '2 · Statements', () => '/admin/statements'],
   ['payment-run', '3 · Payment run', m => `/admin/payment-run${m ? `?month=${m}` : ''}`],
-  ['bank', 'Bank & matching', () => '/admin/reconciliation'],
+  ['bank', 'Bank', () => '/admin/bank-calendar'],
   ['expenses', 'Expenses', () => '/admin/expense-log'],
   // the lines read off statements emailed to statements@ (AutoLedger) — its emails' "Review in CROS" lands here
   ['expense-review', 'Expense review', () => '/admin/expense-review'],
@@ -16,6 +16,16 @@ const TABS: [key: string, label: string, href: (month?: string) => string][] = [
   ['deposits', 'Deposits', () => '/admin/deposits'],
   ['reports', 'Reports', () => '/admin/reports'],
 ]
+
+// Bank is one place with three tabs (3 Nov 2026, Harry: "go ahead with the bank screens tidy up"): the calendar of what's
+// been imported, importing a statement, and matching money in. Each keeps its own address so old links still work.
+const BANK: [key: string, label: string, href: string][] = [
+  ['calendar', 'Calendar', '/admin/bank-calendar'],
+  ['import', 'Import a statement', '/admin/bank-import'],
+  ['match', 'Matching', '/admin/reconciliation'],
+]
+export const bankTabs = (active: 'calendar' | 'import' | 'match'): HeroTab[] =>
+  BANK.map(([key, label, href]) => ({ label, href, active: key === active }))
 
 export const financeTabs = (active: string, month?: string): HeroTab[] =>
   TABS.map(([key, label, href]) => ({ label, href: href(month), active: key === active }))

@@ -8,6 +8,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import AppBar from '@/components/AppBar'
+import PageHero from '@/components/PageHero'
+import { bankTabs } from '@/lib/financeTabs'
 import BackButton from '@/app/components/BackButton'
 import { adminFetch } from '@/lib/adminFetch'
 
@@ -94,13 +96,11 @@ export default function BankCalendarPage() {
 
   return (
     <div className="min-h-screen bg-neutral-100">
-      <AppBar left={<BackButton href="/admin/finance" />} title="Bank calendar" />
+      <AppBar left={<BackButton href="/admin/finance" />} title="Bank" />
+      <PageHero title="Bank" subtitle="Each day: whether the bank is imported, how many lines, and what they matched to" tabs={bankTabs('calendar')} />
       <div className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
         <div className="flex flex-wrap items-end justify-between gap-md">
-          <div>
-            <h1 className="text-2xl font-black text-neutral-900">Bank calendar</h1>
-            <p className="mt-xs text-sm text-neutral-600">Client account · every day the bank imports have covered. <Link href="/admin/bank-import" className="font-semibold text-blue-700 hover:underline">Import a statement</Link></p>
-          </div>
+          <p className="text-sm text-neutral-600">Client account · every day the bank imports have covered.</p>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search a tenant, room, reference or landlord"
             className="w-full max-w-sm rounded-xl border border-neutral-300 bg-white px-md py-sm text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
         </div>
@@ -189,7 +189,7 @@ export default function BankCalendarPage() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-neutral-900">{c.description}</p>
                       {c.matched ? <p className="text-sm text-green-800">Matched to {c.matched}{c.tenancyId && <> · <Link href={`/admin/lettings/${c.tenancyId}?tab=money`} className="underline">letting file</Link></>}</p>
-                        : c.nearDuplicate ? <p className="text-sm text-amber-800">Looks like a line already imported — check it on <Link href="/admin/reconciliation" className="underline">Bank &amp; Matching</Link></p>
+                        : c.nearDuplicate ? <p className="text-sm text-amber-800">Looks like a line already imported — check it on <Link href="/admin/reconciliation" className="underline">the Matching tab</Link></p>
                         : c.status === 'ignored' ? <p className="text-sm text-neutral-500">Set aside (not rent)</p>
                         : <p className="text-sm text-red-700">Not matched yet</p>}
                     </div>
@@ -212,7 +212,7 @@ export default function BankCalendarPage() {
                       ))}
                     </div>
                   )}
-                  {c.status === 'unmatched' && !c.suggestions.length && !done[c.id] && <p className="mt-xs text-xs text-neutral-500">Match it on <Link href="/admin/reconciliation" className="underline">Bank &amp; Matching</Link>.</p>}
+                  {c.status === 'unmatched' && !c.suggestions.length && !done[c.id] && <p className="mt-xs text-xs text-neutral-500">Match it on <Link href="/admin/reconciliation" className="underline">the Matching tab</Link>.</p>}
                 </li>
               ))}
             </ul>
