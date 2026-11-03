@@ -17,6 +17,7 @@
  * Office and lettings staff only. Nothing here sends anything.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { previewEndDate, applyEndDate } from '@/lib/tenancy/endDate'
 import { requireStaff } from '@/lib/portalAuth'
 import { createServiceClient } from '@/lib/supabase'
 import { loadLettingFile, stageOf, STEP_COLUMNS, STEP_NAMES, type StepKey } from '@/lib/lettings/lettingFile'
@@ -122,6 +123,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ te
       if (!b.preview && r.paid.length) await logTenancyEvent(s, tenancyId, 'move_in_rent', `First rent paid from the move-in monies received ${longDate(tm.move_in_monies_received_at)}: ${r.paid.map(p => `£${p.amount.toFixed(2)}`).join(' + ')}`, caller.email)
       return NextResponse.json({ ok: true, ...r })
     } catch (e: any) { return NextResponse.json({ error: e?.message ?? 'Could not mark the rent paid' }, { status: 500 }) }
+  }
+
+  // change the end date (lib/tenancy/endDate): { action: 'end_date', endDate|null, preview?, reason }
+  if (b.action === 'end_date') {
+    const newEnd = b.endDate ? String(b.endDate) : null
+    const r = b.preview ? await previewEndDate(s as any, tenancyId, newEnd) : await applyEndDate(s as any, tenancyId, newEnd, String(b.reason ?? ''), { personId: caller.personId, email: caller.email })
+    return 'error' in r && (r as any).error ? NextResponse.json({ error: (r as any).error }, { status: 409 }) : NextResponse.json(r)
   }
 
   if (b.action === 'terms') {

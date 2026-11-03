@@ -114,3 +114,13 @@ function rentPeriod(chargeMonth: string, dueDay: number) {
 }
 
 export { chargeRow as chargeRowForTest }
+
+/** What a tenancy owes for one month under the part-month rule above, given its dates (e.g. a proposed new end date).
+ *  null = nothing due that month. Used by the end-date preview so it shows exactly what the charges would be. */
+export function rentDueForMonth(t: { id?: string; room_id?: string; property_id?: string; start_date: string; end_date: string | null; rent_amount: number; rent_due_day?: number | null }, chargeMonth: string): { amount: number; note: string | null } | null {
+  const [y, m] = chargeMonth.split('-').map(Number)
+  const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+  if (t.start_date > monthEnd || (t.end_date && t.end_date < chargeMonth)) return null
+  const row = chargeRow(t, chargeMonth, monthEnd, () => '')
+  return row ? { amount: Number(row.amount_due), note: (row as any).amount_due_note ?? null } : null
+}
