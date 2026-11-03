@@ -22,6 +22,7 @@
  */
 
 import { demoPropertyIds } from '@/lib/demoProperties'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
 import { cookies } from 'next/headers'
@@ -90,6 +91,8 @@ export async function POST(req: NextRequest) {
   // practice money only to a demo house's rent, and real money never to one (migrations 209/210)
   if (!!(txn as any).is_practice !== (await demoPropertyIds(service as any)).has((charge as any).property_id ?? ''))
     return NextResponse.json({ error: (txn as any).is_practice ? 'A practice payment can only go to a practice (demo) house' : 'Real money can’t go to a practice (demo) house' }, { status: 409 })
+  // statements-only mode: only practice money can be matched (lib/finance/mode)
+  if (!CROS_COLLECTS_RENT && !(txn as any).is_practice) return NextResponse.json({ error: 'CROS is on statements only — rent is collected in your other system, so payments aren’t recorded here. Nothing was changed.' }, { status: 409 })
 
   // Claim the transaction first so two clicks (or two people) can't spend the same money twice
   const { data: claimed } = await service.from('bank_transactions')

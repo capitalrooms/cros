@@ -358,6 +358,12 @@ export default function BankImportPage() {
               </p>
             )}
 
+            {(preview as any).trial && (
+              <div className="rounded-xl border-2 border-amber-300 bg-amber-50 px-lg py-md text-sm text-amber-950">
+                <p className="font-bold">Trial run with your real data</p>
+                <p className="mt-xs">This is exactly what CROS would do with this file: which tenant each payment belongs to, which month it pays (“to be raised” means that month’s rent would be raised first), what looks like a double import, and what it can’t place. CROS is on statements only, so <b>nothing is saved</b> — try as many files as you like.</p>
+              </div>
+            )}
             {/* Actions */}
             {previewError && (
               <div className="rounded-xl bg-red-50 border border-red-200 px-lg py-md text-sm text-red-700">{previewError}</div>
@@ -370,7 +376,9 @@ export default function BankImportPage() {
               >
                 Cancel
               </button>
-              {preview.summary.matched + preview.summary.unmatched + preview.summary.possible_dupes > 0 ? (
+              {(preview as any).trial ? (
+                <div className="rounded-xl bg-amber-100 px-lg py-sm text-sm font-semibold text-amber-950">Trial run — nothing has been saved, and nothing can be</div>
+              ) : preview.summary.matched + preview.summary.unmatched + preview.summary.possible_dupes > 0 ? (
                 <button
                   onClick={handleConfirm}
                   disabled={confirming}

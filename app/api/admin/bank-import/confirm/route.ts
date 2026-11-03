@@ -22,6 +22,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
+import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { cookies } from 'next/headers'
 import { createServiceClient } from '@/lib/supabase'
 import { getCommsLive } from '@/lib/comms'
@@ -45,6 +46,10 @@ export async function POST(req: NextRequest) {
   const { transactions, filename, bank_name, period_from, period_to, notes } = body
   const practice = body.practice === true   // practice import: every line flagged → XRCPT numbers, kept out of the real lists
 
+  // statements-only mode (lib/finance/mode): a real bank file can be tried — the preview shows everything — but nothing
+  // is saved, so a trial can never change the real records (Harry, 3 Nov 2026). Practice imports still save, flagged.
+  if (!CROS_COLLECTS_RENT && !practice)
+    return NextResponse.json({ error: 'Trial only — CROS is on statements only, so a real bank file isn’t saved. Nothing was changed.' }, { status: 409 })
   if (!transactions?.length)
     return NextResponse.json({ error: 'No transactions to import' }, { status: 400 })
 
