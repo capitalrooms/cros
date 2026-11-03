@@ -6,6 +6,7 @@
 // call finds the same tenancy. Server-only (service client).
 
 import { agreedRent } from '@/lib/lettings/holdingDeposit'
+import { isLetOnly } from '@/lib/tenancy/depositHolder'
 import { recordsStart } from '@/lib/finance/dates'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildPaymentRef } from '@/lib/tenancy/paymentRef'
@@ -98,8 +99,8 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
       .limit(1).maybeSingle()
     if (existingTenancy) tenancyId = existingTenancy.id
     else {
-      const { data: room } = await sb.from('rooms').select('name').eq('id', roomId).maybeSingle()
-      const { data: prop } = await sb.from('properties').select('name').eq('id', propertyId).maybeSingle()
+      const { data: room } = await sb.from('rooms').select('name, is_let_only').eq('id', roomId).maybeSingle()
+      const { data: prop } = await sb.from('properties').select('name, letting_type').eq('id', propertyId).maybeSingle()
       const { data: newTenancy, error: tErr } = await sb.from('tenancies').insert({
         person_id: personId,
         room_id: roomId,
@@ -112,7 +113,8 @@ export async function createIncomingTenancy(sb: SupabaseClient, applicantId: str
         rent_frequency: body.rent_frequency || 'monthly',
         rent_in_advance: 1,   // Renters' Rights Act: never more than one month's rent in advance
         deposit_amount: body.deposit_amount ?? (rentAmount ? fiveWeeksDeposit(Number(rentAmount)) : null),
-        deposit_held_by: body.deposit_held_by || 'agent',
+        // decided here, at setup: let-only → the landlord, always; managed → the agent unless chosen (lib/tenancy/depositHolder)
+        deposit_held_by: isLetOnly((prop as any)?.letting_type, (room as any)?.is_let_only) ? 'landlord' : (body.deposit_held_by || 'agent'),
         deposit_scheme_ref: body.deposit_scheme_ref || null,
         // began before your records (Settings › Your records): deposit taken as protected by the previous agent
         deposit_protection_assumed: (body.start_date || applicant.preferred_start_date || today) < (await recordsStart(sb)) && !body.deposit_scheme_ref,

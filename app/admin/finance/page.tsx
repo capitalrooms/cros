@@ -130,8 +130,8 @@ function FinanceHomeScreen({ initialMonth }: { initialMonth?: string }) {
               actions={[{ label: 'Bank calendar', href: '/admin/bank-calendar' }, { label: 'Import', href: '/admin/bank-import' }]} />
 
             <Tile id="cl" open={open} setOpen={setOpen} tone="paper" warn={(!!d.client && !d.client.agrees) || d.holdingToApply.length > 0}
-              title="Client account & income" big={gbp(d.client?.held)} sub={[d.client ? (d.client.agrees ? 'Ledgers agree' : 'Ledgers don’t agree — check') : '', d.holdingToApply.length ? `${d.holdingToApply.length} holding deposit${d.holdingToApply.length === 1 ? '' : 's'} to put towards move-in money` : '', d.depositHolderMissing ? `${d.depositHolderMissing} deposits with no holder recorded` : ''].filter(Boolean).join(' · ')}
-              actions={[{ label: 'Reconcile', href: '/admin/client-money' }, ...(d.depositHolderMissing ? [{ label: 'Deposits', href: '/admin/deposits' }] : []), { label: 'Income', href: '/admin/income' }]}>
+              title="Client account & income" big={gbp(d.client?.held)} sub={[d.client ? (d.client.agrees ? 'Ledgers agree' : 'Ledgers don’t agree — check') : '', d.holdingToApply.length ? `${d.holdingToApply.length} holding deposit${d.holdingToApply.length === 1 ? '' : 's'} to put towards move-in money` : '', d.depositHolderMissing ? `${d.depositHolderMissing} older tenancies set up without a deposit holder` : ''].filter(Boolean).join(' · ')}
+              actions={[{ label: 'Reconcile', href: '/admin/client-money' }, ...(d.depositHolderMissing ? [{ label: 'Set deposit holders', href: '/admin/finance-check' }] : []), { label: 'Income', href: '/admin/income' }]}>
               {d.holdingToApply.map(h => (
                 <Row key={h.number} href={`/admin/lettings/${h.tenancyId}?tab=money`} left={`${h.tenant} · ${h.house}`} sub={`${h.number} still held · moved in ${short(h.moved)}`} right={gbp(h.amount)} cta="Apply" />
               ))}
