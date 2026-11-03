@@ -15,6 +15,8 @@
  */
 
 import { demoPropertyIds, inScope } from '@/lib/demoProperties'
+import { importedChargeIds } from '@/lib/finance/importedCharges'
+import { createServiceClient } from '@/lib/supabase'
 import { CROS_COLLECTS_RENT } from '@/lib/finance/mode'
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/serverAuth'
@@ -118,7 +120,7 @@ export async function POST(req: NextRequest) {
       payment_reference,
       room_id,
       person_id,
-      start_date, rent_amount, deposit_amount, move_in_monies_received_at,
+      start_date, end_date, rent_amount, deposit_amount, move_in_monies_received_at,
       rooms ( id, name, is_let_only, properties ( id, name, address, letting_type ) ),
       people!person_id ( salutation, first_name, last_name, full_name )
     `)
@@ -137,8 +139,13 @@ export async function POST(req: NextRequest) {
     tenant_name: string | null
     let_only: boolean
     move_in: { due: number; rent: number; start: string } | null
+    start: string | null; end: string | null; names: string[]
   }
-  const tenancyByRef = new Map<string, TenancyInfo>()
+  // a room's reference is shared by its tenants over time (changeovers), so a reference can mean several tenancies —
+  // the payer's name decides, then whoever had the room on the payment date (3 Nov 2026: Demko paid with 075CRR05 and
+  // was put on the outgoing tenant Joseph's account)
+  const byRefAll = new Map<string, TenancyInfo[]>()
+  const tenancyByRef = { set: (k: string, v: TenancyInfo) => byRefAll.set(k, [...(byRefAll.get(k) ?? []), v]), has: (k: string) => byRefAll.has(k), values: () => [...byRefAll.values()].flat() }
   for (const t of (tenancies || []) as any[]) {
     if (!t.payment_reference) continue
     if (!ok(t.rooms?.properties?.id)) continue
@@ -156,6 +163,8 @@ export async function POST(req: NextRequest) {
       tenant_name: t.people
         ? [t.people.salutation, t.people.first_name, t.people.last_name].filter(Boolean).join(' ') || t.people.full_name || null
         : null,
+      start: t.start_date ?? null, end: t.end_date ?? null,
+      names: [t.people?.last_name, t.people?.first_name].map((x: any) => String(x ?? '').toUpperCase().trim()).filter((x: string) => x.length >= 3),
     })
   }
 
@@ -169,7 +178,7 @@ export async function POST(req: NextRequest) {
 
   // Only charges from when CROS took over rent, and never cleared ones — otherwise a payment could be put
   // against a month the previous agent collected
-  const start = await ledgerStart(supabase as any)
+  const start = await ledgerStart(createServiceClient() as any)   // the office setting, read whatever the signed-in role can see
   if (roomIds.length > 0) {
     const { data: charges } = await supabase
       .from('rent_charges')
@@ -183,25 +192,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // the payer's own charges: those raised for their tenancy (an older charge with no tenancy is the room's)
+  // never a charge made from a previous agent's imported statement (lib/finance/importedCharges)
+  const importedIds = await importedChargeIds(createServiceClient() as any, [...rentChargesByRoom.values()].flat().map(c => c.id))
+
+  // The month a payment is for (3 Nov 2026, Harry's first import: 2 November rent went onto October, which his other
+  // system had collected): the month it was paid in; if that month is already paid, the next (paid in advance).
+  // Older unpaid months are never filled automatically — arrears are sorted out on the tenant's Money tab.
   function findBestCharge(tenancy: { room_id: string; tenancy_id?: string | null }, txnDate: string): any | null {
-    const charges = (rentChargesByRoom.get(tenancy.room_id) || []).filter(c => !c.tenancy_id || c.tenancy_id === tenancy.tenancy_id)
-    if (!charges.length) return null
-
-    // Industry standard: always allocate to the OLDEST unpaid charge first.
-    // This is legally correct — clears historic arrears before current month.
-    // Only fall through to paid charges if there are no unpaid ones at all.
-    const unpaid = charges
-      .filter(c => ['pending', 'partial', 'overdue'].includes(c.status))
-      .sort((a, b) => a.charge_month < b.charge_month ? -1 : 1) // oldest first
-
-    if (unpaid.length > 0) return unpaid[0]
-
-    // All charges paid — look for the one matching the transaction month to flag as possible_dupe
-    const txnMonth = txnDate.slice(0, 7)
-    return charges.find(c => (c.charge_month as string).slice(0, 7) === txnMonth)
-      || charges[0]
-      || null
+    const charges = (rentChargesByRoom.get(tenancy.room_id) || []).filter(c => c.tenancy_id === tenancy.tenancy_id && !importedIds.has(c.id))
+    const month = txnDate.slice(0, 7)
+    const next = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 1)).toISOString().slice(0, 7)
+    const thisMonth = charges.find(c => String(c.charge_month).slice(0, 7) === month)
+    if (thisMonth && thisMonth.status !== 'paid') return thisMonth
+    const nextMonth = charges.find(c => String(c.charge_month).slice(0, 7) === next)
+    if (thisMonth && nextMonth && nextMonth.status !== 'paid') return nextMonth
+    return thisMonth ?? null   // paid already → flagged as a possible second payment; none yet → raised for this month
   }
 
   // ── Step 4: Categorise each transaction ──────────────────────────────────────
@@ -224,7 +229,19 @@ export async function POST(req: NextRequest) {
     // use whichever reference-like code in the line belongs to a real tenancy
     const ref = [txn.extracted_ref?.toUpperCase(), ...refCandidates(txn.description)].find(r => r && tenancyByRef.has(r)) ?? txn.extracted_ref?.toUpperCase() ?? null
     if (ref && ref !== txn.extracted_ref) txn.extracted_ref = ref
-    const tenancy = ref ? tenancyByRef.get(ref) : null
+    const words = new Set(txn.description.toUpperCase().split(/[^A-Z]+/).filter(Boolean))
+    const nameHit = (t: TenancyInfo) => t.names.some(n => words.has(n))
+    const activeOn = (t: TenancyInfo, d: string) => (!t.start || t.start <= d) && (!t.end || t.end >= d)
+    const pick = (list: TenancyInfo[]) => list.find(nameHit) ?? list.filter(t => activeOn(t, txn.transaction_date)).sort((a, b) => String(b.start).localeCompare(String(a.start)))[0] ?? list[0]
+    let tenancy = ref && byRefAll.has(ref) ? pick(byRefAll.get(ref)!) : null
+    // no known reference: the payer's surname against whoever lives there now — only when exactly one tenant fits,
+    // and checked against the house number in any reference they used (St George's Mews pays as 001SGM0x, set up as 001STG0x)
+    if (!tenancy) {
+      const houseNos = refCandidates(txn.description).map(r => r.slice(0, 3))
+      const fits = tenancyByRef.values().filter(t => activeOn(t, txn.transaction_date) && nameHit(t) && (!houseNos.length || houseNos.includes(t.payment_reference.toUpperCase().slice(0, 3))))
+      const unique = [...new Map(fits.map(t => [t.tenancy_id, t])).values()]
+      if (unique.length === 1) { tenancy = unique[0]; (txn as any).matched_by_name = true }
+    }
 
     if (!tenancy) {
       preview.push({ ...txn, ...NULL_EXTRA, category: 'unmatched', rent_charge_id: null, charge_month: null, charge_status: null, charge_amount_due: null, tenancy_id: null, tenant_name: null, room_name: null, property_name: null })
