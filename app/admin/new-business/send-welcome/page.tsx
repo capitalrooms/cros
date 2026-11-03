@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { DEFAULT_SERVICE_TYPE, SERVICE_TYPES, serviceTypeLabel, type ServiceType } from '@/lib/newBusiness/serviceTypes'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { newBusinessTabs } from '@/lib/newBusinessTabs'
 import BackButton from '@/app/components/BackButton'
 import PostcodeAddressLookup, { type ParsedAddress } from '@/app/components/PostcodeAddressLookup'
 import NameInput, { type NameValue, emptyName, toFullName } from '@/app/components/NameInput'
@@ -274,7 +275,7 @@ export default function SendWelcomePage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/new-business" />} />
-        <PageHero eyebrow="New business" title="New Instruction" subtitle={`Send a landlord their welcome and onboarding link · ${serviceTypeLabel(serviceType)}`} />
+        <PageHero title="New Business" tabs={newBusinessTabs('instruction')} subtitle={`New instruction: send a landlord their welcome and onboarding link · ${serviceTypeLabel(serviceType)}`} />
         <main className="mx-auto max-w-6xl px-lg py-xl">
           <StepBar step={1} />
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-md">New instruction · {serviceTypeLabel(serviceType)}</p>
@@ -344,7 +345,7 @@ export default function SendWelcomePage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/new-business" />} />
-        <PageHero eyebrow="New business" title="New Instruction" subtitle={`Send a landlord their welcome and onboarding link · ${serviceTypeLabel(serviceType)}`} />
+        <PageHero title="New Business" tabs={newBusinessTabs('instruction')} subtitle={`New instruction: send a landlord their welcome and onboarding link · ${serviceTypeLabel(serviceType)}`} />
         <main className="mx-auto max-w-6xl px-lg py-xl">
           <StepBar step={2} />
 
@@ -450,7 +451,7 @@ export default function SendWelcomePage() {
     return (
       <div className="min-h-screen bg-neutral-100">
         <AppBar left={<BackButton href="/admin/new-business" />} />
-        <PageHero eyebrow="New business" title="New Instruction" subtitle={`Send a landlord their welcome and onboarding link · ${serviceTypeLabel(serviceType)}`} />
+        <PageHero title="New Business" tabs={newBusinessTabs('instruction')} subtitle={`New instruction: send a landlord their welcome and onboarding link · ${serviceTypeLabel(serviceType)}`} />
         <main className="mx-auto max-w-6xl px-lg py-xl">
           <StepBar step={3} />
 

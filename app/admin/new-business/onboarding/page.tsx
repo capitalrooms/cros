@@ -4,6 +4,7 @@ import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/compone
 import { useEffect, useState } from 'react'
 import AppBar from '@/components/AppBar'
 import PageHero from '@/components/PageHero'
+import { newBusinessTabs } from '@/lib/newBusinessTabs'
 import BackButton from '@/app/components/BackButton'
 import LandlordCard, { fromOnboarding } from '@/app/components/LandlordCard'
 import { adminFetch } from '@/lib/adminFetch'
@@ -278,7 +279,7 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-neutral-100">
       <AppBar left={<BackButton href="/admin/new-business" />} />
-      <PageHero title="Onboarding & AML" subtitle={<>Every landlord from first enquiry to signed agreement. Open a record to review their AML checks.</>} />
+      <PageHero title="New Business" tabs={newBusinessTabs('onboarding')} subtitle={<>Onboarding & AML: every landlord from first enquiry to signed agreement. Open a record to review their AML checks.</>} />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {/* Title row */}

@@ -12,7 +12,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { isOfficeRole } from '@/lib/access/areas'
 import { useRouter } from 'next/navigation'
 import AppBar from '@/components/AppBar'
-import PageHero from '@/components/PageHero'
+import PageHero, { HeroButton } from '@/components/PageHero'
 import BackButton from '@/app/components/BackButton'
 import Link from 'next/link'
 import { GenericPageSkeleton } from '@/app/components/SkeletonLoading'
@@ -210,6 +210,7 @@ export default function AllUnitsPage() {
           { label: 'On notice', value: counts.leaving, tone: 'warn', href: '#notice' },
           { label: 'Let agreed', value: counts.agreed, tone: 'info', href: '#agreed' },
         ]}
+        actions={<HeroButton href="/admin/properties/new" primary>+ Add property</HeroButton>}
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl space-y-lg">
