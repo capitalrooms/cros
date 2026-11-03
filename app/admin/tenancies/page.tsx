@@ -270,9 +270,24 @@ export default function TenanciesManagementPage() {
   const active = view === 'notice' ? onNoticeList : view === 'let_agreed' ? letAgreed : view === 'live' ? liveList : view === 'ended' ? past : current;
   const stageOf = (t: Tenancy) =>
     t.end_date && t.end_date < today ? ((t as any).let_cancelled_at ? { key: 'ended', label: 'Fell through', cls: 'bg-red-50 text-red-700' } : { key: 'ended', label: 'Ended', cls: 'bg-neutral-100 text-neutral-500' })
-    : t.start_date > today ? { key: 'let_agreed', label: 'Let agreed', cls: 'bg-blue-50 text-blue-800' }
+    : t.start_date > today ? { key: 'let_agreed', label: 'Moving in', cls: 'bg-blue-50 text-blue-800' }
     : isOnNotice(t) ? { key: 'notice', label: 'On notice', cls: 'bg-amber-50 text-amber-800' }
     : { key: 'live', label: 'Live', cls: 'bg-green-50 text-green-800' };
+  // a changeover pairs the leaver and the arriver in the same room, so moving in and on notice read as one story
+  // (no separate move-ins screen: each side names the other)
+  const givenName = (t: Tenancy) => t.people?.first_name || displayName(t)
+  const pairOf = (t: Tenancy): string | null => {
+    if (!t.room_id) return null
+    if (t.start_date > today) {
+      const out = current.find(o => o.id !== t.id && o.room_id === t.room_id && o.start_date <= today && o.end_date && o.end_date < t.start_date)
+      return out ? `Replaces ${givenName(out)}, out ${shortDay(out.end_date)}` : null
+    }
+    if (t.end_date) {
+      const nxt = current.find(o => o.id !== t.id && o.room_id === t.room_id && o.start_date > t.end_date!)
+      return nxt ? `Next: ${givenName(nxt)} from ${shortDay(nxt.start_date)}` : 'No one lined up yet'
+    }
+    return null
+  }
   const needle = q.trim().toLowerCase();
   // ascending by house number, then room — the same order as All Units; ended ones newest first
   const byAddress = (a: Tenancy, b: Tenancy) => {
@@ -302,8 +317,8 @@ export default function TenanciesManagementPage() {
         subtitle="Every tenancy, from let agreed to moved out. Each row opens its letting file."
         stats={[
           { label: 'Live', value: liveList.length },
-          { label: 'Let agreed', value: letAgreed.length, tone: 'info' },
           { label: 'On notice', value: onNoticeList.length, tone: 'warn' },
+          { label: 'Moving in', value: letAgreed.length, tone: 'info' },
           { label: 'Ended', value: past.length },
         ]}
         actions={<HeroButton primary onClick={() => setShowAdd(true)}>+ New tenancy</HeroButton>}
@@ -311,7 +326,7 @@ export default function TenanciesManagementPage() {
       />
 
       <main className="mx-auto max-w-6xl px-lg py-xl">
-        <div className="mb-md"><SubTabs<'all' | 'let_agreed' | 'live' | 'notice' | 'ended'> tabs={[['all', `All current · ${current.length}`], ['let_agreed', `Let agreed · ${letAgreed.length}`], ['live', `Live · ${liveList.length}`], ['notice', `On notice · ${onNoticeList.length}`], ['ended', `Ended · ${past.length}`]]} active={view} onChange={k => { setView(k); setMenu(null) }} /></div>
+        <div className="mb-md"><SubTabs<'all' | 'let_agreed' | 'live' | 'notice' | 'ended'> tabs={[['all', `All current · ${current.length}`], ['live', `Live · ${liveList.length}`], ['notice', `On notice · ${onNoticeList.length}`], ['let_agreed', `Moving in · ${letAgreed.length}`], ['ended', `Ended · ${past.length}`]]} active={view} onChange={k => { setView(k); setMenu(null) }} /></div>
         <div className="mb-md">
           <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search by tenant, email, room or property…"
             className="w-full rounded-xl border border-neutral-200 bg-white px-md py-sm text-sm" />
@@ -319,7 +334,7 @@ export default function TenanciesManagementPage() {
 
         {shown.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-xl text-center">
-            <p className="text-sm text-neutral-500">{q ? 'Nothing matches that search.' : view === 'let_agreed' ? 'No lets agreed right now. Recording a holding deposit in Applicants creates one.' : 'No tenancies here.'}</p>
+            <p className="text-sm text-neutral-500">{q ? 'Nothing matches that search.' : view === 'let_agreed' ? 'No one moving in right now. Recording a holding deposit in Applicants creates one.' : 'No tenancies here.'}</p>
           </div>
         ) : (
           <div className="rounded-2xl border border-neutral-200 bg-white">
@@ -343,6 +358,7 @@ export default function TenanciesManagementPage() {
                     <span className="hidden md:block text-xs text-neutral-600 tabular-nums">
                       {st.key === 'let_agreed' ? `From ${shortDay(t.start_date)}` : `Since ${shortDay(t.start_date)}`}
                       {t.end_date && <span className="block">{st.key === 'ended' ? 'Ended' : 'Out'} {shortDay(t.end_date)}</span>}
+                      {st.key !== 'ended' && pairOf(t) && <span className="block font-semibold text-neutral-800">{pairOf(t)}</span>}
                     </span>
                     <span className="hidden md:block text-right text-sm tabular-nums text-neutral-800">£{Number(t.rent_amount || 0).toLocaleString('en-GB')}</span>
                     <span className="hidden md:block"><span className={`inline-block rounded-full px-sm py-0.5 text-xs font-semibold ${st.cls}`}>{st.label}</span></span>

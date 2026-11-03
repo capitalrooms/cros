@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 // Contractor & cleaner invoices made in CROS, waiting for approval. Approving a contractor's invoice adds it to that
 // property's expenses (with the invoice attached); for a cleaner's, tick the cleans the landlord pays for — the rest
@@ -123,7 +124,7 @@ function Invoice({ i, act }: { i: any; act: (b: Record<string, unknown>) => Prom
           : <button type="button" className={btnDark} disabled={busy} onClick={async () => { setBusy(true); await act({ action: 'approve', id: i.id, chargeLines: [...charge] }); setBusy(false) }}>{charge.size ? `Approve — ${gbp(charged)} to the landlords, the rest ours` : 'Approve — all ours (no landlord charge)'}</button>)}
         {i.status === 'approved' && <button type="button" className={btn} onClick={() => act({ action: 'paid', id: i.id })}>Mark paid</button>}
         {(i.status === 'sent') && <button type="button" className="rounded-lg border border-red-200 px-md py-xs text-sm font-semibold text-red-700 hover:bg-red-50" onClick={() => { const r = prompt('Void this invoice? Its jobs/cleans can then be invoiced again. Why?'); if (r !== null) act({ action: 'void', id: i.id, reason: r }) }}>Void</button>}
-        {i.expenseIds?.length > 0 && <a href="/admin/expense-log" className="text-sm font-semibold text-blue-700 hover:underline">{i.expenseIds.length} expense{i.expenseIds.length === 1 ? '' : 's'} added →</a>}
+        {i.expenseIds?.length > 0 && <Link href="/admin/expense-log" className="text-sm font-semibold text-blue-700 hover:underline">{i.expenseIds.length} expense{i.expenseIds.length === 1 ? '' : 's'} added →</Link>}
       </div>
     </section>
   )

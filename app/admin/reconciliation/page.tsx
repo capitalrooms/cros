@@ -580,7 +580,7 @@ export default function ReconciliationPage() {
                       <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-md">
                         <p className="text-sm font-semibold text-emerald-900">Looks like initial monies for {initialHints[txn.id].name} — {initialHints[txn.id].house}</p>
                         <p className="mt-xs text-xs text-emerald-800">Balance due £{initialHints[txn.id].balance_due.toLocaleString('en-GB', { minimumFractionDigits: 2 })} · {initialHints[txn.id].why}. A let-only balance isn&apos;t rent — record it on their letting file, where this bank line is offered to match.</p>
-                        <a href={`/admin/lettings/${initialHints[txn.id].tenancy_id}`} className="mt-sm inline-block rounded-lg bg-emerald-700 px-md py-xs text-xs font-bold text-white hover:bg-emerald-800">Record initial monies →</a>
+                        <Link href={`/admin/lettings/${initialHints[txn.id].tenancy_id}`} className="mt-sm inline-block rounded-lg bg-emerald-700 px-md py-xs text-xs font-bold text-white hover:bg-emerald-800">Record initial monies →</Link>
                       </div>
                     )}
                     {/* AI suggestion */}

@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AppBar from '@/components/AppBar'
@@ -439,9 +440,9 @@ export default function BankImportPage() {
             )}
             <div className="flex flex-wrap gap-sm">
               {confirmed.results?.unmatched > 0 && (
-                <a href={`/admin/reconciliation?tab=unmatched${practice ? '&practice=1' : ''}`} className="px-lg py-sm rounded-xl bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700">
+                <Link href={`/admin/reconciliation?tab=unmatched${practice ? '&practice=1' : ''}`} className="px-lg py-sm rounded-xl bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-700">
                   Match the {confirmed.results.unmatched} unmatched payment{confirmed.results.unmatched !== 1 ? 's' : ''} →
-                </a>
+                </Link>
               )}
               <button
                 onClick={() => { setConfirmed(null); setPreviewError(null) }}

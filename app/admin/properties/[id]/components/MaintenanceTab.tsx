@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -202,7 +203,7 @@ export default function MaintenanceTab({ propertyId, tickets: initialTickets }: 
               )}
 
               {/* these two buttons did nothing — jobs are managed on Maintenance (24 Oct 2026) */}
-              <a href="/admin/maintenance" className="text-xs font-semibold text-neutral-900 underline">Open in Maintenance</a>
+              <Link href="/admin/maintenance" className="text-xs font-semibold text-neutral-900 underline">Open in Maintenance</Link>
             </div>
           ))}
         </div>

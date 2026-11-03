@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import DuplicateApplicants from './DuplicateApplicants'
@@ -589,10 +590,10 @@ export default function ApplicantsPage() {
                       {/* Next step first (Harry, 12 Oct: "still cannot open tenancy file … no way to progress it") — the letting file if
                           there is one, else what has to happen before it can start. Was at the bottom of a long card. */}
                       {lettingFiles[applicant.id] && (
-                        <a href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`}
+                        <Link href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`}
                           className="flex items-center justify-between rounded-lg bg-blue-700 px-md py-sm text-sm font-semibold text-white hover:bg-blue-600">
                           <span>Let agreed — the letting file tracks it from here</span><span>Open letting file →</span>
-                        </a>
+                        </Link>
                       )}
                       {/* The way to the letting file (Harry, 12 Oct 2026: "it should say you cannot start the letting file until
                           x is done"): recording the holding deposit creates the tenancy and opens its letting file; a let with no
@@ -611,9 +612,9 @@ export default function ApplicantsPage() {
                               Holding deposit received
                             </button>
                             <span className="text-neutral-500">creates the tenancy and opens its letting file ·</span>
-                            <a href={`/admin/applicants/${applicant.id}/create-tenancy`}
+                            <Link href={`/admin/applicants/${applicant.id}/create-tenancy`}
                               onClick={e => { if (!confirm(`Set up ${applicant.full_name}’s tenancy without a holding deposit? Only do this if no holding deposit was taken for this let.`)) e.preventDefault() }}
-                              className="font-semibold text-neutral-700 underline hover:text-neutral-900">No holding deposit on this let? Set up the tenancy</a>
+                              className="font-semibold text-neutral-700 underline hover:text-neutral-900">No holding deposit on this let? Set up the tenancy</Link>
                           </div>
                         </div>
                       )}
@@ -823,13 +824,13 @@ export default function ApplicantsPage() {
                           </>
                         )}
                         {lettingFiles[applicant.id] ? (
-                          <a href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`} className="text-xs font-semibold border border-blue-700 bg-blue-700 text-white rounded-lg px-md py-sm hover:bg-blue-600">
+                          <Link href={`/admin/lettings/${lettingFiles[applicant.id]}?from=/admin/applicants`} className="text-xs font-semibold border border-blue-700 bg-blue-700 text-white rounded-lg px-md py-sm hover:bg-blue-600">
                             Open letting file →
-                          </a>
+                          </Link>
                         ) : applicant.converted_person_id && (
-                          <a href={`/admin/tenant/${applicant.converted_person_id}`} className="text-xs font-semibold border border-blue-200 text-blue-700 rounded-lg px-md py-sm hover:bg-blue-50">
+                          <Link href={`/admin/tenant/${applicant.converted_person_id}`} className="text-xs font-semibold border border-blue-200 text-blue-700 rounded-lg px-md py-sm hover:bg-blue-50">
                             View tenant profile →
-                          </a>
+                          </Link>
                         )}
 
 

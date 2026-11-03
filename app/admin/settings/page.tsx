@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
@@ -217,10 +218,10 @@ export default function AdminSettingsPage() {
               <p className="text-sm font-semibold text-neutral-900">Gmail signatures in the house style</p>
               <p className="text-xs text-neutral-500 mt-xs">Make a signature for anyone on the team — name, job title, mobile and email filled in — ready to paste into Gmail.</p>
             </div>
-            <a href="/admin/settings/signatures"
+            <Link href="/admin/settings/signatures"
               className="shrink-0 rounded-xl bg-neutral-900 px-lg py-sm text-sm font-semibold text-white hover:bg-neutral-700 transition-colors">
               Make a signature →
-            </a>
+            </Link>
           </div>
         </div>
 

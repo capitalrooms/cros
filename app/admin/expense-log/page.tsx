@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 /**
  * /admin/expense-log — Landlord expenses.
@@ -210,10 +211,10 @@ export default function ExpensesPage() {
       <div className="mx-auto max-w-6xl px-lg py-xl">
 
         {toFile && toFile.bills > 0 && (
-          <a href="/admin/capture" className="mb-md flex items-center justify-between gap-sm rounded-xl border border-amber-300 bg-amber-50 px-lg py-sm text-sm text-amber-900 hover:bg-amber-100">
+          <Link href="/admin/capture" className="mb-md flex items-center justify-between gap-sm rounded-xl border border-amber-300 bg-amber-50 px-lg py-sm text-sm text-amber-900 hover:bg-amber-100">
             <span><b>{toFile.bills} bill{toFile.bills === 1 ? '' : 's'} or invoice{toFile.bills === 1 ? '' : 's'} waiting to be filed</b>{toFile.emailed ? ` (${toFile.emailed} emailed in)` : ''} — say which property and statement, or that it’s a company cost.</span>
             <span className="font-semibold">Open Capture →</span>
-          </a>
+          </Link>
         )}
         {notice && <p className="mb-md rounded-xl border border-green-200 bg-green-50 px-lg py-md text-sm font-semibold text-green-800">{notice}</p>}
         {error && <p className="mb-md rounded-xl border border-red-200 bg-red-50 px-lg py-md text-sm text-red-700">{error}</p>}

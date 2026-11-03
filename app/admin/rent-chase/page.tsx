@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 // Rent chase (1 Nov 2026, Harry: "import rents on 2nd Nov … 10 received and 40 missing … go through list just to
 // confirm the rent amount owed and then click to send at the end"). Every current tenant whose rent account shows
@@ -89,7 +90,7 @@ export default function RentChasePage() {
                 {rows.map(r => (
                   <tr key={r.tenancyId} className={tick[r.tenancyId] ? '' : 'opacity-50'}>
                     <td className="px-md py-sm"><input type="checkbox" checked={!!tick[r.tenancyId]} onChange={e => setTick(t => ({ ...t, [r.tenancyId]: e.target.checked }))} /></td>
-                    <td className="px-md py-sm font-semibold"><a href={`/admin/lettings/${r.tenancyId}?tab=money`} className="hover:underline">{r.tenants}</a></td>
+                    <td className="px-md py-sm font-semibold"><Link href={`/admin/lettings/${r.tenancyId}?tab=money`} className="hover:underline">{r.tenants}</Link></td>
                     <td className="px-md py-sm text-neutral-600">{r.room}, {r.house}</td>
                     <td className="px-md py-sm text-neutral-600">{r.owedMonths.join(', ')}</td>
                     <td className="px-md py-sm text-right tabular-nums">{r.rent != null ? gbp(r.rent) : '—'}</td>

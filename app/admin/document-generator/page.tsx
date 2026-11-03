@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 // Letters & Invoices: write what you want in your own words and the assistant turns it into a formal letter
 // on the Capital Rooms letterhead signed by you, or an invoice in the standard layout; check, download or email it.
@@ -626,7 +627,7 @@ export default function DocumentGenerator() {
         {tenancyId && (
           <p className="mb-lg rounded-xl border border-blue-200 bg-blue-50 px-lg py-sm text-sm text-blue-900">
             For the letting file{forTenancy ? ` — ${forTenancy}` : ''}. What you make here is filed there too.{' '}
-            <a href={`/admin/lettings/${tenancyId}?tab=letters`} className="font-semibold underline">Back to the letting file</a>
+            <Link href={`/admin/lettings/${tenancyId}?tab=letters`} className="font-semibold underline">Back to the letting file</Link>
           </p>
         )}
 
@@ -909,7 +910,7 @@ export default function DocumentGenerator() {
                         Include my signature
                       </label>
                     ) : (
-                      <p className="text-[11px] text-neutral-400 mt-xs">Add your signature in <a href="/admin/profile" className="underline">your profile</a> to have it on your letters.</p>
+                      <p className="text-[11px] text-neutral-400 mt-xs">Add your signature in <Link href="/admin/profile" className="underline">your profile</Link> to have it on your letters.</p>
                     )}
                   </div>
                 </div>
