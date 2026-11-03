@@ -901,9 +901,9 @@ export default function MaintenanceDashboard() {
         {showDetails && selectedTicket && (
           // phones: a sheet from the bottom that stops below the notch and scrolls inside — 90vh centred ran off the
           // top of an iPhone screen, out of reach (25 Oct 2026); the title and close stay pinned while you scroll
-          <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 sm:items-center sm:p-lg">
-            <div className="w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-lg pb-[max(env(safe-area-inset-bottom),20px)] sm:max-h-[90dvh] sm:rounded-2xl sm:px-xl sm:pb-xl"
-              style={{ maxHeight: 'calc(100dvh - max(env(safe-area-inset-top), 12px) - 8px)' }}>
+          // desktop (rebuild, 3 Nov 2026): the job opens beside the board, which stays in view — no shade, no centred box
+          <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 md:left-auto md:w-[560px] md:items-stretch md:bg-transparent">
+            <div className="w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-lg pb-[max(env(safe-area-inset-bottom),20px)] md:h-full md:rounded-none md:rounded-l-3xl md:px-xl md:pb-xl md:shadow-[-12px_0_40px_rgba(35,38,26,0.18)] max-h-[calc(100dvh_-_max(env(safe-area-inset-top),12px)_-_8px)] md:max-h-none">
               <div className="sticky top-0 z-10 -mx-lg mb-md flex items-start justify-between gap-md border-b border-neutral-100 bg-white px-lg pb-sm pt-lg sm:-mx-xl sm:px-xl sm:pt-xl">
                 <div>
                   <h2 className="text-xl font-semibold text-neutral-900">{selectedTicket.title}</h2>

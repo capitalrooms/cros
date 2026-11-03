@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ReactNode, useState, useRef, useEffect } from 'react'
 import { AdminContext, AdminAccessContext } from '@/lib/admin-context'
 import { createClient } from '@/lib/supabase'
+import { adminFetch } from '@/lib/adminFetch'
 
 import { ZONES, type Zone } from '@/lib/adminNav'
 import { areasFor, canOpenPage, homeFor, isAdministrator, type AreaKey } from '@/lib/access/areas'
@@ -71,6 +72,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     })
     return () => { window.fetch = original; sub.subscription.unsubscribe() }
   }, [])
+  // how many things need you in each area — the phone Today list (/api/admin/today), counted against the menu
+  // (rebuild A+B, 3 Nov 2026). Refreshed when you move between areas, at most once a minute.
+  const [needs, setNeeds] = useState<Record<string, number>>({})
+  const needsAt = useRef(0)
+  useEffect(() => {
+    if (!access || !isAdministrator(access.role) || Date.now() - needsAt.current < 60_000) return
+    needsAt.current = Date.now()
+    adminFetch('/api/admin/today').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d?.items) return
+      const counts: Record<string, number> = {}
+      for (const it of d.items as { group: string; href: string }[]) {
+        if (it.group !== 'needs_you') continue
+        const z = getActiveZone(String(it.href).split('?')[0])
+        if (z && z.id !== 'dash') counts[z.id] = (counts[z.id] ?? 0) + 1
+        counts.dash = (counts.dash ?? 0) + 1
+      }
+      setNeeds(counts)
+    }).catch(() => {})
+  }, [access, pathname])
   const allowed = (href: string) => !access || canOpenPage(href.split('?')[0], access.areas, access.role)
   const blocked = !!access && !isAdministrator(access.role) && !canOpenPage(pathname, access.areas, access.role)
   // no Dashboard in their access: the office home takes them to their first area instead
@@ -129,7 +149,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <div key={zone.id}>
                 <Link href={(zone.home && allowed(zone.home) ? zone.home : undefined) ?? zone.subnav[0]?.href ?? (zone.id === 'dash' ? '/admin' : '#')} prefetch={false}
                   className={`flex items-center rounded-[10px] px-3 py-2 text-[13.5px] font-semibold transition-colors ${open ? 'bg-[#4A5320] text-[#F3F0E6]' : 'text-[#F6F3EC]/60 hover:bg-[#F6F3EC]/5 hover:text-[#F6F3EC]'}`}>
-                  {zone.label}
+                  <span className="flex-1">{zone.label}</span>
+                  {needs[zone.id] > 0 && <span title={`${needs[zone.id]} need${needs[zone.id] === 1 ? 's' : ''} you`} className="ml-2 min-w-[20px] rounded-full bg-[#E8B931] px-1.5 text-center text-[11px] font-bold leading-5 text-[#23261A]">{needs[zone.id]}</span>}
                 </Link>
                 {open && zone.subnav.length > 0 && (
                   <div className="mb-1 mt-0.5 flex flex-col">
