@@ -18,7 +18,7 @@ export async function generateMonthCharges(s: SupabaseClient, chargeMonth: strin
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
 
   const { data: tenancies, error } = await s.from('tenancies')
-    .select('id, room_id, property_id, rent_amount, rent_due_day, start_date, end_date, rooms(name), properties(property_code, letting_type)')
+    .select('id, room_id, property_id, rent_amount, rent_due_day, start_date, end_date, rooms(name, is_let_only), properties(property_code, letting_type)')
     .lte('start_date', monthEnd)
     .or(`end_date.is.null,end_date.gte.${chargeMonth}`)
     .is('let_cancelled_at', null)                         // a let that fell through owes nothing
@@ -28,8 +28,8 @@ export async function generateMonthCharges(s: SupabaseClient, chargeMonth: strin
   const demo = await demoPropertyIds(s)
   if (opts.practice && !(await practiceReady(s))) throw new Error(PRACTICE_NOT_READY)
   const ok = inScope(demo, !!opts.practice)
-  // let-only houses: we find the tenant, the landlord collects the rent — never raise monthly charges (as the rent roll)
-  const live = (tenancies ?? []).filter((t: any) => ok(t.property_id) && t.room_id && Number(t.rent_amount) > 0 && t.properties?.letting_type !== 'let_only')
+  // let-only houses and let-only rooms: we find the tenant, the landlord collects the rent — never raise monthly charges (as the rent roll)
+  const live = (tenancies ?? []).filter((t: any) => ok(t.property_id) && t.room_id && Number(t.rent_amount) > 0 && t.properties?.letting_type !== 'let_only' && !t.rooms?.is_let_only)
   const { genRentRef } = await import('@/lib/references')
   const rows = live.map((t: any) => chargeRow(t, chargeMonth, monthEnd, genRentRef)).filter((r): r is NonNullable<typeof r> => !!r)
   if (!rows.length) return { created: 0, total: 0, month: chargeMonth }
@@ -86,8 +86,10 @@ function chargeRow(t: any, chargeMonth: string, monthEnd: string, genRentRef: (c
 export async function ensureTenancyCharge(s: SupabaseClient, tenancyId: string, chargeMonth: string): Promise<string | null> {
   const [y, m] = chargeMonth.split('-').map(Number)
   const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
-  const { data: t } = await s.from('tenancies').select('id, room_id, property_id, rent_amount, rent_due_day, start_date, end_date, let_cancelled_at, rooms(name), properties(property_code)').eq('id', tenancyId).maybeSingle()
+  const { data: t } = await s.from('tenancies').select('id, room_id, property_id, rent_amount, rent_due_day, start_date, end_date, let_cancelled_at, rooms(name, is_let_only), properties(property_code, letting_type)').eq('id', tenancyId).maybeSingle()
   if (!t || !t.room_id || t.let_cancelled_at || !(Number(t.rent_amount) > 0)) return null
+  // let-only (house or room): the landlord collects the rent, so there is never a charge to raise here
+  if ((t as any).properties?.letting_type === 'let_only' || (t as any).rooms?.is_let_only) return null
   if (t.start_date > monthEnd || (t.end_date && t.end_date < chargeMonth)) return null
   const { data: own } = await s.from('rent_charges').select('id').eq('tenancy_id', t.id).eq('charge_month', chargeMonth).maybeSingle()
   if (own) return own.id

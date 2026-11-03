@@ -49,7 +49,7 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
 
   const [props, rooms, tens, statements] = await Promise.all([
     s.from('properties').select('id, name, property_code, landlord_id, letting_type, property_type').or('letting_type.is.null,letting_type.neq.let_only'),
-    s.from('rooms').select('id, name, property_id'),
+    s.from('rooms').select('id, name, property_id, is_let_only'),
     s.from('tenancies').select('id, room_id, property_id, start_date, end_date, rent_amount, payment_reference, people!person_id(salutation, first_name, last_name, full_name)')
       .lte('start_date', end).or(`end_date.is.null,end_date.gte.${start}`).is('let_cancelled_at', null),
     // a window either side: a statement belongs to its own month (lib/finance/statementMonth), which needn't be the month of its date
@@ -136,6 +136,8 @@ export async function buildRentRoll(s: SupabaseClient, month: string, opts: { pr
   for (const p of properties) {
     const rollRooms: RollRoom[] = []
     for (const room of roomsOf(p.id)) {
+      // a let-only room in a managed house: we found the tenant, the landlord collects — never rent due here (3 Nov 2026)
+      if (room.is_let_only) continue
       // one row per tenancy (migration 217): in a changeover month the outgoing and incoming tenants each have
       // their own rent. A charge with no tenancy (made before 217) is the room's, shown with whoever had the room.
       const roomTens = ((tens.data ?? []) as any[]).filter(t => t.room_id === room.id).sort((a, b) => String(a.start_date).localeCompare(String(b.start_date)))
