@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect } from 'react'
 import { initials as avatarInitials } from '@/lib/people'
@@ -442,7 +443,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
               {landlords.length === 0 && (
                 <p className="text-xs text-neutral-400 mt-sm">
                   No landlord records yet.{' '}
-                  <a href="/admin/people?tab=landlords" className="text-blue-600 underline">Create one first →</a>
+                  <Link href="/admin/people?tab=landlords" className="text-blue-600 underline">Create one first →</Link>
                 </p>
               )}
               {selectedLandlordId && (() => {
@@ -468,7 +469,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                 <div className="flex items-center gap-md">
                   <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-xs font-semibold text-blue-700 flex-shrink-0">{initials}</div>
                   <div>
-                    <a href={`/admin/landlord/${linked.id}`} className="text-sm font-semibold text-blue-600 hover:underline">{name}</a>
+                    <Link href={`/admin/landlord/${linked.id}`} className="text-sm font-semibold text-blue-600 hover:underline">{name}</Link>
                     <p className="text-xs text-neutral-500 mt-0.5">{[linked.email, linked.phone].filter(Boolean).join(' · ') || '—'}</p>
                   </div>
                 </div>
@@ -733,7 +734,7 @@ export default function PropertyTab({ property, onUpdate }: PropertyTabProps) {
                   {!selectedLandlordId ? (
                     <p className="text-xs text-amber-700">Choose this property's landlord above to pick one of their bank accounts.</p>
                   ) : landlordAccounts.length === 0 ? (
-                    <p className="text-xs text-neutral-600">This landlord has no bank accounts saved yet — add one on the <a href={`/admin/landlord/${selectedLandlordId}`} className="underline">landlord&apos;s page</a>, then pick it here.</p>
+                    <p className="text-xs text-neutral-600">This landlord has no bank accounts saved yet — add one on the <Link href={`/admin/landlord/${selectedLandlordId}`} className="underline">landlord&apos;s page</Link>, then pick it here.</p>
                   ) : (
                     <div>
                       <label className="block text-xs text-neutral-600 mb-xs">Use the landlord&apos;s account</label>

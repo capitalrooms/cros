@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect, use } from 'react'
 import { lettingFeeRule } from '@/lib/fees/lettingFee'
@@ -983,7 +984,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                         const dflt = bankAccounts.find(a => a.is_default)
                         return (
                           <tr key={pp.id} className="border-t border-neutral-100">
-                            <td className="px-lg py-sm"><a href={`/admin/properties/${pp.id}`} className="font-semibold text-neutral-900 hover:underline">{pp.name || pp.address}</a></td>
+                            <td className="px-lg py-sm"><Link href={`/admin/properties/${pp.id}`} className="font-semibold text-neutral-900 hover:underline">{pp.name || pp.address}</Link></td>
                             <td className="px-lg py-sm text-neutral-600">{letOnly ? 'Let only' : 'Managed'}</td>
                             <td className="px-lg py-sm">
                               {!letOnly ? <span className="text-neutral-500">Capital Rooms client account</span> : (
@@ -1119,7 +1120,7 @@ export default function LandlordProfilePage({ params }: { params: Promise<{ pers
                         <td className="px-xl py-md hidden sm:table-cell text-neutral-500 capitalize text-xs">{p.property_type || '—'}</td>
                         <td className="px-xl py-md hidden md:table-cell text-right text-neutral-600">{feeLabel(p, person) ?? '—'}</td>
                         <td className="px-xl py-md text-right">
-                          <a href={`/admin/properties/${p.id}`} className="text-xs font-semibold text-blue-600 hover:underline">Open →</a>
+                          <Link href={`/admin/properties/${p.id}`} className="text-xs font-semibold text-blue-600 hover:underline">Open →</Link>
                         </td>
                       </tr>
                     ))}

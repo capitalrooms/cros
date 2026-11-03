@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect, use, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -464,7 +465,7 @@ function PaymentsTab({ tenancies, rentIncreases, paymentRows, rentCharges }: {
       {tenancy && (
         <div className="flex flex-wrap items-center gap-sm rounded-xl border border-neutral-200 bg-white px-lg py-md text-sm">
           <span className="flex-1 text-neutral-600">The rent account — every charge and payment with a running balance — is on the letting file.</span>
-          <a href={`/admin/lettings/${tenancy.id}?tab=money`} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Open rent account</a>
+          <Link href={`/admin/lettings/${tenancy.id}?tab=money`} className="rounded-lg bg-neutral-900 px-md py-xs text-xs font-bold text-white">Open rent account</Link>
           <button type="button" onClick={() => downloadPdf(`/api/admin/tenancies/${tenancy.id}/statement-of-account`, 'Statement of account.pdf').catch(e => alert(e.message))} className="rounded-lg border border-neutral-300 px-md py-xs text-xs font-bold">Statement of account (PDF)</button>
         </div>
       )}
@@ -998,7 +999,7 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                 className={`rounded-full px-md py-xs text-sm font-semibold ${activeTab === tab.id ? 'bg-neutral-900 text-white' : 'border border-neutral-300 bg-white text-neutral-700'}`}>{tab.label}</button>
             ))}
           </div>
-          <a href={`/admin/tenant/${personId}?stay=1`} className="text-xs font-semibold text-blue-700 hover:underline">Open the full profile</a>
+          <Link href={`/admin/tenant/${personId}?stay=1`} className="text-xs font-semibold text-blue-700 hover:underline">Open the full profile</Link>
         </div>
       )}
 
@@ -1202,16 +1203,16 @@ export function TenantProfileView({ personId, embedded = false }: { personId: st
                       Message {tenantDisplayName(tenant)}
                     </button>
                     {/* notice is recorded in the letting file — its notice period rules and the email to the tenant (was a 30-day prompt) */}
-                    <a href={`/admin/lettings/${currentTenancy.id}?tab=notice${currentTenancy.notice_received_date ? '' : '&mark=1'}`}
+                    <Link href={`/admin/lettings/${currentTenancy.id}?tab=notice${currentTenancy.notice_received_date ? '' : '&mark=1'}`}
                       className="px-lg py-sm rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm font-semibold hover:bg-amber-100 transition">
                       {currentTenancy.notice_received_date ? 'Notice' : 'Record notice'}
-                    </a>
+                    </Link>
                     <a href={currentTenancy.room_id ? `/admin/properties/${currentTenancy.property_id}/rooms/${currentTenancy.room_id}` : `/admin/properties/${currentTenancy.property_id}`} className="px-lg py-sm rounded-lg border border-neutral-200 text-neutral-700 text-sm font-semibold hover:bg-neutral-50 transition">
                       Room page →
                     </a>
-                    <a href={`/admin/rent-increase/${currentTenancy.id}`} className="px-lg py-sm rounded-lg border border-blue-200 bg-blue-50 text-blue-800 text-sm font-semibold hover:bg-blue-100 transition">
+                    <Link href={`/admin/rent-increase/${currentTenancy.id}`} className="px-lg py-sm rounded-lg border border-blue-200 bg-blue-50 text-blue-800 text-sm font-semibold hover:bg-blue-100 transition">
                       Rent review
-                    </a>
+                    </Link>
                     <button type="button" onClick={() => downloadPdf(`/api/admin/tenancies/${currentTenancy.id}/statement-of-account`, 'Statement of account.pdf').catch(e => alert(e.message))}
                       className="px-lg py-sm rounded-lg border border-neutral-200 text-neutral-700 text-sm font-semibold hover:bg-neutral-50 transition">
                       Statement of account (PDF)

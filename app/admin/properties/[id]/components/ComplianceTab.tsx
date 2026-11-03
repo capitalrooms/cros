@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -500,7 +501,7 @@ export default function ComplianceTab({ property, onUpdate }: ComplianceTabProps
           <div className="flex items-center justify-between mb-md">
             <h3 className="text-sm font-bold text-neutral-900">HMO licence</h3>
             <div className="flex items-center gap-sm">
-              <a href={`/admin/properties/${property.id}/hmo-notice`} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-900 hover:border-neutral-900 transition">Application notice</a>
+              <Link href={`/admin/properties/${property.id}/hmo-notice`} className="rounded-xl border border-neutral-300 px-md py-sm text-sm font-semibold text-neutral-900 hover:border-neutral-900 transition">Application notice</Link>
               {hmoSaved && !hmoDirty && <span className="text-sm font-semibold text-green-600">✓ Saved</span>}
               {hmoDirty && (
                 <button onClick={saveHmo} disabled={hmoSaving} className="rounded-xl bg-neutral-900 px-lg py-sm text-sm font-bold text-white hover:bg-neutral-700 disabled:opacity-50 transition">

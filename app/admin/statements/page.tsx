@@ -437,10 +437,10 @@ export default function AdminStatementsPage() {
         {error && <div className="mt-lg rounded-xl border-2 border-neutral-900 bg-white p-md text-sm text-neutral-900">{error}</div>}
         {notice && <div className="mt-lg rounded-xl bg-green-600 p-md text-sm font-semibold text-white">{notice}</div>}
 
-        <a href="/admin/statements/import" className="flex items-center justify-between gap-md rounded-[10px] bg-neutral-900 px-md py-sm text-white hover:bg-neutral-800">
+        <Link href="/admin/statements/import" className="flex items-center justify-between gap-md rounded-[10px] bg-neutral-900 px-md py-sm text-white hover:bg-neutral-800">
           <span><span className="block font-bold">Upload a month of statements</span><span className="block text-xs text-neutral-300">Several PDFs at once, one per property — each checked before it’s saved</span></span>
           <span aria-hidden>→</span>
-        </a>
+        </Link>
 
         {/* one statement by hand or from a single PDF — folded away so the list of statements is on screen (17 Oct 2026) */}
         <details className="mt-md rounded-[10px] border border-[#D6DCE3] bg-white" open={!!propertyId || aiBusy || undefined}>

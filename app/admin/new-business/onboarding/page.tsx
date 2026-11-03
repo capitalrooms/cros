@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import NameInput, { emptyName, toLegalName, type NameValue } from '@/app/components/NameInput'
 import { useEffect, useState } from 'react'
@@ -459,18 +460,18 @@ export default function OnboardingPage() {
                 data={fromOnboarding(selected)}
                 actions={
                   selected.landlord_people_id ? (
-                    <a href={`/admin/landlord/${selected.landlord_people_id}`}
+                    <Link href={`/admin/landlord/${selected.landlord_people_id}`}
                       className="text-xs font-semibold text-blue-600 hover:underline whitespace-nowrap">
                       Full profile →
-                    </a>
+                    </Link>
                   ) : undefined
                 }
               />
 
-              <a href={`/admin/new-business/onboarding/${selected.id}`}
+              <Link href={`/admin/new-business/onboarding/${selected.id}`}
                 className="block w-full text-center rounded-xl bg-neutral-900 text-white py-sm text-sm font-semibold hover:bg-neutral-700 transition">
                 {selected.stage >= 3 ? 'Open full AML review →' : 'Open record →'}
-              </a>
+              </Link>
 
               {/* AML form link */}
               <div>
@@ -700,9 +701,9 @@ export default function OnboardingPage() {
                           <div className={`rounded-lg p-xs mb-sm text-xs font-semibold ${convertResult.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                             {convertResult.ok ? '✓ ' : ''}{convertResult.msg}
                             {convertResult.ok && convertResult.profileId && (
-                              <a href={`/admin/landlord/${convertResult.profileId}`} className="ml-sm underline">
+                              <Link href={`/admin/landlord/${convertResult.profileId}`} className="ml-sm underline">
                                 View profile →
-                              </a>
+                              </Link>
                             )}
                           </div>
                         )}

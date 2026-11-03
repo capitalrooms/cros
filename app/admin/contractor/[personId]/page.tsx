@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 
 import { useState, useEffect, use } from 'react'
 import { isOfficeRole } from '@/lib/access/areas'
@@ -387,7 +388,7 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
               ) : (
                 <div className="divide-y divide-neutral-100">
                   {jobs.slice(0, 5).map(j => (
-                    <a key={j.id} href={`/admin/maintenance?ticket=${j.id}`}
+                    <Link key={j.id} href={`/admin/maintenance?ticket=${j.id}`}
                       className="flex items-center gap-md px-xl py-md hover:bg-neutral-50 transition cursor-pointer">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-neutral-900 truncate">{j.title}</p>
@@ -399,7 +400,7 @@ export default function ContractorProfilePage({ params }: { params: Promise<{ pe
                         </span>
                         <span className="text-xs text-neutral-400">{j.booked_date ? fmt(j.booked_date) : fmt(j.created_at)}</span>
                       </div>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               )}
