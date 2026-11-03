@@ -235,7 +235,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
       const { data: stmts } = await supabase
         .from('landlord_statements')
         .select('id, statement_reference, statement_date, period_start, period_end, gross_rent, management_fees, property_charges, net_to_landlord, amount_paid, paid_date, sent_at, created_at, property_id, properties(name)')
-        .in('property_id', (props || []).map((pp: any) => pp.id))
+        .or(`landlord_id.eq.${personId}${(props || []).length ? `,property_id.in.(${(props || []).map((pp: any) => pp.id).join(',')})` : ''}`)
         .order('statement_date', { ascending: false }).limit(120)
       setStatements(stmts || [])
 
@@ -527,7 +527,7 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
     { id: 'agreement',      label: 'Management agreement' },
     { id: 'aml',            label: `AML (${amlRecords.length})` },
     { id: 'correspondence', label: 'Letters' },
-    { id: 'notifications',  label: 'Notifications' },
+    { id: 'notifications',  label: 'App & notifications' },
   ]
 
   const landlordName = [person.salutation, person.first_name, person.last_name].filter(Boolean).join(' ') || person.full_name || person.company || person.email || 'Landlord'
@@ -545,8 +545,8 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
       <main className="mx-auto max-w-6xl px-lg py-xl">
         {statementPanel}
 
-        {/* Landlord card */}
-        <div className="mb-xl">
+        {/* Landlord card — on the Summary only, so each other tab starts with what it's about */}
+        {activeTab === 'overview' && <div className="mb-xl">
           {inviteMsg && (
             <div className={`mb-md rounded-xl px-md py-sm text-sm font-semibold ${inviteMsg.startsWith('✓') ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
               {inviteMsg}
@@ -561,12 +561,12 @@ export default function LandlordProfilePage({ params, searchParams }: { params: 
               </button>
             }
           />
-        </div>
+        </div>}
 
-        {/* what they see in their app — administrators switch parts on as and when (14 Oct 2026) */}
-        <div className="mb-xl">
+        {/* what they see in their app — administrators switch parts on as and when (14 Oct 2026); with the notifications */}
+        {activeTab === 'notifications' && <div className="mb-xl">
           <LandlordAppAccess personId={personId} name={landlordName} />
-        </div>
+        </div>}
 
         {/* ══ OVERVIEW ══ */}
         {activeTab === 'overview' && (

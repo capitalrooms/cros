@@ -19,6 +19,7 @@ import type { LettingFile, StepId } from '@/lib/lettings/lettingFile'
 import { displayName } from '@/lib/people'
 import { firstRentPayment } from '@/lib/tenancy/firstRent'
 import { fullDatesIn } from '@/lib/fullDates'
+import SidePanel, { PanelRow } from '@/app/components/SidePanel'
 
 type Patch = (body: Record<string, unknown>) => Promise<void>
 
@@ -589,8 +590,11 @@ export function MoneyTab({ file }: { file: LettingFile }) {
     <div className="space-y-md">
       {/* a let-only let's money before move-in: received, fee, landlord paid (migration 231) */}
       {letOnlyFile && <InitialMonies tenancyId={t.id} onChanged={() => window.dispatchEvent(new Event('letting-file-changed'))} />}
-      {/* let only: the tenant pays the landlord after move-in, so there is no rent account here (3 Nov 2026 audit) */}
-      <section className={`${card} ${letOnlyFile ? 'hidden' : ''}`}>
+      {/* month by month — the same rows as the Rent Roll (rebuild, 3 Nov 2026) */}
+      {!letOnlyFile && file.stage !== 'let_agreed' && file.stage !== 'fell_through' && <MonthByMonth file={file} />}
+      {/* let only: the tenant pays the landlord after move-in, so there is no rent account here (3 Nov 2026 audit);
+          while CROS mirrors the old system there are no charges either, so the account only shows once it has lines */}
+      <section className={`${card} ${letOnlyFile || !(acc && acc.lines.length) && file.stage !== 'let_agreed' ? 'hidden' : ''}`}>
         <div className="flex flex-wrap items-center justify-between gap-sm mb-sm">
           <h2 className="text-lg font-bold">Rent account</h2>
           <span className="flex flex-wrap gap-sm">
@@ -636,6 +640,90 @@ export function MoneyTab({ file }: { file: LettingFile }) {
         )) : <p className="text-sm text-neutral-500">None recorded.</p>}
       </section>
     </div>
+  )
+}
+
+// ── Month by month ──────────────────────────────────────────────────────────
+// Each month of the tenancy: due (pro rata at the ends), received, and the statement that shows it — from
+// /api/admin/lettings/<id>/months, the Rent Roll's own rows. Click a month to see it beside the list.
+
+const monthName = (m: string) => new Date(`${m}-01T12:00:00Z`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+const MONTH_STATUS: Record<string, [string, string]> = {
+  paid: ['Paid', 'text-green-800'], over: ['Overpaid', 'text-amber-800'], part: ['Short', 'text-red-700'],
+  awaiting_statement: ['Waiting for the statement', 'text-neutral-500'], missing: ['Not paid', 'text-red-700'],
+  no_charge: ['Nothing due', 'text-neutral-500'], collected_by_previous_agent: ['Previous agent', 'text-neutral-500'],
+}
+
+function MonthByMonth({ file }: { file: LettingFile }) {
+  const [data, setData] = useState<{ months: any[]; before: { from: string; to: string } | null } | null>(null)
+  const [error, setError] = useState('')
+  const [open, setOpen] = useState<any | null>(null)
+  useEffect(() => {
+    let off = false
+    adminFetch(`/api/admin/lettings/${file.tenancy.id}/months`).then(async r => {
+      const j = await r.json().catch(() => ({}))
+      if (off) return
+      if (!r.ok) setError(j.error ?? 'Could not load the months'); else setData(j)
+    })
+    return () => { off = true }
+  }, [file.tenancy.id])
+  const mirror = data?.months.some(m => m.source === 'mirror')
+  const total = (k: 'due' | 'received') => (data?.months ?? []).reduce((t, m) => t + Number(m[k] ?? 0), 0)
+  const diff = Math.round((total('received') - total('due')) * 100) / 100
+  return (
+    <section className={card}>
+      <div className="flex flex-wrap items-baseline justify-between gap-sm mb-sm">
+        <h2 className="text-lg font-bold">Month by month</h2>
+        {data && data.months.length > 0 && <span className="text-sm tabular-nums text-neutral-600">Due {gbp(total('due'))} · received {gbp(total('received'))}{Math.abs(diff) >= 0.005 && <b className={diff > 0 ? 'text-amber-800' : 'text-red-700'}> · {diff > 0 ? `${gbp(diff)} over` : `${gbp(-diff)} short`}</b>}</span>}
+      </div>
+      {error ? <p className="text-sm text-red-700">{error}</p>
+      : !data ? <p className="text-sm text-neutral-500">Working out each month…</p>
+      : (
+        <>
+          {data.months.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="text-left text-[11px] uppercase tracking-[0.06em] text-neutral-500 border-b border-neutral-200">
+                  <th className="py-xs pr-sm font-bold">Month</th><th className="py-xs pr-sm font-bold hidden sm:table-cell">Statement</th>
+                  <th className="py-xs pr-sm font-bold text-right">Due</th><th className="py-xs pr-sm font-bold text-right">Received</th><th className="py-xs font-bold text-right"><span className="sr-only">Status</span></th>
+                </tr></thead>
+                <tbody className="tabular-nums">
+                  {data.months.map(m => {
+                    const [label, tone] = MONTH_STATUS[m.status] ?? [m.status, 'text-neutral-500']
+                    return (
+                      <tr key={m.month} onClick={() => setOpen(m)} className={`cursor-pointer border-t border-neutral-100 hover:bg-neutral-50 ${open?.month === m.month ? 'bg-neutral-100' : ''}`}>
+                        <td className="py-sm pr-sm font-semibold">{monthName(m.month)}</td>
+                        <td className="py-sm pr-sm hidden sm:table-cell text-neutral-600">{m.statement ?? '—'}</td>
+                        <td className="py-sm pr-sm text-right">{gbp(m.due)}</td>
+                        <td className="py-sm pr-sm text-right font-semibold">{m.received ? gbp(m.received) : '—'}</td>
+                        <td className={`py-sm text-right text-xs font-semibold ${tone}`}>{label} ›</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {data.before && <p className="mt-sm text-xs text-neutral-500">{monthName(data.before.from.slice(0, 7))} to before {monthName(data.before.to.slice(0, 7))}: before CROS records began, so not shown here.</p>}
+          {mirror && <p className="mt-xs text-xs text-neutral-500">Received is what each month’s imported statement shows. CROS only counts a month as paid once a statement shows it.</p>}
+        </>
+      )}
+      <SidePanel open={!!open} onClose={() => setOpen(null)} eyebrow={`${file.tenant.name} · ${[file.room.name, file.property.name].filter(Boolean).join(', ')}`} title={open ? monthName(open.month) : ''}>
+        {open && (() => {
+          const d = open.difference as number | null
+          const partMonth = open.due != null && Math.abs(Number(open.due) - Number(file.tenancy.rent_amount ?? 0)) >= 0.005
+          return <>
+            <PanelRow label={partMonth ? 'Due · part month, by the day' : 'Due'} value={gbp(open.due)} />
+            <PanelRow label="Received" value={open.received ? gbp(open.received) : 'Nothing shown yet'} />
+            <PanelRow label="Shown on statement" value={open.statement ?? '—'} />
+            {(open.receipts ?? []).map((rc: any, i: number) => <PanelRow key={i} label={`Receipt ${rc.number ?? ''}`} value={`${gbp(rc.amount)}${rc.date ? ` · ${day(rc.date)}` : ''}`} />)}
+            {d != null && Math.abs(d) >= 0.005 && <PanelRow label={d > 0 ? 'Overpaid' : 'Short'} value={gbp(Math.abs(d))} tone="warn" />}
+            {d != null && Math.abs(d) < 0.005 && <PanelRow label="Balance" value="Clear" tone="good" />}
+            <p className="mt-md text-xs text-[#F3F0E6]/65">{open.status === 'awaiting_statement' ? 'No statement for this month shows rent for this room yet. Import the month’s statement and it appears here.' : 'The same figures as this month’s Rent Roll.'}</p>
+          </>
+        })()}
+      </SidePanel>
+    </section>
   )
 }
 
