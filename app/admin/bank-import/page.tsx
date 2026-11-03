@@ -340,6 +340,9 @@ export default function BankImportPage() {
                       {row.category === 'matched' && row.charge_status === 'to be raised' && (
                         <p className="text-xs text-neutral-500 mt-xs">This month’s rent will be raised when you confirm, then this payment put against it.</p>
                       )}
+                      {(row as any).let_only && (
+                        <p className="text-xs font-semibold text-blue-700 mt-xs">Let-only move-in money — not rent. After the import, record it on the letting file’s Money tab (Initial monies), where this line will be offered.</p>
+                      )}
                       {row.category === 'possible_dupe' && (
                         <p className="text-xs text-amber-600 font-semibold mt-xs">{(row as any).double_import ? 'This could be a double import — the same payment appears more than once in this file and doesn’t add up to the rent due. Please check in your bank before confirming.' : (row as any).near_duplicate_of ? `Looks like a line already imported (“${(row as any).near_duplicate_text}”) — held for you to check, not added twice` : 'This charge is already marked as paid — held for manual review'}</p>
                       )}

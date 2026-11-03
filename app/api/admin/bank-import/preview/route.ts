@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       payment_reference,
       room_id,
       person_id,
-      rooms ( id, name, properties ( id, name, address ) ),
+      rooms ( id, name, is_let_only, properties ( id, name, address, letting_type ) ),
       people!person_id ( salutation, first_name, last_name, full_name )
     `)
     .not('payment_reference', 'is', null)
@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
     room_name: string | null
     property_name: string | null
     tenant_name: string | null
+    let_only: boolean
   }
   const tenancyByRef = new Map<string, TenancyInfo>()
   for (const t of (tenancies || []) as any[]) {
@@ -146,6 +147,7 @@ export async function POST(req: NextRequest) {
       room_id: t.room_id,
       property_id: t.rooms?.properties?.id ?? null,
       room_name: t.rooms?.name ?? null,
+      let_only: !!t.rooms?.is_let_only || t.rooms?.properties?.letting_type === 'let_only',
       property_name: t.rooms?.properties?.name || t.rooms?.properties?.address || null,
       tenant_name: t.people
         ? [t.people.salutation, t.people.first_name, t.people.last_name].filter(Boolean).join(' ') || t.people.full_name || null
@@ -222,6 +224,13 @@ export async function POST(req: NextRequest) {
 
     if (!tenancy) {
       preview.push({ ...txn, ...NULL_EXTRA, category: 'unmatched', rent_charge_id: null, charge_month: null, charge_status: null, charge_amount_due: null, tenancy_id: null, tenant_name: null, room_name: null, property_name: null })
+      continue
+    }
+
+    // let-only (Harry, 3 Nov 2026): the only money we take is the move-in money — holding deposit, first rent and
+    // deposit — recorded on the letting file as initial monies. It is never monthly rent, so no charge is raised for it.
+    if (tenancy.let_only) {
+      preview.push({ ...txn, tenant_person_id: tenancy.person_id, expected_ref: tenancy.payment_reference, property_id: tenancy.property_id, category: 'unmatched', let_only: true, rent_charge_id: null, charge_month: null, charge_status: null, charge_amount_due: null, tenancy_id: tenancy.tenancy_id, tenant_name: tenancy.tenant_name, room_name: tenancy.room_name, property_name: tenancy.property_name } as any)
       continue
     }
 
